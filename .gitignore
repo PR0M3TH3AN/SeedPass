@@ -1,0 +1,22 @@
+# Ignore virtual environment directory
+venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Encrypted index file should be backed up, hence not ignored
+!.deterministic_password_generator/password_indices.csv
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore logs and temporary files
+*.log
+*.tmp
+
+# Python env
+.env
+*.env

@@ -1,0 +1,264 @@
+# password_manager/password_generation.py
+
+"""
+Password Generation Module
+
+This module provides the PasswordGenerator class responsible for deterministic password generation
+based on a BIP-39 parent seed. It leverages BIP-85 for entropy derivation and ensures that
+generated passwords meet complexity requirements.
+
+Dependencies:
+- bip85.BIP85
+- cryptography.hazmat.primitives.hashes
+- cryptography.hazmat.primitives.kdf.hkdf
+- cryptography.hazmat.backends.default_backend
+- constants.py
+- password_manager.encryption.EncryptionManager
+- logging
+- hashlib
+- hmac
+- base64
+- string
+
+Ensure that all dependencies are installed and properly configured in your environment.
+
+Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 
+This means it  should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this softwares use case. 
+"""
+import os
+import logging
+import hashlib
+import hmac
+import base64
+import string
+import traceback
+from typing import Optional
+
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+
+from bip85.bip85 import BIP85
+
+from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH
+from password_manager.encryption import EncryptionManager
+
+# Configure logging at the start of the module
+def configure_logging():
+    """
+    Configures logging with both file and console handlers.
+    Logs include the timestamp, log level, message, filename, and line number.
+    Only ERROR and higher-level messages are shown in the terminal, while all messages
+    are logged in the log file.
+    """
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+
+    # Prevent adding multiple handlers if configure_logging is called multiple times
+    if not logger.handlers:
+        # Create the 'logs' folder if it doesn't exist
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+
+        # Create handlers
+        c_handler = logging.StreamHandler()
+        f_handler = logging.FileHandler(os.path.join('logs', 'password_generation.log'))
+
+        # Set levels: only errors and critical messages will be shown in the console
+        c_handler.setLevel(logging.ERROR)  # Console will show ERROR and above
+        f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
+
+        # Create formatters and add them to handlers, include file and line number in log messages
+        formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]'
+        )
+        c_handler.setFormatter(formatter)
+        f_handler.setFormatter(formatter)
+
+        # Add handlers to the logger
+        logger.addHandler(c_handler)
+        logger.addHandler(f_handler)
+
+# Call the logging configuration function
+configure_logging()
+
+logger = logging.getLogger(__name__)
+
+class PasswordGenerator:
+    """
+    PasswordGenerator Class
+
+    Responsible for deterministic password generation based on a BIP-39 parent seed.
+    Utilizes BIP-85 for entropy derivation and ensures that generated passwords meet
+    complexity requirements.
+    """
+
+    def __init__(self, encryption_manager: EncryptionManager, parent_seed: str):
+        """
+        Initializes the PasswordGenerator with the encryption manager and parent seed.
+
+        Parameters:
+            encryption_manager (EncryptionManager): The encryption manager instance.
+            parent_seed (str): The BIP-39 parent seed phrase.
+        """
+        try:
+            self.encryption_manager = encryption_manager
+            self.parent_seed = parent_seed
+
+            # Derive seed bytes from parent_seed using BIP39
+            self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(self.parent_seed)
+
+            # Initialize BIP85 with seed_bytes
+            self.bip85 = BIP85(self.seed_bytes)
+
+            logger.debug("PasswordGenerator initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize PasswordGenerator: {e}")
+            logger.error(traceback.format_exc())  # Log full traceback
+            print(colored(f"Error: Failed to initialize PasswordGenerator: {e}", 'red'))
+            raise
+
+    def generate_password(self, length: int = DEFAULT_PASSWORD_LENGTH, index: int = 0) -> str:
+        """
+        Generates a deterministic password based on the parent seed, desired length, and index.
+
+        Steps:
+        1. Derive entropy using BIP-85.
+        2. Use PBKDF2-HMAC-SHA256 to derive a key from entropy.
+        3. Base64-encode the derived key and filter to allowed characters.
+        4. Ensure the password meets complexity requirements.
+
+        Parameters:
+            length (int): Desired length of the password.
+            index (int): Index for deriving child entropy.
+
+        Returns:
+            str: The generated password.
+        """
+        try:
+            if length < MIN_PASSWORD_LENGTH:
+                logger.error(f"Password length must be at least {MIN_PASSWORD_LENGTH} characters.")
+                raise ValueError(f"Password length must be at least {MIN_PASSWORD_LENGTH} characters.")
+            if length > MAX_PASSWORD_LENGTH:
+                logger.error(f"Password length must not exceed {MAX_PASSWORD_LENGTH} characters.")
+                raise ValueError(f"Password length must not exceed {MAX_PASSWORD_LENGTH} characters.")
+
+            # Derive entropy using BIP-85
+            entropy = self.bip85.derive_entropy(app_no=39, language_code=0, words_num=12, index=index)
+            logger.debug(f"Derived entropy: {entropy.hex()}")
+
+            # Use HKDF to derive key from entropy
+            hkdf = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,  # 256 bits for AES-256
+                salt=None,
+                info=b'password-generation',
+                backend=default_backend()
+            )
+            derived_key = hkdf.derive(entropy)
+            logger.debug(f"Derived key using HKDF: {derived_key.hex()}")
+
+            # Use PBKDF2-HMAC-SHA256 to derive a key from entropy
+            dk = hashlib.pbkdf2_hmac('sha256', entropy, b'', 100000)
+            logger.debug(f"Derived key using PBKDF2: {dk.hex()}")
+
+            # Base64 encode the derived key
+            base64_password = base64.b64encode(dk).decode('utf-8')
+            logger.debug(f"Base64 encoded password: {base64_password}")
+
+            # Filter to allowed characters
+            alphabet = string.ascii_letters + string.digits + string.punctuation
+            password = ''.join(filter(lambda x: x in alphabet, base64_password))
+            logger.debug(f"Password after filtering: {password}")
+
+            # Ensure the password meets complexity requirements
+            password = self.ensure_complexity(password, alphabet, dk)
+            logger.debug(f"Password after ensuring complexity: {password}")
+
+            # Ensure password length
+            if len(password) < length:
+                # Extend the password deterministically
+                while len(password) < length:
+                    dk = hashlib.pbkdf2_hmac('sha256', dk, b'', 1)
+                    base64_extra = base64.b64encode(dk).decode('utf-8')
+                    password += ''.join(filter(lambda x: x in alphabet, base64_extra))
+                    logger.debug(f"Extended password: {password}")
+
+            password = password[:length]
+            logger.debug(f"Final password (trimmed to {length} chars): {password}")
+
+            return password
+
+        except Exception as e:
+            logger.error(f"Error generating password: {e}")
+            logger.error(traceback.format_exc())  # Log full traceback
+            print(colored(f"Error: Failed to generate password: {e}", 'red'))
+            raise
+
+    def ensure_complexity(self, password: str, alphabet: str, dk: bytes) -> str:
+        """
+        Ensures that the password contains at least one uppercase letter, one lowercase letter,
+        one digit, and one special character, modifying it deterministically if necessary.
+
+        Parameters:
+            password (str): The initial password.
+            alphabet (str): Allowed characters in the password.
+            dk (bytes): Derived key used for deterministic modifications.
+
+        Returns:
+            str: Password that meets complexity requirements.
+        """
+        try:
+            uppercase = string.ascii_uppercase
+            lowercase = string.ascii_lowercase
+            digits = string.digits
+            special = string.punctuation
+
+            password_chars = list(password)
+
+            has_upper = any(c in uppercase for c in password_chars)
+            has_lower = any(c in lowercase for c in password_chars)
+            has_digit = any(c in digits for c in password_chars)
+            has_special = any(c in special for c in password_chars)
+
+            dk_index = 0
+            dk_length = len(dk)
+
+            def get_dk_value() -> int:
+                nonlocal dk_index
+                value = dk[dk_index % dk_length]
+                dk_index += 1
+                return value
+
+            if not has_upper:
+                index = get_dk_value() % len(password_chars)
+                char = uppercase[get_dk_value() % len(uppercase)]
+                password_chars[index] = char
+                logger.debug(f"Added uppercase letter '{char}' at position {index}.")
+
+            if not has_lower:
+                index = get_dk_value() % len(password_chars)
+                char = lowercase[get_dk_value() % len(lowercase)]
+                password_chars[index] = char
+                logger.debug(f"Added lowercase letter '{char}' at position {index}.")
+
+            if not has_digit:
+                index = get_dk_value() % len(password_chars)
+                char = digits[get_dk_value() % len(digits)]
+                password_chars[index] = char
+                logger.debug(f"Added digit '{char}' at position {index}.")
+
+            if not has_special:
+                index = get_dk_value() % len(password_chars)
+                char = special[get_dk_value() % len(special)]
+                password_chars[index] = char
+                logger.debug(f"Added special character '{char}' at position {index}.")
+
+            return ''.join(password_chars)
+
+        except Exception as e:
+            logger.error(f"Error ensuring password complexity: {e}")
+            logger.error(traceback.format_exc())  # Log full traceback
+            print(colored(f"Error: Failed to ensure password complexity: {e}", 'red'))
+            raise
+
