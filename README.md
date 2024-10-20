@@ -4,7 +4,7 @@
 
 Logo and website coming soonish...
 
-SeedPass is a **BIP-85 Deterministic Password Generator** that securely generates, stores, and manages your passwords. Leveraging deterministic key derivation and integration with the Nostr network, SeedPass ensures your passwords are both robust and accessible across devices.
+**SeedPass** is a secure password generator and manager built on **Bitcoin's BIP-85 standard**. It uses deterministic key derivation to generate **passwords that are never stored**, but can be easily regenerated when needed. By integrating with the **Nostr network**, SeedPass ensures that your passwords are safe and accessible across devices. The index for retrieving each password is securely stored on Nostr relays, allowing seamless password recovery on multiple devices without compromising security.
 
 ---
 
