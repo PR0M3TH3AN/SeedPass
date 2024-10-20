@@ -1,6 +1,6 @@
 # SeedPass
 
-![SeedPass Logo](https://github.com/KeepCreatingOnline/SeedPass/raw/main/assets/logo.png)
+![SeedPass Logo](https://github.com/PR0M3TH3AN/SeedPass/raw/main/assets/logo.png)
 
 SeedPass is a **BIP-85 Deterministic Password Generator** that securely generates, stores, and manages your passwords. Leveraging deterministic key derivation and integration with the Nostr network, SeedPass ensures your passwords are both robust and accessible across devices.
 
@@ -41,7 +41,7 @@ Follow these steps to set up SeedPass on your local machine.
 First, clone the SeedPass repository from GitHub:
 
 ```bash
-git clone https://github.com/KeepCreatingOnline/SeedPass.git
+git clone https://github.com/PR0M3TH3AN/SeedPass.git
 ```
 
 Navigate to the project directory:
@@ -163,7 +163,7 @@ This project is licensed under the [MIT License](LICENSE). See the [LICENSE](LIC
 
 ## Contact
 
-For any questions, suggestions, or support, please open an issue on the [GitHub repository](https://github.com/KeepCreatingOnline/SeedPass/issues) or contact the maintainer directly at [your-email@example.com](mailto:your-email@example.com).
+For any questions, suggestions, or support, please open an issue on the [GitHub repository](https://github.com/PR0M3TH3AN/SeedPass/issues) or contact the maintainer directly at on nostr at: https://primal.net/p/npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx/.
 
 ---
 
