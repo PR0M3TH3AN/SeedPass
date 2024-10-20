@@ -4,6 +4,14 @@
 
 SeedPass is a **BIP-85 Deterministic Password Generator** that securely generates, stores, and manages your passwords. Leveraging deterministic key derivation and integration with the Nostr network, SeedPass ensures your passwords are both robust and accessible across devices.
 
+---
+
+**⚠️ Disclaimer**
+
+This software was not developed by an experienced security expert and should be used with caution. There are likely many bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs have not been evaluated and may leak sensitive information.
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
@@ -131,6 +139,7 @@ python main.py
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Protect Your Password:** Do not share your decryption password with anyone and ensure it's strong and unique.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
+- **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 
 ## Contributing
 
@@ -163,7 +172,7 @@ This project is licensed under the [MIT License](LICENSE). See the [LICENSE](LIC
 
 ## Contact
 
-For any questions, suggestions, or support, please open an issue on the [GitHub repository](https://github.com/PR0M3TH3AN/SeedPass/issues) or contact the maintainer directly at on [Nostr](https://primal.net/p/npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx).
+For any questions, suggestions, or support, please open an issue on the [GitHub repository](https://github.com/PR0M3TH3AN/SeedPass/issues) or contact the maintainer directly on [Nostr](https://primal.net/p/npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx).
 
 ---
 
