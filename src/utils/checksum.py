@@ -7,13 +7,6 @@ This module provides functionalities to calculate and verify SHA-256 checksums f
 It ensures the integrity and authenticity of critical files within the application by
 comparing computed checksums against stored values.
 
-Dependencies:
-- hashlib
-- logging
-- colored (from termcolor)
-- constants.py
-- sys
-
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 

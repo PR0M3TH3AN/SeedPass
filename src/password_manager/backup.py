@@ -8,14 +8,6 @@ restoring from backups, and listing available backups for the encrypted password
 index file. It ensures data integrity and provides mechanisms to recover from
 corrupted or lost data by maintaining timestamped backups.
 
-Dependencies:
-- shutil
-- time
-- logging
-- pathlib
-- colorama
-- termcolor
-
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 

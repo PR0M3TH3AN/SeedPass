@@ -4,18 +4,12 @@
 Key Derivation Module
 
 Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 
-This means it  should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this softwares use case. 
+This means it should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this softwares use case. 
 
 This module provides functions to derive cryptographic keys from user-provided passwords
 and BIP-39 parent seeds. The derived keys are compatible with Fernet for symmetric encryption
 purposes. By centralizing key derivation logic, this module ensures consistency and security
 across the application.
-
-Dependencies:
-- hashlib
-- base64
-- unicodedata
-- logging
 
 Ensure that all dependencies are installed and properly configured in your environment.
 """

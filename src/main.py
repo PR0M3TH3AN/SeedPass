@@ -11,7 +11,6 @@ import traceback
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
 
-# Initialize colorama for colored terminal text
 colorama_init()
 
 def configure_logging():

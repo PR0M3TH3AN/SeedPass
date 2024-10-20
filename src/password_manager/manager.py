@@ -7,45 +7,6 @@ This module implements the PasswordManager class, which orchestrates various fun
 of the deterministic password manager, including encryption, entry management, password
 generation, backup, and checksum verification. It serves as the core interface for interacting
 with the password manager functionalities.
-
-Dependencies:
-- password_manager.encryption.EncryptionManager
-- password_manager.entry_management.EntryManager
-- password_manager.password_generation.PasswordGenerator
-- password_manager.backup.BackupManager
-- utils.key_derivation.derive_key_from_parent_seed
-- utils.key_derivation.derive_key_from_password
-- utils.checksum.calculate_checksum
-- utils.checksum.verify_checksum
-- utils.password_prompt.prompt_for_password
-- constants.APP_DIR
-- constants.INDEX_FILE
-- constants.PARENT_SEED_FILE
-- constants.DATA_CHECKSUM_FILE
-- constants.SCRIPT_CHECKSUM_FILE
-- constants.MIN_PASSWORD_LENGTH
-- constants.MAX_PASSWORD_LENGTH
-- constants.DEFAULT_PASSWORD_LENGTH
-- colorama.Fore
-- termcolor.colored
-- logging
-- json
-- sys
-- os
-- getpass
-
-Ensure that all dependencies are installed and properly configured in your environment.
-"""
-
-# password_manager/manager.py
-
-"""
-Password Manager Module
-
-This module implements the PasswordManager class, which orchestrates various functionalities
-of the deterministic password manager, including encryption, entry management, password
-generation, backup, and checksum verification. It serves as the core interface for interacting
-with the password manager functionalities.
 """
 
 import sys

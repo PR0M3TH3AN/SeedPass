@@ -8,13 +8,6 @@ are entered and confirmed correctly. It handles both the creation of new passwor
 input of existing passwords for decryption purposes. By centralizing password prompting logic,
 this module enhances code reuse, security, and maintainability across the application.
 
-Dependencies:
-- getpass
-- logging
-- colorama
-- termcolor
-- constants (for MIN_PASSWORD_LENGTH)
-
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 

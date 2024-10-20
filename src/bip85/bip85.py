@@ -10,10 +10,6 @@ from a given seed. Additionally, it supports the derivation of symmetric encrypt
 Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 
 This means it  should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this softwares use case. 
 
-Dependencies:
-- bip_utils
-- cryptography
-
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 

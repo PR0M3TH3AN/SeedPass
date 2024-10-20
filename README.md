@@ -55,7 +55,7 @@ git clone https://github.com/PR0M3TH3AN/SeedPass.git
 Navigate to the project directory:
 
 ```bash
-cd SeedPass
+cd SeedPass/src
 ```
 
 ### 2. Create a Virtual Environment
@@ -63,7 +63,7 @@ cd SeedPass
 It's recommended to use a virtual environment to manage your project's dependencies. Create a virtual environment named `venv`:
 
 ```bash
-python -m venv venv
+python3 -m venv venv
 ```
 
 ### 3. Activate the Virtual Environment
@@ -76,7 +76,7 @@ Activate the virtual environment using the appropriate command for your operatin
   source venv/bin/activate
   ```
 
-- **On Windows:**
+- **On Windows:** (This app doesent currently work on Windows)
 
   ```bash
   venv\Scripts\activate

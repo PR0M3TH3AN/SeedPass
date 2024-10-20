@@ -7,19 +7,6 @@ This module provides the PasswordGenerator class responsible for deterministic p
 based on a BIP-39 parent seed. It leverages BIP-85 for entropy derivation and ensures that
 generated passwords meet complexity requirements.
 
-Dependencies:
-- bip85.BIP85
-- cryptography.hazmat.primitives.hashes
-- cryptography.hazmat.primitives.kdf.hkdf
-- cryptography.hazmat.backends.default_backend
-- constants.py
-- password_manager.encryption.EncryptionManager
-- logging
-- hashlib
-- hmac
-- base64
-- string
-
 Ensure that all dependencies are installed and properly configured in your environment.
 
 Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 

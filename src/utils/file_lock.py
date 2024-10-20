@@ -8,14 +8,7 @@ locks on files using the `fcntl` library. It ensures that critical files are acc
 safely, preventing race conditions and maintaining data integrity when multiple processes
 or threads attempt to read from or write to the same file concurrently.
 
-Dependencies:
-- fcntl
-- logging
-- contextlib
-- typing
-- pathlib.Path
-- termcolor (for colored terminal messages)
-- sys
+I need to change this to something that supports Windows in the future.
 
 Ensure that all dependencies are installed and properly configured in your environment.
 """

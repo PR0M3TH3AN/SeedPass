@@ -8,19 +8,6 @@ operations related to managing password entries in the deterministic password ma
 It provides methods to add, retrieve, modify, and list password entries, ensuring
 that all changes are securely encrypted and properly indexed.
 
-Dependencies:
-- password_manager.encryption.EncryptionManager
-- constants.INDEX_FILE
-- constants.DATA_CHECKSUM_FILE
-- utils.file_lock.lock_file
-- colorama.Fore
-- termcolor.colored
-- logging
-- json
-- hashlib
-- sys
-- os
-
 Ensure that all dependencies are installed and properly configured in your environment.
 
 Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 
