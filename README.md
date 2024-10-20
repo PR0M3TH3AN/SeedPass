@@ -1,6 +1,7 @@
 # SeedPass
 
 ![SeedPass Logo](https://github.com/PR0M3TH3AN/SeedPass/raw/main/assets/logo.png) 
+
 Logo and website coming soonish...
 
 SeedPass is a **BIP-85 Deterministic Password Generator** that securely generates, stores, and manages your passwords. Leveraging deterministic key derivation and integration with the Nostr network, SeedPass ensures your passwords are both robust and accessible across devices.
