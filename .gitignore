@@ -1,6 +1,9 @@
 # Ignore virtual environment directory
 venv/
 
+# Ignore context tool directory
+context_tool/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
