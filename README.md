@@ -134,7 +134,7 @@ python main.py
 
 ## Security Considerations
 
-**Important:** The password you use to decrypt your parent seed is also required to decrypt the password index retrieved from Nostr. **It is imperative to remember this password**, as losing it means you won't be able to access your stored passwords. Consider using a secure method to store and remember your password, such as a password manager.
+**Important:** The password you use to decrypt your parent seed is also required to decrypt the password index retrieved from Nostr. **It is imperative to remember this password**, as losing it means you won't be able to access your stored passwords. Consider using a secure method to store and remember your 12 word seed AND your password.
 
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Protect Your Password:** Do not share your decryption password with anyone and ensure it's strong and unique.
