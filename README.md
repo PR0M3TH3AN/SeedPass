@@ -177,3 +177,53 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 ---
 
 *Stay secure and keep your passwords safe with SeedPass!*
+
+---
+---
+---
+
+## **To-Do List**
+
+### **1. Cross-Platform Compatibility**
+- **Add Windows-Supported File Locking**
+  - **Description:** Implement a file locking mechanism compatible with Windows to ensure that the application can safely handle concurrent file access across different operating systems.
+  - **Suggested Approach:** Consider using a cross-platform library like [`portalocker`](https://pypi.org/project/portalocker/) to replace the current `fcntl`-based locking system.
+
+### **2. Security Enhancements**
+- **Add Parent Seed Recovery**
+  - **Description:** Develop a secure method for users to recover their parent seed in case it is lost or forgotten.
+  - **Suggested Features:**
+    - **Recovery Phrase:** Allow users to generate and store a recovery phrase or backup file.
+    - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
+    - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
+
+### **3. User Interface & Experience Improvements**
+- **Show All Passwords**
+  - **Description:** Introduce a "Show All" option that displays all stored passwords along with their associated index entries.
+  - **Benefits:** Provides users with a comprehensive view of their password entries for easier management.
+
+- **Export to CSV**
+  - **Description:** Implement functionality to export index numbers and generated passwords within a specified index range to a CSV file.
+  - **Purpose:** Facilitates bulk password recovery in scenarios where index data is lost.
+  - **Security Consideration:** Ensure that exported CSV files are handled securely, possibly by encrypting them or warning users about the risks.
+
+### **4. Data Management Enhancements**
+- **Add "Notes" Field**
+  - **Description:** Introduce a "Notes" field for each password entry to allow users to add supplementary information or comments.
+  - **Use Cases:** Users can store additional details like password creation date, usage guidelines, or any other relevant notes.
+
+- **Add "Tags" Field**
+  - **Description:** Add a "Tags" field to each entry to enable categorization and easier organization of passwords.
+  - **Benefits:** Allows users to group related passwords, making retrieval and management more efficient.
+
+- **Rename "Website" Field to "Title"**
+  - **Description:** Change the existing "Website" field to "Title" to provide a more flexible and generalized naming convention.
+  - **Advantages:** Accommodates entries that may not be directly tied to a website, such as application logins or system credentials.
+
+### **5. Search and Retrieval Features**
+- **Implement Search by Tag or Title**
+  - **Description:** Develop search functionality that allows users to locate password entries based on associated tags or titles.
+  - **Features to Consider:**
+    - **Keyword Search:** Enable partial and case-insensitive searches.
+    - **Filter Options:** Allow users to filter search results based on multiple tags or specific criteria.
+    - **Advanced Search:** Incorporate Boolean operators (AND, OR, NOT) for more precise searches.
