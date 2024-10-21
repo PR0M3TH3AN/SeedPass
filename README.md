@@ -95,8 +95,6 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-**Note:** If your project has any additional build dependencies or uses tools like `setup.py` or `pyproject.toml`, ensure you follow those specific instructions as well.
-
 ## Usage
 
 After successfully installing the dependencies, you can run SeedPass using the following command:
