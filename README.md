@@ -113,7 +113,7 @@ python main.py
 
 2. **Follow the Prompts:**
 
-   - **Enter Your Password:** This password is crucial as it is used to decrypt your parent seed and, subsequently, your password index from Nostr.
+   - **Enter Your Password:** This password is crucial as it is used to decrypt your parent seed and, subsequently, your seed index data from Nostr.
    - **Select an Option:** Navigate through the menu by entering the number corresponding to your desired action.
 
    Example menu:
@@ -134,7 +134,7 @@ python main.py
 
 ## Security Considerations
 
-**Important:** The password you use to decrypt your parent seed is also required to decrypt the password index retrieved from Nostr. **It is imperative to remember this password**, as losing it means you won't be able to access your stored passwords. Consider using a secure method to store and remember your 12 word seed AND your password.
+**Important:** The password you use to decrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12 word seed AND your login password.
 
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Protect Your Password:** Do not share your decryption password with anyone and ensure it's strong and unique.
