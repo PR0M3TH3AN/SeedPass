@@ -33,7 +33,7 @@ This software was not developed by an experienced security expert and should be 
 ## Features
 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
-- **Encrypted Storage:** All passwords and sensitive data are encrypted locally.
+- **Encrypted Storage:** All seeds, login passwords and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
 - **User-Friendly CLI:** Simple command-line interface for easy interaction.
