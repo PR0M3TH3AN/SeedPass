@@ -1,6 +1,6 @@
 # SeedPass
 
-![SeedPass Logo](https://github.com/PR0M3TH3AN/SeedPass/raw/main/assets/logo.png](https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/SeedPass%20Logo/png/SeedPass-Logo-03.png) 
+![SeedPass Logo](https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/SeedPass%20Logo/png/SeedPass-Logo-03.png)
 
 Logo and website coming soonish...
 
