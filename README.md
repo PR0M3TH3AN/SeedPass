@@ -197,6 +197,13 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
     - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
 
+- **Add "Secret" Mode (Clipboard-Only Password Retrieval)**
+  - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval. This mode should be a setting the user can toggle on or off.
+  - **Suggested Features:**
+    - **Toggle Setting:** Allow users to enable or disable "secret" mode.
+    - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
+    - **User Feedback:** Notify users that the password has been copied to the clipboard.
+
 ### **3. User Interface & Experience Improvements**
 - **Show All Passwords**
   - **Description:** Introduce a "Show All" option that displays all stored passwords along with their associated index entries.
@@ -243,8 +250,90 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Efficiency:** Smaller posts reduce the risk of exceeding size limits and improve the speed of data transmission.
     - **Scalability:** Facilitates handling larger databases by allowing the index to be pieced together from multiple posts rather than relying on a single large file.
     - **Reliability:** Enhances the robustness of data retrieval by distributing the index across multiple posts, reducing the impact of potential data corruption in any single post.
+
+### **7. Advanced CLI Mode**
+- **Develop an Advanced CLI Mode with Enhanced Functionalities**
+  - **Description:** Create a more sophisticated Command-Line Interface (CLI) mode that supports advanced operations beyond the basic functionalities.
+  - **Included Features:**
+    - **Custom Relays Configuration:** Allow users to specify a custom set of Nostr relays for publishing their backup index.
+    - **Batch Posting:** Enable the CLI to handle the segmentation of index entries into batches of 10 for Nostr posts.
+    - **Toggle "Secret" Mode:** Provide CLI commands to enable or disable "secret" mode for clipboard-only password retrieval.
   - **Suggested Approach:**
-    - **Batching Logic:** Implement logic to divide the index entries into batches of 10 before publishing.
-    - **Sequential Posting:** Ensure that each batch is posted sequentially, maintaining the correct order of index entries.
-    - **Reconstruction Mechanism:** Develop a method for reconstructing the full index from multiple Nostr posts during retrieval, ensuring data integrity and consistency.
-    - **User Feedback:** Inform users about the batching process and provide indicators of the number of posts created for their index.
+    - **Command Structure:** Design intuitive commands and flags to manage advanced settings.
+    - **User Feedback:** Ensure that the CLI provides clear feedback and confirmations for advanced operations.
+    - **Error Handling:** Implement robust error handling to manage issues specific to advanced functionalities.
+
+---
+
+## **Updated Advanced CLI Commands**
+
+Here's an expanded table of **Advanced CLI Commands** that incorporates both your existing commands and the new functionalities you've outlined:
+
+| **Action**                                | **Command**            | **Short Flag** | **Long Flag**                     | **Example Command**                                                                                                                                                                             |
+|-------------------------------------------|------------------------|----------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Add a new password entry                  | `add`                  | `-A`           | `--add`                           | `passmgr add --title "GitHub" --url "https://github.com" --username "john_doe" --email "john@example.com" --notes "Primary GitHub account" --tags "work,development" --length 20`                       |
+| Retrieve a password entry                 | `retrieve`             | `-R`           | `--retrieve`                      | `passmgr retrieve --index 3` or `passmgr retrieve --title "GitHub"`                                                                                                                             |
+| Modify an existing entry                  | `modify`               | `-M`           | `--modify`                        | `passmgr modify --index 3 --title "GitHub Pro" --notes "Updated to pro account" --tags "work,development,pro" --length 22`                                                                          |
+| Delete an entry                           | `delete`               | `-D`           | `--delete`                        | `passmgr delete --index 3`                                                                                                                                                                      |
+| List all entries                          | `list`                 | `-L`           | `--list`                          | `passmgr list`                                                                                                                                                                                   |
+| Search for a password entry               | `search`               | `-S`           | `--search`                        | `passmgr search --query "GitHub"`                                                                                                                                                                |
+| Export passwords to a file                | `export`               | `-E`           | `--export`                        | `passmgr export --file "backup_passwords.json"`                                                                                                                                                  |
+| Import passwords from a file              | `import`               | `-I`           | `--import`                        | `passmgr import --file "backup_passwords.json"`                                                                                                                                                  |
+| Display help information                  | `help`                 | `-H`           | `--help`                          | `passmgr help`                                                                                                                                                                                   |
+| Display application version               | `version`              | `-V`           | `--version`                       | `passmgr version`                                                                                                                                                                                |
+| Change master password                    | `changepw`             | `-C`           | `--changepw`                      | `passmgr changepw --new "NewSecureP@ssw0rd!"`                                                                                                                                                     |
+| Enable auto-lock                          | `autolock --enable`    | `-AL`          | `--auto-lock --enable`            | `passmgr autolock --enable --timeout 10`                                                                                                                                                         |
+| Disable auto-lock                         | `autolock --disable`   | `-DL`          | `--auto-lock --disable`           | `passmgr autolock --disable`                                                                                                                                                                     |
+| Generate a strong password                | `generate`             | `-G`           | `--generate`                      | `passmgr generate --length 20`                                                                                                                                                                   |
+| Verify script checksum                    | `verify`               | `-V`           | `--verify`                        | `passmgr verify`                                                                                                                                                                                 |
+| Post encrypted index to Nostr             | `post`                 | `-P`           | `--post`                          | `passmgr post`                                                                                                                                                                                   |
+| Retrieve from Nostr                       | `get-nostr`            | `-GN`          | `--get-nostr`                     | `passmgr get-nostr`                                                                                                                                                                              |
+| Display Nostr public key                  | `show-pubkey`          | `-K`           | `--show-pubkey`                   | `passmgr show-pubkey`                                                                                                                                                                            |
+| **Set Custom Nostr Relays**               | `set-relays`           | `-SR`          | `--set-relays`                    | `passmgr set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                          |
+| **Enable "Secret" Mode**                   | `set-secret`           | `-SS`          | `--set-secret`                    | `passmgr set-secret --enable` or `passmgr set-secret --disable`                                                                                                                                |
+| **Batch Post Index Items to Nostr**        | `batch-post`           | `-BP`          | `--batch-post`                    | `passmgr batch-post --start 0 --end 9` or `passmgr batch-post --range 10-19`                                                                                                                    |
+| **Show All Passwords**                     | `show-all`             | `-SA`          | `--show-all`                      | `passmgr show-all`                                                                                                                                                                               |
+| **Add Notes to an Entry**                  | `add-notes`            | `-AN`          | `--add-notes`                     | `passmgr add-notes --index 3 --notes "This is a secured account"`                                                                                                                               |
+| **Add Tags to an Entry**                   | `add-tags`             | `-AT`          | `--add-tags`                      | `passmgr add-tags --index 3 --tags "personal,finance"`                                                                                                                                             |
+| **Search by Tag or Title**                 | `search-by`            | `-SB`          | `--search-by`                     | `passmgr search-by --tag "work"` or `passmgr search-by --title "GitHub"`                                                                                                                         |
+
+---
+
+### **Notes on New CLI Commands**
+
+1. **Set Custom Nostr Relays (`set-relays`):**
+   - **Purpose:** Allows users to specify which Nostr relays their backup indexes should be published to.
+   - **Usage Examples:**
+     - Add multiple relays: `passmgr set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`
+     - Remove a relay: `passmgr set-relays --remove "wss://relay1.example.com"`
+     - List current relays: `passmgr set-relays --list`
+
+2. **Enable "Secret" Mode (`set-secret`):**
+   - **Purpose:** Toggles the "secret" mode where passwords are copied to the clipboard instead of being displayed on the screen.
+   - **Usage Examples:**
+     - Enable secret mode: `passmgr set-secret --enable`
+     - Disable secret mode: `passmgr set-secret --disable`
+
+3. **Batch Post Index Items to Nostr (`batch-post`):**
+   - **Purpose:** Publishes segments of the index (e.g., 10 items per post) to Nostr to manage large databases efficiently.
+   - **Usage Examples:**
+     - Post indexes 0-9: `passmgr batch-post --start 0 --end 9`
+     - Post indexes 10-19: `passmgr batch-post --range 10-19`
+
+4. **Show All Passwords (`show-all`):**
+   - **Purpose:** Displays all stored passwords along with their index entries.
+   - **Usage Example:** `passmgr show-all`
+
+5. **Add Notes to an Entry (`add-notes`):**
+   - **Purpose:** Adds or updates the "Notes" field for a specific password entry.
+   - **Usage Example:** `passmgr add-notes --index 3 --notes "This is a secured account"`
+
+6. **Add Tags to an Entry (`add-tags`):**
+   - **Purpose:** Adds or updates the "Tags" field for a specific password entry.
+   - **Usage Example:** `passmgr add-tags --index 3 --tags "personal,finance"`
+
+7. **Search by Tag or Title (`search-by`):**
+   - **Purpose:** Enables searching for password entries based on tags or titles.
+   - **Usage Examples:**
+     - Search by tag: `passmgr search-by --tag "work"`
+     - Search by title: `passmgr search-by --title "GitHub"`
