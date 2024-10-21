@@ -227,3 +227,24 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Keyword Search:** Enable partial and case-insensitive searches.
     - **Filter Options:** Allow users to filter search results based on multiple tags or specific criteria.
     - **Advanced Search:** Incorporate Boolean operators (AND, OR, NOT) for more precise searches.
+
+### **6. Nostr Integration Enhancements**
+- **Add Option for Users to Specify Custom Set of Relays for Publishing Backup Index**
+  - **Description:** Provide users with the ability to select or configure specific Nostr relays where their encrypted backup index will be published.
+  - **Benefits:** Enhances flexibility and control over where backups are distributed, allowing users to choose trusted relays or optimize for performance and reliability.
+  - **Suggested Approach:**
+    - **User Interface:** Add settings in the application where users can input or select preferred relay URLs.
+    - **Validation:** Implement validation to ensure that the specified relays are active and support the necessary protocols.
+    - **Fallback Mechanism:** Allow users to add multiple relays to ensure redundancy in case some relays become unavailable.
+
+- **Modify JSON Index Nostr Post to Publish 10 Index Items Max per Post**
+  - **Description:** Adjust the mechanism for posting the JSON index to Nostr by limiting each post to a maximum of 10 index items (e.g., index 0-9, 10-19). This segmentation ensures that each Nostr post remains small and manageable.
+  - **Benefits:**
+    - **Efficiency:** Smaller posts reduce the risk of exceeding size limits and improve the speed of data transmission.
+    - **Scalability:** Facilitates handling larger databases by allowing the index to be pieced together from multiple posts rather than relying on a single large file.
+    - **Reliability:** Enhances the robustness of data retrieval by distributing the index across multiple posts, reducing the impact of potential data corruption in any single post.
+  - **Suggested Approach:**
+    - **Batching Logic:** Implement logic to divide the index entries into batches of 10 before publishing.
+    - **Sequential Posting:** Ensure that each batch is posted sequentially, maintaining the correct order of index entries.
+    - **Reconstruction Mechanism:** Develop a method for reconstructing the full index from multiple Nostr posts during retrieval, ensuring data integrity and consistency.
+    - **User Feedback:** Inform users about the batching process and provide indicators of the number of posts created for their index.
