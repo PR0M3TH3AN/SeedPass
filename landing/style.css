@@ -14,7 +14,7 @@ body {
 
 /* Navbar */
 .navbar {
-    background-color: #e94a39;  /* Red background */
+    background-color: #283c4f;  /* Red background */
     padding: 40px 0;
     display: flex;
     justify-content: center;
@@ -29,7 +29,7 @@ body {
 .intro {
     text-align: center;
     padding: 100px 20px;
-    background-color: #e94a39;  /* Red background for hero section */
+    background-color: #283c4f;  /* Red background for hero section */
     color: #ffffff;             /* White text for contrast */
 }
 
@@ -104,13 +104,13 @@ body {
 /* Disclaimer Section */
 .disclaimer {
     padding: 40px 20px;
-    background-color: #283c4f;
+    background-color: #e94a39;
     color: white;
     text-align: center;
 }
 
 .disclaimer h2 {
-    color: #e94a39;
+    color: white;
     margin-bottom: 20px;
 }
 
@@ -123,11 +123,11 @@ body {
 
 /* Footer */
 footer {
-    background-color: #f4f4f9;
+    background-color: #e94a39;
     padding: 20px 0;
     text-align: center;
     font-size: 0.9rem;
-    color: #555;
+    color: white;
 }
 
 /* Responsive */
