@@ -277,9 +277,7 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 
 ---
 
-## **Updated Advanced CLI Commands**
-
-Here's an expanded table of **Advanced CLI Commands** that incorporates both your existing commands and the new functionalities you've outlined:
+## **Advanced CLI Commands**
 
 | **Action**                                | **Command**            | **Short Flag** | **Long Flag**                     | **Example Command**                                                                                                                                                                              |
 |-------------------------------------------|------------------------|----------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
