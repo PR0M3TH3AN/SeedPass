@@ -2,8 +2,6 @@
 
 ![SeedPass Logo](https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/logo/png/SeedPass-Logo-03.png)
 
-
-
 **SeedPass** is a secure password generator and manager built on **Bitcoin's BIP-85 standard**. It uses deterministic key derivation to generate **passwords that are never stored**, but can be easily regenerated when needed. By integrating with the **Nostr network**, SeedPass ensures that your passwords are safe and accessible across devices. The index for retrieving each password is securely stored on Nostr relays, allowing seamless password recovery on multiple devices without compromising security.
 
 ---
@@ -73,13 +71,13 @@ python3 -m venv venv
 Activate the virtual environment using the appropriate command for your operating system.
 
 - **On Linux and macOS:**
-
+  
   ```bash
   source venv/bin/activate
   ```
 
 - **On Windows:** (This app doesent currently work on Windows)
-
+  
   ```bash
   venv\Scripts\activate
   ```
@@ -106,18 +104,18 @@ python main.py
 ### Running the Application
 
 1. **Start the Application:**
-
+   
    ```bash
    python main.py
    ```
 
 2. **Follow the Prompts:**
-
+   
    - **Enter Your Password:** This password is crucial as it is used to decrypt your parent seed and, subsequently, your seed index data from Nostr.
    - **Select an Option:** Navigate through the menu by entering the number corresponding to your desired action.
-
+   
    Example menu:
-
+   
    ```
    Select an option:
    1. Generate a New Password and Add to Index
@@ -128,7 +126,7 @@ python main.py
    6. Retrieve Encrypted Index from Nostr
    7. Display Nostr Public Key (npub)
    8. Exit
-
+   
    Enter your choice (1-8):
    ```
 
@@ -146,20 +144,21 @@ python main.py
 Contributions are welcome! If you have suggestions for improvements, bug fixes, or new features, please follow these steps:
 
 1. **Fork the Repository:** Click the "Fork" button on the top right of the repository page.
-2. **Create a Branch:** Create a new branch for your feature or bugfix.
 
+2. **Create a Branch:** Create a new branch for your feature or bugfix.
+   
    ```bash
    git checkout -b feature/YourFeatureName
    ```
 
 3. **Commit Your Changes:** Make your changes and commit them with clear messages.
-
+   
    ```bash
    git commit -m "Add feature X"
    ```
 
 4. **Push to GitHub:** Push your changes to your forked repository.
-
+   
    ```bash
    git push origin feature/YourFeatureName
    ```
@@ -178,8 +177,6 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 
 *Stay secure and keep your passwords safe with SeedPass!*
 
----
----
 ---
 
 ## **To-Do List**
@@ -251,6 +248,7 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Scalability:** Facilitates handling larger databases by allowing the index to be pieced together from multiple posts rather than relying on a single large file.
     - **Reliability:** Enhances the robustness of data retrieval by distributing the index across multiple posts, reducing the impact of potential data corruption in any single post.
 
+<<<<<<< Updated upstream
 - **Automatically Post Index to Nostr After Every Edit**
   - **Description:** Implement an automated process where any modification to the password index triggers an immediate update to the Nostr relays.
   - **Benefits:**
@@ -260,6 +258,24 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Hook Integration:** Integrate hooks in the `EntryManager` or relevant modules to detect changes and trigger posting.
     - **Error Handling:** Implement robust error handling to manage failed posts without disrupting the user's workflow.
     - **User Notifications:** Inform users of the backup status after each edit (e.g., success, failure).
+=======
+- **Post Index to Nostr Automatically After Every Edit**
+  - **Description:** Implement a feature where every time the password index is edited (add, modify, delete), the updated index is automatically posted to Nostr.
+  - **Benefits:** Ensures that backups are always up-to-date without requiring manual intervention.
+  - **Suggested Approach:**
+    - **Event Hooking:** Integrate hooks in the EntryManager or relevant modules to trigger the post operation after any edit.
+    - **Error Handling:** Implement robust error handling to manage scenarios where posting to Nostr fails, ensuring data integrity.
+    - **User Notifications:** Inform users about the success or failure of automatic posts to maintain transparency.
+
+- **Generate Nostr Profile on First Login and Retrieve Existing Index Data**
+  - **Description:** When a user logs in for the first time using the parent seed, generate a Nostr profile and check if there are existing index data notes that can be retrieved and decrypted.
+  - **Benefits:** Allows users to seamlessly recover their password index from existing Nostr posts, enhancing data portability and redundancy.
+  - **Suggested Approach:**
+    - **Profile Generation:** Automate the creation of a Nostr profile linked to the user's parent seed.
+    - **Data Retrieval:** Implement logic to search for existing encrypted index data across specified relays.
+    - **Decryption and Integration:** Decrypt retrieved data and integrate it into the local index, ensuring no duplication or data conflicts.
+    - **User Feedback:** Provide clear messages about the status of profile creation and data retrieval processes.
+>>>>>>> Stashed changes
 
 ### **7. Advanced CLI Mode**
 - **Develop an Advanced CLI Mode with Enhanced Functionalities**
@@ -268,15 +284,79 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
     - **Custom Relays Configuration:** Allow users to specify a custom set of Nostr relays for publishing their backup index.
     - **Batch Posting:** Enable the CLI to handle the segmentation of index entries into batches of 10 for Nostr posts.
     - **Toggle "Secret" Mode:** Provide CLI commands to enable or disable "secret" mode for clipboard-only password retrieval.
+<<<<<<< Updated upstream
     - **Automated Nostr Posting:** Ensure that any edit to the index automatically triggers a post to Nostr.
     - **Initial Setup Enhancements:** Implement features to handle the first-time user experience, including seed generation/import and initial Nostr profile creation.
+=======
+    - **Automatic Nostr Posting:** Automatically post updated indexes to Nostr after any edit operation.
+    - **Nostr Profile Generation and Data Retrieval:** Handle the generation of Nostr profiles and retrieval of existing index data upon first login.
+    - **Seed Initialization:** Allow users to choose between entering an existing seed or generating a new one during the first run.
+>>>>>>> Stashed changes
   - **Suggested Approach:**
     - **Command Structure:** Design intuitive commands and flags to manage advanced settings.
     - **User Feedback:** Ensure that the CLI provides clear feedback and confirmations for advanced operations.
     - **Error Handling:** Implement robust error handling to manage issues specific to advanced functionalities.
 
+### **8. User Onboarding and Initialization**
+- **Seed Initialization on First Run**
+  - **Description:** When the user runs the program for the first time, prompt them to either enter an existing seed or generate a new one. Use the chosen password to encrypt the seed, whether it's user-provided or program-generated.
+  - **Benefits:** Provides flexibility and security during the initial setup, catering to both new users and those migrating from other password managers.
+  - **Suggested Features:**
+    - **Prompt Options:** Ask users if they want to input an existing seed or generate a new one.
+    - **Seed Generation:** If generating a new seed, ensure it's compliant with BIP-39 standards.
+    - **Encryption:** Securely encrypt the seed using the user's chosen password.
+    - **Confirmation:** Confirm the successful initialization and encryption of the seed.
+    - **Error Handling:** Manage scenarios where seed generation or encryption fails, providing clear feedback to the user.
+
+### **9. Use a Robust CLI Framework**
+- **Suggested Libraries:** [`argparse`](https://docs.python.org/3/library/argparse.html), [`click`](https://click.palletsprojects.com/), or [`Typer`](https://typer.tiangolo.com/).
+- **Benefits:**
+  - Simplifies the creation of complex CLI commands and subcommands.
+  - Enhances readability and maintainability of CLI code.
+  - Provides built-in help and documentation features.
+
+### **10. Implement Secure Clipboard Operations**
+- **Library Suggestion:** [`pyperclip`](https://pypi.org/project/pyperclip/) for cross-platform clipboard access.
+- **Security Consideration:**
+  - Clear the clipboard after a set duration (e.g., 30 seconds) to prevent unauthorized access.
+  - Notify users when the clipboard is cleared.
+  - Handle cases where clipboard operations fail gracefully.
+
+### **11. Enhance Logging and Monitoring**
+- **Granular Logging:**
+  - Log detailed information for successful operations and warnings/errors for issues.
+  - Include timestamps, action types, and relevant metadata.
+- **Log Rotation:**
+  - Implement log rotation to prevent log files from growing indefinitely.
+  - Use Python's `logging.handlers` module or external libraries for managing log rotation.
+
+### **12. Ensure Comprehensive Testing**
+- **Unit Tests:**
+  - Write tests for individual functions and modules to ensure they work as intended.
+- **Integration Tests:**
+  - Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
+- **User Acceptance Testing (UAT):**
+  - Engage a group of users to test the application and provide feedback on usability and functionality.
+
+### **13. Prioritize Security Best Practices**
+- **Sensitive Data Handling:**
+  - Ensure that all sensitive data (e.g., seed phrases, encryption keys) are handled securely in memory and during storage.
+- **Encryption Standards:**
+  - Use industry-standard encryption algorithms and key derivation functions.
+- **Regular Audits:**
+  - Periodically review and audit the codebase for potential security vulnerabilities.
+
+### **14. Provide Comprehensive Documentation**
+- **User Guide:**
+  - Create detailed documentation covering installation, setup, usage, and troubleshooting.
+- **CLI Help:**
+  - Ensure that each CLI command includes descriptive help messages.
+- **Developer Documentation:**
+  - Document the codebase to assist future development and maintenance efforts.
+
 ---
 
+<<<<<<< Updated upstream
 ## **Advanced CLI Commands**
 
 | **Action**                                | **Command**            | **Short Flag** | **Long Flag**                     | **Example Command**                                                                                                                                                                              |
@@ -309,6 +389,38 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 | **Automatically Post Index to Nostr After Edit** | `auto-post`            | `-AP`          | `--auto-post`                     | `passmgr auto-post --enable` or `passmgr auto-post --disable`                                                                                                                                    |
 | **Initial Setup Prompt for Seed Generation/Import** | `setup`                | `-ST`          | `--setup`                         | `passmgr setup`                                                                                                                                                                                   |
 
+=======
+| **Action**                                | **Command**            | **Short Flag** | **Long Flag**                     | **Example Command**                                                                                                                                                                             |
+|-------------------------------------------|------------------------|----------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Add a new password entry                  | `add`                  | `-A`           | `--add`                           | `passmgr add --title "GitHub" --url "https://github.com" --username "john_doe" --email "john@example.com" --notes "Primary GitHub account" --tags "work,development" --length 20`                       |
+| Retrieve a password entry                 | `retrieve`             | `-R`           | `--retrieve`                      | `passmgr retrieve --index 3` or `passmgr retrieve --title "GitHub"`                                                                                                                             |
+| Modify an existing entry                  | `modify`               | `-M`           | `--modify`                        | `passmgr modify --index 3 --title "GitHub Pro" --notes "Updated to pro account" --tags "work,development,pro" --length 22`                                                                          |
+| Delete an entry                           | `delete`               | `-D`           | `--delete`                        | `passmgr delete --index 3`                                                                                                                                                                      |
+| List all entries                          | `list`                 | `-L`           | `--list`                          | `passmgr list`                                                                                                                                                                                   |
+| Search for a password entry               | `search`               | `-S`           | `--search`                        | `passmgr search --query "GitHub"`                                                                                                                                                                |
+| Export passwords to a file                | `export`               | `-E`           | `--export`                        | `passmgr export --file "backup_passwords.json"`                                                                                                                                                  |
+| Import passwords from a file              | `import`               | `-I`           | `--import`                        | `passmgr import --file "backup_passwords.json"`                                                                                                                                                  |
+| Display help information                  | `help`                 | `-H`           | `--help`                          | `passmgr help`                                                                                                                                                                                   |
+| Display application version               | `version`              | `-V`           | `--version`                       | `passmgr version`                                                                                                                                                                                |
+| Change master password                    | `changepw`             | `-C`           | `--changepw`                      | `passmgr changepw --new "NewSecureP@ssw0rd!"`                                                                                                                                                     |
+| Enable auto-lock                          | `autolock --enable`    | `-AL`          | `--auto-lock --enable`            | `passmgr autolock --enable --timeout 10`                                                                                                                                                         |
+| Disable auto-lock                         | `autolock --disable`   | `-DL`          | `--auto-lock --disable`           | `passmgr autolock --disable`                                                                                                                                                                     |
+| Generate a strong password                | `generate`             | `-G`           | `--generate`                      | `passmgr generate --length 20`                                                                                                                                                                   |
+| Verify script checksum                    | `verify`               | `-V`           | `--verify`                        | `passmgr verify`                                                                                                                                                                                 |
+| Post encrypted index to Nostr             | `post`                 | `-P`           | `--post`                          | `passmgr post`                                                                                                                                                                                   |
+| Retrieve from Nostr                       | `get-nostr`            | `-GN`          | `--get-nostr`                     | `passmgr get-nostr`                                                                                                                                                                              |
+| Display Nostr public key                  | `show-pubkey`          | `-K`           | `--show-pubkey`                   | `passmgr show-pubkey`                                                                                                                                                                            |
+| **Set Custom Nostr Relays**               | `set-relays`           | `-SR`          | `--set-relays`                    | `passmgr set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                          |
+| **Enable "Secret" Mode**                   | `set-secret`           | `-SS`          | `--set-secret`                    | `passmgr set-secret --enable` or `passmgr set-secret --disable`                                                                                                                                |
+| **Batch Post Index Items to Nostr**        | `batch-post`           | `-BP`          | `--batch-post`                    | `passmgr batch-post --start 0 --end 9` or `passmgr batch-post --range 10-19`                                                                                                                    |
+| **Show All Passwords**                     | `show-all`             | `-SA`          | `--show-all`                      | `passmgr show-all`                                                                                                                                                                               |
+| **Add Notes to an Entry**                  | `add-notes`            | `-AN`          | `--add-notes`                     | `passmgr add-notes --index 3 --notes "This is a secured account"`                                                                                                                               |
+| **Add Tags to an Entry**                   | `add-tags`             | `-AT`          | `--add-tags`                      | `passmgr add-tags --index 3 --tags "personal,finance"`                                                                                                                                             |
+| **Search by Tag or Title**                 | `search-by`            | `-SB`          | `--search-by`                     | `passmgr search-by --tag "work"` or `passmgr search-by --title "GitHub"`                                                                                                                         |
+| **Initialize Seed (First Run)**            | `init-seed`            | `-IS`          | `--init-seed`                     | `passmgr init-seed --generate` or `passmgr init-seed --import "your-existing-seed-phrase"`                                                                                                       |
+| **Generate Nostr Profile and Retrieve Data** | `setup-nostr`          | `-SN`          | `--setup-nostr`                   | `passmgr setup-nostr`                                                                                                                                                                             |
+    
+>>>>>>> Stashed changes
 ---
 
 ### **Notes on New CLI Commands**
@@ -327,6 +439,7 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
      - **Nostr Profile Creation:** Upon first login, automatically generate a Nostr profile and check for existing index data notes that can be pulled and decrypted.
    - **Usage Example:** `passmgr setup`
 
+<<<<<<< Updated upstream
 3. **Advanced CLI Enhancements:**
    - **Toggle "Secret" Mode via CLI:**
      - **Description:** Allow users to enable or disable "secret" mode directly through the CLI.
@@ -341,3 +454,42 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
    - **Automatic Nostr Profile Generation and Index Retrieval:**
      - **Description:** During the initial setup or first login, generate a Nostr profile and attempt to retrieve and decrypt any existing index data from Nostr.
      - **Usage Example:** `passmgr setup` (handles internally)
+=======
+3. **Batch Post Index Items to Nostr (`batch-post`):**
+   - **Purpose:** Publishes segments of the index (e.g., 10 items per post) to Nostr to manage large databases efficiently.
+   - **Usage Examples:**
+     - Post indexes 0-9: `passmgr batch-post --start 0 --end 9`
+     - Post indexes 10-19: `passmgr batch-post --range 10-19`
+
+4. **Show All Passwords (`show-all`):**
+   - **Purpose:** Displays all stored passwords along with their index entries.
+   - **Usage Example:** `passmgr show-all`
+
+5. **Add Notes to an Entry (`add-notes`):**
+   - **Purpose:** Adds or updates the "Notes" field for a specific password entry.
+   - **Usage Example:** `passmgr add-notes --index 3 --notes "This is a secured account"`
+
+6. **Add Tags to an Entry (`add-tags`):**
+   - **Purpose:** Adds or updates the "Tags" field for a specific password entry.
+   - **Usage Example:** `passmgr add-tags --index 3 --tags "personal,finance"`
+
+7. **Search by Tag or Title (`search-by`):**
+   - **Purpose:** Enables searching for password entries based on tags or titles.
+   - **Usage Examples:**
+     - Search by tag: `passmgr search-by --tag "work"`
+     - Search by title: `passmgr search-by --title "GitHub"`
+
+8. **Initialize Seed (First Run) (`init-seed`):**
+   - **Purpose:** Handles the initial setup of the seed during the first run of the application, allowing users to either generate a new seed or import an existing one.
+   - **Usage Examples:**
+     - Generate a new seed: `passmgr init-seed --generate`
+     - Import an existing seed: `passmgr init-seed --import "your-existing-seed-phrase"`
+
+9. **Generate Nostr Profile and Retrieve Data (`setup-nostr`):**
+   - **Purpose:** Automates the generation of a Nostr profile upon the first login and retrieves any existing encrypted index data from specified relays.
+   - **Usage Example:** `passmgr setup-nostr`
+
+---
+
+
+>>>>>>> Stashed changes
