@@ -3,57 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>SeedPass - Secure Password Manager</title>
     <link rel="stylesheet" href="./style.css"> <!-- Relative path to style.css -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
+    <!-- Dark Mode Toggle -->
+    <div class="dark-mode-toggle">
+        <input type="checkbox" id="dark-mode-checkbox">
+        <label for="dark-mode-checkbox">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+            <span class="toggle-ball"></span>
+        </label>
+    </div>
+
     <header>
         <nav class="navbar">
             <div class="container">
                 <img src="https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/logo/png/SeedPass-Logo-05.png" alt="SeedPass Logo" class="logo">
+                <!-- Hamburger Menu Toggle -->
+                <div class="menu-toggle" aria-label="Toggle navigation menu"><i class="fas fa-bars"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#intro">Home</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How It Works</a></li>
+                    <li><a href="#disclaimer">Disclaimer</a></li>
+                </ul>
             </div>
         </nav>
     </header>
 
     <main>
-        <section class="intro">
+        <section class="intro" id="intro">
             <div class="container">
                 <h1>SeedPass: Secure Password Manager</h1>
                 <p><strong>SeedPass</strong> is a secure password generator and manager built on Bitcoin's BIP-85 standard. It uses deterministic key derivation to generate passwords that are never stored but can be easily regenerated when needed.</p>
                 <p>By integrating with the <strong>Nostr network</strong>, SeedPass ensures that your passwords are safe and accessible across devices.</p>
-                <a href="https://github.com/PR0M3TH3AN/SeedPass" class="btn-primary cta-button">Get Started</a>
+                <a href="https://github.com/PR0M3TH3AN/SeedPass" class="btn-primary cta-button"><i class="fas fa-download"></i> Get Started</a>
             </div>
         </section>
 
-        <section class="features">
+        <section class="features" id="features">
             <div class="container">
                 <h2>Features</h2>
                 <ul>
-                    <li>Deterministic password generation using BIP-85</li>
-                    <li>Encrypted local storage for seeds and sensitive data</li>
-                    <li>Nostr integration for secure backup and retrieval</li>
-                    <li>Checksum verification for integrity checks</li>
-                    <li>User-friendly command-line interface</li>
+                    <li><i class="fas fa-key"></i> Deterministic password generation using BIP-85</li>
+                    <li><i class="fas fa-lock"></i> Encrypted local storage for seeds and sensitive data</li>
+                    <li><i class="fas fa-network-wired"></i> Nostr integration for secure backup and retrieval</li>
+                    <li><i class="fas fa-check-circle"></i> Checksum verification for integrity checks</li>
+                    <li><i class="fas fa-terminal"></i> User-friendly command-line interface</li>
                 </ul>
             </div>
         </section>
 
-        <section class="disclaimer">
+        <section class="how-it-works" id="how-it-works">
             <div class="container">
-                <h2>Disclaimer</h2>
-                <p><strong>⚠️ Use with Caution:</strong> This software was not developed by an experienced security expert. There may be bugs and missing features, and security vulnerabilities may exist. Always backup your data and be cautious while using it in sensitive environments.</p>
+                <h2>How SeedPass Works</h2>
+                <p>SeedPass uses Bitcoin's BIP-85 standard for deterministic password generation. This means your passwords are not stored but can be regenerated using your master seed and specific indices. Below is a simplified view of how the seed generation works:</p>
+                
+                <pre class="directory-tree">
+    <span class="parent" data-tooltip="This is the master seed">Parent_Seed</span>
+    ├── <span class="child" data-tooltip="Child seed for Index 0">Child_Seed_1 (Index: 0)</span>
+    │   ├── <span class="grandchild" data-tooltip="Password for Service A">Grandchild_Seed_1 (Password)</span>
+    │   └── <span class="grandchild" data-tooltip="Password for Service B">Grandchild_Seed_2 (Password)</span>
+    ├── <span class="child" data-tooltip="Child seed for Index 1">Child_Seed_2 (Index: 1)</span>
+    │   ├── <span class="grandchild" data-tooltip="Password for Service C">Grandchild_Seed_1 (Password)</span>
+    │   └── <span class="grandchild" data-tooltip="Password for Service D">Grandchild_Seed_2 (Password)</span>
+    └── <span class="child" data-tooltip="Child seed for Index 2">Child_Seed_3 (Index: 2)</span>
+        ├── <span class="grandchild" data-tooltip="Password for Service E">Grandchild_Seed_1 (Password)</span>
+        └── <span class="grandchild" data-tooltip="Password for Service F">Grandchild_Seed_2 (Password)</span>
+                </pre>
+    
+                <p>Not only does this system provide you with secure passwords, but it can also be extended to manage dependent users, such as children or elderly family members, where you have access to all their accounts but keep everything secure under one parent seed.</p>
+    
+                <p>For example, under your master seed, you can create child seeds for each dependent, and further generate unique passwords for each of their online accounts:</p>
+    
+                <pre class="directory-tree">
+    <span class="parent" data-tooltip="This is the master seed">Parent_Seed</span>
+    ├── <span class="child" data-tooltip="Child seed for Kid's Account">Child_Seed_1 (Kid's Account)</span>
+    │   ├── <span class="grandchild" data-tooltip="Email Password">Grandchild_Seed_1 (Email Password)</span>
+    │   └── <span class="grandchild" data-tooltip="Social Media Password">Grandchild_Seed_2 (Social Media Password)</span>
+    ├── <span class="child" data-tooltip="Child seed for Elderly Parent's Account">Child_Seed_2 (Elderly Parent's Account)</span>
+    │   ├── <span class="grandchild" data-tooltip="Banking Password">Grandchild_Seed_1 (Banking Password)</span>
+    │   └── <span class="grandchild" data-tooltip="Medical Portal Password">Grandchild_Seed_2 (Medical Portal Password)</span>
+                </pre>
+    
+                <p>This way, you can manage their passwords securely without storing them in a cloud-based manager, ensuring that only you or trusted parties have access.</p>
             </div>
         </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2024 SeedPass. All rights reserved.</p>
-        </div>
-    </footer>
-
+        
+        <section class="disclaimer" id="disclaimer">
+            <div class="container">
+                <h2>Disclaimer</h2>
+                <p><strong>⚠️ Use with Caution:</strong></p>
+                <ul>
+                    <li><strong>No Guarantees:</strong> SeedPass is provided "as is" without any warranties, express or implied. We do not guarantee that the software is free from errors, bugs, or vulnerabilities.</li>
+                    <li><strong>Security Risks:</strong> While SeedPass employs robust security measures, no system can be completely secure. Use it at your own risk, and ensure you have proper backups of your data.</li>
+                    <li><strong>Not Professional Advice:</strong> SeedPass is not a substitute for professional security or cryptographic advice. Consult with a security expert before using it in critical or sensitive environments.</li>
+                    <li><strong>Liability Limitation:</strong> We are not liable for any damages, losses, or other liabilities arising from the use or inability to use SeedPass.</li>
+                    <li><strong>Regular Backups:</strong> Always maintain regular backups of your seeds and sensitive data to prevent loss in case of unforeseen issues.</li>
+                    <li><strong>User Responsibility:</strong> Users are responsible for the secure storage and management of their master seeds and any derived seeds. Unauthorized access to these seeds can compromise all associated passwords and accounts.</li>
+                    <li><strong>Updates and Maintenance:</strong> While we strive to keep SeedPass updated and secure, we cannot promise timely updates or maintenance. Users should stay informed about the latest security practices and updates.</li>
+                </ul>
+                <p>Please ensure you understand the risks involved and take appropriate measures to secure your data. By using SeedPass, you acknowledge and agree to these terms.</p>
+            </div>
+        </section>
+        
+        <footer>
+            <div class="container">
+                <div class="social-media">
+                    <!-- Nostr Link with Custom SVG Icon -->
+                    <a href="primal.net/p/npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx" target="_blank" aria-label="Nostr Profile">
+                        <img src="/assets/svg/nostr.svg" alt="Nostr Logo" class="nostr-icon">
+                    </a>
+                    <!-- GitHub Link -->
+                    <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank" aria-label="GitHub Repository">
+                        <i class="fab fa-github"></i>
+                    </a>
+                </div>
+                <p>&copy; 2024 SeedPass. All rights reserved.</p>
+            </div>
+        </footer>
+              
     <script src="./script.js"></script> <!-- Relative path to script.js -->
 </body>
 </html>
