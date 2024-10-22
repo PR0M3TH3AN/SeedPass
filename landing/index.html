@@ -98,26 +98,36 @@
         <section class="disclaimer" id="disclaimer">
             <div class="container">
                 <h2>Disclaimer</h2>
-                <p><strong>⚠️ Use with Caution:</strong></p>
+                <p><strong>⚠️ Use with Caution:</strong> Please read the following terms carefully.</p>
                 <ul>
-                    <li><strong>No Guarantees:</strong> SeedPass is provided "as is" without any warranties, express or implied. We do not guarantee that the software is free from errors, bugs, or vulnerabilities.</li>
-                    <li><strong>Security Risks:</strong> While SeedPass employs robust security measures, no system can be completely secure. Use it at your own risk, and ensure you have proper backups of your data.</li>
-                    <li><strong>Not Professional Advice:</strong> SeedPass is not a substitute for professional security or cryptographic advice. Consult with a security expert before using it in critical or sensitive environments.</li>
-                    <li><strong>Liability Limitation:</strong> We are not liable for any damages, losses, or other liabilities arising from the use or inability to use SeedPass.</li>
-                    <li><strong>Regular Backups:</strong> Always maintain regular backups of your seeds and sensitive data to prevent loss in case of unforeseen issues.</li>
-                    <li><strong>User Responsibility:</strong> Users are responsible for the secure storage and management of their master seeds and any derived seeds. Unauthorized access to these seeds can compromise all associated passwords and accounts.</li>
-                    <li><strong>Updates and Maintenance:</strong> While we strive to keep SeedPass updated and secure, we cannot promise timely updates or maintenance. Users should stay informed about the latest security practices and updates.</li>
+                    <li><i class="fas fa-info-circle"></i><strong>No Guarantees:</strong><span> SeedPass is provided "as is" without any warranties, express or implied. We do not guarantee that the software is free from errors, bugs, or vulnerabilities.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>Security Risks:</strong><span> While SeedPass employs robust security measures, no system can be completely secure. Use it at your own risk, and ensure you have proper backups of your data.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>Not Professional Advice:</strong><span> SeedPass is not a substitute for professional security or cryptographic advice. Consult with a security expert before using it in critical or sensitive environments.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>Liability Limitation:</strong><span> We are not liable for any damages, losses, or other liabilities arising from the use or inability to use SeedPass.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>Regular Backups:</strong><span> Always maintain regular backups of your seeds and sensitive data to prevent loss in case of unforeseen issues.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>User Responsibility:</strong><span> Users are responsible for the secure storage and management of their master seeds and any derived seeds. Unauthorized access to these seeds can compromise all associated passwords and accounts.</span></li>
+                    <li><i class="fas fa-info-circle"></i><strong>Updates and Maintenance:</strong><span> While we strive to keep SeedPass updated and secure, we cannot promise timely updates or maintenance. Users should stay informed about the latest security practices and updates.</span></li>
                 </ul>
                 <p>Please ensure you understand the risks involved and take appropriate measures to secure your data. By using SeedPass, you acknowledge and agree to these terms.</p>
             </div>
-        </section>
+        </section>      
         
         <footer>
             <div class="container">
                 <div class="social-media">
-                    <!-- Nostr Link with Custom SVG Icon -->
+                    <!-- Nostr Link with Inline SVG -->
                     <a href="https://primal.net/p/npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx" target="_blank" aria-label="Nostr Profile">
-                        <img src="/assets/svg/nostr.svg" alt="Nostr Logo" class="nostr-icon">
+                        <svg
+                            class="nostr-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 620 620"
+                            fill="currentColor" <!-- Ensure fill is set to currentColor -->
+                            aria-labelledby="nostrIconTitle"
+                            role="img"
+                        >
+                            <title id="nostrIconTitle">Nostr Logo</title>
+                            <path d="M620 270.227V597.655C620 609.968 610.081 619.961 597.859 619.961H332.161C319.938 619.961 310.02 609.968 310.02 597.655V536.678C311.23 461.931 319.079 390.332 335.558 357.759C345.438 338.168 361.722 327.506 380.427 321.802C415.768 311.102 477.779 318.419 504.099 317.16C504.099 317.16 583.605 320.346 583.605 274.987C583.605 238.48 548.07 241.352 548.07 241.352C508.902 242.374 479.068 239.699 459.738 232.028C427.365 219.203 426.272 195.678 426.155 187.81C424.554 96.934 291.549 86.0368 174.359 108.579C46.2354 133.127 175.765 318.143 175.765 565.121V598.088C175.531 610.204 165.807 620 153.702 620H22.1415C9.91874 620 0 610.008 0 597.694V31.3934C0 19.08 9.91874 9.08757 22.1415 9.08757H145.813C158.036 9.08757 167.955 19.08 167.955 31.3934C167.955 49.6866 188.378 59.8756 203.139 49.2145C247.617 17.113 304.709 0 368.595 0C511.714 0 619.922 84.0305 619.922 270.227H620ZM382.419 203.782C382.419 177.424 361.214 156.062 335.051 156.062C308.887 156.062 287.683 177.424 287.683 203.782C287.683 230.14 308.887 251.501 335.051 251.501C361.214 251.501 382.419 230.14 382.419 203.782Z" />
+                        </svg>
                     </a>
                     <!-- GitHub Link -->
                     <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank" aria-label="GitHub Repository">
@@ -126,8 +136,8 @@
                 </div>
                 <p>&copy; 2024 SeedPass. All rights reserved.</p>
             </div>
-        </footer>
-              
+        </footer>     
+            
     <script src="./script.js"></script> <!-- Relative path to script.js -->
 </body>
 </html>

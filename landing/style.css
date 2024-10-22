@@ -15,8 +15,8 @@ body {
 
 /* Dark Mode */
 body.dark-mode {
-    background-color: #0d1117; /* GitHub Dark Mode Background */
-    color: #c9d1d9; /* GitHub Dark Mode Text Color */
+    background-color: #0d1117; 
+    color: #c9d1d9; 
 }
 
 /* Dark Mode Toggle */
@@ -57,7 +57,7 @@ body.dark-mode {
 }
 
 .dark-mode-toggle input:checked + label {
-    background: #6e5494; /* Purple for Dark Mode */
+    background: #6e5494;
 }
 
 .dark-mode-toggle input:checked + label:after {
@@ -121,7 +121,7 @@ body.dark-mode {
 
 /* Hamburger Menu Toggle */
 .menu-toggle {
-    display: none; /* Hidden by default */
+    display: none;
     font-size: 1.5rem;
     color: #ffffff;
     cursor: pointer;
@@ -212,7 +212,7 @@ body.dark-mode {
 
 /* Features Section */
 .features {
-    background-color: #f6f8fa; /* GitHub-like Light Gray */
+    background-color: #f6f8fa;
     padding: 80px 20px;
     transition: background-color 0.3s;
 }
@@ -220,7 +220,7 @@ body.dark-mode {
 .features h2 {
     text-align: center;
     font-size: 2.5rem;
-    color: #24292e; /* GitHub Dark Text */
+    color: #24292e;
     margin-bottom: 50px;
     position: relative;
 }
@@ -229,7 +229,7 @@ body.dark-mode {
     content: '';
     width: 60px;
     height: 4px;
-    background-color: #0366d6; /* GitHub Blue */
+    background-color: #e94a39;
     display: block;
     margin: 10px auto 0 auto;
     border-radius: 2px;
@@ -257,7 +257,7 @@ body.dark-mode {
 
 .features ul li i {
     font-size: 2rem;
-    color: #0366d6; /* GitHub Blue */
+    color: #e94a39; 
     margin-right: 20px;
 }
 
@@ -269,7 +269,7 @@ body.dark-mode {
 /* How It Works Section */
 .how-it-works {
     padding: 80px 20px;
-    background-color: #f6f8fa; /* GitHub-like Light Gray */
+    background-color: #f6f8fa;
     animation: fadeInUp 1s ease-out;
     transition: background-color 0.3s;
 }
@@ -277,7 +277,7 @@ body.dark-mode {
 .how-it-works h2 {
     text-align: center;
     font-size: 2.5rem;
-    color: #24292e; /* GitHub Dark Text */
+    color: #24292e; 
     margin-bottom: 40px;
     position: relative;
 }
@@ -286,7 +286,7 @@ body.dark-mode {
     content: '';
     width: 60px;
     height: 4px;
-    background-color: #0366d6; /* GitHub Blue */
+    background-color: #e94a39; 
     display: block;
     margin: 10px auto 0 auto;
     border-radius: 2px;
@@ -297,12 +297,12 @@ body.dark-mode {
     margin: 0 auto 30px auto;
     font-size: 1.1rem;
     text-align: center;
-    color: #24292e; /* GitHub Dark Text */
+    color: #24292e; 
 }
 
 .directory-tree {
-    background-color: #f6f8fa; /* GitHub-like Light Gray */
-    border-left: 4px solid #0366d6; /* GitHub Blue */
+    background-color: #f6f8fa; 
+    border-left: 4px solid #e94a39;
     padding: 20px;
     margin: 20px auto;
     max-width: 800px;
@@ -332,17 +332,17 @@ body.dark-mode {
 }
 
 .directory-tree .parent {
-    color: #0366d6; /* GitHub Blue for Parent Seed */
+    color: #e94a39;
     font-weight: bold;
 }
 
 .directory-tree .child {
-    color: #24292e; /* GitHub Dark Text for Child Seed */
+    color: #24292e; 
     margin-left: 20px;
 }
 
 .directory-tree .grandchild {
-    color: #586069; /* GitHub Gray for Grandchild Seed */
+    color: #586069; 
     margin-left: 40px;
 }
 
@@ -357,7 +357,7 @@ body.dark-mode {
     left: 50%;
     bottom: 100%;
     transform: translateX(-50%);
-    background-color: #24292e; /* GitHub Dark Tooltip Background */
+    background-color: #24292e;
     color: #ffffff;
     padding: 5px 10px;
     border-radius: 4px;
@@ -377,107 +377,195 @@ body.dark-mode {
 
 /* Disclaimer Section */
 .disclaimer {
-    padding: 60px 20px;
-    background-color: #ffe6e6; /* Light red background for emphasis */
-    color: #a94442; /* Dark red text for readability */
-    text-align: center;
-    border-left: 5px solid #a94442; /* Accent border */
-    margin: 40px 0;
-    border-radius: 8px;
-    transition: background-color 0.3s, color 0.3s, border-left 0.3s;
+    padding: 60px 0;
+    background-color: #fdf2f2; 
+    transition: background-color 0.3s ease;
+}
+
+.disclaimer .container {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 40px;
+    max-width: 900px;
+    margin: 0 auto;
+    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .disclaimer h2 {
-    color: #a94442;
+    color: #e74c3c;
+    font-size: 2.5rem;
     margin-bottom: 20px;
-    font-size: 2rem;
-}
-
-.disclaimer ul {
-    max-width: 800px;
-    margin: 0 auto 20px auto;
-    text-align: left;
-    list-style: none;
-    padding: 0;
-}
-
-.disclaimer ul li {
-    position: relative;
-    padding-left: 30px;
-    margin-bottom: 10px;
-    font-size: 1.1rem;
-}
-
-.disclaimer ul li::before {
-    content: '\f05a'; /* Font Awesome info-circle icon */
-    font-family: 'Font Awesome 5 Free';
-    font-weight: 900;
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: #a94442;
+    text-align: center;
+    font-weight: 700;
 }
 
 .disclaimer p {
-    max-width: 800px;
-    margin: 0 auto;
     font-size: 1.1rem;
-    color: #a94442;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.disclaimer ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.disclaimer ul li {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px;
+    border-left: 4px solid #e74c3c;
+    background-color: #fdf2f2;
+    border-radius: 8px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.disclaimer ul li:hover {
+    background-color: #fde0e0; 
+}
+
+.disclaimer ul li i {
+    font-size: 1.5rem;
+    color: #e74c3c;
+    margin-right: 15px;
+    margin-top: 5px;
+}
+
+.disclaimer ul li strong {
+    font-weight: 600;
+    color: #333;
+    margin-right: 5px;
+}
+
+.disclaimer ul li span {
+    color: #777;
+    line-height: 1.6;
+}
+
+.disclaimer ul li:hover span {
+    color: #555;
+}
+
+/* Footer Info */
+.disclaimer p:last-child {
+    margin-top: 30px;
+    font-size: 1rem;
+    text-align: center;
+    color: #666;
+}
+
+/* Dark Mode for Disclaimer Section */
+body.dark-mode .disclaimer {
+    background-color: #1e1e1e; 
+}
+
+body.dark-mode .disclaimer .container {
+    background-color: #2a2a2a; 
+    color: #d1d1d1; 
+    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .disclaimer ul li {
+    background-color: #333; 
+    border-left: 4px solid #e74c3c; 
+}
+
+body.dark-mode .disclaimer ul li:hover {
+    background-color: #444; 
+}
+
+body.dark-mode .disclaimer ul li i {
+    color: #e74c3c; 
+}
+
+body.dark-mode .disclaimer ul li strong {
+    color: #f0f0f0; 
+}
+
+body.dark-mode .disclaimer ul li span {
+    color: #b0b0b0; 
+}
+
+body.dark-mode .disclaimer p {
+    color: #cfcfcf; 
 }
 
 /* Footer */
 footer {
-    background-color: #24292e; /* GitHub Dark Footer */
+    background-color: #24292e; 
     padding: 30px 20px;
     text-align: center;
     font-size: 0.9rem;
     color: white;
+    transition: background-color 0.3s, color 0.3s; /* Added transition for consistency */
+}
+
+footer .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 footer .social-media {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     margin-bottom: 15px;
-}
-
-/* Custom Nostr Icon Styling */
-.nostr-icon {
-    width: 24px; /* Adjust size as needed */
-    height: 24px;
-    vertical-align: middle;
-    transition: filter 0.3s, transform 0.3s;
-}
-
-/* Adjust Icon Color in Dark Mode (if needed) */
-body.dark-mode .nostr-icon {
-    filter: brightness(0) invert(1); /* Makes the icon white in dark mode */
-}
-
-/* Hover Effects for Nostr Icon */
-.social-media a:hover .nostr-icon {
-    transform: scale(1.1);
-    filter: brightness(0.8);
-}
-
-/* GitHub Icon Styling (if necessary) */
-.social-media a i.fab.fa-github {
-    font-size: 24px; /* Match the size of the Nostr icon */
-    transition: color 0.3s, transform 0.3s;
-}
-
-/* Hover Effects for GitHub Icon */
-.social-media a:hover i.fab.fa-github {
-    transform: scale(1.1);
-    color: #0366d6; /* GitHub Blue on hover */
 }
 
 footer .social-media a {
     color: white;
     margin: 0 10px;
     font-size: 1.2rem;
-    transition: color 0.3s;
+    transition: color 0.3s, transform 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none; 
 }
 
 footer .social-media a:hover {
-    color: #0366d6; /* GitHub Blue */
+    color: #e94a39; 
+    transform: scale(1.1);
+}
+
+/* Custom Nostr Icon Styling */
+.nostr-icon {
+    width: 24px; 
+    height: 24px;
+    fill: currentColor; /* Inherit color from parent link */
+    transition: fill 0.3s, transform 0.3s;
+    display: inline-block;
+    vertical-align: middle; /* Align vertically with GitHub icon */
+}
+
+/* Adjust Icon Color in Dark Mode */
+body.dark-mode .nostr-icon {
+    /* No filter needed as color is inherited */
+    /* If the SVG doesn't display correctly, you can uncomment the next line */
+    /* filter: brightness(0) invert(1); */
+}
+
+/* GitHub Icon Styling */
+.social-media a i.fab.fa-github {
+    font-size: 24px; 
+    transition: color 0.3s, transform 0.3s;
+    width: 24px; /* Ensure consistent sizing */
+    height: 24px; /* Ensure consistent sizing */
+}
+
+/* Ensure both icons align vertically */
+.social-media a,
+.social-media a img,
+.social-media a i {
+    vertical-align: middle;
 }
 
 /* Animations */
@@ -550,93 +638,100 @@ footer .social-media a:hover {
         top: 10px;
         right: 10px;
     }
+
+    /* Adjust disclaimer container padding on smaller screens */
+    .disclaimer .container {
+        padding: 40px 15px;
+    }
+
+    /* Adjust footer icons size for smaller screens */
+    footer .social-media a i.fab.fa-github,
+    footer .social-media a svg.nostr-icon {
+        width: 20px; 
+        height: 20px;
+    }
 }
 
 /* Dark Mode Styling */
 body.dark-mode .navbar {
-    background-color: #0d1117; /* GitHub Dark Mode Navbar */
+    background-color: #0d1117; 
 }
 
 body.dark-mode .intro {
-    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%); /* Darker gradient */
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%); 
 }
 
 body.dark-mode .intro p,
 body.dark-mode .how-it-works p,
 body.dark-mode .features h2,
 body.dark-mode .features ul li,
-body.dark-mode .disclaimer {
-    color: #c9d1d9; /* GitHub Dark Mode Text Color */
+body.dark-mode .disclaimer p {
+    color: #c9d1d9; 
 }
 
 body.dark-mode .cta-button {
-    background-color: #238636; /* GitHub Green */
+    background-color: #e94a39; 
     color: #ffffff;
 }
 
 body.dark-mode .cta-button:hover {
-    background-color: #2ea043; /* Darker GitHub Green */
+    background-color: #2ea043; 
     color: #ffffff;
 }
 
 body.dark-mode .features {
-    background-color: #0d1117; /* Dark background for Features section */
+    background-color: #0d1117; 
 }
 
 body.dark-mode .features h2 {
-    color: #c9d1d9; /* Light text in Features section */
+    color: #c9d1d9;
 }
 
 body.dark-mode .features ul li {
-    background-color: #161b22; /* GitHub Dark Mode Feature Cards */
+    background-color: #161b22; 
     box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
 }
 
 body.dark-mode .how-it-works {
-    background-color: #0d1117; /* Dark background for How It Works section */
+    background-color: #0d1117; 
 }
 
 body.dark-mode .how-it-works h2 {
-    color: #c9d1d9; /* Light text in How It Works section */
+    color: #c9d1d9;
 }
 
 body.dark-mode .directory-tree {
-    background-color: #161b22; /* GitHub Dark Mode Directory Tree */
-    border-left: 4px solid #238636; /* GitHub Green */
+    background-color: #161b22; 
+    border-left: 4px solid #e94a39; 
 }
 
 body.dark-mode .directory-tree span.parent {
-    color: #58a6ff; /* GitHub Blue for Parent Seed */
+    color: #ff8779; 
 }
 
 body.dark-mode .directory-tree span.child {
-    color: #c9d1d9; /* GitHub Dark Mode Text for Child Seed */
+    color: #c9d1d9; 
 }
 
 body.dark-mode .directory-tree span.grandchild {
-    color: #58a6ff; /* GitHub Blue for Grandchild Seed */
+    color: #ff8779; 
 }
 
-body.dark-mode .disclaimer {
-    background-color: #2c2f33; /* Darker background for disclaimer */
+body.dark-mode .disclaimer .container {
+    background-color: #2c2f33; 
     color: #ffffff;
-    border-left: 5px solid #e74c3c; /* Red accent */
+    border-left: 5px solid #e74c3c; 
 }
 
 body.dark-mode .disclaimer ul li::before {
-    color: #e74c3c; /* Red icon in disclaimer */
+    color: #e74c3c; 
 }
 
 body.dark-mode footer {
-    background-color: #0d1117; /* GitHub Dark Mode Footer */
+    background-color: #0d1117; 
 }
 
 /* Additional Enhancements */
-
-/* Toggle menu for mobile */
-.menu-toggle {
-    display: none;
-}
 
 /* Smooth Scrolling */
 html {
