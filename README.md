@@ -224,6 +224,15 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
   - **Description:** Change the existing "Website" field to "Title" to provide a more flexible and generalized naming convention.
   - **Advantages:** Accommodates entries that may not be directly tied to a website, such as application logins or system credentials.
 
+- **Add Crypto Wallet Seed Management**
+  - **Description:** Implement functionality to generate BIP39-compatible seeds for cryptocurrency wallets and create corresponding index entries. The index entry will include the index number, Title, URL, Tags, and Notes, but will **not** store the seed itself.
+  - **Benefits:** 
+    - Facilitates the management of multiple crypto wallet seeds within the password manager.
+    - Provides crypto and Bitcoin users with an organized way to handle their wallet information.
+  - **Security Consideration:** 
+    - **Important:** Disclose to users that storing seeds in this manner does **not** offer the same level of security as using cold storage solutions.
+    - Advise users to follow best practices for securing their seed phrases, such as keeping them offline and avoiding digital storage when possible.
+
 ### **5. Search and Retrieval Features**
 - **Implement Search by Tag or Title**
   - **Description:** Develop search functionality that allows users to locate password entries based on associated tags or titles.
