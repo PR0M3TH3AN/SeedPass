@@ -27,6 +27,7 @@ This software was not developed by an experienced security expert and should be 
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
+- [Roadmap](#roadmap)
 
 ## Features
 
@@ -179,7 +180,7 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 
 ---
 
-## **To-Do List**
+## Roadmap
 
 ### **1. Cross-Platform Compatibility**
 - **Add Windows-Supported File Locking**
