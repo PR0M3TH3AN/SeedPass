@@ -224,14 +224,28 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
   - **Description:** Change the existing "Website" field to "Title" to provide a more flexible and generalized naming convention.
   - **Advantages:** Accommodates entries that may not be directly tied to a website, such as application logins or system credentials.
 
-- **Add Crypto Wallet Seed Management**
-  - **Description:** Implement functionality to generate BIP39-compatible seeds for cryptocurrency wallets and create corresponding index entries. The index entry will include the index number, Title, URL, Tags, and Notes, but will **not** store the seed itself.
+- **Add Family Password Management**
+  - **Description:** Enable users to manage multiple sets of passwords for their entire family, including kids or elderly parents, from a single interface. Each family member's accounts and security information can be stored and accessed efficiently.
   - **Benefits:** 
-    - Facilitates the management of multiple crypto wallet seeds within the password manager.
-    - Provides crypto and Bitcoin users with an organized way to handle their wallet information.
+    - Centralizes the management of online accounts for families, simplifying tasks for users managing accounts for dependents or elderly relatives.
+    - Streamlines access to passwords, reducing the need for multiple password managers across a family.
   - **Security Consideration:** 
-    - **Important:** Disclose to users that storing seeds in this manner does **not** offer the same level of security as using cold storage solutions.
-    - Advise users to follow best practices for securing their seed phrases, such as keeping them offline and avoiding digital storage when possible.
+    - Ensure that access to family members' accounts is properly segregated, and allow users to implement additional layers of security where needed, such as MFA or role-based access.
+
+- **Add Easy BIP39 Seed Generation for Various Use Cases**
+  - **Description:** Introduce an easy method for generating new BIP39 seeds for various use cases, such as **Bitcoin/Cashu Wallets**, **AnyType**, **Atomic Wallet**, or other cryptocurrency-related purposes.
+  - **Benefits:** 
+    - Simplifies the process of generating secure seeds for diverse use cases, making the application highly flexible for crypto enthusiasts.
+  - **Security Consideration:** 
+    - As with all seed-related features, advise users to follow best security practices for handling and storing generated seeds.
+
+- **Add Nostr Public/Private Key Pair Generation**
+  - **Description:** Add functionality to easily generate new **Nostr Public/Private key pairs** directly within the application. These keys will be tied to an index entry and backed up through the parent seed and password.
+  - **Benefits:** 
+    - Simplifies key pair generation for users who want to manage multiple Nostr identities.
+    - Provides seamless integration for Nostr users, ensuring keys are derived securely and backed up.
+  - **Security Consideration:** 
+    - Inform users of the risks of using the same seed across multiple identities, and suggest separate seeds for better security where applicable.
 
 ### **5. Search and Retrieval Features**
 - **Implement Search by Tag or Title**
