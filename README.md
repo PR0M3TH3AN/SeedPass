@@ -182,310 +182,200 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 
 ## Roadmap
 
-### **1. Cross-Platform Compatibility**
-- **Add Windows-Supported File Locking**
-  - **Description:** Implement a file locking mechanism compatible with Windows to ensure that the application can safely handle concurrent file access across different operating systems.
-  - **Suggested Approach:** Consider using a cross-platform library like [`portalocker`](https://pypi.org/project/portalocker/) to replace the current `fcntl`-based locking system.
+### Overview
 
-### **2. Security Enhancements**
-- **Add Parent Seed Recovery**
-  - **Description:** Develop a secure method for users to recover their parent seed in case it is lost or forgotten.
-  - **Suggested Features:**
-    - **Recovery Phrase:** Allow users to generate and store a recovery phrase or backup file.
-    - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
-    - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
-
-- **Add "Secret" Mode (Clipboard-Only Password Retrieval)**
-  - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval. This mode should be a setting the user can toggle on or off.
-  - **Suggested Features:**
-    - **Toggle Setting:** Allow users to enable or disable "secret" mode.
-    - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
-    - **User Feedback:** Notify users that the password has been copied to the clipboard.
-
-- **Implement Two-Factor Security Model with Random Index Generation**
-  - **Description:** Create a robust two-factor security system using master seed and master password combination, enhanced with random index generation for additional security.
-  - **Key Features:**
-    - **Random Index Generation:**
-      - Generate cryptographically secure random numbers for each new password index
-      - Store encrypted indices in the JSON data structure
-      - Require master password to decrypt index values
-      - Make master seed alone insufficient for password recovery
-    - **Master Seed Management:** 
-      - Kept in cold storage/offline
-      - Acts as primary key for password generation
-      - Combined with decrypted random indices for final password derivation
-    - **Master Password System:**
-      - Stored in memory/brain only
-      - Required to decrypt indices and account access
-      - Protects the mapping between services and their random indices
-    - **Protection Layers:**
-      - Seed compromise protection through encrypted random indices
-      - Password compromise protection through seed requirement
-      - JSON file security through full encryption
-      - Additional security through randomized index space
-    - **Implementation:**
-      - Use cryptographic RNG for index generation
-      - Implement secure storage of encrypted indices
-      - Create robust index-to-service mapping system
-      - Ensure proper encryption of all index values
-    - **Security Verification:**
-      - Implement checks to ensure neither factor can be bypassed
-      - Add warnings about proper seed storage practices
-      - Include guidelines for secure password management
-      - Verify randomness quality of index generation
-
-### **3. User Interface & Experience Improvements**
-- **Show All Passwords**
-  - **Description:** Introduce a "Show All" option that displays all stored passwords along with their associated index entries.
-  - **Benefits:** Provides users with a comprehensive view of their password entries for easier management.
-
-- **Export to CSV**
-  - **Description:** Implement functionality to export index numbers and generated passwords within a specified index range to a CSV file.
-  - **Purpose:** Facilitates bulk password recovery in scenarios where index data is lost.
-  - **Security Consideration:** Ensure that exported CSV files are handled securely, possibly by encrypting them or warning users about the risks.
-
-### **4. Data Management Enhancements**
-- **Add "Notes" Field**
-  - **Description:** Introduce a "Notes" field for each password entry to allow users to add supplementary information or comments.
-  - **Use Cases:** Users can store additional details like password creation date, usage guidelines, or any other relevant notes.
-
-- **Add "Tags" Field**
-  - **Description:** Add a "Tags" field to each entry to enable categorization and easier organization of passwords.
-  - **Benefits:** Allows users to group related passwords, making retrieval and management more efficient.
-
-- **Rename "Website" Field to "Title"**
-  - **Description:** Change the existing "Website" field to "Title" to provide a more flexible and generalized naming convention.
-  - **Advantages:** Accommodates entries that may not be directly tied to a website, such as application logins or system credentials.
-
-- **Add Family Password Management**
-  - **Description:** Enable users to manage multiple sets of passwords for their entire family, including kids or elderly parents, from a single interface. Each family member's accounts and security information can be stored and accessed efficiently.
-  - **Benefits:** 
-    - Centralizes the management of online accounts for families, simplifying tasks for users managing accounts for dependents or elderly relatives.
-    - Streamlines access to passwords, reducing the need for multiple password managers across a family.
-  - **Security Consideration:** 
-    - Ensure that access to family members' accounts is properly segregated, and allow users to implement additional layers of security where needed, such as MFA or role-based access.
-
-- **Add Easy BIP39 Seed Generation for Various Use Cases**
-  - **Description:** Introduce an easy method for generating new BIP39 seeds for various use cases, such as **Bitcoin/Cashu Wallets**, **AnyType**, **Atomic Wallet**, or other cryptocurrency-related purposes.
-  - **Benefits:** 
-    - Simplifies the process of generating secure seeds for diverse use cases, making the application highly flexible for crypto enthusiasts.
-  - **Security Consideration:** 
-    - As with all seed-related features, advise users to follow best security practices for handling and storing generated seeds.
-
-- **Add Nostr Public/Private Key Pair Generation**
-  - **Description:** Add functionality to easily generate new **Nostr Public/Private key pairs** directly within the application. These keys will be tied to an index entry and backed up through the parent seed and password.
-  - **Benefits:** 
-    - Simplifies key pair generation for users who want to manage multiple Nostr identities.
-    - Provides seamless integration for Nostr users, ensuring keys are derived securely and backed up.
-  - **Security Consideration:** 
-    - Inform users of the risks of using the same seed across multiple identities, and suggest separate seeds for better security where applicable.
-
-### **5. Search and Retrieval Features**
-- **Implement Search by Tag or Title**
-  - **Description:** Develop search functionality that allows users to locate password entries based on associated tags or titles.
-  - **Features to Consider:**
-    - **Keyword Search:** Enable partial and case-insensitive searches.
-    - **Filter Options:** Allow users to filter search results based on multiple tags or specific criteria.
-    - **Advanced Search:** Incorporate Boolean operators (AND, OR, NOT) for more precise searches.
-
-### **6. Nostr Integration Enhancements**
-- **Add Option for Users to Specify Custom Set of Relays for Publishing Backup Index**
-  - **Description:** Provide users with the ability to select or configure specific Nostr relays where their encrypted backup index will be published.
-  - **Benefits:** Enhances flexibility and control over where backups are distributed, allowing users to choose trusted relays or optimize for performance and reliability.
-  - **Suggested Approach:**
-    - **User Interface:** Add settings in the application where users can input or select preferred relay URLs.
-    - **Validation:** Implement validation to ensure that the specified relays are active and support the necessary protocols.
-    - **Fallback Mechanism:** Allow users to add multiple relays to ensure redundancy in case some relays become unavailable.
-
-- **Implement Smart Batching System for Index Updates**
-  - **Description:** The batching system manages the synchronization of password indices across devices by breaking down the encrypted JSON index into manageable chunks for Nostr transmission. This system ensures that even large password databases can be reliably synchronized while maintaining data integrity and security.
-  
-  - **How It Works:**
-    The system segments the encrypted JSON index into smaller batches, each containing up to 10 password entries. Every batch includes metadata about its position in the sequence and checksums for verification. When updating the index:
-    1. The system first generates a complete checksum of the entire index
-    2. It then divides the index into batches, adding sequence information and individual checksums
-    3. Each batch is posted to Nostr as a separate event, linked by a common timestamp
-    4. Receiving devices collect all batches with matching timestamps
-    5. They verify individual batch checksums, then reconstruct and verify the complete index
-    6. Only if all pieces are present and verified does the system update the local index
-    
-    This approach ensures that even if Nostr posts have size limitations or network issues occur, the system can reliably synchronize password databases of any size while maintaining perfect integrity.
-  
-  - **Key Features:**
-    - **Batch Structure:**
-      - Metadata including total batch count and sequence position
-      - Batch-specific and complete index checksums
-      - Previous update ID tracking
-      - Timestamp-based versioning
-    - **Reconstruction Protocol:**
-      - Batch collection based on matching timestamps
-      - Individual and complete checksum verification
-      - Sequential reconstruction process
-      - All-or-nothing update principle
-    - **Conflict Management:**
-      - Timestamp-based precedence system
-      - Complete batch set verification
-      - Checksum validation for both parts and whole
-    - **Implementation Details:**
-      - Maximum 10 entries per batch for optimal transmission
-      - SHA-256 checksums for verification
-      - Progressive transmission with status tracking
-      - Automatic retry for failed transmissions
-    - **Error Handling:**
-      - Partial update recovery mechanisms
-      - Network interruption handling
-      - Corrupt batch detection and resolution
-      - Version conflict resolution protocols
-    - **Optimization Features:**
-      - Differential updates to minimize data transmission
-      - Batch prioritization based on changes
-      - Concurrent batch transmission for speed
-      - Compression for batch payload reduction
-
-- **Automatically Post Index to Nostr After Every Edit**
-  - **Description:** Implement an automated process where any modification to the password index triggers an immediate update to the Nostr relays.
-  - **Benefits:**
-    - **Real-Time Backups:** Ensures that backups are always up-to-date with the latest changes.
-    - **Data Consistency:** Minimizes the risk of discrepancies between local data and Nostr backups.
-  - **Suggested Approach:**
-    - **Hook Integration:** Integrate hooks in the `EntryManager` or relevant modules to detect changes and trigger posting.
-    - **Error Handling:** Implement robust error handling to manage failed posts without disrupting the user's workflow.
-    - **User Notifications:** Inform users of the backup status after each edit (e.g., success, failure).
-
-### **7. Advanced CLI Mode**
-- **Develop an Advanced CLI Mode with Enhanced Functionalities**
-  - **Description:** Create a more sophisticated Command-Line Interface (CLI) mode that supports advanced operations beyond the basic functionalities.
-  - **Included Features:**
-    - **Custom Relays Configuration:** Allow users to specify a custom set of Nostr relays for publishing their backup index.
-    - **Batch Posting:** Enable the CLI to handle the segmentation of index entries into batches of 10 for Nostr posts.
-    - **Toggle "Secret" Mode:** Provide CLI commands to enable or disable "secret" mode for clipboard-only password retrieval.
-    - **Automated Nostr Posting:** Ensure that any edit to the index automatically triggers a post to Nostr.
-    - **Initial Setup Enhancements:** Implement features to handle the first-time user experience, including seed generation/import and initial Nostr profile creation.
-  - **Suggested Approach:**
-    - **Command Structure:** Design intuitive commands and flags to manage advanced settings.
-    - **User Feedback:** Ensure that the CLI provides clear feedback and confirmations for advanced operations.
-    - **Error Handling:** Implement robust error handling to manage issues specific to advanced functionalities.
-
-### **8. User Onboarding and Initialization**
-- **Seed Initialization on First Run**
-  - **Description:** When the user runs the program for the first time, prompt them to either enter an existing seed or generate a new one. Use the chosen password to encrypt the seed, whether it's user-provided or program-generated.
-  - **Benefits:** Provides flexibility and security during the initial setup, catering to both new users and those migrating from other password managers.
-  - **Suggested Features:**
-    - **Prompt Options:** Ask users if they want to input an existing seed or generate a new one.
-    - **Seed Generation:** If generating a new seed, ensure it's compliant with BIP-39 standards.
-    - **Encryption:** Securely encrypt the seed using the user's chosen password.
-    - **Confirmation:** Confirm the successful initialization and encryption of the seed.
-    - **Error Handling:** Manage scenarios where seed generation or encryption fails, providing clear feedback to the user.
-
-### **9. Use a Robust CLI Framework**
-- **Suggested Libraries:** [`argparse`](https://docs.python.org/3/library/argparse.html), [`click`](https://click.palletsprojects.com/), or [`Typer`](https://typer.tiangolo.com/).
-- **Benefits:**
-  - Simplifies the creation of complex CLI commands and subcommands.
-  - Enhances readability and maintainability of CLI code.
-  - Provides built-in help and documentation features.
-
-### **10. Implement Secure Clipboard Operations**
-- **Library Suggestion:** [`pyperclip`](https://pypi.org/project/pyperclip/) for cross-platform clipboard access.
-- **Security Consideration:**
-  - Clear the clipboard after a set duration (e.g., 30 seconds) to prevent unauthorized access.
-  - Notify users when the clipboard is cleared.
-  - Handle cases where clipboard operations fail gracefully.
-
-### **11. Enhance Logging and Monitoring**
-- **Granular Logging:**
-  - Log detailed information for successful operations and warnings/errors for issues.
-  - Include timestamps, action types, and relevant metadata.
-- **Log Rotation:**
-  - Implement log rotation to prevent log files from growing indefinitely.
-  - Use Python's `logging.handlers` module or external libraries for managing log rotation.
-
-### **12. Ensure Comprehensive Testing**
-- **Unit Tests:**
-  - Write tests for individual functions and modules to ensure they work as intended.
-- **Integration Tests:**
-  - Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
-- **User Acceptance Testing (UAT):**
-  - Engage a group of users to test the application and provide feedback on usability and functionality.
-
-### **13. Prioritize Security Best Practices**
-- **Sensitive Data Handling:**
-  - Ensure that all sensitive data (e.g., seed phrases, encryption keys) are handled securely in memory and during storage.
-- **Encryption Standards:**
-  - Use industry-standard encryption algorithms and key derivation functions.
-- **Regular Audits:**
-  - Periodically review and audit the codebase for potential security vulnerabilities.
-
-### **14. Provide Comprehensive Documentation**
-- **User Guide:**
-  - Create detailed documentation covering installation, setup, usage, and troubleshooting.
-- **CLI Help:**
-  - Ensure that each CLI command includes descriptive help messages.
-- **Developer Documentation:**
-  - Document the codebase to assist future development and maintenance efforts.
+The SeedPass roadmap outlines a structured development plan divided into distinct phases. Each phase focuses on specific areas, prioritizing core functionalities and security before expanding into advanced CLI features and integrations. This approach ensures that SeedPass remains a secure, reliable, and user-friendly CLI-based password management tool.
 
 ---
 
-## **Advanced CLI Commands**
+### Phase 1: Core Functionality and Security
 
-| **Action**                                | **Command**            | **Short Flag** | **Long Flag**                     | **Example Command**                                                                                                                                                                              |
-|-------------------------------------------|------------------------|----------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Add a new password entry                  | `add`                  | `-A`           | `--add`                           | `passmgr add --title "GitHub" --url "https://github.com" --username "john_doe" --email "john@example.com" --notes "Primary GitHub account" --tags "work,development" --length 20`                        |
-| Retrieve a password entry                 | `retrieve`             | `-R`           | `--retrieve`                      | `passmgr retrieve --index 3` or `passmgr retrieve --title "GitHub"`                                                                                                                             |
-| Modify an existing entry                  | `modify`               | `-M`           | `--modify`                        | `passmgr modify --index 3 --title "GitHub Pro" --notes "Updated to pro account" --tags "work,development,pro" --length 22`                                                                          |
-| Delete an entry                           | `delete`               | `-D`           | `--delete`                        | `passmgr delete --index 3`                                                                                                                                                                       |
-| List all entries                          | `list`                 | `-L`           | `--list`                          | `passmgr list`                                                                                                                                                                                    |
-| Search for a password entry               | `search`               | `-S`           | `--search`                        | `passmgr search --query "GitHub"`                                                                                                                                                                 |
-| Export passwords to a file                | `export`               | `-E`           | `--export`                        | `passmgr export --file "backup_passwords.json"`                                                                                                                                                   |
-| Import passwords from a file              | `import`               | `-I`           | `--import`                        | `passmgr import --file "backup_passwords.json"`                                                                                                                                                   |
-| Display help information                  | `help`                 | `-H`           | `--help`                          | `passmgr help`                                                                                                                                                                                    |
-| Display application version               | `version`              | `-V`           | `--version`                       | `passmgr version`                                                                                                                                                                                 |
-| Change master password                    | `changepw`             | `-C`           | `--changepw`                      | `passmgr changepw --new "NewSecureP@ssw0rd!"`                                                                                                                                                      |
-| Enable auto-lock                          | `autolock --enable`    | `-AL`          | `--auto-lock --enable`            | `passmgr autolock --enable --timeout 10`                                                                                                                                                          |
-| Disable auto-lock                         | `autolock --disable`   | `-DL`          | `--auto-lock --disable`           | `passmgr autolock --disable`                                                                                                                                                                      |
-| Generate a strong password                | `generate`             | `-G`           | `--generate`                      | `passmgr generate --length 20`                                                                                                                                                                    |
-| Verify script checksum                    | `verify`               | `-V`           | `--verify`                        | `passmgr verify`                                                                                                                                                                                  |
-| Post encrypted index to Nostr             | `post`                 | `-P`           | `--post`                          | `passmgr post`                                                                                                                                                                                    |
-| Retrieve from Nostr                       | `get-nostr`            | `-GN`          | `--get-nostr`                     | `passmgr get-nostr`                                                                                                                                                                               |
-| Display Nostr public key                  | `show-pubkey`          | `-K`           | `--show-pubkey`                   | `passmgr show-pubkey`                                                                                                                                                                             |
-| **Set Custom Nostr Relays**               | `set-relays`           | `-SR`          | `--set-relays`                    | `passmgr set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                           |
-| **Enable "Secret" Mode**                   | `set-secret`           | `-SS`          | `--set-secret`                    | `passmgr set-secret --enable` or `passmgr set-secret --disable`                                                                                                                                    |
-| **Batch Post Index Items to Nostr**        | `batch-post`           | `-BP`          | `--batch-post`                    | `passmgr batch-post --start 0 --end 9` or `passmgr batch-post --range 10-19`                                                                                                                       |
-| **Show All Passwords**                     | `show-all`             | `-SA`          | `--show-all`                      | `passmgr show-all`                                                                                                                                                                                |
-| **Add Notes to an Entry**                  | `add-notes`            | `-AN`          | `--add-notes`                     | `passmgr add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
-| **Add Tags to an Entry**                   | `add-tags`             | `-AT`          | `--add-tags`                      | `passmgr add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
-| **Search by Tag or Title**                 | `search-by`            | `-SB`          | `--search-by`                     | `passmgr search-by --tag "work"` or `passmgr search-by --title "GitHub"`                                                                                                                          |
-| **Automatically Post Index to Nostr After Edit** | `auto-post`            | `-AP`          | `--auto-post`                     | `passmgr auto-post --enable` or `passmgr auto-post --disable`                                                                                                                                    |
-| **Initial Setup Prompt for Seed Generation/Import** | `setup`                | `-ST`          | `--setup`                         | `passmgr setup`                                                                                                                                                                                   |
+**Goal:** Establish a solid foundation with essential password management features, secure seed handling, and robust Nostr integration.
+
+1. **Cross-Platform Compatibility**
+   - **Add Windows-Supported File Locking**
+     - **Description:** Implement a cross-platform file locking mechanism to ensure safe concurrent file access across different operating systems.
+     - **Approach:** Utilize a library like [`portalocker`](https://pypi.org/project/portalocker/) to replace the current `fcntl`-based locking system.
+
+2. **Security Enhancements**
+   - **Add Parent Seed Recovery**
+     - **Description:** Develop a secure method for users to recover their parent seed if lost.
+     - **Features:**
+       - **Recovery Phrase:** Allow users to generate and store a recovery phrase or backup file.
+       - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
+       - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
+
+   - **Add "Secret" Mode (Clipboard-Only Password Retrieval)**
+     - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval.
+     - **Features:**
+       - **Toggle Setting:** Allow users to enable or disable "secret" mode.
+       - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
+       - **User Feedback:** Notify users that the password has been copied to the clipboard.
+
+   - **Implement Two-Factor Security Model with Random Index Generation**
+     - **Description:** Create a robust two-factor security system using a master seed and master password combination, enhanced with random index generation for additional security.
+     - **Key Features:**
+       - **Random Index Generation:** Generate cryptographically secure random numbers for each new password index.
+       - **Master Seed Management:** Keep the master seed in cold storage/offline, acting as the primary key for password generation.
+       - **Master Password System:** Store the master password in memory/brain only, required to decrypt indices and access accounts.
+       - **Protection Layers:** Ensure seed and password compromise protection through encrypted indices and secure storage.
+       - **Security Verification:** Implement checks to ensure neither factor can be bypassed and verify the randomness quality of index generation.
+
+3. **Nostr Integration Enhancements**
+   - **Add Option for Custom Relays**
+     - **Description:** Provide users with the ability to select or configure specific Nostr relays for publishing their encrypted backup index.
+     - **Features:**
+       - **User Configuration:** Allow users to input or select preferred relay URLs via CLI commands.
+       - **Validation:** Ensure specified relays are active and support necessary protocols.
+       - **Fallback Mechanism:** Allow users to add multiple relays for redundancy in case some become unavailable.
+
+   - **Implement Smart Batching System for Index Updates**
+     - **Description:** Manage the synchronization of password indices across devices by segmenting the encrypted JSON index into manageable chunks for Nostr transmission.
+     - **Features:**
+       - **Batch Structure:** Include metadata such as total batch count, sequence position, and checksums.
+       - **Reconstruction Protocol:** Collect batches with matching timestamps, verify checksums, and reconstruct the complete index.
+       - **Conflict Management:** Use timestamp-based precedence and checksum validation to handle conflicts.
+       - **Error Handling:** Implement mechanisms to recover from partial updates, network interruptions, and corrupt batches.
+       - **Optimization Features:** Use differential updates, batch prioritization, and compression to enhance performance.
+
+   - **Automatically Post Index to Nostr After Every Edit**
+     - **Description:** Automate the process of updating Nostr relays whenever modifications to the password index occur.
+     - **Features:**
+       - **Hook Integration:** Detect changes and trigger posting via hooks in relevant modules.
+       - **Error Handling:** Manage failed posts without disrupting the user's workflow.
+       - **User Notifications:** Inform users of the backup status after each edit (e.g., success, failure).
+
+4. **User Onboarding and Initialization**
+   - **Seed Initialization on First Run**
+     - **Description:** Prompt users to either enter an existing seed or generate a new one during the first run.
+     - **Features:**
+       - **Prompt Options:** Ask users if they want to input an existing seed or generate a new one.
+       - **Seed Generation:** Ensure generated seeds comply with BIP-39 standards.
+       - **Encryption:** Securely encrypt the seed using the user's chosen password.
+       - **Confirmation:** Confirm the successful initialization and encryption of the seed.
+       - **Error Handling:** Manage scenarios where seed generation or encryption fails, providing clear feedback to the user.
+
+5. **Comprehensive Testing and Security Auditing**
+   - **Unit Tests:** Develop tests for individual functions and modules to ensure they work as intended.
+   - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
+   - **Security Audits:** Conduct regular code reviews and security assessments to identify and mitigate vulnerabilities.
 
 ---
 
-### **Notes on New CLI Commands**
+### Phase 2: Enhanced Security and Data Management
 
-1. **Automatically Post Index to Nostr After Edit (`auto-post`):**
-   - **Purpose:** Enables or disables the automatic posting of the index to Nostr whenever an edit occurs.
-   - **Usage Examples:**
-     - Enable auto-post: `passmgr auto-post --enable`
-     - Disable auto-post: `passmgr auto-post --disable`
+**Goal:** Strengthen security features and improve data management capabilities for better scalability and user satisfaction.
 
-2. **Initial Setup Prompt for Seed Generation/Import (`setup`):**
-   - **Purpose:** Guides users through the initial setup process, allowing them to choose between generating a new seed or importing an existing one.
-   - **Features to Implement:**
-     - **Seed Choice Prompt:** Ask users whether they want to generate a new seed or import an existing one.
-     - **Encryption of Seed:** Use the user-selected password to encrypt the seed, whether generated or imported.
-     - **Nostr Profile Creation:** Upon first login, automatically generate a Nostr profile and check for existing index data notes that can be pulled and decrypted.
-   - **Usage Example:** `passmgr setup`
+1. **Enhanced Data Fields**
+   - **Add "Notes" Field**
+     - **Description:** Allow users to add supplementary information or comments to each password entry.
+   - **Add "Tags" Field**
+     - **Description:** Enable categorization and easier organization of passwords through tagging.
+   - **Rename "Website" Field to "Title"**
+     - **Description:** Generalize the naming convention to accommodate non-website entries, such as application logins or system credentials.
 
-3. **Advanced CLI Enhancements:**
-   - **Toggle "Secret" Mode via CLI:**
-     - **Description:** Allow users to enable or disable "secret" mode directly through the CLI.
-     - **Usage Examples:**
-       - Enable secret mode: `passmgr set-secret --enable`
-       - Disable secret mode: `passmgr set-secret --disable`
-   
-   - **Initial Seed Setup Flow:**
-     - **Description:** When running `passmgr setup`, prompt users to either enter an existing seed or generate a new one, followed by password creation for encryption.
-     - **Usage Example:** `passmgr setup`
-   
-   - **Automatic Nostr Profile Generation and Index Retrieval:**
-     - **Description:** During the initial setup or first login, generate a Nostr profile and attempt to retrieve and decrypt any existing index data from Nostr.
-     - **Usage Example:** `passmgr setup` (handles internally)
+2. **Add Family Password Management**
+   - **Description:** Enable users to manage multiple sets of passwords for their entire family, including kids or elderly parents, from a single interface.
+   - **Features:**
+     - **Segregated Access:** Allow users to create and manage separate password sets for different family members.
+     - **Additional Security Layers:** Implement MFA or role-based access for managing family members' accounts.
+     - **User-Friendly CLI Commands:** Develop intuitive CLI commands to handle family member password sets efficiently.
+
+3. **Add Easy BIP39 Seed Generation for Various Use Cases**
+   - **Description:** Provide an easy method for generating new BIP39 seeds for different purposes, such as cryptocurrency wallets.
+   - **Features:**
+     - **Seed Generation:** Ensure seeds are generated securely and comply with BIP39 standards.
+     - **User Guidance:** Offer CLI instructions on securely handling and storing generated seeds.
+
+4. **Add Nostr Public/Private Key Pair Generation**
+   - **Description:** Allow users to generate new Nostr public/private key pairs within the application.
+   - **Features:**
+     - **Secure Key Generation:** Ensure key pairs are generated securely and tied to specific index entries.
+     - **Seamless Integration:** Integrate key pair management with existing Nostr functionalities.
+     - **Security Advisories:** Inform users about best practices for managing multiple Nostr identities and the risks of using the same seed across different identities.
+
+---
+
+### Phase 3: Advanced CLI Functionalities
+
+**Goal:** Develop a sophisticated Command-Line Interface (CLI) for power users and developers, enhancing automation and customization capabilities.
+
+1. **Develop an Advanced CLI Mode with Enhanced Functionalities**
+   - **Features:**
+     - **Custom Relays Configuration:** Allow users to specify a custom set of Nostr relays for publishing their backup index via CLI commands.
+     - **Batch Posting:** Enable the CLI to handle the segmentation of index entries into batches of 10 for Nostr posts.
+     - **Toggle "Secret" Mode via CLI:** Provide CLI commands to enable or disable "secret" mode for clipboard-only password retrieval.
+     - **Automated Nostr Posting:** Ensure that any edit to the index automatically triggers a post to Nostr.
+     - **Initial Setup Enhancements:** Implement CLI commands to handle the first-time user experience, including seed generation/import and initial Nostr profile creation.
+
+2. **Use a Robust CLI Framework**
+   - **Description:** Transition to a robust CLI framework like [`click`](https://click.palletsprojects.com/) or [`Typer`](https://typer.tiangolo.com/) for better maintainability and scalability.
+   - **Benefits:**
+     - Simplifies the creation of complex CLI commands and subcommands.
+     - Enhances readability and maintainability of CLI code.
+     - Provides built-in help and documentation features.
+
+3. **Implement Secure Clipboard Operations**
+   - **Description:** Ensure that clipboard operations are secure and temporary.
+   - **Features:**
+     - **Clear Clipboard After Duration:** Automatically clear the clipboard after a set duration (e.g., 30 seconds) to prevent unauthorized access.
+     - **User Notifications:** Inform users when the clipboard is cleared.
+     - **Graceful Failure Handling:** Manage cases where clipboard operations fail without disrupting the user experience.
+
+---
+
+### Phase 4: Data Management Enhancements and Integrations
+
+**Goal:** Further improve data management capabilities and integrate with other platforms for expanded functionality.
+
+1. **Add Nostr Public/Private Key Pair Generation**
+   - **Description:** Allow users to generate new Nostr public/private key pairs within the application.
+   - **Features:**
+     - **Secure Key Pair Generation:** Ensure key pairs are generated securely and tied to specific index entries.
+     - **Seamless Integration:** Integrate key pair management with existing Nostr functionalities.
+     - **Security Advisories:** Inform users about best practices for managing multiple Nostr identities and the risks of using the same seed across different identities.
+
+2. **Additional Integrations**
+   - **Description:** Expand integrations with other platforms and services as needed.
+   - **Examples:**
+     - **Cryptocurrency Wallets:** Integrate with wallets like Bitcoin/Cashu or Atomic Wallet for seamless seed management.
+     - **Productivity Tools:** Integrate with tools like AnyType for enhanced password and data management.
+
+---
+
+### Phase 5: Documentation, Testing, and Finalization
+
+**Goal:** Ensure comprehensive documentation, robust testing, and finalize the application for release.
+
+1. **Provide Comprehensive Documentation**
+   - **User Guide:** Create detailed documentation covering installation, setup, usage, and troubleshooting via CLI help commands and external documentation files.
+   - **CLI Help:** Ensure that each CLI command includes descriptive help messages accessible via commands like `--help`.
+   - **Developer Documentation:** Document the codebase to assist future development and maintenance efforts, including contribution guidelines and code structure explanations.
+
+2. **Enhance Logging and Monitoring**
+   - **Granular Logging:** Implement detailed logs for successful operations and warnings/errors for issues, including timestamps, action types, and relevant metadata.
+   - **Log Rotation:** Use Python's `logging.handlers` module or external libraries to manage log rotation and prevent log files from growing indefinitely.
+
+3. **Ensure Comprehensive Testing**
+   - **Unit Tests:** Write tests for individual functions and modules to ensure they work as intended.
+   - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
+   - **User Acceptance Testing (UAT):** Engage a group of users to test the CLI tool and provide feedback on usability and functionality.
+
+4. **Prioritize Security Best Practices**
+   - **Sensitive Data Handling:** Ensure that all sensitive data (e.g., seed phrases, encryption keys) are handled securely in memory and during storage.
+   - **Encryption Standards:** Use industry-standard encryption algorithms and key derivation functions.
+   - **Regular Audits:** Periodically review and audit the codebase for potential security vulnerabilities.
+
+---
+
+### Future Phases (Beyond Initial Roadmap)
+
+1. **Continuous Improvement and Feature Expansion**
+   - **Description:** Respond to user feedback and implement additional features based on emerging needs.
+   - **Examples:** Integrate with new platforms, add support for biometric authentication, or expand to mobile platforms.
+
+2. **Scalability and Performance Optimization**
+   - **Description:** Optimize application performance for large datasets and enhance scalability for a growing user base.
+   - **Features:**
+     - **Performance Tuning:** Improve response times and resource usage.
+     - **Scalability Enhancements:** Ensure the application can handle an increasing number of users and data entries without degradation in performance.
