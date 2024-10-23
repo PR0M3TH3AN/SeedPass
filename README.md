@@ -184,35 +184,54 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 
 ### Overview
 
-The SeedPass roadmap outlines a structured development plan divided into distinct phases. Each phase focuses on specific areas, prioritizing core functionalities and security before expanding into advanced CLI features and integrations. This approach ensures that SeedPass remains a secure, reliable, and user-friendly CLI-based password management tool.
+The SeedPass roadmap outlines a structured development plan divided into distinct phases. Each phase focuses on specific areas, prioritizing core functionalities and security before expanding into advanced CLI features and integrations. This approach ensures that SeedPass remains a secure, reliable, and user-friendly CLI-based password management tool while accommodating the new method of individual entry management.
 
 ---
 
-### Phase 1: Core Functionality and Security
+### Phase 1: Core Functionality and Security Enhancements
 
-**Goal:** Establish a solid foundation with essential password management features, secure seed handling, and robust Nostr integration.
+**Goal:** Establish a robust foundation with individual entry management, secure seed handling, and seamless Nostr integration.
 
-1. **Cross-Platform Compatibility**
-   - **Add Windows-Supported File Locking**
-     - **Description:** Implement a cross-platform file locking mechanism to ensure safe concurrent file access across different operating systems.
-     - **Approach:** Utilize a library like [`portalocker`](https://pypi.org/project/portalocker/) to replace the current `fcntl`-based locking system.
+1. **Individual JSON File Management**
+   - **Separate Entry Files:**
+     - **Description:** Modify the application to create and manage each entry as a separate JSON file within a designated directory.
+     - **Implementation Steps:**
+       - Define a standardized naming convention for entry files (e.g., `entry_<entry_num>.json`).
+       - Update CRUD (Create, Read, Update, Delete) operations to handle individual files.
+   - **Backup Directory Structure:**
+     - **Description:** Implement a backup system that saves previous versions of each entry in a separate backup folder.
+     - **Implementation Steps:**
+       - Create a `backups/` directory within the SeedPass data folder.
+       - Upon modifying an entry, save the previous version in `backups/entry_<entry_num>_v<version>.json`.
+       - Implement rollback functionality to restore from backups if needed.
 
-2. **Security Enhancements**
-   - **Add Parent Seed Recovery**
+2. **Enhanced JSON Schema Integration**
+   - **Description:** Adopt the new JSON schema for all entry types, ensuring consistency and flexibility.
+   - **Implementation Steps:**
+     - Update existing entries to conform to the new schema.
+     - Ensure that new kinds adhere to the defined structure, facilitating future expansions.
+
+3. **Nostr Integration for Individual Entries**
+   - **Description:** Each entry corresponds to a separate Nostr post, enabling granular synchronization and backup.
+   - **Implementation Steps:**
+     - Modify the Nostr posting mechanism to handle individual JSON files.
+     - Ensure that each new or updated entry is posted as a distinct event on Nostr.
+     - Implement synchronization logic to fetch and update entries from Nostr as needed.
+
+4. **Security Enhancements**
+   - **Parent Seed Recovery**
      - **Description:** Develop a secure method for users to recover their parent seed if lost.
      - **Features:**
        - **Recovery Phrase:** Allow users to generate and store a recovery phrase or backup file.
        - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
        - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
-
-   - **Add "Secret" Mode (Clipboard-Only Password Retrieval)**
+   - **"Secret" Mode (Clipboard-Only Password Retrieval)**
      - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval.
      - **Features:**
        - **Toggle Setting:** Allow users to enable or disable "secret" mode.
        - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
        - **User Feedback:** Notify users that the password has been copied to the clipboard.
-
-   - **Implement Two-Factor Security Model with Random Index Generation**
+   - **Two-Factor Security Model with Random Index Generation**
      - **Description:** Create a robust two-factor security system using a master seed and master password combination, enhanced with random index generation for additional security.
      - **Key Features:**
        - **Random Index Generation:** Generate cryptographically secure random numbers for each new password index.
@@ -221,31 +240,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Protection Layers:** Ensure seed and password compromise protection through encrypted indices and secure storage.
        - **Security Verification:** Implement checks to ensure neither factor can be bypassed and verify the randomness quality of index generation.
 
-3. **Nostr Integration Enhancements**
-   - **Add Option for Custom Relays**
-     - **Description:** Provide users with the ability to select or configure specific Nostr relays for publishing their encrypted backup index.
-     - **Features:**
-       - **User Configuration:** Allow users to input or select preferred relay URLs via CLI commands.
-       - **Validation:** Ensure specified relays are active and support necessary protocols.
-       - **Fallback Mechanism:** Allow users to add multiple relays for redundancy in case some become unavailable.
-
-   - **Implement Smart Batching System for Index Updates**
-     - **Description:** Manage the synchronization of password indices across devices by segmenting the encrypted JSON index into manageable chunks for Nostr transmission.
-     - **Features:**
-       - **Batch Structure:** Include metadata such as total batch count, sequence position, and checksums.
-       - **Reconstruction Protocol:** Collect batches with matching timestamps, verify checksums, and reconstruct the complete index.
-       - **Conflict Management:** Use timestamp-based precedence and checksum validation to handle conflicts.
-       - **Error Handling:** Implement mechanisms to recover from partial updates, network interruptions, and corrupt batches.
-       - **Optimization Features:** Use differential updates, batch prioritization, and compression to enhance performance.
-
-   - **Automatically Post Index to Nostr After Every Edit**
-     - **Description:** Automate the process of updating Nostr relays whenever modifications to the password index occur.
-     - **Features:**
-       - **Hook Integration:** Detect changes and trigger posting via hooks in relevant modules.
-       - **Error Handling:** Manage failed posts without disrupting the user's workflow.
-       - **User Notifications:** Inform users of the backup status after each edit (e.g., success, failure).
-
-4. **User Onboarding and Initialization**
+5. **User Onboarding and Initialization**
    - **Seed Initialization on First Run**
      - **Description:** Prompt users to either enter an existing seed or generate a new one during the first run.
      - **Features:**
@@ -255,7 +250,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Confirmation:** Confirm the successful initialization and encryption of the seed.
        - **Error Handling:** Manage scenarios where seed generation or encryption fails, providing clear feedback to the user.
 
-5. **Comprehensive Testing and Security Auditing**
+6. **Comprehensive Testing and Security Auditing**
    - **Unit Tests:** Develop tests for individual functions and modules to ensure they work as intended.
    - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
    - **Security Audits:** Conduct regular code reviews and security assessments to identify and mitigate vulnerabilities.
@@ -264,30 +259,28 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 ### Phase 2: Enhanced Security and Data Management
 
-**Goal:** Strengthen security features and improve data management capabilities for better scalability and user satisfaction.
+**Goal:** Strengthen security features and improve data management capabilities with the new individual entry system.
 
-1. **Enhanced Data Fields**
-   - **Add "Notes" Field**
-     - **Description:** Allow users to add supplementary information or comments to each password entry.
-   - **Add "Tags" Field**
-     - **Description:** Enable categorization and easier organization of passwords through tagging.
-   - **Rename "Website" Field to "Title"**
-     - **Description:** Generalize the naming convention to accommodate non-website entries, such as application logins or system credentials.
-
-2. **Add Family Password Management**
-   - **Description:** Enable users to manage multiple sets of passwords for their entire family, including kids or elderly parents, from a single interface.
+1. **Advanced Data Fields and New Kinds**
+   - **Description:** Utilize the flexible JSON schema to introduce advanced data fields and new kinds.
+   - **Implementation Steps:**
+     - Define additional fields for existing kinds as needed.
+     - Introduce new kinds (e.g., `cryptocurrency_wallet`) following the established schema.
+   
+2. **Family Password Management**
+   - **Description:** Enable management of multiple password sets for family members using individual entry files.
    - **Features:**
      - **Segregated Access:** Allow users to create and manage separate password sets for different family members.
      - **Additional Security Layers:** Implement MFA or role-based access for managing family members' accounts.
      - **User-Friendly CLI Commands:** Develop intuitive CLI commands to handle family member password sets efficiently.
 
-3. **Add Easy BIP39 Seed Generation for Various Use Cases**
+3. **Easy BIP39 Seed Generation for Various Use Cases**
    - **Description:** Provide an easy method for generating new BIP39 seeds for different purposes, such as cryptocurrency wallets.
    - **Features:**
      - **Seed Generation:** Ensure seeds are generated securely and comply with BIP39 standards.
      - **User Guidance:** Offer CLI instructions on securely handling and storing generated seeds.
 
-4. **Add Nostr Public/Private Key Pair Generation**
+4. **Nostr Public/Private Key Pair Generation**
    - **Description:** Allow users to generate new Nostr public/private key pairs within the application.
    - **Features:**
      - **Secure Key Generation:** Ensure key pairs are generated securely and tied to specific index entries.
@@ -298,25 +291,35 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 ### Phase 3: Advanced CLI Functionalities
 
-**Goal:** Develop a sophisticated Command-Line Interface (CLI) for power users and developers, enhancing automation and customization capabilities.
+**Goal:** Develop a sophisticated Command-Line Interface (CLI) tailored for the individual entry system, enhancing automation and customization.
 
-1. **Develop an Advanced CLI Mode with Enhanced Functionalities**
-   - **Features:**
-     - **Custom Relays Configuration:** Allow users to specify a custom set of Nostr relays for publishing their backup index via CLI commands.
-     - **Batch Posting:** Enable the CLI to handle the segmentation of index entries into batches of 10 for Nostr posts.
-     - **Toggle "Secret" Mode via CLI:** Provide CLI commands to enable or disable "secret" mode for clipboard-only password retrieval.
-     - **Automated Nostr Posting:** Ensure that any edit to the index automatically triggers a post to Nostr.
-     - **Initial Setup Enhancements:** Implement CLI commands to handle the first-time user experience, including seed generation/import and initial Nostr profile creation.
+1. **Advanced CLI Commands for Entry Management**
+   - **Description:** Introduce CLI commands to create, read, update, delete, and backup individual entries.
+   - **Implementation Steps:**
+     - Implement commands such as `add-entry`, `view-entry`, `update-entry`, `delete-entry`, and `backup-entry`.
+     - Ensure commands support specifying entry kinds and associated data fields.
 
-2. **Use a Robust CLI Framework**
-   - **Description:** Transition to a robust CLI framework like [`click`](https://click.palletsprojects.com/) or [`Typer`](https://typer.tiangolo.com/) for better maintainability and scalability.
-   - **Benefits:**
-     - Simplifies the creation of complex CLI commands and subcommands.
-     - Enhances readability and maintainability of CLI code.
-     - Provides built-in help and documentation features.
+2. **Custom Relays Configuration via CLI**
+   - **Description:** Allow users to specify custom Nostr relays for each entry or globally.
+   - **Implementation Steps:**
+     - Introduce CLI options to add, remove, or list relays.
+     - Ensure entries are posted to the specified relays upon creation or update.
 
-3. **Implement Secure Clipboard Operations**
-   - **Description:** Ensure that clipboard operations are secure and temporary.
+3. **Batch Processing and Smart Posting**
+   - **Description:** Optimize Nostr posting by handling multiple entries efficiently through single-entry batching.
+   - **Implementation Steps:**
+     - **Single Entry = Single Post:**
+       - Each new or updated entry is posted individually to Nostr as a separate event.
+       - This approach ensures scalability and simplifies synchronization.
+     - **Backup File Management:**
+       - For every entry post, create a corresponding backup file in the `backups/` directory.
+       - Maintain versioning for easy rollback if needed.
+     - **Error Handling:**
+       - Implement mechanisms to handle failed posts without disrupting the user's workflow.
+       - Provide user notifications for successful or failed postings.
+
+4. **Secure Clipboard Operations**
+   - **Description:** Ensure clipboard operations are secure and temporary.
    - **Features:**
      - **Clear Clipboard After Duration:** Automatically clear the clipboard after a set duration (e.g., 30 seconds) to prevent unauthorized access.
      - **User Notifications:** Inform users when the clipboard is cleared.
@@ -326,45 +329,48 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 ### Phase 4: Data Management Enhancements and Integrations
 
-**Goal:** Further improve data management capabilities and integrate with other platforms for expanded functionality.
+**Goal:** Further improve data management capabilities and integrate with other platforms using the individual entry system.
 
-1. **Add Nostr Public/Private Key Pair Generation**
-   - **Description:** Allow users to generate new Nostr public/private key pairs within the application.
+1. **Additional Integrations**
+   - **Description:** Expand integrations with other platforms and services, leveraging individual entry management.
+   - **Implementation Steps:**
+     - Integrate with cryptocurrency wallets, productivity tools, and other services.
+     - Ensure each integration corresponds to separate entries, maintaining modularity.
+
+2. **Scalability Enhancements**
+   - **Description:** Optimize the application to handle a growing number of individual entries without performance degradation.
    - **Features:**
-     - **Secure Key Pair Generation:** Ensure key pairs are generated securely and tied to specific index entries.
-     - **Seamless Integration:** Integrate key pair management with existing Nostr functionalities.
-     - **Security Advisories:** Inform users about best practices for managing multiple Nostr identities and the risks of using the same seed across different identities.
-
-2. **Additional Integrations**
-   - **Description:** Expand integrations with other platforms and services as needed.
-   - **Examples:**
-     - **Cryptocurrency Wallets:** Integrate with wallets like Bitcoin/Cashu or Atomic Wallet for seamless seed management.
-     - **Productivity Tools:** Integrate with tools like AnyType for enhanced password and data management.
+     - **Indexing Mechanisms:** Implement indexing for quick retrieval of entries.
+     - **Optimized File Storage:** Improve file storage and access patterns for efficiency.
 
 ---
 
 ### Phase 5: Documentation, Testing, and Finalization
 
-**Goal:** Ensure comprehensive documentation, robust testing, and finalize the application for release.
+**Goal:** Ensure comprehensive documentation, robust testing, and finalize the application for release with the new entry management system.
 
 1. **Provide Comprehensive Documentation**
    - **User Guide:** Create detailed documentation covering installation, setup, usage, and troubleshooting via CLI help commands and external documentation files.
    - **CLI Help:** Ensure that each CLI command includes descriptive help messages accessible via commands like `--help`.
    - **Developer Documentation:** Document the codebase to assist future development and maintenance efforts, including contribution guidelines and code structure explanations.
+   - **Guidelines for Adding New Kinds:** Document the process and standards for introducing new `kind` types.
 
 2. **Enhance Logging and Monitoring**
    - **Granular Logging:** Implement detailed logs for successful operations and warnings/errors for issues, including timestamps, action types, and relevant metadata.
    - **Log Rotation:** Use Python's `logging.handlers` module or external libraries to manage log rotation and prevent log files from growing indefinitely.
+   - **Log Unknown Kinds:** Ensure logs capture instances of unknown `kind` types for future handling.
 
 3. **Ensure Comprehensive Testing**
    - **Unit Tests:** Write tests for individual functions and modules to ensure they work as intended.
    - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
    - **User Acceptance Testing (UAT):** Engage a group of users to test the CLI tool and provide feedback on usability and functionality.
+   - **Automate Extensibility Tests:** Incorporate tests that verify the application's behavior with both known and unknown `kind` types.
 
 4. **Prioritize Security Best Practices**
    - **Sensitive Data Handling:** Ensure that all sensitive data (e.g., seed phrases, encryption keys) are handled securely in memory and during storage.
    - **Encryption Standards:** Use industry-standard encryption algorithms and key derivation functions.
    - **Regular Audits:** Periodically review and audit the codebase for potential security vulnerabilities.
+   - **Secure Handling of All Kinds:** Ensure that security measures are uniformly applied across all `kind` types.
 
 ---
 
@@ -372,7 +378,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 1. **Continuous Improvement and Feature Expansion**
    - **Description:** Respond to user feedback and implement additional features based on emerging needs.
-   - **Examples:** Integrate with new platforms, add support for biometric authentication, or expand to mobile platforms.
+   - **Examples:** Integrate biometric authentication, expand to mobile platforms, or introduce collaborative password management features.
 
 2. **Scalability and Performance Optimization**
    - **Description:** Optimize application performance for large datasets and enhance scalability for a growing user base.
