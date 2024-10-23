@@ -260,6 +260,9 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 7. **Fingerprint-Based Backup and Local Storage Structure** [see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/fingerprint_seeds.md) 
    - **Summary:** Implement a fingerprinting system to uniquely identify and manage multiple seeds and user profiles securely. This one-way function-based method enhances data organization, enabling users to handle various seeds without exposing sensitive information.
 
+8. **Managed Users’ Data Loading**
+   - **Summary:** Enable the master seed holder to load and manage the seeds, passwords, and Nostr accounts of dependent users. This allows centralized management of multiple accounts, ensuring secure synchronization and control over multiple users' data.
+
 ---
 
 ### Phase 2: Enhanced Security and Data Management
