@@ -192,6 +192,8 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 **Goal:** Establish a robust foundation with individual entry management, secure seed handling, and seamless Nostr integration.
 
+[see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/json_entries.md) 
+
 1. **Individual JSON File Management**
    - **Separate Entry Files:**
      - **Description:** Modify the application to create and manage each entry as a separate JSON file within a designated directory.
@@ -292,6 +294,8 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 ### Phase 3: Advanced CLI Functionalities
 
 **Goal:** Develop a sophisticated Command-Line Interface (CLI) tailored for the individual entry system, enhancing automation and customization.
+
+[see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/advanced_cli.md) 
 
 1. **Advanced CLI Commands for Entry Management**
    - **Description:** Introduce CLI commands to create, read, update, delete, and backup individual entries.
