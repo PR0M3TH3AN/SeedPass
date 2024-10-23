@@ -221,12 +221,6 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
      - Implement synchronization logic to fetch and update entries from Nostr as needed.
 
 4. **Security Enhancements**
-   - **Parent Seed Recovery**
-     - **Description:** Develop a secure method for users to recover their parent seed if lost.
-     - **Features:**
-       - **Recovery Phrase:** Allow users to generate and store a recovery phrase or backup file.
-       - **Multi-Factor Authentication (MFA):** Integrate MFA to enhance the security of the recovery process.
-       - **Encrypted Storage:** Ensure that recovery data is encrypted and stored securely.
    - **"Secret" Mode (Clipboard-Only Password Retrieval)**
      - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval.
      - **Features:**

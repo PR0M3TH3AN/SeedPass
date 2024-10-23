@@ -6,3 +6,4 @@ bech32==1.2.0
 monstr @ git+https://github.com/monty888/monstr.git@master#egg=monstr
 mnemonic
 aiohttp
+bcrypt

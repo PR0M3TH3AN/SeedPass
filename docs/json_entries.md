@@ -1,3 +1,7 @@
+Certainly! Below is the updated **SeedPass JSON Entry Management and Extensibility** documentation tailored to align with the new **Fingerprint-Based Backup and Local Storage** approach. This revision ensures that fingerprints are treated as distinct entities within the JSON schema and directory structures, without referencing any SeedSigner devices.
+
+---
+
 # SeedPass JSON Entry Management and Extensibility
 
 ## Table of Contents
@@ -29,7 +33,7 @@
 
 ## Introduction
 
-**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
+**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
 
 ---
 
@@ -43,6 +47,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 0,
   "index_num": 0,
+  "fingerprint": "a1b2c3d4",
   "kind": "generated_password",
   "data": {
     // Fields specific to the kind
@@ -63,6 +68,8 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 - **index_num** (`integer` or `string`):
   - For `generated_password` kind: Starts from 0 and increments sequentially.
   - For other kinds: A secure random hexadecimal string (e.g., a hash of the content) used as the BIP-85 index.
+
+- **fingerprint** (`string`): A unique identifier generated from the seed associated with the entry. This fingerprint ensures that each seed's data is isolated and securely managed.
 
 - **kind** (`string`): Specifies the type of entry. Initial kinds include:
   - `generated_password`
@@ -89,6 +96,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 0,
   "index_num": 0,
+  "fingerprint": "a1b2c3d4",
   "kind": "generated_password",
   "data": {
     "title": "Example Website",
@@ -111,7 +119,8 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 ```json
 {
   "entry_num": 1,
-  "index_num": 1,
+  "index_num": "q1wec4d426fs",
+  "fingerprint": "a1b2c3d4",
   "kind": "stored_password",
   "data": {
     "title": "Another Service",
@@ -133,6 +142,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 2,
   "index_num": "a1b2c3d4e5f6",
+  "fingerprint": "a1b2c3d4",
   "kind": "managed_user",
   "data": {
     "users_password": "<encrypted_users_password>"
@@ -152,6 +162,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 3,
   "index_num": "f7g8h9i0j1k2",
+  "fingerprint": "a1b2c3d4",
   "kind": "12_word_seed",
   "data": {
     "seed_phrase": "<encrypted_seed_phrase>"
@@ -171,6 +182,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 4,
   "index_num": "l3m4n5o6p7q8",
+  "fingerprint": "a1b2c3d4",
   "kind": "nostr_keys",
   "data": {
     "public_key": "<public_key>",
@@ -191,6 +203,7 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 {
   "entry_num": 5,
   "index_num": "r9s0t1u2v3w4",
+  "fingerprint": "a1b2c3d4",
   "kind": "note",
   "data": {
     "content": "This is a secure note.",
@@ -221,6 +234,7 @@ Each entry is encapsulated in its own JSON file with a standardized structure:
 {
   "entry_num": 0,
   "index_num": 0,
+  "fingerprint": "a1b2c3d4",
   "kind": "generated_password",
   "data": {
     // Fields specific to the kind
@@ -272,11 +286,12 @@ To maintain compatibility as new `kind` types are introduced, implement the foll
 def process_entry(entry):
     kind = entry.get("kind")
     data = entry.get("data")
+    fingerprint = entry.get("fingerprint")
     
     if kind == "generated_password":
-        handle_generated_password(data)
+        handle_generated_password(data, fingerprint)
     elif kind == "stored_password":
-        handle_stored_password(data)
+        handle_stored_password(data, fingerprint)
     # ... other known kinds ...
     else:
         log_warning(f"Unknown kind: {kind}. Skipping entry.")
@@ -314,13 +329,13 @@ To ensure seamless integration of new `kind` types in the future, consider the f
 ```python
 # handlers.py
 
-def handle_generated_password(data):
+def handle_generated_password(data, fingerprint):
     # Implementation
 
-def handle_stored_password(data):
+def handle_stored_password(data, fingerprint):
     # Implementation
 
-def handle_cryptocurrency_wallet(data):
+def handle_cryptocurrency_wallet(data, fingerprint):
     # Implementation
 ```
 
@@ -331,7 +346,7 @@ def handle_cryptocurrency_wallet(data):
 
 **Example:**
 ```python
-def handle_cryptocurrency_wallet(data):
+def handle_cryptocurrency_wallet(data, fingerprint):
     required_fields = ["wallet_name", "address", "private_key"]
     for field in required_fields:
         if field not in data:
@@ -360,6 +375,7 @@ Create a JSON file following the standardized structure with the new `kind` valu
 {
   "entry_num": 6,
   "index_num": "x1y2z3a4b5c6",
+  "fingerprint": "a1b2c3d4",
   "kind": "cryptocurrency_wallet",
   "data": {
     "wallet_name": "My Bitcoin Wallet",
@@ -379,7 +395,7 @@ Create a JSON file following the standardized structure with the new `kind` valu
 
 **Implement Handler Function:**
 ```python
-def handle_cryptocurrency_wallet(data):
+def handle_cryptocurrency_wallet(data, fingerprint):
     wallet_name = data.get("wallet_name")
     address = data.get("address")
     private_key = decrypt(data.get("private_key"))
@@ -392,13 +408,14 @@ def handle_cryptocurrency_wallet(data):
 def process_entry(entry):
     kind = entry.get("kind")
     data = entry.get("data")
+    fingerprint = entry.get("fingerprint")
     
     if kind == "generated_password":
-        handle_generated_password(data)
+        handle_generated_password(data, fingerprint)
     elif kind == "stored_password":
-        handle_stored_password(data)
+        handle_stored_password(data, fingerprint)
     elif kind == "cryptocurrency_wallet":
-        handle_cryptocurrency_wallet(data)
+        handle_cryptocurrency_wallet(data, fingerprint)
     # ... other known kinds ...
     else:
         log_warning(f"Unknown kind: {kind}. Skipping entry.")
@@ -412,32 +429,50 @@ Existing kinds such as `generated_password`, `stored_password`, etc., continue t
 
 ## Backup and Rollback Mechanism
 
-To ensure data integrity and provide recovery options, SeedPass implements a robust backup and rollback system.
+To ensure data integrity and provide recovery options, SeedPass implements a robust backup and rollback system within the **Fingerprint-Based Backup and Local Storage** framework.
 
 ### Backup Directory Structure
 
-- **Primary Entries Directory:** Stores individual JSON files for each entry.
-- **Backups Directory:** Stores previous versions of each entry.
+All backups are organized based on fingerprints, ensuring that each seed's data remains isolated and secure.
 
-**Example Structure:**
 ```
-SeedPass/
-├── entries/
-│   ├── entry_0.json
-│   ├── entry_1.json
-│   └── ...
-├── backups/
-│   ├── entry_0_v1.json
-│   ├── entry_0_v2.json
-│   ├── entry_1_v1.json
-│   └── ...
+~/.seedpass/
+├── a1b2c3d4/
+│   ├── entries/
+│   │   ├── entry_0.json
+│   │   ├── entry_1.json
+│   │   └── ...
+│   ├── backups/
+│   │   ├── entry_0_v1.json
+│   │   ├── entry_0_v2.json
+│   │   ├── entry_1_v1.json
+│   │   └── ...
+│   ├── parent_seed.enc
+│   ├── seedpass_passwords_checksum.txt
+│   ├── seedpass_passwords_db_checksum.txt
+│   └── seedpass_passwords_db.json
+├── b5c6d7e8/
+│   ├── entries/
+│   │   ├── entry_0.json
+│   │   ├── entry_1.json
+│   │   └── ...
+│   ├── backups/
+│   │   ├── entry_0_v1.json
+│   │   ├── entry_0_v2.json
+│   │   ├── entry_1_v1.json
+│   │   └── ...
+│   ├── parent_seed.enc
+│   ├── seedpass_passwords_checksum.txt
+│   ├── seedpass_passwords_db_checksum.txt
+│   └── seedpass_passwords_db.json
+└── ...
 ```
 
 ### Backup Process
 
 1. **Upon Modifying an Entry:**
-   - The current version of the entry is copied to the `backups/` directory with a version suffix (e.g., `entry_0_v1.json`).
-   - The modified entry is saved in the `entries/` directory.
+   - The current version of the entry is copied to the `backups/` directory within the corresponding fingerprint folder with a version suffix (e.g., `entry_0_v1.json`).
+   - The modified entry is saved in the `entries/` directory within the same fingerprint folder.
 
 2. **Versioning:**
    - Each backup file includes a version number to track changes over time.
@@ -445,10 +480,32 @@ SeedPass/
 ### Rollback Functionality
 
 - **Restoring an Entry:**
-  - Users can select a backup version from the `backups/` directory.
+  - Users can select a backup version from the `backups/` directory within the specific fingerprint folder.
   - The selected backup file is copied back to the `entries/` directory, replacing the current version.
 
 **Example Command:**
 ```bash
-python main.py rollback entry_0_v1.json
+seedpass rollback --fingerprint a1b2c3d4 --file entry_0_v1.json
 ```
+
+**Example Directory Structure After Rollback:**
+```
+~/.seedpass/
+├── a1b2c3d4/
+│   ├── entries/
+│   │   ├── entry_0.json  # Restored from entry_0_v1.json
+│   │   ├── entry_1.json
+│   │   └── ...
+│   ├── backups/
+│   │   ├── entry_0_v1.json
+│   │   ├── entry_0_v2.json
+│   │   ├── entry_1_v1.json
+│   │   └── ...
+│   ├── parent_seed.enc
+│   ├── seedpass_passwords_checksum.txt
+│   ├── seedpass_passwords_db_checksum.txt
+│   └── seedpass_passwords_db.json
+├── ...
+```
+
+*Note: Restoring a backup overwrites the current entry. Ensure that you intend to revert to the selected backup before proceeding.*

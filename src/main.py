@@ -57,11 +57,12 @@ def display_menu(password_manager: PasswordManager, nostr_client: NostrClient):
     5. Post Encrypted Index to Nostr
     6. Retrieve Encrypted Index from Nostr
     7. Display Nostr Public Key (npub)
-    8. Exit
+    8. Backup/Reveal Parent Seed
+    9. Exit
     """
     while True:
         print(colored(menu, 'cyan'))
-        choice = input('Enter your choice (1-8): ').strip()
+        choice = input('Enter your choice (1-9): ').strip()  # Updated to include option 9
         if choice == '1':
             password_manager.handle_generate_password()
         elif choice == '2':
@@ -77,6 +78,8 @@ def display_menu(password_manager: PasswordManager, nostr_client: NostrClient):
         elif choice == '7':
             handle_display_npub(nostr_client)
         elif choice == '8':
+            password_manager.handle_backup_reveal_parent_seed()  # Corrected variable name
+        elif choice == '9':
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", 'green'))
             nostr_client.close_client_pool()  # Gracefully close the ClientPool

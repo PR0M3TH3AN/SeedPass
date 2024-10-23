@@ -16,6 +16,7 @@ This means it  should generate passwords the exact same way every single time. S
 
 import os
 import json
+import stat
 import hashlib
 import logging
 import traceback
@@ -90,16 +91,18 @@ class EncryptionManager:
 
     def encrypt_parent_seed(self, parent_seed: str, file_path: Path) -> None:
         """
-        Encrypts and saves the parent seed to the specified file.
+        Encrypts and securely saves the parent seed to the specified file.
 
         :param parent_seed: The BIP39 parent seed phrase.
         :param file_path: The path to the file where the encrypted parent seed will be saved.
         """
         try:
-            # **Do not encrypt the data here**
+            # Encode the parent seed to bytes
             data = parent_seed.encode('utf-8')
-            # Pass the raw data to encrypt_file, which handles encryption
+            # Encrypt and write to file using encrypt_file
             self.encrypt_file(file_path, data)
+            # Set file permissions to read/write for the user only
+            os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
             logger.info(f"Parent seed encrypted and saved to '{file_path}'.")
             print(colored(f"Parent seed encrypted and saved to '{file_path}'.", 'green'))
         except Exception as e:
@@ -141,7 +144,7 @@ class EncryptionManager:
             return encrypted_data
         except Exception as e:
             logger.error(f"Error encrypting data: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error: Failed to encrypt data: {e}", 'red'))
             raise
 

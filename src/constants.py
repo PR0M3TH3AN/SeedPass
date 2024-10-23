@@ -91,3 +91,5 @@ MAX_PASSWORD_LENGTH = 128       # Maximum allowed password length
 # Additional Constants (if any)
 # -----------------------------------
 # Add any other constants here as your project expands
+HASHED_PASSWORD_FILE = APP_DIR / 'hashed_password.enc'
+DEFAULT_SEED_BACKUP_FILENAME = 'parent_seed_backup.enc'

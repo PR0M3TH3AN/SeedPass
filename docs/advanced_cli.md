@@ -65,15 +65,15 @@ The following table provides a quick reference to all available advanced CLI com
 | Post encrypted index to Nostr             | `post`                 | `-P`           | `--post`                          | `seedpass post`                                                                                                                                                                                    |
 | Retrieve from Nostr                       | `get-nostr`            | `-GN`          | `--get-nostr`                     | `seedpass get-nostr`                                                                                                                                                                               |
 | Display Nostr public key                  | `show-pubkey`          | `-K`           | `--show-pubkey`                   | `seedpass show-pubkey`                                                                                                                                                                             |
-| **Set Custom Nostr Relays**               | `set-relays`           | `-SR`          | `--set-relays`                    | `seedpass set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                           |
-| **Enable "Secret" Mode**                  | `set-secret`           | `-SS`          | `--set-secret`                    | `seedpass set-secret --enable` or `seedpass set-secret --disable`                                                                                                                                    |
-| **Batch Post Index Items to Nostr**        | `batch-post`           | `-BP`          | `--batch-post`                    | `seedpass batch-post --start 0 --end 9` or `seedpass batch-post --range 10-19`                                                                                                                       |
-| **Show All Passwords**                    | `show-all`             | `-SA`          | `--show-all`                      | `seedpass show-all`                                                                                                                                                                                |
-| **Add Notes to an Entry**                 | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
-| **Add Tags to an Entry**                  | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
-| **Search by Tag or Title**                | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
-| **Automatically Post Index to Nostr After Edit** | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable`                                                                                                                                    |
-| **Initial Setup Prompt for Seed Generation/Import** | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
+| Set Custom Nostr Relays                   | `set-relays`           | `-SR`          | `--set-relays`                    | `seedpass set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                           |
+| Enable "Secret" Mode                      | `set-secret`           | `-SS`          | `--set-secret`                    | `seedpass set-secret --enable` or `seedpass set-secret --disable`                                                                                                                                    |
+| Batch Post Index Items to Nostr           | `batch-post`           | `-BP`          | `--batch-post`                    | `seedpass batch-post --start 0 --end 9` or `seedpass batch-post --range 10-19`                                                                                                                       |
+| Show All Passwords                        | `show-all`             | `-SA`          | `--show-all`                      | `seedpass show-all`                                                                                                                                                                                |
+| Add Notes to an Entry                     | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
+| Add Tags to an Entry                      | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
+| Search by Tag or Title                    | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
+| Automatically Post Index to Nostr After Edit | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable`                                                                                                                                    |
+| Initial Setup Prompt for Seed Generation/Import | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
 
 ---
 
@@ -577,7 +577,7 @@ seedpass auto-post --disable
 **Long Flag:** `--setup`  
 
 **Description:**  
-Guides users through the initial setup process, allowing them to choose between generating a new seed or importing an existing one. This command also handles the encryption of the seed and the creation of a Nostr profile.
+Guides users through the initial setup process, allowing them to choose between generating a new seed or importing an existing one. This command also handles the encryption of the seed and the creation of a profile.
 
 **Usage Example:**
 ```bash
@@ -587,7 +587,7 @@ seedpass setup
 **Features to Implement:**
 - **Seed Choice Prompt:** Asks users whether they want to generate a new seed or import an existing one.
 - **Encryption of Seed:** Uses the user-selected password to encrypt the seed, whether generated or imported.
-- **Nostr Profile Creation:** Upon first login, automatically generates a Nostr profile and checks for existing index data notes that can be pulled and decrypted.
+- **Profile Creation:** Upon first login, automatically generates a profile and checks for existing index data notes that can be pulled and decrypted.
 
 ---
 
@@ -604,7 +604,7 @@ seedpass setup
    - **Features to Implement:**
      - **Seed Choice Prompt:** Ask users whether they want to generate a new seed or import an existing one.
      - **Encryption of Seed:** Use the user-selected password to encrypt the seed, whether generated or imported.
-     - **Nostr Profile Creation:** Upon first login, automatically generate a Nostr profile and check for existing index data notes that can be pulled and decrypted.
+     - **Profile Creation:** Upon first login, automatically generate a profile and check for existing index data notes that can be pulled and decrypted.
    - **Usage Example:** `seedpass setup`
 
 3. **Advanced CLI Enhancements:**
@@ -618,8 +618,8 @@ seedpass setup
      - **Description:** When running `seedpass setup`, prompts users to either enter an existing seed or generate a new one, followed by password creation for encryption.
      - **Usage Example:** `seedpass setup`
    
-   - **Automatic Nostr Profile Generation and Index Retrieval:**
-     - **Description:** During the initial setup or first login, generates a Nostr profile and attempts to retrieve and decrypt any existing index data from Nostr.
+   - **Automatic Profile Generation and Index Retrieval:**
+     - **Description:** During the initial setup or first login, generates a profile and attempts to retrieve and decrypt any existing index data from Nostr.
      - **Usage Example:** `seedpass setup` (handles internally)
 
 ---
@@ -632,13 +632,13 @@ seedpass setup
   ```
   
 - **Consistent Flag Usage:** Use either the short flag or the long flag as per your preference, but maintain consistency for readability.
-
+  
 - **Security Considerations:**  
   - Always use strong, unique master passwords.
   - Regularly back up your encrypted index.
   - Enable auto-lock to enhance security.
   - Be cautious when using the `export` and `import` commands to handle sensitive data securely.
-
+  
 - **Nostr Integration:**  
   - Ensure that your Nostr relays are reliable and secure.
   - Regularly verify your Nostr public key and manage relays through the `set-relays` command.

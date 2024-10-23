@@ -25,7 +25,7 @@ from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from utils.key_derivation import derive_key_from_parent_seed, derive_key_from_password
 from utils.checksum import calculate_checksum, verify_checksum
-from utils.password_prompt import prompt_for_password
+from utils.password_prompt import prompt_for_password, prompt_existing_password, confirm_action
 
 from constants import (
     APP_DIR,
@@ -35,10 +35,14 @@ from constants import (
     SCRIPT_CHECKSUM_FILE,
     MIN_PASSWORD_LENGTH,
     MAX_PASSWORD_LENGTH,
-    DEFAULT_PASSWORD_LENGTH
+    DEFAULT_PASSWORD_LENGTH,
+    HASHED_PASSWORD_FILE,  # Ensure this constant is defined in constants.py
+    DEFAULT_SEED_BACKUP_FILENAME
 )
 
 import traceback  # Added for exception traceback logging
+import bcrypt  # Ensure bcrypt is installed in your environment
+from pathlib import Path  # Required for handling file paths
 
 # Configure logging at the start of the module
 def configure_logging():
@@ -112,7 +116,7 @@ class PasswordManager:
                 self.encryption_manager = EncryptionManager(key)
                 self.parent_seed = self.encryption_manager.decrypt_parent_seed(PARENT_SEED_FILE)
                 
-                # **Add validation for the decrypted seed**
+                # Validate the decrypted seed
                 if not self.validate_seed_phrase(self.parent_seed):
                     logging.error("Decrypted seed is invalid. Exiting.")
                     print(colored("Error: Decrypted seed is invalid.", 'red'))
@@ -149,6 +153,9 @@ class PasswordManager:
             try:
                 self.encryption_manager.encrypt_parent_seed(parent_seed, PARENT_SEED_FILE)
                 logging.info("Parent seed encrypted and saved successfully.")
+                # Store the hashed password
+                self.store_hashed_password(password)
+                logging.info("User password hashed and stored successfully.")
             except Exception as e:
                 logging.error(f"Failed to encrypt and save parent seed: {e}")
                 logging.error(traceback.format_exc())
@@ -182,7 +189,7 @@ class PasswordManager:
             print(colored(f"Error: {e}", 'red'))
             return None
 
-    def validate_seed_phrase(self, seed_phrase: str) -> Optional[str]:
+    def validate_seed_phrase(self, seed_phrase: str) -> bool:
         """
         Validates the seed phrase using the EncryptionManager if available,
         otherwise performs basic validation.
@@ -191,26 +198,26 @@ class PasswordManager:
             seed_phrase (str): The seed phrase to validate.
 
         Returns:
-            Optional[str]: The validated seed phrase or None if invalid.
+            bool: True if valid, False otherwise.
         """
         try:
             if self.encryption_manager:
                 # Use EncryptionManager to validate seed
-                if self.encryption_manager.validate_seed(seed_phrase):
+                is_valid = self.encryption_manager.validate_seed(seed_phrase)
+                if is_valid:
                     logging.debug("Seed phrase validated successfully using EncryptionManager.")
-                    return seed_phrase
                 else:
                     logging.error("Invalid seed phrase.")
                     print(colored("Error: Invalid seed phrase.", 'red'))
-                    return None
+                return is_valid
             else:
                 # Perform basic validation
-                return self.basic_validate_seed_phrase(seed_phrase)
+                return self.basic_validate_seed_phrase(seed_phrase) is not None
         except Exception as e:
             logging.error(f"Error validating seed phrase: {e}")
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to validate seed phrase: {e}", 'red'))
-            return None
+            return False
 
     def initialize_managers(self) -> None:
         """
@@ -443,7 +450,101 @@ class PasswordManager:
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to restore backup: {e}", 'red'))
 
-    # Additional methods can be added here as needed
+    def handle_backup_reveal_parent_seed(self) -> None:
+        """
+        Handles the backup and reveal of the parent seed.
+        """
+        try:
+            print(colored("\n=== Backup/Reveal Parent Seed ===", 'yellow'))
+            print(colored("Warning: Revealing your parent seed is a highly sensitive operation.", 'red'))
+            print(colored("Ensure you're in a secure, private environment and no one is watching your screen.", 'red'))
+            
+            # Verify user's identity with secure password verification
+            password = prompt_existing_password("Enter your master password to continue: ")
+            if not self.verify_password(password):
+                print(colored("Incorrect password. Operation aborted.", 'red'))
+                return
+
+            # Double confirmation
+            if not confirm_action("Are you absolutely sure you want to reveal your parent seed? (Y/N): "):
+                print(colored("Operation cancelled by user.", 'yellow'))
+                return
+
+            # Reveal the parent seed
+            print(colored("\n=== Your Parent Seed ===", 'green'))
+            print(colored(self.parent_seed, 'yellow'))
+            print(colored("\nPlease write this down and store it securely. Do not share it with anyone.", 'red'))
+
+            # Option to save to file with default filename
+            if confirm_action("Do you want to save this to an encrypted backup file? (Y/N): "):
+                filename = input(f"Enter filename to save (default: {DEFAULT_SEED_BACKUP_FILENAME}): ").strip()
+                filename = filename if filename else DEFAULT_SEED_BACKUP_FILENAME
+                backup_path = Path(APP_DIR) / filename
+
+                # Validate filename
+                if not self.is_valid_filename(filename):
+                    print(colored("Invalid filename. Operation aborted.", 'red'))
+                    return
+
+                self.encryption_manager.encrypt_parent_seed(self.parent_seed, backup_path)
+                print(colored(f"Encrypted seed backup saved to '{backup_path}'. Ensure this file is stored securely.", 'green'))
+
+        except Exception as e:
+            logging.error(f"Error during parent seed backup/reveal: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to backup/reveal parent seed: {e}", 'red'))
+
+    def verify_password(self, password: str) -> bool:
+        """
+        Verifies the provided password against the stored hashed password.
+        """
+        try:
+            if not os.path.exists(HASHED_PASSWORD_FILE):
+                logging.error("Hashed password file not found.")
+                print(colored("Error: Hashed password file not found.", 'red'))
+                return False
+            with open(HASHED_PASSWORD_FILE, 'rb') as f:
+                stored_hash = f.read()
+            is_correct = bcrypt.checkpw(password.encode('utf-8'), stored_hash)
+            if is_correct:
+                logging.debug("Password verification successful.")
+            else:
+                logging.warning("Password verification failed.")
+            return is_correct
+        except Exception as e:
+            logging.error(f"Error verifying password: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to verify password: {e}", 'red'))
+            return False
+
+    def is_valid_filename(self, filename: str) -> bool:
+        """
+        Validates the provided filename to prevent directory traversal and invalid characters.
+        """
+        # Basic validation: filename should not contain path separators or be empty
+        invalid_chars = ['/', '\\', '..']
+        if any(char in filename for char in invalid_chars) or not filename:
+            logging.warning(f"Invalid filename attempted: {filename}")
+            return False
+        return True
+
+    def store_hashed_password(self, password: str) -> None:
+        """
+        Hashes and stores the user's password securely using bcrypt.
+        This should be called during the initial setup.
+        """
+        try:
+            hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            with open(HASHED_PASSWORD_FILE, 'wb') as f:
+                f.write(hashed)
+            # Set file permissions to read/write for the user only
+            os.chmod(HASHED_PASSWORD_FILE, 0o600)
+            logging.info("User password hashed and stored successfully.")
+        except Exception as e:
+            logging.error(f"Failed to store hashed password: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to store hashed password: {e}", 'red'))
+            raise
 
 # Example usage (this part should be removed or commented out when integrating into the larger application)
 if __name__ == "__main__":
