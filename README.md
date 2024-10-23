@@ -257,6 +257,9 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
    - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
    - **Security Audits:** Conduct regular code reviews and security assessments to identify and mitigate vulnerabilities.
 
+7. **Fingerprint-Based Backup and Local Storage Structure** [see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/fingerprint_seeds.md) 
+   - **Summary:** Implement a fingerprinting system to uniquely identify and manage multiple seeds and user profiles securely. This one-way function-based method enhances data organization, enabling users to handle various seeds without exposing sensitive information.
+
 ---
 
 ### Phase 2: Enhanced Security and Data Management
