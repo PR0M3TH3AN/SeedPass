@@ -7,14 +7,12 @@
 3. [Fingerprint Generation](#fingerprint-generation)
 4. [Directory Structure](#directory-structure)
 5. [Data Encryption and Security](#data-encryption-and-security)
-6. [Managing Fingerprints](#managing-fingerprints)
+6. [Managing Seeds and Fingerprints](#managing-seeds-and-fingerprints)
 7. [Loading and Switching Fingerprints at Startup](#loading-and-switching-fingerprints-at-startup)
 8. [Backup and Restore Procedures](#backup-and-restore-procedures)
-9. [CLI Commands for Managing Fingerprints](#cli-commands-for-managing-fingerprints)
-10. [Security Considerations](#security-considerations)
-11. [Use Cases](#use-cases)
-12. [FAQs](#faqs)
-13. [Conclusion](#conclusion)
+9. [Security Considerations](#security-considerations)
+10. [Use Cases](#use-cases)
+11. [Conclusion](#conclusion)
 
 ---
 
@@ -30,7 +28,7 @@ The fingerprint-based system in SeedPass serves as a unique identifier for each 
 
 ### Key Objectives
 
-- **Secure Identification:** Use one-way fingerprints to uniquely identify seeds and user profiles without exposing sensitive information.
+- **Secure Identification:** Use one-way fingerprints to uniquely identify seeds without exposing sensitive information.
 - **Organized Storage:** Implement a structured directory system that segregates data based on fingerprints.
 - **Scalability:** Allow users to manage multiple fingerprints seamlessly, facilitating the handling of various seeds and profiles.
 - **Enhanced Security:** Ensure all sensitive data is encrypted and protected within each fingerprint directory.
@@ -47,32 +45,7 @@ In the context of SeedPass, a **fingerprint** is a unique identifier generated f
 
 1. **Seed Input:** The user provides a seed, typically a 12-word BIP-39 mnemonic phrase.
 2. **Hashing Function:** SeedPass applies a cryptographic one-way hashing function (e.g., SHA-256) to the seed to produce a fixed-length hash.
-3. **Truncation and Formatting:** The resulting hash is truncated and formatted to create a human-readable fingerprint (e.g., `fingerprint01`, `fingerprint02`).
-
-### Example
-
-```python
-import hashlib
-
-def generate_fingerprint(seed):
-    # Convert seed to bytes
-    seed_bytes = seed.encode('utf-8')
-    
-    # Generate SHA-256 hash of the seed
-    hash_digest = hashlib.sha256(seed_bytes).hexdigest()
-    
-    # Truncate and format the fingerprint (e.g., first 8 characters)
-    fingerprint = f"fingerprint{hash_digest[:8]}"
-    
-    return fingerprint
-
-# Example usage
-seed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-fingerprint = generate_fingerprint(seed)
-print(fingerprint)  # Output: fingerprinte9a1b2c3
-```
-
-*Note: The actual implementation may use more sophisticated methods to ensure uniqueness and security.*
+3. **Truncation and Formatting:** The resulting hash is truncated and formatted to create a human-readable fingerprint consisting of random letters and numbers (e.g., `A1B2C3D4`, `E5F6G7H8`).
 
 ---
 
@@ -94,7 +67,7 @@ Each fingerprint corresponds to its own directory containing all related data an
 
 ```
 ~/.seedpass/
-├── fingerprint01/
+├── A1B2C3D4/
 │   ├── parent_seed.enc
 │   ├── backups/
 │   │   ├── passwords_db_backup_1729556583.json.enc
@@ -103,7 +76,7 @@ Each fingerprint corresponds to its own directory containing all related data an
 │   ├── seedpass_passwords_checksum.txt
 │   ├── seedpass_passwords_db_checksum.txt
 │   └── seedpass_passwords_db.json
-├── fingerprint02/
+├── E5F6G7H8/
 │   ├── parent_seed.enc
 │   ├── backups/
 │   │   ├── passwords_db_backup_1729556585.json.enc
@@ -111,7 +84,7 @@ Each fingerprint corresponds to its own directory containing all related data an
 │   ├── seedpass_passwords_checksum.txt
 │   ├── seedpass_passwords_db_checksum.txt
 │   └── seedpass_passwords_db.json
-└── fingerprint03/
+└── I9J0K1L2/
     └── ...
 ```
 
@@ -147,11 +120,11 @@ All sensitive data within each fingerprint directory is encrypted using industry
 
 ---
 
-## Managing Fingerprints
+## Managing Seeds and Fingerprints
 
-SeedPass allows users to manage multiple fingerprints, enabling the handling of various seeds and user profiles. This section outlines how to add, remove, and switch between different fingerprints.
+SeedPass associates each imported seed with a unique fingerprint, which serves as the folder name for all related data. This approach ensures that every seed is automatically managed through its fingerprint, eliminating the need for separate fingerprint addition processes.
 
-### Adding a New Fingerprint
+### Importing a New Seed
 
 1. **Generate or Import a Seed:**
    - **Generate:** SeedPass can generate a new BIP-39 seed for the user.
@@ -165,12 +138,12 @@ SeedPass allows users to manage multiple fingerprints, enabling the handling of 
    - All relevant files (`parent_seed.enc`, `backups/`, etc.) are initialized and encrypted.
 
 4. **Confirmation:**
-   - SeedPass confirms the successful addition of the new fingerprint and its associated data.
+   - SeedPass confirms the successful addition of the new seed and its associated fingerprint.
 
-### Removing a Fingerprint
+### Removing a Seed and Its Fingerprint
 
-1. **Select Fingerprint:**
-   - Users choose the fingerprint they wish to remove from the list of existing fingerprints.
+1. **Select Seed:**
+   - Users choose the seed (via its fingerprint) they wish to remove from the list of existing seeds.
 
 2. **Confirmation:**
    - SeedPass prompts the user to confirm the removal to prevent accidental deletions.
@@ -178,9 +151,9 @@ SeedPass allows users to manage multiple fingerprints, enabling the handling of 
 3. **Deletion:**
    - The selected fingerprint directory and all its contents are securely deleted from the local storage.
 
-*Warning: Removing a fingerprint permanently deletes all associated data. Ensure backups are available before proceeding.*
+*Warning: Removing a seed permanently deletes all associated data. Ensure backups are available before proceeding.*
 
-### Switching Between Fingerprints
+### Switching Between Seeds
 
 1. **List Available Fingerprints:**
    - SeedPass displays a list of all existing fingerprints stored in `~/.seedpass/`.
@@ -205,11 +178,11 @@ SeedPass is designed to handle multiple fingerprints seamlessly upon startup. Th
    - SeedPass initializes and scans the `~/.seedpass/` directory for available fingerprint directories.
 
 2. **Fingerprint Detection:**
-   - All directories matching the `fingerprintXX` naming convention are identified as valid fingerprints.
+   - All directories with alphanumeric names matching the fingerprint pattern are identified as valid fingerprints.
 
 3. **User Prompt:**
    - SeedPass presents a list of detected fingerprints and prompts the user to select one for activation.
-   - Alternatively, users can choose to add a new fingerprint during startup.
+   - Alternatively, users can choose to import a new seed during startup.
 
 4. **Authentication:**
    - Upon selection, SeedPass requests the user's password to decrypt the corresponding `parent_seed.enc` and other encrypted files.
@@ -219,9 +192,9 @@ SeedPass is designed to handle multiple fingerprints seamlessly upon startup. Th
 
 ### Managing Fingerprints at Startup
 
-- **Add New Fingerprint:** Users can choose to add a new fingerprint if they wish to manage an additional seed or profile.
-- **Remove Existing Fingerprint:** Users can opt to remove an existing fingerprint during startup if it's no longer needed.
-- **Switch Fingerprint:** Users can switch to a different fingerprint without restarting the application by accessing the fingerprint management CLI commands.
+- **Import New Seed:** Users can choose to import a new seed if they wish to manage an additional seed or profile.
+- **Remove Existing Seed:** Users can opt to remove an existing seed during startup if it's no longer needed.
+- **Switch Seed:** Users can switch to a different seed without restarting the application by accessing the fingerprint management CLI commands.
 
 ---
 
@@ -261,155 +234,6 @@ Ensuring data integrity and availability is paramount. SeedPass provides robust 
    - SeedPass verifies the integrity of the restored data using the checksum files to ensure successful restoration.
 
 *Note: Restoring a backup overwrites the current database. Ensure that you intend to revert to the selected backup before proceeding.*
-
----
-
-## CLI Commands for Managing Fingerprints
-
-SeedPass provides a set of Command-Line Interface (CLI) commands to facilitate the management of fingerprints. These commands allow users to add, remove, list, and switch between fingerprints efficiently.
-
-### 1. List All Fingerprints
-
-**Command:**
-
-```bash
-seedpass fingerprint list
-```
-
-**Description:**
-
-Displays all available fingerprints stored in the `~/.seedpass/` directory.
-
-**Example Output:**
-
-```
-Available Fingerprints:
-1. fingerprinte9a1b2c3
-2. fingerprint4d5e6f7g
-3. fingerprint8h9i0j1k
-```
-
-### 2. Add a New Fingerprint
-
-**Command:**
-
-```bash
-seedpass fingerprint add
-```
-
-**Description:**
-
-Guides the user through the process of adding a new fingerprint by either generating a new seed or importing an existing one.
-
-**Steps:**
-
-1. **Choose Seed Option:**
-   - Generate a new seed.
-   - Import an existing seed.
-
-2. **Provide Seed Details:**
-   - If importing, enter the 12-word mnemonic phrase.
-   - If generating, SeedPass creates a new seed complying with BIP-39 standards.
-
-3. **Set Password:**
-   - Enter a strong password to encrypt the seed and associated data.
-
-4. **Confirmation:**
-   - SeedPass generates the fingerprint and creates the corresponding directory structure.
-
-### 3. Remove an Existing Fingerprint
-
-**Command:**
-
-```bash
-seedpass fingerprint remove <fingerprint_id>
-```
-
-**Description:**
-
-Removes a specified fingerprint and deletes all associated data.
-
-**Parameters:**
-
-- `<fingerprint_id>`: The identifier of the fingerprint to remove (e.g., `fingerprinte9a1b2c3`).
-
-**Example:**
-
-```bash
-seedpass fingerprint remove fingerprinte9a1b2c3
-```
-
-**Confirmation Prompt:**
-
-```
-Are you sure you want to remove fingerprinte9a1b2c3? This action cannot be undone. (y/n):
-```
-
-### 4. Switch Active Fingerprint
-
-**Command:**
-
-```bash
-seedpass fingerprint switch <fingerprint_id>
-```
-
-**Description:**
-
-Switches the active fingerprint to the specified one, loading its data for use.
-
-**Parameters:**
-
-- `<fingerprint_id>`: The identifier of the fingerprint to activate.
-
-**Example:**
-
-```bash
-seedpass fingerprint switch fingerprint4d5e6f7g
-```
-
-### 5. View Current Active Fingerprint
-
-**Command:**
-
-```bash
-seedpass fingerprint current
-```
-
-**Description:**
-
-Displays the currently active fingerprint.
-
-**Example Output:**
-
-```
-Current Active Fingerprint:
-fingerprinte9a1b2c3
-```
-
-### 6. Rename a Fingerprint
-
-**Command:**
-
-```bash
-seedpass fingerprint rename <old_fingerprint_id> <new_fingerprint_id>
-```
-
-**Description:**
-
-Renames an existing fingerprint for better identification.
-
-**Parameters:**
-
-- `<old_fingerprint_id>`: The current identifier of the fingerprint.
-- `<new_fingerprint_id>`: The new desired identifier.
-
-**Example:**
-
-```bash
-seedpass fingerprint rename fingerprinte9a1b2c3 fingerprintPersonal
-```
-
-*Note: Renaming does not affect the underlying seed data but provides a more recognizable identifier for the user.*
 
 ---
 
@@ -473,7 +297,7 @@ Implementing a fingerprint-based backup and local storage system introduces seve
 
 **Implementation:**
 
-1. **Add Fingerprint:** Create two fingerprints (`fingerprintPersonal`, `fingerprintWork`) corresponding to each profile.
+1. **Import Seeds:** Import two seeds, resulting in two unique fingerprints (e.g., `A1B2C3D4`, `E5F6G7H8`) corresponding to each profile.
 2. **Manage Separately:** Each fingerprint directory contains its own `seedpass_passwords_db.json`, ensuring data isolation.
 3. **Switch Profiles:** Easily switch between personal and work profiles using CLI commands.
 
@@ -499,32 +323,10 @@ Implementing a fingerprint-based backup and local storage system introduces seve
 
 ---
 
-## FAQs
-
-### 1. **Can fingerprints be customized?**
-
-**Answer:** While fingerprints are generated using a one-way hashing function to ensure uniqueness and security, users can assign recognizable names to fingerprints (e.g., `fingerprintPersonal`, `fingerprintWork`) during the renaming process to facilitate easier identification.
-
-### 2. **What happens if I forget my password?**
-
-**Answer:** If you forget your password, SeedPass cannot decrypt your encrypted data, including seeds and password databases. It's crucial to remember your password or securely store it using reliable password management practices.
-
-### 3. **Is the fingerprint reversible to obtain the original seed?**
-
-**Answer:** No. Fingerprints are generated using one-way hashing functions, making it computationally infeasible to reverse-engineer the original seed from the fingerprint.
-
-### 4. **Can I have multiple fingerprints with the same seed?**
-
-**Answer:** While technically possible, it's not recommended to have multiple fingerprints pointing to the same seed as it could lead to confusion and redundant data management. Each fingerprint should uniquely correspond to a distinct seed.
-
-### 5. **How secure are the backups stored in the `backups/` directory?**
-
-**Answer:** Backups within the `backups/` directory are encrypted using the same encryption standards as primary data. Additionally, their integrity is verified using checksum files, ensuring that only authentic and untampered backups are restored.
-
----
-
 ## Conclusion
 
 The **Fingerprint-Based Backup and Local Storage Structure** in SeedPass significantly enhances the application's security and manageability. By leveraging one-way hashing for fingerprint generation and implementing a structured, encrypted directory system, SeedPass ensures that users can securely manage multiple seeds and profiles without compromising sensitive information. This system not only provides organized storage and easy retrieval but also lays a robust foundation for future scalability and feature expansions.
 
 By adhering to best security practices and offering intuitive CLI commands for fingerprint management, SeedPass empowers users to maintain control over their password data with confidence and ease.
+
+---

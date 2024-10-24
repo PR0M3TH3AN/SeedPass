@@ -591,6 +591,161 @@ seedpass setup
 
 ---
 
+## CLI Commands for Managing Fingerprints
+
+SeedPass provides a set of Command-Line Interface (CLI) commands to facilitate the management of fingerprints. These commands allow users to import, remove, list, and switch between fingerprints efficiently.
+
+### 1. List All Fingerprints
+
+**Command:**
+
+```bash
+seedpass fingerprint list
+```
+
+**Description:**
+
+Displays all available fingerprints stored in the `~/.seedpass/` directory.
+
+**Example Output:**
+
+```
+Available Fingerprints:
+1. A1B2C3D4
+2. E5F6G7H8
+3. I9J0K1L2
+```
+
+### 2. Import a New Seed
+
+**Command:**
+
+```bash
+seedpass fingerprint import
+```
+
+**Description:**
+
+Guides the user through the process of importing a new seed, which automatically generates a corresponding fingerprint.
+
+**Steps:**
+
+1. **Choose Seed Option:**
+   - **Generate:** SeedPass can generate a new seed.
+   - **Import:** Users can import an existing seed by entering their 12-word mnemonic phrase.
+
+2. **Provide Seed Details:**
+   - If importing, enter the 12-word mnemonic phrase.
+   - If generating, SeedPass creates a new seed complying with BIP-39 standards.
+
+3. **Set Password:**
+   - Enter a strong password to encrypt the seed and associated data.
+
+4. **Confirmation:**
+   - SeedPass generates the fingerprint and creates the corresponding directory structure.
+
+**Example:**
+
+```bash
+seedpass fingerprint import
+```
+
+### 3. Remove an Existing Fingerprint
+
+**Command:**
+
+```bash
+seedpass fingerprint remove <fingerprint_id>
+```
+
+**Description:**
+
+Removes a specified fingerprint and deletes all associated data.
+
+**Parameters:**
+
+- `<fingerprint_id>`: The identifier of the fingerprint to remove (e.g., `A1B2C3D4`).
+
+**Example:**
+
+```bash
+seedpass fingerprint remove A1B2C3D4
+```
+
+**Confirmation Prompt:**
+
+```
+Are you sure you want to remove A1B2C3D4? This action cannot be undone. (y/n):
+```
+
+### 4. Switch Active Fingerprint
+
+**Command:**
+
+```bash
+seedpass fingerprint switch <fingerprint_id>
+```
+
+**Description:**
+
+Switches the active fingerprint to the specified one, loading its data for use.
+
+**Parameters:**
+
+- `<fingerprint_id>`: The identifier of the fingerprint to activate.
+
+**Example:**
+
+```bash
+seedpass fingerprint switch E5F6G7H8
+```
+
+### 5. View Current Active Fingerprint
+
+**Command:**
+
+```bash
+seedpass fingerprint current
+```
+
+**Description:**
+
+Displays the currently active fingerprint.
+
+**Example Output:**
+
+```
+Current Active Fingerprint:
+A1B2C3D4
+```
+
+### 6. Rename a Fingerprint
+
+**Command:**
+
+```bash
+seedpass fingerprint rename <old_fingerprint_id> <new_fingerprint_id>
+```
+
+**Description:**
+
+Renames an existing fingerprint for better identification.
+
+**Parameters:**
+
+- `<old_fingerprint_id>`: The current identifier of the fingerprint.
+- `<new_fingerprint_id>`: The new desired identifier.
+
+**Example:**
+
+```bash
+seedpass fingerprint rename A1B2C3D4 PersonalProfile
+```
+
+*Note: Renaming does not affect the underlying seed data but provides a more recognizable identifier for the user.*
+
+---
+
 ## Notes on New CLI Commands
 
 1. **Automatically Post Index to Nostr After Edit (`auto-post`):**
