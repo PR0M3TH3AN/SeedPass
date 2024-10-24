@@ -89,25 +89,30 @@ class EncryptionManager:
             print(colored(f"Error: Failed to initialize encryption manager: {e}", 'red'))
             raise
 
-    def encrypt_parent_seed(self, parent_seed: str, file_path: Path) -> None:
+    def encrypt_parent_seed(self, parent_seed, file_path: Path) -> None:
         """
-        Encrypts and securely saves the parent seed to the specified file.
+        Encrypts and saves the parent seed to the specified file.
 
-        :param parent_seed: The BIP39 parent seed phrase.
+        :param parent_seed: The BIP39 parent seed phrase or Bip39Mnemonic object.
         :param file_path: The path to the file where the encrypted parent seed will be saved.
         """
         try:
-            # Encode the parent seed to bytes
+            # Convert Bip39Mnemonic to string if necessary
+            if hasattr(parent_seed, 'ToStr'):
+                parent_seed = parent_seed.ToStr()
+            
+            # Now encode the string
             data = parent_seed.encode('utf-8')
-            # Encrypt and write to file using encrypt_file
-            self.encrypt_file(file_path, data)
-            # Set file permissions to read/write for the user only
-            os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-            logger.info(f"Parent seed encrypted and saved to '{file_path}'.")
+            
+            # Encrypt and save the data
+            encrypted_data = self.encrypt_data(data)
+            with open(file_path, 'wb') as f:
+                f.write(encrypted_data)
+            logging.info(f"Parent seed encrypted and saved to '{file_path}'.")
             print(colored(f"Parent seed encrypted and saved to '{file_path}'.", 'green'))
         except Exception as e:
-            logger.error(f"Failed to encrypt and save parent seed: {e}")
-            logger.error(traceback.format_exc())
+            logging.error(f"Failed to encrypt and save parent seed: {e}")
+            logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", 'red'))
             raise
 
@@ -322,11 +327,11 @@ class EncryptionManager:
         try:
             decrypted_data = self.decrypt_file(file_path)
             parent_seed = decrypted_data.decode('utf-8').strip()
-            logger.debug("Parent seed decrypted successfully.")
+            logger.debug(f"Decrypted parent_seed: {parent_seed} (Type: {type(parent_seed)})")
             return parent_seed
         except Exception as e:
             logger.error(f"Failed to decrypt parent seed from '{file_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error: Failed to decrypt parent seed from '{file_path}': {e}", 'red'))
             raise
 
@@ -361,12 +366,19 @@ class EncryptionManager:
         :return: The derived seed as bytes.
         """
         try:
+            if not isinstance(mnemonic, str):
+                if isinstance(mnemonic, list):
+                    mnemonic = " ".join(mnemonic)
+                else:
+                    mnemonic = str(mnemonic)
+                if not isinstance(mnemonic, str):
+                    raise TypeError("Mnemonic must be a string after conversion")
             mnemo = Mnemonic("english")
             seed = mnemo.to_seed(mnemonic, passphrase)
             logger.debug("Seed derived successfully from mnemonic.")
             return seed
         except Exception as e:
             logger.error(f"Failed to derive seed from mnemonic: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to derive seed from mnemonic: {e}", 'red'))
+            logger.error(traceback.format_exc())
+            print(f"Error: Failed to derive seed from mnemonic: {e}")
             raise

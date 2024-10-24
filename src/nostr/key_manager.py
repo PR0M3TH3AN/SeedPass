@@ -1,30 +1,23 @@
 # nostr/key_manager.py
 
-import base64
+import logging
 import traceback
-from typing import Optional
-
 from bip_utils import Bip39SeedGenerator
-from bip85.bip85 import BIP85
 from cryptography.fernet import Fernet, InvalidToken
 from bech32 import bech32_encode, convertbits
 
 from .logging_config import configure_logging
 from utils.key_derivation import derive_key_from_parent_seed
 
-# Add the missing import for Keys and NIP4Encrypt
 from monstr.encrypt import Keys, NIP4Encrypt  # Ensure monstr.encrypt is installed and accessible
 
-logger = configure_logging()
+# Configure logging at the start of the module
+configure_logging()
+
+# Initialize the logger for this module
+logger = logging.getLogger(__name__)
 
 def encode_bech32(prefix: str, key_hex: str) -> str:
-    """
-    Encodes a hex key into Bech32 format with the given prefix.
-
-    :param prefix: The Bech32 prefix (e.g., 'nsec', 'npub').
-    :param key_hex: The key in hexadecimal format.
-    :return: The Bech32-encoded string.
-    """
     try:
         key_bytes = bytes.fromhex(key_hex)
         data = convertbits(key_bytes, 8, 5, pad=True)
@@ -40,31 +33,30 @@ class KeyManager:
     """
 
     def __init__(self, parent_seed: str):
-        self.parent_seed = parent_seed
-        self.keys = None
-        self.nsec = None
-        self.npub = None
-        self.initialize_keys()
-
-    def initialize_keys(self):
         """
-        Derives Nostr keys using BIP85 and initializes Keys.
+        Initializes the KeyManager with the provided parent_seed.
+        
+        Parameters:
+            parent_seed (str): The parent seed used for key derivation.
         """
         try:
-            logger.debug("Starting key initialization")
-            seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
-            bip85 = BIP85(seed_bytes)
-            entropy = bip85.derive_entropy(app_no=1237, language_code=0, words_num=24, index=0)
-
-            if len(entropy) != 32:
-                logger.error(f"Derived entropy length is {len(entropy)} bytes; expected 32 bytes.")
-                raise ValueError("Invalid entropy length.")
-
-            privkey_hex = entropy.hex()
-            self.keys = Keys(priv_k=privkey_hex)  # Now Keys is defined via the import
+            if not isinstance(parent_seed, str):
+                raise TypeError(f"Parent seed must be a string, got {type(parent_seed)}")
+            
+            self.parent_seed = parent_seed
+            logger.debug(f"KeyManager initialized with parent_seed: {self.parent_seed} (type: {type(self.parent_seed)})")
+            
+            # Derive the encryption key from parent_seed
+            derived_key = self.derive_encryption_key()
+            derived_key_hex = derived_key.hex()
+            logger.debug(f"Derived encryption key (hex): {derived_key_hex}")
+            
+            # Initialize Keys with the derived hexadecimal key
+            self.keys = Keys(priv_k=derived_key_hex)  # Pass hex string
             logger.debug("Nostr Keys initialized successfully.")
 
-            self.nsec = encode_bech32('nsec', privkey_hex)
+            # Generate bech32-encoded keys
+            self.nsec = encode_bech32('nsec', self.keys.private_key_hex())
             logger.debug(f"Nostr Private Key (nsec): {self.nsec}")
 
             public_key_hex = self.keys.public_key_hex()
@@ -76,11 +68,34 @@ class KeyManager:
             logger.error(traceback.format_exc())
             raise
 
+    def derive_encryption_key(self) -> bytes:
+        """
+        Derives the encryption key using the parent seed.
+
+        Returns:
+            bytes: The derived encryption key.
+        
+        Raises:
+            Exception: If key derivation fails.
+        """
+        try:
+            key = derive_key_from_parent_seed(self.parent_seed)
+            logger.debug("Encryption key derived successfully.")
+            return key  # Now returns raw bytes
+        except Exception as e:
+            logger.error(f"Failed to derive encryption key: {e}")
+            logger.error(traceback.format_exc())
+            raise
+
     def get_npub(self) -> str:
         """
         Returns the Nostr public key (npub).
 
-        :return: The npub as a string.
+        Returns:
+            str: The npub as a string.
+        
+        Raises:
+            ValueError: If npub is not available.
         """
         if self.npub:
             logger.debug(f"Returning npub: {self.npub}")
@@ -88,18 +103,3 @@ class KeyManager:
         else:
             logger.error("Nostr public key (npub) is not available.")
             raise ValueError("Nostr public key (npub) is not available.")
-
-    def derive_encryption_key(self) -> bytes:
-        """
-        Derives the encryption key using the parent seed.
-
-        :return: The derived encryption key.
-        """
-        try:
-            key = derive_key_from_parent_seed(self.parent_seed)
-            logger.debug("Encryption key derived successfully.")
-            return key
-        except Exception as e:
-            logger.error(f"Failed to derive encryption key: {e}")
-            logger.error(traceback.format_exc())
-            raise

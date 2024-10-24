@@ -27,7 +27,8 @@ from .event_handler import EventHandler
 from constants import APP_DIR, INDEX_FILE, DATA_CHECKSUM_FILE
 from utils.file_lock import lock_file
 
-logger = configure_logging()
+configure_logging()
+logger = logging.getLogger(__name__)
 
 DEFAULT_RELAYS = [
     "wss://relay.snort.social",

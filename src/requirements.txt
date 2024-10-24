@@ -7,3 +7,4 @@ monstr @ git+https://github.com/monty888/monstr.git@master#egg=monstr
 mnemonic
 aiohttp
 bcrypt
+bip85

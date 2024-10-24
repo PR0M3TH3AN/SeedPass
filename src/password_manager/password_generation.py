@@ -20,6 +20,7 @@ import base64
 import string
 import traceback
 from typing import Optional
+from termcolor import colored
 
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes

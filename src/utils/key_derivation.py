@@ -21,9 +21,11 @@ import unicodedata
 import logging
 import traceback
 from typing import Union
+from bip_utils import Bip39SeedGenerator
 
-import os
-import logging
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 
 # Configure logging at the start of the module
 def configure_logging():
@@ -117,57 +119,32 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
         logger.error(traceback.format_exc())  # Log full traceback
         raise
 
-
-def derive_key_from_parent_seed(parent_seed: str, iterations: int = 100_000) -> bytes:
+def derive_key_from_parent_seed(parent_seed: str) -> bytes:
     """
-    Derives a Fernet-compatible encryption key from a BIP-39 parent seed using PBKDF2-HMAC-SHA256.
+    Derives a 32-byte cryptographic key from a BIP-39 parent seed using HKDF.
 
-    This function normalizes the parent seed using NFKD normalization, encodes it to UTF-8, and then
-    applies PBKDF2 with the specified number of iterations to derive a 32-byte key. The derived key
-    is then URL-safe base64-encoded to ensure compatibility with Fernet.
-
-    Parameters:
-        parent_seed (str): The 12-word BIP-39 parent seed phrase.
-        iterations (int, optional): Number of iterations for the PBKDF2 algorithm. Defaults to 100,000.
-
-    Returns:
-        bytes: A URL-safe base64-encoded encryption key suitable for Fernet.
-
-    Raises:
-        ValueError: If the parent seed is empty or does not meet the word count requirements.
+    :param parent_seed: The 12-word BIP-39 seed phrase.
+    :return: A 32-byte derived key.
     """
-    if not parent_seed:
-        logger.error("Parent seed cannot be empty.")
-        raise ValueError("Parent seed cannot be empty.")
-
-    word_count = len(parent_seed.strip().split())
-    if word_count != 12:
-        logger.error(f"Parent seed must be exactly 12 words, but {word_count} were provided.")
-        raise ValueError(f"Parent seed must be exactly 12 words, but {word_count} were provided.")
-
-    # Normalize the parent seed to NFKD form and encode to UTF-8
-    normalized_seed = unicodedata.normalize('NFKD', parent_seed).strip()
-    seed_bytes = normalized_seed.encode('utf-8')
-
     try:
-        # Derive the key using PBKDF2-HMAC-SHA256
-        logger.debug("Starting key derivation from parent seed.")
-        key = hashlib.pbkdf2_hmac(
-            hash_name='sha256',
-            password=seed_bytes,
-            salt=b'',  # No salt for deterministic key derivation
-            iterations=iterations,
-            dklen=32  # 256-bit key for Fernet
+        # Generate seed bytes from mnemonic
+        seed = Bip39SeedGenerator(parent_seed).Generate()
+        
+        # Derive key using HKDF
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,  # No salt for deterministic derivation
+            info=b'password-manager',
+            backend=default_backend()
         )
-        logger.debug(f"Derived key from parent seed (hex): {key.hex()}")
-
-        # Encode the key in URL-safe base64
-        key_b64 = base64.urlsafe_b64encode(key)
-        logger.debug(f"Base64-encoded key from parent seed: {key_b64.decode()}")
-
-        return key_b64
-
+        derived_key = hkdf.derive(seed)
+        
+        if len(derived_key) != 32:
+            raise ValueError(f"Derived key length is {len(derived_key)} bytes; expected 32 bytes.")
+        
+        return derived_key
     except Exception as e:
-        logger.error(f"Error deriving key from parent seed: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to derive key using HKDF: {e}")
+        logger.error(traceback.format_exc())
         raise

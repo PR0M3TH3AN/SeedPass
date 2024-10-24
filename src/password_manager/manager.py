@@ -44,6 +44,12 @@ import traceback  # Added for exception traceback logging
 import bcrypt  # Ensure bcrypt is installed in your environment
 from pathlib import Path  # Required for handling file paths
 
+from bip85.bip85 import BIP85
+from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+
+# Import NostrClient from the nostr package
+from nostr import NostrClient  # <-- Added import statement
+
 # Configure logging at the start of the module
 def configure_logging():
     """
@@ -83,11 +89,14 @@ def configure_logging():
 # Call the logging configuration function
 configure_logging()
 
+# Initialize the logger for this module
+logger = logging.getLogger(__name__)
+
 class PasswordManager:
     """
     PasswordManager Class
 
-    Manages the generation, encryption, and retrieval of deterministic passwords using a BIP-39 seed.
+    Manages the generation, encryption, and retrieval of deterministic passwords using a BIP-85 seed.
     It handles file encryption/decryption, password generation, entry management, backups, and checksum
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
@@ -101,134 +110,192 @@ class PasswordManager:
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
         self.backup_manager: Optional[BackupManager] = None
-        self.parent_seed: Optional[str] = None  # Added parent_seed attribute
+        self.parent_seed: Optional[str] = None  # Ensured to be a string
+        self.bip85: Optional[BIP85] = None      # Added bip85 attribute
 
         self.setup_parent_seed()
         self.initialize_managers()
 
     def setup_parent_seed(self) -> None:
+        """
+        Sets up the parent seed by determining if an existing seed is present or if a new one needs to be created.
+        """
         if os.path.exists(PARENT_SEED_FILE):
-            # Parent seed file exists, prompt for password to decrypt
-            password = getpass.getpass(prompt='Enter your login password: ').strip()
-            try:
-                # Derive encryption key from password
-                key = derive_key_from_password(password)
-                self.encryption_manager = EncryptionManager(key)
-                self.parent_seed = self.encryption_manager.decrypt_parent_seed(PARENT_SEED_FILE)
-                
-                # Validate the decrypted seed
-                if not self.validate_seed_phrase(self.parent_seed):
-                    logging.error("Decrypted seed is invalid. Exiting.")
-                    print(colored("Error: Decrypted seed is invalid.", 'red'))
-                    sys.exit(1)
-                
-                logging.debug("Parent seed decrypted and validated successfully.")
-            except Exception as e:
-                logging.error(f"Failed to decrypt parent seed: {e}")
-                logging.error(traceback.format_exc())
-                print(colored(f"Error: Failed to decrypt parent seed: {e}", 'red'))
-                sys.exit(1)
+            self.handle_existing_seed()
         else:
-            # First-time setup: prompt for parent seed and password
-            try:
-                parent_seed = getpass.getpass(prompt='Enter your 12-word parent seed: ').strip()
-                # Validate parent seed (basic validation)
-                parent_seed = self.basic_validate_seed_phrase(parent_seed)
-                if not parent_seed:
-                    logging.error("Invalid seed phrase. Exiting.")
-                    sys.exit(1)
-            except KeyboardInterrupt:
-                logging.info("Operation cancelled by user.")
-                print(colored("\nOperation cancelled by user.", 'yellow'))
-                sys.exit(0)
-            
-            # Prompt for password
-            password = prompt_for_password()
-            
+            self.handle_new_seed_setup()
+
+    def handle_existing_seed(self) -> None:
+        """
+        Handles the scenario where an existing parent seed file is found.
+        Prompts the user for the master password to decrypt the seed.
+        """
+        password = getpass.getpass(prompt='Enter your login password: ').strip()
+        try:
             # Derive encryption key from password
             key = derive_key_from_password(password)
             self.encryption_manager = EncryptionManager(key)
-            
-            # Encrypt and save the parent seed
-            try:
-                self.encryption_manager.encrypt_parent_seed(parent_seed, PARENT_SEED_FILE)
-                logging.info("Parent seed encrypted and saved successfully.")
-                # Store the hashed password
-                self.store_hashed_password(password)
-                logging.info("User password hashed and stored successfully.")
-            except Exception as e:
-                logging.error(f"Failed to encrypt and save parent seed: {e}")
-                logging.error(traceback.format_exc())
-                print(colored(f"Error: Failed to encrypt and save parent seed: {e}", 'red'))
+            self.parent_seed = self.encryption_manager.decrypt_parent_seed(PARENT_SEED_FILE)
+
+            # Log the type and content of parent_seed
+            logger.debug(f"Decrypted parent_seed: {self.parent_seed} (type: {type(self.parent_seed)})")
+
+            # Validate the decrypted seed
+            if not self.validate_bip85_seed(self.parent_seed):
+                logging.error("Decrypted seed is invalid. Exiting.")
+                print(colored("Error: Decrypted seed is invalid.", 'red'))
                 sys.exit(1)
-            
-            self.parent_seed = parent_seed
 
-    def basic_validate_seed_phrase(self, seed_phrase: str) -> Optional[str]:
+            self.initialize_bip85()
+            logging.debug("Parent seed decrypted and validated successfully.")
+        except Exception as e:
+            logging.error(f"Failed to decrypt parent seed: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to decrypt parent seed: {e}", 'red'))
+            sys.exit(1)
+
+    def handle_new_seed_setup(self) -> None:
         """
-        Performs basic validation on the seed phrase without relying on EncryptionManager.
+        Handles the setup process when no existing parent seed is found.
+        Asks the user whether to enter an existing BIP-85 seed or generate a new one.
+        """
+        print(colored("No existing seed found. Let's set up a new one!", 'yellow'))
+        choice = input("Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): ").strip()
 
-        Parameters:
-            seed_phrase (str): The seed phrase to validate.
+        if choice == '1':
+            self.setup_existing_seed()
+        elif choice == '2':
+            self.generate_new_seed()
+        else:
+            print(colored("Invalid choice. Exiting.", 'red'))
+            sys.exit(1)
 
-        Returns:
-            Optional[str]: The validated seed phrase or None if invalid.
+    def setup_existing_seed(self) -> None:
+        """
+        Prompts the user to enter an existing BIP-85 seed and validates it.
         """
         try:
-            words = seed_phrase.split()
-            if len(words) != 12:
-                logging.error("Seed phrase must contain exactly 12 words.")
-                print(colored("Error: Seed phrase must contain exactly 12 words.", 'red'))
-                return None
-            # Additional basic validations can be added here (e.g., word list checks)
-            logging.debug("Seed phrase validated successfully.")
-            return seed_phrase
-        except Exception as e:
-            logging.error(f"Error during basic seed validation: {e}")
-            logging.error(traceback.format_exc())
-            print(colored(f"Error: {e}", 'red'))
-            return None
+            parent_seed = getpass.getpass(prompt='Enter your 12-word BIP-85 seed: ').strip()
+            if self.validate_bip85_seed(parent_seed):
+                self.save_and_encrypt_seed(parent_seed)
+            else:
+                logging.error("Invalid BIP-85 seed phrase. Exiting.")
+                sys.exit(1)
+        except KeyboardInterrupt:
+            logging.info("Operation cancelled by user.")
+            print(colored("\nOperation cancelled by user.", 'yellow'))
+            sys.exit(0)
 
-    def validate_seed_phrase(self, seed_phrase: str) -> bool:
+    def generate_new_seed(self) -> None:
         """
-        Validates the seed phrase using the EncryptionManager if available,
-        otherwise performs basic validation.
+        Generates a new BIP-85 seed, displays it to the user, and prompts for confirmation before saving.
+        """
+        new_seed = self.generate_bip85_seed()
+        print(colored("Your new BIP-85 seed phrase is:", 'green'))
+        print(colored(new_seed, 'yellow'))
+        print(colored("Please write this down and keep it in a safe place!", 'red'))
+
+        if confirm_action("Do you want to use this generated seed? (Y/N): "):
+            self.save_and_encrypt_seed(new_seed)
+        else:
+            print(colored("Seed generation cancelled. Exiting.", 'yellow'))
+            sys.exit(0)
+
+    def validate_bip85_seed(self, seed: str) -> bool:
+        """
+        Validates the provided BIP-85 seed phrase.
 
         Parameters:
-            seed_phrase (str): The seed phrase to validate.
+            seed (str): The seed phrase to validate.
 
         Returns:
             bool: True if valid, False otherwise.
         """
         try:
-            if self.encryption_manager:
-                # Use EncryptionManager to validate seed
-                is_valid = self.encryption_manager.validate_seed(seed_phrase)
-                if is_valid:
-                    logging.debug("Seed phrase validated successfully using EncryptionManager.")
-                else:
-                    logging.error("Invalid seed phrase.")
-                    print(colored("Error: Invalid seed phrase.", 'red'))
-                return is_valid
-            else:
-                # Perform basic validation
-                return self.basic_validate_seed_phrase(seed_phrase) is not None
+            words = seed.split()
+            if len(words) != 12:
+                return False
+            # Additional validation can be added here if needed (e.g., word list checks)
+            return True
         except Exception as e:
-            logging.error(f"Error validating seed phrase: {e}")
-            logging.error(traceback.format_exc())
-            print(colored(f"Error: Failed to validate seed phrase: {e}", 'red'))
+            logging.error(f"Error validating BIP-85 seed: {e}")
             return False
+
+    def generate_bip85_seed(self) -> str:
+        """
+        Generates a new BIP-85 seed phrase.
+
+        Returns:
+            str: The generated 12-word mnemonic seed phrase.
+        """
+        try:
+            master_seed = os.urandom(32)  # Generate a random 32-byte seed
+            bip85 = BIP85(master_seed)
+            mnemonic_obj = bip85.derive_mnemonic(app_no=39, language_code=0, words_num=12, index=0)
+            mnemonic_str = mnemonic_obj.ToStr()  # Convert Bip39Mnemonic object to string
+            return mnemonic_str
+        except Exception as e:
+            logging.error(f"Failed to generate BIP-85 seed: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to generate BIP-85 seed: {e}", 'red'))
+            sys.exit(1)
+
+    def save_and_encrypt_seed(self, seed: str) -> None:
+        """
+        Saves and encrypts the parent seed.
+
+        Parameters:
+            seed (str): The BIP-85 seed phrase to save and encrypt.
+        """
+        password = prompt_for_password()
+        key = derive_key_from_password(password)
+        self.encryption_manager = EncryptionManager(key)
+
+        try:
+            self.encryption_manager.encrypt_parent_seed(seed, PARENT_SEED_FILE)
+            logging.info("Parent seed encrypted and saved successfully.")
+
+            self.store_hashed_password(password)
+            logging.info("User password hashed and stored successfully.")
+
+            self.parent_seed = seed  # Ensure this is a string
+            logger.debug(f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})")
+
+            self.initialize_bip85()
+        except Exception as e:
+            logging.error(f"Failed to encrypt and save parent seed: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to encrypt and save parent seed: {e}", 'red'))
+            sys.exit(1)
+
+    def initialize_bip85(self):
+        """
+        Initializes the BIP-85 generator using the parent seed.
+        """
+        try:
+            seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+            self.bip85 = BIP85(seed_bytes)
+            logging.debug("BIP-85 initialized successfully.")
+        except Exception as e:
+            logging.error(f"Failed to initialize BIP-85: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to initialize BIP-85: {e}", 'red'))
+            sys.exit(1)
 
     def initialize_managers(self) -> None:
         """
         Initializes the EntryManager, PasswordGenerator, and BackupManager with the EncryptionManager
-        and parent seed.
+        and BIP-85 instance.
         """
         try:
             self.entry_manager = EntryManager(self.encryption_manager)
             self.password_generator = PasswordGenerator(self.encryption_manager, self.parent_seed)
             self.backup_manager = BackupManager()
-            logging.debug("EntryManager, PasswordGenerator, and BackupManager initialized.")
+
+            # Directly pass the parent_seed string to NostrClient
+            self.nostr_client = NostrClient(parent_seed=self.parent_seed)  # <-- NostrClient is now imported
+
+            logging.debug("EntryManager, PasswordGenerator, BackupManager, and NostrClient initialized.")
         except Exception as e:
             logging.error(f"Failed to initialize managers: {e}")
             logging.error(traceback.format_exc())
@@ -471,7 +538,7 @@ class PasswordManager:
                 return
 
             # Reveal the parent seed
-            print(colored("\n=== Your Parent Seed ===", 'green'))
+            print(colored("\n=== Your BIP-85 Parent Seed ===", 'green'))
             print(colored(self.parent_seed, 'yellow'))
             print(colored("\nPlease write this down and store it securely. Do not share it with anyone.", 'red'))
 
@@ -497,6 +564,12 @@ class PasswordManager:
     def verify_password(self, password: str) -> bool:
         """
         Verifies the provided password against the stored hashed password.
+
+        Parameters:
+            password (str): The password to verify.
+
+        Returns:
+            bool: True if the password is correct, False otherwise.
         """
         try:
             if not os.path.exists(HASHED_PASSWORD_FILE):
@@ -520,6 +593,12 @@ class PasswordManager:
     def is_valid_filename(self, filename: str) -> bool:
         """
         Validates the provided filename to prevent directory traversal and invalid characters.
+
+        Parameters:
+            filename (str): The filename to validate.
+
+        Returns:
+            bool: True if valid, False otherwise.
         """
         # Basic validation: filename should not contain path separators or be empty
         invalid_chars = ['/', '\\', '..']
@@ -540,6 +619,14 @@ class PasswordManager:
             # Set file permissions to read/write for the user only
             os.chmod(HASHED_PASSWORD_FILE, 0o600)
             logging.info("User password hashed and stored successfully.")
+        except AttributeError:
+            # If bcrypt.hashpw is not available, try using bcrypt directly
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+            with open(HASHED_PASSWORD_FILE, 'wb') as f:
+                f.write(hashed)
+            os.chmod(HASHED_PASSWORD_FILE, 0o600)
+            logging.info("User password hashed and stored successfully (using alternative method).")
         except Exception as e:
             logging.error(f"Failed to store hashed password: {e}")
             logging.error(traceback.format_exc())
