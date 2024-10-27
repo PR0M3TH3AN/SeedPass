@@ -8,7 +8,7 @@
 
 **⚠️ Disclaimer**
 
-This software was not developed by an experienced security expert and should be used with caution. There are likely many bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs have not been evaluated and may leak sensitive information.
+This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.
 
 ---
 
@@ -23,6 +23,7 @@ This software was not developed by an experienced security expert and should be 
   - [4. Install Dependencies](#4-install-dependencies)
 - [Usage](#usage)
   - [Running the Application](#running-the-application)
+  - [Managing Multiple Seeds](#managing-multiple-seeds)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -32,9 +33,10 @@ This software was not developed by an experienced security expert and should be 
 ## Features
 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
-- **Encrypted Storage:** All seeds, login passwords and sensitive index data are encrypted locally.
+- **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
+- **Multiple Seed Profiles:** Manage multiple seed profiles and switch between them seamlessly.
 - **User-Friendly CLI:** Simple command-line interface for easy interaction.
 
 ## Prerequisites
@@ -72,13 +74,13 @@ python3 -m venv venv
 Activate the virtual environment using the appropriate command for your operating system.
 
 - **On Linux and macOS:**
-  
+
   ```bash
   source venv/bin/activate
   ```
 
-- **On Windows:** (This app doesent currently work on Windows)
-  
+- **On Windows:** (Note: SeedPass currently does not support Windows)
+
   ```bash
   venv\Scripts\activate
   ```
@@ -105,18 +107,19 @@ python main.py
 ### Running the Application
 
 1. **Start the Application:**
-   
+
    ```bash
    python main.py
    ```
 
 2. **Follow the Prompts:**
-   
-   - **Enter Your Password:** This password is crucial as it is used to decrypt your parent seed and, subsequently, your seed index data from Nostr.
+
+   - **Seed Profile Selection:** If you have existing seed profiles, you'll be prompted to select one or add a new one.
+   - **Enter Your Password:** This password is crucial as it is used to encrypt and decrypt your parent seed and seed index data.
    - **Select an Option:** Navigate through the menu by entering the number corresponding to your desired action.
-   
+
    Example menu:
-   
+
    ```
    Select an option:
    1. Generate a New Password and Add to Index
@@ -126,19 +129,45 @@ python main.py
    5. Post Encrypted Index to Nostr
    6. Retrieve Encrypted Index from Nostr
    7. Display Nostr Public Key (npub)
-   8. Exit
-   
-   Enter your choice (1-8):
+   8. Backup/Reveal Parent Seed
+   9. Switch Seed Profile
+   10. Add a New Seed Profile
+   11. Remove an Existing Seed Profile
+   12. List All Seed Profiles
+   13. Exit
+
+   Enter your choice (1-13):
    ```
+
+### Managing Multiple Seeds
+
+SeedPass allows you to manage multiple seed profiles (previously referred to as "fingerprints"). Each seed profile has its own parent seed and associated data, enabling you to compartmentalize your passwords.
+
+- **Add a New Seed Profile:**
+  - Select option `10` from the main menu.
+  - Choose to enter an existing seed or generate a new one.
+  - If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
+
+- **Switch Between Seed Profiles:**
+  - Select option `9` from the main menu.
+  - You'll see a list of available seed profiles.
+  - Enter the number corresponding to the seed profile you wish to switch to.
+  - Enter the master password associated with that seed profile.
+
+- **List All Seed Profiles:**
+  - Select option `12` from the main menu to view all existing seed profiles.
+
+**Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
 ## Security Considerations
 
-**Important:** The password you use to decrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12 word seed AND your login password.
+**Important:** The password you use to encrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12-word seed **and** your master password.
 
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
-- **Protect Your Password:** Do not share your decryption password with anyone and ensure it's strong and unique.
+- **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
+- **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 
 ## Contributing
 
@@ -147,19 +176,19 @@ Contributions are welcome! If you have suggestions for improvements, bug fixes, 
 1. **Fork the Repository:** Click the "Fork" button on the top right of the repository page.
 
 2. **Create a Branch:** Create a new branch for your feature or bugfix.
-   
+
    ```bash
    git checkout -b feature/YourFeatureName
    ```
 
 3. **Commit Your Changes:** Make your changes and commit them with clear messages.
-   
+
    ```bash
    git commit -m "Add feature X"
    ```
 
 4. **Push to GitHub:** Push your changes to your forked repository.
-   
+
    ```bash
    git push origin feature/YourFeatureName
    ```
@@ -236,25 +265,12 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Protection Layers:** Ensure seed and password compromise protection through encrypted indices and secure storage.
        - **Security Verification:** Implement checks to ensure neither factor can be bypassed and verify the randomness quality of index generation.
 
-5. **User Onboarding and Initialization**
-   - **Seed Initialization on First Run**
-     - **Description:** Prompt users to either enter an existing seed or generate a new one during the first run.
-     - **Features:**
-       - **Prompt Options:** Ask users if they want to input an existing seed or generate a new one.
-       - **Seed Generation:** Ensure generated seeds comply with BIP-39 standards.
-       - **Encryption:** Securely encrypt the seed using the user's chosen password.
-       - **Confirmation:** Confirm the successful initialization and encryption of the seed.
-       - **Error Handling:** Manage scenarios where seed generation or encryption fails, providing clear feedback to the user.
-
-6. **Comprehensive Testing and Security Auditing**
+5. **Comprehensive Testing and Security Auditing**
    - **Unit Tests:** Develop tests for individual functions and modules to ensure they work as intended.
    - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
    - **Security Audits:** Conduct regular code reviews and security assessments to identify and mitigate vulnerabilities.
 
-7. **Fingerprint-Based Backup and Local Storage Structure** [see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/fingerprint_seeds.md) 
-   - **Summary:** Implement a fingerprinting system to uniquely identify and manage multiple seeds and user profiles securely. This one-way function-based method enhances data organization, enabling users to handle various seeds without exposing sensitive information.
-
-8. **Managed Users’ Data Loading**
+6. **Managed Users’ Data Loading**
    - **Summary:** Enable the master seed holder to load and manage the seeds, passwords, and Nostr accounts of dependent users. This allows centralized management of multiple accounts, ensuring secure synchronization and control over multiple users' data.
 
 ---
@@ -309,20 +325,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
      - Introduce CLI options to add, remove, or list relays.
      - Ensure entries are posted to the specified relays upon creation or update.
 
-3. **Batch Processing and Smart Posting**
-   - **Description:** Optimize Nostr posting by handling multiple entries efficiently through single-entry batching.
-   - **Implementation Steps:**
-     - **Single Entry = Single Post:**
-       - Each new or updated entry is posted individually to Nostr as a separate event.
-       - This approach ensures scalability and simplifies synchronization.
-     - **Backup File Management:**
-       - For every entry post, create a corresponding backup file in the `backups/` directory.
-       - Maintain versioning for easy rollback if needed.
-     - **Error Handling:**
-       - Implement mechanisms to handle failed posts without disrupting the user's workflow.
-       - Provide user notifications for successful or failed postings.
-
-4. **Secure Clipboard Operations**
+3. **Secure Clipboard Operations**
    - **Description:** Ensure clipboard operations are secure and temporary.
    - **Features:**
      - **Clear Clipboard After Duration:** Automatically clear the clipboard after a set duration (e.g., 30 seconds) to prevent unauthorized access.
