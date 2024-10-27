@@ -12,64 +12,27 @@ Ensure that all dependencies are installed and properly configured in your envir
 Never ever ever use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed.
 This means it should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this software's use case.
 """
+
 import os
 import logging
 import hashlib
-import base64
 import string
+import random
 import traceback
 from typing import Optional
 from termcolor import colored
-import random
-
+from pathlib import Path
+import shutil
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
-from bip85.bip85 import BIP85
+from local_bip85.bip85 import BIP85
 
 from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH
 from password_manager.encryption import EncryptionManager
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Logs include the timestamp, log level, message, filename, and line number.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Prevent adding multiple handlers if configure_logging is called multiple times
-    if not logger.handlers:
-        # Create the 'logs' folder if it doesn't exist
-        if not os.path.exists('logs'):
-            os.makedirs('logs')
-
-        # Create handlers
-        c_handler = logging.StreamHandler()
-        f_handler = logging.FileHandler(os.path.join('logs', 'password_generation.log'))
-
-        # Set levels: only errors and critical messages will be shown in the console
-        c_handler.setLevel(logging.ERROR)  # Console will show ERROR and above
-        f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-        # Create formatters and add them to handlers, include file and line number in log messages
-        formatter = logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]'
-        )
-        c_handler.setFormatter(formatter)
-        f_handler.setFormatter(formatter)
-
-        # Add handlers to the logger
-        logger.addHandler(c_handler)
-        logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
-
+# Instantiate the logger
 logger = logging.getLogger(__name__)
 
 class PasswordGenerator:
@@ -81,23 +44,22 @@ class PasswordGenerator:
     complexity requirements.
     """
 
-    def __init__(self, encryption_manager: EncryptionManager, parent_seed: str):
+    def __init__(self, encryption_manager: EncryptionManager, parent_seed: str, bip85: BIP85):
         """
-        Initializes the PasswordGenerator with the encryption manager and parent seed.
+        Initializes the PasswordGenerator with the encryption manager, parent seed, and BIP85 instance.
 
         Parameters:
             encryption_manager (EncryptionManager): The encryption manager instance.
             parent_seed (str): The BIP-39 parent seed phrase.
+            bip85 (BIP85): The BIP85 instance for generating deterministic entropy.
         """
         try:
             self.encryption_manager = encryption_manager
             self.parent_seed = parent_seed
+            self.bip85 = bip85
 
-            # Derive seed bytes from parent_seed using BIP39
+            # Derive seed bytes from parent_seed using BIP39 (handled by EncryptionManager)
             self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(self.parent_seed)
-
-            # Initialize BIP85 with seed_bytes
-            self.bip85 = BIP85(self.seed_bytes)
 
             logger.debug("PasswordGenerator initialized successfully.")
         except Exception as e:
@@ -112,7 +74,7 @@ class PasswordGenerator:
 
         Steps:
         1. Derive entropy using BIP-85.
-        2. Use PBKDF2-HMAC-SHA256 to derive a key from entropy.
+        2. Use HKDF-HMAC-SHA256 to derive a key from entropy.
         3. Map the derived key to all allowed characters.
         4. Ensure the password meets complexity requirements.
         5. Shuffle the password deterministically based on the derived key.
@@ -126,6 +88,7 @@ class PasswordGenerator:
             str: The generated password.
         """
         try:
+            # Validate password length
             if length < MIN_PASSWORD_LENGTH:
                 logger.error(f"Password length must be at least {MIN_PASSWORD_LENGTH} characters.")
                 raise ValueError(f"Password length must be at least {MIN_PASSWORD_LENGTH} characters.")
@@ -134,7 +97,7 @@ class PasswordGenerator:
                 raise ValueError(f"Password length must not exceed {MAX_PASSWORD_LENGTH} characters.")
 
             # Derive entropy using BIP-85
-            entropy = self.bip85.derive_entropy(app_no=39, language_code=0, words_num=12, index=index)
+            entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
             logger.debug(f"Derived entropy: {entropy.hex()}")
 
             # Use HKDF to derive key from entropy
@@ -167,17 +130,17 @@ class PasswordGenerator:
             password_chars = list(password)
             rng.shuffle(password_chars)
             password = ''.join(password_chars)
-            logger.debug(f"Shuffled password deterministically.")
+            logger.debug("Shuffled password deterministically.")
 
-            # Ensure password length
+            # Ensure password length by extending if necessary
             if len(password) < length:
-                # Extend the password deterministically
                 while len(password) < length:
                     dk = hashlib.pbkdf2_hmac('sha256', dk, b'', 1)
                     base64_extra = ''.join(all_allowed[byte % len(all_allowed)] for byte in dk)
                     password += ''.join(base64_extra)
                     logger.debug(f"Extended password: {password}")
 
+            # Trim the password to the desired length
             password = password[:length]
             logger.debug(f"Final password (trimmed to {length} chars): {password}")
 

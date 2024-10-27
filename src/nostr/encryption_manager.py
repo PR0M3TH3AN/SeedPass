@@ -5,13 +5,9 @@ import logging
 import traceback
 from cryptography.fernet import Fernet, InvalidToken
 
-from .logging_config import configure_logging
 from .key_manager import KeyManager
 
-# Configure logging at the start of the module
-configure_logging()
-
-# Initialize the logger for this module
+# Instantiate the logger
 logger = logging.getLogger(__name__)
 
 class EncryptionManager:

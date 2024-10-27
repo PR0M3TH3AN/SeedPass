@@ -26,43 +26,8 @@ from constants import MIN_PASSWORD_LENGTH
 # Initialize colorama for colored terminal text
 colorama_init()
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    # Create a custom logger
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Create the 'logs' folder if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-
-    # Create handlers
-    c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler(os.path.join('logs', 'password_prompt.log'))  # Log file in 'logs' folder
-
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)  # Console will show ERROR and above
-    f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-    # Create formatters and add them to handlers, include file and line number in log messages
-    c_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-    f_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-
-    # Add handlers to the logger
-    if not logger.handlers:
-        logger.addHandler(c_handler)
-        logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 def prompt_new_password() -> str:
     """

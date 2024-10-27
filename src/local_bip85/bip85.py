@@ -31,60 +31,11 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    # Create the 'logs' folder if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-
-    # Create a custom logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Create handlers
-    c_handler = logging.StreamHandler(sys.stdout)
-    f_handler = logging.FileHandler(os.path.join('logs', 'bip85.log'))  # Log files will be in 'logs' folder
-
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)  # Terminal will show ERROR and above
-    f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-    # Create formatters and add them to handlers, include file and line number in log messages
-    c_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-    f_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-
-    # Add handlers to the logger
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 class BIP85:
-    """
-    BIP85 Class
-
-    Implements BIP-85 functionality for deterministic entropy and mnemonic derivation.
-    """
-
     def __init__(self, seed_bytes: bytes):
-        """
-        Initializes the BIP85 class with seed bytes.
-
-        Parameters:
-            seed_bytes (bytes): The BIP39 seed bytes derived from the seed phrase.
-
-        Raises:
-            SystemExit: If initialization fails.
-        """
         try:
             self.bip32_ctx = Bip32Slip10Secp256k1.FromSeed(seed_bytes)
             logging.debug("BIP32 context initialized successfully.")
@@ -94,15 +45,14 @@ class BIP85:
             print(f"{Fore.RED}Error initializing BIP32 context: {e}")
             sys.exit(1)
 
-    def derive_entropy(self, app_no: int, language_code: int, words_num: int, index: int) -> bytes:
+    def derive_entropy(self, index: int, bytes_len: int, app_no: int = 39) -> bytes:
         """
         Derives entropy using BIP-85 HMAC-SHA512 method.
 
         Parameters:
-            app_no (int): Application number (e.g., 39 for BIP39).
-            language_code (int): Language code (e.g., 0 for English).
-            words_num (int): Number of words in the mnemonic (e.g., 12).
-            index (int): Index for the child mnemonic.
+            index (int): Index for the child entropy.
+            bytes_len (int): Number of bytes to derive for the entropy.
+            app_no (int): Application number (default 39 for BIP39)
 
         Returns:
             bytes: Derived entropy.
@@ -110,7 +60,14 @@ class BIP85:
         Raises:
             SystemExit: If derivation fails or entropy length is invalid.
         """
-        path = f"m/83696968'/{app_no}'/{language_code}'/{words_num}'/{index}'"
+        if app_no == 39:
+            path = f"m/83696968'/{app_no}'/0'/{bytes_len}'/{index}'"
+        elif app_no == 32:
+            path = f"m/83696968'/{app_no}'/{index}'"
+        else:
+            # Handle other app_no if necessary
+            path = f"m/83696968'/{app_no}'/{index}'"
+
         try:
             child_key = self.bip32_ctx.DerivePath(path)
             k = child_key.PrivateKey().Raw().ToBytes()
@@ -120,20 +77,11 @@ class BIP85:
             hmac_result = hmac.new(hmac_key, k, hashlib.sha512).digest()
             logging.debug(f"HMAC-SHA512 result: {hmac_result.hex()}")
 
-            if words_num == 12:
-                entropy = hmac_result[:16]  # 128 bits for 12-word mnemonic
-            elif words_num == 18:
-                entropy = hmac_result[:24]  # 192 bits for 18-word mnemonic
-            elif words_num == 24:
-                entropy = hmac_result[:32]  # 256 bits for 24-word mnemonic
-            else:
-                logging.error(f"Unsupported number of words: {words_num}")
-                print(f"{Fore.RED}Error: Unsupported number of words: {words_num}")
-                sys.exit(1)
+            entropy = hmac_result[:bytes_len]
 
-            if len(entropy) not in [16, 24, 32]:
-                logging.error(f"Derived entropy length is {len(entropy)} bytes; expected 16, 24, or 32 bytes.")
-                print(f"{Fore.RED}Error: Derived entropy length is {len(entropy)} bytes; expected 16, 24, or 32 bytes.")
+            if len(entropy) != bytes_len:
+                logging.error(f"Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes.")
+                print(f"{Fore.RED}Error: Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes.")
                 sys.exit(1)
 
             logging.debug(f"Derived entropy: {entropy.hex()}")
@@ -144,23 +92,14 @@ class BIP85:
             print(f"{Fore.RED}Error deriving entropy: {e}")
             sys.exit(1)
 
-    def derive_mnemonic(self, app_no: int, language_code: int, words_num: int, index: int) -> str:
-        """
-        Derives a BIP-39 mnemonic using BIP-85 specification.
+    def derive_mnemonic(self, index: int, words_num: int) -> str:
+        bytes_len = {12: 16, 18: 24, 24: 32}.get(words_num)
+        if not bytes_len:
+            logging.error(f"Unsupported number of words: {words_num}")
+            print(f"{Fore.RED}Error: Unsupported number of words: {words_num}")
+            sys.exit(1)
 
-        Parameters:
-            app_no (int): Application number (e.g., 39 for BIP39).
-            language_code (int): Language code (e.g., 0 for English).
-            words_num (int): Number of words in the mnemonic (e.g., 12).
-            index (int): Index for the child mnemonic.
-
-        Returns:
-            str: Derived BIP-39 mnemonic.
-
-        Raises:
-            SystemExit: If mnemonic generation fails.
-        """
-        entropy = self.derive_entropy(app_no, language_code, words_num, index)
+        entropy = self.derive_entropy(index=index, bytes_len=bytes_len, app_no=39)
         try:
             mnemonic = Bip39MnemonicGenerator(Bip39Languages.ENGLISH).FromEntropy(entropy)
             logging.debug(f"Derived mnemonic: {mnemonic}")

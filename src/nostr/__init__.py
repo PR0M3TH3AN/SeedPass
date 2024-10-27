@@ -2,11 +2,10 @@
 
 import logging
 import traceback
+from .client import NostrClient
 
-from .logging_config import configure_logging
-
-# Configure logging at the start of the module
-configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 # Initialize the logger for this module
 logger = logging.getLogger(__name__)  # Correct logger initialization

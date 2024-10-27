@@ -6,42 +6,8 @@ import sys
 from pathlib import Path
 import traceback
 
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    # Create a custom logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Create the 'logs' folder if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-
-    # Create handlers
-    c_handler = logging.StreamHandler(sys.stdout)
-    f_handler = logging.FileHandler(os.path.join('logs', 'constants.log'))
-
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)  # Console will show ERROR and above
-    f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-    # Create formatters and add them to handlers, include file and line number in log messages
-    c_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-    f_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-
-    # Add handlers to the logger if they are not already added
-    if not logger.handlers:
-        logger.addHandler(c_handler)
-        logger.addHandler(f_handler)
-
-# Configure logging at the start of the module
-configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 # -----------------------------------
 # Nostr Relay Connection Settings
@@ -61,9 +27,7 @@ except Exception as e:
     logging.error(traceback.format_exc())  # Log full traceback
 
 try:
-    INDEX_FILE = APP_DIR / 'seedpass_passwords_db.json'        # Encrypted password database
     PARENT_SEED_FILE = APP_DIR / 'parent_seed.enc'    # Encrypted parent seed
-    logging.info(f"Index file path set to {INDEX_FILE}")
     logging.info(f"Parent seed file path set to {PARENT_SEED_FILE}")
 except Exception as e:
     logging.error(f"Error setting file paths: {e}")
@@ -74,8 +38,7 @@ except Exception as e:
 # -----------------------------------
 try:
     SCRIPT_CHECKSUM_FILE = APP_DIR / 'seedpass_script_checksum.txt'      # Checksum for main script
-    DATA_CHECKSUM_FILE = APP_DIR / 'seedpass_passwords_checksum.txt'     # Checksum for password data
-    logging.info(f"Checksum file paths set: Script {SCRIPT_CHECKSUM_FILE}, Data {DATA_CHECKSUM_FILE}")
+    logging.info(f"Checksum file path set: Script {SCRIPT_CHECKSUM_FILE}")
 except Exception as e:
     logging.error(f"Error setting checksum file paths: {e}")
     logging.error(traceback.format_exc())  # Log full traceback
@@ -91,5 +54,4 @@ MAX_PASSWORD_LENGTH = 128       # Maximum allowed password length
 # Additional Constants (if any)
 # -----------------------------------
 # Add any other constants here as your project expands
-HASHED_PASSWORD_FILE = APP_DIR / 'hashed_password.enc'
 DEFAULT_SEED_BACKUP_FILENAME = 'parent_seed_backup.enc'

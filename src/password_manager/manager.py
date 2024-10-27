@@ -15,7 +15,7 @@ import logging
 import getpass
 import os
 from typing import Optional
-
+import shutil
 from colorama import Fore
 from termcolor import colored
 
@@ -29,67 +29,27 @@ from utils.password_prompt import prompt_for_password, prompt_existing_password,
 
 from constants import (
     APP_DIR,
-    INDEX_FILE,
     PARENT_SEED_FILE,
-    DATA_CHECKSUM_FILE,
     SCRIPT_CHECKSUM_FILE,
     MIN_PASSWORD_LENGTH,
     MAX_PASSWORD_LENGTH,
     DEFAULT_PASSWORD_LENGTH,
-    HASHED_PASSWORD_FILE,  # Ensure this constant is defined in constants.py
     DEFAULT_SEED_BACKUP_FILENAME
 )
 
-import traceback  # Added for exception traceback logging
-import bcrypt  # Ensure bcrypt is installed in your environment
-from pathlib import Path  # Required for handling file paths
+import traceback  
+import bcrypt  
+from pathlib import Path  
 
-from bip85.bip85 import BIP85
+from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
 
-# Import NostrClient from the nostr package
-from nostr import NostrClient  # <-- Added import statement
+from utils.fingerprint_manager import FingerprintManager
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Logs include the timestamp, log level, message, filename, and line number.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
+# Import NostrClient
+from nostr.client import NostrClient 
 
-    # Prevent adding multiple handlers if configure_logging is called multiple times
-    if not logger.handlers:
-        # Create the 'logs' folder if it doesn't exist
-        if not os.path.exists('logs'):
-            os.makedirs('logs')
-
-        # Create handlers
-        c_handler = logging.StreamHandler()
-        f_handler = logging.FileHandler(os.path.join('logs', 'password_manager.log'))
-
-        # Set levels: only errors and critical messages will be shown in the console
-        c_handler.setLevel(logging.ERROR)
-        f_handler.setLevel(logging.DEBUG)
-
-        # Create formatters and add them to handlers, include file and line number in log messages
-        formatter = logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]'
-        )
-        c_handler.setFormatter(formatter)
-        f_handler.setFormatter(formatter)
-
-        # Add handlers to the logger
-        logger.addHandler(c_handler)
-        logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
-
-# Initialize the logger for this module
+# Instantiate the logger
 logger = logging.getLogger(__name__)
 
 class PasswordManager:
@@ -104,48 +64,286 @@ class PasswordManager:
     def __init__(self):
         """
         Initializes the PasswordManager by setting up encryption, loading or setting up the parent seed,
-        and initializing other components like EntryManager, PasswordGenerator, and BackupManager.
+        and initializing other components like EntryManager, PasswordGenerator, BackupManager, and FingerprintManager.
         """
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
         self.backup_manager: Optional[BackupManager] = None
-        self.parent_seed: Optional[str] = None  # Ensured to be a string
-        self.bip85: Optional[BIP85] = None      # Added bip85 attribute
+        self.fingerprint_manager: Optional[FingerprintManager] = None
+        self.parent_seed: Optional[str] = None
+        self.bip85: Optional[BIP85] = None
+        self.nostr_client: Optional[NostrClient] = None
 
+        # Initialize the fingerprint manager first
+        self.initialize_fingerprint_manager()
+
+        # Ensure a parent seed is set up before accessing the fingerprint directory
         self.setup_parent_seed()
-        self.initialize_managers()
+
+        # Set the current fingerprint directory
+        self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+
+    def initialize_fingerprint_manager(self):
+        """
+        Initializes the FingerprintManager.
+        """
+        try:
+            self.fingerprint_manager = FingerprintManager(APP_DIR)
+            logger.debug("FingerprintManager initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize FingerprintManager: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to initialize FingerprintManager: {e}", 'red'))
+            sys.exit(1)
 
     def setup_parent_seed(self) -> None:
         """
-        Sets up the parent seed by determining if an existing seed is present or if a new one needs to be created.
+        Sets up the parent seed by determining if existing fingerprints are present or if a new one needs to be created.
         """
-        if os.path.exists(PARENT_SEED_FILE):
-            self.handle_existing_seed()
+        fingerprints = self.fingerprint_manager.list_fingerprints()
+        if fingerprints:
+            # There are existing fingerprints
+            self.select_or_add_fingerprint()
         else:
+            # No existing fingerprints, proceed to set up new seed
             self.handle_new_seed_setup()
+
+    def select_or_add_fingerprint(self):
+        """
+        Prompts the user to select an existing fingerprint or add a new one.
+        """
+        try:
+            print(colored("\nAvailable Fingerprints:", 'cyan'))
+            fingerprints = self.fingerprint_manager.list_fingerprints()
+            for idx, fp in enumerate(fingerprints, start=1):
+                print(colored(f"{idx}. {fp}", 'cyan'))
+
+            print(colored(f"{len(fingerprints)+1}. Add a new fingerprint", 'cyan'))
+
+            choice = input("Select a fingerprint by number: ").strip()
+            if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)+1):
+                print(colored("Invalid selection. Exiting.", 'red'))
+                sys.exit(1)
+
+            choice = int(choice)
+            if choice == len(fingerprints)+1:
+                # Add a new fingerprint
+                self.add_new_fingerprint()
+            else:
+                # Select existing fingerprint
+                selected_fingerprint = fingerprints[choice-1]
+                self.select_fingerprint(selected_fingerprint)
+
+        except Exception as e:
+            logger.error(f"Error during fingerprint selection: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to select fingerprint: {e}", 'red'))
+            sys.exit(1)
+
+    def add_new_fingerprint(self):
+        """
+        Adds a new fingerprint by generating it from a seed phrase.
+        """
+        try:
+            choice = input("Do you want to (1) Enter an existing seed or (2) Generate a new seed? (1/2): ").strip()
+            if choice == '1':
+                fingerprint = self.setup_existing_seed()
+            elif choice == '2':
+                fingerprint = self.generate_new_seed()
+            else:
+                print(colored("Invalid choice. Exiting.", 'red'))
+                sys.exit(1)
+
+            # Set current_fingerprint in FingerprintManager only
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            print(colored(f"New fingerprint '{fingerprint}' added and set as current.", 'green'))
+
+        except Exception as e:
+            logger.error(f"Error adding new fingerprint: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to add new fingerprint: {e}", 'red'))
+            sys.exit(1)
+
+    def select_fingerprint(self, fingerprint: str) -> None:
+        if self.fingerprint_manager.select_fingerprint(fingerprint):
+            self.current_fingerprint = fingerprint  # Add this line
+            self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+            if not self.fingerprint_dir:
+                print(colored(f"Error: Fingerprint directory for {fingerprint} not found.", 'red'))
+                sys.exit(1)
+            # Setup the encryption manager and load parent seed
+            self.setup_encryption_manager(self.fingerprint_dir)
+            self.load_parent_seed(self.fingerprint_dir)
+            # Initialize BIP85 and other managers
+            self.initialize_bip85()
+            self.initialize_managers()
+            print(colored(f"Fingerprint {fingerprint} selected and managers initialized.", 'green'))
+        else:
+            print(colored(f"Error: Fingerprint {fingerprint} not found.", 'red'))
+            sys.exit(1)
+
+    def setup_encryption_manager(self, fingerprint_dir: Path, password: Optional[str] = None):
+        """
+        Sets up the EncryptionManager for the selected fingerprint.
+
+        Parameters:
+            fingerprint_dir (Path): The directory corresponding to the fingerprint.
+            password (Optional[str]): The user's master password.
+        """
+        try:
+            # Prompt for password if not provided
+            if password is None:
+                password = prompt_existing_password("Enter your master password: ")
+            # Derive key from password
+            key = derive_key_from_password(password)
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            logger.debug("EncryptionManager set up successfully for selected fingerprint.")
+
+            # Verify the password
+            self.fingerprint_dir = fingerprint_dir  # Ensure self.fingerprint_dir is set
+            if not self.verify_password(password):
+                print(colored("Invalid password. Exiting.", 'red'))
+                sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to set up EncryptionManager: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to set up encryption: {e}", 'red'))
+            sys.exit(1)
+
+    def load_parent_seed(self, fingerprint_dir: Path):
+        """
+        Loads and decrypts the parent seed from the fingerprint directory.
+
+        Parameters:
+            fingerprint_dir (Path): The directory corresponding to the fingerprint.
+        """
+        try:
+            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
+            logger.debug(f"Parent seed loaded for fingerprint {self.current_fingerprint}.")
+            # Initialize BIP85 with the parent seed
+            seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+            self.bip85 = BIP85(seed_bytes)
+            logger.debug("BIP-85 initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load parent seed: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to load parent seed: {e}", 'red'))
+            sys.exit(1)
+
+    def handle_switch_fingerprint(self) -> bool:
+        """
+        Handles switching to a different fingerprint.
+
+        Returns:
+            bool: True if switch was successful, False otherwise.
+        """
+        try:
+            print(colored("\nAvailable Fingerprints:", 'cyan'))
+            fingerprints = self.fingerprint_manager.list_fingerprints()
+            for idx, fp in enumerate(fingerprints, start=1):
+                print(colored(f"{idx}. {fp}", 'cyan'))
+
+            choice = input("Select a fingerprint by number to switch: ").strip()
+            if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
+                print(colored("Invalid selection. Returning to main menu.", 'red'))
+                return False  # Return False to indicate failure
+
+            selected_fingerprint = fingerprints[int(choice) - 1]
+            self.fingerprint_manager.current_fingerprint = selected_fingerprint
+            self.current_fingerprint = selected_fingerprint
+
+            # Update fingerprint directory
+            self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+            if not self.fingerprint_dir:
+                print(colored(f"Error: Fingerprint directory for {selected_fingerprint} not found.", 'red'))
+                return False  # Return False to indicate failure
+
+            # Prompt for master password for the selected fingerprint
+            password = prompt_existing_password("Enter your master password: ")
+
+            # Set up the encryption manager with the new password and fingerprint directory
+            self.setup_encryption_manager(self.fingerprint_dir, password)
+
+            # Load the parent seed for the selected fingerprint
+            self.load_parent_seed(self.fingerprint_dir)
+
+            # Initialize BIP85 and other managers
+            self.initialize_bip85()
+            self.initialize_managers()
+            print(colored(f"Switched to fingerprint {selected_fingerprint}.", 'green'))
+
+            # Re-initialize NostrClient with the new fingerprint
+            try:
+                self.nostr_client = NostrClient(
+                    encryption_manager=self.encryption_manager,
+                    fingerprint=self.current_fingerprint
+                )
+                logging.info(f"NostrClient re-initialized with fingerprint {self.current_fingerprint}.")
+            except Exception as e:
+                logging.error(f"Failed to re-initialize NostrClient: {e}")
+                print(colored(f"Error: Failed to re-initialize NostrClient: {e}", 'red'))
+                return False
+
+            return True  # Return True to indicate success
+
+        except Exception as e:
+            logging.error(f"Error during fingerprint switching: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to switch fingerprints: {e}", 'red'))
+            return False  # Return False to indicate failure
 
     def handle_existing_seed(self) -> None:
         """
         Handles the scenario where an existing parent seed file is found.
         Prompts the user for the master password to decrypt the seed.
         """
-        password = getpass.getpass(prompt='Enter your login password: ').strip()
         try:
+            # Prompt for password
+            password = getpass.getpass(prompt='Enter your login password: ').strip()
+            
             # Derive encryption key from password
             key = derive_key_from_password(password)
-            self.encryption_manager = EncryptionManager(key)
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed(PARENT_SEED_FILE)
-
+            
+            # Initialize FingerprintManager if not already initialized
+            if not self.fingerprint_manager:
+                self.initialize_fingerprint_manager()
+            
+            # Prompt the user to select an existing fingerprint
+            fingerprints = self.fingerprint_manager.list_fingerprints()
+            if not fingerprints:
+                print(colored("No fingerprints available. Please add a fingerprint first.", 'red'))
+                sys.exit(1)
+            
+            print(colored("Available Fingerprints:", 'cyan'))
+            for idx, fp in enumerate(fingerprints, start=1):
+                print(colored(f"{idx}. {fp}", 'cyan'))
+            
+            choice = input("Select a fingerprint by number: ").strip()
+            if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
+                print(colored("Invalid selection. Exiting.", 'red'))
+                sys.exit(1)
+            
+            selected_fingerprint = fingerprints[int(choice)-1]
+            self.current_fingerprint = selected_fingerprint
+            fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(selected_fingerprint)
+            if not fingerprint_dir:
+                print(colored("Error: Fingerprint directory not found.", 'red'))
+                sys.exit(1)
+            
+            # Initialize EncryptionManager with key and fingerprint_dir
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
+            
             # Log the type and content of parent_seed
             logger.debug(f"Decrypted parent_seed: {self.parent_seed} (type: {type(self.parent_seed)})")
-
+    
             # Validate the decrypted seed
             if not self.validate_bip85_seed(self.parent_seed):
                 logging.error("Decrypted seed is invalid. Exiting.")
                 print(colored("Error: Decrypted seed is invalid.", 'red'))
                 sys.exit(1)
-
+    
             self.initialize_bip85()
             logging.debug("Parent seed decrypted and validated successfully.")
         except Exception as e:
@@ -170,25 +368,67 @@ class PasswordManager:
             print(colored("Invalid choice. Exiting.", 'red'))
             sys.exit(1)
 
-    def setup_existing_seed(self) -> None:
+    def setup_existing_seed(self) -> Optional[str]:
         """
         Prompts the user to enter an existing BIP-85 seed and validates it.
+        
+        Returns:
+            Optional[str]: The fingerprint if setup is successful, None otherwise.
         """
         try:
             parent_seed = getpass.getpass(prompt='Enter your 12-word BIP-85 seed: ').strip()
             if self.validate_bip85_seed(parent_seed):
-                self.save_and_encrypt_seed(parent_seed)
+                # Add a fingerprint using the existing seed
+                fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
+                if not fingerprint:
+                    print(colored("Error: Failed to generate fingerprint for the provided seed.", 'red'))
+                    sys.exit(1)
+
+                fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(fingerprint)
+                if not fingerprint_dir:
+                    print(colored("Error: Failed to retrieve fingerprint directory.", 'red'))
+                    sys.exit(1)
+
+                # Set the current fingerprint in both PasswordManager and FingerprintManager
+                self.current_fingerprint = fingerprint
+                self.fingerprint_manager.current_fingerprint = fingerprint
+                self.fingerprint_dir = fingerprint_dir
+                logging.info(f"Current fingerprint set to {fingerprint}")
+
+                # Initialize EncryptionManager with key and fingerprint_dir
+                password = prompt_for_password()
+                key = derive_key_from_password(password)
+                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+
+                # Encrypt and save the parent seed
+                self.encryption_manager.encrypt_parent_seed(parent_seed)
+                logging.info("Parent seed encrypted and saved successfully.")
+
+                # Store the hashed password
+                self.store_hashed_password(password)
+                logging.info("User password hashed and stored successfully.")
+
+                self.parent_seed = parent_seed  # Ensure this is a string
+                logger.debug(f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})")
+
+                self.initialize_bip85()
+                self.initialize_managers()
+                return fingerprint  # Return the generated or added fingerprint
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
+                print(colored("Error: Invalid BIP-85 seed phrase.", 'red'))
                 sys.exit(1)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             print(colored("\nOperation cancelled by user.", 'yellow'))
             sys.exit(0)
 
-    def generate_new_seed(self) -> None:
+    def generate_new_seed(self) -> Optional[str]:
         """
         Generates a new BIP-85 seed, displays it to the user, and prompts for confirmation before saving.
+
+        Returns:
+            Optional[str]: The fingerprint if generation is successful, None otherwise.
         """
         new_seed = self.generate_bip85_seed()
         print(colored("Your new BIP-85 seed phrase is:", 'green'))
@@ -196,7 +436,26 @@ class PasswordManager:
         print(colored("Please write this down and keep it in a safe place!", 'red'))
 
         if confirm_action("Do you want to use this generated seed? (Y/N): "):
-            self.save_and_encrypt_seed(new_seed)
+            # Add a new fingerprint using the generated seed
+            fingerprint = self.fingerprint_manager.add_fingerprint(new_seed)
+            if not fingerprint:
+                print(colored("Error: Failed to generate fingerprint for the new seed.", 'red'))
+                sys.exit(1)
+
+            fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(fingerprint)
+            if not fingerprint_dir:
+                print(colored("Error: Failed to retrieve fingerprint directory.", 'red'))
+                sys.exit(1)
+
+            # Set the current fingerprint in both PasswordManager and FingerprintManager
+            self.current_fingerprint = fingerprint
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            logging.info(f"Current fingerprint set to {fingerprint}")
+
+            # Now, save and encrypt the seed with the fingerprint_dir
+            self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+
+            return fingerprint  # Return the generated fingerprint
         else:
             print(colored("Seed generation cancelled. Exiting.", 'yellow'))
             sys.exit(0)
@@ -231,7 +490,7 @@ class PasswordManager:
         try:
             master_seed = os.urandom(32)  # Generate a random 32-byte seed
             bip85 = BIP85(master_seed)
-            mnemonic_obj = bip85.derive_mnemonic(app_no=39, language_code=0, words_num=12, index=0)
+            mnemonic_obj = bip85.derive_mnemonic(index=0, words_num=12)
             mnemonic_str = mnemonic_obj.ToStr()  # Convert Bip39Mnemonic object to string
             return mnemonic_str
         except Exception as e:
@@ -240,28 +499,38 @@ class PasswordManager:
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", 'red'))
             sys.exit(1)
 
-    def save_and_encrypt_seed(self, seed: str) -> None:
+    def save_and_encrypt_seed(self, seed: str, fingerprint_dir: Path) -> None:
         """
         Saves and encrypts the parent seed.
 
         Parameters:
             seed (str): The BIP-85 seed phrase to save and encrypt.
+            fingerprint_dir (Path): The directory corresponding to the fingerprint.
         """
-        password = prompt_for_password()
-        key = derive_key_from_password(password)
-        self.encryption_manager = EncryptionManager(key)
-
         try:
-            self.encryption_manager.encrypt_parent_seed(seed, PARENT_SEED_FILE)
-            logging.info("Parent seed encrypted and saved successfully.")
+            # Set self.fingerprint_dir
+            self.fingerprint_dir = fingerprint_dir
 
+            # Prompt for password
+            password = prompt_for_password()
+            # Derive key from password
+            key = derive_key_from_password(password)
+            # Re-initialize EncryptionManager with the new key and fingerprint_dir
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+
+            # Store the hashed password
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
+
+            # Encrypt and save the parent seed
+            self.encryption_manager.encrypt_parent_seed(seed)
+            logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
             logger.debug(f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})")
 
             self.initialize_bip85()
+            self.initialize_managers()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}")
             logging.error(traceback.format_exc())
@@ -284,20 +553,38 @@ class PasswordManager:
 
     def initialize_managers(self) -> None:
         """
-        Initializes the EntryManager, PasswordGenerator, and BackupManager with the EncryptionManager
-        and BIP-85 instance.
+        Initializes the EntryManager, PasswordGenerator, BackupManager, and NostrClient with the EncryptionManager
+        and BIP-85 instance within the context of the selected fingerprint.
         """
         try:
-            self.entry_manager = EntryManager(self.encryption_manager)
-            self.password_generator = PasswordGenerator(self.encryption_manager, self.parent_seed)
-            self.backup_manager = BackupManager()
+            # Ensure self.encryption_manager is already initialized
+            if not self.encryption_manager:
+                raise ValueError("EncryptionManager is not initialized.")
 
-            # Directly pass the parent_seed string to NostrClient
-            self.nostr_client = NostrClient(parent_seed=self.parent_seed)  # <-- NostrClient is now imported
+            # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
+            self.entry_manager = EntryManager(
+                encryption_manager=self.encryption_manager,
+                fingerprint_dir=self.fingerprint_dir
+            )
+            
+            self.password_generator = PasswordGenerator(
+                encryption_manager=self.encryption_manager,
+                parent_seed=self.parent_seed,
+                bip85=self.bip85
+            )
+            
+            self.backup_manager = BackupManager(fingerprint_dir=self.fingerprint_dir)
 
-            logging.debug("EntryManager, PasswordGenerator, BackupManager, and NostrClient initialized.")
+            # Initialize the NostrClient with the current fingerprint
+            self.nostr_client = NostrClient(
+                encryption_manager=self.encryption_manager,
+                fingerprint=self.current_fingerprint  # Pass the current fingerprint
+            )
+
+            logger.debug("Managers re-initialized for the new fingerprint.")
+        
         except Exception as e:
-            logging.error(f"Failed to initialize managers: {e}")
+            logger.error(f"Failed to initialize managers: {e}")
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to initialize managers: {e}", 'red'))
             sys.exit(1)
@@ -464,7 +751,7 @@ class PasswordManager:
         :return: The encrypted data as bytes, or None if retrieval fails.
         """
         try:
-            encrypted_data = self.encryption_manager.get_encrypted_index()
+            encrypted_data = self.entry_manager.get_encrypted_index()
             if encrypted_data:
                 logging.debug("Encrypted index data retrieved successfully.")
                 return encrypted_data
@@ -485,13 +772,22 @@ class PasswordManager:
         :param encrypted_data: The encrypted data retrieved from Nostr.
         """
         try:
-            self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted_data)
+            # Decrypt the data using EncryptionManager's decrypt_data method
+            decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
+            
+            # Save the decrypted data to the index file
+            index_file_path = self.fingerprint_dir / 'seedpass_passwords_db.json.enc'
+            with open(index_file_path, 'wb') as f:
+                f.write(decrypted_data)
+                
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", 'green'))
         except Exception as e:
             logging.error(f"Failed to decrypt and save data from Nostr: {e}")
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to decrypt and save data from Nostr: {e}", 'red'))
+            # Re-raise the exception to inform the calling function of the failure
+            raise
 
     def backup_database(self) -> None:
         """
@@ -546,14 +842,15 @@ class PasswordManager:
             if confirm_action("Do you want to save this to an encrypted backup file? (Y/N): "):
                 filename = input(f"Enter filename to save (default: {DEFAULT_SEED_BACKUP_FILENAME}): ").strip()
                 filename = filename if filename else DEFAULT_SEED_BACKUP_FILENAME
-                backup_path = Path(APP_DIR) / filename
+                backup_path = self.fingerprint_dir / filename  # Save in fingerprint directory
 
                 # Validate filename
                 if not self.is_valid_filename(filename):
                     print(colored("Invalid filename. Operation aborted.", 'red'))
                     return
 
-                self.encryption_manager.encrypt_parent_seed(self.parent_seed, backup_path)
+                # Encrypt and save the parent seed to the backup path
+                self.encryption_manager.encrypt_and_save_file(self.parent_seed.encode('utf-8'), backup_path)
                 print(colored(f"Encrypted seed backup saved to '{backup_path}'. Ensure this file is stored securely.", 'green'))
 
         except Exception as e:
@@ -572,11 +869,12 @@ class PasswordManager:
             bool: True if the password is correct, False otherwise.
         """
         try:
-            if not os.path.exists(HASHED_PASSWORD_FILE):
+            hashed_password_file = self.fingerprint_dir / 'hashed_password.enc'
+            if not hashed_password_file.exists():
                 logging.error("Hashed password file not found.")
                 print(colored("Error: Hashed password file not found.", 'red'))
                 return False
-            with open(HASHED_PASSWORD_FILE, 'rb') as f:
+            with open(hashed_password_file, 'rb') as f:
                 stored_hash = f.read()
             is_correct = bcrypt.checkpw(password.encode('utf-8'), stored_hash)
             if is_correct:
@@ -613,19 +911,19 @@ class PasswordManager:
         This should be called during the initial setup.
         """
         try:
+            hashed_password_file = self.fingerprint_dir / 'hashed_password.enc'
             hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            with open(HASHED_PASSWORD_FILE, 'wb') as f:
+            with open(hashed_password_file, 'wb') as f:
                 f.write(hashed)
-            # Set file permissions to read/write for the user only
-            os.chmod(HASHED_PASSWORD_FILE, 0o600)
+            os.chmod(hashed_password_file, 0o600)
             logging.info("User password hashed and stored successfully.")
         except AttributeError:
             # If bcrypt.hashpw is not available, try using bcrypt directly
             salt = bcrypt.gensalt()
             hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-            with open(HASHED_PASSWORD_FILE, 'wb') as f:
+            with open(hashed_password_file, 'wb') as f:
                 f.write(hashed)
-            os.chmod(HASHED_PASSWORD_FILE, 0o600)
+            os.chmod(hashed_password_file, 0o600)
             logging.info("User password hashed and stored successfully (using alternative method).")
         except Exception as e:
             logging.error(f"Failed to store hashed password: {e}")
@@ -640,8 +938,8 @@ if __name__ == "__main__":
     # Initialize PasswordManager
     manager = PasswordManager()
 
-    # Initialize NostrClient with the parent seed from PasswordManager
-    nostr_client = NostrClient(parent_seed=manager.parent_seed)
+    # Initialize NostrClient with the EncryptionManager from PasswordManager
+    manager.nostr_client = NostrClient(encryption_manager=manager.encryption_manager)
 
     # Example operations
     # These would typically be triggered by user interactions, e.g., via a CLI menu
@@ -649,7 +947,6 @@ if __name__ == "__main__":
     # manager.handle_retrieve_password()
     # manager.handle_modify_entry()
     # manager.handle_verify_checksum()
-    # manager.post_to_nostr(nostr_client)
-    # manager.retrieve_from_nostr(nostr_client)
+    # manager.nostr_client.publish_and_subscribe("Sample password data")
     # manager.backup_database()
     # manager.restore_database()

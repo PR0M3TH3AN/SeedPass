@@ -1,14 +1,12 @@
 # nostr/event_handler.py
 
-import datetime
 import time
+import logging
 import traceback
-
-from .logging_config import configure_logging
 from monstr.event.event import Event
-from monstr.client.client import ClientPool
 
-logger = configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 class EventHandler:
     """
@@ -18,24 +16,26 @@ class EventHandler:
     def __init__(self):
         pass  # Initialize if needed
 
-    def handle_new_event(self, the_client: ClientPool, sub_id: str, evt: Event):
+    def handle_new_event(self, evt: Event):
         """
         Processes incoming events by logging their details.
 
-        :param the_client: The ClientPool instance.
-        :param sub_id: The subscription ID.
         :param evt: The received Event object.
         """
         try:
-            if isinstance(evt.created_at, datetime.datetime):
-                created_at_str = evt.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            elif isinstance(evt.created_at, int):
+            # Assuming evt.created_at is always an integer Unix timestamp
+            if isinstance(evt.created_at, int):
                 created_at_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(evt.created_at))
             else:
+                # Handle unexpected types gracefully
                 created_at_str = str(evt.created_at)
 
-            logger.info(f"\n[New Event] ID: {evt.id}\nCreated At: {created_at_str}\nContent: {evt.content}\n")
+            # Log the event details without extra newlines
+            logger.info(
+                f"[New Event] ID: {evt.id} | Created At: {created_at_str} | Content: {evt.content}"
+            )
         except Exception as e:
             logger.error(f"Error handling new event: {e}")
             logger.error(traceback.format_exc())
-            raise
+            # Optionally, handle the exception without re-raising
+            # For example, continue processing other events

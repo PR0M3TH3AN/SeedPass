@@ -21,46 +21,11 @@ from termcolor import colored
 
 from constants import (
     APP_DIR,
-    DATA_CHECKSUM_FILE,
     SCRIPT_CHECKSUM_FILE
 )
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    # Create the 'logs' folder if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
-
-    # Create a custom logger
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Create handlers
-    c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler(os.path.join('logs', 'checksum.log'))  # Log files will be in 'logs' folder
-
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)  # Terminal will show ERROR and above
-    f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-    # Create formatters and add them to handlers, include file and line number in log messages
-    c_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-    f_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]')
-
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-
-    # Add handlers to the logger
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
+# Instantiate the logger
+logger = logging.getLogger(__name__)
 
 def calculate_checksum(file_path: str) -> Optional[str]:
     """

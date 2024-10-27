@@ -10,8 +10,9 @@ that all changes are securely encrypted and properly indexed.
 
 Ensure that all dependencies are installed and properly configured in your environment.
 
-Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed. 
-This means it  should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this softwares use case. 
+Never use or suggest using Random Salt. The purpose of this password manager is to derive
+completely deterministic passwords from a BIP-85 seed, ensuring that passwords are generated
+the same way every time. Salts would break this functionality and are not suitable for this software.
 """
 
 import json
@@ -23,80 +24,56 @@ import shutil
 import time
 import traceback
 from typing import Optional, Tuple, Dict, Any, List
+from pathlib import Path
 
 from colorama import Fore
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
-from constants import INDEX_FILE, DATA_CHECKSUM_FILE
 from utils.file_lock import lock_file
 
-import fcntl  # Required for lock_type constants in lock_file
+import fcntl
 
-# Configure logging at the start of the module
-def configure_logging():
-    """
-    Configures logging with both file and console handlers.
-    Logs include the timestamp, log level, message, filename, and line number.
-    Only ERROR and higher-level messages are shown in the terminal, while all messages
-    are logged in the log file.
-    """
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)  # Set to DEBUG for detailed output
-
-    # Prevent adding multiple handlers if configure_logging is called multiple times
-    if not logger.handlers:
-        # Create the 'logs' folder if it doesn't exist
-        if not os.path.exists('logs'):
-            os.makedirs('logs')
-
-        # Create handlers
-        c_handler = logging.StreamHandler()
-        f_handler = logging.FileHandler(os.path.join('logs', 'entry_management.log'))
-
-        # Set levels: only errors and critical messages will be shown in the console
-        c_handler.setLevel(logging.ERROR)  # Console will show ERROR and above
-        f_handler.setLevel(logging.DEBUG)  # File will log everything from DEBUG and above
-
-        # Create formatters and add them to handlers, include file and line number in log messages
-        formatter = logging.Formatter(
-            '%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]'
-        )
-        c_handler.setFormatter(formatter)
-        f_handler.setFormatter(formatter)
-
-        # Add handlers to the logger
-        logger.addHandler(c_handler)
-        logger.addHandler(f_handler)
-
-# Call the logging configuration function
-configure_logging()
-
+# Instantiate the logger
 logger = logging.getLogger(__name__)
 
 class EntryManager:
-    """
-    EntryManager Class
-
-    Handles the creation, retrieval, modification, and listing of password entries
-    within the encrypted password index. It ensures that all operations are performed
-    securely, maintaining data integrity and confidentiality.
-    """
-
-    def __init__(self, encryption_manager: EncryptionManager):
+    def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
         """
-        Initializes the EntryManager with an instance of EncryptionManager.
+        Initializes the EntryManager with the EncryptionManager and fingerprint directory.
 
-        :param encryption_manager: An instance of EncryptionManager for handling encryption.
+        :param encryption_manager: The encryption manager instance.
+        :param fingerprint_dir: The directory corresponding to the fingerprint.
         """
+        self.encryption_manager = encryption_manager
+        self.fingerprint_dir = fingerprint_dir
+        
+        # Use paths relative to the fingerprint directory
+        self.index_file = self.fingerprint_dir / 'seedpass_passwords_db.json.enc'
+        self.checksum_file = self.fingerprint_dir / 'seedpass_passwords_db_checksum.txt'
+        
+        logger.debug(f"EntryManager initialized with index file at {self.index_file}")
+
+    def _load_index(self) -> Dict[str, Any]:
+        if self.index_file.exists():
+            try:
+                data = self.encryption_manager.load_json_data(self.index_file)
+                logger.debug("Index loaded successfully.")
+                return data
+            except Exception as e:
+                logger.error(f"Failed to load index: {e}")
+                return {'passwords': {}}
+        else:
+            logger.info(f"Index file '{self.index_file}' not found. Initializing new password database.")
+            return {'passwords': {}}
+
+    def _save_index(self, data: Dict[str, Any]) -> None:
         try:
-            self.encryption_manager = encryption_manager
-            logger.debug("EntryManager initialized with provided EncryptionManager.")
+            self.encryption_manager.save_json_data(data, self.index_file)
+            logger.debug("Index saved successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize EntryManager: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to initialize EntryManager: {e}", 'red'))
-            sys.exit(1)
+            logger.error(f"Failed to save index: {e}")
+            raise
 
     def get_next_index(self) -> int:
         """
@@ -105,7 +82,7 @@ class EntryManager:
         :return: The next index number as an integer.
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.encryption_manager.load_json_data(self.index_file)
             if 'passwords' in data and isinstance(data['passwords'], dict):
                 indices = [int(idx) for idx in data['passwords'].keys()]
                 next_index = max(indices) + 1 if indices else 0
@@ -115,7 +92,7 @@ class EntryManager:
             return next_index
         except Exception as e:
             logger.error(f"Error determining next index: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error determining next index: {e}", 'red'))
             sys.exit(1)
 
@@ -133,11 +110,7 @@ class EntryManager:
         """
         try:
             index = self.get_next_index()
-            data = self.encryption_manager.load_json_data()
-
-            if 'passwords' not in data or not isinstance(data['passwords'], dict):
-                data['passwords'] = {}
-                logger.debug("'passwords' key was missing. Initialized empty 'passwords' dictionary.")
+            data = self.encryption_manager.load_json_data(self.index_file)
 
             data['passwords'][str(index)] = {
                 'website': website_name,
@@ -149,7 +122,7 @@ class EntryManager:
 
             logger.debug(f"Added entry at index {index}: {data['passwords'][str(index)]}")
 
-            self.encryption_manager.save_json_data(data)
+            self._save_index(data)
             self.update_checksum()
             self.backup_index_file()
 
@@ -160,9 +133,31 @@ class EntryManager:
 
         except Exception as e:
             logger.error(f"Failed to add entry: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error: Failed to add entry: {e}", 'red'))
             sys.exit(1)
+
+    def get_encrypted_index(self) -> Optional[bytes]:
+        """
+        Retrieves the encrypted password index file's contents.
+
+        :return: The encrypted data as bytes, or None if retrieval fails.
+        """
+        try:
+            if not self.index_file.exists():
+                logger.error(f"Index file '{self.index_file}' does not exist.")
+                print(colored(f"Error: Index file '{self.index_file}' does not exist.", 'red'))
+                return None
+
+            with open(self.index_file, 'rb') as file:
+                encrypted_data = file.read()
+                logger.debug("Encrypted index file data retrieved successfully.")
+                return encrypted_data
+        except Exception as e:
+            logger.error(f"Failed to retrieve encrypted index file: {e}")
+            logger.error(traceback.format_exc())
+            print(colored(f"Error: Failed to retrieve encrypted index file: {e}", 'red'))
+            return None
 
     def retrieve_entry(self, index: int) -> Optional[Dict[str, Any]]:
         """
@@ -172,7 +167,7 @@ class EntryManager:
         :return: A dictionary containing the entry details or None if not found.
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.encryption_manager.load_json_data(self.index_file)
             entry = data.get('passwords', {}).get(str(index))
 
             if entry:
@@ -185,7 +180,7 @@ class EntryManager:
 
         except Exception as e:
             logger.error(f"Failed to retrieve entry at index {index}: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error: Failed to retrieve entry at index {index}: {e}", 'red'))
             return None
 
@@ -201,7 +196,7 @@ class EntryManager:
         :param blacklisted: (Optional) The new blacklist status.
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.encryption_manager.load_json_data(self.index_file)
             entry = data.get('passwords', {}).get(str(index))
 
             if not entry:
@@ -224,7 +219,7 @@ class EntryManager:
             data['passwords'][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
 
-            self.encryption_manager.save_json_data(data)
+            self._save_index(data)
             self.update_checksum()
             self.backup_index_file()
 
@@ -233,7 +228,7 @@ class EntryManager:
 
         except Exception as e:
             logger.error(f"Failed to modify entry at index {index}: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(traceback.format_exc())
             print(colored(f"Error: Failed to modify entry at index {index}: {e}", 'red'))
 
     def list_entries(self) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
@@ -308,14 +303,17 @@ class EntryManager:
         Updates the checksum file for the password database to ensure data integrity.
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.encryption_manager.load_json_data(self.index_file)
             json_content = json.dumps(data, indent=4)
             checksum = hashlib.sha256(json_content.encode('utf-8')).hexdigest()
 
-            with open(DATA_CHECKSUM_FILE, 'w') as f:
+            # Construct the full path for the checksum file
+            checksum_path = self.fingerprint_dir / self.checksum_file
+
+            with open(checksum_path, 'w') as f:
                 f.write(checksum)
 
-            logger.debug(f"Checksum updated and written to '{DATA_CHECKSUM_FILE}'.")
+            logger.debug(f"Checksum updated and written to '{checksum_path}'.")
             print(colored(f"[+] Checksum updated successfully.", 'green'))
 
         except Exception as e:
@@ -328,15 +326,16 @@ class EntryManager:
         Creates a backup of the encrypted JSON index file to prevent data loss.
         """
         try:
-            if not os.path.exists(INDEX_FILE):
-                logger.warning(f"Index file '{INDEX_FILE}' does not exist. No backup created.")
+            index_file_path = self.fingerprint_dir / self.index_file
+            if not index_file_path.exists():
+                logger.warning(f"Index file '{index_file_path}' does not exist. No backup created.")
                 return
 
             timestamp = int(time.time())
             backup_filename = f'passwords_db_backup_{timestamp}.json.enc'
-            backup_path = os.path.join(os.path.dirname(INDEX_FILE), backup_filename)
+            backup_path = self.fingerprint_dir / backup_filename
 
-            with open(INDEX_FILE, 'rb') as original_file, open(backup_path, 'wb') as backup_file:
+            with open(index_file_path, 'rb') as original_file, open(backup_path, 'wb') as backup_file:
                 shutil.copyfileobj(original_file, backup_file)
 
             logger.debug(f"Backup created at '{backup_path}'.")
@@ -346,6 +345,7 @@ class EntryManager:
             logger.error(f"Failed to create backup: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
             print(colored(f"Warning: Failed to create backup: {e}", 'yellow'))
+
 
     def restore_from_backup(self, backup_path: str) -> None:
         """
@@ -359,7 +359,7 @@ class EntryManager:
                 print(colored(f"Error: Backup file '{backup_path}' does not exist.", 'red'))
                 return
 
-            with open(backup_path, 'rb') as backup_file, open(INDEX_FILE, 'wb') as index_file:
+            with open(backup_path, 'rb') as backup_file, open(self.index_file, 'wb') as index_file:
                 shutil.copyfileobj(backup_file, index_file)
 
             logger.debug(f"Index file restored from backup '{backup_path}'.")
