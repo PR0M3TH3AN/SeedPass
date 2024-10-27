@@ -223,7 +223,15 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 [see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/json_entries.md) 
 
-1. **Individual JSON File Management**
+1. **Configuration File Management**
+   - **Description:** Implement a configuration file to store user-specific settings, starting with user-determined Nostr relays.
+   - **Implementation Steps:**
+     - Create a `config.yaml` or `config.json` file in the SeedPass data directory.
+     - Define a structure to store user configurations, starting with a list of Nostr relay URLs.
+     - Allow users to add, remove, and manage an unlimited number of Nostr relays through the CLI or configuration file.
+     - Ensure the configuration file is securely stored and encrypted if necessary.
+
+2. **Individual JSON File Management**
    - **Separate Entry Files:**
      - **Description:** Modify the application to create and manage each entry as a separate JSON file within a designated directory.
      - **Implementation Steps:**
@@ -236,20 +244,32 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - Upon modifying an entry, save the previous version in `backups/entry_<entry_num>_v<version>.json`.
        - Implement rollback functionality to restore from backups if needed.
 
-2. **Enhanced JSON Schema Integration**
+3. **Enhanced JSON Schema Integration**
    - **Description:** Adopt the new JSON schema for all entry types, ensuring consistency and flexibility.
    - **Implementation Steps:**
      - Update existing entries to conform to the new schema.
      - Ensure that new kinds adhere to the defined structure, facilitating future expansions.
 
-3. **Nostr Integration for Individual Entries**
-   - **Description:** Each entry corresponds to a separate Nostr post, enabling granular synchronization and backup.
+4. **Nostr Integration Enhancements**
+   - **Description:** Improve Nostr integration by changing the posting mechanism and enabling efficient synchronization.
    - **Implementation Steps:**
-     - Modify the Nostr posting mechanism to handle individual JSON files.
-     - Ensure that each new or updated entry is posted as a distinct event on Nostr.
-     - Implement synchronization logic to fetch and update entries from Nostr as needed.
+     - **Selective Posting:**
+       - Modify the Nostr posting mechanism to only post new or updated entries instead of the entire index.
+     - **Index Reconstruction:**
+       - On the first run, build the index from Nostr posts based on timestamps to ensure the correct and complete database retrieval.
+       - Implement logic to check for existing posts on the specified `npub` account and synchronize accordingly.
+     - **Configuration Integration:**
+       - Utilize the newly added configuration file to manage Nostr relays and synchronization settings.
 
-4. **Security Enhancements**
+5. **Backup and Restore Index Option**
+   - **Description:** Provide users with the ability to backup and restore the index, offering flexibility in backup locations.
+   - **Implementation Steps:**
+     - Introduce CLI commands such as `backup-index` and `restore-index`.
+     - Allow users to choose the backup location via CLI prompts or by specifying a path in the configuration file.
+     - Ensure backups can be saved to external drives, remote folders, or other user-defined locations.
+     - Validate the integrity of backups during the restore process.
+
+6. **Security Enhancements**
    - **"Secret" Mode (Clipboard-Only Password Retrieval)**
      - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval.
      - **Features:**
@@ -265,12 +285,12 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Protection Layers:** Ensure seed and password compromise protection through encrypted indices and secure storage.
        - **Security Verification:** Implement checks to ensure neither factor can be bypassed and verify the randomness quality of index generation.
 
-5. **Comprehensive Testing and Security Auditing**
+7. **Comprehensive Testing and Security Auditing**
    - **Unit Tests:** Develop tests for individual functions and modules to ensure they work as intended.
    - **Integration Tests:** Test the interaction between different modules, especially for features like automatic Nostr posting and seed recovery.
    - **Security Audits:** Conduct regular code reviews and security assessments to identify and mitigate vulnerabilities.
 
-6. **Managed Users’ Data Loading**
+8. **Managed Users’ Data Loading**
    - **Summary:** Enable the master seed holder to load and manage the seeds, passwords, and Nostr accounts of dependent users. This allows centralized management of multiple accounts, ensuring secure synchronization and control over multiple users' data.
 
 ---
@@ -392,3 +412,4 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
    - **Features:**
      - **Performance Tuning:** Improve response times and resource usage.
      - **Scalability Enhancements:** Ensure the application can handle an increasing number of users and data entries without degradation in performance.
+
