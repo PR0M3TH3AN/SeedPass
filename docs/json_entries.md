@@ -1,7 +1,3 @@
-Certainly! Below is the updated **SeedPass JSON Entry Management and Extensibility** documentation tailored to align with the new **Fingerprint-Based Backup and Local Storage** approach. This revision ensures that fingerprints are treated as distinct entities within the JSON schema and directory structures, without referencing any SeedSigner devices.
-
----
-
 # SeedPass JSON Entry Management and Extensibility
 
 ## Table of Contents
