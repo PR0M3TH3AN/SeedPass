@@ -8,3 +8,5 @@ mnemonic
 aiohttp
 bcrypt
 bip85
+pytest>=7.0
+
