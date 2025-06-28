@@ -159,6 +159,15 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
+## Running Tests
+
+SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**:
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
 ## Security Considerations
 
 **Important:** The password you use to encrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12-word seed **and** your master password.
