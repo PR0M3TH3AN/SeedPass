@@ -1132,6 +1132,49 @@ class PasswordManager:
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
 
+    def change_password(self) -> None:
+        """Change the master password used for encryption."""
+        try:
+            current = prompt_existing_password("Enter your current master password: ")
+            if not self.verify_password(current):
+                print(colored("Incorrect password.", "red"))
+                return
+
+            new_password = prompt_for_password()
+
+            # Load data with existing encryption manager
+            index_data = self.entry_manager.encryption_manager.load_json_data()
+            config_data = self.config_manager.load_config(require_pin=False)
+
+            # Create a new encryption manager with the new password
+            new_key = derive_key_from_password(new_password)
+            new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
+
+            # Re-encrypt sensitive files using the new manager
+            new_enc_mgr.encrypt_parent_seed(self.parent_seed)
+            new_enc_mgr.save_json_data(index_data)
+            self.config_manager.encryption_manager = new_enc_mgr
+            self.config_manager.save_config(config_data)
+
+            # Update hashed password and replace managers
+            self.encryption_manager = new_enc_mgr
+            self.entry_manager.encryption_manager = new_enc_mgr
+            self.password_generator.encryption_manager = new_enc_mgr
+            self.store_hashed_password(new_password)
+
+            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
+            self.nostr_client = NostrClient(
+                encryption_manager=self.encryption_manager,
+                fingerprint=self.current_fingerprint,
+                relays=relay_list,
+            )
+
+            print(colored("Master password changed successfully.", "green"))
+        except Exception as e:
+            logging.error(f"Failed to change password: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to change password: {e}", "red"))
+
 
 # Example usage (this part should be removed or commented out when integrating into the larger application)
 if __name__ == "__main__":
