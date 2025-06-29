@@ -697,7 +697,7 @@ class PasswordManager:
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
 
-    def handle_generate_password(self) -> None:
+    def handle_add_password(self) -> None:
         try:
             website_name = input("Enter the website name: ").strip()
             if not website_name:
@@ -746,7 +746,7 @@ class PasswordManager:
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
-    def handle_retrieve_password(self) -> None:
+    def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
         and displaying the corresponding password and associated details.
@@ -1208,8 +1208,8 @@ if __name__ == "__main__":
 
     # Example operations
     # These would typically be triggered by user interactions, e.g., via a CLI menu
-    # manager.handle_generate_password()
-    # manager.handle_retrieve_password()
+    # manager.handle_add_password()
+    # manager.handle_retrieve_entry()
     # manager.handle_modify_entry()
     # manager.handle_verify_checksum()
     # manager.nostr_client.publish_and_subscribe("Sample password data")

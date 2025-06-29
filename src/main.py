@@ -409,8 +409,8 @@ def display_menu(password_manager: PasswordManager):
     """
     menu = """
     Select an option:
-    1. Generate Password
-    2. Retrieve Password
+    1. Add Entry
+    2. Retrieve Entry
     3. Modify an Existing Entry
     4. Backup to Nostr
     5. Restore from Nostr
@@ -436,9 +436,20 @@ def display_menu(password_manager: PasswordManager):
             )
             continue  # Re-display the menu without marking as invalid
         if choice == "1":
-            password_manager.handle_generate_password()
+            while True:
+                print("\nAdd Entry:")
+                print("1. Password")
+                print("2. Back")
+                sub_choice = input("Select entry type: ").strip()
+                if sub_choice == "1":
+                    password_manager.handle_add_password()
+                    break
+                elif sub_choice == "2":
+                    break
+                else:
+                    print(colored("Invalid choice.", "red"))
         elif choice == "2":
-            password_manager.handle_retrieve_password()
+            password_manager.handle_retrieve_entry()
         elif choice == "3":
             password_manager.handle_modify_entry()
         elif choice == "4":
