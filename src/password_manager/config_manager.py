@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+
+import getpass
 
 import bcrypt
 
@@ -24,8 +26,15 @@ class ConfigManager:
         self.fingerprint_dir = fingerprint_dir
         self.config_path = self.fingerprint_dir / self.CONFIG_FILENAME
 
-    def load_config(self) -> dict:
-        """Load the configuration file, returning defaults if none exists."""
+    def load_config(self, require_pin: bool = True) -> dict:
+        """Load the configuration file and optionally verify a stored PIN.
+
+        Parameters
+        ----------
+        require_pin: bool, default True
+            If True and a PIN is configured, prompt the user to enter it and
+            verify against the stored hash.
+        """
         if not self.config_path.exists():
             logger.info("Config file not found; returning defaults")
             return {"relays": list(DEFAULT_NOSTR_RELAYS), "pin_hash": ""}
@@ -36,6 +45,14 @@ class ConfigManager:
             # Ensure defaults for missing keys
             data.setdefault("relays", list(DEFAULT_NOSTR_RELAYS))
             data.setdefault("pin_hash", "")
+            if require_pin and data.get("pin_hash"):
+                for _ in range(3):
+                    pin = getpass.getpass("Enter settings PIN: ").strip()
+                    if bcrypt.checkpw(pin.encode(), data["pin_hash"].encode()):
+                        break
+                    print("Invalid PIN")
+                else:
+                    raise ValueError("PIN verification failed")
             return data
         except Exception as exc:
             logger.error(f"Failed to load config: {exc}")
@@ -49,23 +66,30 @@ class ConfigManager:
             logger.error(f"Failed to save config: {exc}")
             raise
 
-    def set_relays(self, relays: List[str]) -> None:
+    def set_relays(self, relays: List[str], require_pin: bool = True) -> None:
         """Update relay list and save."""
-        config = self.load_config()
+        config = self.load_config(require_pin=require_pin)
         config["relays"] = relays
         self.save_config(config)
 
     def set_pin(self, pin: str) -> None:
         """Hash and store the provided PIN."""
         pin_hash = bcrypt.hashpw(pin.encode(), bcrypt.gensalt()).decode()
-        config = self.load_config()
+        config = self.load_config(require_pin=False)
         config["pin_hash"] = pin_hash
         self.save_config(config)
 
     def verify_pin(self, pin: str) -> bool:
-        """Check a provided PIN against the stored hash."""
-        config = self.load_config()
+        """Check a provided PIN against the stored hash without prompting."""
+        config = self.load_config(require_pin=False)
         stored = config.get("pin_hash", "").encode()
         if not stored:
             return False
         return bcrypt.checkpw(pin.encode(), stored)
+
+    def change_pin(self, old_pin: str, new_pin: str) -> bool:
+        """Update the stored PIN if the old PIN is correct."""
+        if self.verify_pin(old_pin):
+            self.set_pin(new_pin)
+            return True
+        return False
