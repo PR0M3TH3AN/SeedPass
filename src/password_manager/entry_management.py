@@ -26,7 +26,6 @@ import traceback
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
-from colorama import Fore
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -36,6 +35,7 @@ import fcntl
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
 
 class EntryManager:
     def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
@@ -47,11 +47,11 @@ class EntryManager:
         """
         self.encryption_manager = encryption_manager
         self.fingerprint_dir = fingerprint_dir
-        
+
         # Use paths relative to the fingerprint directory
-        self.index_file = self.fingerprint_dir / 'seedpass_passwords_db.json.enc'
-        self.checksum_file = self.fingerprint_dir / 'seedpass_passwords_db_checksum.txt'
-        
+        self.index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        self.checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+
         logger.debug(f"EntryManager initialized with index file at {self.index_file}")
 
     def _load_index(self) -> Dict[str, Any]:
@@ -62,10 +62,12 @@ class EntryManager:
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
-                return {'passwords': {}}
+                return {"passwords": {}}
         else:
-            logger.info(f"Index file '{self.index_file}' not found. Initializing new password database.")
-            return {'passwords': {}}
+            logger.info(
+                f"Index file '{self.index_file}' not found. Initializing new password database."
+            )
+            return {"passwords": {}}
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
@@ -83,8 +85,8 @@ class EntryManager:
         """
         try:
             data = self.encryption_manager.load_json_data(self.index_file)
-            if 'passwords' in data and isinstance(data['passwords'], dict):
-                indices = [int(idx) for idx in data['passwords'].keys()]
+            if "passwords" in data and isinstance(data["passwords"], dict):
+                indices = [int(idx) for idx in data["passwords"].keys()]
                 next_index = max(indices) + 1 if indices else 0
             else:
                 next_index = 0
@@ -93,11 +95,17 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Error determining next index: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error determining next index: {e}", 'red'))
+            print(colored(f"Error determining next index: {e}", "red"))
             sys.exit(1)
 
-    def add_entry(self, website_name: str, length: int, username: Optional[str] = None,
-                url: Optional[str] = None, blacklisted: bool = False) -> int:
+    def add_entry(
+        self,
+        website_name: str,
+        length: int,
+        username: Optional[str] = None,
+        url: Optional[str] = None,
+        blacklisted: bool = False,
+    ) -> int:
         """
         Adds a new password entry to the encrypted JSON index file.
 
@@ -112,29 +120,31 @@ class EntryManager:
             index = self.get_next_index()
             data = self.encryption_manager.load_json_data(self.index_file)
 
-            data['passwords'][str(index)] = {
-                'website': website_name,
-                'length': length,
-                'username': username if username else '',
-                'url': url if url else '',
-                'blacklisted': blacklisted
+            data["passwords"][str(index)] = {
+                "website": website_name,
+                "length": length,
+                "username": username if username else "",
+                "url": url if url else "",
+                "blacklisted": blacklisted,
             }
 
-            logger.debug(f"Added entry at index {index}: {data['passwords'][str(index)]}")
+            logger.debug(
+                f"Added entry at index {index}: {data['passwords'][str(index)]}"
+            )
 
             self._save_index(data)
             self.update_checksum()
             self.backup_index_file()
 
             logger.info(f"Entry added successfully at index {index}.")
-            print(colored(f"[+] Entry added successfully at index {index}.", 'green'))
+            print(colored(f"[+] Entry added successfully at index {index}.", "green"))
 
             return index  # Return the assigned index
 
         except Exception as e:
             logger.error(f"Failed to add entry: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to add entry: {e}", 'red'))
+            print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
 
     def get_encrypted_index(self) -> Optional[bytes]:
@@ -146,17 +156,23 @@ class EntryManager:
         try:
             if not self.index_file.exists():
                 logger.error(f"Index file '{self.index_file}' does not exist.")
-                print(colored(f"Error: Index file '{self.index_file}' does not exist.", 'red'))
+                print(
+                    colored(
+                        f"Error: Index file '{self.index_file}' does not exist.", "red"
+                    )
+                )
                 return None
 
-            with open(self.index_file, 'rb') as file:
+            with open(self.index_file, "rb") as file:
                 encrypted_data = file.read()
                 logger.debug("Encrypted index file data retrieved successfully.")
                 return encrypted_data
         except Exception as e:
             logger.error(f"Failed to retrieve encrypted index file: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to retrieve encrypted index file: {e}", 'red'))
+            print(
+                colored(f"Error: Failed to retrieve encrypted index file: {e}", "red")
+            )
             return None
 
     def retrieve_entry(self, index: int) -> Optional[Dict[str, Any]]:
@@ -168,25 +184,31 @@ class EntryManager:
         """
         try:
             data = self.encryption_manager.load_json_data(self.index_file)
-            entry = data.get('passwords', {}).get(str(index))
+            entry = data.get("passwords", {}).get(str(index))
 
             if entry:
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
             else:
                 logger.warning(f"No entry found at index {index}.")
-                print(colored(f"Warning: No entry found at index {index}.", 'yellow'))
+                print(colored(f"Warning: No entry found at index {index}.", "yellow"))
                 return None
 
         except Exception as e:
             logger.error(f"Failed to retrieve entry at index {index}: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to retrieve entry at index {index}: {e}", 'red'))
+            print(
+                colored(f"Error: Failed to retrieve entry at index {index}: {e}", "red")
+            )
             return None
 
-    def modify_entry(self, index: int, username: Optional[str] = None,
-                    url: Optional[str] = None,
-                    blacklisted: Optional[bool] = None) -> None:
+    def modify_entry(
+        self,
+        index: int,
+        username: Optional[str] = None,
+        url: Optional[str] = None,
+        blacklisted: Optional[bool] = None,
+    ) -> None:
         """
         Modifies an existing password entry based on the provided index and new values.
 
@@ -197,26 +219,35 @@ class EntryManager:
         """
         try:
             data = self.encryption_manager.load_json_data(self.index_file)
-            entry = data.get('passwords', {}).get(str(index))
+            entry = data.get("passwords", {}).get(str(index))
 
             if not entry:
-                logger.warning(f"No entry found at index {index}. Cannot modify non-existent entry.")
-                print(colored(f"Warning: No entry found at index {index}. Cannot modify non-existent entry.", 'yellow'))
+                logger.warning(
+                    f"No entry found at index {index}. Cannot modify non-existent entry."
+                )
+                print(
+                    colored(
+                        f"Warning: No entry found at index {index}. Cannot modify non-existent entry.",
+                        "yellow",
+                    )
+                )
                 return
 
             if username is not None:
-                entry['username'] = username
+                entry["username"] = username
                 logger.debug(f"Updated username to '{username}' for index {index}.")
 
             if url is not None:
-                entry['url'] = url
+                entry["url"] = url
                 logger.debug(f"Updated URL to '{url}' for index {index}.")
 
             if blacklisted is not None:
-                entry['blacklisted'] = blacklisted
-                logger.debug(f"Updated blacklist status to '{blacklisted}' for index {index}.")
+                entry["blacklisted"] = blacklisted
+                logger.debug(
+                    f"Updated blacklist status to '{blacklisted}' for index {index}."
+                )
 
-            data['passwords'][str(index)] = entry
+            data["passwords"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
 
             self._save_index(data)
@@ -224,12 +255,16 @@ class EntryManager:
             self.backup_index_file()
 
             logger.info(f"Entry at index {index} modified successfully.")
-            print(colored(f"[+] Entry at index {index} modified successfully.", 'green'))
+            print(
+                colored(f"[+] Entry at index {index} modified successfully.", "green")
+            )
 
         except Exception as e:
             logger.error(f"Failed to modify entry at index {index}: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to modify entry at index {index}: {e}", 'red'))
+            print(
+                colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
+            )
 
     def list_entries(self) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
         """
@@ -239,30 +274,32 @@ class EntryManager:
         """
         try:
             data = self.encryption_manager.load_json_data()
-            passwords = data.get('passwords', {})
+            passwords = data.get("passwords", {})
 
             if not passwords:
                 logger.info("No password entries found.")
-                print(colored("No password entries found.", 'yellow'))
+                print(colored("No password entries found.", "yellow"))
                 return []
 
             entries = []
             for idx, entry in sorted(passwords.items(), key=lambda x: int(x[0])):
-                entries.append((
-                    int(idx),
-                    entry.get('website', ''),
-                    entry.get('username', ''),
-                    entry.get('url', ''),
-                    entry.get('blacklisted', False)
-                ))
+                entries.append(
+                    (
+                        int(idx),
+                        entry.get("website", ""),
+                        entry.get("username", ""),
+                        entry.get("url", ""),
+                        entry.get("blacklisted", False),
+                    )
+                )
 
             logger.debug(f"Total entries found: {len(entries)}")
             for entry in entries:
-                print(colored(f"Index: {entry[0]}", 'cyan'))
-                print(colored(f"  Website: {entry[1]}", 'cyan'))
-                print(colored(f"  Username: {entry[2] or 'N/A'}", 'cyan'))
-                print(colored(f"  URL: {entry[3] or 'N/A'}", 'cyan'))
-                print(colored(f"  Blacklisted: {'Yes' if entry[4] else 'No'}", 'cyan'))
+                print(colored(f"Index: {entry[0]}", "cyan"))
+                print(colored(f"  Website: {entry[1]}", "cyan"))
+                print(colored(f"  Username: {entry[2] or 'N/A'}", "cyan"))
+                print(colored(f"  URL: {entry[3] or 'N/A'}", "cyan"))
+                print(colored(f"  Blacklisted: {'Yes' if entry[4] else 'No'}", "cyan"))
                 print("-" * 40)
 
             return entries
@@ -270,7 +307,7 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Failed to list entries: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to list entries: {e}", 'red'))
+            print(colored(f"Error: Failed to list entries: {e}", "red"))
             return []
 
     def delete_entry(self, index: int) -> None:
@@ -281,22 +318,35 @@ class EntryManager:
         """
         try:
             data = self.encryption_manager.load_json_data()
-            if 'passwords' in data and str(index) in data['passwords']:
-                del data['passwords'][str(index)]
+            if "passwords" in data and str(index) in data["passwords"]:
+                del data["passwords"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self.encryption_manager.save_json_data(data)
                 self.update_checksum()
                 self.backup_index_file()
                 logger.info(f"Entry at index {index} deleted successfully.")
-                print(colored(f"[+] Entry at index {index} deleted successfully.", 'green'))
+                print(
+                    colored(
+                        f"[+] Entry at index {index} deleted successfully.", "green"
+                    )
+                )
             else:
-                logger.warning(f"No entry found at index {index}. Cannot delete non-existent entry.")
-                print(colored(f"Warning: No entry found at index {index}. Cannot delete non-existent entry.", 'yellow'))
+                logger.warning(
+                    f"No entry found at index {index}. Cannot delete non-existent entry."
+                )
+                print(
+                    colored(
+                        f"Warning: No entry found at index {index}. Cannot delete non-existent entry.",
+                        "yellow",
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Failed to delete entry at index {index}: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to delete entry at index {index}: {e}", 'red'))
+            print(
+                colored(f"Error: Failed to delete entry at index {index}: {e}", "red")
+            )
 
     def update_checksum(self) -> None:
         """
@@ -305,21 +355,21 @@ class EntryManager:
         try:
             data = self.encryption_manager.load_json_data(self.index_file)
             json_content = json.dumps(data, indent=4)
-            checksum = hashlib.sha256(json_content.encode('utf-8')).hexdigest()
+            checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
 
             # Construct the full path for the checksum file
             checksum_path = self.fingerprint_dir / self.checksum_file
 
-            with open(checksum_path, 'w') as f:
+            with open(checksum_path, "w") as f:
                 f.write(checksum)
 
             logger.debug(f"Checksum updated and written to '{checksum_path}'.")
-            print(colored(f"[+] Checksum updated successfully.", 'green'))
+            print(colored(f"[+] Checksum updated successfully.", "green"))
 
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to update checksum: {e}", 'red'))
+            print(colored(f"Error: Failed to update checksum: {e}", "red"))
 
     def backup_index_file(self) -> None:
         """
@@ -328,24 +378,27 @@ class EntryManager:
         try:
             index_file_path = self.fingerprint_dir / self.index_file
             if not index_file_path.exists():
-                logger.warning(f"Index file '{index_file_path}' does not exist. No backup created.")
+                logger.warning(
+                    f"Index file '{index_file_path}' does not exist. No backup created."
+                )
                 return
 
             timestamp = int(time.time())
-            backup_filename = f'passwords_db_backup_{timestamp}.json.enc'
+            backup_filename = f"passwords_db_backup_{timestamp}.json.enc"
             backup_path = self.fingerprint_dir / backup_filename
 
-            with open(index_file_path, 'rb') as original_file, open(backup_path, 'wb') as backup_file:
+            with open(index_file_path, "rb") as original_file, open(
+                backup_path, "wb"
+            ) as backup_file:
                 shutil.copyfileobj(original_file, backup_file)
 
             logger.debug(f"Backup created at '{backup_path}'.")
-            print(colored(f"[+] Backup created at '{backup_path}'.", 'green'))
+            print(colored(f"[+] Backup created at '{backup_path}'.", "green"))
 
         except Exception as e:
             logger.error(f"Failed to create backup: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Warning: Failed to create backup: {e}", 'yellow'))
-
+            print(colored(f"Warning: Failed to create backup: {e}", "yellow"))
 
     def restore_from_backup(self, backup_path: str) -> None:
         """
@@ -356,21 +409,35 @@ class EntryManager:
         try:
             if not os.path.exists(backup_path):
                 logger.error(f"Backup file '{backup_path}' does not exist.")
-                print(colored(f"Error: Backup file '{backup_path}' does not exist.", 'red'))
+                print(
+                    colored(
+                        f"Error: Backup file '{backup_path}' does not exist.", "red"
+                    )
+                )
                 return
 
-            with open(backup_path, 'rb') as backup_file, open(self.index_file, 'wb') as index_file:
+            with open(backup_path, "rb") as backup_file, open(
+                self.index_file, "wb"
+            ) as index_file:
                 shutil.copyfileobj(backup_file, index_file)
 
             logger.debug(f"Index file restored from backup '{backup_path}'.")
-            print(colored(f"[+] Index file restored from backup '{backup_path}'.", 'green'))
+            print(
+                colored(
+                    f"[+] Index file restored from backup '{backup_path}'.", "green"
+                )
+            )
 
             self.update_checksum()
 
         except Exception as e:
             logger.error(f"Failed to restore from backup '{backup_path}': {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to restore from backup '{backup_path}': {e}", 'red'))
+            print(
+                colored(
+                    f"Error: Failed to restore from backup '{backup_path}': {e}", "red"
+                )
+            )
 
     def list_all_entries(self) -> None:
         """
@@ -379,28 +446,33 @@ class EntryManager:
         try:
             entries = self.list_entries()
             if not entries:
-                print(colored("No entries to display.", 'yellow'))
+                print(colored("No entries to display.", "yellow"))
                 return
 
-            print(colored("\n[+] Listing All Password Entries:\n", 'green'))
+            print(colored("\n[+] Listing All Password Entries:\n", "green"))
             for entry in entries:
                 index, website, username, url, blacklisted = entry
-                print(colored(f"Index: {index}", 'cyan'))
-                print(colored(f"  Website: {website}", 'cyan'))
-                print(colored(f"  Username: {username or 'N/A'}", 'cyan'))
-                print(colored(f"  URL: {url or 'N/A'}", 'cyan'))
-                print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", 'cyan'))
+                print(colored(f"Index: {index}", "cyan"))
+                print(colored(f"  Website: {website}", "cyan"))
+                print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
+                )
                 print("-" * 40)
 
         except Exception as e:
             logger.error(f"Failed to list all entries: {e}")
             logger.error(traceback.format_exc())  # Log full traceback
-            print(colored(f"Error: Failed to list all entries: {e}", 'red'))
+            print(colored(f"Error: Failed to list all entries: {e}", "red"))
             return
+
 
 # Example usage (this part should be removed or commented out when integrating into the larger application)
 if __name__ == "__main__":
-    from password_manager.encryption import EncryptionManager  # Ensure this import is correct based on your project structure
+    from password_manager.encryption import (
+        EncryptionManager,
+    )  # Ensure this import is correct based on your project structure
 
     # Initialize EncryptionManager with a dummy key for demonstration purposes
     # Replace 'your-fernet-key' with your actual Fernet key
@@ -409,7 +481,7 @@ if __name__ == "__main__":
         encryption_manager = EncryptionManager(dummy_key)
     except Exception as e:
         logger.error(f"Failed to initialize EncryptionManager: {e}")
-        print(colored(f"Error: Failed to initialize EncryptionManager: {e}", 'red'))
+        print(colored(f"Error: Failed to initialize EncryptionManager: {e}", "red"))
         sys.exit(1)
 
     # Initialize EntryManager
@@ -417,7 +489,7 @@ if __name__ == "__main__":
         entry_manager = EntryManager(encryption_manager)
     except Exception as e:
         logger.error(f"Failed to initialize EntryManager: {e}")
-        print(colored(f"Error: Failed to initialize EntryManager: {e}", 'red'))
+        print(colored(f"Error: Failed to initialize EntryManager: {e}", "red"))
         sys.exit(1)
 
     # Example operations

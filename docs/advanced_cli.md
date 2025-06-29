@@ -418,6 +418,13 @@ seedpass show-pubkey
 
 **Description:**  
 Allows users to specify custom Nostr relays for publishing their encrypted backup index, providing flexibility and control over data distribution.
+Relay URLs are stored in an encrypted configuration file located in `~/.seedpass/<fingerprint>/seedpass_config.json.enc` and loaded each time the Nostr client starts. New accounts use the following default relays until changed:
+
+```
+wss://relay.snort.social
+wss://nostr.oxtr.dev
+wss://relay.primal.net
+```
 
 **Usage Example:**
 ```bash

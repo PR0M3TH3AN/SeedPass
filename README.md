@@ -58,7 +58,7 @@ git clone https://github.com/PR0M3TH3AN/SeedPass.git
 Navigate to the project directory:
 
 ```bash
-cd SeedPass/src
+cd SeedPass
 ```
 
 ### 2. Create a Virtual Environment
@@ -93,7 +93,7 @@ Install the required Python packages and build dependencies using `pip`:
 
 ```bash
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r src/requirements.txt
 ```
 
 ## Usage
@@ -101,16 +101,16 @@ pip install -r requirements.txt
 After successfully installing the dependencies, you can run SeedPass using the following command:
 
 ```bash
-python main.py
+python src/main.py
 ```
 
 ### Running the Application
 
 1. **Start the Application:**
 
-   ```bash
-   python main.py
-   ```
+    ```bash
+    python src/main.py
+    ```
 
 2. **Follow the Prompts:**
 
@@ -134,9 +134,10 @@ python main.py
    10. Add a New Seed Profile
    11. Remove an Existing Seed Profile
    12. List All Seed Profiles
-   13. Exit
+   13. Settings
+   14. Exit
 
-   Enter your choice (1-13):
+   Enter your choice (1-14):
    ```
 
 ### Managing Multiple Seeds
@@ -159,11 +160,41 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
+### Configuration File and Settings
+
+SeedPass keeps per-profile settings in an encrypted file named `seedpass_config.json.enc` inside each profile directory under `~/.seedpass/`. This file stores your chosen Nostr relays and the optional settings PIN. New profiles start with the following default relays:
+
+```
+wss://relay.snort.social
+wss://nostr.oxtr.dev
+wss://relay.primal.net
+```
+
+You can manage the relay list or change the PIN through the **Settings** menu:
+
+1. From the main menu, choose option `13` (**Settings**).
+2. Select `1` to view your current relays.
+3. Choose `2` to add a new relay URL.
+4. Select `3` to remove a relay by number.
+5. Choose `4` to reset to the default relay list.
+6. Select `5` to change the settings PIN.
+7. Choose `6` to return to the main menu.
+
+## Running Tests
+
+SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**:
+
+```bash
+pip install -r src/requirements.txt
+pytest
+```
+
 ## Security Considerations
 
 **Important:** The password you use to encrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12-word seed **and** your master password.
 
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
+- **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
@@ -228,8 +259,9 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
    - **Implementation Steps:**
      - Create a `config.yaml` or `config.json` file in the SeedPass data directory.
      - Define a structure to store user configurations, starting with a list of Nostr relay URLs.
-     - Allow users to add, remove, and manage an unlimited number of Nostr relays through the CLI or configuration file.
-     - Ensure the configuration file is securely stored and encrypted if necessary.
+    - Allow users to add, remove, and manage an unlimited number of Nostr relays through the CLI or configuration file.
+    - Ensure the configuration file is securely stored and encrypted if necessary.
+    - The Nostr client loads its relay list from this encrypted file. New accounts start with the default relays until you update the settings.
 
 2. **Individual JSON File Management**
    - **Separate Entry Files:**
