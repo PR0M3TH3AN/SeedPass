@@ -4,14 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lightning Tip Jar</title>
-
     <!-- TailwindCSS (Play CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <!-- QRCode generator -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-Rdym6z1nIh/x6O+4QJBk/w++Q5e7oapbPo8EjS2X3tq6MUJBbiuKxVhQ5BaRPHUl2j3Ky4gGB4vJfIQDw4RGeg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <!-- Accent palette -->
     <style>
       :root {
         --accent-purple: #a855f7;
@@ -32,11 +29,11 @@
     <main id="app" class="w-full max-w-sm p-6 space-y-6 text-center"></main>
 
     <script type="module">
-      // ===== Imports =====
+      /******************** Imports ********************/
       import { nip19 } from "https://cdn.jsdelivr.net/npm/nostr-tools@2.15.0/+esm";
       import { SimplePool } from "https://cdn.jsdelivr.net/npm/nostr-tools@2.15.0/pool/+esm";
 
-      // ===== Config =====
+      /******************** Config ********************/
       const RELAYS = [
         "wss://relay.damus.io",
         "wss://nos.lol",
@@ -44,108 +41,118 @@
         "wss://relay.primal.net",
         "wss://relay.nostr.band",
       ];
-      const TIMEOUT_MS = 6000;
+      const TIMEOUT_MS = 7000;
 
-      // ===== Logger helpers =====
-      const log = (...a) => console.log("[tipjar]", ...a);
+      /******************** Logger ********************/
+      const log  = (...a) => console.log("[tipjar]", ...a);
       const warn = (...a) => console.warn("[tipjar]", ...a);
-      const err = (...a) => console.error("[tipjar]", ...a);
-      window.addEventListener("error", e => err("Uncaught:", e.message, e.error||e));
+      const err  = (...a) => console.error("[tipjar]", ...a);
+      window.addEventListener("error",   e => err("Uncaught:", e.message, e.error||e));
       window.addEventListener("unhandledrejection", e => err("Promise rejection:", e.reason));
 
-      // ===== Entry =====
+      /******************** Entry ********************/
       init();
 
       function init() {
-        const { npub, basePath } = extractNpub();
-        if (!npub) return renderLanding(basePath);
-        if (!npub.startsWith("npub")) return renderLanding(basePath, "That doesn’t look like a valid npub.");
-        bootTipJar(npub);
+        const { npub, basePath } = parseURL();
+        if (!npub)        return showLanding(basePath);
+        if (!npub.startsWith("npub")) return showLanding(basePath, "Please enter a valid npub.");
+        loadTipJar(npub);
       }
 
-      // -------- Extract npub & basePath (keep filename when present) --------
-      function extractNpub() {
-        const parts = location.pathname.split("/").filter(Boolean);
+      /******** URL helpers ********/
+      function parseURL() {
+        const pathParts = location.pathname.split("/").filter(Boolean);
         let npub = null;
-        if (parts.length >= 2 && parts[0] === "n") npub = parts[1];
+        if (pathParts.length >= 2 && pathParts[0] === "n") npub = pathParts[1];
         else npub = new URLSearchParams(location.search).get("n");
         const idx = location.pathname.indexOf("/n/");
-        const basePath = idx >= 0 ? location.pathname.slice(0, idx) : location.pathname; // keep .html if any
-        return { npub, basePath };
+        const base = idx >= 0 ? location.pathname.slice(0, idx) : location.pathname;
+        return { npub, basePath: base };
       }
 
-      // -------- Landing page --------
-      function renderLanding(basePath, errorMsg = "") {
-        log("Landing", { basePath });
+      /******** LANDING PAGE ********/
+      function showLanding(basePath, msg = "") {
         document.getElementById("app").innerHTML = `
           <div class="space-y-6">
             <h1 class="text-3xl font-extrabold accent-gradient">Lightning Tip Jar</h1>
-            <p class="text-gray-400">Enter a <span class="font-mono">npub…</span> to generate a shareable tipping link from their Nostr profile.</p>
-            ${errorMsg ? `<p class='text-red-500'>${errorMsg}</p>` : ""}
-            <form id="lookupForm" class="space-y-4">
-              <input id="npubInput" type="text" required placeholder="npub1…" class="w-full px-4 py-2 rounded-lg bg-gray-800 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-600" />
-              <button class="btn-primary" type="submit">Generate Tip Page</button>
+            <p class="text-gray-400">Generate a one‑click tipping page from any Nostr <span class="font-mono">npub</span>.</p>
+            ${msg ? `<p class="text-red-500">${msg}</p>` : ""}
+            <form id="lookup" class="space-y-4">
+              <input id="npubIn" type="text" placeholder="npub1…" required class="w-full px-4 py-2 rounded-lg bg-gray-800 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-600" />
+              <button type="submit" class="btn-primary">Create Tip Page</button>
             </form>
-            <footer class="text-xs text-gray-500 pt-4">Built with nostr-tools and Lightning ❤</footer>
+            <footer class="text-xs text-gray-500 pt-4">Works entirely client‑side • No servers • 100% Lightning ⚡</footer>
           </div>`;
 
-        document.getElementById("lookupForm").addEventListener("submit", (e) => {
+        document.getElementById("lookup").onsubmit = (e) => {
           e.preventDefault();
-          const value = (document.getElementById("npubInput").value || "").trim();
-          if (!value.startsWith("npub")) return renderLanding(basePath, "Please enter a valid npub starting with ‘npub’." );
-
-          // Determine redirect style: if current path ends with .html use query param, else use /n/<npub>
+          const val = document.getElementById("npubIn").value.trim();
+          if (!val.startsWith("npub")) return showLanding(basePath, "npub should start with ‘npub’. Try again.");
           const isFile = /\.html?$/.test(basePath);
-          const target = isFile ? `${basePath}?n=${value}` : `${basePath.replace(/\/$/, "")}/n/${value}`;
-          log("Redirect →", target);
-          location.href = target;
-        });
+          const dest = isFile ? `${basePath}?n=${val}` : `${basePath.replace(/\/$/, "")}/n/${val}`;
+          location.href = dest;
+        };
       }
 
-      // -------- Tip‑Jar flow --------
-      async function bootTipJar(npub) {
+      /******** TIP‑JAR FLOW ********/
+      async function loadTipJar(npub) {
         const app = document.getElementById("app");
         app.innerHTML = `
-          <img id="avatar" class="w-24 h-24 rounded-full mx-auto hidden" alt="User avatar" />
-          <h1 id="name" class="text-2xl font-extrabold accent-gradient leading-tight mb-2">Loading…</h1>
-          <p id="about" class="text-sm text-gray-400"></p>
+          <img id="avatar" class="w-24 h-24 rounded-full mx-auto hidden" alt="Avatar" />
+          <h1 id="name"   class="text-2xl font-extrabold accent-gradient mb-2">Loading…</h1>
+          <p  id="about"  class="text-sm text-gray-400"></p>
           <div id="qrcode" class="mx-auto"></div>
-          <p id="address" class="break-all font-mono text-lg"></p>
-          <button id="copyBtn" class="btn-primary">Copy Address</button>`;
+          <p  id="address" class="break-all font-mono text-lg"></p>
+          <button id="copy"   class="btn-primary">Copy Address</button>`;
 
-        let pubHex;
-        try { pubHex = nip19.decode(npub).data; } catch { return fatal("Invalid npub format"); }
+        // decode npub
+        let hex;
+        try { hex = nip19.decode(npub).data; log("Hex pubkey", hex); }
+        catch { return fail("Bad npub format"); }
 
-        const fallbackLn = `${npub}@npub.cash`;
-        let lnAddr = fallbackLn;
-        let meta = null;
+        const fallback = `${npub}@npub.cash`;
+        let meta = null, addr = fallback;
 
         const pool = new SimplePool();
-        const sub = pool.sub(RELAYS, [{ kinds:[0], authors:[pubHex], limit:1 }]);
-        let done = false;
-        const timer = setTimeout(() => { if(!done){warn("Profile timeout"); finish(); }}, TIMEOUT_MS);
+        const sub  = pool.sub(RELAYS, [{ kinds:[0], authors:[hex], limit:1 }]);
+        let finished = false;
+        const timer = setTimeout(() => { warn("Timeout: no profile"); wrapUp(); }, TIMEOUT_MS);
 
-        sub.on("event", evt => { done=true; clearTimeout(timer); try{ meta=JSON.parse(evt.content||"{}"); lnAddr = meta.lud16||meta.lud06||fallbackLn;}catch(e){err(e);} finish(); });
-        sub.on("eose", () => { if(!done){warn("EOSE without meta"); finish(); }});
+        sub.on("event", (ev, relay) => {
+          log("Profile", ev.id, "from", relay);
+          clearTimeout(timer); finished = true;
+          try {
+            meta = JSON.parse(ev.content || "{}");
+            addr = meta.lud16 || meta.lud06 || fallback;
+          } catch(e) { err("Meta parse", e); }
+          wrapUp();
+        });
+        sub.on("notice", (n) => warn("Relay notice", n));
+        sub.on("eose", () => { if (!finished) warn("EOSE no profile"); });
 
-        function finish(){ try{sub.unsub(); pool.close(RELAYS);}catch(_){} renderTip(meta, lnAddr); }
-        function fatal(msg){ app.innerHTML = `<p class='text-red-500'>${msg}</p>`; }
+        function wrapUp() {
+          try { sub.unsub(); pool.close(RELAYS); } catch {}
+          render(meta, addr);
+        }
+        function fail(msg){ app.innerHTML = `<p class='text-red-500'>${msg}</p>`; }
       }
 
-      // -------- Render final UI --------
-      function renderTip(meta, ln) {
-        document.getElementById("name").textContent = meta?.name || "Lightning Tip Jar";
-        if (meta?.about) document.getElementById("about").textContent = meta.about;
-        if (meta?.picture) { const img = document.getElementById("avatar"); img.src = meta.picture; img.classList.remove("hidden"); }
+      /******** RENDER TIP CARD ********/
+      function render(meta, ln) {
+        document.getElementById("name").textContent  = meta?.name  || "Lightning Tip Jar";
+        document.getElementById("about").textContent = meta?.about || "";
+        if (meta?.picture){ const img = document.getElementById("avatar"); img.src = meta.picture; img.classList.remove("hidden"); }
+        if (!meta?.lud16 && !meta?.lud06) document.getElementById("about").textContent += "\n(No lightning address on profile; using fallback)";
 
         document.getElementById("address").textContent = ln;
-        const qrWrap = document.getElementById("qrcode"); qrWrap.innerHTML = "";
-        new QRCode(qrWrap, { text: ln, width: 200, height: 200, colorDark: "#fff", colorLight: "#000", correctLevel: QRCode.CorrectLevel.H });
+        const qr = document.getElementById("qrcode"); qr.innerHTML = "";
+        new QRCode(qr, { text: ln, width: 200, height: 200, colorDark: "#fff", colorLight: "#000", correctLevel: QRCode.CorrectLevel.H });
 
-        document.getElementById("copyBtn").onclick = () => {
+        document.getElementById("copy").onclick = () => {
           navigator.clipboard.writeText(ln).then(() => {
-            const btn = document.getElementById("copyBtn");
-            const old = btn.textContent; btn.textContent = "Copied!"; setTimeout(() => btn.textContent = old, 1500);
+            const btn = document.getElementById("copy"); const old = btn.textContent;
+            btn.textContent = "Copied!"; setTimeout(()=>btn.textContent=old, 1500);
           });
         };
       }
