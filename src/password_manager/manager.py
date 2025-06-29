@@ -736,10 +736,24 @@ class PasswordManager:
             # Provide user feedback
             print(
                 colored(
-                    f"\n[+] Password generated and indexed with ID {index}.\n", "green"
+                    f"\n[+] Password generated and indexed with ID {index}.\n",
+                    "green",
                 )
             )
             print(colored(f"Password for {website_name}: {password}\n", "yellow"))
+
+            # Automatically push the updated encrypted index to Nostr so the
+            # latest changes are backed up remotely.
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    self.nostr_client.publish_json_to_nostr(encrypted_data)
+                    logging.info(
+                        "Encrypted index posted to Nostr after entry addition."
+                    )
+            except Exception as nostr_error:
+                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
+                logging.error(traceback.format_exc())
 
         except Exception as e:
             logging.error(f"Error during password generation: {e}")
