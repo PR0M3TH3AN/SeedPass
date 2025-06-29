@@ -2,6 +2,7 @@
 
 try:
     from bip_utils import Bip39SeedGenerator
+
     print("Bip39SeedGenerator imported successfully.")
 except ImportError as e:
     print(f"ImportError: {e}")

@@ -11,6 +11,7 @@ from monstr.encrypt import Keys
 
 logger = logging.getLogger(__name__)
 
+
 class KeyManager:
     """
     Manages key generation, encoding, and derivation for NostrClient.
@@ -26,9 +27,13 @@ class KeyManager:
         """
         try:
             if not isinstance(parent_seed, str):
-                raise TypeError(f"Parent seed must be a string, got {type(parent_seed)}")
+                raise TypeError(
+                    f"Parent seed must be a string, got {type(parent_seed)}"
+                )
             if not isinstance(fingerprint, str):
-                raise TypeError(f"Fingerprint must be a string, got {type(fingerprint)}")
+                raise TypeError(
+                    f"Fingerprint must be a string, got {type(fingerprint)}"
+                )
 
             self.parent_seed = parent_seed
             self.fingerprint = fingerprint
@@ -72,12 +77,14 @@ class KeyManager:
         """
         try:
             # Convert fingerprint to an integer index (using a hash function)
-            index = int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (2**31)
+            index = int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (
+                2**31
+            )
 
             # Derive entropy for Nostr key (32 bytes)
             entropy_bytes = self.bip85.derive_entropy(
                 index=index,
-                bytes_len=32  # Adjust parameter name and value as per your method signature
+                bytes_len=32,  # Adjust parameter name and value as per your method signature
             )
 
             # Generate Nostr key pair from entropy
@@ -107,7 +114,7 @@ class KeyManager:
             str: The private key in hex.
         """
         return self.keys.private_key_hex()
-    
+
     def get_npub(self) -> str:
         """
         Returns the npub (Bech32 encoded public key).
@@ -119,7 +126,7 @@ class KeyManager:
             pub_key_hex = self.get_public_key_hex()
             pub_key_bytes = bytes.fromhex(pub_key_hex)
             data = convertbits(pub_key_bytes, 8, 5, True)
-            npub = bech32_encode('npub', data)
+            npub = bech32_encode("npub", data)
             return npub
         except Exception as e:
             logger.error(f"Failed to generate npub: {e}")

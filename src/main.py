@@ -378,7 +378,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("5. Change password")
         print("6. Display Nostr Public Key")
         print("7. Verify Script Checksum")
-        print("8. Back")
+        print("8. Backup Parent Seed")
+        print("9. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_view_relays(cfg_mgr)
@@ -395,6 +396,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "7":
             password_manager.handle_verify_checksum()
         elif choice == "8":
+            password_manager.handle_backup_reveal_parent_seed()
+        elif choice == "9":
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -411,24 +414,23 @@ def display_menu(password_manager: PasswordManager):
     3. Modify an Existing Entry
     4. Backup to Nostr
     5. Restore from Nostr
-    6. Backup/Reveal Parent Seed
-    7. Switch Seed Profile
-    8. Add a New Seed Profile
-    9. Remove an Existing Seed Profile
-    10. List All Seed Profiles
-    11. Settings
-    12. Exit
+    6. Switch Seed Profile
+    7. Add a New Seed Profile
+    8. Remove an Existing Seed Profile
+    9. List All Seed Profiles
+    10. Settings
+    11. Exit
     """
     while True:
         # Flush logging handlers
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(colored(menu, "cyan"))
-        choice = input("Enter your choice (1-12): ").strip()
+        choice = input("Enter your choice (1-11): ").strip()
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 12.",
+                    "No input detected. Please enter a number between 1 and 11.",
                     "yellow",
                 )
             )
@@ -444,19 +446,17 @@ def display_menu(password_manager: PasswordManager):
         elif choice == "5":
             handle_retrieve_from_nostr(password_manager)
         elif choice == "6":
-            password_manager.handle_backup_reveal_parent_seed()
-        elif choice == "7":
             if not password_manager.handle_switch_fingerprint():
                 print(colored("Failed to switch seed profile.", "red"))
-        elif choice == "8":
+        elif choice == "7":
             handle_add_new_fingerprint(password_manager)
-        elif choice == "9":
+        elif choice == "8":
             handle_remove_fingerprint(password_manager)
-        elif choice == "10":
+        elif choice == "9":
             handle_list_fingerprints(password_manager)
-        elif choice == "11":
+        elif choice == "10":
             handle_settings(password_manager)
-        elif choice == "12":
+        elif choice == "11":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()

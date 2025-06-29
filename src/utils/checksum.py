@@ -19,13 +19,11 @@ from typing import Optional
 
 from termcolor import colored
 
-from constants import (
-    APP_DIR,
-    SCRIPT_CHECKSUM_FILE
-)
+from constants import APP_DIR, SCRIPT_CHECKSUM_FILE
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
 
 def calculate_checksum(file_path: str) -> Optional[str]:
     """
@@ -39,7 +37,7 @@ def calculate_checksum(file_path: str) -> Optional[str]:
     """
     hasher = hashlib.sha256()
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hasher.update(chunk)
         checksum = hasher.hexdigest()
@@ -47,12 +45,20 @@ def calculate_checksum(file_path: str) -> Optional[str]:
         return checksum
     except FileNotFoundError:
         logging.error(f"File '{file_path}' not found for checksum calculation.")
-        print(colored(f"Error: File '{file_path}' not found for checksum calculation.", 'red'))
+        print(
+            colored(
+                f"Error: File '{file_path}' not found for checksum calculation.", "red"
+            )
+        )
         return None
     except Exception as e:
         logging.error(f"Error calculating checksum for '{file_path}': {e}")
         logging.error(traceback.format_exc())  # Log full traceback
-        print(colored(f"Error: Failed to calculate checksum for '{file_path}': {e}", 'red'))
+        print(
+            colored(
+                f"Error: Failed to calculate checksum for '{file_path}': {e}", "red"
+            )
+        )
         return None
 
 
@@ -68,7 +74,7 @@ def verify_checksum(current_checksum: str, checksum_file_path: str) -> bool:
         bool: True if checksums match, False otherwise.
     """
     try:
-        with open(checksum_file_path, 'r') as f:
+        with open(checksum_file_path, "r") as f:
             stored_checksum = f.read().strip()
         if current_checksum == stored_checksum:
             logging.debug(f"Checksum verification passed for '{checksum_file_path}'.")
@@ -78,12 +84,17 @@ def verify_checksum(current_checksum: str, checksum_file_path: str) -> bool:
             return False
     except FileNotFoundError:
         logging.error(f"Checksum file '{checksum_file_path}' not found.")
-        print(colored(f"Error: Checksum file '{checksum_file_path}' not found.", 'red'))
+        print(colored(f"Error: Checksum file '{checksum_file_path}' not found.", "red"))
         return False
     except Exception as e:
         logging.error(f"Error reading checksum file '{checksum_file_path}': {e}")
         logging.error(traceback.format_exc())  # Log full traceback
-        print(colored(f"Error: Failed to read checksum file '{checksum_file_path}': {e}", 'red'))
+        print(
+            colored(
+                f"Error: Failed to read checksum file '{checksum_file_path}': {e}",
+                "red",
+            )
+        )
         return False
 
 
@@ -100,16 +111,21 @@ def update_checksum(content: str, checksum_file_path: str) -> bool:
     """
     try:
         hasher = hashlib.sha256()
-        hasher.update(content.encode('utf-8'))
+        hasher.update(content.encode("utf-8"))
         new_checksum = hasher.hexdigest()
-        with open(checksum_file_path, 'w') as f:
+        with open(checksum_file_path, "w") as f:
             f.write(new_checksum)
         logging.debug(f"Updated checksum for '{checksum_file_path}' to: {new_checksum}")
         return True
     except Exception as e:
         logging.error(f"Failed to update checksum for '{checksum_file_path}': {e}")
         logging.error(traceback.format_exc())  # Log full traceback
-        print(colored(f"Error: Failed to update checksum for '{checksum_file_path}': {e}", 'red'))
+        print(
+            colored(
+                f"Error: Failed to update checksum for '{checksum_file_path}': {e}",
+                "red",
+            )
+        )
         return False
 
 
@@ -129,11 +145,11 @@ def verify_and_update_checksum(file_path: str, checksum_file_path: str) -> bool:
         return False
 
     if verify_checksum(current_checksum, checksum_file_path):
-        print(colored(f"Checksum verification passed for '{file_path}'.", 'green'))
+        print(colored(f"Checksum verification passed for '{file_path}'.", "green"))
         logging.info(f"Checksum verification passed for '{file_path}'.")
         return True
     else:
-        print(colored(f"Checksum verification failed for '{file_path}'.", 'red'))
+        print(colored(f"Checksum verification failed for '{file_path}'.", "red"))
         logging.warning(f"Checksum verification failed for '{file_path}'.")
         return False
 
@@ -154,13 +170,20 @@ def initialize_checksum(file_path: str, checksum_file_path: str) -> bool:
         return False
 
     try:
-        with open(checksum_file_path, 'w') as f:
+        with open(checksum_file_path, "w") as f:
             f.write(checksum)
-        logging.debug(f"Initialized checksum file '{checksum_file_path}' with checksum: {checksum}")
-        print(colored(f"Initialized checksum for '{file_path}'.", 'green'))
+        logging.debug(
+            f"Initialized checksum file '{checksum_file_path}' with checksum: {checksum}"
+        )
+        print(colored(f"Initialized checksum for '{file_path}'.", "green"))
         return True
     except Exception as e:
         logging.error(f"Failed to initialize checksum file '{checksum_file_path}': {e}")
         logging.error(traceback.format_exc())  # Log full traceback
-        print(colored(f"Error: Failed to initialize checksum file '{checksum_file_path}': {e}", 'red'))
+        print(
+            colored(
+                f"Error: Failed to initialize checksum file '{checksum_file_path}': {e}",
+                "red",
+            )
+        )
         return False
