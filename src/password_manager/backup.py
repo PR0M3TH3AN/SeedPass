@@ -18,7 +18,6 @@ import time
 import traceback
 import fcntl
 from pathlib import Path
-from colorama import Fore
 from termcolor import colored
 
 from utils.file_lock import lock_file

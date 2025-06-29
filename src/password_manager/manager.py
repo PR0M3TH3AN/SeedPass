@@ -16,7 +16,6 @@ import getpass
 import os
 from typing import Optional
 import shutil
-from colorama import Fore
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
