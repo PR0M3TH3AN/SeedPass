@@ -350,7 +350,7 @@ def display_menu(password_manager: PasswordManager):
     5. Post Encrypted Index to Nostr
     6. Retrieve Encrypted Index from Nostr
     7. Display Nostr Public Key (npub)
-    8. Backup/Reveal Parent Seed
+    8. Backup Parent Seed
     9. Switch Fingerprint
     10. Add a New Fingerprint
     11. Remove an Existing Fingerprint
@@ -1602,7 +1602,7 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
-            print(colored("\n=== Backup/Reveal Parent Seed ===", 'yellow'))
+            print(colored("\n=== Backup Parent Seed ===", 'yellow'))
             print(colored("Warning: Revealing your parent seed is a highly sensitive operation.", 'red'))
             print(colored("Ensure you're in a secure, private environment and no one is watching your screen.", 'red'))
             

@@ -1003,7 +1003,7 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
-            print(colored("\n=== Backup/Reveal Parent Seed ===", "yellow"))
+            print(colored("\n=== Backup Parent Seed ===", "yellow"))
             print(
                 colored(
                     "Warning: Revealing your parent seed is a highly sensitive operation.",

@@ -34,12 +34,13 @@ logger.setLevel(logging.WARNING)
 DEFAULT_RELAYS = [
     "wss://relay.snort.social",
     "wss://nostr.oxtr.dev",
-    "wss://relay.primal.net"
+    "wss://relay.primal.net",
 ]
 
 # nostr/client.py
 
 # src/nostr/client.py
+
 
 class NostrClient:
     """
@@ -49,9 +50,14 @@ class NostrClient:
     Utilizes deterministic key derivation via BIP-85 and integrates with the monstr library for protocol operations.
     """
 
-    def __init__(self, encryption_manager: EncryptionManager, fingerprint: str, relays: Optional[List[str]] = None):
+    def __init__(
+        self,
+        encryption_manager: EncryptionManager,
+        fingerprint: str,
+        relays: Optional[List[str]] = None,
+    ):
         """
-        Initializes the NostrClient with an EncryptionManager, connects to specified relays, 
+        Initializes the NostrClient with an EncryptionManager, connects to specified relays,
         and sets up the KeyManager with the given fingerprint.
 
         :param encryption_manager: An instance of EncryptionManager for handling encryption/decryption.
@@ -62,12 +68,13 @@ class NostrClient:
             # Assign the encryption manager and fingerprint
             self.encryption_manager = encryption_manager
             self.fingerprint = fingerprint  # Track the fingerprint
-            self.fingerprint_dir = self.encryption_manager.fingerprint_dir  # If needed to manage directories
+            self.fingerprint_dir = (
+                self.encryption_manager.fingerprint_dir
+            )  # If needed to manage directories
 
             # Initialize KeyManager with the decrypted parent seed and the provided fingerprint
             self.key_manager = KeyManager(
-                self.encryption_manager.decrypt_parent_seed(),
-                self.fingerprint
+                self.encryption_manager.decrypt_parent_seed(), self.fingerprint
             )
 
             # Initialize event handler and client pool
@@ -126,7 +133,10 @@ class NostrClient:
         except Exception as e:
             logger.error(f"Error running event loop in thread: {e}")
             logger.error(traceback.format_exc())
-            print(f"Error: Event loop in ClientPool thread encountered an issue: {e}", file=sys.stderr)
+            print(
+                f"Error: Event loop in ClientPool thread encountered an issue: {e}",
+                file=sys.stderr,
+            )
         finally:
             if not self.loop.is_closed():
                 logger.debug("Closing the event loop.")
@@ -166,14 +176,18 @@ class NostrClient:
         """
         try:
             logger.debug(f"Submitting publish_event_async for event ID: {event.id}")
-            future = asyncio.run_coroutine_threadsafe(self.publish_event_async(event), self.loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self.publish_event_async(event), self.loop
+            )
             # Wait for the future to complete
             future.result(timeout=5)  # Adjust the timeout as needed
         except Exception as e:
             logger.error(f"Error in publish_event: {e}")
             print(f"Error: Failed to publish event: {e}", file=sys.stderr)
 
-    async def subscribe_async(self, filters: List[dict], handler: Callable[[ClientPool, str, Event], None]):
+    async def subscribe_async(
+        self, filters: List[dict], handler: Callable[[ClientPool, str, Event], None]
+    ):
         """
         Subscribes to events based on the provided filters using ClientPool.
 
@@ -190,7 +204,9 @@ class NostrClient:
             logger.error(traceback.format_exc())
             print(f"Error: Failed to subscribe: {e}", file=sys.stderr)
 
-    def subscribe(self, filters: List[dict], handler: Callable[[ClientPool, str, Event], None]):
+    def subscribe(
+        self, filters: List[dict], handler: Callable[[ClientPool, str, Event], None]
+    ):
         """
         Synchronous wrapper for subscribing to events.
 
@@ -198,7 +214,9 @@ class NostrClient:
         :param handler: A callback function to handle incoming events.
         """
         try:
-            asyncio.run_coroutine_threadsafe(self.subscribe_async(filters, handler), self.loop)
+            asyncio.run_coroutine_threadsafe(
+                self.subscribe_async(filters, handler), self.loop
+            )
         except Exception as e:
             logger.error(f"Error in subscribe: {e}")
             print(f"Error: Failed to subscribe: {e}", file=sys.stderr)
@@ -210,11 +228,13 @@ class NostrClient:
         :return: The encrypted JSON data as a Base64-encoded string, or None if retrieval fails.
         """
         try:
-            filters = [{
-                'authors': [self.key_manager.keys.public_key_hex()],
-                'kinds': [Event.KIND_TEXT_NOTE, Event.KIND_ENCRYPT],
-                'limit': 1
-            }]
+            filters = [
+                {
+                    "authors": [self.key_manager.keys.public_key_hex()],
+                    "kinds": [Event.KIND_TEXT_NOTE, Event.KIND_ENCRYPT],
+                    "limit": 1,
+                }
+            ]
 
             events = []
 
@@ -238,7 +258,9 @@ class NostrClient:
 
                 if event.kind == Event.KIND_ENCRYPT:
                     nip4_encrypt = NIP4Encrypt(self.key_manager.keys)
-                    content_base64 = nip4_encrypt.decrypt_message(event.content, event.pub_key)
+                    content_base64 = nip4_encrypt.decrypt_message(
+                        event.content, event.pub_key
+                    )
 
                 # Return the Base64-encoded content as a string
                 logger.debug("Encrypted JSON data retrieved successfully.")
@@ -261,16 +283,21 @@ class NostrClient:
         :return: The encrypted JSON data as bytes, or None if retrieval fails.
         """
         try:
-            future = asyncio.run_coroutine_threadsafe(self.retrieve_json_from_nostr_async(), self.loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self.retrieve_json_from_nostr_async(), self.loop
+            )
             return future.result(timeout=10)
         except concurrent.futures.TimeoutError:
             logger.error("Timeout occurred while retrieving JSON from Nostr.")
-            print("Error: Timeout occurred while retrieving JSON from Nostr.", file=sys.stderr)
+            print(
+                "Error: Timeout occurred while retrieving JSON from Nostr.",
+                file=sys.stderr,
+            )
             return None
         except Exception as e:
             logger.error(f"Error in retrieve_json_from_nostr: {e}")
             logger.error(traceback.format_exc())
-            print(f"Error: Failed to retrieve JSON from Nostr: {e}", 'red')
+            print(f"Error: Failed to retrieve JSON from Nostr: {e}", "red")
             return None
 
     async def do_post_async(self, text: str):
@@ -283,7 +310,7 @@ class NostrClient:
             event = Event(
                 kind=Event.KIND_TEXT_NOTE,
                 content=text,
-                pub_key=self.key_manager.keys.public_key_hex()
+                pub_key=self.key_manager.keys.public_key_hex(),
             )
             event.created_at = int(time.time())
             event.sign(self.key_manager.keys.private_key_hex())
@@ -296,18 +323,22 @@ class NostrClient:
             logger.error(f"An error occurred during publishing: {e}", exc_info=True)
             print(f"Error: An error occurred during publishing: {e}", file=sys.stderr)
 
-    async def subscribe_feed_async(self, handler: Callable[[ClientPool, str, Event], None]):
+    async def subscribe_feed_async(
+        self, handler: Callable[[ClientPool, str, Event], None]
+    ):
         """
         Subscribes to the feed of the client's own pubkey.
 
         :param handler: A callback function to handle incoming events.
         """
         try:
-            filters = [{
-                'authors': [self.key_manager.keys.public_key_hex()],
-                'kinds': [Event.KIND_TEXT_NOTE, Event.KIND_ENCRYPT],
-                'limit': 100
-            }]
+            filters = [
+                {
+                    "authors": [self.key_manager.keys.public_key_hex()],
+                    "kinds": [Event.KIND_TEXT_NOTE, Event.KIND_ENCRYPT],
+                    "limit": 100,
+                }
+            ]
 
             await self.subscribe_async(filters=filters, handler=handler)
             logger.info("Subscribed to your feed.")
@@ -327,11 +358,16 @@ class NostrClient:
         try:
             await asyncio.gather(
                 self.do_post_async(text),
-                self.subscribe_feed_async(self.event_handler.handle_new_event)
+                self.subscribe_feed_async(self.event_handler.handle_new_event),
             )
         except Exception as e:
-            logger.error(f"An error occurred in publish_and_subscribe_async: {e}", exc_info=True)
-            print(f"Error: An error occurred in publish and subscribe: {e}", file=sys.stderr)
+            logger.error(
+                f"An error occurred in publish_and_subscribe_async: {e}", exc_info=True
+            )
+            print(
+                f"Error: An error occurred in publish and subscribe: {e}",
+                file=sys.stderr,
+            )
 
     def publish_and_subscribe(self, text: str):
         """
@@ -340,7 +376,9 @@ class NostrClient:
         :param text: The content of the text note to publish.
         """
         try:
-            asyncio.run_coroutine_threadsafe(self.publish_and_subscribe_async(text), self.loop)
+            asyncio.run_coroutine_threadsafe(
+                self.publish_and_subscribe_async(text), self.loop
+            )
         except Exception as e:
             logger.error(f"Error in publish_and_subscribe: {e}", exc_info=True)
             print(f"Error: Failed to publish and subscribe: {e}", file=sys.stderr)
@@ -353,15 +391,19 @@ class NostrClient:
         """
         try:
             decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
-            data = json.loads(decrypted_data.decode('utf-8'))
+            data = json.loads(decrypted_data.decode("utf-8"))
             self.save_json_data(data)
             self.update_checksum()
             logger.info("Index file updated from Nostr successfully.")
-            print(colored("Index file updated from Nostr successfully.", 'green'))
+            print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
             logger.error(f"Failed to decrypt and save data from Nostr: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to decrypt and save data from Nostr: {e}", 'red'))
+            print(
+                colored(
+                    f"Error: Failed to decrypt and save data from Nostr: {e}", "red"
+                )
+            )
 
     def save_json_data(self, data: dict) -> None:
         """
@@ -370,17 +412,19 @@ class NostrClient:
         :param data: The JSON data to save.
         """
         try:
-            encrypted_data = self.encryption_manager.encrypt_data(json.dumps(data).encode('utf-8'))
-            index_file_path = self.fingerprint_dir / 'seedpass_passwords_db.json.enc'
+            encrypted_data = self.encryption_manager.encrypt_data(
+                json.dumps(data).encode("utf-8")
+            )
+            index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
             with lock_file(index_file_path, fcntl.LOCK_EX):
-                with open(index_file_path, 'wb') as f:
+                with open(index_file_path, "wb") as f:
                     f.write(encrypted_data)
             logger.debug(f"Encrypted data saved to {index_file_path}.")
-            print(colored(f"Encrypted data saved to '{index_file_path}'.", 'green'))
+            print(colored(f"Encrypted data saved to '{index_file_path}'.", "green"))
         except Exception as e:
             logger.error(f"Failed to save encrypted data: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to save encrypted data: {e}", 'red'))
+            print(colored(f"Error: Failed to save encrypted data: {e}", "red"))
             raise
 
     def update_checksum(self) -> None:
@@ -388,28 +432,30 @@ class NostrClient:
         Updates the checksum file for the password database.
         """
         try:
-            index_file_path = self.fingerprint_dir / 'seedpass_passwords_db.json.enc'
+            index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
             decrypted_data = self.decrypt_data_from_file(index_file_path)
-            content = decrypted_data.decode('utf-8')
+            content = decrypted_data.decode("utf-8")
             logger.debug("Calculating checksum of the updated file content.")
 
-            checksum = hashlib.sha256(content.encode('utf-8')).hexdigest()
+            checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
             logger.debug(f"New checksum: {checksum}")
 
-            checksum_file = self.fingerprint_dir / 'seedpass_passwords_db_checksum.txt'
+            checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
 
             with lock_file(checksum_file, fcntl.LOCK_EX):
-                with open(checksum_file, 'w') as f:
+                with open(checksum_file, "w") as f:
                     f.write(checksum)
 
             os.chmod(checksum_file, 0o600)
 
-            logger.debug(f"Checksum for '{index_file_path}' updated and written to '{checksum_file}'.")
-            print(colored(f"Checksum for '{index_file_path}' updated.", 'green'))
+            logger.debug(
+                f"Checksum for '{index_file_path}' updated and written to '{checksum_file}'."
+            )
+            print(colored(f"Checksum for '{index_file_path}' updated.", "green"))
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to update checksum: {e}", 'red'))
+            print(colored(f"Error: Failed to update checksum: {e}", "red"))
 
     def decrypt_data_from_file(self, file_path: Path) -> bytes:
         """
@@ -420,7 +466,7 @@ class NostrClient:
         """
         try:
             with lock_file(file_path, fcntl.LOCK_SH):
-                with open(file_path, 'rb') as f:
+                with open(file_path, "rb") as f:
                     encrypted_data = f.read()
             decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
             logger.debug(f"Data decrypted from file '{file_path}'.")
@@ -428,7 +474,11 @@ class NostrClient:
         except Exception as e:
             logger.error(f"Failed to decrypt data from file '{file_path}': {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to decrypt data from file '{file_path}': {e}", 'red'))
+            print(
+                colored(
+                    f"Error: Failed to decrypt data from file '{file_path}': {e}", "red"
+                )
+            )
             raise
 
     def publish_json_to_nostr(self, encrypted_json: bytes, to_pubkey: str = None):
@@ -439,10 +489,14 @@ class NostrClient:
         :param to_pubkey: (Optional) The recipient's public key for encryption.
         """
         try:
-            encrypted_json_b64 = base64.b64encode(encrypted_json).decode('utf-8')
+            encrypted_json_b64 = base64.b64encode(encrypted_json).decode("utf-8")
             logger.debug(f"Encrypted JSON (base64): {encrypted_json_b64}")
 
-            event = Event(kind=Event.KIND_TEXT_NOTE, content=encrypted_json_b64, pub_key=self.key_manager.keys.public_key_hex())
+            event = Event(
+                kind=Event.KIND_TEXT_NOTE,
+                content=encrypted_json_b64,
+                pub_key=self.key_manager.keys.public_key_hex(),
+            )
 
             event.created_at = int(time.time())
 
@@ -471,7 +525,9 @@ class NostrClient:
             Optional[bytes]: The encrypted data as bytes if successful, None otherwise.
         """
         try:
-            future = asyncio.run_coroutine_threadsafe(self.retrieve_json_from_nostr_async(), self.loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self.retrieve_json_from_nostr_async(), self.loop
+            )
             content_base64 = future.result(timeout=10)
 
             if not content_base64:
@@ -479,17 +535,22 @@ class NostrClient:
                 return None
 
             # Base64-decode the content
-            encrypted_data = base64.urlsafe_b64decode(content_base64.encode('utf-8'))
-            logger.debug("Encrypted data retrieved and Base64-decoded successfully from Nostr.")
+            encrypted_data = base64.urlsafe_b64decode(content_base64.encode("utf-8"))
+            logger.debug(
+                "Encrypted data retrieved and Base64-decoded successfully from Nostr."
+            )
             return encrypted_data
         except concurrent.futures.TimeoutError:
             logger.error("Timeout occurred while retrieving JSON from Nostr.")
-            print("Error: Timeout occurred while retrieving JSON from Nostr.", file=sys.stderr)
+            print(
+                "Error: Timeout occurred while retrieving JSON from Nostr.",
+                file=sys.stderr,
+            )
             return None
         except Exception as e:
             logger.error(f"Error in retrieve_json_from_nostr: {e}")
             logger.error(traceback.format_exc())
-            print(f"Error: Failed to retrieve JSON from Nostr: {e}", 'red')
+            print(f"Error: Failed to retrieve JSON from Nostr: {e}", "red")
             return None
 
     def decrypt_and_save_index_from_nostr_public(self, encrypted_data: bytes) -> None:
@@ -502,7 +563,7 @@ class NostrClient:
             self.decrypt_and_save_index_from_nostr(encrypted_data)
         except Exception as e:
             logger.error(f"Failed to decrypt and save index from Nostr: {e}")
-            print(f"Error: Failed to decrypt and save index from Nostr: {e}", 'red')
+            print(f"Error: Failed to decrypt and save index from Nostr: {e}", "red")
 
     async def close_client_pool_async(self):
         """
@@ -529,14 +590,20 @@ class NostrClient:
                     logger.warning(f"Error unsubscribing from {sub_id}: {e}")
 
             # Close all WebSocket connections
-            if hasattr(self.client_pool, 'clients'):
-                tasks = [self.safe_close_connection(client) for client in self.client_pool.clients]
+            if hasattr(self.client_pool, "clients"):
+                tasks = [
+                    self.safe_close_connection(client)
+                    for client in self.client_pool.clients
+                ]
                 await asyncio.gather(*tasks, return_exceptions=True)
 
             # Gather and cancel all tasks
             current_task = asyncio.current_task()
-            tasks = [task for task in asyncio.all_tasks(loop=self.loop)
-                     if task != current_task and not task.done()]
+            tasks = [
+                task
+                for task in asyncio.all_tasks(loop=self.loop)
+                if task != current_task and not task.done()
+            ]
 
             if tasks:
                 logger.debug(f"Cancelling {len(tasks)} pending tasks.")
@@ -545,7 +612,9 @@ class NostrClient:
 
                 # Wait for all tasks to be cancelled with a timeout
                 try:
-                    await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=5)
+                    await asyncio.wait_for(
+                        asyncio.gather(*tasks, return_exceptions=True), timeout=5
+                    )
                 except asyncio.TimeoutError:
                     logger.warning("Timeout waiting for tasks to cancel")
 
@@ -569,36 +638,40 @@ class NostrClient:
 
         try:
             # Schedule the coroutine to close the client pool
-            future = asyncio.run_coroutine_threadsafe(self.close_client_pool_async(), self.loop)
-            
+            future = asyncio.run_coroutine_threadsafe(
+                self.close_client_pool_async(), self.loop
+            )
+
             # Wait for the coroutine to finish with a timeout
             try:
                 future.result(timeout=10)
             except concurrent.futures.TimeoutError:
                 logger.warning("Initial shutdown attempt timed out, forcing cleanup...")
-            
+
             # Additional cleanup regardless of timeout
             try:
                 self.loop.call_soon_threadsafe(self.loop.stop)
                 # Give a short grace period for the loop to stop
                 time.sleep(0.5)
-                
+
                 if self.loop.is_running():
                     logger.warning("Loop still running after stop, closing forcefully")
                     self.loop.call_soon_threadsafe(self.loop.close)
-                
+
                 # Wait for the thread with a reasonable timeout
                 if self.loop_thread.is_alive():
                     self.loop_thread.join(timeout=5)
-                    
+
                 if self.loop_thread.is_alive():
-                    logger.warning("Thread still alive after join, may need to be force-killed")
-                
+                    logger.warning(
+                        "Thread still alive after join, may need to be force-killed"
+                    )
+
             except Exception as cleanup_error:
                 logger.error(f"Error during final cleanup: {cleanup_error}")
-            
+
             logger.info("ClientPool shutdown complete")
-            
+
         except Exception as e:
             logger.error(f"Error in close_client_pool: {e}")
             logger.error(traceback.format_exc())
@@ -610,6 +683,8 @@ class NostrClient:
             await client.close_connection()
             logger.debug(f"Closed connection to relay: {client.url}")
         except AttributeError:
-            logger.warning(f"Client object has no attribute 'close_connection'. Skipping closure for {client.url}.")
+            logger.warning(
+                f"Client object has no attribute 'close_connection'. Skipping closure for {client.url}."
+            )
         except Exception as e:
             logger.warning(f"Error closing connection to {client.url}: {e}")

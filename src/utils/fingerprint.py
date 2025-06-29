@@ -16,6 +16,7 @@ from typing import Optional
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 
+
 def generate_fingerprint(seed_phrase: str, length: int = 16) -> Optional[str]:
     """
     Generates a unique fingerprint from the provided seed phrase using SHA-256.
@@ -33,7 +34,7 @@ def generate_fingerprint(seed_phrase: str, length: int = 16) -> Optional[str]:
         logger.debug(f"Normalized seed: {normalized_seed}")
 
         # Compute SHA-256 hash
-        sha256_hash = hashlib.sha256(normalized_seed.encode('utf-8')).hexdigest()
+        sha256_hash = hashlib.sha256(normalized_seed.encode("utf-8")).hexdigest()
         logger.debug(f"SHA-256 Hash: {sha256_hash}")
 
         # Truncate to desired length

@@ -125,17 +125,16 @@ python src/main.py
    1. Generate Password
    2. Retrieve Password
    3. Modify an Existing Entry
-   4. Backup to Nostr
-   5. Restore from Nostr
-   6. Backup/Reveal Parent Seed
-   7. Switch Seed Profile
-   8. Add a New Seed Profile
-   9. Remove an Existing Seed Profile
-   10. List All Seed Profiles
-   11. Settings
-   12. Exit
+    4. Backup to Nostr
+    5. Restore from Nostr
+    6. Switch Seed Profile
+    7. Add a New Seed Profile
+    8. Remove an Existing Seed Profile
+    9. List All Seed Profiles
+    10. Settings
+    11. Exit
 
-   Enter your choice (1-12):
+    Enter your choice (1-11):
    ```
 
 ### Managing Multiple Seeds
@@ -170,7 +169,7 @@ wss://relay.primal.net
 
 You can manage the relay list or change the PIN through the **Settings** menu:
 
-1. From the main menu, choose option `11` (**Settings**).
+1. From the main menu, choose option `10` (**Settings**).
 2. Select `1` to view your current relays.
 3. Choose `2` to add a new relay URL.
 4. Select `3` to remove a relay by number.
@@ -178,7 +177,8 @@ You can manage the relay list or change the PIN through the **Settings** menu:
 6. Select `5` to change the settings PIN.
 7. Choose `6` to display your Nostr public key.
 8. Select `7` to verify the script checksum.
-9. Choose `8` to return to the main menu.
+9. Choose `8` to back up the parent seed.
+10. Select `9` to return to the main menu.
 
 ## Running Tests
 
