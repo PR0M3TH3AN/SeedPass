@@ -170,12 +170,15 @@ wss://nostr.oxtr.dev
 wss://relay.primal.net
 ```
 
-You can update the relay list or change the PIN through the **Settings** menu:
+You can manage the relay list or change the PIN through the **Settings** menu:
 
 1. From the main menu, choose option `13` (**Settings**).
-2. Select `1` to enter a comma-separated list of relay URLs.
-3. Choose `2` to change the settings PIN.
-4. Select `3` to go back to the main menu.
+2. Select `1` to view your current relays.
+3. Choose `2` to add a new relay URL.
+4. Select `3` to remove a relay by number.
+5. Choose `4` to reset to the default relay list.
+6. Select `5` to change the settings PIN.
+7. Choose `6` to return to the main menu.
 
 ## Running Tests
 
