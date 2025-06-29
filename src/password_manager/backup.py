@@ -16,11 +16,10 @@ import os
 import shutil
 import time
 import traceback
-import fcntl
 from pathlib import Path
 from termcolor import colored
 
-from utils.file_lock import lock_file
+from utils.file_lock import exclusive_lock
 from constants import APP_DIR
 
 # Instantiate the logger
@@ -144,7 +143,7 @@ class BackupManager:
             return
 
         try:
-            with lock_file(backup_file, lock_type=fcntl.LOCK_SH):
+            with exclusive_lock(backup_file):
                 shutil.copy2(backup_file, self.index_file)
             logger.info(f"Restored the index file from backup '{backup_file}'.")
             print(

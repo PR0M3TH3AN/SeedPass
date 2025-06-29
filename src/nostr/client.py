@@ -17,13 +17,12 @@ from monstr.event.event import Event
 
 import threading
 import uuid
-import fcntl
 
 from .key_manager import KeyManager
 from .encryption_manager import EncryptionManager
 from .event_handler import EventHandler
 from constants import APP_DIR
-from utils.file_lock import lock_file
+from utils.file_lock import exclusive_lock
 
 # Get the logger for this module
 logger = logging.getLogger(__name__)
@@ -416,7 +415,7 @@ class NostrClient:
                 json.dumps(data).encode("utf-8")
             )
             index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-            with lock_file(index_file_path, fcntl.LOCK_EX):
+            with exclusive_lock(index_file_path):
                 with open(index_file_path, "wb") as f:
                     f.write(encrypted_data)
             logger.debug(f"Encrypted data saved to {index_file_path}.")
@@ -442,7 +441,7 @@ class NostrClient:
 
             checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
 
-            with lock_file(checksum_file, fcntl.LOCK_EX):
+            with exclusive_lock(checksum_file):
                 with open(checksum_file, "w") as f:
                     f.write(checksum)
 
@@ -465,7 +464,7 @@ class NostrClient:
         :return: Decrypted data as bytes.
         """
         try:
-            with lock_file(file_path, fcntl.LOCK_SH):
+            with exclusive_lock(file_path):
                 with open(file_path, "rb") as f:
                     encrypted_data = f.read()
             decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
