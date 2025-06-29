@@ -122,8 +122,8 @@ python src/main.py
 
    ```
    Select an option:
-   1. Generate Password
-   2. Retrieve Password
+   1. Add Entry
+   2. Retrieve Entry
    3. Modify an Existing Entry
     4. Backup to Nostr
     5. Restore from Nostr
