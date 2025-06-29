@@ -247,35 +247,144 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
 
 
-def handle_settings(password_manager: PasswordManager):
-    """Display settings menu for relay list and PIN changes."""
+def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
+    """Display the currently configured Nostr relays."""
+    try:
+        cfg = cfg_mgr.load_config(require_pin=False)
+        relays = cfg.get("relays", [])
+        if not relays:
+            print(colored("No relays configured.", "yellow"))
+            return
+        print(colored("\nCurrent Relays:", "cyan"))
+        for idx, relay in enumerate(relays, start=1):
+            print(colored(f"{idx}. {relay}", "cyan"))
+    except Exception as e:
+        logging.error(f"Error displaying relays: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
+def _reload_relays(password_manager: PasswordManager, relays: list) -> None:
+    """Reload NostrClient with the updated relay list."""
+    try:
+        password_manager.nostr_client.close_client_pool()
+    except Exception as exc:
+        logging.warning(f"Failed to close client pool: {exc}")
+    try:
+        password_manager.nostr_client.relays = relays
+        password_manager.nostr_client.initialize_client_pool()
+    except Exception as exc:
+        logging.error(f"Failed to reinitialize NostrClient: {exc}")
+
+
+def handle_add_relay(password_manager: PasswordManager) -> None:
+    """Prompt for a relay URL and add it to the config."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    url = input("Enter relay URL to add: ").strip()
+    if not url:
+        print(colored("No URL entered.", "yellow"))
+        return
+    try:
+        cfg = cfg_mgr.load_config(require_pin=False)
+        relays = cfg.get("relays", [])
+        if url in relays:
+            print(colored("Relay already present.", "yellow"))
+            return
+        relays.append(url)
+        cfg_mgr.set_relays(relays)
+        _reload_relays(password_manager, relays)
+        print(colored("Relay added.", "green"))
+    except Exception as e:
+        logging.error(f"Error adding relay: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
+def handle_remove_relay(password_manager: PasswordManager) -> None:
+    """Remove a relay from the config by its index."""
     cfg_mgr = password_manager.config_manager
     if cfg_mgr is None:
         print(colored("Configuration manager unavailable.", "red"))
         return
     try:
-        cfg = cfg_mgr.load_config()
+        cfg = cfg_mgr.load_config(require_pin=False)
+        relays = cfg.get("relays", [])
+        if not relays:
+            print(colored("No relays configured.", "yellow"))
+            return
+        for idx, relay in enumerate(relays, start=1):
+            print(colored(f"{idx}. {relay}", "cyan"))
+        choice = input("Select relay number to remove: ").strip()
+        if not choice.isdigit() or not (1 <= int(choice) <= len(relays)):
+            print(colored("Invalid selection.", "red"))
+            return
+        relays.pop(int(choice) - 1)
+        cfg_mgr.set_relays(relays)
+        _reload_relays(password_manager, relays)
+        print(colored("Relay removed.", "green"))
+    except Exception as e:
+        logging.error(f"Error removing relay: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
+def handle_reset_relays(password_manager: PasswordManager) -> None:
+    """Reset relay list to defaults."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    from nostr.client import DEFAULT_RELAYS
+
+    try:
+        cfg_mgr.set_relays(list(DEFAULT_RELAYS))
+        _reload_relays(password_manager, list(DEFAULT_RELAYS))
+        print(colored("Relays reset to defaults.", "green"))
+    except Exception as e:
+        logging.error(f"Error resetting relays: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
+def handle_settings(password_manager: PasswordManager) -> None:
+    """Interactive settings menu for relay list and PIN changes."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        cfg_mgr.load_config()
     except Exception as e:
         print(colored(f"Error loading settings: {e}", "red"))
         return
 
-    print("\nSettings:")
-    print("1. Set Nostr relays")
-    print("2. Change settings PIN")
-    print("3. Back")
-    choice = input("Select an option: ").strip()
-    if choice == "1":
-        relays = input("Enter comma-separated relay URLs: ").split(",")
-        relays = [r.strip() for r in relays if r.strip()]
-        cfg_mgr.set_relays(relays)
-        print(colored("Relays updated.", "green"))
-    elif choice == "2":
-        old_pin = getpass.getpass("Current PIN: ")
-        new_pin = getpass.getpass("New PIN: ")
-        if cfg_mgr.change_pin(old_pin, new_pin):
-            print(colored("PIN changed successfully.", "green"))
+    while True:
+        print("\nSettings:")
+        print("1. View current relays")
+        print("2. Add a relay URL")
+        print("3. Remove a relay by number")
+        print("4. Reset to default relays")
+        print("5. Change settings PIN")
+        print("6. Back")
+        choice = input("Select an option: ").strip()
+        if choice == "1":
+            handle_view_relays(cfg_mgr)
+        elif choice == "2":
+            handle_add_relay(password_manager)
+        elif choice == "3":
+            handle_remove_relay(password_manager)
+        elif choice == "4":
+            handle_reset_relays(password_manager)
+        elif choice == "5":
+            old_pin = getpass.getpass("Current PIN: ")
+            new_pin = getpass.getpass("New PIN: ")
+            if cfg_mgr.change_pin(old_pin, new_pin):
+                print(colored("PIN changed successfully.", "green"))
+            else:
+                print(colored("Incorrect current PIN.", "red"))
+        elif choice == "6":
+            break
         else:
-            print(colored("Incorrect current PIN.", "red"))
+            print(colored("Invalid choice.", "red"))
 
 
 def display_menu(password_manager: PasswordManager):
