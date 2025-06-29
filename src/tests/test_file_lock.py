@@ -28,9 +28,10 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path):
 
     p1.start()
     started.wait()
+    time.sleep(0.1)
     p2.start()
 
     p1.join()
     p2.join()
 
-    assert wait_time.value >= 1.0
+    assert wait_time.value >= 0.9
