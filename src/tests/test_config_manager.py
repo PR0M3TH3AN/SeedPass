@@ -40,3 +40,34 @@ def test_pin_verification_and_change():
         assert not cfg_mgr.verify_pin("0000")
         assert cfg_mgr.change_pin("1234", "5678")
         assert cfg_mgr.verify_pin("5678")
+
+
+import json
+
+
+def test_config_file_encrypted_after_save():
+    with TemporaryDirectory() as tmpdir:
+        key = Fernet.generate_key()
+        enc_mgr = EncryptionManager(key, Path(tmpdir))
+        cfg_mgr = ConfigManager(enc_mgr, Path(tmpdir))
+
+        data = {"relays": ["wss://r"], "pin_hash": ""}
+        cfg_mgr.save_config(data)
+
+        file_path = Path(tmpdir) / cfg_mgr.CONFIG_FILENAME
+        raw = file_path.read_bytes()
+        assert raw != json.dumps(data).encode()
+
+        loaded = cfg_mgr.load_config(require_pin=False)
+        assert loaded == data
+
+
+def test_set_relays_persists_changes():
+    with TemporaryDirectory() as tmpdir:
+        key = Fernet.generate_key()
+        enc_mgr = EncryptionManager(key, Path(tmpdir))
+        cfg_mgr = ConfigManager(enc_mgr, Path(tmpdir))
+
+        cfg_mgr.set_relays(["wss://custom"], require_pin=False)
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["relays"] == ["wss://custom"]
