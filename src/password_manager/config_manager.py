@@ -68,6 +68,8 @@ class ConfigManager:
 
     def set_relays(self, relays: List[str], require_pin: bool = True) -> None:
         """Update relay list and save."""
+        if not relays:
+            raise ValueError("At least one Nostr relay must be configured")
         config = self.load_config(require_pin=require_pin)
         config["relays"] = relays
         self.save_config(config)

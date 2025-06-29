@@ -296,6 +296,10 @@ def handle_add_relay(password_manager: PasswordManager) -> None:
         cfg_mgr.set_relays(relays)
         _reload_relays(password_manager, relays)
         print(colored("Relay added.", "green"))
+        try:
+            handle_post_to_nostr(password_manager)
+        except Exception as backup_error:
+            logging.error(f"Failed to backup index to Nostr: {backup_error}")
     except Exception as e:
         logging.error(f"Error adding relay: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -318,6 +322,14 @@ def handle_remove_relay(password_manager: PasswordManager) -> None:
         choice = input("Select relay number to remove: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(relays)):
             print(colored("Invalid selection.", "red"))
+            return
+        if len(relays) == 1:
+            print(
+                colored(
+                    "At least one relay must be configured. Add another before removing this one.",
+                    "red",
+                )
+            )
             return
         relays.pop(int(choice) - 1)
         cfg_mgr.set_relays(relays)
