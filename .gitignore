@@ -25,3 +25,7 @@ Thumbs.db
 # Python env
 .env
 *.env
+
+# Coverage files
+.coverage
+coverage.xml

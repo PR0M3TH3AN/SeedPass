@@ -14,6 +14,7 @@ from utils.fingerprint import generate_fingerprint
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 
+
 class FingerprintManager:
     """
     FingerprintManager Class
@@ -31,7 +32,7 @@ class FingerprintManager:
             app_dir (Path): The root application directory (e.g., ~/.seedpass).
         """
         self.app_dir = app_dir
-        self.fingerprints_file = self.app_dir / 'fingerprints.json'
+        self.fingerprints_file = self.app_dir / "fingerprints.json"
         self._ensure_app_directory()
         self.fingerprints = self._load_fingerprints()
         self.current_fingerprint: Optional[str] = None
@@ -43,7 +44,7 @@ class FingerprintManager:
         Returns:
             Optional[Path]: The Path object of the current fingerprint directory or None.
         """
-        if hasattr(self, 'current_fingerprint') and self.current_fingerprint:
+        if hasattr(self, "current_fingerprint") and self.current_fingerprint:
             return self.get_fingerprint_directory(self.current_fingerprint)
         else:
             logger.error("No current fingerprint is set.")
@@ -57,7 +58,9 @@ class FingerprintManager:
             self.app_dir.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Application directory ensured at {self.app_dir}")
         except Exception as e:
-            logger.error(f"Failed to create application directory at {self.app_dir}: {e}")
+            logger.error(
+                f"Failed to create application directory at {self.app_dir}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -70,13 +73,15 @@ class FingerprintManager:
         """
         try:
             if self.fingerprints_file.exists():
-                with open(self.fingerprints_file, 'r') as f:
+                with open(self.fingerprints_file, "r") as f:
                     data = json.load(f)
-                    fingerprints = data.get('fingerprints', [])
+                    fingerprints = data.get("fingerprints", [])
                     logger.debug(f"Loaded fingerprints: {fingerprints}")
                     return fingerprints
             else:
-                logger.debug("fingerprints.json not found. Initializing empty fingerprint list.")
+                logger.debug(
+                    "fingerprints.json not found. Initializing empty fingerprint list."
+                )
                 return []
         except Exception as e:
             logger.error(f"Failed to load fingerprints: {e}")
@@ -88,8 +93,8 @@ class FingerprintManager:
         Saves the current list of fingerprints to the fingerprints.json file.
         """
         try:
-            with open(self.fingerprints_file, 'w') as f:
-                json.dump({'fingerprints': self.fingerprints}, f, indent=4)
+            with open(self.fingerprints_file, "w") as f:
+                json.dump({"fingerprints": self.fingerprints}, f, indent=4)
             logger.debug(f"Fingerprints saved: {self.fingerprints}")
         except Exception as e:
             logger.error(f"Failed to save fingerprints: {e}")
@@ -140,7 +145,7 @@ class FingerprintManager:
                 # Remove fingerprint directory
                 fingerprint_dir = self.app_dir / fingerprint
                 if fingerprint_dir.exists() and fingerprint_dir.is_dir():
-                    for child in fingerprint_dir.glob('*'):
+                    for child in fingerprint_dir.glob("*"):
                         if child.is_file():
                             child.unlink()
                         elif child.is_dir():

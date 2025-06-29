@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)  # Correct logger initialization
 
 try:
     from .client import NostrClient
+
     logger.info("NostrClient module imported successfully.")
 except Exception as e:
     logger.error(f"Failed to import NostrClient module: {e}")
     logger.error(traceback.format_exc())  # Log full traceback
 
-__all__ = ['NostrClient']
+__all__ = ["NostrClient"]

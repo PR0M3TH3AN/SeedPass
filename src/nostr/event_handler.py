@@ -8,6 +8,7 @@ from monstr.event.event import Event
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 
+
 class EventHandler:
     """
     Handles incoming Nostr events.
@@ -25,7 +26,9 @@ class EventHandler:
         try:
             # Assuming evt.created_at is always an integer Unix timestamp
             if isinstance(evt.created_at, int):
-                created_at_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(evt.created_at))
+                created_at_str = time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(evt.created_at)
+                )
             else:
                 # Handle unexpected types gracefully
                 created_at_str = str(evt.created_at)

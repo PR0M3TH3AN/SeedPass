@@ -26,6 +26,7 @@ import traceback
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 
+
 @contextmanager
 def lock_file(file_path: Path, lock_type: int) -> Generator[None, None, None]:
     """
@@ -44,14 +45,16 @@ def lock_file(file_path: Path, lock_type: int) -> Generator[None, None, None]:
         SystemExit: Exits the program if the lock cannot be acquired.
     """
     if lock_type not in (fcntl.LOCK_EX, fcntl.LOCK_SH):
-        logging.error(f"Invalid lock type: {lock_type}. Use fcntl.LOCK_EX or fcntl.LOCK_SH.")
-        print(colored("Error: Invalid lock type provided.", 'red'))
+        logging.error(
+            f"Invalid lock type: {lock_type}. Use fcntl.LOCK_EX or fcntl.LOCK_SH."
+        )
+        print(colored("Error: Invalid lock type provided.", "red"))
         sys.exit(1)
 
     file = None
     try:
         # Determine the mode based on whether the file exists
-        mode = 'rb+' if file_path.exists() else 'wb'
+        mode = "rb+" if file_path.exists() else "wb"
 
         # Open the file
         file = open(file_path, mode)
@@ -67,7 +70,12 @@ def lock_file(file_path: Path, lock_type: int) -> Generator[None, None, None]:
         lock_type_str = "exclusive" if lock_type == fcntl.LOCK_EX else "shared"
         logging.error(f"Failed to acquire {lock_type_str} lock on '{file_path}': {e}")
         logging.error(traceback.format_exc())  # Log full traceback
-        print(colored(f"Error: Failed to acquire {lock_type_str} lock on '{file_path}': {e}", 'red'))
+        print(
+            colored(
+                f"Error: Failed to acquire {lock_type_str} lock on '{file_path}': {e}",
+                "red",
+            )
+        )
         sys.exit(1)
 
     finally:
@@ -78,9 +86,16 @@ def lock_file(file_path: Path, lock_type: int) -> Generator[None, None, None]:
                 logging.debug(f"Lock released on '{file_path}'.")
             except Exception as e:
                 lock_type_str = "exclusive" if lock_type == fcntl.LOCK_EX else "shared"
-                logging.warning(f"Failed to release {lock_type_str} lock on '{file_path}': {e}")
+                logging.warning(
+                    f"Failed to release {lock_type_str} lock on '{file_path}': {e}"
+                )
                 logging.error(traceback.format_exc())  # Log full traceback
-                print(colored(f"Warning: Failed to release {lock_type_str} lock on '{file_path}': {e}", 'yellow'))
+                print(
+                    colored(
+                        f"Warning: Failed to release {lock_type_str} lock on '{file_path}': {e}",
+                        "yellow",
+                    )
+                )
             finally:
                 # Close the file
                 try:
@@ -89,7 +104,12 @@ def lock_file(file_path: Path, lock_type: int) -> Generator[None, None, None]:
                 except Exception as e:
                     logging.warning(f"Failed to close file '{file_path}': {e}")
                     logging.error(traceback.format_exc())  # Log full traceback
-                    print(colored(f"Warning: Failed to close file '{file_path}': {e}", 'yellow'))
+                    print(
+                        colored(
+                            f"Warning: Failed to close file '{file_path}': {e}",
+                            "yellow",
+                        )
+                    )
 
 
 @contextmanager
