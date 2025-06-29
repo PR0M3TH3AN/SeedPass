@@ -27,7 +27,7 @@ jobs:
           else
             brew install pkg-config
           fi
-      - name: Install MSYS2 and secp256k1
+      - name: Install MSYS2 toolchain
         if: runner.os == 'Windows'
         id: msys
         uses: msys2/setup-msys2@v2
@@ -35,15 +35,11 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-libsecp256k1
+            base-devel
       - name: Set PKG_CONFIG_PATH
         if: runner.os == 'Windows'
         shell: bash
         run: echo "PKG_CONFIG_PATH=${{ steps.msys.outputs.msys2-location }}/mingw64/lib/pkgconfig" >> $GITHUB_ENV
-      - name: Set libsecp256k1 path
-        if: runner.os == 'Windows'
-        shell: bash
-        run: echo "SECP256K1_LIB_DIR=${{ steps.msys.outputs.msys2-location }}/mingw64" >> $GITHUB_ENV
       - name: Cache pip
         uses: actions/cache@v3
         with:
