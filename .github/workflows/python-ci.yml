@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "**" ]
 
 jobs:
   build:
@@ -28,7 +28,8 @@ jobs:
           pip install -r src/requirements.txt
       - name: Run tests with coverage
         run: |
-          pytest --cov=src --cov-report=xml --cov-report=term-missing src/tests
+          pytest --cov=src --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=20 src/tests
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
         with:
