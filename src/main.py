@@ -79,70 +79,70 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
         if not fingerprints:
             print(
                 colored(
-                    "No fingerprints available to switch. Please add a new fingerprint first.",
+                    "No seed profiles available to switch. Please add a new seed profile first.",
                     "yellow",
                 )
             )
             return
 
-        print(colored("Available Fingerprints:", "cyan"))
+        print(colored("Available Seed Profiles:", "cyan"))
         for idx, fp in enumerate(fingerprints, start=1):
             print(colored(f"{idx}. {fp}", "cyan"))
 
-        choice = input("Select a fingerprint by number to switch: ").strip()
+        choice = input("Select a seed profile by number to switch: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
             print(colored("Invalid selection.", "red"))
             return
 
         selected_fingerprint = fingerprints[int(choice) - 1]
         if password_manager.select_fingerprint(selected_fingerprint):
-            print(colored(f"Switched to fingerprint {selected_fingerprint}.", "green"))
+            print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
         else:
-            print(colored("Failed to switch fingerprint.", "red"))
+            print(colored("Failed to switch seed profile.", "red"))
     except Exception as e:
         logging.error(f"Error during fingerprint switch: {e}")
         logging.error(traceback.format_exc())
-        print(colored(f"Error: Failed to switch fingerprint: {e}", "red"))
+        print(colored(f"Error: Failed to switch seed profile: {e}", "red"))
 
 
 def handle_add_new_fingerprint(password_manager: PasswordManager):
     """
-    Handles adding a new fingerprint.
+    Handles adding a new seed profile.
 
     :param password_manager: An instance of PasswordManager.
     """
     try:
         password_manager.add_new_fingerprint()
     except Exception as e:
-        logging.error(f"Error adding new fingerprint: {e}")
+        logging.error(f"Error adding new seed profile: {e}")
         logging.error(traceback.format_exc())
-        print(colored(f"Error: Failed to add new fingerprint: {e}", "red"))
+        print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
 
 
 def handle_remove_fingerprint(password_manager: PasswordManager):
     """
-    Handles removing an existing fingerprint.
+    Handles removing an existing seed profile.
 
     :param password_manager: An instance of PasswordManager.
     """
     try:
         fingerprints = password_manager.fingerprint_manager.list_fingerprints()
         if not fingerprints:
-            print(colored("No fingerprints available to remove.", "yellow"))
+            print(colored("No seed profiles available to remove.", "yellow"))
             return
 
-        print(colored("Available Fingerprints:", "cyan"))
+        print(colored("Available Seed Profiles:", "cyan"))
         for idx, fp in enumerate(fingerprints, start=1):
             print(colored(f"{idx}. {fp}", "cyan"))
 
-        choice = input("Select a fingerprint by number to remove: ").strip()
+        choice = input("Select a seed profile by number to remove: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
             print(colored("Invalid selection.", "red"))
             return
 
         selected_fingerprint = fingerprints[int(choice) - 1]
         confirm = confirm_action(
-            f"Are you sure you want to remove fingerprint {selected_fingerprint}? This will delete all associated data. (Y/N): "
+            f"Are you sure you want to remove seed profile {selected_fingerprint}? This will delete all associated data. (Y/N): "
         )
         if confirm:
             if password_manager.fingerprint_manager.remove_fingerprint(
@@ -150,39 +150,39 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
             ):
                 print(
                     colored(
-                        f"Fingerprint {selected_fingerprint} removed successfully.",
+                        f"Seed profile {selected_fingerprint} removed successfully.",
                         "green",
                     )
                 )
             else:
-                print(colored("Failed to remove fingerprint.", "red"))
+                print(colored("Failed to remove seed profile.", "red"))
         else:
-            print(colored("Fingerprint removal cancelled.", "yellow"))
+            print(colored("Seed profile removal cancelled.", "yellow"))
     except Exception as e:
-        logging.error(f"Error removing fingerprint: {e}")
+        logging.error(f"Error removing seed profile: {e}")
         logging.error(traceback.format_exc())
-        print(colored(f"Error: Failed to remove fingerprint: {e}", "red"))
+        print(colored(f"Error: Failed to remove seed profile: {e}", "red"))
 
 
 def handle_list_fingerprints(password_manager: PasswordManager):
     """
-    Handles listing all available fingerprints.
+    Handles listing all available seed profiles.
 
     :param password_manager: An instance of PasswordManager.
     """
     try:
         fingerprints = password_manager.fingerprint_manager.list_fingerprints()
         if not fingerprints:
-            print(colored("No fingerprints available.", "yellow"))
+            print(colored("No seed profiles available.", "yellow"))
             return
 
-        print(colored("Available Fingerprints:", "cyan"))
+        print(colored("Available Seed Profiles:", "cyan"))
         for fp in fingerprints:
             print(colored(f"- {fp}", "cyan"))
     except Exception as e:
-        logging.error(f"Error listing fingerprints: {e}")
+        logging.error(f"Error listing seed profiles: {e}")
         logging.error(traceback.format_exc())
-        print(colored(f"Error: Failed to list fingerprints: {e}", "red"))
+        print(colored(f"Error: Failed to list seed profiles: {e}", "red"))
 
 
 def handle_display_npub(password_manager: PasswordManager):
@@ -408,10 +408,10 @@ def display_menu(password_manager: PasswordManager):
     6. Retrieve Encrypted Index from Nostr
     7. Display Nostr Public Key (npub)
     8. Backup/Reveal Parent Seed
-    9. Switch Fingerprint
-    10. Add a New Fingerprint
-    11. Remove an Existing Fingerprint
-    12. List All Fingerprints
+    9. Switch Seed Profile
+    10. Add a New Seed Profile
+    11. Remove an Existing Seed Profile
+    12. List All Seed Profiles
     13. Settings
     14. Exit
     """
@@ -447,7 +447,7 @@ def display_menu(password_manager: PasswordManager):
             password_manager.handle_backup_reveal_parent_seed()
         elif choice == "9":
             if not password_manager.handle_switch_fingerprint():
-                print(colored("Failed to switch fingerprint.", "red"))
+                print(colored("Failed to switch seed profile.", "red"))
         elif choice == "10":
             handle_add_new_fingerprint(password_manager)
         elif choice == "11":

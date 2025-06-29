@@ -122,36 +122,36 @@ class PasswordManager:
         Prompts the user to select an existing fingerprint or add a new one.
         """
         try:
-            print(colored("\nAvailable Fingerprints:", "cyan"))
+            print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
             for idx, fp in enumerate(fingerprints, start=1):
                 print(colored(f"{idx}. {fp}", "cyan"))
 
-            print(colored(f"{len(fingerprints)+1}. Add a new fingerprint", "cyan"))
+            print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
 
-            choice = input("Select a fingerprint by number: ").strip()
+            choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints) + 1):
                 print(colored("Invalid selection. Exiting.", "red"))
                 sys.exit(1)
 
             choice = int(choice)
             if choice == len(fingerprints) + 1:
-                # Add a new fingerprint
+                # Add a new seed profile
                 self.add_new_fingerprint()
             else:
-                # Select existing fingerprint
+                # Select existing seed profile
                 selected_fingerprint = fingerprints[choice - 1]
                 self.select_fingerprint(selected_fingerprint)
 
         except Exception as e:
-            logger.error(f"Error during fingerprint selection: {e}")
+            logger.error(f"Error during seed profile selection: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to select fingerprint: {e}", "red"))
+            print(colored(f"Error: Failed to select seed profile: {e}", "red"))
             sys.exit(1)
 
     def add_new_fingerprint(self):
         """
-        Adds a new fingerprint by generating it from a seed phrase.
+        Adds a new seed profile by generating it from a seed phrase.
         """
         try:
             choice = input(
@@ -169,15 +169,15 @@ class PasswordManager:
             self.fingerprint_manager.current_fingerprint = fingerprint
             print(
                 colored(
-                    f"New fingerprint '{fingerprint}' added and set as current.",
+                    f"New seed profile '{fingerprint}' added and set as current.",
                     "green",
                 )
             )
 
         except Exception as e:
-            logger.error(f"Error adding new fingerprint: {e}")
+            logger.error(f"Error adding new seed profile: {e}")
             logger.error(traceback.format_exc())
-            print(colored(f"Error: Failed to add new fingerprint: {e}", "red"))
+            print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
             sys.exit(1)
 
     def select_fingerprint(self, fingerprint: str) -> None:
@@ -189,7 +189,7 @@ class PasswordManager:
             if not self.fingerprint_dir:
                 print(
                     colored(
-                        f"Error: Fingerprint directory for {fingerprint} not found.",
+                        f"Error: Seed profile directory for {fingerprint} not found.",
                         "red",
                     )
                 )
@@ -203,12 +203,12 @@ class PasswordManager:
             self.sync_index_from_nostr_if_missing()
             print(
                 colored(
-                    f"Fingerprint {fingerprint} selected and managers initialized.",
+                    f"Seed profile {fingerprint} selected and managers initialized.",
                     "green",
                 )
             )
         else:
-            print(colored(f"Error: Fingerprint {fingerprint} not found.", "red"))
+            print(colored(f"Error: Seed profile {fingerprint} not found.", "red"))
             sys.exit(1)
 
     def setup_encryption_manager(
@@ -267,18 +267,18 @@ class PasswordManager:
 
     def handle_switch_fingerprint(self) -> bool:
         """
-        Handles switching to a different fingerprint.
+        Handles switching to a different seed profile.
 
         Returns:
             bool: True if switch was successful, False otherwise.
         """
         try:
-            print(colored("\nAvailable Fingerprints:", "cyan"))
+            print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
             for idx, fp in enumerate(fingerprints, start=1):
                 print(colored(f"{idx}. {fp}", "cyan"))
 
-            choice = input("Select a fingerprint by number to switch: ").strip()
+            choice = input("Select a seed profile by number to switch: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
                 print(colored("Invalid selection. Returning to main menu.", "red"))
                 return False  # Return False to indicate failure
@@ -294,26 +294,26 @@ class PasswordManager:
             if not self.fingerprint_dir:
                 print(
                     colored(
-                        f"Error: Fingerprint directory for {selected_fingerprint} not found.",
+                        f"Error: Seed profile directory for {selected_fingerprint} not found.",
                         "red",
                     )
                 )
                 return False  # Return False to indicate failure
 
-            # Prompt for master password for the selected fingerprint
+            # Prompt for master password for the selected seed profile
             password = prompt_existing_password("Enter your master password: ")
 
-            # Set up the encryption manager with the new password and fingerprint directory
+            # Set up the encryption manager with the new password and seed profile directory
             self.setup_encryption_manager(self.fingerprint_dir, password)
 
-            # Load the parent seed for the selected fingerprint
+            # Load the parent seed for the selected seed profile
             self.load_parent_seed(self.fingerprint_dir)
 
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
             self.sync_index_from_nostr_if_missing()
-            print(colored(f"Switched to fingerprint {selected_fingerprint}.", "green"))
+            print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
             try:
@@ -322,7 +322,7 @@ class PasswordManager:
                     fingerprint=self.current_fingerprint,
                 )
                 logging.info(
-                    f"NostrClient re-initialized with fingerprint {self.current_fingerprint}."
+                    f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
                 )
             except Exception as e:
                 logging.error(f"Failed to re-initialize NostrClient: {e}")
@@ -334,9 +334,9 @@ class PasswordManager:
             return True  # Return True to indicate success
 
         except Exception as e:
-            logging.error(f"Error during fingerprint switching: {e}")
+            logging.error(f"Error during seed profile switching: {e}")
             logging.error(traceback.format_exc())
-            print(colored(f"Error: Failed to switch fingerprints: {e}", "red"))
+            print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
             return False  # Return False to indicate failure
 
     def handle_existing_seed(self) -> None:
@@ -355,22 +355,22 @@ class PasswordManager:
             if not self.fingerprint_manager:
                 self.initialize_fingerprint_manager()
 
-            # Prompt the user to select an existing fingerprint
+            # Prompt the user to select an existing seed profile
             fingerprints = self.fingerprint_manager.list_fingerprints()
             if not fingerprints:
                 print(
                     colored(
-                        "No fingerprints available. Please add a fingerprint first.",
+                        "No seed profiles available. Please add a seed profile first.",
                         "red",
                     )
                 )
                 sys.exit(1)
 
-            print(colored("Available Fingerprints:", "cyan"))
+            print(colored("Available Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
                 print(colored(f"{idx}. {fp}", "cyan"))
 
-            choice = input("Select a fingerprint by number: ").strip()
+            choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
                 print(colored("Invalid selection. Exiting.", "red"))
                 sys.exit(1)
@@ -381,7 +381,7 @@ class PasswordManager:
                 selected_fingerprint
             )
             if not fingerprint_dir:
-                print(colored("Error: Fingerprint directory not found.", "red"))
+                print(colored("Error: Seed profile directory not found.", "red"))
                 sys.exit(1)
 
             # Initialize EncryptionManager with key and fingerprint_dir
@@ -442,7 +442,7 @@ class PasswordManager:
                 if not fingerprint:
                     print(
                         colored(
-                            "Error: Failed to generate fingerprint for the provided seed.",
+                            "Error: Failed to generate seed profile for the provided seed.",
                             "red",
                         )
                     )
@@ -454,7 +454,7 @@ class PasswordManager:
                 if not fingerprint_dir:
                     print(
                         colored(
-                            "Error: Failed to retrieve fingerprint directory.", "red"
+                            "Error: Failed to retrieve seed profile directory.", "red"
                         )
                     )
                     sys.exit(1)
@@ -463,7 +463,7 @@ class PasswordManager:
                 self.current_fingerprint = fingerprint
                 self.fingerprint_manager.current_fingerprint = fingerprint
                 self.fingerprint_dir = fingerprint_dir
-                logging.info(f"Current fingerprint set to {fingerprint}")
+                logging.info(f"Current seed profile set to {fingerprint}")
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
@@ -514,7 +514,8 @@ class PasswordManager:
             if not fingerprint:
                 print(
                     colored(
-                        "Error: Failed to generate fingerprint for the new seed.", "red"
+                        "Error: Failed to generate seed profile for the new seed.",
+                        "red",
                     )
                 )
                 sys.exit(1)
@@ -524,14 +525,14 @@ class PasswordManager:
             )
             if not fingerprint_dir:
                 print(
-                    colored("Error: Failed to retrieve fingerprint directory.", "red")
+                    colored("Error: Failed to retrieve seed profile directory.", "red")
                 )
                 sys.exit(1)
 
             # Set the current fingerprint in both PasswordManager and FingerprintManager
             self.current_fingerprint = fingerprint
             self.fingerprint_manager.current_fingerprint = fingerprint
-            logging.info(f"Current fingerprint set to {fingerprint}")
+            logging.info(f"Current seed profile set to {fingerprint}")
 
             # Now, save and encrypt the seed with the fingerprint_dir
             self.save_and_encrypt_seed(new_seed, fingerprint_dir)
