@@ -125,16 +125,10 @@ python src/main.py
    1. Add Entry
    2. Retrieve Entry
    3. Modify an Existing Entry
-    4. Backup to Nostr
-    5. Restore from Nostr
-    6. Switch Seed Profile
-    7. Add a New Seed Profile
-    8. Remove an Existing Seed Profile
-    9. List All Seed Profiles
-    10. Settings
-    11. Exit
+   4. Settings
+   5. Exit
 
-    Enter your choice (1-11):
+   Enter your choice (1-5):
    ```
 
 ### Managing Multiple Seeds
@@ -142,18 +136,18 @@ python src/main.py
 SeedPass allows you to manage multiple seed profiles (previously referred to as "fingerprints"). Each seed profile has its own parent seed and associated data, enabling you to compartmentalize your passwords.
 
 - **Add a New Seed Profile:**
-  - Select option `8` from the main menu.
+  - From the main menu, select **Settings** then **Profiles** and choose "Add a New Seed Profile".
   - Choose to enter an existing seed or generate a new one.
   - If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
 
 - **Switch Between Seed Profiles:**
-  - Select option `7` from the main menu.
+  - From the **Profiles** menu, select "Switch Seed Profile".
   - You'll see a list of available seed profiles.
   - Enter the number corresponding to the seed profile you wish to switch to.
   - Enter the master password associated with that seed profile.
 
 - **List All Seed Profiles:**
-  - Select option `10` from the main menu to view all existing seed profiles.
+  - In the **Profiles** menu, choose "List All Seed Profiles" to view all existing profiles.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
@@ -169,16 +163,16 @@ wss://relay.primal.net
 
 You can manage the relay list or change the PIN through the **Settings** menu:
 
-1. From the main menu, choose option `10` (**Settings**).
-2. Select `1` to view your current relays.
-3. Choose `2` to add a new relay URL.
-4. Select `3` to remove a relay by number.
-5. Choose `4` to reset to the default relay list.
-6. Select `5` to change the settings PIN.
-7. Choose `6` to display your Nostr public key.
-8. Select `7` to verify the script checksum.
-9. Choose `8` to back up the parent seed.
-10. Select `9` to return to the main menu.
+1. From the main menu, choose option `4` (**Settings**).
+2. Select `2` (**Nostr**) to open the Nostr submenu.
+3. Choose `3` to view your current relays.
+4. Select `4` to add a new relay URL.
+5. Choose `5` to remove a relay by number.
+6. Select `6` to reset to the default relay list.
+7. Choose `7` to display your Nostr public key.
+8. Select `8` to return to the Settings menu.
+9. From the Settings menu you can select `3` to change the settings PIN.
+10. Choose `4` to verify the script checksum or `5` to back up the parent seed.
 
 ## Running Tests
 
