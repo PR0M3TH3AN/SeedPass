@@ -2,6 +2,7 @@ import bcrypt
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from cryptography.fernet import Fernet
+import pytest
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -67,7 +68,15 @@ def test_set_relays_persists_changes():
         key = Fernet.generate_key()
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         cfg_mgr = ConfigManager(enc_mgr, Path(tmpdir))
-
         cfg_mgr.set_relays(["wss://custom"], require_pin=False)
         cfg = cfg_mgr.load_config(require_pin=False)
         assert cfg["relays"] == ["wss://custom"]
+
+
+def test_set_relays_requires_at_least_one():
+    with TemporaryDirectory() as tmpdir:
+        key = Fernet.generate_key()
+        enc_mgr = EncryptionManager(key, Path(tmpdir))
+        cfg_mgr = ConfigManager(enc_mgr, Path(tmpdir))
+        with pytest.raises(ValueError):
+            cfg_mgr.set_relays([], require_pin=False)
