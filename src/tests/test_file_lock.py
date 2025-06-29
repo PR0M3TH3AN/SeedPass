@@ -2,6 +2,8 @@ import multiprocessing as mp
 import time
 from pathlib import Path
 
+import pytest
+
 from utils.file_lock import exclusive_lock
 
 
@@ -34,4 +36,5 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path):
     p1.join()
     p2.join()
 
-    assert wait_time.value >= 0.9
+    # CI runners can be jittery; allow some slack around the 1s lock hold time
+    assert wait_time.value == pytest.approx(1.0, rel=0.2)

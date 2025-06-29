@@ -1,4 +1,5 @@
 """File-based locking utilities using portalocker for cross-platform support."""
+
 from contextlib import contextmanager
 from typing import Generator, Optional
 from pathlib import Path
