@@ -376,7 +376,9 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("3. Remove a relay by number")
         print("4. Reset to default relays")
         print("5. Change password")
-        print("6. Back")
+        print("6. Display Nostr Public Key")
+        print("7. Verify Script Checksum")
+        print("8. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_view_relays(cfg_mgr)
@@ -389,6 +391,10 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "5":
             password_manager.change_password()
         elif choice == "6":
+            handle_display_npub(password_manager)
+        elif choice == "7":
+            password_manager.handle_verify_checksum()
+        elif choice == "8":
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -403,28 +409,26 @@ def display_menu(password_manager: PasswordManager):
     1. Generate Password
     2. Retrieve Password
     3. Modify an Existing Entry
-    4. Verify Script Checksum
-    5. Backup to Nostr
-    6. Restore from Nostr
-    7. Display Nostr Public Key (npub)
-    8. Backup/Reveal Parent Seed
-    9. Switch Seed Profile
-    10. Add a New Seed Profile
-    11. Remove an Existing Seed Profile
-    12. List All Seed Profiles
-    13. Settings
-    14. Exit
+    4. Backup to Nostr
+    5. Restore from Nostr
+    6. Backup/Reveal Parent Seed
+    7. Switch Seed Profile
+    8. Add a New Seed Profile
+    9. Remove an Existing Seed Profile
+    10. List All Seed Profiles
+    11. Settings
+    12. Exit
     """
     while True:
         # Flush logging handlers
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(colored(menu, "cyan"))
-        choice = input("Enter your choice (1-14): ").strip()
+        choice = input("Enter your choice (1-12): ").strip()
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 14.",
+                    "No input detected. Please enter a number between 1 and 12.",
                     "yellow",
                 )
             )
@@ -436,27 +440,23 @@ def display_menu(password_manager: PasswordManager):
         elif choice == "3":
             password_manager.handle_modify_entry()
         elif choice == "4":
-            password_manager.handle_verify_checksum()
-        elif choice == "5":
             handle_post_to_nostr(password_manager)
-        elif choice == "6":
+        elif choice == "5":
             handle_retrieve_from_nostr(password_manager)
-        elif choice == "7":
-            handle_display_npub(password_manager)
-        elif choice == "8":
+        elif choice == "6":
             password_manager.handle_backup_reveal_parent_seed()
-        elif choice == "9":
+        elif choice == "7":
             if not password_manager.handle_switch_fingerprint():
                 print(colored("Failed to switch seed profile.", "red"))
-        elif choice == "10":
+        elif choice == "8":
             handle_add_new_fingerprint(password_manager)
-        elif choice == "11":
+        elif choice == "9":
             handle_remove_fingerprint(password_manager)
-        elif choice == "12":
+        elif choice == "10":
             handle_list_fingerprints(password_manager)
-        elif choice == "13":
+        elif choice == "11":
             handle_settings(password_manager)
-        elif choice == "14":
+        elif choice == "12":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()

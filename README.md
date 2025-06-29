@@ -125,19 +125,17 @@ python src/main.py
    1. Generate Password
    2. Retrieve Password
    3. Modify an Existing Entry
-   4. Verify Script Checksum
-   5. Backup to Nostr
-   6. Restore from Nostr
-   7. Display Nostr Public Key (npub)
-   8. Backup/Reveal Parent Seed
-   9. Switch Seed Profile
-   10. Add a New Seed Profile
-   11. Remove an Existing Seed Profile
-   12. List All Seed Profiles
-   13. Settings
-   14. Exit
+   4. Backup to Nostr
+   5. Restore from Nostr
+   6. Backup/Reveal Parent Seed
+   7. Switch Seed Profile
+   8. Add a New Seed Profile
+   9. Remove an Existing Seed Profile
+   10. List All Seed Profiles
+   11. Settings
+   12. Exit
 
-   Enter your choice (1-14):
+   Enter your choice (1-12):
    ```
 
 ### Managing Multiple Seeds
@@ -145,18 +143,18 @@ python src/main.py
 SeedPass allows you to manage multiple seed profiles (previously referred to as "fingerprints"). Each seed profile has its own parent seed and associated data, enabling you to compartmentalize your passwords.
 
 - **Add a New Seed Profile:**
-  - Select option `10` from the main menu.
+  - Select option `8` from the main menu.
   - Choose to enter an existing seed or generate a new one.
   - If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
 
 - **Switch Between Seed Profiles:**
-  - Select option `9` from the main menu.
+  - Select option `7` from the main menu.
   - You'll see a list of available seed profiles.
   - Enter the number corresponding to the seed profile you wish to switch to.
   - Enter the master password associated with that seed profile.
 
 - **List All Seed Profiles:**
-  - Select option `12` from the main menu to view all existing seed profiles.
+  - Select option `10` from the main menu to view all existing seed profiles.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
@@ -172,13 +170,15 @@ wss://relay.primal.net
 
 You can manage the relay list or change the PIN through the **Settings** menu:
 
-1. From the main menu, choose option `13` (**Settings**).
+1. From the main menu, choose option `11` (**Settings**).
 2. Select `1` to view your current relays.
 3. Choose `2` to add a new relay URL.
 4. Select `3` to remove a relay by number.
 5. Choose `4` to reset to the default relay list.
 6. Select `5` to change the settings PIN.
-7. Choose `6` to return to the main menu.
+7. Choose `6` to display your Nostr public key.
+8. Select `7` to verify the script checksum.
+9. Choose `8` to return to the main menu.
 
 ## Running Tests
 
