@@ -134,9 +134,10 @@ python src/main.py
    10. Add a New Seed Profile
    11. Remove an Existing Seed Profile
    12. List All Seed Profiles
-   13. Exit
+   13. Settings
+   14. Exit
 
-   Enter your choice (1-13):
+   Enter your choice (1-14):
    ```
 
 ### Managing Multiple Seeds
@@ -158,6 +159,23 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
   - Select option `12` from the main menu to view all existing seed profiles.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
+
+### Configuration File and Settings
+
+SeedPass keeps per-profile settings in an encrypted file named `seedpass_config.json.enc` inside each profile directory under `~/.seedpass/`. This file stores your chosen Nostr relays and the optional settings PIN. New profiles start with the following default relays:
+
+```
+wss://relay.snort.social
+wss://nostr.oxtr.dev
+wss://relay.primal.net
+```
+
+You can update the relay list or change the PIN through the **Settings** menu:
+
+1. From the main menu, choose option `13` (**Settings**).
+2. Select `1` to enter a comma-separated list of relay URLs.
+3. Choose `2` to change the settings PIN.
+4. Select `3` to go back to the main menu.
 
 ## Running Tests
 
