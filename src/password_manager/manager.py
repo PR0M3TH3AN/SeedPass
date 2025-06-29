@@ -200,6 +200,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
             print(
                 colored(
                     f"Fingerprint {fingerprint} selected and managers initialized.",
@@ -311,6 +312,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
             print(colored(f"Switched to fingerprint {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
@@ -483,6 +485,7 @@ class PasswordManager:
 
                 self.initialize_bip85()
                 self.initialize_managers()
+                self.sync_index_from_nostr_if_missing()
                 return fingerprint  # Return the generated or added fingerprint
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
@@ -613,6 +616,7 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}")
             logging.error(traceback.format_exc())
@@ -678,6 +682,19 @@ class PasswordManager:
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
+
+    def sync_index_from_nostr_if_missing(self) -> None:
+        """Retrieve the password database from Nostr if it doesn't exist locally."""
+        index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        if index_file.exists():
+            return
+        try:
+            encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
+            if encrypted:
+                self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted)
+                logger.info("Initialized local database from Nostr.")
+        except Exception as e:
+            logger.warning(f"Unable to sync index from Nostr: {e}")
 
     def handle_generate_password(self) -> None:
         try:
