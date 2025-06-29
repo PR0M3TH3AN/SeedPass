@@ -58,7 +58,7 @@ git clone https://github.com/PR0M3TH3AN/SeedPass.git
 Navigate to the project directory:
 
 ```bash
-cd SeedPass/src
+cd SeedPass
 ```
 
 ### 2. Create a Virtual Environment
@@ -93,7 +93,7 @@ Install the required Python packages and build dependencies using `pip`:
 
 ```bash
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r src/requirements.txt
 ```
 
 ## Usage
@@ -101,16 +101,16 @@ pip install -r requirements.txt
 After successfully installing the dependencies, you can run SeedPass using the following command:
 
 ```bash
-python main.py
+python src/main.py
 ```
 
 ### Running the Application
 
 1. **Start the Application:**
 
-   ```bash
-   python main.py
-   ```
+    ```bash
+    python src/main.py
+    ```
 
 2. **Follow the Prompts:**
 
@@ -164,7 +164,7 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**:
 
 ```bash
-pip install -r requirements.txt
+pip install -r src/requirements.txt
 pytest
 ```
 
