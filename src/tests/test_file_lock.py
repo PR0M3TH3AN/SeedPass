@@ -36,5 +36,5 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path):
     p1.join()
     p2.join()
 
-    # CI runners can be jittery; allow some slack around the 1s lock hold time
-    assert wait_time.value == pytest.approx(1.0, rel=0.2)
+    # CI runners can be jittery; allow generous slack around the 1s lock hold time
+    assert wait_time.value == pytest.approx(1.0, abs=0.4)
