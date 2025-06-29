@@ -237,8 +237,9 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
    - **Implementation Steps:**
      - Create a `config.yaml` or `config.json` file in the SeedPass data directory.
      - Define a structure to store user configurations, starting with a list of Nostr relay URLs.
-     - Allow users to add, remove, and manage an unlimited number of Nostr relays through the CLI or configuration file.
-     - Ensure the configuration file is securely stored and encrypted if necessary.
+    - Allow users to add, remove, and manage an unlimited number of Nostr relays through the CLI or configuration file.
+    - Ensure the configuration file is securely stored and encrypted if necessary.
+    - The Nostr client loads its relay list from this encrypted file. New accounts start with the default relays until you update the settings.
 
 2. **Individual JSON File Management**
    - **Separate Entry Files:**
