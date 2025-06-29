@@ -200,6 +200,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
             print(
                 colored(
                     f"Fingerprint {fingerprint} selected and managers initialized.",
@@ -311,6 +312,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
             print(colored(f"Switched to fingerprint {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
@@ -483,6 +485,7 @@ class PasswordManager:
 
                 self.initialize_bip85()
                 self.initialize_managers()
+                self.sync_index_from_nostr_if_missing()
                 return fingerprint  # Return the generated or added fingerprint
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
@@ -613,6 +616,7 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
+            self.sync_index_from_nostr_if_missing()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}")
             logging.error(traceback.format_exc())
@@ -678,6 +682,19 @@ class PasswordManager:
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
+
+    def sync_index_from_nostr_if_missing(self) -> None:
+        """Retrieve the password database from Nostr if it doesn't exist locally."""
+        index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        if index_file.exists():
+            return
+        try:
+            encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
+            if encrypted:
+                self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted)
+                logger.info("Initialized local database from Nostr.")
+        except Exception as e:
+            logger.warning(f"Unable to sync index from Nostr: {e}")
 
     def handle_generate_password(self) -> None:
         try:
@@ -1131,6 +1148,49 @@ class PasswordManager:
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
+
+    def change_password(self) -> None:
+        """Change the master password used for encryption."""
+        try:
+            current = prompt_existing_password("Enter your current master password: ")
+            if not self.verify_password(current):
+                print(colored("Incorrect password.", "red"))
+                return
+
+            new_password = prompt_for_password()
+
+            # Load data with existing encryption manager
+            index_data = self.entry_manager.encryption_manager.load_json_data()
+            config_data = self.config_manager.load_config(require_pin=False)
+
+            # Create a new encryption manager with the new password
+            new_key = derive_key_from_password(new_password)
+            new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
+
+            # Re-encrypt sensitive files using the new manager
+            new_enc_mgr.encrypt_parent_seed(self.parent_seed)
+            new_enc_mgr.save_json_data(index_data)
+            self.config_manager.encryption_manager = new_enc_mgr
+            self.config_manager.save_config(config_data)
+
+            # Update hashed password and replace managers
+            self.encryption_manager = new_enc_mgr
+            self.entry_manager.encryption_manager = new_enc_mgr
+            self.password_generator.encryption_manager = new_enc_mgr
+            self.store_hashed_password(new_password)
+
+            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
+            self.nostr_client = NostrClient(
+                encryption_manager=self.encryption_manager,
+                fingerprint=self.current_fingerprint,
+                relays=relay_list,
+            )
+
+            print(colored("Master password changed successfully.", "green"))
+        except Exception as e:
+            logging.error(f"Failed to change password: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to change password: {e}", "red"))
 
 
 # Example usage (this part should be removed or commented out when integrating into the larger application)

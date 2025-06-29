@@ -358,7 +358,7 @@ def handle_reset_relays(password_manager: PasswordManager) -> None:
 
 
 def handle_settings(password_manager: PasswordManager) -> None:
-    """Interactive settings menu for relay list and PIN changes."""
+    """Interactive settings menu for relay list and password changes."""
     cfg_mgr = password_manager.config_manager
     if cfg_mgr is None:
         print(colored("Configuration manager unavailable.", "red"))
@@ -375,7 +375,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("2. Add a relay URL")
         print("3. Remove a relay by number")
         print("4. Reset to default relays")
-        print("5. Change settings PIN")
+        print("5. Change password")
         print("6. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
@@ -387,12 +387,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "4":
             handle_reset_relays(password_manager)
         elif choice == "5":
-            old_pin = getpass.getpass("Current PIN: ")
-            new_pin = getpass.getpass("New PIN: ")
-            if cfg_mgr.change_pin(old_pin, new_pin):
-                print(colored("PIN changed successfully.", "green"))
-            else:
-                print(colored("Incorrect current PIN.", "red"))
+            password_manager.change_password()
         elif choice == "6":
             break
         else:
