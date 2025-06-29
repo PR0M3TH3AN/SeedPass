@@ -27,14 +27,14 @@ jobs:
           else
             brew install pkg-config
           fi
-      - name: Install MSYS2 and libsecp256k1
+      - name: Install MSYS2 and secp256k1
         if: runner.os == 'Windows'
         id: msys
         uses: msys2/setup-msys2@v2
         with:
           install: >-
             mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-libsecp256k1
+            mingw-w64-x86_64-secp256k1
       - name: Set libsecp256k1 path
         if: runner.os == 'Windows'
         shell: bash
