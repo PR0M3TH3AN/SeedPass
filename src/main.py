@@ -478,7 +478,6 @@ def display_menu(
     4. Settings
     5. Exit
     """
-    password_manager.update_activity()
     while True:
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
