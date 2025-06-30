@@ -506,12 +506,24 @@ class NostrClient:
             )
             raise
 
-    def publish_json_to_nostr(self, encrypted_json: bytes, to_pubkey: str = None):
-        """
-        Public method to post encrypted JSON to Nostr.
+    def publish_json_to_nostr(
+        self, encrypted_json: bytes, to_pubkey: str | None = None
+    ) -> bool:
+        """Post encrypted JSON to Nostr.
 
-        :param encrypted_json: The encrypted JSON data to be sent.
-        :param to_pubkey: (Optional) The recipient's public key for encryption.
+        Parameters
+        ----------
+        encrypted_json:
+            The encrypted JSON data to send.
+        to_pubkey:
+            Optional recipient public key. If provided the message will be NIP-4
+            encrypted for that key.
+
+        Returns
+        -------
+        bool
+            ``True`` when the event is successfully published, ``False`` on
+            failure.
         """
         try:
             encrypted_json_b64 = base64.b64encode(encrypted_json).decode("utf-8")
@@ -538,11 +550,13 @@ class NostrClient:
 
             self.publish_event(event)
             logger.debug("Event published")
+            return True
 
         except Exception as e:
             logger.error(f"Failed to publish JSON to Nostr: {e}")
             logger.error(traceback.format_exc())
             print(f"Error: Failed to publish JSON to Nostr: {e}", file=sys.stderr)
+            return False
 
     def retrieve_json_from_nostr_sync(self) -> Optional[bytes]:
         """
