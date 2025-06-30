@@ -26,7 +26,7 @@ def test_backup_and_publish_to_nostr():
         assert encrypted_index is not None
 
         with patch(
-            "nostr.client.NostrClient.publish_json_to_nostr"
+            "nostr.client.NostrClient.publish_json_to_nostr", return_value=True
         ) as mock_publish, patch("nostr.client.ClientPool"), patch(
             "nostr.client.KeyManager"
         ), patch.object(
@@ -36,6 +36,7 @@ def test_backup_and_publish_to_nostr():
         ):
             nostr_client = NostrClient(enc_mgr, "fp")
             entry_mgr.backup_index_file()
-            nostr_client.publish_json_to_nostr(encrypted_index)
+            result = nostr_client.publish_json_to_nostr(encrypted_index)
 
         mock_publish.assert_called_with(encrypted_index)
+        assert result is True

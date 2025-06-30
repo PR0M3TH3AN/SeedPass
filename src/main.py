@@ -215,9 +215,15 @@ def handle_post_to_nostr(password_manager: PasswordManager):
         encrypted_data = password_manager.get_encrypted_data()
         if encrypted_data:
             # Post to Nostr
-            password_manager.nostr_client.publish_json_to_nostr(encrypted_data)
-            print(colored("Encrypted index posted to Nostr successfully.", "green"))
-            logging.info("Encrypted index posted to Nostr successfully.")
+            success = password_manager.nostr_client.publish_json_to_nostr(
+                encrypted_data
+            )
+            if success:
+                print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
+                logging.info("Encrypted index posted to Nostr successfully.")
+            else:
+                print(colored("\N{CROSS MARK} Sync failed…", "red"))
+                logging.error("Failed to post encrypted index to Nostr.")
         else:
             print(colored("No data available to post.", "yellow"))
             logging.warning("No data available to post to Nostr.")
