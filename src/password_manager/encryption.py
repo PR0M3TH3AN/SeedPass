@@ -302,9 +302,6 @@ class EncryptionManager:
             json_content = decrypted_data.decode("utf-8").strip()
             data = json.loads(json_content)
             logger.debug(f"JSON data loaded and decrypted from '{file_path}': {data}")
-            print(
-                colored(f"JSON data loaded and decrypted from '{file_path}'.", "green")
-            )
             return data
         except json.JSONDecodeError as e:
             logger.error(f"Failed to decode JSON data from '{file_path}': {e}")
