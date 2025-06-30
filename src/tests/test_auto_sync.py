@@ -14,10 +14,14 @@ def test_auto_sync_triggers_post(monkeypatch):
     pm = SimpleNamespace(
         is_dirty=True,
         last_update=time.time() - 0.2,
+        last_activity=time.time(),
         nostr_client=SimpleNamespace(close_client_pool=lambda: None),
         handle_add_password=lambda: None,
         handle_retrieve_entry=lambda: None,
         handle_modify_entry=lambda: None,
+        update_activity=lambda: None,
+        lock_vault=lambda: None,
+        unlock_vault=lambda: None,
     )
 
     called = False

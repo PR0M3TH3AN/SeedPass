@@ -12,6 +12,7 @@ import traceback
 
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
+from constants import INACTIVITY_TIMEOUT
 
 colorama_init()
 
@@ -369,6 +370,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
         print("4. List All Seed Profiles")
         print("5. Back")
         choice = input("Select an option: ").strip()
+        password_manager.update_activity()
         if choice == "1":
             if not password_manager.handle_switch_fingerprint():
                 print(colored("Failed to switch seed profile.", "red"))
@@ -407,6 +409,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         print("7. Display Nostr Public Key")
         print("8. Back")
         choice = input("Select an option: ").strip()
+        password_manager.update_activity()
         if choice == "1":
             handle_post_to_nostr(password_manager)
         elif choice == "2":
@@ -436,7 +439,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("3. Change password")
         print("4. Verify Script Checksum")
         print("5. Backup Parent Seed")
-        print("6. Back")
+        print("6. Lock Vault")
+        print("7. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -449,12 +453,20 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "5":
             password_manager.handle_backup_reveal_parent_seed()
         elif choice == "6":
+            password_manager.lock_vault()
+            print(colored("Vault locked. Please re-enter your password.", "yellow"))
+            password_manager.unlock_vault()
+        elif choice == "7":
             break
         else:
             print(colored("Invalid choice.", "red"))
 
 
-def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0):
+def display_menu(
+    password_manager: PasswordManager,
+    sync_interval: float = 60.0,
+    inactivity_timeout: float = INACTIVITY_TIMEOUT,
+):
     """
     Displays the interactive menu and handles user input to perform various actions.
     """
@@ -467,6 +479,11 @@ def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0)
     5. Exit
     """
     while True:
+        if time.time() - password_manager.last_activity > inactivity_timeout:
+            print(colored("Session timed out. Vault locked.", "yellow"))
+            password_manager.lock_vault()
+            password_manager.unlock_vault()
+            continue
         # Periodically push updates to Nostr
         if (
             password_manager.is_dirty
@@ -480,6 +497,7 @@ def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0)
             handler.flush()
         print(colored(menu, "cyan"))
         choice = input("Enter your choice (1-5): ").strip()
+        password_manager.update_activity()
         if not choice:
             print(
                 colored(
@@ -494,6 +512,7 @@ def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0)
                 print("1. Password")
                 print("2. Back")
                 sub_choice = input("Select entry type: ").strip()
+                password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
                     break
@@ -502,10 +521,13 @@ def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0)
                 else:
                     print(colored("Invalid choice.", "red"))
         elif choice == "2":
+            password_manager.update_activity()
             password_manager.handle_retrieve_entry()
         elif choice == "3":
+            password_manager.update_activity()
             password_manager.handle_modify_entry()
         elif choice == "4":
+            password_manager.update_activity()
             handle_settings(password_manager)
         elif choice == "5":
             logging.info("Exiting the program.")
