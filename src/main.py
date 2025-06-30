@@ -5,6 +5,7 @@ import sys
 import logging
 import signal
 import getpass
+import time
 from colorama import init as colorama_init
 from termcolor import colored
 import traceback
@@ -453,7 +454,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             print(colored("Invalid choice.", "red"))
 
 
-def display_menu(password_manager: PasswordManager):
+def display_menu(password_manager: PasswordManager, sync_interval: float = 60.0):
     """
     Displays the interactive menu and handles user input to perform various actions.
     """
@@ -466,6 +467,14 @@ def display_menu(password_manager: PasswordManager):
     5. Exit
     """
     while True:
+        # Periodically push updates to Nostr
+        if (
+            password_manager.is_dirty
+            and time.time() - password_manager.last_update >= sync_interval
+        ):
+            handle_post_to_nostr(password_manager)
+            password_manager.is_dirty = False
+
         # Flush logging handlers
         for handler in logging.getLogger().handlers:
             handler.flush()
