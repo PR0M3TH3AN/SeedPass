@@ -7,7 +7,7 @@ from bech32 import bech32_encode, convertbits
 
 from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator
-from monstr.encrypt import Keys
+from .coincurve_keys import Keys
 
 logger = logging.getLogger(__name__)
 
