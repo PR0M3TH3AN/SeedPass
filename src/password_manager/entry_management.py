@@ -29,9 +29,8 @@ from pathlib import Path
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
-from utils.file_lock import lock_file
+from utils.file_lock import exclusive_lock
 
-import fcntl
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -407,7 +406,8 @@ class EntryManager:
         :param backup_path: The file path of the backup to restore from.
         """
         try:
-            if not os.path.exists(backup_path):
+            backup_path = Path(backup_path)
+            if not backup_path.exists():
                 logger.error(f"Backup file '{backup_path}' does not exist.")
                 print(
                     colored(

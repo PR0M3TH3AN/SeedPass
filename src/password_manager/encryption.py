@@ -24,8 +24,9 @@ from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
-from utils.file_lock import lock_file  # Ensure this utility is correctly implemented
-import fcntl  # For file locking
+from utils.file_lock import (
+    exclusive_lock,
+)  # Ensure this utility is correctly implemented
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class EncryptionManager:
             encrypted_data = self.encrypt_data(data)
 
             # Write the encrypted data to the file with locking
-            with lock_file(self.parent_seed_file, fcntl.LOCK_EX):
+            with exclusive_lock(self.parent_seed_file):
                 with open(self.parent_seed_file, "wb") as f:
                     f.write(encrypted_data)
 
@@ -107,7 +108,7 @@ class EncryptionManager:
         """
         try:
             parent_seed_path = self.fingerprint_dir / "parent_seed.enc"
-            with lock_file(parent_seed_path, fcntl.LOCK_SH):
+            with exclusive_lock(parent_seed_path):
                 with open(parent_seed_path, "rb") as f:
                     encrypted_data = f.read()
 
@@ -188,7 +189,7 @@ class EncryptionManager:
             encrypted_data = self.encrypt_data(data)
 
             # Write the encrypted data to the file with locking
-            with lock_file(file_path, fcntl.LOCK_EX):
+            with exclusive_lock(file_path):
                 with open(file_path, "wb") as f:
                     f.write(encrypted_data)
 
@@ -220,7 +221,7 @@ class EncryptionManager:
             file_path = self.fingerprint_dir / relative_path
 
             # Read the encrypted data with locking
-            with lock_file(file_path, fcntl.LOCK_SH):
+            with exclusive_lock(file_path):
                 with open(file_path, "rb") as f:
                     encrypted_data = f.read()
 
@@ -351,7 +352,7 @@ class EncryptionManager:
             checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
 
             # Write the checksum to the file with locking
-            with lock_file(checksum_file, fcntl.LOCK_EX):
+            with exclusive_lock(checksum_file):
                 with open(checksum_file, "w") as f:
                     f.write(checksum)
 
@@ -392,7 +393,7 @@ class EncryptionManager:
                 )
                 return None
 
-            with lock_file(self.fingerprint_dir / relative_path, fcntl.LOCK_SH):
+            with exclusive_lock(self.fingerprint_dir / relative_path):
                 with open(self.fingerprint_dir / relative_path, "rb") as file:
                     encrypted_data = file.read()
 
