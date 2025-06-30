@@ -11,5 +11,4 @@ bip85
 pytest>=7.0
 pytest-cov
 portalocker>=2.8
-pynostr
 

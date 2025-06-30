@@ -27,7 +27,7 @@ def test_backup_and_publish_to_nostr():
 
         with patch(
             "nostr.client.NostrClient.publish_json_to_nostr", return_value=True
-        ) as mock_publish, patch("nostr.client.RelayManager"), patch(
+        ) as mock_publish, patch("nostr.client.ClientPool"), patch(
             "nostr.client.KeyManager"
         ), patch.object(
             NostrClient, "initialize_client_pool"
