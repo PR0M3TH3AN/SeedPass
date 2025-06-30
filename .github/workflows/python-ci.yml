@@ -40,6 +40,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: echo "PKG_CONFIG_PATH=${{ steps.msys.outputs.msys2-location }}/mingw64/lib/pkgconfig" >> $GITHUB_ENV
+      - name: Add MSYS2 tools to PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "${{ steps.msys.outputs.msys2-location }}/mingw64/bin" >> $GITHUB_PATH
       - name: Cache pip
         uses: actions/cache@v3
         with:
