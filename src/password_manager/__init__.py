@@ -19,4 +19,12 @@ except Exception as e:
     logging.error(f"Failed to import ConfigManager module: {e}")
     logging.error(traceback.format_exc())
 
-__all__ = ["PasswordManager", "ConfigManager"]
+try:
+    from .vault import Vault
+
+    logging.info("Vault module imported successfully.")
+except Exception as e:
+    logging.error(f"Failed to import Vault module: {e}")
+    logging.error(traceback.format_exc())
+
+__all__ = ["PasswordManager", "ConfigManager", "Vault"]

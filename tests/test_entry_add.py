@@ -7,13 +7,15 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
+from password_manager.vault import Vault
 
 
 def test_add_and_retrieve_entry():
     with TemporaryDirectory() as tmpdir:
         key = Fernet.generate_key()
         enc_mgr = EncryptionManager(key, Path(tmpdir))
-        entry_mgr = EntryManager(enc_mgr, Path(tmpdir))
+        vault = Vault(enc_mgr, Path(tmpdir))
+        entry_mgr = EntryManager(vault, Path(tmpdir))
 
         index = entry_mgr.add_entry("example.com", 12, "user")
         entry = entry_mgr.retrieve_entry(index)
