@@ -41,9 +41,19 @@ def shared_lock(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.touch(exist_ok=True)
-    lock = portalocker.Lock(
-        str(path), mode="r+b", timeout=timeout, flags=portalocker.LockFlags.SHARED
-    )
+    if timeout is None:
+        lock = portalocker.Lock(
+            str(path),
+            mode="r+b",
+            flags=portalocker.LockFlags.SHARED,
+        )
+    else:
+        lock = portalocker.Lock(
+            str(path),
+            mode="r+b",
+            timeout=timeout,
+            flags=portalocker.LockFlags.SHARED,
+        )
     with lock as fh:
         fh.seek(0)
         yield fh
