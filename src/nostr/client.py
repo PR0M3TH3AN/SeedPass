@@ -42,9 +42,8 @@ import threading
 import uuid
 
 from .key_manager import KeyManager
-from .encryption_manager import EncryptionManager
+from password_manager.encryption import EncryptionManager
 from .event_handler import EventHandler
-from constants import APP_DIR
 from utils.file_lock import exclusive_lock
 
 # Get the logger for this module
