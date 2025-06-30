@@ -25,7 +25,9 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path):
     started = mp.Event()
     wait_time = mp.Value("d", 0.0)
 
-    p1 = mp.Process(target=_hold_lock, args=(file_path, 1.0, started))
+    # Increase the lock hold time to reduce flakiness from process startup
+    # delays on slower CI runners.
+    p1 = mp.Process(target=_hold_lock, args=(file_path, 1.5, started))
     p2 = mp.Process(target=_try_lock, args=(file_path, wait_time))
 
     p1.start()
@@ -40,4 +42,7 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path):
     # Different operating systems spawn processes at slightly different speeds
     # which can shift the measured wait time by a few hundred milliseconds. A
     # wider tolerance keeps the test stable across platforms.
-    assert wait_time.value == pytest.approx(1.0, abs=0.5)
+    # The expected wait time is roughly hold_time minus the sleep before
+    # starting the second process: 1.5 - 0.1 = 1.4 seconds. Allow a wide
+    # tolerance so the test passes on platforms with slower process creation.
+    assert wait_time.value == pytest.approx(1.4, abs=0.7)

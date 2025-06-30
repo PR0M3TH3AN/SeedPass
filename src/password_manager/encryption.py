@@ -189,9 +189,13 @@ class EncryptionManager:
             encrypted_data = self.encrypt_data(data)
 
             # Write the encrypted data to the file with locking
-            with exclusive_lock(file_path):
-                with open(file_path, "wb") as f:
-                    f.write(encrypted_data)
+            # Use the file handle provided by exclusive_lock to avoid
+            # reopening the file while it's locked, which causes issues on
+            # Windows.
+            with exclusive_lock(file_path) as f:
+                f.seek(0)
+                f.truncate()
+                f.write(encrypted_data)
 
             # Set file permissions to read/write for the user only
             os.chmod(file_path, 0o600)
@@ -221,9 +225,11 @@ class EncryptionManager:
             file_path = self.fingerprint_dir / relative_path
 
             # Read the encrypted data with locking
-            with exclusive_lock(file_path):
-                with open(file_path, "rb") as f:
-                    encrypted_data = f.read()
+            # Use the file handle returned by exclusive_lock so that the file
+            # is not opened a second time while locked.
+            with exclusive_lock(file_path) as f:
+                f.seek(0)
+                encrypted_data = f.read()
 
             # Decrypt the data
             decrypted_data = self.decrypt_data(encrypted_data)
