@@ -88,6 +88,8 @@ class PasswordManager:
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
         self.last_update: float = time.time()
+        self.last_activity: float = time.time()
+        self.locked: bool = False
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -97,6 +99,34 @@ class PasswordManager:
 
         # Set the current fingerprint directory
         self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+
+    def update_activity(self) -> None:
+        """Record the current time as the last user activity."""
+        self.last_activity = time.time()
+
+    def lock_vault(self) -> None:
+        """Clear sensitive information from memory."""
+        self.parent_seed = None
+        self.encryption_manager = None
+        self.entry_manager = None
+        self.password_generator = None
+        self.backup_manager = None
+        self.vault = None
+        self.bip85 = None
+        self.nostr_client = None
+        self.config_manager = None
+        self.locked = True
+
+    def unlock_vault(self) -> None:
+        """Prompt for password and reinitialize managers."""
+        if not self.fingerprint_dir:
+            raise ValueError("Fingerprint directory not set")
+        self.setup_encryption_manager(self.fingerprint_dir)
+        self.load_parent_seed(self.fingerprint_dir)
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
 
     def initialize_fingerprint_manager(self):
         """
