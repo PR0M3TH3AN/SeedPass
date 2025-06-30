@@ -64,6 +64,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
       - name: Run tests with coverage
+        shell: bash
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=20 src/tests

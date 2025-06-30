@@ -16,9 +16,26 @@ try:
     from monstr.encrypt import Keys, NIP4Encrypt
     from monstr.event.event import Event
 except ImportError:  # Fallback placeholders when monstr is unavailable
-    ClientPool = None
     NIP4Encrypt = None
     Event = None
+
+    class ClientPool:  # minimal stub for tests when monstr is absent
+        def __init__(self, relays):
+            self.relays = relays
+            self.connected = True
+
+        async def run(self):
+            pass
+
+        def publish(self, event):
+            pass
+
+        def subscribe(self, handlers=None, filters=None, sub_id=None):
+            pass
+
+        def unsubscribe(self, sub_id):
+            pass
+
     from .coincurve_keys import Keys
 
 import threading
