@@ -16,6 +16,7 @@ import getpass
 import os
 from typing import Optional
 import shutil
+import time
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -47,6 +48,7 @@ from pathlib import Path
 
 from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
 
@@ -82,6 +84,10 @@ class PasswordManager:
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+
+        # Track changes to trigger periodic Nostr sync
+        self.is_dirty: bool = False
+        self.last_update: float = time.time()
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -735,6 +741,10 @@ class PasswordManager:
                 website_name, length, username, url, blacklisted=False
             )
 
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
+
             # Generate the password using the assigned index
             password = self.password_generator.generate_password(length, index)
 
@@ -911,6 +921,10 @@ class PasswordManager:
                 index, new_username, new_url, new_blacklisted
             )
 
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
+
             print(colored(f"Entry updated successfully for index {index}.", "green"))
 
             # Push the updated index to Nostr so changes are backed up.
@@ -948,6 +962,10 @@ class PasswordManager:
                 return
 
             self.entry_manager.delete_entry(index_to_delete)
+
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
 
             # Push updated index to Nostr after deletion
             try:
