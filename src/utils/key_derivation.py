@@ -23,7 +23,11 @@ import traceback
 from typing import Union
 from bip_utils import Bip39SeedGenerator
 from local_bip85.bip85 import BIP85
-from monstr.encrypt import Keys
+
+try:
+    from monstr.encrypt import Keys
+except ImportError:  # Fall back to local coincurve implementation
+    from nostr.coincurve_keys import Keys
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend

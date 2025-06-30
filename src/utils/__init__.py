@@ -4,7 +4,7 @@ import logging
 import traceback
 
 try:
-    from .file_lock import lock_file
+    from .file_lock import exclusive_lock, shared_lock
     from .key_derivation import derive_key_from_password, derive_key_from_parent_seed
     from .checksum import calculate_checksum, verify_checksum
     from .password_prompt import prompt_for_password
@@ -19,6 +19,7 @@ __all__ = [
     "derive_key_from_parent_seed",
     "calculate_checksum",
     "verify_checksum",
-    "lock_file",
+    "exclusive_lock",
+    "shared_lock",
     "prompt_for_password",
 ]

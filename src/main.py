@@ -1,5 +1,6 @@
 # main.py
 import os
+from pathlib import Path
 import sys
 import logging
 import signal
@@ -23,13 +24,13 @@ def configure_logging():
         logger.removeHandler(handler)
 
     # Ensure the 'logs' directory exists
-    log_directory = "logs"
-    if not os.path.exists(log_directory):
-        os.makedirs(log_directory)
+    log_directory = Path("logs")
+    if not log_directory.exists():
+        log_directory.mkdir(parents=True, exist_ok=True)
 
     # Create handlers
     c_handler = logging.StreamHandler(sys.stdout)
-    f_handler = logging.FileHandler(os.path.join(log_directory, "main.log"))
+    f_handler = logging.FileHandler(log_directory / "main.log")
 
     # Set levels: only errors and critical messages will be shown in the console
     c_handler.setLevel(logging.ERROR)

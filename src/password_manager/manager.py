@@ -908,10 +908,58 @@ class PasswordManager:
 
             print(colored(f"Entry updated successfully for index {index}.", "green"))
 
+            # Push the updated index to Nostr so changes are backed up.
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    self.nostr_client.publish_json_to_nostr(encrypted_data)
+                    logging.info(
+                        "Encrypted index posted to Nostr after entry modification."
+                    )
+            except Exception as nostr_error:
+                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
+                logging.error(traceback.format_exc())
+
         except Exception as e:
             logging.error(f"Error during modifying entry: {e}")
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
+
+    def delete_entry(self) -> None:
+        """Deletes an entry from the password index."""
+        try:
+            index_input = input(
+                "Enter the index number of the entry to delete: "
+            ).strip()
+            if not index_input.isdigit():
+                print(colored("Error: Index must be a number.", "red"))
+                return
+            index_to_delete = int(index_input)
+
+            if not confirm_action(
+                f"Are you sure you want to delete entry {index_to_delete}? (Y/N): "
+            ):
+                print(colored("Deletion cancelled.", "yellow"))
+                return
+
+            self.entry_manager.delete_entry(index_to_delete)
+
+            # Push updated index to Nostr after deletion
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    self.nostr_client.publish_json_to_nostr(encrypted_data)
+                    logging.info(
+                        "Encrypted index posted to Nostr after entry deletion."
+                    )
+            except Exception as nostr_error:
+                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
+                logging.error(traceback.format_exc())
+
+        except Exception as e:
+            logging.error(f"Error during entry deletion: {e}")
+            logging.error(traceback.format_exc())
+            print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
     def handle_verify_checksum(self) -> None:
         """
@@ -1202,6 +1250,10 @@ class PasswordManager:
             )
 
             print(colored("Master password changed successfully.", "green"))
+
+            # All data has been re-encrypted with the new password. Since no
+            # entries changed, avoid pushing the database to Nostr here.
+            # Subsequent entry modifications will trigger a push when needed.
         except Exception as e:
             logging.error(f"Failed to change password: {e}")
             logging.error(traceback.format_exc())

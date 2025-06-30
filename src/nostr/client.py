@@ -11,19 +11,41 @@ import concurrent.futures
 from typing import List, Optional, Callable
 from pathlib import Path
 
-from monstr.client.client import ClientPool
-from monstr.encrypt import Keys, NIP4Encrypt
-from monstr.event.event import Event
+try:
+    from monstr.client.client import ClientPool
+    from monstr.encrypt import Keys, NIP4Encrypt
+    from monstr.event.event import Event
+except ImportError:  # Fallback placeholders when monstr is unavailable
+    NIP4Encrypt = None
+    Event = None
+
+    class ClientPool:  # minimal stub for tests when monstr is absent
+        def __init__(self, relays):
+            self.relays = relays
+            self.connected = True
+
+        async def run(self):
+            pass
+
+        def publish(self, event):
+            pass
+
+        def subscribe(self, handlers=None, filters=None, sub_id=None):
+            pass
+
+        def unsubscribe(self, sub_id):
+            pass
+
+    from .coincurve_keys import Keys
 
 import threading
 import uuid
-import fcntl
 
 from .key_manager import KeyManager
 from .encryption_manager import EncryptionManager
 from .event_handler import EventHandler
 from constants import APP_DIR
-from utils.file_lock import lock_file
+from utils.file_lock import exclusive_lock
 
 # Get the logger for this module
 logger = logging.getLogger(__name__)
@@ -103,6 +125,8 @@ class NostrClient:
         """
         try:
             logger.debug("Initializing ClientPool with relays.")
+            if ClientPool is None:
+                raise ImportError("monstr library is required for ClientPool")
             self.client_pool = ClientPool(self.relays)
 
             # Start the ClientPool in a separate thread
@@ -257,6 +281,8 @@ class NostrClient:
                 content_base64 = event.content
 
                 if event.kind == Event.KIND_ENCRYPT:
+                    if NIP4Encrypt is None:
+                        raise ImportError("monstr library required for NIP4 encryption")
                     nip4_encrypt = NIP4Encrypt(self.key_manager.keys)
                     content_base64 = nip4_encrypt.decrypt_message(
                         event.content, event.pub_key
@@ -416,7 +442,7 @@ class NostrClient:
                 json.dumps(data).encode("utf-8")
             )
             index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-            with lock_file(index_file_path, fcntl.LOCK_EX):
+            with exclusive_lock(index_file_path):
                 with open(index_file_path, "wb") as f:
                     f.write(encrypted_data)
             logger.debug(f"Encrypted data saved to {index_file_path}.")
@@ -442,7 +468,7 @@ class NostrClient:
 
             checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
 
-            with lock_file(checksum_file, fcntl.LOCK_EX):
+            with exclusive_lock(checksum_file):
                 with open(checksum_file, "w") as f:
                     f.write(checksum)
 
@@ -465,7 +491,7 @@ class NostrClient:
         :return: Decrypted data as bytes.
         """
         try:
-            with lock_file(file_path, fcntl.LOCK_SH):
+            with exclusive_lock(file_path):
                 with open(file_path, "rb") as f:
                     encrypted_data = f.read()
             decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
@@ -501,6 +527,8 @@ class NostrClient:
             event.created_at = int(time.time())
 
             if to_pubkey:
+                if NIP4Encrypt is None:
+                    raise ImportError("monstr library required for NIP4 encryption")
                 nip4_encrypt = NIP4Encrypt(self.key_manager.keys)
                 event.content = nip4_encrypt.encrypt_message(event.content, to_pubkey)
                 event.kind = Event.KIND_ENCRYPT

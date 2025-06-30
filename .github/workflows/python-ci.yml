@@ -8,12 +8,49 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.11"
+        include:
+          - os: windows-latest
+            python-version: "3.10"
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
+      - name: Install build tools (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y pkg-config build-essential
+          else
+            brew install pkg-config
+          fi
+      - name: Install MSYS2 toolchain
+        if: runner.os == 'Windows'
+        id: msys
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            base-devel
+      - name: Set PKG_CONFIG_PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "PKG_CONFIG_PATH=${{ steps.msys.outputs.msys2-location }}/mingw64/lib/pkgconfig" >> $GITHUB_ENV
+      - name: Add MSYS2 tools to PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "${{ steps.msys.outputs.msys2-location }}/mingw64/bin" >> $GITHUB_PATH
       - name: Cache pip
         uses: actions/cache@v3
         with:
@@ -27,11 +64,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
       - name: Run tests with coverage
+        shell: bash
         run: |
           pytest --cov=src --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=20 src/tests
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
+          name: coverage-xml-${{ matrix.os }}
           path: coverage.xml

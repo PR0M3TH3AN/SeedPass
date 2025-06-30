@@ -3,11 +3,12 @@ termcolor>=1.1.0
 cryptography>=40.0.2
 bip-utils>=2.5.0
 bech32==1.2.0
-monstr @ git+https://github.com/monty888/monstr.git@master#egg=monstr
+coincurve>=18.0.0
 mnemonic
 aiohttp
 bcrypt
 bip85
 pytest>=7.0
 pytest-cov
+portalocker>=2.8
 

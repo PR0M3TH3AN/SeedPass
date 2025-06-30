@@ -13,6 +13,11 @@
 This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.
 
 ---
+### Supported OS
+
+✔ Windows 10/11 • macOS 12+ • Any modern Linux  
+SeedPass now uses the `portalocker` library for cross-platform file locking. No WSL or Cygwin required.
+
 
 ## Table of Contents
 
@@ -81,7 +86,7 @@ Activate the virtual environment using the appropriate command for your operatin
   source venv/bin/activate
   ```
 
-- **On Windows:** (Note: SeedPass currently does not support Windows)
+- **On Windows:**
 
   ```bash
   venv\Scripts\activate
@@ -178,11 +183,11 @@ You can manage the relay list or change the PIN through the **Settings** menu:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**:
+SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
 pip install -r src/requirements.txt
-pytest
+pytest -vv
 ```
 
 ## Security Considerations

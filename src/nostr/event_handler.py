@@ -3,7 +3,16 @@
 import time
 import logging
 import traceback
-from monstr.event.event import Event
+
+try:
+    from monstr.event.event import Event
+except ImportError:  # pragma: no cover - optional dependency
+
+    class Event:  # minimal placeholder for type hints when monstr is absent
+        id: str
+        created_at: int
+        content: str
+
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
