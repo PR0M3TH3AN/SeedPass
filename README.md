@@ -181,11 +181,11 @@ You can manage the relay list or change the PIN through the **Settings** menu:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**:
+SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
 pip install -r src/requirements.txt
-pytest
+pytest -vv
 ```
 
 ## Security Considerations
