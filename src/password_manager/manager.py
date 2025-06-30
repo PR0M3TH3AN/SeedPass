@@ -1325,26 +1325,3 @@ class PasswordManager:
             logging.error(f"Failed to change password: {e}")
             logging.error(traceback.format_exc())
             print(colored(f"Error: Failed to change password: {e}", "red"))
-
-
-# Example usage (this part should be removed or commented out when integrating into the larger application)
-if __name__ == "__main__":
-    from nostr.client import (
-        NostrClient,
-    )  # Ensure this import is correct based on your project structure
-
-    # Initialize PasswordManager
-    manager = PasswordManager()
-
-    # Initialize NostrClient with the EncryptionManager from PasswordManager
-    manager.nostr_client = NostrClient(encryption_manager=manager.encryption_manager)
-
-    # Example operations
-    # These would typically be triggered by user interactions, e.g., via a CLI menu
-    # manager.handle_add_password()
-    # manager.handle_retrieve_entry()
-    # manager.handle_modify_entry()
-    # manager.handle_verify_checksum()
-    # manager.nostr_client.publish_and_subscribe("Sample password data")
-    # manager.backup_database()
-    # manager.restore_database()
