@@ -42,6 +42,7 @@ from constants import (
 
 import traceback
 import bcrypt
+import base64
 from pathlib import Path
 
 from local_bip85.bip85 import BIP85
@@ -194,10 +195,9 @@ class PasswordManager:
                     )
                 )
                 sys.exit(1)
-            # Setup the encryption manager and load parent seed
+            # Setup the encryption manager and derive the seed-based key
             self.setup_encryption_manager(self.fingerprint_dir)
-            self.load_parent_seed(self.fingerprint_dir)
-            # Initialize BIP85 and other managers
+            # Initialize BIP85 with the decrypted seed
             self.initialize_bip85()
             self.initialize_managers()
             self.sync_index_from_nostr_if_missing()
@@ -225,18 +225,30 @@ class PasswordManager:
             # Prompt for password if not provided
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
-            # Derive key from password
-            key = derive_key_from_password(password)
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            logger.debug(
-                "EncryptionManager set up successfully for selected fingerprint."
-            )
 
-            # Verify the password
             self.fingerprint_dir = fingerprint_dir  # Ensure self.fingerprint_dir is set
+
+            # Verify the password using stored hash first
             if not self.verify_password(password):
                 print(colored("Invalid password. Exiting.", "red"))
                 sys.exit(1)
+
+            # Use the password-derived key only to decrypt the parent seed
+            temp_key = derive_key_from_password(password)
+            temp_mgr = EncryptionManager(temp_key, fingerprint_dir)
+            self.parent_seed = temp_mgr.decrypt_parent_seed()
+
+            # Derive the real encryption key from the decrypted seed
+            raw_key = derive_key_from_parent_seed(
+                self.parent_seed, self.current_fingerprint
+            )
+            key = base64.urlsafe_b64encode(raw_key)
+
+            # Initialize the main EncryptionManager with the seed-derived key
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            logger.debug(
+                "EncryptionManager set up successfully for selected fingerprint using seed-derived key."
+            )
         except Exception as e:
             logger.error(f"Failed to set up EncryptionManager: {e}")
             logger.error(traceback.format_exc())
@@ -245,17 +257,15 @@ class PasswordManager:
 
     def load_parent_seed(self, fingerprint_dir: Path):
         """
-        Loads and decrypts the parent seed from the fingerprint directory.
+        Initializes BIP-85 using the already decrypted parent seed.
 
         Parameters:
             fingerprint_dir (Path): The directory corresponding to the fingerprint.
         """
         try:
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
-            logger.debug(
-                f"Parent seed loaded for fingerprint {self.current_fingerprint}."
-            )
-            # Initialize BIP85 with the parent seed
+            if not self.parent_seed:
+                raise ValueError("Parent seed is not loaded.")
+
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.bip85 = BIP85(seed_bytes)
             logger.debug("BIP-85 initialized successfully.")
@@ -306,9 +316,6 @@ class PasswordManager:
             # Set up the encryption manager with the new password and seed profile directory
             self.setup_encryption_manager(self.fingerprint_dir, password)
 
-            # Load the parent seed for the selected seed profile
-            self.load_parent_seed(self.fingerprint_dir)
-
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -348,8 +355,14 @@ class PasswordManager:
             # Prompt for password
             password = getpass.getpass(prompt="Enter your login password: ").strip()
 
-            # Derive encryption key from password
+            # Verify the password using stored hash
+            if not self.verify_password(password):
+                print(colored("Invalid password. Exiting.", "red"))
+                sys.exit(1)
+
+            # Derive encryption key from password and decrypt the seed
             key = derive_key_from_password(password)
+            temp_mgr = EncryptionManager(key, fingerprint_dir)
 
             # Initialize FingerprintManager if not already initialized
             if not self.fingerprint_manager:
@@ -384,9 +397,15 @@ class PasswordManager:
                 print(colored("Error: Seed profile directory not found.", "red"))
                 sys.exit(1)
 
-            # Initialize EncryptionManager with key and fingerprint_dir
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
+            # Decrypt the parent seed using the temporary manager
+            self.parent_seed = temp_mgr.decrypt_parent_seed()
+
+            # Derive the main encryption key from the seed
+            raw_key = derive_key_from_parent_seed(
+                self.parent_seed, selected_fingerprint
+            )
+            seed_key = base64.urlsafe_b64encode(raw_key)
+            self.encryption_manager = EncryptionManager(seed_key, fingerprint_dir)
 
             # Log the type and content of parent_seed
             logger.debug(
@@ -465,18 +484,21 @@ class PasswordManager:
                 self.fingerprint_dir = fingerprint_dir
                 logging.info(f"Current seed profile set to {fingerprint}")
 
-                # Initialize EncryptionManager with key and fingerprint_dir
+                # Prompt for password and encrypt the seed file
                 password = prompt_for_password()
                 key = derive_key_from_password(password)
-                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-
-                # Encrypt and save the parent seed
-                self.encryption_manager.encrypt_parent_seed(parent_seed)
+                temp_mgr = EncryptionManager(key, fingerprint_dir)
+                temp_mgr.encrypt_parent_seed(parent_seed)
                 logging.info("Parent seed encrypted and saved successfully.")
 
-                # Store the hashed password
+                # Store the hashed password for future verification
                 self.store_hashed_password(password)
                 logging.info("User password hashed and stored successfully.")
+
+                # Derive the main encryption key from the seed
+                raw_key = derive_key_from_parent_seed(parent_seed, fingerprint)
+                seed_key = base64.urlsafe_b64encode(raw_key)
+                self.encryption_manager = EncryptionManager(seed_key, fingerprint_dir)
 
                 self.parent_seed = parent_seed  # Ensure this is a string
                 logger.debug(
@@ -595,20 +617,23 @@ class PasswordManager:
             # Set self.fingerprint_dir
             self.fingerprint_dir = fingerprint_dir
 
-            # Prompt for password
+            # Prompt for password and encrypt the seed file
             password = prompt_for_password()
-            # Derive key from password
             key = derive_key_from_password(password)
-            # Re-initialize EncryptionManager with the new key and fingerprint_dir
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            temp_mgr = EncryptionManager(key, fingerprint_dir)
 
             # Store the hashed password
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
             # Encrypt and save the parent seed
-            self.encryption_manager.encrypt_parent_seed(seed)
+            temp_mgr.encrypt_parent_seed(seed)
             logging.info("Parent seed encrypted and saved successfully.")
+
+            # Derive seed-based encryption key for the main manager
+            raw_key = derive_key_from_parent_seed(seed, self.current_fingerprint)
+            seed_key = base64.urlsafe_b64encode(raw_key)
+            self.encryption_manager = EncryptionManager(seed_key, fingerprint_dir)
 
             self.parent_seed = seed  # Ensure this is a string
             logger.debug(
@@ -1174,34 +1199,18 @@ class PasswordManager:
 
             new_password = prompt_for_password()
 
-            # Load data with existing encryption manager
-            index_data = self.entry_manager.encryption_manager.load_json_data()
-            config_data = self.config_manager.load_config(require_pin=False)
-
-            # Create a new encryption manager with the new password
+            # Create a temporary encryption manager with the new password
             new_key = derive_key_from_password(new_password)
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            # Re-encrypt sensitive files using the new manager
+            # Re-encrypt the parent seed using the new password
             new_enc_mgr.encrypt_parent_seed(self.parent_seed)
-            new_enc_mgr.save_json_data(index_data)
-            self.config_manager.encryption_manager = new_enc_mgr
-            self.config_manager.save_config(config_data)
 
-            # Update hashed password and replace managers
-            self.encryption_manager = new_enc_mgr
-            self.entry_manager.encryption_manager = new_enc_mgr
-            self.password_generator.encryption_manager = new_enc_mgr
+            # Update the stored hashed password
             self.store_hashed_password(new_password)
 
-            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
-            self.nostr_client = NostrClient(
-                encryption_manager=self.encryption_manager,
-                fingerprint=self.current_fingerprint,
-                relays=relay_list,
-            )
-
             print(colored("Master password changed successfully.", "green"))
+            return
         except Exception as e:
             logging.error(f"Failed to change password: {e}")
             logging.error(traceback.format_exc())

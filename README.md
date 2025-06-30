@@ -190,7 +190,7 @@ pytest
 
 ## Security Considerations
 
-**Important:** The password you use to encrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12-word seed **and** your master password.
+**Important:** The master password encrypts only your parent seed file. All other data (including the Nostr backup) is encrypted with a key derived solely from the seed. As long as you have the seed, you can restore your database on a new device even if the password is lost.
 
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
