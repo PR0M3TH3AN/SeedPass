@@ -23,6 +23,7 @@ def test_config_defaults_and_round_trip():
         cfg = cfg_mgr.load_config(require_pin=False)
         assert cfg["relays"] == list(DEFAULT_RELAYS)
         assert cfg["pin_hash"] == ""
+        assert cfg["password_hash"] == ""
 
         cfg_mgr.set_pin("1234")
         cfg_mgr.set_relays(["wss://example.com"], require_pin=False)
@@ -64,7 +65,9 @@ def test_config_file_encrypted_after_save():
         assert raw != json.dumps(data).encode()
 
         loaded = cfg_mgr.load_config(require_pin=False)
-        assert loaded == data
+        assert loaded["relays"] == data["relays"]
+        assert loaded["pin_hash"] == data["pin_hash"]
+        assert loaded["password_hash"] == ""
 
 
 def test_set_relays_persists_changes():
@@ -86,3 +89,24 @@ def test_set_relays_requires_at_least_one():
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
         with pytest.raises(ValueError):
             cfg_mgr.set_relays([], require_pin=False)
+
+
+def test_password_hash_migrates_from_file(tmp_path):
+    key = Fernet.generate_key()
+    enc_mgr = EncryptionManager(key, tmp_path)
+    vault = Vault(enc_mgr, tmp_path)
+    cfg_mgr = ConfigManager(vault, tmp_path)
+
+    # save legacy config without password_hash
+    legacy_cfg = {"relays": ["wss://r"], "pin_hash": ""}
+    cfg_mgr.save_config(legacy_cfg)
+
+    hashed = bcrypt.hashpw(b"pw", bcrypt.gensalt())
+    (tmp_path / "hashed_password.enc").write_bytes(hashed)
+
+    cfg = cfg_mgr.load_config(require_pin=False)
+    assert cfg["password_hash"] == hashed.decode()
+    # subsequent loads should read from config
+    (tmp_path / "hashed_password.enc").unlink()
+    cfg2 = cfg_mgr.load_config(require_pin=False)
+    assert cfg2["password_hash"] == hashed.decode()

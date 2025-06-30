@@ -1164,13 +1164,20 @@ class PasswordManager:
             bool: True if the password is correct, False otherwise.
         """
         try:
-            hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-            if not hashed_password_file.exists():
-                logging.error("Hashed password file not found.")
-                print(colored("Error: Hashed password file not found.", "red"))
-                return False
-            with open(hashed_password_file, "rb") as f:
-                stored_hash = f.read()
+            config = self.config_manager.load_config(require_pin=False)
+            stored_hash = config.get("password_hash", "").encode()
+            if not stored_hash:
+                # Fallback to legacy file if hash not present in config
+                legacy_file = self.fingerprint_dir / "hashed_password.enc"
+                if legacy_file.exists():
+                    with open(legacy_file, "rb") as f:
+                        stored_hash = f.read()
+                    self.config_manager.set_password_hash(stored_hash.decode())
+                else:
+                    logging.error("Hashed password not found.")
+                    print(colored("Error: Hashed password not found.", "red"))
+                    return False
+
             is_correct = bcrypt.checkpw(password.encode("utf-8"), stored_hash)
             if is_correct:
                 logging.debug("Password verification successful.")
@@ -1206,19 +1213,27 @@ class PasswordManager:
         This should be called during the initial setup.
         """
         try:
-            hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-            hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-            with open(hashed_password_file, "wb") as f:
-                f.write(hashed)
-            os.chmod(hashed_password_file, 0o600)
+            hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode()
+            if self.config_manager:
+                self.config_manager.set_password_hash(hashed)
+            else:
+                # Fallback to legacy file method if config_manager unavailable
+                hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
+                with open(hashed_password_file, "wb") as f:
+                    f.write(hashed.encode())
+                os.chmod(hashed_password_file, 0o600)
             logging.info("User password hashed and stored successfully.")
         except AttributeError:
             # If bcrypt.hashpw is not available, try using bcrypt directly
             salt = bcrypt.gensalt()
-            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
-            with open(hashed_password_file, "wb") as f:
-                f.write(hashed)
-            os.chmod(hashed_password_file, 0o600)
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt).decode()
+            if self.config_manager:
+                self.config_manager.set_password_hash(hashed)
+            else:
+                hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
+                with open(hashed_password_file, "wb") as f:
+                    f.write(hashed.encode())
+                os.chmod(hashed_password_file, 0o600)
             logging.info(
                 "User password hashed and stored successfully (using alternative method)."
             )
