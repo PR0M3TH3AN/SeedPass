@@ -271,6 +271,12 @@ class PasswordManager:
                 "EncryptionManager set up successfully for selected fingerprint."
             )
 
+            # Initialize ConfigManager before verifying password
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
+
             # Verify the password
             self.fingerprint_dir = fingerprint_dir  # Ensure self.fingerprint_dir is set
             if not self.verify_password(password):
