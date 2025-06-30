@@ -1202,6 +1202,19 @@ class PasswordManager:
             )
 
             print(colored("Master password changed successfully.", "green"))
+
+            # Automatically push the newly re-encrypted index to Nostr so the
+            # latest state is backed up remotely after a password change.
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    self.nostr_client.publish_json_to_nostr(encrypted_data)
+                    logging.info(
+                        "Encrypted index posted to Nostr after password change."
+                    )
+            except Exception as nostr_error:
+                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
+                logging.error(traceback.format_exc())
         except Exception as e:
             logging.error(f"Failed to change password: {e}")
             logging.error(traceback.format_exc())
