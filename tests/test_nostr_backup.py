@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
+from password_manager.vault import Vault
 from nostr.client import NostrClient
 
 
@@ -16,7 +17,8 @@ def test_backup_and_publish_to_nostr():
         tmp_path = Path(tmpdir)
         key = Fernet.generate_key()
         enc_mgr = EncryptionManager(key, tmp_path)
-        entry_mgr = EntryManager(enc_mgr, tmp_path)
+        vault = Vault(enc_mgr, tmp_path)
+        entry_mgr = EntryManager(vault, tmp_path)
 
         # create an index by adding an entry
         entry_mgr.add_entry("example.com", 12)

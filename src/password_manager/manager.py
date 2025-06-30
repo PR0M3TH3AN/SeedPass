@@ -22,6 +22,7 @@ from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
+from password_manager.vault import Vault
 from utils.key_derivation import derive_key_from_parent_seed, derive_key_from_password
 from utils.checksum import calculate_checksum, verify_checksum
 from utils.password_prompt import (
@@ -75,6 +76,7 @@ class PasswordManager:
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
         self.backup_manager: Optional[BackupManager] = None
+        self.vault: Optional[Vault] = None
         self.fingerprint_manager: Optional[FingerprintManager] = None
         self.parent_seed: Optional[str] = None
         self.bip85: Optional[BIP85] = None
@@ -228,6 +230,7 @@ class PasswordManager:
             # Derive key from password
             key = derive_key_from_password(password)
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
             logger.debug(
                 "EncryptionManager set up successfully for selected fingerprint."
             )
@@ -386,6 +389,7 @@ class PasswordManager:
 
             # Initialize EncryptionManager with key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
             self.parent_seed = self.encryption_manager.decrypt_parent_seed()
 
             # Log the type and content of parent_seed
@@ -469,6 +473,7 @@ class PasswordManager:
                 password = prompt_for_password()
                 key = derive_key_from_password(password)
                 self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
                 # Encrypt and save the parent seed
                 self.encryption_manager.encrypt_parent_seed(parent_seed)
@@ -650,7 +655,7 @@ class PasswordManager:
 
             # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
             self.entry_manager = EntryManager(
-                encryption_manager=self.encryption_manager,
+                vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
 
@@ -664,7 +669,7 @@ class PasswordManager:
 
             # Load relay configuration and initialize NostrClient
             self.config_manager = ConfigManager(
-                encryption_manager=self.encryption_manager,
+                vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
             config = self.config_manager.load_config()
@@ -692,7 +697,7 @@ class PasswordManager:
         try:
             encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
             if encrypted:
-                self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted)
+                self.vault.decrypt_and_save_index_from_nostr(encrypted)
                 logger.info("Initialized local database from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
@@ -990,7 +995,7 @@ class PasswordManager:
         :return: The encrypted data as bytes, or None if retrieval fails.
         """
         try:
-            encrypted_data = self.entry_manager.get_encrypted_index()
+            encrypted_data = self.vault.get_encrypted_index()
             if encrypted_data:
                 logging.debug("Encrypted index data retrieved successfully.")
                 return encrypted_data
@@ -1011,14 +1016,7 @@ class PasswordManager:
         :param encrypted_data: The encrypted data retrieved from Nostr.
         """
         try:
-            # Decrypt the data using EncryptionManager's decrypt_data method
-            decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
-
-            # Save the decrypted data to the index file
-            index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-            with open(index_file_path, "wb") as f:
-                f.write(decrypted_data)
-
+            self.vault.decrypt_and_save_index_from_nostr(encrypted_data)
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
@@ -1223,7 +1221,7 @@ class PasswordManager:
             new_password = prompt_for_password()
 
             # Load data with existing encryption manager
-            index_data = self.entry_manager.encryption_manager.load_json_data()
+            index_data = self.vault.load_index()
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
@@ -1232,13 +1230,13 @@ class PasswordManager:
 
             # Re-encrypt sensitive files using the new manager
             new_enc_mgr.encrypt_parent_seed(self.parent_seed)
-            new_enc_mgr.save_json_data(index_data)
-            self.config_manager.encryption_manager = new_enc_mgr
+            self.vault.set_encryption_manager(new_enc_mgr)
+            self.vault.save_index(index_data)
+            self.config_manager.vault = self.vault
             self.config_manager.save_config(config_data)
 
             # Update hashed password and replace managers
             self.encryption_manager = new_enc_mgr
-            self.entry_manager.encryption_manager = new_enc_mgr
             self.password_generator.encryption_manager = new_enc_mgr
             self.store_hashed_password(new_password)
 

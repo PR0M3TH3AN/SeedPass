@@ -10,7 +10,7 @@ import getpass
 
 import bcrypt
 
-from password_manager.encryption import EncryptionManager
+from password_manager.vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ class ConfigManager:
 
     CONFIG_FILENAME = "seedpass_config.json.enc"
 
-    def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
-        self.encryption_manager = encryption_manager
+    def __init__(self, vault: Vault, fingerprint_dir: Path):
+        self.vault = vault
         self.fingerprint_dir = fingerprint_dir
         self.config_path = self.fingerprint_dir / self.CONFIG_FILENAME
 
@@ -39,7 +39,7 @@ class ConfigManager:
             logger.info("Config file not found; returning defaults")
             return {"relays": list(DEFAULT_NOSTR_RELAYS), "pin_hash": ""}
         try:
-            data = self.encryption_manager.load_json_data(self.CONFIG_FILENAME)
+            data = self.vault.load_config()
             if not isinstance(data, dict):
                 raise ValueError("Config data must be a dictionary")
             # Ensure defaults for missing keys
@@ -61,7 +61,7 @@ class ConfigManager:
     def save_config(self, config: dict) -> None:
         """Encrypt and save configuration."""
         try:
-            self.encryption_manager.save_json_data(config, self.CONFIG_FILENAME)
+            self.vault.save_config(config)
         except Exception as exc:
             logger.error(f"Failed to save config: {exc}")
             raise
