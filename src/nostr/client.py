@@ -11,9 +11,15 @@ import concurrent.futures
 from typing import List, Optional, Callable
 from pathlib import Path
 
-from monstr.client.client import ClientPool
-from monstr.encrypt import Keys, NIP4Encrypt
-from monstr.event.event import Event
+try:
+    from monstr.client.client import ClientPool
+    from monstr.encrypt import Keys, NIP4Encrypt
+    from monstr.event.event import Event
+except ImportError:  # Fallback placeholders when monstr is unavailable
+    ClientPool = None
+    NIP4Encrypt = None
+    Event = None
+    from .coincurve_keys import Keys
 
 import threading
 import uuid
@@ -102,6 +108,8 @@ class NostrClient:
         """
         try:
             logger.debug("Initializing ClientPool with relays.")
+            if ClientPool is None:
+                raise ImportError("monstr library is required for ClientPool")
             self.client_pool = ClientPool(self.relays)
 
             # Start the ClientPool in a separate thread
@@ -256,6 +264,8 @@ class NostrClient:
                 content_base64 = event.content
 
                 if event.kind == Event.KIND_ENCRYPT:
+                    if NIP4Encrypt is None:
+                        raise ImportError("monstr library required for NIP4 encryption")
                     nip4_encrypt = NIP4Encrypt(self.key_manager.keys)
                     content_base64 = nip4_encrypt.decrypt_message(
                         event.content, event.pub_key
@@ -500,6 +510,8 @@ class NostrClient:
             event.created_at = int(time.time())
 
             if to_pubkey:
+                if NIP4Encrypt is None:
+                    raise ImportError("monstr library required for NIP4 encryption")
                 nip4_encrypt = NIP4Encrypt(self.key_manager.keys)
                 event.content = nip4_encrypt.encrypt_message(event.content, to_pubkey)
                 event.kind = Event.KIND_ENCRYPT
