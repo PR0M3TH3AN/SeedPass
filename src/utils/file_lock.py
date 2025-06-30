@@ -19,7 +19,10 @@ def exclusive_lock(
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    lock = portalocker.Lock(str(path), mode="a+b", timeout=timeout)
+    if timeout is None:
+        lock = portalocker.Lock(str(path), mode="a+b")
+    else:
+        lock = portalocker.Lock(str(path), mode="a+b", timeout=timeout)
     with lock as fh:
         yield fh
 
