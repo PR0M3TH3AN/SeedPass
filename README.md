@@ -41,8 +41,8 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
-- **Multiple Seed Profiles:** Manage multiple seed profiles and switch between them seamlessly.
-- **User-Friendly CLI:** Simple command-line interface for easy interaction.
+- **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
+- **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 
 ## Prerequisites
 
@@ -166,18 +166,25 @@ wss://nostr.oxtr.dev
 wss://relay.primal.net
 ```
 
-You can manage the relay list or change the PIN through the **Settings** menu:
+You can manage your relays and sync with Nostr from the **Settings** menu:
 
-1. From the main menu, choose option `4` (**Settings**).
+1. From the main menu choose `4` (**Settings**).
 2. Select `2` (**Nostr**) to open the Nostr submenu.
-3. Choose `3` to view your current relays.
-4. Select `4` to add a new relay URL.
-5. Choose `5` to remove a relay by number.
-6. Select `6` to reset to the default relay list.
-7. Choose `7` to display your Nostr public key.
-8. Select `8` to return to the Settings menu.
-9. From the Settings menu you can select `3` to change the settings PIN.
-10. Choose `4` to verify the script checksum or `5` to back up the parent seed.
+3. Choose `1` to back up your encrypted index to Nostr.
+4. Select `2` to restore the index from Nostr.
+5. Choose `3` to view your current relays.
+6. Select `4` to add a new relay URL.
+7. Choose `5` to remove a relay by number.
+8. Select `6` to reset to the default relay list.
+9. Choose `7` to display your Nostr public key.
+10. Select `8` to return to the Settings menu.
+
+Back in the Settings menu you can:
+
+* Select `3` to change your master password.
+* Choose `4` to verify the script checksum.
+* Choose `5` to back up the parent seed.
+* Choose `6` to lock the vault and require re-entry of your password.
 
 ## Running Tests
 
