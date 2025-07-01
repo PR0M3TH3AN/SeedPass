@@ -15,3 +15,4 @@ nostr-sdk>=0.42.1
 websocket-client==1.7.0
 
 websockets>=15.0.0
+tomli
