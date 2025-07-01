@@ -6,6 +6,8 @@ import logging
 import signal
 import getpass
 import time
+import argparse
+import tomli
 from colorama import init as colorama_init
 from termcolor import colored
 import traceback
@@ -13,8 +15,22 @@ import traceback
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
 from constants import INACTIVITY_TIMEOUT
+from utils.key_derivation import EncryptionMode
 
 colorama_init()
+
+
+def load_global_config() -> dict:
+    """Load configuration from ~/.seedpass/config.toml if present."""
+    config_path = Path.home() / ".seedpass" / "config.toml"
+    if not config_path.exists():
+        return {}
+    try:
+        with open(config_path, "rb") as f:
+            return tomli.load(f)
+    except Exception as exc:
+        logging.warning(f"Failed to read {config_path}: {exc}")
+        return {}
 
 
 def configure_logging():
@@ -553,9 +569,29 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")
 
+    # Load config from disk and parse command-line arguments
+    cfg = load_global_config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--encryption-mode",
+        choices=[m.value for m in EncryptionMode],
+        help="Select encryption mode",
+    )
+    args = parser.parse_args()
+
+    mode_value = cfg.get("encryption_mode", EncryptionMode.SEED_ONLY.value)
+    if args.encryption_mode:
+        mode_value = args.encryption_mode
+    try:
+        enc_mode = EncryptionMode(mode_value)
+    except ValueError:
+        logger.error(f"Invalid encryption mode: {mode_value}")
+        print(colored(f"Error: Invalid encryption mode '{mode_value}'", "red"))
+        sys.exit(1)
+
     # Initialize PasswordManager and proceed with application logic
     try:
-        password_manager = PasswordManager()
+        password_manager = PasswordManager(encryption_mode=enc_mode)
         logger.info("PasswordManager initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize PasswordManager: {e}")

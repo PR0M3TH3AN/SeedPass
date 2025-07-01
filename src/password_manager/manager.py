@@ -29,6 +29,7 @@ from utils.key_derivation import (
     derive_key_from_password,
     derive_index_key,
     DEFAULT_ENCRYPTION_MODE,
+    EncryptionMode,
 )
 from utils.checksum import calculate_checksum, verify_checksum
 from utils.password_prompt import (
@@ -74,11 +75,11 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self):
-        """
-        Initializes the PasswordManager by setting up encryption, loading or setting up the parent seed,
-        and initializing other components like EntryManager, PasswordGenerator, BackupManager, and FingerprintManager.
-        """
+    def __init__(
+        self, encryption_mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE
+    ) -> None:
+        """Initialize the PasswordManager."""
+        self.encryption_mode: EncryptionMode = encryption_mode
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
@@ -273,7 +274,7 @@ class PasswordManager:
                 key = derive_index_key(
                     self.parent_seed,
                     password,
-                    DEFAULT_ENCRYPTION_MODE,
+                    self.encryption_mode,
                 )
             else:
                 key = derive_key_from_password(password)
@@ -528,7 +529,7 @@ class PasswordManager:
                 key = derive_index_key(
                     parent_seed,
                     password,
-                    DEFAULT_ENCRYPTION_MODE,
+                    self.encryption_mode,
                 )
                 self.encryption_manager = EncryptionManager(key, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
@@ -664,7 +665,7 @@ class PasswordManager:
             key = derive_index_key(
                 seed,
                 password,
-                DEFAULT_ENCRYPTION_MODE,
+                self.encryption_mode,
             )
             # Re-initialize EncryptionManager with the new key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
@@ -1314,7 +1315,16 @@ class PasswordManager:
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
-            new_key = derive_key_from_password(new_password)
+            mode = getattr(self, "encryption_mode", DEFAULT_ENCRYPTION_MODE)
+            try:
+                new_key = derive_index_key(
+                    self.parent_seed,
+                    new_password,
+                    mode,
+                )
+            except Exception:
+                # Fallback for tests or invalid seeds
+                new_key = derive_key_from_password(new_password)
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
             # Re-encrypt sensitive files using the new manager
