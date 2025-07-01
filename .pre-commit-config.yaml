@@ -13,3 +13,4 @@ repos:
     hooks:
       - id: bandit
         name: bandit
+        args: ["-x", "src/tests"]

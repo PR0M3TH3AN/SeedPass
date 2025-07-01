@@ -117,7 +117,9 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
         # If a fingerprint is provided, use it to differentiate the derivation
         if fingerprint:
             # Convert fingerprint to a stable integer index
-            index = int(hashlib.sha256(fingerprint.encode()).hexdigest(), 16) % (2**31)
+            index = int(hashlib.sha256(fingerprint.encode()).hexdigest(), 16) % (
+                2**31
+            )
             info = f"password-manager-{index}".encode()  # Unique info for HKDF
         else:
             info = b"password-manager"
