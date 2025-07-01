@@ -42,19 +42,20 @@ def _backup(dir_path: Path, loops: int, out: Queue) -> None:
         out.put(repr(e))
 
 
+@pytest.mark.parametrize("loops", [5, pytest.param(20, marks=pytest.mark.stress)])
 @pytest.mark.parametrize("_", range(3))
-def test_concurrency_stress(tmp_path: Path, _):
+def test_concurrency_stress(tmp_path: Path, loops: int, _):
     key = Fernet.generate_key()
     enc = EncryptionManager(key, tmp_path)
     Vault(enc, tmp_path).save_index({"counter": 0})
 
     q: Queue = Queue()
     procs = [
-        Process(target=_writer, args=(key, tmp_path, 20, q)),
-        Process(target=_writer, args=(key, tmp_path, 20, q)),
-        Process(target=_reader, args=(key, tmp_path, 20, q)),
-        Process(target=_reader, args=(key, tmp_path, 20, q)),
-        Process(target=_backup, args=(tmp_path, 20, q)),
+        Process(target=_writer, args=(key, tmp_path, loops, q)),
+        Process(target=_writer, args=(key, tmp_path, loops, q)),
+        Process(target=_reader, args=(key, tmp_path, loops, q)),
+        Process(target=_reader, args=(key, tmp_path, loops, q)),
+        Process(target=_backup, args=(tmp_path, loops, q)),
     ]
 
     for p in procs:
