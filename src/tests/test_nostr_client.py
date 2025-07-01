@@ -31,10 +31,10 @@ class FakeAddRelaysClient:
         self.added = []
         self.connected = False
 
-    def add_relays(self, relays):
+    async def add_relays(self, relays):
         self.added.append(relays)
 
-    def connect(self):
+    async def connect(self):
         self.connected = True
 
 
@@ -43,10 +43,10 @@ class FakeAddRelayClient:
         self.added = []
         self.connected = False
 
-    def add_relay(self, relay):
+    async def add_relay(self, relay):
         self.added.append(relay)
 
-    def connect(self):
+    async def connect(self):
         self.connected = True
 
 
