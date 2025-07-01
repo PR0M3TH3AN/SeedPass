@@ -472,6 +472,26 @@ class PasswordManager:
         Asks the user whether to enter an existing BIP-85 seed or generate a new one.
         """
         print(colored("No existing seed found. Let's set up a new one!", "yellow"))
+
+        print("Choose encryption mode  [Enter for seed-only]")
+        print("    1) seed-only")
+        print("    2) seed+password")
+        print("    3) password-only (legacy)")
+        mode_choice = input("Select option: ").strip()
+
+        if mode_choice == "2":
+            self.encryption_mode = EncryptionMode.SEED_PLUS_PW
+        elif mode_choice == "3":
+            self.encryption_mode = EncryptionMode.PW_ONLY
+            print(
+                colored(
+                    "⚠️ Password-only encryption is less secure and not recommended.",
+                    "yellow",
+                )
+            )
+        else:
+            self.encryption_mode = EncryptionMode.SEED_ONLY
+
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
         ).strip()
