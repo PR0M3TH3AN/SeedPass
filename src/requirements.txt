@@ -18,3 +18,4 @@ websocket-client==1.7.0
 websockets>=15.0.0
 tomli
 hypothesis
+mutmut>=2.4.4
