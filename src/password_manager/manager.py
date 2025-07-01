@@ -16,13 +16,21 @@ import getpass
 import os
 from typing import Optional
 import shutil
+import time
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
-from utils.key_derivation import derive_key_from_parent_seed, derive_key_from_password
+from password_manager.vault import Vault
+from utils.key_derivation import (
+    derive_key_from_parent_seed,
+    derive_key_from_password,
+    derive_index_key,
+    DEFAULT_ENCRYPTION_MODE,
+    EncryptionMode,
+)
 from utils.checksum import calculate_checksum, verify_checksum
 from utils.password_prompt import (
     prompt_for_password,
@@ -46,6 +54,7 @@ from pathlib import Path
 
 from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
 
@@ -66,20 +75,27 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self):
-        """
-        Initializes the PasswordManager by setting up encryption, loading or setting up the parent seed,
-        and initializing other components like EntryManager, PasswordGenerator, BackupManager, and FingerprintManager.
-        """
+    def __init__(
+        self, encryption_mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE
+    ) -> None:
+        """Initialize the PasswordManager."""
+        self.encryption_mode: EncryptionMode = encryption_mode
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
         self.backup_manager: Optional[BackupManager] = None
+        self.vault: Optional[Vault] = None
         self.fingerprint_manager: Optional[FingerprintManager] = None
         self.parent_seed: Optional[str] = None
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+
+        # Track changes to trigger periodic Nostr sync
+        self.is_dirty: bool = False
+        self.last_update: float = time.time()
+        self.last_activity: float = time.time()
+        self.locked: bool = False
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -90,6 +106,33 @@ class PasswordManager:
         # Set the current fingerprint directory
         self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
 
+    def update_activity(self) -> None:
+        """Record the current time as the last user activity."""
+        self.last_activity = time.time()
+
+    def lock_vault(self) -> None:
+        """Clear sensitive information from memory."""
+        self.parent_seed = None
+        self.encryption_manager = None
+        self.entry_manager = None
+        self.password_generator = None
+        self.backup_manager = None
+        self.vault = None
+        self.bip85 = None
+        self.nostr_client = None
+        self.config_manager = None
+        self.locked = True
+
+    def unlock_vault(self) -> None:
+        """Prompt for password and reinitialize managers."""
+        if not self.fingerprint_dir:
+            raise ValueError("Fingerprint directory not set")
+        self.setup_encryption_manager(self.fingerprint_dir)
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
+
     def initialize_fingerprint_manager(self):
         """
         Initializes the FingerprintManager.
@@ -98,8 +141,7 @@ class PasswordManager:
             self.fingerprint_manager = FingerprintManager(APP_DIR)
             logger.debug("FingerprintManager initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize FingerprintManager: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to initialize FingerprintManager: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to initialize FingerprintManager: {e}", "red")
             )
@@ -144,8 +186,7 @@ class PasswordManager:
                 self.select_fingerprint(selected_fingerprint)
 
         except Exception as e:
-            logger.error(f"Error during seed profile selection: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error during seed profile selection: {e}", exc_info=True)
             print(colored(f"Error: Failed to select seed profile: {e}", "red"))
             sys.exit(1)
 
@@ -175,8 +216,7 @@ class PasswordManager:
             )
 
         except Exception as e:
-            logger.error(f"Error adding new seed profile: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error adding new seed profile: {e}", exc_info=True)
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
             sys.exit(1)
 
@@ -196,7 +236,6 @@ class PasswordManager:
                 sys.exit(1)
             # Setup the encryption manager and load parent seed
             self.setup_encryption_manager(self.fingerprint_dir)
-            self.load_parent_seed(self.fingerprint_dir)
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -213,55 +252,64 @@ class PasswordManager:
 
     def setup_encryption_manager(
         self, fingerprint_dir: Path, password: Optional[str] = None
-    ):
-        """
-        Sets up the EncryptionManager for the selected fingerprint.
+    ) -> None:
+        """Set up encryption for the current fingerprint and load the seed."""
 
-        Parameters:
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
-            password (Optional[str]): The user's master password.
-        """
         try:
-            # Prompt for password if not provided
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
-            # Derive key from password
-            key = derive_key_from_password(password)
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            logger.debug(
-                "EncryptionManager set up successfully for selected fingerprint."
+
+            if not self.parent_seed:
+                seed_key = derive_key_from_password(password)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                try:
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                except Exception:
+                    print(colored("Invalid password. Exiting.", "red"))
+                    raise
+
+            key = derive_index_key(
+                self.parent_seed,
+                password,
+                self.encryption_mode,
             )
 
-            # Verify the password
-            self.fingerprint_dir = fingerprint_dir  # Ensure self.fingerprint_dir is set
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
+
+            self.fingerprint_dir = fingerprint_dir
             if not self.verify_password(password):
                 print(colored("Invalid password. Exiting.", "red"))
                 sys.exit(1)
         except Exception as e:
-            logger.error(f"Failed to set up EncryptionManager: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
             print(colored(f"Error: Failed to set up encryption: {e}", "red"))
             sys.exit(1)
 
-    def load_parent_seed(self, fingerprint_dir: Path):
-        """
-        Loads and decrypts the parent seed from the fingerprint directory.
+    def load_parent_seed(
+        self, fingerprint_dir: Path, password: Optional[str] = None
+    ) -> None:
+        """Load and decrypt the parent seed using the password-only key."""
 
-        Parameters:
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
-        """
+        if self.parent_seed:
+            return
+
+        if password is None:
+            password = prompt_existing_password("Enter your master password: ")
+
         try:
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
-            logger.debug(
-                f"Parent seed loaded for fingerprint {self.current_fingerprint}."
-            )
-            # Initialize BIP85 with the parent seed
+            seed_key = derive_key_from_password(password)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.bip85 = BIP85(seed_bytes)
-            logger.debug("BIP-85 initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to load parent seed: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to load parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -306,9 +354,6 @@ class PasswordManager:
             # Set up the encryption manager with the new password and seed profile directory
             self.setup_encryption_manager(self.fingerprint_dir, password)
 
-            # Load the parent seed for the selected seed profile
-            self.load_parent_seed(self.fingerprint_dir)
-
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -320,6 +365,7 @@ class PasswordManager:
                 self.nostr_client = NostrClient(
                     encryption_manager=self.encryption_manager,
                     fingerprint=self.current_fingerprint,
+                    parent_seed=getattr(self, "parent_seed", None),
                 )
                 logging.info(
                     f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
@@ -334,8 +380,7 @@ class PasswordManager:
             return True  # Return True to indicate success
 
         except Exception as e:
-            logging.error(f"Error during seed profile switching: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during seed profile switching: {e}", exc_info=True)
             print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
             return False  # Return False to indicate failure
 
@@ -386,6 +431,7 @@ class PasswordManager:
 
             # Initialize EncryptionManager with key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
             self.parent_seed = self.encryption_manager.decrypt_parent_seed()
 
             # Log the type and content of parent_seed
@@ -402,8 +448,7 @@ class PasswordManager:
             self.initialize_bip85()
             logging.debug("Parent seed decrypted and validated successfully.")
         except Exception as e:
-            logging.error(f"Failed to decrypt parent seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -413,6 +458,26 @@ class PasswordManager:
         Asks the user whether to enter an existing BIP-85 seed or generate a new one.
         """
         print(colored("No existing seed found. Let's set up a new one!", "yellow"))
+
+        print("Choose encryption mode  [Enter for seed-only]")
+        print("    1) seed-only")
+        print("    2) seed+password")
+        print("    3) password-only (legacy)")
+        mode_choice = input("Select option: ").strip()
+
+        if mode_choice == "2":
+            self.encryption_mode = EncryptionMode.SEED_PLUS_PW
+        elif mode_choice == "3":
+            self.encryption_mode = EncryptionMode.PW_ONLY
+            print(
+                colored(
+                    "⚠️ Password-only encryption is less secure and not recommended.",
+                    "yellow",
+                )
+            )
+        else:
+            self.encryption_mode = EncryptionMode.SEED_ONLY
+
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
         ).strip()
@@ -467,11 +532,19 @@ class PasswordManager:
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
-                key = derive_key_from_password(password)
-                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                index_key = derive_index_key(
+                    parent_seed,
+                    password,
+                    self.encryption_mode,
+                )
+                seed_key = derive_key_from_password(password)
+
+                self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
                 # Encrypt and save the parent seed
-                self.encryption_manager.encrypt_parent_seed(parent_seed)
+                seed_mgr.encrypt_parent_seed(parent_seed)
                 logging.info("Parent seed encrypted and saved successfully.")
 
                 # Store the hashed password
@@ -572,14 +645,10 @@ class PasswordManager:
         try:
             master_seed = os.urandom(32)  # Generate a random 32-byte seed
             bip85 = BIP85(master_seed)
-            mnemonic_obj = bip85.derive_mnemonic(index=0, words_num=12)
-            mnemonic_str = (
-                mnemonic_obj.ToStr()
-            )  # Convert Bip39Mnemonic object to string
-            return mnemonic_str
+            mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
+            return mnemonic
         except Exception as e:
-            logging.error(f"Failed to generate BIP-85 seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             sys.exit(1)
 
@@ -597,17 +666,23 @@ class PasswordManager:
 
             # Prompt for password
             password = prompt_for_password()
-            # Derive key from password
-            key = derive_key_from_password(password)
-            # Re-initialize EncryptionManager with the new key and fingerprint_dir
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
 
-            # Store the hashed password
+            index_key = derive_index_key(
+                seed,
+                password,
+                self.encryption_mode,
+            )
+            seed_key = derive_key_from_password(password)
+
+            self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
-            # Encrypt and save the parent seed
-            self.encryption_manager.encrypt_parent_seed(seed)
+            seed_mgr.encrypt_parent_seed(seed)
             logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
@@ -619,8 +694,7 @@ class PasswordManager:
             self.initialize_managers()
             self.sync_index_from_nostr_if_missing()
         except Exception as e:
-            logging.error(f"Failed to encrypt and save parent seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -633,8 +707,7 @@ class PasswordManager:
             self.bip85 = BIP85(seed_bytes)
             logging.debug("BIP-85 initialized successfully.")
         except Exception as e:
-            logging.error(f"Failed to initialize BIP-85: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to initialize BIP-85: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize BIP-85: {e}", "red"))
             sys.exit(1)
 
@@ -650,7 +723,7 @@ class PasswordManager:
 
             # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
             self.entry_manager = EntryManager(
-                encryption_manager=self.encryption_manager,
+                vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
 
@@ -664,7 +737,7 @@ class PasswordManager:
 
             # Load relay configuration and initialize NostrClient
             self.config_manager = ConfigManager(
-                encryption_manager=self.encryption_manager,
+                vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
             config = self.config_manager.load_config()
@@ -674,13 +747,13 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                parent_seed=getattr(self, "parent_seed", None),
             )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
         except Exception as e:
-            logger.error(f"Failed to initialize managers: {e}")
-            logging.error(traceback.format_exc())
+            logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
 
@@ -692,7 +765,7 @@ class PasswordManager:
         try:
             encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
             if encrypted:
-                self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted)
+                self.vault.decrypt_and_save_index_from_nostr(encrypted)
                 logger.info("Initialized local database from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
@@ -730,6 +803,10 @@ class PasswordManager:
                 website_name, length, username, url, blacklisted=False
             )
 
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
+
             # Generate the password using the assigned index
             password = self.password_generator.generate_password(length, index)
 
@@ -752,12 +829,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry addition."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during password generation: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during password generation: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
     def handle_retrieve_entry(self) -> None:
@@ -824,8 +902,7 @@ class PasswordManager:
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
         except Exception as e:
-            logging.error(f"Error during password retrieval: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during password retrieval: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve password: {e}", "red"))
 
     def handle_modify_entry(self) -> None:
@@ -906,6 +983,10 @@ class PasswordManager:
                 index, new_username, new_url, new_blacklisted
             )
 
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
+
             print(colored(f"Entry updated successfully for index {index}.", "green"))
 
             # Push the updated index to Nostr so changes are backed up.
@@ -917,12 +998,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry modification."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during modifying entry: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
     def delete_entry(self) -> None:
@@ -944,6 +1026,10 @@ class PasswordManager:
 
             self.entry_manager.delete_entry(index_to_delete)
 
+            # Mark database as dirty for background sync
+            self.is_dirty = True
+            self.last_update = time.time()
+
             # Push updated index to Nostr after deletion
             try:
                 encrypted_data = self.get_encrypted_data()
@@ -953,12 +1039,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry deletion."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during entry deletion: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
     def handle_verify_checksum(self) -> None:
@@ -979,8 +1066,7 @@ class PasswordManager:
                 )
                 logging.error("Checksum verification failed.")
         except Exception as e:
-            logging.error(f"Error during checksum verification: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during checksum verification: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify checksum: {e}", "red"))
 
     def get_encrypted_data(self) -> Optional[bytes]:
@@ -990,7 +1076,7 @@ class PasswordManager:
         :return: The encrypted data as bytes, or None if retrieval fails.
         """
         try:
-            encrypted_data = self.entry_manager.get_encrypted_index()
+            encrypted_data = self.vault.get_encrypted_index()
             if encrypted_data:
                 logging.debug("Encrypted index data retrieved successfully.")
                 return encrypted_data
@@ -999,8 +1085,7 @@ class PasswordManager:
                 print(colored("Error: Failed to retrieve encrypted index data.", "red"))
                 return None
         except Exception as e:
-            logging.error(f"Error retrieving encrypted data: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error retrieving encrypted data: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve encrypted data: {e}", "red"))
             return None
 
@@ -1011,19 +1096,13 @@ class PasswordManager:
         :param encrypted_data: The encrypted data retrieved from Nostr.
         """
         try:
-            # Decrypt the data using EncryptionManager's decrypt_data method
-            decrypted_data = self.encryption_manager.decrypt_data(encrypted_data)
-
-            # Save the decrypted data to the index file
-            index_file_path = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-            with open(index_file_path, "wb") as f:
-                f.write(decrypted_data)
-
+            self.vault.decrypt_and_save_index_from_nostr(encrypted_data)
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
-            logging.error(f"Failed to decrypt and save data from Nostr: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(
+                f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to decrypt and save data from Nostr: {e}", "red"
@@ -1040,8 +1119,7 @@ class PasswordManager:
             self.backup_manager.create_backup()
             print(colored("Backup created successfully.", "green"))
         except Exception as e:
-            logging.error(f"Failed to create backup: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to create backup: {e}", "red"))
 
     def restore_database(self) -> None:
@@ -1056,8 +1134,7 @@ class PasswordManager:
                 )
             )
         except Exception as e:
-            logging.error(f"Failed to restore backup: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
 
     def handle_backup_reveal_parent_seed(self) -> None:
@@ -1133,8 +1210,7 @@ class PasswordManager:
                 )
 
         except Exception as e:
-            logging.error(f"Error during parent seed backup/reveal: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during parent seed backup/reveal: {e}", exc_info=True)
             print(colored(f"Error: Failed to backup/reveal parent seed: {e}", "red"))
 
     def verify_password(self, password: str) -> bool:
@@ -1148,13 +1224,20 @@ class PasswordManager:
             bool: True if the password is correct, False otherwise.
         """
         try:
-            hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-            if not hashed_password_file.exists():
-                logging.error("Hashed password file not found.")
-                print(colored("Error: Hashed password file not found.", "red"))
-                return False
-            with open(hashed_password_file, "rb") as f:
-                stored_hash = f.read()
+            config = self.config_manager.load_config(require_pin=False)
+            stored_hash = config.get("password_hash", "").encode()
+            if not stored_hash:
+                # Fallback to legacy file if hash not present in config
+                legacy_file = self.fingerprint_dir / "hashed_password.enc"
+                if legacy_file.exists():
+                    with open(legacy_file, "rb") as f:
+                        stored_hash = f.read()
+                    self.config_manager.set_password_hash(stored_hash.decode())
+                else:
+                    logging.error("Hashed password not found.")
+                    print(colored("Error: Hashed password not found.", "red"))
+                    return False
+
             is_correct = bcrypt.checkpw(password.encode("utf-8"), stored_hash)
             if is_correct:
                 logging.debug("Password verification successful.")
@@ -1162,8 +1245,7 @@ class PasswordManager:
                 logging.warning("Password verification failed.")
             return is_correct
         except Exception as e:
-            logging.error(f"Error verifying password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error verifying password: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify password: {e}", "red"))
             return False
 
@@ -1190,25 +1272,32 @@ class PasswordManager:
         This should be called during the initial setup.
         """
         try:
-            hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-            hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-            with open(hashed_password_file, "wb") as f:
-                f.write(hashed)
-            os.chmod(hashed_password_file, 0o600)
+            hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode()
+            if self.config_manager:
+                self.config_manager.set_password_hash(hashed)
+            else:
+                # Fallback to legacy file method if config_manager unavailable
+                hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
+                with open(hashed_password_file, "wb") as f:
+                    f.write(hashed.encode())
+                os.chmod(hashed_password_file, 0o600)
             logging.info("User password hashed and stored successfully.")
         except AttributeError:
             # If bcrypt.hashpw is not available, try using bcrypt directly
             salt = bcrypt.gensalt()
-            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
-            with open(hashed_password_file, "wb") as f:
-                f.write(hashed)
-            os.chmod(hashed_password_file, 0o600)
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt).decode()
+            if self.config_manager:
+                self.config_manager.set_password_hash(hashed)
+            else:
+                hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
+                with open(hashed_password_file, "wb") as f:
+                    f.write(hashed.encode())
+                os.chmod(hashed_password_file, 0o600)
             logging.info(
                 "User password hashed and stored successfully (using alternative method)."
             )
         except Exception as e:
-            logging.error(f"Failed to store hashed password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to store hashed password: {e}", exc_info=True)
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
 
@@ -1223,22 +1312,33 @@ class PasswordManager:
             new_password = prompt_for_password()
 
             # Load data with existing encryption manager
-            index_data = self.entry_manager.encryption_manager.load_json_data()
+            index_data = self.vault.load_index()
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
-            new_key = derive_key_from_password(new_password)
+            mode = getattr(self, "encryption_mode", DEFAULT_ENCRYPTION_MODE)
+            try:
+                new_key = derive_index_key(
+                    self.parent_seed,
+                    new_password,
+                    mode,
+                )
+            except Exception:
+                new_key = derive_key_from_password(new_password)
+
+            seed_key = derive_key_from_password(new_password)
+            seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
+
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            # Re-encrypt sensitive files using the new manager
-            new_enc_mgr.encrypt_parent_seed(self.parent_seed)
-            new_enc_mgr.save_json_data(index_data)
-            self.config_manager.encryption_manager = new_enc_mgr
+            seed_mgr.encrypt_parent_seed(self.parent_seed)
+            self.vault.set_encryption_manager(new_enc_mgr)
+            self.vault.save_index(index_data)
+            self.config_manager.vault = self.vault
             self.config_manager.save_config(config_data)
 
             # Update hashed password and replace managers
             self.encryption_manager = new_enc_mgr
-            self.entry_manager.encryption_manager = new_enc_mgr
             self.password_generator.encryption_manager = new_enc_mgr
             self.store_hashed_password(new_password)
 
@@ -1247,37 +1347,25 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                parent_seed=getattr(self, "parent_seed", None),
             )
 
             print(colored("Master password changed successfully.", "green"))
 
-            # All data has been re-encrypted with the new password. Since no
-            # entries changed, avoid pushing the database to Nostr here.
-            # Subsequent entry modifications will trigger a push when needed.
+            # Push a fresh backup to Nostr so the newly encrypted index is
+            # stored remotely. Include a tag to mark the password change.
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    summary = f"password-change-{int(time.time())}"
+                    self.nostr_client.publish_json_to_nostr(
+                        encrypted_data,
+                        alt_summary=summary,
+                    )
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr after password change: {nostr_error}"
+                )
         except Exception as e:
-            logging.error(f"Failed to change password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))
-
-
-# Example usage (this part should be removed or commented out when integrating into the larger application)
-if __name__ == "__main__":
-    from nostr.client import (
-        NostrClient,
-    )  # Ensure this import is correct based on your project structure
-
-    # Initialize PasswordManager
-    manager = PasswordManager()
-
-    # Initialize NostrClient with the EncryptionManager from PasswordManager
-    manager.nostr_client = NostrClient(encryption_manager=manager.encryption_manager)
-
-    # Example operations
-    # These would typically be triggered by user interactions, e.g., via a CLI menu
-    # manager.handle_add_password()
-    # manager.handle_retrieve_entry()
-    # manager.handle_modify_entry()
-    # manager.handle_verify_checksum()
-    # manager.nostr_client.publish_and_subscribe("Sample password data")
-    # manager.backup_database()
-    # manager.restore_database()

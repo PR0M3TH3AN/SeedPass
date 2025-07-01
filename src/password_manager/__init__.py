@@ -1,22 +1,17 @@
 # password_manager/__init__.py
 
-import logging
-import traceback
+"""Expose password manager components with lazy imports."""
 
-try:
-    from .manager import PasswordManager
+from importlib import import_module
 
-    logging.info("PasswordManager module imported successfully.")
-except Exception as e:
-    logging.error(f"Failed to import PasswordManager module: {e}")
-    logging.error(traceback.format_exc())  # Log full traceback
+__all__ = ["PasswordManager", "ConfigManager", "Vault"]
 
-try:
-    from .config_manager import ConfigManager
 
-    logging.info("ConfigManager module imported successfully.")
-except Exception as e:
-    logging.error(f"Failed to import ConfigManager module: {e}")
-    logging.error(traceback.format_exc())
-
-__all__ = ["PasswordManager", "ConfigManager"]
+def __getattr__(name: str):
+    if name == "PasswordManager":
+        return import_module(".manager", __name__).PasswordManager
+    if name == "ConfigManager":
+        return import_module(".config_manager", __name__).ConfigManager
+    if name == "Vault":
+        return import_module(".vault", __name__).Vault
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

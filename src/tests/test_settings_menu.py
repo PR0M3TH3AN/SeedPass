@@ -13,6 +13,7 @@ import main
 from nostr.client import DEFAULT_RELAYS
 from password_manager.encryption import EncryptionManager
 from password_manager.config_manager import ConfigManager
+from password_manager.vault import Vault
 from utils.fingerprint_manager import FingerprintManager
 
 
@@ -26,14 +27,15 @@ def setup_pm(tmp_path, monkeypatch):
     fp_dir = constants.APP_DIR / "fp"
     fp_dir.mkdir(parents=True)
     enc_mgr = EncryptionManager(Fernet.generate_key(), fp_dir)
-    cfg_mgr = ConfigManager(enc_mgr, fp_dir)
+    vault = Vault(enc_mgr, fp_dir)
+    cfg_mgr = ConfigManager(vault, fp_dir)
     fp_mgr = FingerprintManager(constants.APP_DIR)
 
     nostr_stub = SimpleNamespace(
         relays=list(DEFAULT_RELAYS),
         close_client_pool=lambda: None,
         initialize_client_pool=lambda: None,
-        publish_json_to_nostr=lambda data: None,
+        publish_json_to_nostr=lambda data, alt_summary=None: None,
         key_manager=SimpleNamespace(get_npub=lambda: "npub"),
     )
 

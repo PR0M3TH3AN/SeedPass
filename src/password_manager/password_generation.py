@@ -68,10 +68,44 @@ class PasswordGenerator:
 
             logger.debug("PasswordGenerator initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize PasswordGenerator: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to initialize PasswordGenerator: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize PasswordGenerator: {e}", "red"))
             raise
+
+    def _derive_password_entropy(self, index: int) -> bytes:
+        """Derive deterministic entropy for password generation."""
+        entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
+        logger.debug(f"Derived entropy: {entropy.hex()}")
+
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=b"password-generation",
+            backend=default_backend(),
+        )
+        hkdf_derived = hkdf.derive(entropy)
+        logger.debug(f"Derived key using HKDF: {hkdf_derived.hex()}")
+
+        dk = hashlib.pbkdf2_hmac("sha256", entropy, b"", 100000)
+        logger.debug(f"Derived key using PBKDF2: {dk.hex()}")
+        return dk
+
+    def _map_entropy_to_chars(self, dk: bytes, alphabet: str) -> str:
+        """Map derived bytes to characters from the provided alphabet."""
+        password = "".join(alphabet[byte % len(alphabet)] for byte in dk)
+        logger.debug(f"Password after mapping to all allowed characters: {password}")
+        return password
+
+    def _shuffle_deterministically(self, password: str, dk: bytes) -> str:
+        """Deterministically shuffle characters using derived bytes."""
+        shuffle_seed = int.from_bytes(dk, "big")
+        rng = random.Random(shuffle_seed)
+        password_chars = list(password)
+        rng.shuffle(password_chars)
+        shuffled = "".join(password_chars)
+        logger.debug("Shuffled password deterministically.")
+        return shuffled
 
     def generate_password(
         self, length: int = DEFAULT_PASSWORD_LENGTH, index: int = 0
@@ -111,67 +145,42 @@ class PasswordGenerator:
                     f"Password length must not exceed {MAX_PASSWORD_LENGTH} characters."
                 )
 
-            # Derive entropy using BIP-85
-            entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
-            logger.debug(f"Derived entropy: {entropy.hex()}")
+            dk = self._derive_password_entropy(index=index)
 
-            # Use HKDF to derive key from entropy
-            hkdf = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32,  # 256 bits for AES-256
-                salt=None,
-                info=b"password-generation",
-                backend=default_backend(),
-            )
-            derived_key = hkdf.derive(entropy)
-            logger.debug(f"Derived key using HKDF: {derived_key.hex()}")
-
-            # Use PBKDF2-HMAC-SHA256 to derive a key from entropy
-            dk = hashlib.pbkdf2_hmac("sha256", entropy, b"", 100000)
-            logger.debug(f"Derived key using PBKDF2: {dk.hex()}")
-
-            # Map the derived key to all allowed characters
             all_allowed = string.ascii_letters + string.digits + string.punctuation
-            password = "".join(all_allowed[byte % len(all_allowed)] for byte in dk)
-            logger.debug(
-                f"Password after mapping to all allowed characters: {password}"
-            )
-
-            # Ensure the password meets complexity requirements
-            password = self.ensure_complexity(password, all_allowed, dk)
-            logger.debug(f"Password after ensuring complexity: {password}")
-
-            # Shuffle characters deterministically based on dk
-            shuffle_seed = int.from_bytes(dk, "big")
-            rng = random.Random(shuffle_seed)
-            password_chars = list(password)
-            rng.shuffle(password_chars)
-            password = "".join(password_chars)
-            logger.debug("Shuffled password deterministically.")
+            password = self._map_entropy_to_chars(dk, all_allowed)
+            password = self._enforce_complexity(password, all_allowed, dk)
+            password = self._shuffle_deterministically(password, dk)
 
             # Ensure password length by extending if necessary
             if len(password) < length:
                 while len(password) < length:
                     dk = hashlib.pbkdf2_hmac("sha256", dk, b"", 1)
-                    base64_extra = "".join(
-                        all_allowed[byte % len(all_allowed)] for byte in dk
-                    )
-                    password += "".join(base64_extra)
+                    extra = self._map_entropy_to_chars(dk, all_allowed)
+                    password += extra
+                    password = self._shuffle_deterministically(password, dk)
                     logger.debug(f"Extended password: {password}")
 
-            # Trim the password to the desired length
+            # Trim the password to the desired length and enforce complexity on
+            # the final result. Complexity enforcement is repeated here because
+            # trimming may remove required character classes from the password
+            # produced above when the requested length is shorter than the
+            # initial entropy size.
             password = password[:length]
-            logger.debug(f"Final password (trimmed to {length} chars): {password}")
+            password = self._enforce_complexity(password, all_allowed, dk)
+            password = self._shuffle_deterministically(password, dk)
+            logger.debug(
+                f"Final password (trimmed to {length} chars with complexity enforced): {password}"
+            )
 
             return password
 
         except Exception as e:
-            logger.error(f"Error generating password: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Error generating password: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
             raise
 
-    def ensure_complexity(self, password: str, alphabet: str, dk: bytes) -> str:
+    def _enforce_complexity(self, password: str, alphabet: str, dk: bytes) -> str:
         """
         Ensures that the password contains at least two uppercase letters, two lowercase letters,
         two digits, and two special characters, modifying it deterministically if necessary.
@@ -320,7 +329,6 @@ class PasswordGenerator:
             return "".join(password_chars)
 
         except Exception as e:
-            logger.error(f"Error ensuring password complexity: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Error ensuring password complexity: {e}", exc_info=True)
             print(colored(f"Error: Failed to ensure password complexity: {e}", "red"))
             raise

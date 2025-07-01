@@ -21,17 +21,19 @@ try:
     # -----------------------------------
     APP_DIR = Path.home() / ".seedpass"
     APP_DIR.mkdir(exist_ok=True, parents=True)  # Ensure the directory exists
-    logging.info(f"Application directory created at {APP_DIR}")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.info(f"Application directory created at {APP_DIR}")
 except Exception as e:
-    logging.error(f"Failed to create application directory: {e}")
-    logging.error(traceback.format_exc())  # Log full traceback
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.error(f"Failed to create application directory: {e}", exc_info=True)
 
 try:
     PARENT_SEED_FILE = APP_DIR / "parent_seed.enc"  # Encrypted parent seed
-    logging.info(f"Parent seed file path set to {PARENT_SEED_FILE}")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.info(f"Parent seed file path set to {PARENT_SEED_FILE}")
 except Exception as e:
-    logging.error(f"Error setting file paths: {e}")
-    logging.error(traceback.format_exc())  # Log full traceback
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.error(f"Error setting file paths: {e}", exc_info=True)
 
 # -----------------------------------
 # Checksum Files for Integrity
@@ -40,10 +42,11 @@ try:
     SCRIPT_CHECKSUM_FILE = (
         APP_DIR / "seedpass_script_checksum.txt"
     )  # Checksum for main script
-    logging.info(f"Checksum file path set: Script {SCRIPT_CHECKSUM_FILE}")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.info(f"Checksum file path set: Script {SCRIPT_CHECKSUM_FILE}")
 except Exception as e:
-    logging.error(f"Error setting checksum file paths: {e}")
-    logging.error(traceback.format_exc())  # Log full traceback
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.error(f"Error setting checksum file paths: {e}", exc_info=True)
 
 # -----------------------------------
 # Password Generation Constants
@@ -51,6 +54,9 @@ except Exception as e:
 DEFAULT_PASSWORD_LENGTH = 16  # Default length for generated passwords
 MIN_PASSWORD_LENGTH = 8  # Minimum allowed password length
 MAX_PASSWORD_LENGTH = 128  # Maximum allowed password length
+
+# Timeout in seconds before the vault locks due to inactivity
+INACTIVITY_TIMEOUT = 15 * 60  # 15 minutes
 
 # -----------------------------------
 # Additional Constants (if any)

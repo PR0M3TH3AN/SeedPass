@@ -28,7 +28,7 @@ from pathlib import Path
 
 from termcolor import colored
 
-from password_manager.encryption import EncryptionManager
+from password_manager.vault import Vault
 from utils.file_lock import exclusive_lock
 
 
@@ -37,14 +37,14 @@ logger = logging.getLogger(__name__)
 
 
 class EntryManager:
-    def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
+    def __init__(self, vault: Vault, fingerprint_dir: Path):
         """
         Initializes the EntryManager with the EncryptionManager and fingerprint directory.
 
-        :param encryption_manager: The encryption manager instance.
+        :param vault: The Vault instance for file access.
         :param fingerprint_dir: The directory corresponding to the fingerprint.
         """
-        self.encryption_manager = encryption_manager
+        self.vault = vault
         self.fingerprint_dir = fingerprint_dir
 
         # Use paths relative to the fingerprint directory
@@ -56,7 +56,7 @@ class EntryManager:
     def _load_index(self) -> Dict[str, Any]:
         if self.index_file.exists():
             try:
-                data = self.encryption_manager.load_json_data(self.index_file)
+                data = self.vault.load_index()
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -70,7 +70,7 @@ class EntryManager:
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
-            self.encryption_manager.save_json_data(data, self.index_file)
+            self.vault.save_index(data)
             logger.debug("Index saved successfully.")
         except Exception as e:
             logger.error(f"Failed to save index: {e}")
@@ -83,7 +83,7 @@ class EntryManager:
         :return: The next index number as an integer.
         """
         try:
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data = self.vault.load_index()
             if "passwords" in data and isinstance(data["passwords"], dict):
                 indices = [int(idx) for idx in data["passwords"].keys()]
                 next_index = max(indices) + 1 if indices else 0
@@ -92,8 +92,7 @@ class EntryManager:
             logger.debug(f"Next index determined: {next_index}")
             return next_index
         except Exception as e:
-            logger.error(f"Error determining next index: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error determining next index: {e}", exc_info=True)
             print(colored(f"Error determining next index: {e}", "red"))
             sys.exit(1)
 
@@ -117,7 +116,7 @@ class EntryManager:
         """
         try:
             index = self.get_next_index()
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data = self.vault.load_index()
 
             data["passwords"][str(index)] = {
                 "website": website_name,
@@ -141,8 +140,7 @@ class EntryManager:
             return index  # Return the assigned index
 
         except Exception as e:
-            logger.error(f"Failed to add entry: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to add entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
 
@@ -153,22 +151,9 @@ class EntryManager:
         :return: The encrypted data as bytes, or None if retrieval fails.
         """
         try:
-            if not self.index_file.exists():
-                logger.error(f"Index file '{self.index_file}' does not exist.")
-                print(
-                    colored(
-                        f"Error: Index file '{self.index_file}' does not exist.", "red"
-                    )
-                )
-                return None
-
-            with open(self.index_file, "rb") as file:
-                encrypted_data = file.read()
-                logger.debug("Encrypted index file data retrieved successfully.")
-                return encrypted_data
+            return self.vault.get_encrypted_index()
         except Exception as e:
-            logger.error(f"Failed to retrieve encrypted index file: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to retrieve encrypted index file: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to retrieve encrypted index file: {e}", "red")
             )
@@ -182,7 +167,7 @@ class EntryManager:
         :return: A dictionary containing the entry details or None if not found.
         """
         try:
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data = self.vault.load_index()
             entry = data.get("passwords", {}).get(str(index))
 
             if entry:
@@ -194,8 +179,9 @@ class EntryManager:
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to retrieve entry at index {index}: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to retrieve entry at index {index}: {e}", exc_info=True
+            )
             print(
                 colored(f"Error: Failed to retrieve entry at index {index}: {e}", "red")
             )
@@ -217,7 +203,7 @@ class EntryManager:
         :param blacklisted: (Optional) The new blacklist status.
         """
         try:
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data = self.vault.load_index()
             entry = data.get("passwords", {}).get(str(index))
 
             if not entry:
@@ -259,8 +245,7 @@ class EntryManager:
             )
 
         except Exception as e:
-            logger.error(f"Failed to modify entry at index {index}: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to modify entry at index {index}: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
@@ -272,7 +257,7 @@ class EntryManager:
         :return: A list of tuples containing entry details: (index, website, username, url, blacklisted)
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.vault.load_index()
             passwords = data.get("passwords", {})
 
             if not passwords:
@@ -304,8 +289,7 @@ class EntryManager:
             return entries
 
         except Exception as e:
-            logger.error(f"Failed to list entries: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to list entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list entries: {e}", "red"))
             return []
 
@@ -316,11 +300,11 @@ class EntryManager:
         :param index: The index number of the password entry to delete.
         """
         try:
-            data = self.encryption_manager.load_json_data()
+            data = self.vault.load_index()
             if "passwords" in data and str(index) in data["passwords"]:
                 del data["passwords"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
-                self.encryption_manager.save_json_data(data)
+                self.vault.save_index(data)
                 self.update_checksum()
                 self.backup_index_file()
                 logger.info(f"Entry at index {index} deleted successfully.")
@@ -341,8 +325,7 @@ class EntryManager:
                 )
 
         except Exception as e:
-            logger.error(f"Failed to delete entry at index {index}: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to delete entry at index {index}: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to delete entry at index {index}: {e}", "red")
             )
@@ -352,12 +335,12 @@ class EntryManager:
         Updates the checksum file for the password database to ensure data integrity.
         """
         try:
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data = self.vault.load_index()
             json_content = json.dumps(data, indent=4)
             checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
 
-            # Construct the full path for the checksum file
-            checksum_path = self.fingerprint_dir / self.checksum_file
+            # The checksum file path already includes the fingerprint directory
+            checksum_path = self.checksum_file
 
             with open(checksum_path, "w") as f:
                 f.write(checksum)
@@ -366,8 +349,7 @@ class EntryManager:
             print(colored(f"[+] Checksum updated successfully.", "green"))
 
         except Exception as e:
-            logger.error(f"Failed to update checksum: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to update checksum: {e}", exc_info=True)
             print(colored(f"Error: Failed to update checksum: {e}", "red"))
 
     def backup_index_file(self) -> None:
@@ -375,7 +357,8 @@ class EntryManager:
         Creates a backup of the encrypted JSON index file to prevent data loss.
         """
         try:
-            index_file_path = self.fingerprint_dir / self.index_file
+            # self.index_file already includes the fingerprint directory
+            index_file_path = self.index_file
             if not index_file_path.exists():
                 logger.warning(
                     f"Index file '{index_file_path}' does not exist. No backup created."
@@ -395,8 +378,7 @@ class EntryManager:
             print(colored(f"[+] Backup created at '{backup_path}'.", "green"))
 
         except Exception as e:
-            logger.error(f"Failed to create backup: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Warning: Failed to create backup: {e}", "yellow"))
 
     def restore_from_backup(self, backup_path: str) -> None:
@@ -431,8 +413,9 @@ class EntryManager:
             self.update_checksum()
 
         except Exception as e:
-            logger.error(f"Failed to restore from backup '{backup_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(
+                f"Failed to restore from backup '{backup_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to restore from backup '{backup_path}': {e}", "red"
@@ -462,56 +445,6 @@ class EntryManager:
                 print("-" * 40)
 
         except Exception as e:
-            logger.error(f"Failed to list all entries: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to list all entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list all entries: {e}", "red"))
             return
-
-
-# Example usage (this part should be removed or commented out when integrating into the larger application)
-if __name__ == "__main__":
-    from password_manager.encryption import (
-        EncryptionManager,
-    )  # Ensure this import is correct based on your project structure
-
-    # Initialize EncryptionManager with a dummy key for demonstration purposes
-    # Replace 'your-fernet-key' with your actual Fernet key
-    try:
-        dummy_key = Fernet.generate_key()
-        encryption_manager = EncryptionManager(dummy_key)
-    except Exception as e:
-        logger.error(f"Failed to initialize EncryptionManager: {e}")
-        print(colored(f"Error: Failed to initialize EncryptionManager: {e}", "red"))
-        sys.exit(1)
-
-    # Initialize EntryManager
-    try:
-        entry_manager = EntryManager(encryption_manager)
-    except Exception as e:
-        logger.error(f"Failed to initialize EntryManager: {e}")
-        print(colored(f"Error: Failed to initialize EntryManager: {e}", "red"))
-        sys.exit(1)
-
-    # Example operations
-    # These would typically be triggered by user interactions, e.g., via a CLI menu
-    # Uncomment and modify the following lines as needed for testing
-
-    # Adding an entry
-    # entry_manager.add_entry("Example Website", 16, "user123", "https://example.com", False)
-
-    # Listing all entries
-    # entry_manager.list_all_entries()
-
-    # Retrieving an entry
-    # entry = entry_manager.retrieve_entry(0)
-    # if entry:
-    #     print(entry)
-
-    # Modifying an entry
-    # entry_manager.modify_entry(0, username="new_user123")
-
-    # Deleting an entry
-    # entry_manager.delete_entry(0)
-
-    # Restoring from a backup
-    # entry_manager.restore_from_backup("path_to_backup_file.json.enc")

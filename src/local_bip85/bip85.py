@@ -32,17 +32,22 @@ logger = logging.getLogger(__name__)
 
 
 class BIP85:
-    def __init__(self, seed_bytes: bytes):
+    def __init__(self, seed_bytes: bytes | str):
+        """Initialize from BIP39 seed bytes or BIP32 xprv string."""
         try:
-            self.bip32_ctx = Bip32Slip10Secp256k1.FromSeed(seed_bytes)
+            if isinstance(seed_bytes, (bytes, bytearray)):
+                self.bip32_ctx = Bip32Slip10Secp256k1.FromSeed(seed_bytes)
+            else:
+                self.bip32_ctx = Bip32Slip10Secp256k1.FromExtendedKey(seed_bytes)
             logging.debug("BIP32 context initialized successfully.")
         except Exception as e:
-            logging.error(f"Error initializing BIP32 context: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error initializing BIP32 context: {e}", exc_info=True)
             print(f"{Fore.RED}Error initializing BIP32 context: {e}")
             sys.exit(1)
 
-    def derive_entropy(self, index: int, bytes_len: int, app_no: int = 39) -> bytes:
+    def derive_entropy(
+        self, index: int, bytes_len: int, app_no: int = 39, words_len: int | None = None
+    ) -> bytes:
         """
         Derives entropy using BIP-85 HMAC-SHA512 method.
 
@@ -58,7 +63,9 @@ class BIP85:
             SystemExit: If derivation fails or entropy length is invalid.
         """
         if app_no == 39:
-            path = f"m/83696968'/{app_no}'/0'/{bytes_len}'/{index}'"
+            if words_len is None:
+                words_len = bytes_len
+            path = f"m/83696968'/{app_no}'/0'/{words_len}'/{index}'"
         elif app_no == 32:
             path = f"m/83696968'/{app_no}'/{index}'"
         else:
@@ -88,8 +95,7 @@ class BIP85:
             logging.debug(f"Derived entropy: {entropy.hex()}")
             return entropy
         except Exception as e:
-            logging.error(f"Error deriving entropy: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error deriving entropy: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving entropy: {e}")
             sys.exit(1)
 
@@ -100,49 +106,27 @@ class BIP85:
             print(f"{Fore.RED}Error: Unsupported number of words: {words_num}")
             sys.exit(1)
 
-        entropy = self.derive_entropy(index=index, bytes_len=bytes_len, app_no=39)
+        entropy = self.derive_entropy(
+            index=index, bytes_len=bytes_len, app_no=39, words_len=words_num
+        )
         try:
             mnemonic = Bip39MnemonicGenerator(Bip39Languages.ENGLISH).FromEntropy(
                 entropy
             )
             logging.debug(f"Derived mnemonic: {mnemonic}")
-            return mnemonic
+            return mnemonic.ToStr()
         except Exception as e:
-            logging.error(f"Error generating mnemonic: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error generating mnemonic: {e}", exc_info=True)
             print(f"{Fore.RED}Error generating mnemonic: {e}")
             sys.exit(1)
 
-    def derive_symmetric_key(self, app_no: int = 48, index: int = 0) -> bytes:
-        """
-        Derives a symmetric encryption key using BIP85.
-
-        Parameters:
-            app_no (int): Application number for key derivation (48 chosen arbitrarily).
-            index (int): Index for key derivation.
-
-        Returns:
-            bytes: Derived symmetric key (32 bytes for AES-256).
-
-        Raises:
-            SystemExit: If symmetric key derivation fails.
-        """
-        entropy = self.derive_entropy(
-            app_no, language_code=0, words_num=24, index=index
-        )
+    def derive_symmetric_key(self, index: int = 0, app_no: int = 2) -> bytes:
+        """Derive 32 bytes of entropy for symmetric key usage."""
         try:
-            hkdf = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32,  # 256 bits for AES-256
-                salt=None,
-                info=b"seedos-encryption-key",
-                backend=default_backend(),
-            )
-            symmetric_key = hkdf.derive(entropy)
-            logging.debug(f"Derived symmetric key: {symmetric_key.hex()}")
-            return symmetric_key
+            key = self.derive_entropy(index=index, bytes_len=32, app_no=app_no)
+            logging.debug(f"Derived symmetric key: {key.hex()}")
+            return key
         except Exception as e:
-            logging.error(f"Error deriving symmetric key: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error deriving symmetric key: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving symmetric key: {e}")
             sys.exit(1)

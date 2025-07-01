@@ -58,7 +58,6 @@ class EncryptionManager:
             logger.error(
                 f"Failed to initialize Fernet with provided encryption key: {e}"
             )
-            logger.error(traceback.format_exc())
             print(
                 colored(f"Error: Failed to initialize encryption manager: {e}", "red")
             )
@@ -95,8 +94,7 @@ class EncryptionManager:
                 )
             )
         except Exception as e:
-            logger.error(f"Failed to encrypt and save parent seed: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
             raise
 
@@ -126,8 +124,7 @@ class EncryptionManager:
             print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
-            logger.error(f"Failed to decrypt parent seed: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
             raise
 
@@ -143,8 +140,7 @@ class EncryptionManager:
             logger.debug("Data encrypted successfully.")
             return encrypted_data
         except Exception as e:
-            logger.error(f"Failed to encrypt data: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to encrypt data: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt data: {e}", "red"))
             raise
 
@@ -166,8 +162,7 @@ class EncryptionManager:
             print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
-            logger.error(f"Failed to decrypt data: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to decrypt data: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt data: {e}", "red"))
             raise
 
@@ -199,8 +194,10 @@ class EncryptionManager:
             logger.info(f"Data encrypted and saved to '{file_path}'.")
             print(colored(f"Data encrypted and saved to '{file_path}'.", "green"))
         except Exception as e:
-            logger.error(f"Failed to encrypt and save data to '{relative_path}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to encrypt and save data to '{relative_path}': {e}",
+                exc_info=True,
+            )
             print(
                 colored(
                     f"Error: Failed to encrypt and save data to '{relative_path}': {e}",
@@ -236,8 +233,9 @@ class EncryptionManager:
             print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
-            logger.error(f"Failed to decrypt data from '{relative_path}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to decrypt data from '{relative_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to decrypt data from '{relative_path}': {e}", "red"
@@ -263,8 +261,9 @@ class EncryptionManager:
                 colored(f"JSON data encrypted and saved to '{relative_path}'.", "green")
             )
         except Exception as e:
-            logger.error(f"Failed to save JSON data to '{relative_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(
+                f"Failed to save JSON data to '{relative_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to save JSON data to '{relative_path}': {e}", "red"
@@ -304,8 +303,9 @@ class EncryptionManager:
             logger.debug(f"JSON data loaded and decrypted from '{file_path}': {data}")
             return data
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode JSON data from '{file_path}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to decode JSON data from '{file_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to decode JSON data from '{file_path}': {e}", "red"
@@ -319,8 +319,9 @@ class EncryptionManager:
             print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
-            logger.error(f"Failed to load JSON data from '{file_path}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to load JSON data from '{file_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to load JSON data from '{file_path}': {e}", "red"
@@ -339,11 +340,13 @@ class EncryptionManager:
             relative_path = Path("seedpass_passwords_db.json.enc")
         try:
             file_path = self.fingerprint_dir / relative_path
-            decrypted_data = self.decrypt_file(relative_path)
-            content = decrypted_data.decode("utf-8")
-            logger.debug("Calculating checksum of the updated file content.")
+            logger.debug("Calculating checksum of the encrypted file bytes.")
 
-            checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            with exclusive_lock(file_path):
+                with open(file_path, "rb") as f:
+                    encrypted_bytes = f.read()
+
+            checksum = hashlib.sha256(encrypted_bytes).hexdigest()
             logger.debug(f"New checksum: {checksum}")
 
             checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
@@ -361,8 +364,9 @@ class EncryptionManager:
             )
             print(colored(f"Checksum for '{file_path}' updated.", "green"))
         except Exception as e:
-            logger.error(f"Failed to update checksum for '{relative_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(
+                f"Failed to update checksum for '{relative_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to update checksum for '{relative_path}': {e}",
@@ -397,8 +401,10 @@ class EncryptionManager:
             logger.debug(f"Encrypted index data read from '{relative_path}'.")
             return encrypted_data
         except Exception as e:
-            logger.error(f"Failed to read encrypted index file '{relative_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(
+                f"Failed to read encrypted index file '{relative_path}': {e}",
+                exc_info=True,
+            )
             print(
                 colored(
                     f"Error: Failed to read encrypted index file '{relative_path}': {e}",
@@ -427,8 +433,9 @@ class EncryptionManager:
             logger.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
-            logger.error(f"Failed to decrypt and save data from Nostr: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to decrypt and save data from Nostr: {e}", "red"
@@ -456,8 +463,7 @@ class EncryptionManager:
             logger.debug("Seed phrase validated successfully.")
             return True
         except Exception as e:
-            logging.error(f"Error validating seed phrase: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error validating seed phrase: {e}", exc_info=True)
             print(colored(f"Error: Failed to validate seed phrase: {e}", "red"))
             return False
 
@@ -483,7 +489,6 @@ class EncryptionManager:
             logger.debug("Seed derived successfully from mnemonic.")
             return seed
         except Exception as e:
-            logger.error(f"Failed to derive seed from mnemonic: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to derive seed from mnemonic: {e}", exc_info=True)
             print(colored(f"Error: Failed to derive seed from mnemonic: {e}", "red"))
             raise

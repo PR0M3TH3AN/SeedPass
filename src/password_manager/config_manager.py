@@ -10,7 +10,7 @@ import getpass
 
 import bcrypt
 
-from password_manager.encryption import EncryptionManager
+from password_manager.vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ class ConfigManager:
 
     CONFIG_FILENAME = "seedpass_config.json.enc"
 
-    def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
-        self.encryption_manager = encryption_manager
+    def __init__(self, vault: Vault, fingerprint_dir: Path):
+        self.vault = vault
         self.fingerprint_dir = fingerprint_dir
         self.config_path = self.fingerprint_dir / self.CONFIG_FILENAME
 
@@ -37,14 +37,26 @@ class ConfigManager:
         """
         if not self.config_path.exists():
             logger.info("Config file not found; returning defaults")
-            return {"relays": list(DEFAULT_NOSTR_RELAYS), "pin_hash": ""}
+            return {
+                "relays": list(DEFAULT_NOSTR_RELAYS),
+                "pin_hash": "",
+                "password_hash": "",
+            }
         try:
-            data = self.encryption_manager.load_json_data(self.CONFIG_FILENAME)
+            data = self.vault.load_config()
             if not isinstance(data, dict):
                 raise ValueError("Config data must be a dictionary")
             # Ensure defaults for missing keys
             data.setdefault("relays", list(DEFAULT_NOSTR_RELAYS))
             data.setdefault("pin_hash", "")
+            data.setdefault("password_hash", "")
+
+            # Migrate legacy hashed_password.enc if present and password_hash is missing
+            legacy_file = self.fingerprint_dir / "hashed_password.enc"
+            if not data.get("password_hash") and legacy_file.exists():
+                with open(legacy_file, "rb") as f:
+                    data["password_hash"] = f.read().decode()
+                self.save_config(data)
             if require_pin and data.get("pin_hash"):
                 for _ in range(3):
                     pin = getpass.getpass("Enter settings PIN: ").strip()
@@ -61,7 +73,7 @@ class ConfigManager:
     def save_config(self, config: dict) -> None:
         """Encrypt and save configuration."""
         try:
-            self.encryption_manager.save_json_data(config, self.CONFIG_FILENAME)
+            self.vault.save_config(config)
         except Exception as exc:
             logger.error(f"Failed to save config: {exc}")
             raise
@@ -95,3 +107,9 @@ class ConfigManager:
             self.set_pin(new_pin)
             return True
         return False
+
+    def set_password_hash(self, password_hash: str) -> None:
+        """Persist the bcrypt password hash in the config."""
+        config = self.load_config(require_pin=False)
+        config["password_hash"] = password_hash
+        self.save_config(config)

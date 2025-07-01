@@ -43,8 +43,8 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
-- **Multiple Seed Profiles:** Manage multiple seed profiles and switch between them seamlessly.
-- **User-Friendly CLI:** Simple command-line interface for easy interaction.
+- **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
+- **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 
 ## Prerequisites
 
@@ -138,6 +138,30 @@ python src/main.py
    Enter your choice (1-5):
    ```
 
+### Encryption Mode
+
+Use the `--encryption-mode` flag to control how SeedPass derives the key used to
+encrypt your vault. Valid values are:
+
+- `seed-only` – default mode that derives the vault key solely from your BIP-85
+  seed.
+- `seed+pw` – combines the seed with your master password for key derivation.
+- `pw-only` – derives the key from your password alone.
+
+You can set this option when launching the application:
+
+```bash
+python src/main.py --encryption-mode seed+pw
+```
+
+To make the choice persistent, add it to `~/.seedpass/config.toml`:
+
+```toml
+encryption_mode = "seed+pw"
+```
+
+SeedPass will read this value on startup and use the specified mode by default.
+
 ### Managing Multiple Seeds
 
 SeedPass allows you to manage multiple seed profiles (previously referred to as "fingerprints"). Each seed profile has its own parent seed and associated data, enabling you to compartmentalize your passwords.
@@ -168,27 +192,56 @@ wss://nostr.oxtr.dev
 wss://relay.primal.net
 ```
 
-You can manage the relay list or change the PIN through the **Settings** menu:
+You can manage your relays and sync with Nostr from the **Settings** menu:
 
-1. From the main menu, choose option `4` (**Settings**).
+1. From the main menu choose `4` (**Settings**).
 2. Select `2` (**Nostr**) to open the Nostr submenu.
-3. Choose `3` to view your current relays.
-4. Select `4` to add a new relay URL.
-5. Choose `5` to remove a relay by number.
-6. Select `6` to reset to the default relay list.
-7. Choose `7` to display your Nostr public key.
-8. Select `8` to return to the Settings menu.
-9. From the Settings menu you can select `3` to change the settings PIN.
-10. Choose `4` to verify the script checksum or `5` to back up the parent seed.
+3. Choose `1` to back up your encrypted index to Nostr.
+4. Select `2` to restore the index from Nostr.
+5. Choose `3` to view your current relays.
+6. Select `4` to add a new relay URL.
+7. Choose `5` to remove a relay by number.
+8. Select `6` to reset to the default relay list.
+9. Choose `7` to display your Nostr public key.
+10. Select `8` to return to the Settings menu.
+
+Back in the Settings menu you can:
+
+* Select `3` to change your master password.
+* Choose `4` to verify the script checksum.
+* Choose `5` to back up the parent seed.
+* Choose `6` to lock the vault and require re-entry of your password.
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
 pip install -r src/requirements.txt
 pytest -vv
 ```
+
+### Automatically Updating the Script Checksum
+
+SeedPass stores a SHA-256 checksum for the main program in `~/.seedpass/seedpass_script_checksum.txt`.
+To keep this value in sync with the source code, install the pre‑push git hook:
+
+```bash
+pre-commit install -t pre-push
+```
+
+After running this command, every `git push` will execute `scripts/update_checksum.py`,
+updating the checksum file automatically.
+
+To run mutation tests locally, generate coverage data first and then execute `mutmut`:
+
+```bash
+pytest --cov=src src/tests
+python -m mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q" --use-coverage --no-progress
+python -m mutmut results
+```
+
+Mutation testing is disabled in the GitHub workflow due to reliability issues and should be run on a desktop environment instead.
 
 ## Security Considerations
 
@@ -201,6 +254,7 @@ pytest -vv
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
+- **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 
 ## Contributing
 

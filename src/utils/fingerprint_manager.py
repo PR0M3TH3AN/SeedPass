@@ -61,7 +61,6 @@ class FingerprintManager:
             logger.error(
                 f"Failed to create application directory at {self.app_dir}: {e}"
             )
-            logger.error(traceback.format_exc())
             raise
 
     def _load_fingerprints(self) -> List[str]:
@@ -84,8 +83,7 @@ class FingerprintManager:
                 )
                 return []
         except Exception as e:
-            logger.error(f"Failed to load fingerprints: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to load fingerprints: {e}", exc_info=True)
             return []
 
     def _save_fingerprints(self):
@@ -97,8 +95,7 @@ class FingerprintManager:
                 json.dump({"fingerprints": self.fingerprints}, f, indent=4)
             logger.debug(f"Fingerprints saved: {self.fingerprints}")
         except Exception as e:
-            logger.error(f"Failed to save fingerprints: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to save fingerprints: {e}", exc_info=True)
             raise
 
     def add_fingerprint(self, seed_phrase: str) -> Optional[str]:
@@ -154,8 +151,9 @@ class FingerprintManager:
                 logger.info(f"Fingerprint {fingerprint} removed successfully.")
                 return True
             except Exception as e:
-                logger.error(f"Failed to remove fingerprint {fingerprint}: {e}")
-                logger.error(traceback.format_exc())
+                logger.error(
+                    f"Failed to remove fingerprint {fingerprint}: {e}", exc_info=True
+                )
                 return False
         else:
             logger.warning(f"Fingerprint {fingerprint} does not exist.")

@@ -47,8 +47,7 @@ class KeyManager:
             logger.debug("Nostr Keys initialized successfully.")
 
         except Exception as e:
-            logger.error(f"Key initialization failed: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Key initialization failed: {e}", exc_info=True)
             raise
 
     def initialize_bip85(self):
@@ -64,8 +63,7 @@ class KeyManager:
             logger.debug("BIP85 initialized successfully.")
             return bip85
         except Exception as e:
-            logger.error(f"Failed to initialize BIP85: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to initialize BIP85: {e}", exc_info=True)
             raise
 
     def generate_nostr_keys(self) -> Keys:
@@ -93,8 +91,7 @@ class KeyManager:
             logger.debug(f"Nostr keys generated for fingerprint {self.fingerprint}.")
             return keys
         except Exception as e:
-            logger.error(f"Failed to generate Nostr keys: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to generate Nostr keys: {e}", exc_info=True)
             raise
 
     def get_public_key_hex(self) -> str:
@@ -129,6 +126,5 @@ class KeyManager:
             npub = bech32_encode("npub", data)
             return npub
         except Exception as e:
-            logger.error(f"Failed to generate npub: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to generate npub: {e}", exc_info=True)
             raise

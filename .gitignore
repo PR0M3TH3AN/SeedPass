@@ -29,3 +29,6 @@ Thumbs.db
 # Coverage files
 .coverage
 coverage.xml
+
+# Other
+.hypothesis

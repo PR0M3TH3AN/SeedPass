@@ -20,7 +20,8 @@ import base64
 import unicodedata
 import logging
 import traceback
-from typing import Union
+from enum import Enum
+from typing import Optional, Union
 from bip_utils import Bip39SeedGenerator
 from local_bip85.bip85 import BIP85
 
@@ -34,6 +35,17 @@ from cryptography.hazmat.backends import default_backend
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+class EncryptionMode(Enum):
+    """Supported key derivation modes for database encryption."""
+
+    SEED_ONLY = "seed-only"
+    SEED_PLUS_PW = "seed+pw"
+    PW_ONLY = "pw-only"
+
+
+DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
 
 
 def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
@@ -84,8 +96,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
         return key_b64
 
     except Exception as e:
-        logger.error(f"Error deriving key from password: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Error deriving key from password: {e}", exc_info=True)
         raise
 
 
@@ -127,8 +138,7 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
 
         return derived_key
     except Exception as e:
-        logger.error(f"Failed to derive key using HKDF: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Failed to derive key using HKDF: {e}", exc_info=True)
         raise
 
 
@@ -167,3 +177,51 @@ class KeyManager:
         private_key_hex = entropy_bytes.hex()
         keys = Keys(priv_key=private_key_hex)
         return keys
+
+
+def derive_index_key_seed_only(seed: str) -> bytes:
+    """Derive a deterministic Fernet key from only the BIP-39 seed."""
+    seed_bytes = Bip39SeedGenerator(seed).Generate()
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b"password-db",
+        backend=default_backend(),
+    )
+    key = hkdf.derive(seed_bytes)
+    return base64.urlsafe_b64encode(key)
+
+
+def derive_index_key_seed_plus_pw(seed: str, password: str) -> bytes:
+    """Derive the index key from seed and password combined."""
+    seed_bytes = Bip39SeedGenerator(seed).Generate()
+    pw_bytes = unicodedata.normalize("NFKD", password).encode("utf-8")
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b"password-db",
+        backend=default_backend(),
+    )
+    key = hkdf.derive(seed_bytes + b"|" + pw_bytes)
+    return base64.urlsafe_b64encode(key)
+
+
+def derive_index_key(
+    seed: str,
+    password: Optional[str] = None,
+    mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE,
+) -> bytes:
+    """Derive the index encryption key based on the selected mode."""
+    if mode == EncryptionMode.SEED_ONLY:
+        return derive_index_key_seed_only(seed)
+    if mode == EncryptionMode.SEED_PLUS_PW:
+        if password is None:
+            raise ValueError("Password required for seed+pw mode")
+        return derive_index_key_seed_plus_pw(seed, password)
+    if mode == EncryptionMode.PW_ONLY:
+        if password is None:
+            raise ValueError("Password required for pw-only mode")
+        return derive_key_from_password(password)
+    raise ValueError(f"Unsupported encryption mode: {mode}")

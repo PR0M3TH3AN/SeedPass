@@ -73,8 +73,7 @@ class BackupManager:
             logger.info(f"Backup created successfully at '{backup_file}'.")
             print(colored(f"Backup created successfully at '{backup_file}'.", "green"))
         except Exception as e:
-            logger.error(f"Failed to create backup: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to create backup: {e}", "red"))
 
     def restore_latest_backup(self) -> None:
@@ -100,8 +99,9 @@ class BackupManager:
                 )
             )
         except Exception as e:
-            logger.error(f"Failed to restore from backup '{latest_backup}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to restore from backup '{latest_backup}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to restore from backup '{latest_backup}': {e}",
@@ -129,8 +129,7 @@ class BackupManager:
                 )
                 print(colored(f"- {backup.name} (Created on: {creation_time})", "cyan"))
         except Exception as e:
-            logger.error(f"Failed to list backups: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to list backups: {e}", exc_info=True)
             print(colored(f"Error: Failed to list backups: {e}", "red"))
 
     def restore_backup_by_timestamp(self, timestamp: int) -> None:
@@ -152,8 +151,9 @@ class BackupManager:
                 )
             )
         except Exception as e:
-            logger.error(f"Failed to restore from backup '{backup_file}': {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to restore from backup '{backup_file}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to restore from backup '{backup_file}': {e}", "red"

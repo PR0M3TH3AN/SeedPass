@@ -5,14 +5,32 @@ import sys
 import logging
 import signal
 import getpass
+import time
+import argparse
+import tomli
 from colorama import init as colorama_init
 from termcolor import colored
 import traceback
 
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
+from constants import INACTIVITY_TIMEOUT
+from utils.key_derivation import EncryptionMode
 
 colorama_init()
+
+
+def load_global_config() -> dict:
+    """Load configuration from ~/.seedpass/config.toml if present."""
+    config_path = Path.home() / ".seedpass" / "config.toml"
+    if not config_path.exists():
+        return {}
+    try:
+        with open(config_path, "rb") as f:
+            return tomli.load(f)
+    except Exception as exc:
+        logging.warning(f"Failed to read {config_path}: {exc}")
+        return {}
 
 
 def configure_logging():
@@ -101,8 +119,7 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
         else:
             print(colored("Failed to switch seed profile.", "red"))
     except Exception as e:
-        logging.error(f"Error during fingerprint switch: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error during fingerprint switch: {e}", exc_info=True)
         print(colored(f"Error: Failed to switch seed profile: {e}", "red"))
 
 
@@ -115,8 +132,7 @@ def handle_add_new_fingerprint(password_manager: PasswordManager):
     try:
         password_manager.add_new_fingerprint()
     except Exception as e:
-        logging.error(f"Error adding new seed profile: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error adding new seed profile: {e}", exc_info=True)
         print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
 
 
@@ -160,8 +176,7 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
         else:
             print(colored("Seed profile removal cancelled.", "yellow"))
     except Exception as e:
-        logging.error(f"Error removing seed profile: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error removing seed profile: {e}", exc_info=True)
         print(colored(f"Error: Failed to remove seed profile: {e}", "red"))
 
 
@@ -181,8 +196,7 @@ def handle_list_fingerprints(password_manager: PasswordManager):
         for fp in fingerprints:
             print(colored(f"- {fp}", "cyan"))
     except Exception as e:
-        logging.error(f"Error listing seed profiles: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error listing seed profiles: {e}", exc_info=True)
         print(colored(f"Error: Failed to list seed profiles: {e}", "red"))
 
 
@@ -199,12 +213,13 @@ def handle_display_npub(password_manager: PasswordManager):
             print(colored("Nostr public key not available.", "red"))
             logging.error("Nostr public key not available.")
     except Exception as e:
-        logging.error(f"Failed to display npub: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to display npub: {e}", exc_info=True)
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
-def handle_post_to_nostr(password_manager: PasswordManager):
+def handle_post_to_nostr(
+    password_manager: PasswordManager, alt_summary: str | None = None
+):
     """
     Handles the action of posting the encrypted password index to Nostr.
     """
@@ -213,15 +228,21 @@ def handle_post_to_nostr(password_manager: PasswordManager):
         encrypted_data = password_manager.get_encrypted_data()
         if encrypted_data:
             # Post to Nostr
-            password_manager.nostr_client.publish_json_to_nostr(encrypted_data)
-            print(colored("Encrypted index posted to Nostr successfully.", "green"))
-            logging.info("Encrypted index posted to Nostr successfully.")
+            success = password_manager.nostr_client.publish_json_to_nostr(
+                encrypted_data,
+                alt_summary=alt_summary,
+            )
+            if success:
+                print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
+                logging.info("Encrypted index posted to Nostr successfully.")
+            else:
+                print(colored("\N{CROSS MARK} Sync failed…", "red"))
+                logging.error("Failed to post encrypted index to Nostr.")
         else:
             print(colored("No data available to post.", "yellow"))
             logging.warning("No data available to post to Nostr.")
     except Exception as e:
-        logging.error(f"Failed to post to Nostr: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to post to Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to post to Nostr: {e}", "red"))
 
 
@@ -243,8 +264,7 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             print(colored("Failed to retrieve data from Nostr.", "red"))
             logging.error("Failed to retrieve data from Nostr.")
     except Exception as e:
-        logging.error(f"Failed to retrieve from Nostr: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
 
 
@@ -368,6 +388,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
         print("4. List All Seed Profiles")
         print("5. Back")
         choice = input("Select an option: ").strip()
+        password_manager.update_activity()
         if choice == "1":
             if not password_manager.handle_switch_fingerprint():
                 print(colored("Failed to switch seed profile.", "red"))
@@ -406,6 +427,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         print("7. Display Nostr Public Key")
         print("8. Back")
         choice = input("Select an option: ").strip()
+        password_manager.update_activity()
         if choice == "1":
             handle_post_to_nostr(password_manager)
         elif choice == "2":
@@ -435,7 +457,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("3. Change password")
         print("4. Verify Script Checksum")
         print("5. Backup Parent Seed")
-        print("6. Back")
+        print("6. Lock Vault")
+        print("7. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -448,12 +471,20 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "5":
             password_manager.handle_backup_reveal_parent_seed()
         elif choice == "6":
+            password_manager.lock_vault()
+            print(colored("Vault locked. Please re-enter your password.", "yellow"))
+            password_manager.unlock_vault()
+        elif choice == "7":
             break
         else:
             print(colored("Invalid choice.", "red"))
 
 
-def display_menu(password_manager: PasswordManager):
+def display_menu(
+    password_manager: PasswordManager,
+    sync_interval: float = 60.0,
+    inactivity_timeout: float = INACTIVITY_TIMEOUT,
+):
     """
     Displays the interactive menu and handles user input to perform various actions.
     """
@@ -466,11 +497,25 @@ def display_menu(password_manager: PasswordManager):
     5. Exit
     """
     while True:
+        if time.time() - password_manager.last_activity > inactivity_timeout:
+            print(colored("Session timed out. Vault locked.", "yellow"))
+            password_manager.lock_vault()
+            password_manager.unlock_vault()
+            continue
+        # Periodically push updates to Nostr
+        if (
+            password_manager.is_dirty
+            and time.time() - password_manager.last_update >= sync_interval
+        ):
+            handle_post_to_nostr(password_manager)
+            password_manager.is_dirty = False
+
         # Flush logging handlers
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(colored(menu, "cyan"))
         choice = input("Enter your choice (1-5): ").strip()
+        password_manager.update_activity()
         if not choice:
             print(
                 colored(
@@ -485,6 +530,7 @@ def display_menu(password_manager: PasswordManager):
                 print("1. Password")
                 print("2. Back")
                 sub_choice = input("Select entry type: ").strip()
+                password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
                     break
@@ -493,10 +539,13 @@ def display_menu(password_manager: PasswordManager):
                 else:
                     print(colored("Invalid choice.", "red"))
         elif choice == "2":
+            password_manager.update_activity()
             password_manager.handle_retrieve_entry()
         elif choice == "3":
+            password_manager.update_activity()
             password_manager.handle_modify_entry()
         elif choice == "4":
+            password_manager.update_activity()
             handle_settings(password_manager)
         elif choice == "5":
             logging.info("Exiting the program.")
@@ -513,13 +562,32 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")
 
+    # Load config from disk and parse command-line arguments
+    cfg = load_global_config()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--encryption-mode",
+        choices=[m.value for m in EncryptionMode],
+        help="Select encryption mode",
+    )
+    args = parser.parse_args()
+
+    mode_value = cfg.get("encryption_mode", EncryptionMode.SEED_ONLY.value)
+    if args.encryption_mode:
+        mode_value = args.encryption_mode
+    try:
+        enc_mode = EncryptionMode(mode_value)
+    except ValueError:
+        logger.error(f"Invalid encryption mode: {mode_value}")
+        print(colored(f"Error: Invalid encryption mode '{mode_value}'", "red"))
+        sys.exit(1)
+
     # Initialize PasswordManager and proceed with application logic
     try:
-        password_manager = PasswordManager()
+        password_manager = PasswordManager(encryption_mode=enc_mode)
         logger.info("PasswordManager initialized successfully.")
     except Exception as e:
-        logger.error(f"Failed to initialize PasswordManager: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
         sys.exit(1)
 
@@ -556,8 +624,7 @@ if __name__ == "__main__":
             print(colored(f"Error during shutdown: {e}", "red"))
         sys.exit(0)
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
             password_manager.nostr_client.close_client_pool()  # Attempt to close the ClientPool
