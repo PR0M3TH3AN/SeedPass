@@ -83,8 +83,8 @@ jobs:
       - name: Run mutation tests
         if: github.event_name == 'push'
         run: |
-          mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q"
-          mutmut results
+          python -m mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q"
+          python -m mutmut results
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
