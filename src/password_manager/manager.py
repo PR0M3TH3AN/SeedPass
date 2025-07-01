@@ -370,6 +370,7 @@ class PasswordManager:
                 self.nostr_client = NostrClient(
                     encryption_manager=self.encryption_manager,
                     fingerprint=self.current_fingerprint,
+                    parent_seed=getattr(self, "parent_seed", None),
                 )
                 logging.info(
                     f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
@@ -756,6 +757,7 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                parent_seed=getattr(self, "parent_seed", None),
             )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
@@ -1360,6 +1362,7 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                parent_seed=getattr(self, "parent_seed", None),
             )
 
             print(colored("Master password changed successfully.", "green"))

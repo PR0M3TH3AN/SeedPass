@@ -46,15 +46,17 @@ class NostrClient:
         encryption_manager: EncryptionManager,
         fingerprint: str,
         relays: Optional[List[str]] = None,
+        parent_seed: Optional[str] = None,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
         self.fingerprint_dir = self.encryption_manager.fingerprint_dir
 
+        if parent_seed is None:
+            parent_seed = self.encryption_manager.decrypt_parent_seed()
+
         # Use our project's KeyManager to derive the private key
-        self.key_manager = KeyManager(
-            self.encryption_manager.decrypt_parent_seed(), fingerprint
-        )
+        self.key_manager = KeyManager(parent_seed, fingerprint)
 
         # Create a nostr-sdk Keys object from our derived private key
         private_key_hex = self.key_manager.keys.private_key_hex()
