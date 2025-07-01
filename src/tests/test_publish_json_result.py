@@ -44,12 +44,24 @@ class FakeBuilder:
         return FakeUnsignedEvent()
 
 
+class FakeEventId:
+    def to_hex(self):
+        return "abcd"
+
+
+class FakeSendEventOutput:
+    def __init__(self):
+        self.id = FakeEventId()
+
+
 def test_publish_json_success():
     with TemporaryDirectory() as tmpdir, patch(
         "nostr.client.EventBuilder.text_note", return_value=FakeBuilder()
     ):
         client = setup_client(Path(tmpdir))
-        with patch.object(client, "publish_event") as mock_pub:
+        with patch.object(
+            client, "publish_event", return_value=FakeSendEventOutput()
+        ) as mock_pub:
             assert client.publish_json_to_nostr(b"data") is True
             mock_pub.assert_called()
 
