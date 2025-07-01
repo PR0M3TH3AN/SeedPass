@@ -687,8 +687,12 @@ class PasswordManager:
                 password,
                 self.encryption_mode,
             )
+
             # Re-initialize EncryptionManager with the new key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+
+            # Initialize the vault now that encryption manager is available
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
             # Store the hashed password
             self.store_hashed_password(password)
