@@ -656,11 +656,8 @@ class PasswordManager:
         try:
             master_seed = os.urandom(32)  # Generate a random 32-byte seed
             bip85 = BIP85(master_seed)
-            mnemonic_obj = bip85.derive_mnemonic(index=0, words_num=12)
-            mnemonic_str = (
-                mnemonic_obj.ToStr()
-            )  # Convert Bip39Mnemonic object to string
-            return mnemonic_str
+            mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
+            return mnemonic
         except Exception as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}")
             logging.error(traceback.format_exc())
