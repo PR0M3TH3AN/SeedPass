@@ -15,7 +15,7 @@ from password_manager.vault import Vault
 from password_manager.manager import PasswordManager
 
 
-def test_change_password_does_not_trigger_nostr_backup(monkeypatch):
+def test_change_password_triggers_nostr_backup(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp = Path(tmpdir)
         enc_mgr = EncryptionManager(Fernet.generate_key(), fp)
@@ -46,4 +46,4 @@ def test_change_password_does_not_trigger_nostr_backup(monkeypatch):
             mock_instance = MockClient.return_value
             pm.nostr_client = mock_instance
             pm.change_password()
-            mock_instance.publish_json_to_nostr.assert_not_called()
+            mock_instance.publish_json_to_nostr.assert_called_once()

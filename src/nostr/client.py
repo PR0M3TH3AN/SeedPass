@@ -16,6 +16,7 @@ from nostr_sdk import (
     Filter,
     Kind,
     KindStandard,
+    Tag,
 )
 from datetime import timedelta
 
@@ -86,9 +87,23 @@ class NostrClient:
         logger.info(f"NostrClient connected to relays: {self.relays}")
 
     def publish_json_to_nostr(
-        self, encrypted_json: bytes, to_pubkey: str | None = None
+        self,
+        encrypted_json: bytes,
+        to_pubkey: str | None = None,
+        alt_summary: str | None = None,
     ) -> bool:
-        """Builds and publishes a Kind 1 text note or direct message."""
+        """Builds and publishes a Kind 1 text note or direct message.
+
+        Parameters
+        ----------
+        encrypted_json : bytes
+            The encrypted index data to publish.
+        to_pubkey : str | None, optional
+            If provided, send as a direct message to this public key.
+        alt_summary : str | None, optional
+            If provided, include an ``alt`` tag so uploads can be
+            associated with a specific event like a password change.
+        """
         try:
             content = base64.b64encode(encrypted_json).decode("utf-8")
 
@@ -98,11 +113,10 @@ class NostrClient:
                     self.relays, receiver, content
                 )
             else:
-                event = (
-                    EventBuilder.text_note(content)
-                    .build(self.keys.public_key())
-                    .sign_with_keys(self.keys)
-                )
+                builder = EventBuilder.text_note(content)
+                if alt_summary:
+                    builder = builder.tags([Tag.alt(alt_summary)])
+                event = builder.build(self.keys.public_key()).sign_with_keys(self.keys)
                 event_output = self.publish_event(event)
 
             event_id_hex = (

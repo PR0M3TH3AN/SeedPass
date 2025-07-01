@@ -206,7 +206,9 @@ def handle_display_npub(password_manager: PasswordManager):
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
-def handle_post_to_nostr(password_manager: PasswordManager):
+def handle_post_to_nostr(
+    password_manager: PasswordManager, alt_summary: str | None = None
+):
     """
     Handles the action of posting the encrypted password index to Nostr.
     """
@@ -216,7 +218,8 @@ def handle_post_to_nostr(password_manager: PasswordManager):
         if encrypted_data:
             # Post to Nostr
             success = password_manager.nostr_client.publish_json_to_nostr(
-                encrypted_data
+                encrypted_data,
+                alt_summary=alt_summary,
             )
             if success:
                 print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
