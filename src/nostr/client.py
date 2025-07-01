@@ -90,7 +90,7 @@ class NostrClient:
 
             # Use the EventBuilder to create and sign the event
             event = (
-                EventBuilder.text_note(content, [])
+                EventBuilder.text_note(content)
                 .build(self.keys.public_key())
                 .sign_with_keys(self.keys)
             )
@@ -116,14 +116,13 @@ class NostrClient:
             f = (
                 Filter()
                 .author(pubkey)
-                .kind(Kind.from_standard(KindStandard.TEXT_NOTE))
+                .kind(Kind.from_std(KindStandard.TEXT_NOTE))
                 .limit(1)
             )
 
-            # Use the simple, synchronous get_events_of method
-            # Set a reasonable timeout
+            # Use the synchronous fetch_events method
             timeout = timedelta(seconds=10)
-            events = self.client.get_events_of([f], timeout)
+            events = self.client.fetch_events(f, timeout).to_vec()
 
             if not events:
                 logger.warning("No events found on relays for this user.")
