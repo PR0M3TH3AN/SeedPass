@@ -61,17 +61,20 @@ def test_relay_and_profile_actions(monkeypatch, capsys):
         )
 
         # Add a relay
-        with patch("builtins.input", return_value="wss://new"), patch(
-            "main.handle_post_to_nostr"
-        ), patch("main._reload_relays"):
+        with (
+            patch("builtins.input", return_value="wss://new"),
+            patch("main.handle_post_to_nostr"),
+            patch("main._reload_relays"),
+        ):
             main.handle_add_relay(pm)
         cfg = cfg_mgr.load_config(require_pin=False)
         assert "wss://new" in cfg["relays"]
 
         # Remove the relay
         idx = cfg["relays"].index("wss://new") + 1
-        with patch("builtins.input", return_value=str(idx)), patch(
-            "main._reload_relays"
+        with (
+            patch("builtins.input", return_value=str(idx)),
+            patch("main._reload_relays"),
         ):
             main.handle_remove_relay(pm)
         cfg = cfg_mgr.load_config(require_pin=False)

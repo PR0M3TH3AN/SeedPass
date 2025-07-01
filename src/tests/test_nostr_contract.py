@@ -58,9 +58,11 @@ def setup_client(tmp_path, server):
     key = Fernet.generate_key()
     enc_mgr = EncryptionManager(key, tmp_path)
 
-    with patch("nostr.client.Client", lambda signer: MockClient(server)), patch(
-        "nostr.client.KeyManager"
-    ) as MockKM, patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"):
+    with (
+        patch("nostr.client.Client", lambda signer: MockClient(server)),
+        patch("nostr.client.KeyManager") as MockKM,
+        patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"),
+    ):
         km_inst = MockKM.return_value
         km_inst.keys.private_key_hex.return_value = "1" * 64
         km_inst.keys.public_key_hex.return_value = "2" * 64

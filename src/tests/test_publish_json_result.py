@@ -14,10 +14,11 @@ def setup_client(tmp_path):
     key = Fernet.generate_key()
     enc_mgr = EncryptionManager(key, tmp_path)
 
-    with patch("nostr.client.ClientBuilder"), patch(
-        "nostr.client.KeyManager"
-    ) as MockKM, patch.object(NostrClient, "initialize_client_pool"), patch.object(
-        enc_mgr, "decrypt_parent_seed", return_value="seed"
+    with (
+        patch("nostr.client.ClientBuilder"),
+        patch("nostr.client.KeyManager") as MockKM,
+        patch.object(NostrClient, "initialize_client_pool"),
+        patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"),
     ):
         km_inst = MockKM.return_value
         km_inst.keys.private_key_hex.return_value = "1" * 64
@@ -55,8 +56,9 @@ class FakeSendEventOutput:
 
 
 def test_publish_json_success():
-    with TemporaryDirectory() as tmpdir, patch(
-        "nostr.client.EventBuilder.text_note", return_value=FakeBuilder()
+    with (
+        TemporaryDirectory() as tmpdir,
+        patch("nostr.client.EventBuilder.text_note", return_value=FakeBuilder()),
     ):
         client = setup_client(Path(tmpdir))
         with patch.object(
@@ -67,8 +69,9 @@ def test_publish_json_success():
 
 
 def test_publish_json_failure():
-    with TemporaryDirectory() as tmpdir, patch(
-        "nostr.client.EventBuilder.text_note", return_value=FakeBuilder()
+    with (
+        TemporaryDirectory() as tmpdir,
+        patch("nostr.client.EventBuilder.text_note", return_value=FakeBuilder()),
     ):
         client = setup_client(Path(tmpdir))
         with patch.object(client, "publish_event", side_effect=Exception("boom")):

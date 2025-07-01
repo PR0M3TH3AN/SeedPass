@@ -374,9 +374,10 @@ class EntryManager:
             backup_filename = f"passwords_db_backup_{timestamp}.json.enc"
             backup_path = self.fingerprint_dir / backup_filename
 
-            with open(index_file_path, "rb") as original_file, open(
-                backup_path, "wb"
-            ) as backup_file:
+            with (
+                open(index_file_path, "rb") as original_file,
+                open(backup_path, "wb") as backup_file,
+            ):
                 shutil.copyfileobj(original_file, backup_file)
 
             logger.debug(f"Backup created at '{backup_path}'.")
@@ -404,9 +405,10 @@ class EntryManager:
                 )
                 return
 
-            with open(backup_path, "rb") as backup_file, open(
-                self.index_file, "wb"
-            ) as index_file:
+            with (
+                open(backup_path, "rb") as backup_file,
+                open(self.index_file, "wb") as index_file,
+            ):
                 shutil.copyfileobj(backup_file, index_file)
 
             logger.debug(f"Index file restored from backup '{backup_path}'.")

@@ -25,14 +25,14 @@ def test_backup_and_publish_to_nostr():
         encrypted_index = entry_mgr.get_encrypted_index()
         assert encrypted_index is not None
 
-        with patch(
-            "nostr.client.NostrClient.publish_json_to_nostr", return_value=True
-        ) as mock_publish, patch("nostr.client.ClientBuilder"), patch(
-            "nostr.client.KeyManager"
-        ), patch.object(
-            NostrClient, "initialize_client_pool"
-        ), patch.object(
-            enc_mgr, "decrypt_parent_seed", return_value="seed"
+        with (
+            patch(
+                "nostr.client.NostrClient.publish_json_to_nostr", return_value=True
+            ) as mock_publish,
+            patch("nostr.client.ClientBuilder"),
+            patch("nostr.client.KeyManager"),
+            patch.object(NostrClient, "initialize_client_pool"),
+            patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"),
         ):
             nostr_client = NostrClient(enc_mgr, "fp")
             entry_mgr.backup_index_file()

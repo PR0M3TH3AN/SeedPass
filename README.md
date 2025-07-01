@@ -30,6 +30,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
 - [Security Considerations](#security-considerations)
+- [Release Workflow](#release-workflow)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -242,6 +243,22 @@ Contributions are welcome! If you have suggestions for improvements, bug fixes, 
    ```
 
 5. **Create a Pull Request:** Navigate to the original repository and create a pull request describing your changes.
+
+## Release Workflow
+
+SeedPass is packaged with **hatch**. Signed wheels are automatically published to **TestPyPI** whenever a Git tag is pushed. The workflow imports a GPG key and uploads the package using `pypa/gh-action-pypi-publish`.
+
+To trigger a release:
+
+1. Update the version in `pyproject.toml`.
+2. Commit the change and create a tag:
+
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+GitHub Actions will build the wheel with `hatch`, sign it with the provided GPG key, and upload it to TestPyPI.
 
 ## License
 

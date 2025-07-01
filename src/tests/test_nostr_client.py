@@ -16,9 +16,11 @@ def test_nostr_client_uses_custom_relays():
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         custom_relays = ["wss://relay1", "wss://relay2"]
 
-        with patch("nostr.client.ClientBuilder") as MockBuilder, patch(
-            "nostr.client.KeyManager"
-        ), patch.object(NostrClient, "initialize_client_pool"):
+        with (
+            patch("nostr.client.ClientBuilder") as MockBuilder,
+            patch("nostr.client.KeyManager"),
+            patch.object(NostrClient, "initialize_client_pool"),
+        ):
             mock_builder = MockBuilder.return_value
             with patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"):
                 client = NostrClient(enc_mgr, "fp", relays=custom_relays)
@@ -54,9 +56,11 @@ def _setup_client(tmpdir, fake_cls):
     key = Fernet.generate_key()
     enc_mgr = EncryptionManager(key, Path(tmpdir))
 
-    with patch("nostr.client.Client", fake_cls), patch(
-        "nostr.client.KeyManager"
-    ) as MockKM, patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"):
+    with (
+        patch("nostr.client.Client", fake_cls),
+        patch("nostr.client.KeyManager") as MockKM,
+        patch.object(enc_mgr, "decrypt_parent_seed", return_value="seed"),
+    ):
         km_inst = MockKM.return_value
         km_inst.keys.private_key_hex.return_value = "1" * 64
         client = NostrClient(enc_mgr, "fp")

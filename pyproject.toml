@@ -1,3 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "seedpass"
+version = "0.1.0"
+description = "Secure deterministic password manager using BIP-85 and Nostr"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "colorama>=0.4.6",
+    "termcolor>=1.1.0",
+    "cryptography>=40.0.2",
+    "bip-utils>=2.5.0",
+    "bech32==1.2.0",
+    "coincurve>=18.0.0",
+    "mnemonic",
+    "aiohttp",
+    "bcrypt",
+    "bip85",
+    "portalocker>=2.8",
+    "nostr-sdk>=0.42.1",
+    "websocket-client==1.7.0",
+    "websockets>=15.0.0",
+    "tomli"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
