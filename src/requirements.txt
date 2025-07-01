@@ -10,6 +10,7 @@ bcrypt
 bip85
 pytest>=7.0
 pytest-cov
+pytest-xdist
 portalocker>=2.8
 nostr-sdk>=0.42.1
 websocket-client==1.7.0
