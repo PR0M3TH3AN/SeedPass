@@ -11,7 +11,6 @@ this module enhances code reuse, security, and maintainability across the applic
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 
-import os
 import getpass
 import logging
 import sys
