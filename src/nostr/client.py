@@ -73,7 +73,11 @@ class NostrClient:
 
     def initialize_client_pool(self) -> None:
         """Add relays to the client and connect."""
-        self.client.add_relays(self.relays)
+        if hasattr(self.client, "add_relays"):
+            self.client.add_relays(self.relays)
+        else:
+            for relay in self.relays:
+                self.client.add_relay(relay)
         self.client.connect()
         logger.info(f"NostrClient connected to relays: {self.relays}")
 
