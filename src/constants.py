@@ -25,8 +25,7 @@ try:
         logger.info(f"Application directory created at {APP_DIR}")
 except Exception as e:
     if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Failed to create application directory: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to create application directory: {e}", exc_info=True)
 
 try:
     PARENT_SEED_FILE = APP_DIR / "parent_seed.enc"  # Encrypted parent seed
@@ -34,8 +33,7 @@ try:
         logger.info(f"Parent seed file path set to {PARENT_SEED_FILE}")
 except Exception as e:
     if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Error setting file paths: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Error setting file paths: {e}", exc_info=True)
 
 # -----------------------------------
 # Checksum Files for Integrity
@@ -48,8 +46,7 @@ try:
         logger.info(f"Checksum file path set: Script {SCRIPT_CHECKSUM_FILE}")
 except Exception as e:
     if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Error setting checksum file paths: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Error setting checksum file paths: {e}", exc_info=True)
 
 # -----------------------------------
 # Password Generation Constants

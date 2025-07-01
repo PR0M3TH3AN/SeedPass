@@ -89,8 +89,9 @@ def prompt_new_password() -> str:
             logging.info("Password prompt interrupted by user.")
             sys.exit(0)
         except Exception as e:
-            logging.error(f"Unexpected error during password prompt: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(
+                f"Unexpected error during password prompt: {e}", exc_info=True
+            )
             print(colored(f"Error: {e}", "red"))
             attempts += 1
 
@@ -132,8 +133,9 @@ def prompt_existing_password(prompt_message: str = "Enter your password: ") -> s
         logging.info("Existing password prompt interrupted by user.")
         sys.exit(0)
     except Exception as e:
-        logging.error(f"Unexpected error during existing password prompt: {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Unexpected error during existing password prompt: {e}", exc_info=True
+        )
         print(colored(f"Error: {e}", "red"))
         sys.exit(1)
 
@@ -171,8 +173,9 @@ def confirm_action(
         logging.info("Action confirmation interrupted by user.")
         sys.exit(0)
     except Exception as e:
-        logging.error(f"Unexpected error during action confirmation: {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Unexpected error during action confirmation: {e}", exc_info=True
+        )
         print(colored(f"Error: {e}", "red"))
         sys.exit(1)
 

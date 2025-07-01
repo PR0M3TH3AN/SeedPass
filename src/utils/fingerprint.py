@@ -43,6 +43,5 @@ def generate_fingerprint(seed_phrase: str, length: int = 16) -> Optional[str]:
 
         return fingerprint
     except Exception as e:
-        logger.error(f"Failed to generate fingerprint: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Failed to generate fingerprint: {e}", exc_info=True)
         return None

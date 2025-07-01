@@ -119,8 +119,7 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
         else:
             print(colored("Failed to switch seed profile.", "red"))
     except Exception as e:
-        logging.error(f"Error during fingerprint switch: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error during fingerprint switch: {e}", exc_info=True)
         print(colored(f"Error: Failed to switch seed profile: {e}", "red"))
 
 
@@ -133,8 +132,7 @@ def handle_add_new_fingerprint(password_manager: PasswordManager):
     try:
         password_manager.add_new_fingerprint()
     except Exception as e:
-        logging.error(f"Error adding new seed profile: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error adding new seed profile: {e}", exc_info=True)
         print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
 
 
@@ -178,8 +176,7 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
         else:
             print(colored("Seed profile removal cancelled.", "yellow"))
     except Exception as e:
-        logging.error(f"Error removing seed profile: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error removing seed profile: {e}", exc_info=True)
         print(colored(f"Error: Failed to remove seed profile: {e}", "red"))
 
 
@@ -199,8 +196,7 @@ def handle_list_fingerprints(password_manager: PasswordManager):
         for fp in fingerprints:
             print(colored(f"- {fp}", "cyan"))
     except Exception as e:
-        logging.error(f"Error listing seed profiles: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Error listing seed profiles: {e}", exc_info=True)
         print(colored(f"Error: Failed to list seed profiles: {e}", "red"))
 
 
@@ -217,8 +213,7 @@ def handle_display_npub(password_manager: PasswordManager):
             print(colored("Nostr public key not available.", "red"))
             logging.error("Nostr public key not available.")
     except Exception as e:
-        logging.error(f"Failed to display npub: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to display npub: {e}", exc_info=True)
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
@@ -247,8 +242,7 @@ def handle_post_to_nostr(
             print(colored("No data available to post.", "yellow"))
             logging.warning("No data available to post to Nostr.")
     except Exception as e:
-        logging.error(f"Failed to post to Nostr: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to post to Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to post to Nostr: {e}", "red"))
 
 
@@ -270,8 +264,7 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             print(colored("Failed to retrieve data from Nostr.", "red"))
             logging.error("Failed to retrieve data from Nostr.")
     except Exception as e:
-        logging.error(f"Failed to retrieve from Nostr: {e}")
-        logging.error(traceback.format_exc())
+        logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
 
 
@@ -594,8 +587,7 @@ if __name__ == "__main__":
         password_manager = PasswordManager(encryption_mode=enc_mode)
         logger.info("PasswordManager initialized successfully.")
     except Exception as e:
-        logger.error(f"Failed to initialize PasswordManager: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
         sys.exit(1)
 
@@ -632,8 +624,7 @@ if __name__ == "__main__":
             print(colored(f"Error during shutdown: {e}", "red"))
         sys.exit(0)
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
             password_manager.nostr_client.close_client_pool()  # Attempt to close the ClientPool

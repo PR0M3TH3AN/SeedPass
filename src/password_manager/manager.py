@@ -141,8 +141,7 @@ class PasswordManager:
             self.fingerprint_manager = FingerprintManager(APP_DIR)
             logger.debug("FingerprintManager initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize FingerprintManager: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to initialize FingerprintManager: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to initialize FingerprintManager: {e}", "red")
             )
@@ -187,8 +186,7 @@ class PasswordManager:
                 self.select_fingerprint(selected_fingerprint)
 
         except Exception as e:
-            logger.error(f"Error during seed profile selection: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error during seed profile selection: {e}", exc_info=True)
             print(colored(f"Error: Failed to select seed profile: {e}", "red"))
             sys.exit(1)
 
@@ -218,8 +216,7 @@ class PasswordManager:
             )
 
         except Exception as e:
-            logger.error(f"Error adding new seed profile: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error adding new seed profile: {e}", exc_info=True)
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
             sys.exit(1)
 
@@ -290,8 +287,7 @@ class PasswordManager:
                 print(colored("Invalid password. Exiting.", "red"))
                 sys.exit(1)
         except Exception as e:
-            logger.error(f"Failed to set up EncryptionManager: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
             print(colored(f"Error: Failed to set up encryption: {e}", "red"))
             sys.exit(1)
 
@@ -313,8 +309,7 @@ class PasswordManager:
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.bip85 = BIP85(seed_bytes)
         except Exception as e:
-            logger.error(f"Failed to load parent seed: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to load parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -385,8 +380,7 @@ class PasswordManager:
             return True  # Return True to indicate success
 
         except Exception as e:
-            logging.error(f"Error during seed profile switching: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during seed profile switching: {e}", exc_info=True)
             print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
             return False  # Return False to indicate failure
 
@@ -454,8 +448,7 @@ class PasswordManager:
             self.initialize_bip85()
             logging.debug("Parent seed decrypted and validated successfully.")
         except Exception as e:
-            logging.error(f"Failed to decrypt parent seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -655,8 +648,7 @@ class PasswordManager:
             mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
             return mnemonic
         except Exception as e:
-            logging.error(f"Failed to generate BIP-85 seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             sys.exit(1)
 
@@ -702,8 +694,7 @@ class PasswordManager:
             self.initialize_managers()
             self.sync_index_from_nostr_if_missing()
         except Exception as e:
-            logging.error(f"Failed to encrypt and save parent seed: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
             sys.exit(1)
 
@@ -716,8 +707,7 @@ class PasswordManager:
             self.bip85 = BIP85(seed_bytes)
             logging.debug("BIP-85 initialized successfully.")
         except Exception as e:
-            logging.error(f"Failed to initialize BIP-85: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to initialize BIP-85: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize BIP-85: {e}", "red"))
             sys.exit(1)
 
@@ -763,8 +753,7 @@ class PasswordManager:
             logger.debug("Managers re-initialized for the new fingerprint.")
 
         except Exception as e:
-            logger.error(f"Failed to initialize managers: {e}")
-            logging.error(traceback.format_exc())
+            logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
 
@@ -840,12 +829,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry addition."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during password generation: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during password generation: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
     def handle_retrieve_entry(self) -> None:
@@ -912,8 +902,7 @@ class PasswordManager:
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
         except Exception as e:
-            logging.error(f"Error during password retrieval: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during password retrieval: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve password: {e}", "red"))
 
     def handle_modify_entry(self) -> None:
@@ -1009,12 +998,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry modification."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during modifying entry: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
     def delete_entry(self) -> None:
@@ -1049,12 +1039,13 @@ class PasswordManager:
                         "Encrypted index posted to Nostr after entry deletion."
                     )
             except Exception as nostr_error:
-                logging.error(f"Failed to post updated index to Nostr: {nostr_error}")
-                logging.error(traceback.format_exc())
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logging.error(f"Error during entry deletion: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
     def handle_verify_checksum(self) -> None:
@@ -1075,8 +1066,7 @@ class PasswordManager:
                 )
                 logging.error("Checksum verification failed.")
         except Exception as e:
-            logging.error(f"Error during checksum verification: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during checksum verification: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify checksum: {e}", "red"))
 
     def get_encrypted_data(self) -> Optional[bytes]:
@@ -1095,8 +1085,7 @@ class PasswordManager:
                 print(colored("Error: Failed to retrieve encrypted index data.", "red"))
                 return None
         except Exception as e:
-            logging.error(f"Error retrieving encrypted data: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error retrieving encrypted data: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve encrypted data: {e}", "red"))
             return None
 
@@ -1111,8 +1100,9 @@ class PasswordManager:
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
-            logging.error(f"Failed to decrypt and save data from Nostr: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(
+                f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to decrypt and save data from Nostr: {e}", "red"
@@ -1129,8 +1119,7 @@ class PasswordManager:
             self.backup_manager.create_backup()
             print(colored("Backup created successfully.", "green"))
         except Exception as e:
-            logging.error(f"Failed to create backup: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to create backup: {e}", "red"))
 
     def restore_database(self) -> None:
@@ -1145,8 +1134,7 @@ class PasswordManager:
                 )
             )
         except Exception as e:
-            logging.error(f"Failed to restore backup: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
 
     def handle_backup_reveal_parent_seed(self) -> None:
@@ -1222,8 +1210,7 @@ class PasswordManager:
                 )
 
         except Exception as e:
-            logging.error(f"Error during parent seed backup/reveal: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error during parent seed backup/reveal: {e}", exc_info=True)
             print(colored(f"Error: Failed to backup/reveal parent seed: {e}", "red"))
 
     def verify_password(self, password: str) -> bool:
@@ -1258,8 +1245,7 @@ class PasswordManager:
                 logging.warning("Password verification failed.")
             return is_correct
         except Exception as e:
-            logging.error(f"Error verifying password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error verifying password: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify password: {e}", "red"))
             return False
 
@@ -1311,8 +1297,7 @@ class PasswordManager:
                 "User password hashed and stored successfully (using alternative method)."
             )
         except Exception as e:
-            logging.error(f"Failed to store hashed password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to store hashed password: {e}", exc_info=True)
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
 
@@ -1381,8 +1366,6 @@ class PasswordManager:
                 logging.error(
                     f"Failed to post updated index to Nostr after password change: {nostr_error}"
                 )
-                logging.error(traceback.format_exc())
         except Exception as e:
-            logging.error(f"Failed to change password: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))

@@ -68,8 +68,7 @@ class PasswordGenerator:
 
             logger.debug("PasswordGenerator initialized successfully.")
         except Exception as e:
-            logger.error(f"Failed to initialize PasswordGenerator: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to initialize PasswordGenerator: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize PasswordGenerator: {e}", "red"))
             raise
 
@@ -177,8 +176,7 @@ class PasswordGenerator:
             return password
 
         except Exception as e:
-            logger.error(f"Error generating password: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Error generating password: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
             raise
 
@@ -331,7 +329,6 @@ class PasswordGenerator:
             return "".join(password_chars)
 
         except Exception as e:
-            logger.error(f"Error ensuring password complexity: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Error ensuring password complexity: {e}", exc_info=True)
             print(colored(f"Error: Failed to ensure password complexity: {e}", "red"))
             raise

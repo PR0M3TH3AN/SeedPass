@@ -41,8 +41,7 @@ class BIP85:
                 self.bip32_ctx = Bip32Slip10Secp256k1.FromExtendedKey(seed_bytes)
             logging.debug("BIP32 context initialized successfully.")
         except Exception as e:
-            logging.error(f"Error initializing BIP32 context: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error initializing BIP32 context: {e}", exc_info=True)
             print(f"{Fore.RED}Error initializing BIP32 context: {e}")
             sys.exit(1)
 
@@ -96,8 +95,7 @@ class BIP85:
             logging.debug(f"Derived entropy: {entropy.hex()}")
             return entropy
         except Exception as e:
-            logging.error(f"Error deriving entropy: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error deriving entropy: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving entropy: {e}")
             sys.exit(1)
 
@@ -118,8 +116,7 @@ class BIP85:
             logging.debug(f"Derived mnemonic: {mnemonic}")
             return mnemonic.ToStr()
         except Exception as e:
-            logging.error(f"Error generating mnemonic: {e}")
-            logging.error(traceback.format_exc())  # Log full traceback
+            logging.error(f"Error generating mnemonic: {e}", exc_info=True)
             print(f"{Fore.RED}Error generating mnemonic: {e}")
             sys.exit(1)
 
@@ -130,7 +127,6 @@ class BIP85:
             logging.debug(f"Derived symmetric key: {key.hex()}")
             return key
         except Exception as e:
-            logging.error(f"Error deriving symmetric key: {e}")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error deriving symmetric key: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving symmetric key: {e}")
             sys.exit(1)

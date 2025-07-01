@@ -52,8 +52,9 @@ def calculate_checksum(file_path: str) -> Optional[str]:
         )
         return None
     except Exception as e:
-        logging.error(f"Error calculating checksum for '{file_path}': {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Error calculating checksum for '{file_path}': {e}", exc_info=True
+        )
         print(
             colored(
                 f"Error: Failed to calculate checksum for '{file_path}': {e}", "red"
@@ -87,8 +88,9 @@ def verify_checksum(current_checksum: str, checksum_file_path: str) -> bool:
         print(colored(f"Error: Checksum file '{checksum_file_path}' not found.", "red"))
         return False
     except Exception as e:
-        logging.error(f"Error reading checksum file '{checksum_file_path}': {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Error reading checksum file '{checksum_file_path}': {e}", exc_info=True
+        )
         print(
             colored(
                 f"Error: Failed to read checksum file '{checksum_file_path}': {e}",
@@ -118,8 +120,9 @@ def update_checksum(content: str, checksum_file_path: str) -> bool:
         logging.debug(f"Updated checksum for '{checksum_file_path}' to: {new_checksum}")
         return True
     except Exception as e:
-        logging.error(f"Failed to update checksum for '{checksum_file_path}': {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Failed to update checksum for '{checksum_file_path}': {e}", exc_info=True
+        )
         print(
             colored(
                 f"Error: Failed to update checksum for '{checksum_file_path}': {e}",
@@ -178,8 +181,10 @@ def initialize_checksum(file_path: str, checksum_file_path: str) -> bool:
         print(colored(f"Initialized checksum for '{file_path}'.", "green"))
         return True
     except Exception as e:
-        logging.error(f"Failed to initialize checksum file '{checksum_file_path}': {e}")
-        logging.error(traceback.format_exc())  # Log full traceback
+        logging.error(
+            f"Failed to initialize checksum file '{checksum_file_path}': {e}",
+            exc_info=True,
+        )
         print(
             colored(
                 f"Error: Failed to initialize checksum file '{checksum_file_path}': {e}",

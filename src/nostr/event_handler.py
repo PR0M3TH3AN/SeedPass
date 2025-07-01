@@ -47,7 +47,6 @@ class EventHandler:
                 f"[New Event] ID: {evt.id} | Created At: {created_at_str} | Content: {evt.content}"
             )
         except Exception as e:
-            logger.error(f"Error handling new event: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error handling new event: {e}", exc_info=True)
             # Optionally, handle the exception without re-raising
             # For example, continue processing other events
