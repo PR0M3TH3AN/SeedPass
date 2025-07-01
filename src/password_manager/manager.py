@@ -24,7 +24,12 @@ from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
-from utils.key_derivation import derive_key_from_parent_seed, derive_key_from_password
+from utils.key_derivation import (
+    derive_key_from_parent_seed,
+    derive_key_from_password,
+    derive_index_key,
+    DEFAULT_ENCRYPTION_MODE,
+)
 from utils.checksum import calculate_checksum, verify_checksum
 from utils.password_prompt import (
     prompt_for_password,
@@ -263,8 +268,15 @@ class PasswordManager:
             # Prompt for password if not provided
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
-            # Derive key from password
-            key = derive_key_from_password(password)
+            # Derive key using the configured encryption mode if seed is known
+            if self.parent_seed:
+                key = derive_index_key(
+                    self.parent_seed,
+                    password,
+                    DEFAULT_ENCRYPTION_MODE,
+                )
+            else:
+                key = derive_key_from_password(password)
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
             logger.debug(
@@ -513,7 +525,11 @@ class PasswordManager:
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
-                key = derive_key_from_password(password)
+                key = derive_index_key(
+                    parent_seed,
+                    password,
+                    DEFAULT_ENCRYPTION_MODE,
+                )
                 self.encryption_manager = EncryptionManager(key, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
@@ -644,8 +660,12 @@ class PasswordManager:
 
             # Prompt for password
             password = prompt_for_password()
-            # Derive key from password
-            key = derive_key_from_password(password)
+            # Derive key using the configured encryption mode
+            key = derive_index_key(
+                seed,
+                password,
+                DEFAULT_ENCRYPTION_MODE,
+            )
             # Re-initialize EncryptionManager with the new key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
 

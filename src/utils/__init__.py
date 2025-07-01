@@ -5,7 +5,13 @@ import traceback
 
 try:
     from .file_lock import exclusive_lock, shared_lock
-    from .key_derivation import derive_key_from_password, derive_key_from_parent_seed
+    from .key_derivation import (
+        derive_key_from_password,
+        derive_key_from_parent_seed,
+        derive_index_key,
+        EncryptionMode,
+        DEFAULT_ENCRYPTION_MODE,
+    )
     from .checksum import calculate_checksum, verify_checksum
     from .password_prompt import prompt_for_password
 
@@ -17,6 +23,9 @@ except Exception as e:
 __all__ = [
     "derive_key_from_password",
     "derive_key_from_parent_seed",
+    "derive_index_key",
+    "EncryptionMode",
+    "DEFAULT_ENCRYPTION_MODE",
     "calculate_checksum",
     "verify_checksum",
     "exclusive_lock",
