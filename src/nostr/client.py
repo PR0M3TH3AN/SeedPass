@@ -88,19 +88,23 @@ class NostrClient:
     def publish_json_to_nostr(
         self, encrypted_json: bytes, to_pubkey: str | None = None
     ) -> bool:
-        """Builds and publishes a Kind 1 text note to the configured relays."""
+        """Builds and publishes a Kind 1 text note or direct message."""
         try:
             content = base64.b64encode(encrypted_json).decode("utf-8")
 
-            # Use the EventBuilder to create and sign the event
-            event = (
-                EventBuilder.text_note(content)
-                .build(self.keys.public_key())
-                .sign_with_keys(self.keys)
-            )
+            if to_pubkey:
+                receiver = PublicKey.parse(to_pubkey)
+                event_output = self.client.send_private_msg_to(
+                    self.relays, receiver, content
+                )
+            else:
+                event = (
+                    EventBuilder.text_note(content)
+                    .build(self.keys.public_key())
+                    .sign_with_keys(self.keys)
+                )
+                event_output = self.publish_event(event)
 
-            # Send the event using the client
-            event_output = self.publish_event(event)
             event_id_hex = (
                 event_output.id.to_hex()
                 if hasattr(event_output, "id")
