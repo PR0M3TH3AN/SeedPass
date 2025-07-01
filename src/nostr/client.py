@@ -100,8 +100,13 @@ class NostrClient:
             )
 
             # Send the event using the client
-            event_id = self.publish_event(event)
-            logger.info(f"Successfully published event with ID: {event_id.to_hex()}")
+            event_output = self.publish_event(event)
+            event_id_hex = (
+                event_output.id.to_hex()
+                if hasattr(event_output, "id")
+                else str(event_output)
+            )
+            logger.info(f"Successfully published event with ID: {event_id_hex}")
             return True
 
         except Exception as e:
