@@ -128,7 +128,6 @@ class PasswordManager:
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
         self.setup_encryption_manager(self.fingerprint_dir)
-        self.load_parent_seed(self.fingerprint_dir)
         self.initialize_bip85()
         self.initialize_managers()
         self.locked = False
@@ -240,7 +239,6 @@ class PasswordManager:
                 sys.exit(1)
             # Setup the encryption manager and load parent seed
             self.setup_encryption_manager(self.fingerprint_dir)
-            self.load_parent_seed(self.fingerprint_dir)
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -257,41 +255,37 @@ class PasswordManager:
 
     def setup_encryption_manager(
         self, fingerprint_dir: Path, password: Optional[str] = None
-    ):
-        """
-        Sets up the EncryptionManager for the selected fingerprint.
+    ) -> None:
+        """Set up encryption for the current fingerprint and load the seed."""
 
-        Parameters:
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
-            password (Optional[str]): The user's master password.
-        """
         try:
-            # Prompt for password if not provided
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
-            # Derive key using the configured encryption mode if seed is known
-            if self.parent_seed:
-                key = derive_index_key(
-                    self.parent_seed,
-                    password,
-                    self.encryption_mode,
-                )
-            else:
-                key = derive_key_from_password(password)
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            self.vault = Vault(self.encryption_manager, fingerprint_dir)
-            logger.debug(
-                "EncryptionManager set up successfully for selected fingerprint."
+
+            if not self.parent_seed:
+                seed_key = derive_key_from_password(password)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                try:
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                except Exception:
+                    print(colored("Invalid password. Exiting.", "red"))
+                    raise
+
+            key = derive_index_key(
+                self.parent_seed,
+                password,
+                self.encryption_mode,
             )
 
-            # Initialize ConfigManager before verifying password
+            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
             self.config_manager = ConfigManager(
                 vault=self.vault,
                 fingerprint_dir=fingerprint_dir,
             )
 
-            # Verify the password
-            self.fingerprint_dir = fingerprint_dir  # Ensure self.fingerprint_dir is set
+            self.fingerprint_dir = fingerprint_dir
             if not self.verify_password(password):
                 print(colored("Invalid password. Exiting.", "red"))
                 sys.exit(1)
@@ -301,22 +295,23 @@ class PasswordManager:
             print(colored(f"Error: Failed to set up encryption: {e}", "red"))
             sys.exit(1)
 
-    def load_parent_seed(self, fingerprint_dir: Path):
-        """
-        Loads and decrypts the parent seed from the fingerprint directory.
+    def load_parent_seed(
+        self, fingerprint_dir: Path, password: Optional[str] = None
+    ) -> None:
+        """Load and decrypt the parent seed using the password-only key."""
 
-        Parameters:
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
-        """
+        if self.parent_seed:
+            return
+
+        if password is None:
+            password = prompt_existing_password("Enter your master password: ")
+
         try:
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
-            logger.debug(
-                f"Parent seed loaded for fingerprint {self.current_fingerprint}."
-            )
-            # Initialize BIP85 with the parent seed
+            seed_key = derive_key_from_password(password)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.bip85 = BIP85(seed_bytes)
-            logger.debug("BIP-85 initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to load parent seed: {e}")
             logger.error(traceback.format_exc())
@@ -363,9 +358,6 @@ class PasswordManager:
 
             # Set up the encryption manager with the new password and seed profile directory
             self.setup_encryption_manager(self.fingerprint_dir, password)
-
-            # Load the parent seed for the selected seed profile
-            self.load_parent_seed(self.fingerprint_dir)
 
             # Initialize BIP85 and other managers
             self.initialize_bip85()
@@ -546,16 +538,19 @@ class PasswordManager:
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
-                key = derive_index_key(
+                index_key = derive_index_key(
                     parent_seed,
                     password,
                     self.encryption_mode,
                 )
-                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                seed_key = derive_key_from_password(password)
+
+                self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
                 # Encrypt and save the parent seed
-                self.encryption_manager.encrypt_parent_seed(parent_seed)
+                seed_mgr.encrypt_parent_seed(parent_seed)
                 logging.info("Parent seed encrypted and saved successfully.")
 
                 # Store the hashed password
@@ -678,25 +673,23 @@ class PasswordManager:
 
             # Prompt for password
             password = prompt_for_password()
-            # Derive key using the configured encryption mode
-            key = derive_index_key(
+
+            index_key = derive_index_key(
                 seed,
                 password,
                 self.encryption_mode,
             )
+            seed_key = derive_key_from_password(password)
 
-            # Re-initialize EncryptionManager with the new key and fingerprint_dir
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
 
-            # Initialize the vault now that encryption manager is available
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
-            # Store the hashed password
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
-            # Encrypt and save the parent seed
-            self.encryption_manager.encrypt_parent_seed(seed)
+            seed_mgr.encrypt_parent_seed(seed)
             logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
@@ -1344,12 +1337,14 @@ class PasswordManager:
                     mode,
                 )
             except Exception:
-                # Fallback for tests or invalid seeds
                 new_key = derive_key_from_password(new_password)
+
+            seed_key = derive_key_from_password(new_password)
+            seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
+
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            # Re-encrypt sensitive files using the new manager
-            new_enc_mgr.encrypt_parent_seed(self.parent_seed)
+            seed_mgr.encrypt_parent_seed(self.parent_seed)
             self.vault.set_encryption_manager(new_enc_mgr)
             self.vault.save_index(index_data)
             self.config_manager.vault = self.vault
