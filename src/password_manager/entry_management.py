@@ -344,8 +344,8 @@ class EntryManager:
             json_content = json.dumps(data, indent=4)
             checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
 
-            # Construct the full path for the checksum file
-            checksum_path = self.fingerprint_dir / self.checksum_file
+            # The checksum file path already includes the fingerprint directory
+            checksum_path = self.checksum_file
 
             with open(checksum_path, "w") as f:
                 f.write(checksum)
@@ -363,7 +363,8 @@ class EntryManager:
         Creates a backup of the encrypted JSON index file to prevent data loss.
         """
         try:
-            index_file_path = self.fingerprint_dir / self.index_file
+            # self.index_file already includes the fingerprint directory
+            index_file_path = self.index_file
             if not index_file_path.exists():
                 logger.warning(
                     f"Index file '{index_file_path}' does not exist. No backup created."
