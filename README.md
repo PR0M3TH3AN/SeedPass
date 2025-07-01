@@ -195,6 +195,16 @@ pip install -r src/requirements.txt
 pytest -vv
 ```
 
+To run mutation tests locally, generate coverage data first and then execute `mutmut`:
+
+```bash
+pytest --cov=src src/tests
+python -m mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q" --use-coverage --no-progress
+python -m mutmut results
+```
+
+Mutation testing is disabled in the GitHub workflow due to reliability issues and should be run on a desktop environment instead.
+
 ## Security Considerations
 
 **Important:** The password you use to encrypt your parent seed is also required to decrypt the seed index data retrieved from Nostr. **It is imperative to remember this password** and be sure to use it with the same seed, as losing it means you won't be able to access your stored index. Secure your 12-word seed **and** your master password.
