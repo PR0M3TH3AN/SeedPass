@@ -162,9 +162,17 @@ class PasswordGenerator:
                     password = self._shuffle_deterministically(password, dk)
                     logger.debug(f"Extended password: {password}")
 
-            # Trim the password to the desired length
+            # Trim the password to the desired length and enforce complexity on
+            # the final result. Complexity enforcement is repeated here because
+            # trimming may remove required character classes from the password
+            # produced above when the requested length is shorter than the
+            # initial entropy size.
             password = password[:length]
-            logger.debug(f"Final password (trimmed to {length} chars): {password}")
+            password = self._enforce_complexity(password, all_allowed, dk)
+            password = self._shuffle_deterministically(password, dk)
+            logger.debug(
+                f"Final password (trimmed to {length} chars with complexity enforced): {password}"
+            )
 
             return password
 
