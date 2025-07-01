@@ -339,11 +339,13 @@ class EncryptionManager:
             relative_path = Path("seedpass_passwords_db.json.enc")
         try:
             file_path = self.fingerprint_dir / relative_path
-            decrypted_data = self.decrypt_file(relative_path)
-            content = decrypted_data.decode("utf-8")
-            logger.debug("Calculating checksum of the updated file content.")
+            logger.debug("Calculating checksum of the encrypted file bytes.")
 
-            checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            with exclusive_lock(file_path):
+                with open(file_path, "rb") as f:
+                    encrypted_bytes = f.read()
+
+            checksum = hashlib.sha256(encrypted_bytes).hexdigest()
             logger.debug(f"New checksum: {checksum}")
 
             checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
