@@ -1,7 +1,8 @@
 """Vault utilities for reading and writing encrypted files."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
+from os import PathLike
 
 from .encryption import EncryptionManager
 
@@ -12,9 +13,13 @@ class Vault:
     INDEX_FILENAME = "seedpass_passwords_db.json.enc"
     CONFIG_FILENAME = "seedpass_config.json.enc"
 
-    def __init__(self, encryption_manager: EncryptionManager, fingerprint_dir: Path):
+    def __init__(
+        self,
+        encryption_manager: EncryptionManager,
+        fingerprint_dir: Union[str, PathLike[str], Path],
+    ):
         self.encryption_manager = encryption_manager
-        self.fingerprint_dir = fingerprint_dir
+        self.fingerprint_dir = Path(fingerprint_dir)
         self.index_file = self.fingerprint_dir / self.INDEX_FILENAME
         self.config_file = self.fingerprint_dir / self.CONFIG_FILENAME
 

@@ -1,14 +1,15 @@
 """File-based locking utilities using portalocker for cross-platform support."""
 
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Generator, Optional, Union
+from os import PathLike
 from pathlib import Path
 import portalocker
 
 
 @contextmanager
 def exclusive_lock(
-    path: Path, timeout: Optional[float] = None
+    path: Union[str, PathLike[str], Path], timeout: Optional[float] = None
 ) -> Generator[None, None, None]:
     """Context manager that locks *path* exclusively.
 
@@ -29,7 +30,7 @@ def exclusive_lock(
 
 @contextmanager
 def shared_lock(
-    path: Path, timeout: Optional[float] = None
+    path: Union[str, PathLike[str], Path], timeout: Optional[float] = None
 ) -> Generator[None, None, None]:
     """Context manager that locks *path* with a shared lock.
 
