@@ -5,6 +5,7 @@ import json
 import logging
 from typing import List, Optional
 import hashlib
+import asyncio
 
 # Imports from the nostr-sdk library
 from nostr_sdk import (
@@ -73,12 +74,15 @@ class NostrClient:
 
     def initialize_client_pool(self) -> None:
         """Add relays to the client and connect."""
+        asyncio.run(self._initialize_client_pool())
+
+    async def _initialize_client_pool(self) -> None:
         if hasattr(self.client, "add_relays"):
-            self.client.add_relays(self.relays)
+            await self.client.add_relays(self.relays)
         else:
             for relay in self.relays:
-                self.client.add_relay(relay)
-        self.client.connect()
+                await self.client.add_relay(relay)
+        await self.client.connect()
         logger.info(f"NostrClient connected to relays: {self.relays}")
 
     def publish_json_to_nostr(
@@ -106,44 +110,42 @@ class NostrClient:
 
     def publish_event(self, event):
         """Publish a prepared event to the configured relays."""
-        return self.client.send_event(event)
+        return asyncio.run(self._publish_event(event))
+
+    async def _publish_event(self, event):
+        return await self.client.send_event(event)
 
     def retrieve_json_from_nostr_sync(self) -> Optional[bytes]:
         """Retrieves the latest Kind 1 event from the author."""
         try:
-            # Filter for the latest text note (Kind 1) from our public key
-            pubkey = self.keys.public_key()
-            f = (
-                Filter()
-                .author(pubkey)
-                .kind(Kind.from_std(KindStandard.TEXT_NOTE))
-                .limit(1)
-            )
-
-            # Use the synchronous fetch_events method
-            timeout = timedelta(seconds=10)
-            events = self.client.fetch_events(f, timeout).to_vec()
-
-            if not events:
-                logger.warning("No events found on relays for this user.")
-                return None
-
-            # The SDK returns the list of events, newest first due to limit=1
-            latest_event = events[0]
-            content_b64 = latest_event.content()
-
-            if content_b64:
-                return base64.b64decode(content_b64.encode("utf-8"))
-            return None
-
+            return asyncio.run(self._retrieve_json_from_nostr())
         except Exception as e:
             logger.error("Failed to retrieve events from Nostr: %s", e)
             return None
 
+    async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
+        # Filter for the latest text note (Kind 1) from our public key
+        pubkey = self.keys.public_key()
+        f = Filter().author(pubkey).kind(Kind.from_std(KindStandard.TEXT_NOTE)).limit(1)
+
+        timeout = timedelta(seconds=10)
+        events = (await self.client.fetch_events(f, timeout)).to_vec()
+
+        if not events:
+            logger.warning("No events found on relays for this user.")
+            return None
+
+        latest_event = events[0]
+        content_b64 = latest_event.content()
+
+        if content_b64:
+            return base64.b64decode(content_b64.encode("utf-8"))
+        return None
+
     def close_client_pool(self) -> None:
         """Disconnects the client from all relays."""
         try:
-            self.client.disconnect()
+            asyncio.run(self.client.disconnect())
             logger.info("NostrClient disconnected from relays.")
         except Exception as e:
             logger.error("Error during NostrClient shutdown: %s", e)
