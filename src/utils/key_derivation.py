@@ -96,8 +96,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
         return key_b64
 
     except Exception as e:
-        logger.error(f"Error deriving key from password: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Error deriving key from password: {e}", exc_info=True)
         raise
 
 
@@ -139,8 +138,7 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
 
         return derived_key
     except Exception as e:
-        logger.error(f"Failed to derive key using HKDF: {e}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Failed to derive key using HKDF: {e}", exc_info=True)
         raise
 
 

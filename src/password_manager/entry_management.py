@@ -92,8 +92,7 @@ class EntryManager:
             logger.debug(f"Next index determined: {next_index}")
             return next_index
         except Exception as e:
-            logger.error(f"Error determining next index: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Error determining next index: {e}", exc_info=True)
             print(colored(f"Error determining next index: {e}", "red"))
             sys.exit(1)
 
@@ -141,8 +140,7 @@ class EntryManager:
             return index  # Return the assigned index
 
         except Exception as e:
-            logger.error(f"Failed to add entry: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to add entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
 
@@ -155,8 +153,7 @@ class EntryManager:
         try:
             return self.vault.get_encrypted_index()
         except Exception as e:
-            logger.error(f"Failed to retrieve encrypted index file: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to retrieve encrypted index file: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to retrieve encrypted index file: {e}", "red")
             )
@@ -182,8 +179,9 @@ class EntryManager:
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to retrieve entry at index {index}: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(
+                f"Failed to retrieve entry at index {index}: {e}", exc_info=True
+            )
             print(
                 colored(f"Error: Failed to retrieve entry at index {index}: {e}", "red")
             )
@@ -247,8 +245,7 @@ class EntryManager:
             )
 
         except Exception as e:
-            logger.error(f"Failed to modify entry at index {index}: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"Failed to modify entry at index {index}: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
@@ -292,8 +289,7 @@ class EntryManager:
             return entries
 
         except Exception as e:
-            logger.error(f"Failed to list entries: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to list entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list entries: {e}", "red"))
             return []
 
@@ -329,8 +325,7 @@ class EntryManager:
                 )
 
         except Exception as e:
-            logger.error(f"Failed to delete entry at index {index}: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to delete entry at index {index}: {e}", exc_info=True)
             print(
                 colored(f"Error: Failed to delete entry at index {index}: {e}", "red")
             )
@@ -354,8 +349,7 @@ class EntryManager:
             print(colored(f"[+] Checksum updated successfully.", "green"))
 
         except Exception as e:
-            logger.error(f"Failed to update checksum: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to update checksum: {e}", exc_info=True)
             print(colored(f"Error: Failed to update checksum: {e}", "red"))
 
     def backup_index_file(self) -> None:
@@ -384,8 +378,7 @@ class EntryManager:
             print(colored(f"[+] Backup created at '{backup_path}'.", "green"))
 
         except Exception as e:
-            logger.error(f"Failed to create backup: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Warning: Failed to create backup: {e}", "yellow"))
 
     def restore_from_backup(self, backup_path: str) -> None:
@@ -420,8 +413,9 @@ class EntryManager:
             self.update_checksum()
 
         except Exception as e:
-            logger.error(f"Failed to restore from backup '{backup_path}': {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(
+                f"Failed to restore from backup '{backup_path}': {e}", exc_info=True
+            )
             print(
                 colored(
                     f"Error: Failed to restore from backup '{backup_path}': {e}", "red"
@@ -451,7 +445,6 @@ class EntryManager:
                 print("-" * 40)
 
         except Exception as e:
-            logger.error(f"Failed to list all entries: {e}")
-            logger.error(traceback.format_exc())  # Log full traceback
+            logger.error(f"Failed to list all entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list all entries: {e}", "red"))
             return

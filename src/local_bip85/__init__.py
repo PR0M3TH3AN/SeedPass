@@ -12,7 +12,6 @@ try:
         logger.info("BIP85 module imported successfully.")
 except Exception as e:
     if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Failed to import BIP85 module: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to import BIP85 module: {e}", exc_info=True)
 
 __all__ = ["BIP85"]

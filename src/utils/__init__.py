@@ -21,8 +21,7 @@ try:
         logger.info("Modules imported successfully.")
 except Exception as e:
     if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Failed to import one or more modules: {e}")
-        logger.error(traceback.format_exc())  # Log full traceback
+        logger.error(f"Failed to import one or more modules: {e}", exc_info=True)
 
 __all__ = [
     "derive_key_from_password",
