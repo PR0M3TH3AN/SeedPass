@@ -195,6 +195,18 @@ pip install -r src/requirements.txt
 pytest -vv
 ```
 
+### Automatically Updating the Script Checksum
+
+SeedPass stores a SHA-256 checksum for the main program in `~/.seedpass/seedpass_script_checksum.txt`.
+To keep this value in sync with the source code, install the pre‑push git hook:
+
+```bash
+pre-commit install -t pre-push
+```
+
+After running this command, every `git push` will execute `scripts/update_checksum.py`,
+updating the checksum file automatically.
+
 To run mutation tests locally, generate coverage data first and then execute `mutmut`:
 
 ```bash

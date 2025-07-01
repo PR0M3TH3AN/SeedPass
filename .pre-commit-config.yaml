@@ -13,3 +13,10 @@ repos:
     hooks:
       - id: bandit
         name: bandit
+  - repo: local
+    hooks:
+      - id: update-checksum
+        name: update-checksum
+        entry: python scripts/update_checksum.py
+        language: system
+        stages: [push]
