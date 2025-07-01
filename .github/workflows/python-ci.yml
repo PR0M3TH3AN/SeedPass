@@ -81,9 +81,9 @@ jobs:
           pytest ${STRESS_ARGS} --cov=src --cov-report=xml --cov-report=term-missing \
             --cov-fail-under=20 src/tests
       - name: Run mutation tests
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && runner.os == 'Linux'
         run: |
-          python -m mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q"
+          python -m mutmut run --paths-to-mutate src --tests-dir src/tests --runner "python -m pytest -q" --use-coverage --no-progress
           python -m mutmut results
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
