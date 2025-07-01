@@ -12,5 +12,5 @@ pytest>=7.0
 pytest-cov
 portalocker>=2.8
 pynostr>=0.6.2
-websocket-client
+websocket-client==1.7.0
 
