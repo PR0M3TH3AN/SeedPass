@@ -167,3 +167,32 @@ class KeyManager:
         private_key_hex = entropy_bytes.hex()
         keys = Keys(priv_key=private_key_hex)
         return keys
+
+
+def derive_index_key_seed_only(seed: str) -> bytes:
+    """Derive a deterministic Fernet key from only the BIP-39 seed."""
+    seed_bytes = Bip39SeedGenerator(seed).Generate()
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b"password-db",
+        backend=default_backend(),
+    )
+    key = hkdf.derive(seed_bytes)
+    return base64.urlsafe_b64encode(key)
+
+
+def derive_index_key_seed_plus_pw(seed: str, password: str) -> bytes:
+    """Derive the index key from seed and password combined."""
+    seed_bytes = Bip39SeedGenerator(seed).Generate()
+    pw_bytes = unicodedata.normalize("NFKD", password).encode("utf-8")
+    hkdf = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=b"password-db",
+        backend=default_backend(),
+    )
+    key = hkdf.derive(seed_bytes + b"|" + pw_bytes)
+    return base64.urlsafe_b64encode(key)
