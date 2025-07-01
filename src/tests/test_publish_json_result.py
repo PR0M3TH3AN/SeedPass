@@ -14,7 +14,7 @@ def setup_client(tmp_path):
     key = Fernet.generate_key()
     enc_mgr = EncryptionManager(key, tmp_path)
 
-    with patch("nostr.client.ClientPool"), patch(
+    with patch("nostr.client.WebSocketRelayManager"), patch(
         "nostr.client.KeyManager"
     ), patch.object(NostrClient, "initialize_client_pool"), patch.object(
         enc_mgr, "decrypt_parent_seed", return_value="seed"
@@ -27,10 +27,10 @@ class FakeEvent:
     KIND_TEXT_NOTE = 1
     KIND_ENCRYPT = 2
 
-    def __init__(self, kind, content, pub_key):
+    def __init__(self, kind, content, pub_key=None):
         self.kind = kind
         self.content = content
-        self.pub_key = pub_key
+        self.pubkey = pub_key
         self.id = "id"
 
     def sign(self, _):
