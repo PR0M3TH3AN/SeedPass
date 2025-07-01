@@ -11,7 +11,7 @@ bip85
 pytest>=7.0
 pytest-cov
 portalocker>=2.8
-pynostr>=0.6.2
+nostr-sdk>=0.42.1
 websocket-client==1.7.0
 
 websockets>=15.0.0
