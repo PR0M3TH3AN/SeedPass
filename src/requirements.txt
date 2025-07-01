@@ -14,3 +14,4 @@ portalocker>=2.8
 pynostr>=0.6.2
 websocket-client==1.7.0
 
+websockets>=15.0.0
