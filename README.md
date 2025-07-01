@@ -197,6 +197,7 @@ pytest -vv
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
+- **No PBKDF2 Salt Needed:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
