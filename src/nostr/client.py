@@ -3,14 +3,21 @@ import base64
 import hashlib
 import json
 import logging
-import time
-import uuid
 from pathlib import Path
 from typing import Callable, List, Optional
 
-from pynostr.websocket_relay_manager import WebSocketRelayManager
-from pynostr.event import Event, EventKind
-from pynostr.encrypted_dm import EncryptedDirectMessage
+from nostr_sdk import nostr_sdk as sdk
+from nostr_sdk import uniffi_set_event_loop
+
+# expose key SDK classes for easier mocking in tests
+ClientBuilder = sdk.ClientBuilder
+EventBuilder = sdk.EventBuilder
+Kind = sdk.Kind
+KindStandard = sdk.KindStandard
+Filter = sdk.Filter
+Keys = sdk.Keys
+PublicKey = sdk.PublicKey
+Duration = sdk.Duration
 
 from .key_manager import KeyManager
 from password_manager.encryption import EncryptionManager
@@ -28,7 +35,7 @@ DEFAULT_RELAYS = [
 
 
 class NostrClient:
-    """Interact with the Nostr network using pynostr."""
+    """Interact with the Nostr network using nostr-sdk."""
 
     def __init__(
         self,
@@ -49,47 +56,58 @@ class NostrClient:
         self.initialize_client_pool()
 
     def initialize_client_pool(self) -> None:
-        """Create the relay manager and connect to configured relays."""
-        self.client_pool = WebSocketRelayManager()
-        for relay in self.relays:
-            self.client_pool.add_relay(relay)
+        """Create the client and connect to configured relays."""
 
-    async def publish_event_async(self, event: Event) -> None:
-        logger.debug("Publishing event %s", event.id)
-        self.client_pool.publish_event(event)
+        async def _init() -> None:
+            uniffi_set_event_loop(asyncio.get_running_loop())
+            self.client_pool = ClientBuilder().build()
+            for relay in self.relays:
+                await self.client_pool.add_relay(relay)
+            await self.client_pool.connect()
 
-    def publish_event(self, event: Event) -> None:
-        self.client_pool.publish_event(event)
+        asyncio.run(_init())
+
+    async def publish_event_async(self, event) -> None:
+        logger.debug("Publishing event %s", event.id())
+        uniffi_set_event_loop(asyncio.get_running_loop())
+        await self.client_pool.send_event(event)
+
+    def publish_event(self, event) -> None:
+        asyncio.run(self.publish_event_async(event))
 
     async def subscribe_async(
         self,
         filters: List[dict],
-        handler: Callable[[WebSocketRelayManager, str, Event], None],
+        handler: Callable[[object, str, object], None],
         timeout: float = 2.0,
     ) -> None:
-        sub_id = str(uuid.uuid4())
-        from pynostr.filters import FiltersList
+        uniffi_set_event_loop(asyncio.get_running_loop())
+        for f in filters:
+            flt = Filter()
+            if "authors" in f:
+                flt = flt.authors([PublicKey.parse(a) for a in f["authors"]])
+            if "kinds" in f:
+                kinds = []
+                for k in f["kinds"]:
+                    if k == 1:
+                        kinds.append(sdk.Kind.from_std(sdk.KindStandard.TEXT_NOTE))
+                    elif k == 4:
+                        kinds.append(
+                            sdk.Kind.from_std(sdk.KindStandard.PRIVATE_DIRECT_MESSAGE)
+                        )
+                if kinds:
+                    flt = flt.kinds(kinds)
+            if "limit" in f:
+                flt = flt.limit(f["limit"])
 
-        filter_list = FiltersList.from_json_array(filters)
-        self.client_pool.add_subscription_on_all_relays(sub_id, filter_list)
-        self.subscriptions.add(sub_id)
-
-        end = asyncio.get_event_loop().time() + timeout
-        try:
-            while asyncio.get_event_loop().time() < end:
-                while self.client_pool.message_pool.has_events():
-                    msg = self.client_pool.message_pool.get_event()
-                    if msg.subscription_id == sub_id:
-                        handler(self.client_pool, sub_id, msg.event)
-                await asyncio.sleep(0.1)
-        finally:
-            self.client_pool.close_subscription_on_all_relays(sub_id)
-            self.subscriptions.discard(sub_id)
+            events = await self.client_pool.fetch_events(flt, Duration(seconds=timeout))
+            for evt in events:
+                handler(self.client_pool, "0", evt)
 
     def subscribe(
         self,
         filters: List[dict],
-        handler: Callable[[WebSocketRelayManager, str, Event], None],
+        handler: Callable[[object, str, object], None],
         timeout: float = 2.0,
     ) -> None:
         asyncio.run(self.subscribe_async(filters, handler, timeout))
@@ -98,13 +116,13 @@ class NostrClient:
         filters = [
             {
                 "authors": [self.key_manager.keys.public_key_hex()],
-                "kinds": [EventKind.TEXT_NOTE, EventKind.ENCRYPTED_DIRECT_MESSAGE],
+                "kinds": [1, 4],
                 "limit": 1,
             }
         ]
-        events: list[Event] = []
+        events: list = []
 
-        async def handler(_client, _sid, evt: Event):
+        async def handler(_client, _sid, evt):
             events.append(evt)
 
         await self.subscribe_async(filters, handler)
@@ -113,32 +131,26 @@ class NostrClient:
             return None
 
         event = events[0]
-        content_base64 = event.content
-        if event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
-            dm = EncryptedDirectMessage.from_event(event)
-            dm.decrypt(
-                self.key_manager.keys.private_key_hex(), public_key_hex=dm.pubkey
-            )
-            content_base64 = dm.cleartext_content
+        content_base64 = event.content()
         return content_base64
 
     def retrieve_json_from_nostr(self) -> Optional[str]:
         return asyncio.run(self.retrieve_json_from_nostr_async())
 
     async def do_post_async(self, text: str) -> None:
-        event = Event(kind=EventKind.TEXT_NOTE, content=text)
-        event.pubkey = self.key_manager.keys.public_key_hex()
-        event.created_at = int(time.time())
-        event.sign(self.key_manager.keys.private_key_hex())
+        keys = Keys.parse(self.key_manager.keys.private_key_hex())
+        event = (
+            EventBuilder.text_note(text).build(keys.public_key()).sign_with_keys(keys)
+        )
         await self.publish_event_async(event)
 
     async def subscribe_feed_async(
-        self, handler: Callable[[WebSocketRelayManager, str, Event], None]
+        self, handler: Callable[[object, str, object], None]
     ) -> None:
         filters = [
             {
                 "authors": [self.key_manager.keys.public_key_hex()],
-                "kinds": [EventKind.TEXT_NOTE, EventKind.ENCRYPTED_DIRECT_MESSAGE],
+                "kinds": [1, 4],
                 "limit": 100,
             }
         ]
@@ -190,19 +202,12 @@ class NostrClient:
     ) -> bool:
         try:
             content = base64.b64encode(encrypted_json).decode("utf-8")
-            if to_pubkey:
-                dm = EncryptedDirectMessage()
-                dm.encrypt(
-                    private_key_hex=self.key_manager.keys.private_key_hex(),
-                    cleartext_content=content,
-                    recipient_pubkey=to_pubkey,
-                )
-                event = dm.to_event()
-            else:
-                event = Event(kind=EventKind.TEXT_NOTE, content=content)
-                event.pubkey = self.key_manager.keys.public_key_hex()
-            event.created_at = int(time.time())
-            event.sign(self.key_manager.keys.private_key_hex())
+            keys = Keys.parse(self.key_manager.keys.private_key_hex())
+            event = (
+                EventBuilder.text_note(content)
+                .build(keys.public_key())
+                .sign_with_keys(keys)
+            )
             self.publish_event(event)
             return True
         except Exception as e:  # pragma: no cover - defensive
@@ -219,13 +224,14 @@ class NostrClient:
         self.decrypt_and_save_index_from_nostr(encrypted_data)
 
     async def close_client_pool_async(self) -> None:
-        self.client_pool.close_all_relay_connections()
+        uniffi_set_event_loop(asyncio.get_running_loop())
+        await self.client_pool.disconnect()
 
     def close_client_pool(self) -> None:
-        self.client_pool.close_all_relay_connections()
+        asyncio.run(self.close_client_pool_async())
 
     async def safe_close_connection(self, client):  # pragma: no cover - compatibility
         try:
-            await client.close_connection()
+            await client.disconnect()
         except Exception:
             pass

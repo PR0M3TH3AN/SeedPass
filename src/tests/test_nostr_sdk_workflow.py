@@ -4,9 +4,10 @@ import threading
 import time
 from websocket import create_connection
 
+import asyncio
 import websockets
 from nostr.key_manager import KeyManager
-from pynostr.event import Event, EventKind
+from nostr_sdk import nostr_sdk as sdk
 
 
 class FakeRelay:
@@ -35,7 +36,7 @@ def run_relay(relay, host="localhost", port=8765):
     asyncio.run(main())
 
 
-def test_pynostr_send_receive(tmp_path):
+def test_nostr_sdk_send_receive(tmp_path):
     relay = FakeRelay()
     thread = threading.Thread(target=run_relay, args=(relay,), daemon=True)
     thread.start()
@@ -48,12 +49,13 @@ def test_pynostr_send_receive(tmp_path):
 
     ws = create_connection("ws://localhost:8765")
 
-    event = Event(kind=EventKind.TEXT_NOTE, content="hello")
-    event.pubkey = km.get_public_key_hex()
-    event.created_at = int(time.time())
-    event.sign(km.get_private_key_hex())
-
-    ws.send(event.to_message())
+    keys = sdk.Keys.parse(km.get_private_key_hex())
+    event = (
+        sdk.EventBuilder.text_note("hello")
+        .build(keys.public_key())
+        .sign_with_keys(keys)
+    )
+    ws.send(json.dumps(["EVENT", json.loads(event.as_json())]))
     sub_id = "1"
     ws.send(json.dumps(["REQ", sub_id, {}]))
 
