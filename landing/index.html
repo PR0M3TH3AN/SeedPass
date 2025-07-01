@@ -62,18 +62,12 @@
                 <div class="container">
                     <h2 class="section-title" id="features-heading">Features</h2>
                     <ul>
-                        <li><i class="fas fa-key" aria-hidden="true"></i> Deterministic password generation using BIP-85
-                        </li>
-                        <li><i class="fas fa-lock" aria-hidden="true"></i> Encrypted local storage for seeds and sensitive data
-                        </li>
-                        <li><i class="fas fa-network-wired" aria-hidden="true"></i> Nostr relay integration for secure backup and retrieval
-                        </li>
-                        <li><i class="fas fa-exchange-alt" aria-hidden="true"></i> Seed/Fingerprint switching for managing multiple profiles
-                        </li>
-                        <li><i class="fas fa-seedling" aria-hidden="true"></i> Bring your own seed or generate one on demand
-                        </li>
-                        <li><i class="fas fa-terminal" aria-hidden="true"></i> User-friendly command-line interface
-                        </li>
+                        <li><i class="fas fa-key" aria-hidden="true"></i> Deterministic password generation using BIP-85</li>
+                        <li><i class="fas fa-lock" aria-hidden="true"></i> Encrypted local storage for seeds and sensitive data</li>
+                        <li><i class="fas fa-network-wired" aria-hidden="true"></i> Nostr relay integration for secure backup and retrieval</li>
+                        <li><i class="fas fa-exchange-alt" aria-hidden="true"></i> Seed/Fingerprint switching for managing multiple profiles</li>
+                        <li><i class="fas fa-check" aria-hidden="true"></i> Checksum verification to ensure script integrity</li>
+                        <li><i class="fas fa-terminal" aria-hidden="true"></i> Interactive TUI for managing entries and settings</li>
                     </ul>
                 </div>
             </section>
@@ -98,43 +92,20 @@
                     <p>SeedPass allows you to manage multiple seed profiles (fingerprints). You can switch between different seeds to compartmentalize your passwords.</p>
                     <h3 class="subsection-title">Nostr Relay Integration</h3>
                     <p>By integrating with the Nostr network, SeedPass securely backs up your encrypted password index to Nostr relays, allowing you to retrieve your index on multiple devices without compromising security.</p>
-                    <h3 class="subsection-title">Bring Your Own Seed</h3>
-                    <p>You can bring your own BIP-39 seed or generate a new one within SeedPass. This gives you flexibility and control over your master seed.</p>
-                    <h3 class="subsection-title">Command-Line Interface</h3>
-                    <p>Interact with SeedPass using a user-friendly CLI. Here's an example of the current interface:</p>
+                    <h3 class="subsection-title">Checksum Verification</h3>
+                    <p>Built-in checksum verification ensures your SeedPass installation hasn't been tampered with.</p>
+                    <h3 class="subsection-title">Interactive TUI</h3>
+                    <p>Navigate through menus to manage entries and settings. Example:</p>
                     <pre class="code-block">
-(venv) user@debian:~/SeedPass/src$ python main.py
+Select an option:
+1. Add Entry
+2. Retrieve Entry
+3. Modify an Existing Entry
+4. Settings
+5. Exit
 
-Available Fingerprints:
-1. 31DD880A523B9759
-2. Add a new fingerprint
-Select a fingerprint by number: 1
-Enter your master password: 
-Fingerprint 31DD880A523B9759 selected and managers initialized.
-
-    Select an option:
-    1. Add Entry
-    2. Retrieve Entry
-    3. Modify an Existing Entry
-    4. Backup to Nostr
-    5. Restore from Nostr
-    6. Switch Fingerprint
-    7. Add a New Fingerprint
-    8. Remove an Existing Fingerprint
-    9. List All Fingerprints
-    10. Settings
-    11. Exit
-
-Enter your choice (1-11): 1
-Enter the website name: newsitename
-Enter the username (optional): 
-Enter the URL (optional): 
-Enter desired password length (default 16): 
-[+] Entry added successfully at index 0.
-[+] Password generated and indexed with ID 0.
-
-Password for newsitename: 06~8Eo(~D8t+G7D}
-                </pre>
+Enter your choice (1-5):
+                    </pre>
                 </div>
             </section>
             <!-- Roadmap Section -->
@@ -238,45 +209,7 @@ Password for newsitename: 06~8Eo(~D8t+G7D}
             <section class="disclaimer" id="disclaimer" aria-labelledby="disclaimer-heading">
                 <div class="container">
                     <h2 class="section-title" id="disclaimer-heading">Disclaimer</h2>
-                    <p><strong>⚠️ Use with Caution:</strong> Please read the following terms carefully.</p>
-                    <ul>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>No Guarantees:</strong>
-                            <span> SeedPass is provided "as is" without any warranties, express or implied. We do not guarantee that the software is free from errors, bugs, or vulnerabilities.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>Security Risks:</strong>
-                            <span> While SeedPass employs robust security measures, no system can be completely secure. Use it at your own risk, and ensure you have proper backups of your data.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>Not Professional Advice:</strong>
-                            <span> SeedPass is not a substitute for professional security or cryptographic advice. Consult with a security expert before using it in critical or sensitive environments.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>Liability Limitation:</strong>
-                            <span> We are not liable for any damages, losses, or other liabilities arising from the use or inability to use SeedPass.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>Regular Backups:</strong>
-                            <span> Always maintain regular backups of your seeds and sensitive data to prevent loss in case of unforeseen issues.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>User Responsibility:</strong>
-                            <span> Users are responsible for the secure storage and management of their master seeds and any derived seeds. Unauthorized access to these seeds can compromise all associated passwords and accounts.</span>
-                        </li>
-                        <li>
-                            <i class="fas fa-info-circle" aria-hidden="true"></i>
-                            <strong>Updates and Maintenance:</strong>
-                            <span> While we strive to keep SeedPass updated and secure, we cannot promise timely updates or maintenance. Users should stay informed about the latest security practices and updates.</span>
-                        </li>
-                    </ul>
-                    <p>Please ensure you understand the risks involved and take appropriate measures to secure your data. By using SeedPass, you acknowledge and agree to these terms.</p>
+                    <p><strong>⚠️ Disclaimer:</strong> This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.</p>
                 </div>
             </section>
         </main>
@@ -291,6 +224,8 @@ Password for newsitename: 06~8Eo(~D8t+G7D}
                         </svg> </a>
                     <!-- GitHub Link -->
                     <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank" aria-label="GitHub Repository" rel="noopener noreferrer"> <i class="fab fa-github"></i> </a>
+                    <!-- Leave a Tip Link -->
+                    <a href="https://nostrtipjar.netlify.app/?n=npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp" target="_blank" aria-label="Leave a Tip" rel="noopener noreferrer">Leave a Tip</a>
                 </div>
                 <p>&copy; 2024 SeedPass. All rights reserved.</p>
             </div>
