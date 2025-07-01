@@ -19,14 +19,22 @@ def _try_lock(path: Path, wait_time: mp.Value):
         wait_time.value = time.perf_counter() - t0
 
 
-def test_exclusive_lock_blocks_until_released(tmp_path: Path):
+def test_exclusive_lock_blocks_until_released(tmp_path: Path) -> None:
     file_path = tmp_path / "locktest.txt"
 
-    started = mp.Event()
-    wait_time = mp.Value("d", 0.0)
+    # Use 'fork' start method when available for more deterministic timing on
+    # platforms like macOS where the default 'spawn' method can delay process
+    # startup significantly.
+    if "fork" in mp.get_all_start_methods():
+        ctx = mp.get_context("fork")
+    else:
+        ctx = mp.get_context()
 
-    p1 = mp.Process(target=_hold_lock, args=(file_path, 1.0, started))
-    p2 = mp.Process(target=_try_lock, args=(file_path, wait_time))
+    started = ctx.Event()
+    wait_time = ctx.Value("d", 0.0)
+
+    p1 = ctx.Process(target=_hold_lock, args=(file_path, 1.0, started))
+    p2 = ctx.Process(target=_try_lock, args=(file_path, wait_time))
 
     p1.start()
     started.wait()
