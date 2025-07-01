@@ -101,7 +101,7 @@ class NostrClient:
                 flt = flt.limit(f["limit"])
 
             events = await self.client_pool.fetch_events(flt, Duration(seconds=timeout))
-            for evt in events:
+            for evt in events.to_vec():
                 handler(self.client_pool, "0", evt)
 
     def subscribe(
