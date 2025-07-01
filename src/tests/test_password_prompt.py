@@ -2,6 +2,7 @@ import builtins
 from itertools import cycle
 
 import pytest
+import logging
 
 from utils import password_prompt
 
@@ -15,10 +16,12 @@ def test_prompt_new_password(monkeypatch):
     assert result == "goodpass"
 
 
-def test_prompt_new_password_retry(monkeypatch):
+def test_prompt_new_password_retry(monkeypatch, caplog):
     seq = iter(["pass1", "pass2", "passgood", "passgood"])
     monkeypatch.setattr(password_prompt.getpass, "getpass", lambda prompt: next(seq))
+    caplog.set_level(logging.WARNING)
     result = password_prompt.prompt_new_password()
+    assert "User entered a password shorter" in caplog.text
     assert result == "passgood"
 
 

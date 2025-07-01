@@ -3,12 +3,16 @@
 import logging
 import traceback
 
+logger = logging.getLogger(__name__)
+
 try:
     from .bip85 import BIP85
 
-    logging.info("BIP85 module imported successfully.")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.info("BIP85 module imported successfully.")
 except Exception as e:
-    logging.error(f"Failed to import BIP85 module: {e}")
-    logging.error(traceback.format_exc())  # Log full traceback
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.error(f"Failed to import BIP85 module: {e}")
+        logger.error(traceback.format_exc())  # Log full traceback
 
 __all__ = ["BIP85"]
