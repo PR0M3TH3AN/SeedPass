@@ -18,7 +18,6 @@ from nostr.client import NostrClient
 from utils.key_derivation import (
     derive_index_key,
     EncryptionMode,
-    DEFAULT_ENCRYPTION_MODE,
 )
 from password_manager.encryption import EncryptionManager
 from utils.checksum import json_checksum, canonical_json_dumps
