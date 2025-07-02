@@ -29,8 +29,17 @@ class Vault:
 
     # ----- Password index helpers -----
     def load_index(self) -> dict:
-        """Return decrypted password index data as a dict."""
-        return self.encryption_manager.load_json_data(self.index_file)
+        """Return decrypted password index data as a dict, applying migrations."""
+        data = self.encryption_manager.load_json_data(self.index_file)
+        from .migrations import apply_migrations, LATEST_VERSION
+
+        version = data.get("schema_version", 0)
+        if version > LATEST_VERSION:
+            raise ValueError(
+                f"File schema version {version} is newer than supported {LATEST_VERSION}"
+            )
+        data = apply_migrations(data)
+        return data
 
     def save_index(self, data: dict) -> None:
         """Encrypt and write password index."""

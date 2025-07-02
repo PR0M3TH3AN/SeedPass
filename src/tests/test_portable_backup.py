@@ -54,7 +54,7 @@ def test_round_trip_across_modes(monkeypatch):
 
             vault.save_index({"pw": 0})
             import_backup(vault, backup, path)
-            assert vault.load_index() == data
+            assert vault.load_index()["pw"] == data["pw"]
 
 
 def test_corruption_detection(monkeypatch):
@@ -113,4 +113,5 @@ def test_import_over_existing(monkeypatch):
 
         vault.save_index({"v": 2})
         import_backup(vault, backup, path)
-        assert vault.load_index() == {"v": 1}
+        loaded = vault.load_index()
+        assert loaded["v"] == 1

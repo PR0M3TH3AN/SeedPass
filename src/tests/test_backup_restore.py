@@ -45,11 +45,11 @@ def test_backup_restore_workflow(monkeypatch):
 
         vault.save_index({"passwords": {"temp": {}}})
         backup_mgr.restore_latest_backup()
-        assert vault.load_index() == data2
+        assert vault.load_index()["passwords"] == data2["passwords"]
 
         vault.save_index({"passwords": {}})
         backup_mgr.restore_backup_by_timestamp(1111)
-        assert vault.load_index() == data1
+        assert vault.load_index()["passwords"] == data1["passwords"]
 
         backup1.unlink()
         current = vault.load_index()
