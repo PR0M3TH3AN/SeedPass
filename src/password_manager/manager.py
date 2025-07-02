@@ -29,7 +29,6 @@ from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
     derive_index_key,
-    DEFAULT_ENCRYPTION_MODE,
     EncryptionMode,
 )
 from utils.checksum import calculate_checksum, verify_checksum
@@ -79,11 +78,9 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(
-        self, encryption_mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize the PasswordManager."""
-        self.encryption_mode: EncryptionMode = encryption_mode
+        self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
@@ -114,15 +111,6 @@ class PasswordManager:
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
         self.last_activity = time.time()
-
-    def prompt_encryption_mode(self) -> EncryptionMode:
-        """Prompt the user to select an encryption mode.
-
-        Returns:
-            EncryptionMode: The chosen encryption mode.
-        """
-        # Only seed-only mode is supported
-        return EncryptionMode.SEED_ONLY
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
@@ -210,7 +198,6 @@ class PasswordManager:
         it from a seed phrase.
         """
         try:
-            self.encryption_mode = self.prompt_encryption_mode()
             choice = input(
                 "Do you want to (1) Enter an existing seed or (2) Generate a new seed? (1/2): "
             ).strip()
@@ -486,8 +473,6 @@ class PasswordManager:
         Asks the user whether to enter an existing BIP-85 seed or generate a new one.
         """
         print(colored("No existing seed found. Let's set up a new one!", "yellow"))
-
-        self.encryption_mode = self.prompt_encryption_mode()
 
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
@@ -1403,7 +1388,6 @@ class PasswordManager:
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
-            mode = getattr(self, "encryption_mode", DEFAULT_ENCRYPTION_MODE)
             new_key = derive_index_key(self.parent_seed)
 
             seed_key = derive_key_from_password(new_password)
@@ -1444,47 +1428,3 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))
-
-    def change_encryption_mode(self, new_mode: EncryptionMode) -> None:
-        """Re-encrypt the index using a different encryption mode."""
-        try:
-            password = prompt_existing_password("Enter your current master password: ")
-            if not self.verify_password(password):
-                print(colored("Incorrect password.", "red"))
-                return
-
-            index_data = self.vault.load_index()
-            config_data = self.config_manager.load_config(require_pin=False)
-
-            new_key = derive_index_key(self.parent_seed)
-            new_mgr = EncryptionManager(new_key, self.fingerprint_dir)
-
-            self.vault.set_encryption_manager(new_mgr)
-            self.vault.save_index(index_data)
-            self.config_manager.vault = self.vault
-            self.config_manager.save_config(config_data)
-
-            self.encryption_manager = new_mgr
-            self.password_generator.encryption_manager = new_mgr
-            self.encryption_mode = new_mode
-
-            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
-            self.nostr_client = NostrClient(
-                encryption_manager=self.encryption_manager,
-                fingerprint=self.current_fingerprint,
-                relays=relay_list,
-                parent_seed=getattr(self, "parent_seed", None),
-            )
-
-            print(colored("Encryption mode changed successfully.", "green"))
-
-            try:
-                summary = f"mode-change-{int(time.time())}"
-                self.sync_vault(alt_summary=summary)
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr after encryption mode change: {nostr_error}"
-                )
-        except Exception as e:
-            logging.error(f"Failed to change encryption mode: {e}", exc_info=True)
-            print(colored(f"Error: Failed to change encryption mode: {e}", "red"))
