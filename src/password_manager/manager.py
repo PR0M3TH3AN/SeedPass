@@ -24,11 +24,7 @@ from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
-from password_manager.portable_backup import (
-    export_backup,
-    import_backup,
-    PortableMode,
-)
+from password_manager.portable_backup import export_backup, import_backup
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -125,22 +121,7 @@ class PasswordManager:
         Returns:
             EncryptionMode: The chosen encryption mode.
         """
-        print("Choose encryption mode  [Enter for seed-only]")
-        print("    1) seed-only")
-        print("    2) seed+password")
-        print("    3) password-only (legacy)")
-        mode_choice = input("Select option: ").strip()
-
-        if mode_choice == "2":
-            return EncryptionMode.SEED_PLUS_PW
-        elif mode_choice == "3":
-            print(
-                colored(
-                    "⚠️ Password-only encryption is less secure and not recommended.",
-                    "yellow",
-                )
-            )
-            return EncryptionMode.PW_ONLY
+        # Only seed-only mode is supported
         return EncryptionMode.SEED_ONLY
 
     def lock_vault(self) -> None:
@@ -309,11 +290,7 @@ class PasswordManager:
                     sys.exit(1)
                 return False
 
-            key = derive_index_key(
-                self.parent_seed,
-                password,
-                self.encryption_mode,
-            )
+            key = derive_index_key(self.parent_seed)
 
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
@@ -566,11 +543,7 @@ class PasswordManager:
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
-                index_key = derive_index_key(
-                    parent_seed,
-                    password,
-                    self.encryption_mode,
-                )
+                index_key = derive_index_key(parent_seed)
                 seed_key = derive_key_from_password(password)
 
                 self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
@@ -707,11 +680,7 @@ class PasswordManager:
             # Prompt for password
             password = prompt_for_password()
 
-            index_key = derive_index_key(
-                seed,
-                password,
-                self.encryption_mode,
-            )
+            index_key = derive_index_key(seed)
             seed_key = derive_key_from_password(password)
 
             self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
@@ -1225,7 +1194,6 @@ class PasswordManager:
 
     def handle_export_database(
         self,
-        mode: "PortableMode" = PortableMode.SEED_ONLY,
         dest: Path | None = None,
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
@@ -1233,7 +1201,6 @@ class PasswordManager:
             path = export_backup(
                 self.vault,
                 self.backup_manager,
-                mode,
                 dest,
                 parent_seed=self.parent_seed,
             )
@@ -1438,14 +1405,7 @@ class PasswordManager:
 
             # Create a new encryption manager with the new password
             mode = getattr(self, "encryption_mode", DEFAULT_ENCRYPTION_MODE)
-            try:
-                new_key = derive_index_key(
-                    self.parent_seed,
-                    new_password,
-                    mode,
-                )
-            except Exception:
-                new_key = derive_key_from_password(new_password)
+            new_key = derive_index_key(self.parent_seed)
 
             seed_key = derive_key_from_password(new_password)
             seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
@@ -1497,7 +1457,7 @@ class PasswordManager:
             index_data = self.vault.load_index()
             config_data = self.config_manager.load_config(require_pin=False)
 
-            new_key = derive_index_key(self.parent_seed, password, new_mode)
+            new_key = derive_index_key(self.parent_seed)
             new_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
             self.vault.set_encryption_manager(new_mgr)

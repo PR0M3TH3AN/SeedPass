@@ -41,8 +41,6 @@ class EncryptionMode(Enum):
     """Supported key derivation modes for database encryption."""
 
     SEED_ONLY = "seed-only"
-    SEED_PLUS_PW = "seed+pw"
-    PW_ONLY = "pw-only"
 
 
 DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
@@ -193,35 +191,6 @@ def derive_index_key_seed_only(seed: str) -> bytes:
     return base64.urlsafe_b64encode(key)
 
 
-def derive_index_key_seed_plus_pw(seed: str, password: str) -> bytes:
-    """Derive the index key from seed and password combined."""
-    seed_bytes = Bip39SeedGenerator(seed).Generate()
-    pw_bytes = unicodedata.normalize("NFKD", password).encode("utf-8")
-    hkdf = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b"password-db",
-        backend=default_backend(),
-    )
-    key = hkdf.derive(seed_bytes + b"|" + pw_bytes)
-    return base64.urlsafe_b64encode(key)
-
-
-def derive_index_key(
-    seed: str,
-    password: Optional[str] = None,
-    mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE,
-) -> bytes:
-    """Derive the index encryption key based on the selected mode."""
-    if mode == EncryptionMode.SEED_ONLY:
-        return derive_index_key_seed_only(seed)
-    if mode == EncryptionMode.SEED_PLUS_PW:
-        if password is None:
-            raise ValueError("Password required for seed+pw mode")
-        return derive_index_key_seed_plus_pw(seed, password)
-    if mode == EncryptionMode.PW_ONLY:
-        if password is None:
-            raise ValueError("Password required for pw-only mode")
-        return derive_key_from_password(password)
-    raise ValueError(f"Unsupported encryption mode: {mode}")
+def derive_index_key(seed: str) -> bytes:
+    """Derive the index encryption key."""
+    return derive_index_key_seed_only(seed)

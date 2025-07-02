@@ -7,7 +7,6 @@ import pytest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
-from password_manager.portable_backup import PortableMode
 from password_manager.manager import PasswordManager
 
 
@@ -19,8 +18,8 @@ def _run(argv, monkeypatch):
     def fake_init(self, encryption_mode):
         called["init"] = True
 
-    def fake_export(self, mode, dest):
-        called["export"] = (mode, Path(dest))
+    def fake_export(self, dest):
+        called["export"] = Path(dest)
 
     def fake_import(self, src):
         called["import"] = Path(src)
@@ -36,8 +35,8 @@ def _run(argv, monkeypatch):
 
 
 def test_export_command_invokes_handler(monkeypatch):
-    called = _run(["export", "--mode", "pw-only", "--file", "out.json"], monkeypatch)
-    assert called["export"] == (PortableMode.PW_ONLY, Path("out.json"))
+    called = _run(["export", "--file", "out.json"], monkeypatch)
+    assert called["export"] == Path("out.json")
     assert "import" not in called
 
 

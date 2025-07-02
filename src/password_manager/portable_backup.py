@@ -20,7 +20,6 @@ from utils.key_derivation import (
     EncryptionMode,
     DEFAULT_ENCRYPTION_MODE,
 )
-from utils.password_prompt import prompt_existing_password
 from password_manager.encryption import EncryptionManager
 from utils.checksum import json_checksum, canonical_json_dumps
 
@@ -34,25 +33,17 @@ class PortableMode(Enum):
     """Encryption mode for portable exports."""
 
     SEED_ONLY = EncryptionMode.SEED_ONLY.value
-    SEED_PLUS_PW = EncryptionMode.SEED_PLUS_PW.value
-    PW_ONLY = EncryptionMode.PW_ONLY.value
 
 
-def _derive_export_key(
-    seed: str,
-    mode: PortableMode,
-    password: str | None = None,
-) -> bytes:
+def _derive_export_key(seed: str) -> bytes:
     """Derive the Fernet key for the export payload."""
 
-    enc_mode = EncryptionMode(mode.value)
-    return derive_index_key(seed, password, enc_mode)
+    return derive_index_key(seed)
 
 
 def export_backup(
     vault: Vault,
     backup_manager: BackupManager,
-    mode: PortableMode = PortableMode.SEED_ONLY,
     dest_path: Path | None = None,
     *,
     publish: bool = False,
@@ -72,11 +63,7 @@ def export_backup(
         if parent_seed is not None
         else vault.encryption_manager.decrypt_parent_seed()
     )
-    password = None
-    if mode in (PortableMode.SEED_PLUS_PW, PortableMode.PW_ONLY):
-        password = prompt_existing_password("Enter your master password: ")
-
-    key = _derive_export_key(seed, mode, password)
+    key = _derive_export_key(seed)
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
 
     canonical = canonical_json_dumps(index_data)
@@ -87,7 +74,7 @@ def export_backup(
         "format_version": FORMAT_VERSION,
         "created_at": int(time.time()),
         "fingerprint": vault.fingerprint_dir.name,
-        "encryption_mode": mode.value,
+        "encryption_mode": PortableMode.SEED_ONLY.value,
         "cipher": "fernet",
         "checksum": checksum,
         "payload": base64.b64encode(payload_bytes).decode("utf-8"),
@@ -127,7 +114,8 @@ def import_backup(
     if wrapper.get("format_version") != FORMAT_VERSION:
         raise ValueError("Unsupported backup format")
 
-    mode = PortableMode(wrapper.get("encryption_mode", PortableMode.SEED_ONLY.value))
+    if wrapper.get("encryption_mode") != PortableMode.SEED_ONLY.value:
+        raise ValueError("Unsupported encryption mode")
     payload = base64.b64decode(wrapper["payload"])
 
     seed = (
@@ -135,11 +123,7 @@ def import_backup(
         if parent_seed is not None
         else vault.encryption_manager.decrypt_parent_seed()
     )
-    password = None
-    if mode in (PortableMode.SEED_PLUS_PW, PortableMode.PW_ONLY):
-        password = prompt_existing_password("Enter your master password: ")
-
-    key = _derive_export_key(seed, mode, password)
+    key = _derive_export_key(seed)
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
     index_bytes = enc_mgr.decrypt_data(payload)
     index = json.loads(index_bytes.decode("utf-8"))

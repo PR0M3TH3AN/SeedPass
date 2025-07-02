@@ -24,7 +24,7 @@ def test_password_change_and_unlock(monkeypatch):
         new_pw = "newpw"
 
         # initial encryption setup
-        index_key = derive_index_key(SEED, old_pw, EncryptionMode.SEED_PLUS_PW)
+        index_key = derive_index_key(SEED)
         seed_key = derive_key_from_password(old_pw)
         enc_mgr = EncryptionManager(index_key, fp)
         seed_mgr = EncryptionManager(seed_key, fp)
@@ -45,7 +45,7 @@ def test_password_change_and_unlock(monkeypatch):
         seed_mgr.encrypt_parent_seed(SEED)
 
         pm = PasswordManager.__new__(PasswordManager)
-        pm.encryption_mode = EncryptionMode.SEED_PLUS_PW
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.encryption_manager = enc_mgr
         pm.entry_manager = entry_mgr
         pm.config_manager = cfg_mgr
