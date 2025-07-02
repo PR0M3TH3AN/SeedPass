@@ -5,13 +5,12 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
 from nostr.client import DEFAULT_RELAYS
-from password_manager.encryption import EncryptionManager
 from password_manager.config_manager import ConfigManager
 from password_manager.vault import Vault
 from utils.fingerprint_manager import FingerprintManager
@@ -26,8 +25,7 @@ def setup_pm(tmp_path, monkeypatch):
 
     fp_dir = constants.APP_DIR / "fp"
     fp_dir.mkdir(parents=True)
-    enc_mgr = EncryptionManager(Fernet.generate_key(), fp_dir)
-    vault = Vault(enc_mgr, fp_dir)
+    vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
     cfg_mgr = ConfigManager(vault, fp_dir)
     fp_mgr = FingerprintManager(constants.APP_DIR)
 

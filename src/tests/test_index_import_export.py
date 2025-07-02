@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import sys
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -56,7 +56,5 @@ def test_index_export_import_round_trip(mode):
 
 
 def test_get_encrypted_index_missing_file(tmp_path):
-    key = Fernet.generate_key()
-    enc_mgr = EncryptionManager(key, tmp_path)
-    vault = Vault(enc_mgr, tmp_path)
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
     assert vault.get_encrypted_index() is None
