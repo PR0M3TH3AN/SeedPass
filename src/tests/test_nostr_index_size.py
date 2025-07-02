@@ -1,3 +1,4 @@
+import os
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -18,6 +19,7 @@ from nostr.client import NostrClient, Kind, KindStandard
 
 @pytest.mark.desktop
 @pytest.mark.network
+@pytest.mark.skipif(not os.getenv("NOSTR_E2E"), reason="NOSTR_E2E not set")
 def test_nostr_index_size_limits():
     """Manually explore maximum index size for Nostr backups."""
     seed = (
@@ -38,6 +40,7 @@ def test_nostr_index_size_limits():
             entry_mgr = EntryManager(vault, Path(tmpdir))
 
             sizes = [16, 64, 256, 1024, 2048, 4096, 8192]
+            delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
             for size in sizes:
                 try:
                     entry_mgr.add_entry(
@@ -49,7 +52,7 @@ def test_nostr_index_size_limits():
                     encrypted = vault.get_encrypted_index()
                     payload_size = len(encrypted) if encrypted else 0
                     published = client.publish_json_to_nostr(encrypted or b"")
-                    time.sleep(2)
+                    time.sleep(delay)
                     retrieved = client.retrieve_json_from_nostr_sync()
                     retrieved_ok = retrieved == encrypted
                     results.append((size, payload_size, published, retrieved_ok))
