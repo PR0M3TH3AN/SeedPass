@@ -60,7 +60,7 @@ def test_nostr_index_size_limits():
                     break
             client.close_client_pool()
 
-    note_kind = Kind.from_std(KindStandard.TEXT_NOTE).to_int()
+    note_kind = Kind.from_std(KindStandard.TEXT_NOTE).as_u16()
     print(f"\nNostr note Kind: {note_kind}")
     print("Size | Payload Bytes | Published | Retrieved")
     for size, payload, pub, ret in results:
