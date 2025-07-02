@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -44,9 +44,10 @@ def test_change_encryption_mode(monkeypatch):
 
         with patch("password_manager.manager.NostrClient") as MockClient:
             mock = MockClient.return_value
+            mock.publish_snapshot = AsyncMock(return_value=None)
             pm.nostr_client = mock
             pm.change_encryption_mode(EncryptionMode.SEED_PLUS_PW)
-            mock.publish_json_to_nostr.assert_called_once()
+            mock.publish_snapshot.assert_called_once()
 
         assert pm.encryption_mode is EncryptionMode.SEED_PLUS_PW
         assert pm.password_generator.encryption_manager is pm.encryption_manager

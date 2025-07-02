@@ -7,6 +7,8 @@ import signal
 import getpass
 import time
 import argparse
+import asyncio
+import gzip
 import tomli
 from colorama import init as colorama_init
 from termcolor import colored
@@ -225,23 +227,13 @@ def handle_post_to_nostr(
     Handles the action of posting the encrypted password index to Nostr.
     """
     try:
-        # Get the encrypted data from the index file
-        encrypted_data = password_manager.get_encrypted_data()
-        if encrypted_data:
-            # Post to Nostr
-            success = password_manager.nostr_client.publish_json_to_nostr(
-                encrypted_data,
-                alt_summary=alt_summary,
-            )
-            if success:
-                print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
-                logging.info("Encrypted index posted to Nostr successfully.")
-            else:
-                print(colored("\N{CROSS MARK} Sync failed…", "red"))
-                logging.error("Failed to post encrypted index to Nostr.")
+        success = password_manager.sync_vault(alt_summary=alt_summary)
+        if success:
+            print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
+            logging.info("Encrypted index posted to Nostr successfully.")
         else:
-            print(colored("No data available to post.", "yellow"))
-            logging.warning("No data available to post to Nostr.")
+            print(colored("\N{CROSS MARK} Sync failed…", "red"))
+            logging.error("Failed to post encrypted index to Nostr.")
     except Exception as e:
         logging.error(f"Failed to post to Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to post to Nostr: {e}", "red"))
@@ -252,12 +244,22 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
     Handles the action of retrieving the encrypted password index from Nostr.
     """
     try:
-        # Use the Nostr client from the password_manager
-        encrypted_data = password_manager.nostr_client.retrieve_json_from_nostr_sync()
-        if encrypted_data:
-            # Decrypt and save the index
+        result = asyncio.run(password_manager.nostr_client.fetch_latest_snapshot())
+        if result:
+            manifest, chunks = result
+            encrypted = gzip.decompress(b"".join(chunks))
+            if manifest.delta_since:
+                try:
+                    version = int(manifest.delta_since)
+                    deltas = asyncio.run(
+                        password_manager.nostr_client.fetch_deltas_since(version)
+                    )
+                    if deltas:
+                        encrypted = deltas[-1]
+                except ValueError:
+                    pass
             password_manager.encryption_manager.decrypt_and_save_index_from_nostr(
-                encrypted_data
+                encrypted
             )
             print(colored("Encrypted index retrieved and saved successfully.", "green"))
             logging.info("Encrypted index retrieved and saved successfully from Nostr.")

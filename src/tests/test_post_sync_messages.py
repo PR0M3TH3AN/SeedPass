@@ -9,10 +9,7 @@ import main
 
 def test_handle_post_success(capsys):
     pm = SimpleNamespace(
-        get_encrypted_data=lambda: b"data",
-        nostr_client=SimpleNamespace(
-            publish_json_to_nostr=lambda data, alt_summary=None: True
-        ),
+        sync_vault=lambda alt_summary=None: True,
     )
     main.handle_post_to_nostr(pm)
     out = capsys.readouterr().out
@@ -21,10 +18,7 @@ def test_handle_post_success(capsys):
 
 def test_handle_post_failure(capsys):
     pm = SimpleNamespace(
-        get_encrypted_data=lambda: b"data",
-        nostr_client=SimpleNamespace(
-            publish_json_to_nostr=lambda data, alt_summary=None: False
-        ),
+        sync_vault=lambda alt_summary=None: False,
     )
     main.handle_post_to_nostr(pm)
     out = capsys.readouterr().out
