@@ -19,7 +19,6 @@ from nostr.client import NostrClient, Kind, KindStandard
 
 @pytest.mark.desktop
 @pytest.mark.network
-@pytest.mark.skipif(not os.getenv("NOSTR_E2E"), reason="NOSTR_E2E not set")
 def test_nostr_index_size_limits():
     """Manually explore maximum index size for Nostr backups."""
     seed = (
@@ -36,6 +35,7 @@ def test_nostr_index_size_limits():
                 "size_test_fp",
                 relays=["wss://relay.snort.social"],
             )
+            npub = client.key_manager.get_npub()
             vault = Vault(enc_mgr, tmpdir)
             entry_mgr = EntryManager(vault, Path(tmpdir))
 
@@ -65,6 +65,7 @@ def test_nostr_index_size_limits():
 
     note_kind = Kind.from_std(KindStandard.TEXT_NOTE).as_u16()
     print(f"\nNostr note Kind: {note_kind}")
+    print(f"Nostr account npub: {npub}")
     print("Size | Payload Bytes | Published | Retrieved")
     for size, payload, pub, ret in results:
         print(f"{size:>4} | {payload:>13} | {pub} | {ret}")
