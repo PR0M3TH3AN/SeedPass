@@ -29,7 +29,7 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
         pm.password_generator = SimpleNamespace(encryption_manager=enc_mgr)
         pm.fingerprint_dir = fp
         pm.current_fingerprint = "fp"
-        pm.parent_seed = "seed"
+        pm.parent_seed = TEST_SEED
         pm.store_hashed_password = lambda pw: None
         pm.verify_password = lambda pw: True
 
