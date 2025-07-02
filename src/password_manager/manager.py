@@ -1059,7 +1059,19 @@ class PasswordManager:
         """
         try:
             current_checksum = calculate_checksum(__file__)
-            if verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE):
+            try:
+                verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
+            except FileNotFoundError:
+                print(
+                    colored(
+                        "Checksum file missing. Run scripts/update_checksum.py to generate it.",
+                        "yellow",
+                    )
+                )
+                logging.warning("Checksum file missing during verification.")
+                return
+
+            if verified:
                 print(colored("Checksum verification passed.", "green"))
                 logging.info("Checksum verification passed.")
             else:

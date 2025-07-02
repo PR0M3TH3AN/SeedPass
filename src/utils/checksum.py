@@ -89,26 +89,20 @@ def verify_checksum(current_checksum: str, checksum_file_path: str) -> bool:
     try:
         with open(checksum_file_path, "r") as f:
             stored_checksum = f.read().strip()
-        if current_checksum == stored_checksum:
-            logging.debug(f"Checksum verification passed for '{checksum_file_path}'.")
-            return True
-        else:
-            logging.warning(f"Checksum mismatch for '{checksum_file_path}'.")
-            return False
     except FileNotFoundError:
         logging.error(f"Checksum file '{checksum_file_path}' not found.")
-        print(colored(f"Error: Checksum file '{checksum_file_path}' not found.", "red"))
-        return False
+        raise
     except Exception as e:
         logging.error(
             f"Error reading checksum file '{checksum_file_path}': {e}", exc_info=True
         )
-        print(
-            colored(
-                f"Error: Failed to read checksum file '{checksum_file_path}': {e}",
-                "red",
-            )
-        )
+        raise
+
+    if current_checksum == stored_checksum:
+        logging.debug(f"Checksum verification passed for '{checksum_file_path}'.")
+        return True
+    else:
+        logging.warning(f"Checksum mismatch for '{checksum_file_path}'.")
         return False
 
 
