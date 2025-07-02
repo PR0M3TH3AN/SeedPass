@@ -1,12 +1,14 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch
+import asyncio
+import gzip
 from cryptography.fernet import Fernet
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
-from nostr.client import NostrClient
+from nostr.client import NostrClient, Manifest
 
 
 class MockNostrServer:
@@ -17,6 +19,7 @@ class MockNostrServer:
 class MockClient:
     def __init__(self, server):
         self.server = server
+        self.pos = -1
 
     async def add_relays(self, relays):
         pass
@@ -44,14 +47,17 @@ class MockClient:
         return FakeOutput()
 
     async def fetch_events(self, filter_obj, timeout):
+        ev = self.server.events[self.pos]
+        self.pos -= 1
+
         class FakeEvents:
-            def __init__(self, events):
-                self._events = events
+            def __init__(self, event):
+                self._event = event
 
             def to_vec(self):
-                return self._events
+                return [self._event]
 
-        return FakeEvents(self.server.events[-1:])
+        return FakeEvents(ev)
 
 
 def setup_client(tmp_path, server):
@@ -72,5 +78,6 @@ def test_publish_and_retrieve(tmp_path):
     server = MockNostrServer()
     client = setup_client(tmp_path, server)
     payload = b"contract-test"
-    assert client.publish_json_to_nostr(payload) is True
-    assert client.retrieve_json_from_nostr_sync() == payload
+    asyncio.run(client.publish_snapshot(payload))
+    manifest, chunks = asyncio.run(client.fetch_latest_snapshot())
+    assert gzip.decompress(b"".join(chunks)) == payload

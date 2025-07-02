@@ -3,6 +3,8 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import asyncio
+import gzip
 import sys
 import uuid
 
@@ -58,21 +60,28 @@ def test_nostr_index_size_limits():
 
                     encrypted = vault.get_encrypted_index()
                     payload_size = len(encrypted) if encrypted else 0
-                    published = client.publish_json_to_nostr(encrypted or b"")
+                    asyncio.run(client.publish_snapshot(encrypted or b""))
                     time.sleep(delay)
-                    retrieved = client.retrieve_json_from_nostr_sync()
+                    result = asyncio.run(client.fetch_latest_snapshot())
+                    retrieved = gzip.decompress(b"".join(result[1])) if result else None
                     retrieved_ok = retrieved == encrypted
                     if not retrieved_ok:
                         print(f"Initial retrieve failed: {client.last_error}")
-                        retrieved = client.retrieve_json_from_nostr_sync(retries=1)
+                        result = asyncio.run(client.fetch_latest_snapshot())
+                        retrieved = (
+                            gzip.decompress(b"".join(result[1])) if result else None
+                        )
                         retrieved_ok = retrieved == encrypted
                     if not retrieved_ok:
                         print("Trying alternate relay")
                         client.update_relays(["wss://relay.damus.io"])
-                        retrieved = client.retrieve_json_from_nostr_sync(retries=1)
+                        result = asyncio.run(client.fetch_latest_snapshot())
+                        retrieved = (
+                            gzip.decompress(b"".join(result[1])) if result else None
+                        )
                         retrieved_ok = retrieved == encrypted
-                    results.append((entry_count, payload_size, published, retrieved_ok))
-                    if not published or not retrieved_ok or payload_size > max_payload:
+                    results.append((entry_count, payload_size, True, retrieved_ok))
+                    if not retrieved_ok or payload_size > max_payload:
                         break
                     size *= 2
             except Exception:

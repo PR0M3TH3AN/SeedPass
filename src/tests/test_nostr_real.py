@@ -4,6 +4,8 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import asyncio
+import gzip
 import uuid
 
 import pytest
@@ -31,8 +33,9 @@ def test_nostr_publish_and_retrieve():
                 relays=["wss://relay.snort.social"],
             )
             payload = b"seedpass"
-            assert client.publish_json_to_nostr(payload) is True
+            asyncio.run(client.publish_snapshot(payload))
             time.sleep(2)
-            retrieved = client.retrieve_json_from_nostr_sync()
+            result = asyncio.run(client.fetch_latest_snapshot())
+            retrieved = gzip.decompress(b"".join(result[1])) if result else None
             client.close_client_pool()
             assert retrieved == payload
