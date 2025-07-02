@@ -58,6 +58,15 @@ def test_nostr_index_size_limits():
                     time.sleep(delay)
                     retrieved = client.retrieve_json_from_nostr_sync()
                     retrieved_ok = retrieved == encrypted
+                    if not retrieved_ok:
+                        print(f"Initial retrieve failed: {client.last_error}")
+                        retrieved = client.retrieve_json_from_nostr_sync(retries=1)
+                        retrieved_ok = retrieved == encrypted
+                    if not retrieved_ok:
+                        print("Trying alternate relay")
+                        client.update_relays(["wss://relay.damus.io"])
+                        retrieved = client.retrieve_json_from_nostr_sync(retries=1)
+                        retrieved_ok = retrieved == encrypted
                     results.append((entry_count, payload_size, published, retrieved_ok))
                     if not published or not retrieved_ok or payload_size > max_payload:
                         break
