@@ -14,8 +14,9 @@ import hashlib
 import logging
 import sys
 import os
+import json
 import traceback
-from typing import Optional
+from typing import Optional, Any
 
 from termcolor import colored
 
@@ -23,6 +24,17 @@ from constants import APP_DIR, SCRIPT_CHECKSUM_FILE
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+def canonical_json_dumps(data: Any) -> str:
+    """Serialize ``data`` into a canonical JSON string."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
+
+
+def json_checksum(data: Any) -> str:
+    """Return SHA-256 checksum of canonical JSON serialization of ``data``."""
+    canon = canonical_json_dumps(data)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def calculate_checksum(file_path: str) -> Optional[str]:

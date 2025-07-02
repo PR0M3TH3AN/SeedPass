@@ -1,7 +1,16 @@
 import hashlib
+import json
 from pathlib import Path
 
 from utils import checksum
+
+
+def test_json_checksum():
+    data = {"b": 1, "a": 2}
+    expected = hashlib.sha256(
+        json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert checksum.json_checksum(data) == expected
 
 
 def test_calculate_checksum(tmp_path):

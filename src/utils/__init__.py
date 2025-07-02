@@ -14,7 +14,12 @@ try:
         EncryptionMode,
         DEFAULT_ENCRYPTION_MODE,
     )
-    from .checksum import calculate_checksum, verify_checksum
+    from .checksum import (
+        calculate_checksum,
+        verify_checksum,
+        json_checksum,
+        canonical_json_dumps,
+    )
     from .password_prompt import prompt_for_password
 
     if logger.isEnabledFor(logging.DEBUG):
@@ -31,6 +36,8 @@ __all__ = [
     "DEFAULT_ENCRYPTION_MODE",
     "calculate_checksum",
     "verify_checksum",
+    "json_checksum",
+    "canonical_json_dumps",
     "exclusive_lock",
     "shared_lock",
     "prompt_for_password",

@@ -57,6 +57,9 @@ def test_round_trip_across_modes(monkeypatch):
             assert vault.load_index()["pw"] == data["pw"]
 
 
+from cryptography.fernet import InvalidToken
+
+
 def test_corruption_detection(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
@@ -75,7 +78,7 @@ def test_corruption_detection(monkeypatch):
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
 
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidToken):
             import_backup(vault, backup, path)
 
 
@@ -115,3 +118,31 @@ def test_import_over_existing(monkeypatch):
         import_backup(vault, backup, path)
         loaded = vault.load_index()
         assert loaded["v"] == 1
+
+
+def test_checksum_mismatch_detection(monkeypatch):
+    with TemporaryDirectory() as td:
+        tmp = Path(td)
+        vault, backup = setup_vault(tmp)
+        vault.save_index({"a": 1})
+
+        monkeypatch.setattr(
+            "password_manager.portable_backup.prompt_existing_password",
+            lambda *_a, **_k: PASSWORD,
+        )
+
+        path = export_backup(vault, backup, PortableMode.SEED_ONLY)
+
+        wrapper = json.loads(path.read_text())
+        payload = base64.b64decode(wrapper["payload"])
+        key = derive_index_key(SEED, PASSWORD, EncryptionMode.SEED_ONLY)
+        enc_mgr = EncryptionManager(key, tmp)
+        data = json.loads(enc_mgr.decrypt_data(payload).decode())
+        data["a"] = 2
+        mod_canon = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        new_payload = enc_mgr.encrypt_data(mod_canon.encode())
+        wrapper["payload"] = base64.b64encode(new_payload).decode()
+        path.write_text(json.dumps(wrapper))
+
+        with pytest.raises(ValueError):
+            import_backup(vault, backup, path)
