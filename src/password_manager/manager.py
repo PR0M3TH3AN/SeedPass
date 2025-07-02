@@ -548,6 +548,12 @@ class PasswordManager:
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
+                # Ensure config manager is set for the new fingerprint
+                self.config_manager = ConfigManager(
+                    vault=self.vault,
+                    fingerprint_dir=fingerprint_dir,
+                )
+
                 # Encrypt and save the parent seed
                 seed_mgr.encrypt_parent_seed(parent_seed)
                 logging.info("Parent seed encrypted and saved successfully.")
@@ -683,6 +689,13 @@ class PasswordManager:
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
 
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+            # Ensure the config manager points to the new fingerprint before
+            # storing the hashed password
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
 
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")

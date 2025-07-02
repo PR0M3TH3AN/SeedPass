@@ -7,7 +7,9 @@ from typing import Callable, Dict
 MIGRATIONS: Dict[int, Callable[[dict], dict]] = {}
 
 
-def migration(from_ver: int) -> Callable[[Callable[[dict], dict]], Callable[[dict], dict]]:
+def migration(
+    from_ver: int,
+) -> Callable[[Callable[[dict], dict]], Callable[[dict], dict]]:
     """Register a migration function from *from_ver* to *from_ver* + 1."""
 
     def decorator(func: Callable[[dict], dict]) -> Callable[[dict], dict]:
