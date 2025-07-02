@@ -248,6 +248,12 @@ pre-commit install -t pre-push
 After running this command, every `git push` will execute `scripts/update_checksum.py`,
 updating the checksum file automatically.
 
+If the checksum file is missing, generate it manually:
+
+```bash
+python scripts/update_checksum.py
+```
+
 To run mutation tests locally, generate coverage data first and then execute `mutmut`:
 
 ```bash
