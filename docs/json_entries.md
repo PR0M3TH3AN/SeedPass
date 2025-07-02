@@ -29,7 +29,7 @@
 
 ## Introduction
 
-**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
+**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. Instead of pushing one large index file, SeedPass posts **snapshot chunks** of the index followed by lightweight **delta events** whenever changes occur. This chunked approach improves reliability and keeps bandwidth usage minimal. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
 
 ---
 
