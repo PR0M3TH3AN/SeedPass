@@ -456,12 +456,13 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("1. Profiles")
         print("2. Nostr")
         print("3. Change password")
-        print("4. Verify Script Checksum")
-        print("5. Backup Parent Seed")
-        print("6. Export database")
-        print("7. Import database")
-        print("8. Lock Vault")
-        print("9. Back")
+        print("4. Change encryption mode")
+        print("5. Verify Script Checksum")
+        print("6. Backup Parent Seed")
+        print("7. Export database")
+        print("8. Import database")
+        print("9. Lock Vault")
+        print("10. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -470,20 +471,27 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "3":
             password_manager.change_password()
         elif choice == "4":
-            password_manager.handle_verify_checksum()
+            try:
+                mode = password_manager.prompt_encryption_mode()
+                password_manager.change_encryption_mode(mode)
+            except Exception as exc:
+                logging.error(f"Error changing encryption mode: {exc}", exc_info=True)
+                print(colored(f"Error: Failed to change encryption mode: {exc}", "red"))
         elif choice == "5":
-            password_manager.handle_backup_reveal_parent_seed()
+            password_manager.handle_verify_checksum()
         elif choice == "6":
-            password_manager.handle_export_database()
+            password_manager.handle_backup_reveal_parent_seed()
         elif choice == "7":
+            password_manager.handle_export_database()
+        elif choice == "8":
             path = input("Enter path to backup file: ").strip()
             if path:
                 password_manager.handle_import_database(Path(path))
-        elif choice == "8":
+        elif choice == "9":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "9":
+        elif choice == "10":
             break
         else:
             print(colored("Invalid choice.", "red"))
