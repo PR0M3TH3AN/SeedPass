@@ -101,6 +101,23 @@ pip install --upgrade pip
 pip install -r src/requirements.txt
 ```
 
+## Quick Start
+
+After installing dependencies and activating your virtual environment, launch
+SeedPass and create a backup:
+
+```bash
+# Start the application
+python src/main.py
+
+# Export your index using seed-only encryption
+seedpass export --mode seed-only --file "~/seedpass_backup.json"
+
+# Later you can restore it
+seedpass import --mode seed-only --file "~/seedpass_backup.json"
+```
+
+
 ## Usage
 
 After successfully installing the dependencies, you can run SeedPass using the following command:
