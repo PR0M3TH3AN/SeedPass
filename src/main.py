@@ -379,6 +379,40 @@ def handle_reset_relays(password_manager: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
+    """Change the inactivity timeout for the current seed profile."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        current = cfg_mgr.get_inactivity_timeout() / 60
+        print(colored(f"Current timeout: {current:.1f} minutes", "cyan"))
+    except Exception as e:
+        logging.error(f"Error loading timeout: {e}")
+        print(colored(f"Error: {e}", "red"))
+        return
+    value = input("Enter new timeout in minutes: ").strip()
+    if not value:
+        print(colored("No timeout entered.", "yellow"))
+        return
+    try:
+        minutes = float(value)
+        if minutes <= 0:
+            print(colored("Timeout must be positive.", "red"))
+            return
+    except ValueError:
+        print(colored("Invalid number.", "red"))
+        return
+    try:
+        cfg_mgr.set_inactivity_timeout(minutes * 60)
+        password_manager.inactivity_timeout = minutes * 60
+        print(colored("Inactivity timeout updated.", "green"))
+    except Exception as e:
+        logging.error(f"Error saving timeout: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -461,8 +495,9 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("6. Backup Parent Seed")
         print("7. Export database")
         print("8. Import database")
-        print("9. Lock Vault")
-        print("10. Back")
+        print("9. Set inactivity timeout")
+        print("10. Lock Vault")
+        print("11. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -488,10 +523,12 @@ def handle_settings(password_manager: PasswordManager) -> None:
             if path:
                 password_manager.handle_import_database(Path(path))
         elif choice == "9":
+            handle_set_inactivity_timeout(password_manager)
+        elif choice == "10":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "10":
+        elif choice == "11":
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -651,7 +688,9 @@ if __name__ == "__main__":
 
     # Display the interactive menu to the user
     try:
-        display_menu(password_manager)
+        display_menu(
+            password_manager, inactivity_timeout=password_manager.inactivity_timeout
+        )
     except KeyboardInterrupt:
         logger.info("Program terminated by user via KeyboardInterrupt.")
         print(colored("\nProgram terminated by user.", "yellow"))

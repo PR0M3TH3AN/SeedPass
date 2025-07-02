@@ -50,6 +50,7 @@ from constants import (
     MIN_PASSWORD_LENGTH,
     MAX_PASSWORD_LENGTH,
     DEFAULT_PASSWORD_LENGTH,
+    INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
 )
 
@@ -101,6 +102,7 @@ class PasswordManager:
         self.last_update: float = time.time()
         self.last_activity: float = time.time()
         self.locked: bool = False
+        self.inactivity_timeout: float = INACTIVITY_TIMEOUT
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -786,6 +788,9 @@ class PasswordManager:
             )
             config = self.config_manager.load_config()
             relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            self.inactivity_timeout = config.get(
+                "inactivity_timeout", INACTIVITY_TIMEOUT
+            )
 
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,

@@ -16,6 +16,7 @@ from utils.key_derivation import (
     EncryptionMode,
     DEFAULT_ENCRYPTION_MODE,
 )
+from constants import INACTIVITY_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class ConfigManager:
                 "pin_hash": "",
                 "password_hash": "",
                 "encryption_mode": DEFAULT_ENCRYPTION_MODE.value,
+                "inactivity_timeout": INACTIVITY_TIMEOUT,
             }
         try:
             data = self.vault.load_config()
@@ -56,6 +58,7 @@ class ConfigManager:
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("encryption_mode", DEFAULT_ENCRYPTION_MODE.value)
+            data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -125,3 +128,16 @@ class ConfigManager:
         config = self.load_config(require_pin=False)
         config["encryption_mode"] = mode.value
         self.save_config(config)
+
+    def set_inactivity_timeout(self, timeout_seconds: float) -> None:
+        """Persist the inactivity timeout in seconds."""
+        if timeout_seconds <= 0:
+            raise ValueError("Timeout must be positive")
+        config = self.load_config(require_pin=False)
+        config["inactivity_timeout"] = timeout_seconds
+        self.save_config(config)
+
+    def get_inactivity_timeout(self) -> float:
+        """Retrieve the inactivity timeout setting in seconds."""
+        config = self.load_config(require_pin=False)
+        return float(config.get("inactivity_timeout", INACTIVITY_TIMEOUT))
