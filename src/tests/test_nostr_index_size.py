@@ -2,9 +2,13 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import sys
 
 import pytest
+
 from cryptography.fernet import Fernet
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
