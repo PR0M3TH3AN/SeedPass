@@ -12,6 +12,10 @@ import bcrypt
 
 from password_manager.vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
+from utils.key_derivation import (
+    EncryptionMode,
+    DEFAULT_ENCRYPTION_MODE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ class ConfigManager:
                 "relays": list(DEFAULT_NOSTR_RELAYS),
                 "pin_hash": "",
                 "password_hash": "",
+                "encryption_mode": DEFAULT_ENCRYPTION_MODE.value,
             }
         try:
             data = self.vault.load_config()
@@ -50,6 +55,7 @@ class ConfigManager:
             data.setdefault("relays", list(DEFAULT_NOSTR_RELAYS))
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
+            data.setdefault("encryption_mode", DEFAULT_ENCRYPTION_MODE.value)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -112,4 +118,10 @@ class ConfigManager:
         """Persist the bcrypt password hash in the config."""
         config = self.load_config(require_pin=False)
         config["password_hash"] = password_hash
+        self.save_config(config)
+
+    def set_encryption_mode(self, mode: EncryptionMode) -> None:
+        """Persist the selected encryption mode in the config."""
+        config = self.load_config(require_pin=False)
+        config["encryption_mode"] = mode.value
         self.save_config(config)

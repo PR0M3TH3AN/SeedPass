@@ -723,6 +723,7 @@ class PasswordManager:
             )
 
             self.store_hashed_password(password)
+            self.config_manager.set_encryption_mode(self.encryption_mode)
             logging.info("User password hashed and stored successfully.")
 
             seed_mgr.encrypt_parent_seed(seed)
@@ -1459,3 +1460,53 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))
+
+    def change_encryption_mode(self, new_mode: EncryptionMode) -> None:
+        """Re-encrypt the index using a different encryption mode."""
+        try:
+            password = prompt_existing_password("Enter your current master password: ")
+            if not self.verify_password(password):
+                print(colored("Incorrect password.", "red"))
+                return
+
+            index_data = self.vault.load_index()
+            config_data = self.config_manager.load_config(require_pin=False)
+
+            new_key = derive_index_key(self.parent_seed, password, new_mode)
+            new_mgr = EncryptionManager(new_key, self.fingerprint_dir)
+
+            self.vault.set_encryption_manager(new_mgr)
+            self.vault.save_index(index_data)
+            self.config_manager.vault = self.vault
+            config_data["encryption_mode"] = new_mode.value
+            self.config_manager.save_config(config_data)
+
+            self.encryption_manager = new_mgr
+            self.password_generator.encryption_manager = new_mgr
+            self.encryption_mode = new_mode
+
+            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
+            self.nostr_client = NostrClient(
+                encryption_manager=self.encryption_manager,
+                fingerprint=self.current_fingerprint,
+                relays=relay_list,
+                parent_seed=getattr(self, "parent_seed", None),
+            )
+
+            print(colored("Encryption mode changed successfully.", "green"))
+
+            try:
+                encrypted_data = self.get_encrypted_data()
+                if encrypted_data:
+                    summary = f"mode-change-{int(time.time())}"
+                    self.nostr_client.publish_json_to_nostr(
+                        encrypted_data,
+                        alt_summary=summary,
+                    )
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr after encryption mode change: {nostr_error}"
+                )
+        except Exception as e:
+            logging.error(f"Failed to change encryption mode: {e}", exc_info=True)
+            print(colored(f"Error: Failed to change encryption mode: {e}", "red"))
