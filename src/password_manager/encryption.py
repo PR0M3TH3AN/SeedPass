@@ -121,7 +121,6 @@ class EncryptionManager:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting parent seed."
             )
-            print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
             logger.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
@@ -159,7 +158,6 @@ class EncryptionManager:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting data."
             )
-            print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
             logger.error(f"Failed to decrypt data: {e}", exc_info=True)
@@ -230,7 +228,6 @@ class EncryptionManager:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting file."
             )
-            print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
             logger.error(
@@ -306,26 +303,15 @@ class EncryptionManager:
             logger.error(
                 f"Failed to decode JSON data from '{file_path}': {e}", exc_info=True
             )
-            print(
-                colored(
-                    f"Error: Failed to decode JSON data from '{file_path}': {e}", "red"
-                )
-            )
             raise
         except InvalidToken:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting JSON data."
             )
-            print(colored("Error: Invalid encryption key or corrupted data.", "red"))
             raise
         except Exception as e:
             logger.error(
                 f"Failed to load JSON data from '{file_path}': {e}", exc_info=True
-            )
-            print(
-                colored(
-                    f"Error: Failed to load JSON data from '{file_path}': {e}", "red"
-                )
             )
             raise
 

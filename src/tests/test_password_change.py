@@ -4,11 +4,10 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
 from password_manager.config_manager import ConfigManager
 from password_manager.vault import Vault
@@ -18,8 +17,7 @@ from password_manager.manager import PasswordManager
 def test_change_password_triggers_nostr_backup(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp = Path(tmpdir)
-        enc_mgr = EncryptionManager(Fernet.generate_key(), fp)
-        vault = Vault(enc_mgr, fp)
+        vault, enc_mgr = create_vault(fp, TEST_SEED, TEST_PASSWORD)
         entry_mgr = EntryManager(vault, fp)
         cfg_mgr = ConfigManager(vault, fp)
 

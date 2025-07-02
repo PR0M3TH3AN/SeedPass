@@ -14,8 +14,9 @@ import hashlib
 import logging
 import sys
 import os
+import json
 import traceback
-from typing import Optional
+from typing import Optional, Any
 
 from termcolor import colored
 
@@ -23,6 +24,17 @@ from constants import APP_DIR, SCRIPT_CHECKSUM_FILE
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+def canonical_json_dumps(data: Any) -> str:
+    """Serialize ``data`` into a canonical JSON string."""
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
+
+
+def json_checksum(data: Any) -> str:
+    """Return SHA-256 checksum of canonical JSON serialization of ``data``."""
+    canon = canonical_json_dumps(data)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def calculate_checksum(file_path: str) -> Optional[str]:
@@ -77,26 +89,20 @@ def verify_checksum(current_checksum: str, checksum_file_path: str) -> bool:
     try:
         with open(checksum_file_path, "r") as f:
             stored_checksum = f.read().strip()
-        if current_checksum == stored_checksum:
-            logging.debug(f"Checksum verification passed for '{checksum_file_path}'.")
-            return True
-        else:
-            logging.warning(f"Checksum mismatch for '{checksum_file_path}'.")
-            return False
     except FileNotFoundError:
         logging.error(f"Checksum file '{checksum_file_path}' not found.")
-        print(colored(f"Error: Checksum file '{checksum_file_path}' not found.", "red"))
-        return False
+        raise
     except Exception as e:
         logging.error(
             f"Error reading checksum file '{checksum_file_path}': {e}", exc_info=True
         )
-        print(
-            colored(
-                f"Error: Failed to read checksum file '{checksum_file_path}': {e}",
-                "red",
-            )
-        )
+        raise
+
+    if current_checksum == stored_checksum:
+        logging.debug(f"Checksum verification passed for '{checksum_file_path}'.")
+        return True
+    else:
+        logging.warning(f"Checksum mismatch for '{checksum_file_path}'.")
         return False
 
 

@@ -44,6 +44,21 @@ def test_handle_verify_checksum_failure(monkeypatch, tmp_path, capsys):
     assert "Checksum verification failed" in out
 
 
+def test_handle_verify_checksum_missing(monkeypatch, tmp_path, capsys):
+    pm = _make_pm()
+    chk_file = tmp_path / "chk.txt"
+    monkeypatch.setattr("password_manager.manager.SCRIPT_CHECKSUM_FILE", chk_file)
+    monkeypatch.setattr("password_manager.manager.calculate_checksum", lambda _: "abc")
+
+    def raise_missing(*_args, **_kwargs):
+        raise FileNotFoundError
+
+    monkeypatch.setattr("password_manager.manager.verify_checksum", raise_missing)
+    pm.handle_verify_checksum()
+    out = capsys.readouterr().out.lower()
+    assert "update_checksum.py" in out
+
+
 def test_backup_and_restore_database(monkeypatch, capsys):
     pm = _make_pm()
     calls = {"create": 0, "restore": 0}

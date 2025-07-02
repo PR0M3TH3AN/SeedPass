@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -12,7 +12,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from utils.fingerprint_manager import FingerprintManager
 import constants
 import password_manager.manager as manager_module
-from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.entry_management import EntryManager
 
@@ -49,9 +48,7 @@ def test_add_and_delete_entry(monkeypatch):
         assert fingerprint_dir.exists()
         assert pm.fingerprint_manager.current_fingerprint == fingerprint
 
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, fingerprint_dir)
-        vault = Vault(enc_mgr, fingerprint_dir)
+        vault, enc_mgr = create_vault(fingerprint_dir, TEST_SEED, TEST_PASSWORD)
         entry_mgr = EntryManager(vault, fingerprint_dir)
 
         pm.encryption_manager = enc_mgr

@@ -4,21 +4,17 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
 from password_manager.backup import BackupManager
 
 
 def test_backup_restore_workflow(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp_dir = Path(tmpdir)
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, fp_dir)
-        vault = Vault(enc_mgr, fp_dir)
+        vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
         backup_mgr = BackupManager(fp_dir)
 
         index_file = fp_dir / "seedpass_passwords_db.json.enc"
@@ -45,11 +41,11 @@ def test_backup_restore_workflow(monkeypatch):
 
         vault.save_index({"passwords": {"temp": {}}})
         backup_mgr.restore_latest_backup()
-        assert vault.load_index() == data2
+        assert vault.load_index()["passwords"] == data2["passwords"]
 
         vault.save_index({"passwords": {}})
         backup_mgr.restore_backup_by_timestamp(1111)
-        assert vault.load_index() == data1
+        assert vault.load_index()["passwords"] == data1["passwords"]
 
         backup1.unlink()
         current = vault.load_index()

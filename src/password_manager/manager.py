@@ -24,6 +24,11 @@ from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
+from password_manager.portable_backup import (
+    export_backup,
+    import_backup,
+    PortableMode,
+)
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -251,22 +256,28 @@ class PasswordManager:
             sys.exit(1)
 
     def setup_encryption_manager(
-        self, fingerprint_dir: Path, password: Optional[str] = None
-    ) -> None:
+        self,
+        fingerprint_dir: Path,
+        password: Optional[str] = None,
+        *,
+        exit_on_fail: bool = True,
+    ) -> bool:
         """Set up encryption for the current fingerprint and load the seed."""
 
         try:
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
 
-            if not self.parent_seed:
-                seed_key = derive_key_from_password(password)
-                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                try:
-                    self.parent_seed = seed_mgr.decrypt_parent_seed()
-                except Exception:
-                    print(colored("Invalid password. Exiting.", "red"))
-                    raise
+            seed_key = derive_key_from_password(password)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            try:
+                self.parent_seed = seed_mgr.decrypt_parent_seed()
+            except Exception:
+                msg = "Invalid password for selected seed profile."
+                print(colored(msg, "red"))
+                if exit_on_fail:
+                    sys.exit(1)
+                return False
 
             key = derive_index_key(
                 self.parent_seed,
@@ -284,12 +295,17 @@ class PasswordManager:
 
             self.fingerprint_dir = fingerprint_dir
             if not self.verify_password(password):
-                print(colored("Invalid password. Exiting.", "red"))
-                sys.exit(1)
+                print(colored("Invalid password.", "red"))
+                if exit_on_fail:
+                    sys.exit(1)
+                return False
+            return True
         except Exception as e:
             logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
             print(colored(f"Error: Failed to set up encryption: {e}", "red"))
-            sys.exit(1)
+            if exit_on_fail:
+                sys.exit(1)
+            return False
 
     def load_parent_seed(
         self, fingerprint_dir: Path, password: Optional[str] = None
@@ -349,10 +365,15 @@ class PasswordManager:
                 return False  # Return False to indicate failure
 
             # Prompt for master password for the selected seed profile
-            password = prompt_existing_password("Enter your master password: ")
+            password = prompt_existing_password(
+                "Enter the master password for the selected seed profile: "
+            )
 
             # Set up the encryption manager with the new password and seed profile directory
-            self.setup_encryption_manager(self.fingerprint_dir, password)
+            if not self.setup_encryption_manager(
+                self.fingerprint_dir, password, exit_on_fail=False
+            ):
+                return False
 
             # Initialize BIP85 and other managers
             self.initialize_bip85()
@@ -543,6 +564,12 @@ class PasswordManager:
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
+                # Ensure config manager is set for the new fingerprint
+                self.config_manager = ConfigManager(
+                    vault=self.vault,
+                    fingerprint_dir=fingerprint_dir,
+                )
+
                 # Encrypt and save the parent seed
                 seed_mgr.encrypt_parent_seed(parent_seed)
                 logging.info("Parent seed encrypted and saved successfully.")
@@ -678,6 +705,13 @@ class PasswordManager:
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
 
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+            # Ensure the config manager points to the new fingerprint before
+            # storing the hashed password
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
 
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
@@ -1054,7 +1088,19 @@ class PasswordManager:
         """
         try:
             current_checksum = calculate_checksum(__file__)
-            if verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE):
+            try:
+                verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
+            except FileNotFoundError:
+                print(
+                    colored(
+                        "Checksum file missing. Run scripts/update_checksum.py to generate it.",
+                        "yellow",
+                    )
+                )
+                logging.warning("Checksum file missing during verification.")
+                return
+
+            if verified:
                 print(colored("Checksum verification passed.", "green"))
                 logging.info("Checksum verification passed.")
             else:
@@ -1136,6 +1182,41 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
+
+    def handle_export_database(
+        self,
+        mode: "PortableMode" = PortableMode.SEED_ONLY,
+        dest: Path | None = None,
+    ) -> Path | None:
+        """Export the current database to an encrypted portable file."""
+        try:
+            path = export_backup(
+                self.vault,
+                self.backup_manager,
+                mode,
+                dest,
+                parent_seed=self.parent_seed,
+            )
+            print(colored(f"Database exported to '{path}'.", "green"))
+            return path
+        except Exception as e:
+            logging.error(f"Failed to export database: {e}", exc_info=True)
+            print(colored(f"Error: Failed to export database: {e}", "red"))
+            return None
+
+    def handle_import_database(self, src: Path) -> None:
+        """Import a portable database file, replacing the current index."""
+        try:
+            import_backup(
+                self.vault,
+                self.backup_manager,
+                src,
+                parent_seed=self.parent_seed,
+            )
+            print(colored("Database imported successfully.", "green"))
+        except Exception as e:
+            logging.error(f"Failed to import database: {e}", exc_info=True)
+            print(colored(f"Error: Failed to import database: {e}", "red"))
 
     def handle_backup_reveal_parent_seed(self) -> None:
         """

@@ -34,7 +34,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
         monkeypatch.setattr(
             PasswordManager,
             "setup_encryption_manager",
-            lambda self, d, password=None: None,
+            lambda self, d, password=None, exit_on_fail=True: True,
         )
         monkeypatch.setattr(PasswordManager, "load_parent_seed", lambda self, d: None)
         monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)

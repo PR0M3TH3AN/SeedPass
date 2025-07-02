@@ -27,6 +27,7 @@ from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
 from termcolor import colored
+from password_manager.migrations import LATEST_VERSION
 
 from password_manager.vault import Vault
 from utils.file_lock import exclusive_lock
@@ -61,12 +62,12 @@ class EntryManager:
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
-                return {"passwords": {}}
+                return {"schema_version": LATEST_VERSION, "passwords": {}}
         else:
             logger.info(
                 f"Index file '{self.index_file}' not found. Initializing new password database."
             )
-            return {"passwords": {}}
+            return {"schema_version": LATEST_VERSION, "passwords": {}}
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:

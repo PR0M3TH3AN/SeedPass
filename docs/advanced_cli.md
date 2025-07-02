@@ -217,7 +217,25 @@ seedpass export --file "backup_passwords.json"
 ```
 
 **Options:**
-- `--file` (`-F`): The destination file path for the exported data.
+- `--file` (`-F`): The destination file path for the exported data. If omitted, the export
+  is saved to the current profile's `exports` directory under `~/.seedpass/<profile>/exports/`.
+- `--mode` (`-M`): Choose the encryption mode for the exported file. Valid values are:
+  `seed-only`, `seed+pw`, `pw-only`, and `plaintext`.
+
+**Examples:**
+```bash
+# Standard encrypted export
+seedpass export --mode seed-only --file "backup.json"
+# Combine seed and master password for the export key
+seedpass export --mode seed+pw --file "backup.json"
+# Derive the key solely from your password
+seedpass export --mode pw-only --file "backup.json"
+# Plaintext JSON export (not recommended)
+seedpass export --mode plaintext --file "backup.json"
+```
+
+**Warning:** The `plaintext` mode writes an unencrypted index to disk. Only use it
+for debugging and delete the file immediately after use.
 
 ---
 
@@ -237,6 +255,15 @@ seedpass import --file "backup_passwords.json"
 
 **Options:**
 - `--file` (`-F`): The source file path containing the password entries to import.
+- `--mode` (`-M`): Indicates the encryption mode used when the file was exported. Accepted values are `seed-only`, `seed+pw`, `pw-only`, and `plaintext`.
+
+**Examples:**
+```bash
+# Import a standard encrypted backup
+seedpass import --mode seed-only --file "backup.json"
+# Import a backup that also used the master password
+seedpass import --mode seed+pw --file "backup.json"
+```
 
 ---
 

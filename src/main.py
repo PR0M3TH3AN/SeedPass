@@ -13,6 +13,7 @@ from termcolor import colored
 import traceback
 
 from password_manager.manager import PasswordManager
+from password_manager.portable_backup import PortableMode
 from nostr.client import NostrClient
 from constants import INACTIVITY_TIMEOUT
 from utils.key_derivation import EncryptionMode
@@ -457,8 +458,10 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("3. Change password")
         print("4. Verify Script Checksum")
         print("5. Backup Parent Seed")
-        print("6. Lock Vault")
-        print("7. Back")
+        print("6. Export database")
+        print("7. Import database")
+        print("8. Lock Vault")
+        print("9. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -471,10 +474,16 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "5":
             password_manager.handle_backup_reveal_parent_seed()
         elif choice == "6":
+            password_manager.handle_export_database()
+        elif choice == "7":
+            path = input("Enter path to backup file: ").strip()
+            if path:
+                password_manager.handle_import_database(Path(path))
+        elif choice == "8":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "7":
+        elif choice == "9":
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -565,11 +574,25 @@ if __name__ == "__main__":
     # Load config from disk and parse command-line arguments
     cfg = load_global_config()
     parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+
     parser.add_argument(
         "--encryption-mode",
         choices=[m.value for m in EncryptionMode],
         help="Select encryption mode",
     )
+
+    exp = sub.add_parser("export")
+    exp.add_argument(
+        "--mode",
+        choices=[m.value for m in PortableMode],
+        default=PortableMode.SEED_ONLY.value,
+    )
+    exp.add_argument("--file")
+
+    imp = sub.add_parser("import")
+    imp.add_argument("--file")
+
     args = parser.parse_args()
 
     mode_value = cfg.get("encryption_mode", EncryptionMode.SEED_ONLY.value)
@@ -590,6 +613,14 @@ if __name__ == "__main__":
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
         sys.exit(1)
+
+    if args.command == "export":
+        mode = PortableMode(args.mode)
+        password_manager.handle_export_database(mode, Path(args.file))
+        sys.exit(0)
+    elif args.command == "import":
+        password_manager.handle_import_database(Path(args.file))
+        sys.exit(0)
 
     # Register signal handlers for graceful shutdown
     def signal_handler(sig, frame):
