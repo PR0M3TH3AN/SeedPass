@@ -60,7 +60,7 @@ def test_manager_workflow(monkeypatch):
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
 
         pm.handle_add_password()
-        assert pm.is_dirty is True
+        assert pm.is_dirty is False
         backups = list(tmp_path.glob("passwords_db_backup_*.json.enc"))
         assert len(backups) == 1
         checksum_file = tmp_path / "seedpass_passwords_db_checksum.txt"
@@ -73,7 +73,7 @@ def test_manager_workflow(monkeypatch):
         assert pm.is_dirty is False
 
         pm.handle_modify_entry()
-        assert pm.is_dirty is True
+        assert pm.is_dirty is False
         pm.backup_manager.create_backup()
         backup_dir = tmp_path / "backups"
         backups_mod = list(backup_dir.glob("passwords_db_backup_*.json.enc"))

@@ -55,6 +55,8 @@ from constants import (
 )
 
 import traceback
+import asyncio
+import gzip
 import bcrypt
 from pathlib import Path
 
@@ -812,8 +814,20 @@ class PasswordManager:
         if index_file.exists():
             return
         try:
-            encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
-            if encrypted:
+            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            if result:
+                manifest, chunks = result
+                encrypted = gzip.decompress(b"".join(chunks))
+                if manifest.delta_since:
+                    try:
+                        version = int(manifest.delta_since)
+                        deltas = asyncio.run(
+                            self.nostr_client.fetch_deltas_since(version)
+                        )
+                        if deltas:
+                            encrypted = deltas[-1]
+                    except ValueError:
+                        pass
                 self.vault.decrypt_and_save_index_from_nostr(encrypted)
                 logger.info("Initialized local database from Nostr.")
         except Exception as e:
@@ -871,12 +885,8 @@ class PasswordManager:
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry addition."
-                    )
+                self.sync_vault()
+                logging.info("Encrypted index posted to Nostr after entry addition.")
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1040,12 +1050,10 @@ class PasswordManager:
 
             # Push the updated index to Nostr so changes are backed up.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry modification."
-                    )
+                self.sync_vault()
+                logging.info(
+                    "Encrypted index posted to Nostr after entry modification."
+                )
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1081,12 +1089,8 @@ class PasswordManager:
 
             # Push updated index to Nostr after deletion
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry deletion."
-                    )
+                self.sync_vault()
+                logging.info("Encrypted index posted to Nostr after entry deletion.")
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1171,6 +1175,27 @@ class PasswordManager:
             )
             # Re-raise the exception to inform the calling function of the failure
             raise
+
+    def sync_vault(self, alt_summary: str | None = None) -> bool:
+        """Publish the current vault contents to Nostr."""
+        try:
+            encrypted = self.get_encrypted_data()
+            if not encrypted:
+                return False
+            pub_snap = getattr(self.nostr_client, "publish_snapshot", None)
+            if callable(pub_snap):
+                if asyncio.iscoroutinefunction(pub_snap):
+                    asyncio.run(pub_snap(encrypted))
+                else:
+                    pub_snap(encrypted)
+            else:
+                # Fallback for tests using simplified stubs
+                self.nostr_client.publish_json_to_nostr(encrypted)
+            self.is_dirty = False
+            return True
+        except Exception as e:
+            logging.error(f"Failed to sync vault: {e}", exc_info=True)
+            return False
 
     def backup_database(self) -> None:
         """
@@ -1451,13 +1476,8 @@ class PasswordManager:
             # Push a fresh backup to Nostr so the newly encrypted index is
             # stored remotely. Include a tag to mark the password change.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    summary = f"password-change-{int(time.time())}"
-                    self.nostr_client.publish_json_to_nostr(
-                        encrypted_data,
-                        alt_summary=summary,
-                    )
+                summary = f"password-change-{int(time.time())}"
+                self.sync_vault(alt_summary=summary)
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr after password change: {nostr_error}"
@@ -1501,13 +1521,8 @@ class PasswordManager:
             print(colored("Encryption mode changed successfully.", "green"))
 
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    summary = f"mode-change-{int(time.time())}"
-                    self.nostr_client.publish_json_to_nostr(
-                        encrypted_data,
-                        alt_summary=summary,
-                    )
+                summary = f"mode-change-{int(time.time())}"
+                self.sync_vault(alt_summary=summary)
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr after encryption mode change: {nostr_error}"

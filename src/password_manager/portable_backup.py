@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import time
+import asyncio
 from enum import Enum
 from pathlib import Path
 
@@ -103,7 +104,7 @@ def export_backup(
         os.chmod(enc_file, 0o600)
         try:
             client = NostrClient(vault.encryption_manager, vault.fingerprint_dir.name)
-            client.publish_json_to_nostr(encrypted)
+            asyncio.run(client.publish_snapshot(encrypted))
         except Exception:
             logger.error("Failed to publish backup via Nostr", exc_info=True)
 

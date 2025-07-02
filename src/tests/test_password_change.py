@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -42,6 +42,7 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
 
         with patch("password_manager.manager.NostrClient") as MockClient:
             mock_instance = MockClient.return_value
+            mock_instance.publish_snapshot = AsyncMock(return_value=None)
             pm.nostr_client = mock_instance
             pm.change_password()
-            mock_instance.publish_json_to_nostr.assert_called_once()
+            mock_instance.publish_snapshot.assert_called_once()
