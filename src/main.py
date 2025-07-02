@@ -17,7 +17,7 @@ import traceback
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
 from constants import INACTIVITY_TIMEOUT
-from utils.key_derivation import EncryptionMode
+
 
 colorama_init()
 
@@ -491,14 +491,13 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("1. Profiles")
         print("2. Nostr")
         print("3. Change password")
-        print("4. Change encryption mode")
-        print("5. Verify Script Checksum")
-        print("6. Backup Parent Seed")
-        print("7. Export database")
-        print("8. Import database")
-        print("9. Set inactivity timeout")
-        print("10. Lock Vault")
-        print("11. Back")
+        print("4. Verify Script Checksum")
+        print("5. Backup Parent Seed")
+        print("6. Export database")
+        print("7. Import database")
+        print("8. Set inactivity timeout")
+        print("9. Lock Vault")
+        print("10. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -507,29 +506,22 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "3":
             password_manager.change_password()
         elif choice == "4":
-            try:
-                mode = password_manager.prompt_encryption_mode()
-                password_manager.change_encryption_mode(mode)
-            except Exception as exc:
-                logging.error(f"Error changing encryption mode: {exc}", exc_info=True)
-                print(colored(f"Error: Failed to change encryption mode: {exc}", "red"))
-        elif choice == "5":
             password_manager.handle_verify_checksum()
-        elif choice == "6":
+        elif choice == "5":
             password_manager.handle_backup_reveal_parent_seed()
-        elif choice == "7":
+        elif choice == "6":
             password_manager.handle_export_database()
-        elif choice == "8":
+        elif choice == "7":
             path = input("Enter path to backup file: ").strip()
             if path:
                 password_manager.handle_import_database(Path(path))
-        elif choice == "9":
+        elif choice == "8":
             handle_set_inactivity_timeout(password_manager)
-        elif choice == "10":
+        elif choice == "9":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "11":
+        elif choice == "10":
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -622,12 +614,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
 
-    parser.add_argument(
-        "--encryption-mode",
-        choices=[m.value for m in EncryptionMode],
-        help="Select encryption mode",
-    )
-
     exp = sub.add_parser("export")
     exp.add_argument("--file")
 
@@ -636,19 +622,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    mode_value = cfg.get("encryption_mode", EncryptionMode.SEED_ONLY.value)
-    if args.encryption_mode:
-        mode_value = args.encryption_mode
-    try:
-        enc_mode = EncryptionMode(mode_value)
-    except ValueError:
-        logger.error(f"Invalid encryption mode: {mode_value}")
-        print(colored(f"Error: Invalid encryption mode '{mode_value}'", "red"))
-        sys.exit(1)
-
     # Initialize PasswordManager and proceed with application logic
     try:
-        password_manager = PasswordManager(encryption_mode=enc_mode)
+        password_manager = PasswordManager()
         logger.info("PasswordManager initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)

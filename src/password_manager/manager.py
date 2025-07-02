@@ -696,7 +696,6 @@ class PasswordManager:
             )
 
             self.store_hashed_password(password)
-            self.config_manager.set_encryption_mode(self.encryption_mode)
             logging.info("User password hashed and stored successfully.")
 
             seed_mgr.encrypt_parent_seed(seed)
@@ -1463,7 +1462,6 @@ class PasswordManager:
             self.vault.set_encryption_manager(new_mgr)
             self.vault.save_index(index_data)
             self.config_manager.vault = self.vault
-            config_data["encryption_mode"] = new_mode.value
             self.config_manager.save_config(config_data)
 
             self.encryption_manager = new_mgr
