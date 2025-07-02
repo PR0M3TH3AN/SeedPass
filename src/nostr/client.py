@@ -4,9 +4,10 @@ import base64
 import json
 import logging
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import hashlib
 import asyncio
+import gzip
 
 # Imports from the nostr-sdk library
 from nostr_sdk import (
@@ -22,6 +23,7 @@ from nostr_sdk import (
 from datetime import timedelta
 
 from .key_manager import KeyManager as SeedPassKeyManager
+from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
 from password_manager.encryption import EncryptionManager
 from utils.file_lock import exclusive_lock
 
@@ -37,6 +39,44 @@ DEFAULT_RELAYS = [
     "wss://nostr.oxtr.dev",
     "wss://relay.primal.net",
 ]
+
+
+def prepare_snapshot(
+    encrypted_bytes: bytes, limit: int
+) -> Tuple[Manifest, list[bytes]]:
+    """Compress and split the encrypted vault into chunks.
+
+    Each chunk is hashed with SHA-256 and described in the returned
+    :class:`Manifest`.
+
+    Parameters
+    ----------
+    encrypted_bytes : bytes
+        The encrypted vault contents.
+    limit : int
+        Maximum chunk size in bytes.
+
+    Returns
+    -------
+    Tuple[Manifest, list[bytes]]
+        The manifest describing all chunks and the list of chunk bytes.
+    """
+
+    compressed = gzip.compress(encrypted_bytes)
+    chunks = [compressed[i : i + limit] for i in range(0, len(compressed), limit)]
+
+    metas: list[ChunkMeta] = []
+    for i, chunk in enumerate(chunks):
+        metas.append(
+            ChunkMeta(
+                id=f"seedpass-chunk-{i:04d}",
+                size=len(chunk),
+                hash=hashlib.sha256(chunk).hexdigest(),
+            )
+        )
+
+    manifest = Manifest(ver=1, algo="gzip", chunks=metas)
+    return manifest, chunks
 
 
 class NostrClient:
@@ -194,6 +234,82 @@ class NostrClient:
             return base64.b64decode(content_b64.encode("utf-8"))
         self.last_error = "Latest event contained no content"
         return None
+
+    async def publish_snapshot(
+        self, encrypted_bytes: bytes, limit: int = 50_000
+    ) -> Manifest:
+        """Publish a compressed snapshot split into chunks.
+
+        Parameters
+        ----------
+        encrypted_bytes : bytes
+            Vault contents already encrypted with the user's key.
+        limit : int, optional
+            Maximum chunk size in bytes. Defaults to 50 kB.
+        """
+
+        manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
+        for meta, chunk in zip(manifest.chunks, chunks):
+            content = base64.b64encode(chunk).decode("utf-8")
+            builder = EventBuilder(Kind(KIND_SNAPSHOT_CHUNK), content).tags(
+                [Tag.identifier(meta.id)]
+            )
+            event = builder.build(self.keys.public_key()).sign_with_keys(self.keys)
+            await self.client.send_event(event)
+
+        manifest_json = json.dumps(
+            {
+                "ver": manifest.ver,
+                "algo": manifest.algo,
+                "chunks": [meta.__dict__ for meta in manifest.chunks],
+                "delta_since": manifest.delta_since,
+            }
+        )
+
+        manifest_event = (
+            EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+            .build(self.keys.public_key())
+            .sign_with_keys(self.keys)
+        )
+        await self.client.send_event(manifest_event)
+        return manifest
+
+    async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
+        """Retrieve the latest manifest and all snapshot chunks."""
+
+        pubkey = self.keys.public_key()
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).limit(1)
+        timeout = timedelta(seconds=10)
+        events = (await self.client.fetch_events(f, timeout)).to_vec()
+        if not events:
+            return None
+        manifest_raw = events[0].content()
+        data = json.loads(manifest_raw)
+        manifest = Manifest(
+            ver=data["ver"],
+            algo=data["algo"],
+            chunks=[ChunkMeta(**c) for c in data["chunks"]],
+            delta_since=data.get("delta_since"),
+        )
+
+        chunks: list[bytes] = []
+        for meta in manifest.chunks:
+            cf = (
+                Filter()
+                .author(pubkey)
+                .kind(Kind(KIND_SNAPSHOT_CHUNK))
+                .identifier(meta.id)
+                .limit(1)
+            )
+            cev = (await self.client.fetch_events(cf, timeout)).to_vec()
+            if not cev:
+                raise ValueError(f"Missing chunk {meta.id}")
+            chunk_bytes = base64.b64decode(cev[0].content().encode("utf-8"))
+            if hashlib.sha256(chunk_bytes).hexdigest() != meta.hash:
+                raise ValueError(f"Checksum mismatch for chunk {meta.id}")
+            chunks.append(chunk_bytes)
+
+        return manifest, chunks
 
     def close_client_pool(self) -> None:
         """Disconnects the client from all relays."""
