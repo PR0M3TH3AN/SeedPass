@@ -1154,6 +1154,7 @@ class PasswordManager:
                 self.backup_manager,
                 mode,
                 dest,
+                parent_seed=self.parent_seed,
             )
             print(colored(f"Database exported to '{path}'.", "green"))
             return path
@@ -1165,7 +1166,12 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
         try:
-            import_backup(self.vault, self.backup_manager, src)
+            import_backup(
+                self.vault,
+                self.backup_manager,
+                src,
+                parent_seed=self.parent_seed,
+            )
             print(colored("Database imported successfully.", "green"))
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)

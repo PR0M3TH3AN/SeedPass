@@ -9,16 +9,23 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
-from utils.key_derivation import derive_index_key, EncryptionMode
+from utils.key_derivation import (
+    derive_index_key,
+    derive_key_from_password,
+    EncryptionMode,
+)
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 PASSWORD = "passw0rd"
 
 
 def setup_vault(tmp: Path, mode: EncryptionMode) -> Vault:
+    seed_key = derive_key_from_password(PASSWORD)
+    seed_mgr = EncryptionManager(seed_key, tmp)
+    seed_mgr.encrypt_parent_seed(SEED)
+
     key = derive_index_key(SEED, PASSWORD, mode)
     enc_mgr = EncryptionManager(key, tmp)
-    enc_mgr.encrypt_parent_seed(SEED)
     return Vault(enc_mgr, tmp)
 
 

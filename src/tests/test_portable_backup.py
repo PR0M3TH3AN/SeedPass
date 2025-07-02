@@ -16,7 +16,11 @@ from password_manager.portable_backup import (
     export_backup,
     import_backup,
 )
-from utils.key_derivation import derive_index_key, EncryptionMode
+from utils.key_derivation import (
+    derive_index_key,
+    derive_key_from_password,
+    EncryptionMode,
+)
 
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -24,9 +28,12 @@ PASSWORD = "passw0rd"
 
 
 def setup_vault(tmp: Path, mode: EncryptionMode = EncryptionMode.SEED_ONLY):
+    seed_key = derive_key_from_password(PASSWORD)
+    seed_mgr = EncryptionManager(seed_key, tmp)
+    seed_mgr.encrypt_parent_seed(SEED)
+
     index_key = derive_index_key(SEED, PASSWORD, mode)
     enc_mgr = EncryptionManager(index_key, tmp)
-    enc_mgr.encrypt_parent_seed(SEED)
     vault = Vault(enc_mgr, tmp)
     backup = BackupManager(tmp)
     return vault, backup
@@ -49,11 +56,11 @@ def test_round_trip_across_modes(monkeypatch):
                 lambda *_a, **_k: PASSWORD,
             )
 
-            path = export_backup(vault, backup, pmode)
+            path = export_backup(vault, backup, pmode, parent_seed=SEED)
             assert path.exists()
 
             vault.save_index({"pw": 0})
-            import_backup(vault, backup, path)
+            import_backup(vault, backup, path, parent_seed=SEED)
             assert vault.load_index()["pw"] == data["pw"]
 
 
@@ -70,7 +77,7 @@ def test_corruption_detection(monkeypatch):
             "password_manager.portable_backup.prompt_existing_password",
             lambda *_a, **_k: PASSWORD,
         )
-        path = export_backup(vault, backup, PortableMode.SEED_ONLY)
+        path = export_backup(vault, backup, PortableMode.SEED_ONLY, parent_seed=SEED)
 
         content = json.loads(path.read_text())
         payload = base64.b64decode(content["payload"])
@@ -79,7 +86,7 @@ def test_corruption_detection(monkeypatch):
         path.write_text(json.dumps(content))
 
         with pytest.raises(InvalidToken):
-            import_backup(vault, backup, path)
+            import_backup(vault, backup, path, parent_seed=SEED)
 
 
 def test_incorrect_credentials(monkeypatch):
@@ -92,14 +99,19 @@ def test_incorrect_credentials(monkeypatch):
             "password_manager.portable_backup.prompt_existing_password",
             lambda *_a, **_k: PASSWORD,
         )
-        path = export_backup(vault, backup, PortableMode.SEED_PLUS_PW)
+        path = export_backup(
+            vault,
+            backup,
+            PortableMode.SEED_PLUS_PW,
+            parent_seed=SEED,
+        )
 
         monkeypatch.setattr(
             "password_manager.portable_backup.prompt_existing_password",
             lambda *_a, **_k: "wrong",
         )
         with pytest.raises(Exception):
-            import_backup(vault, backup, path)
+            import_backup(vault, backup, path, parent_seed=SEED)
 
 
 def test_import_over_existing(monkeypatch):
@@ -112,10 +124,10 @@ def test_import_over_existing(monkeypatch):
             "password_manager.portable_backup.prompt_existing_password",
             lambda *_a, **_k: PASSWORD,
         )
-        path = export_backup(vault, backup, PortableMode.SEED_ONLY)
+        path = export_backup(vault, backup, PortableMode.SEED_ONLY, parent_seed=SEED)
 
         vault.save_index({"v": 2})
-        import_backup(vault, backup, path)
+        import_backup(vault, backup, path, parent_seed=SEED)
         loaded = vault.load_index()
         assert loaded["v"] == 1
 
@@ -131,7 +143,12 @@ def test_checksum_mismatch_detection(monkeypatch):
             lambda *_a, **_k: PASSWORD,
         )
 
-        path = export_backup(vault, backup, PortableMode.SEED_ONLY)
+        path = export_backup(
+            vault,
+            backup,
+            PortableMode.SEED_ONLY,
+            parent_seed=SEED,
+        )
 
         wrapper = json.loads(path.read_text())
         payload = base64.b64decode(wrapper["payload"])
@@ -145,4 +162,26 @@ def test_checksum_mismatch_detection(monkeypatch):
         path.write_text(json.dumps(wrapper))
 
         with pytest.raises(ValueError):
-            import_backup(vault, backup, path)
+            import_backup(vault, backup, path, parent_seed=SEED)
+
+
+@pytest.mark.parametrize(
+    "pmode",
+    [PortableMode.SEED_ONLY, PortableMode.SEED_PLUS_PW],
+)
+def test_export_import_seed_encrypted_with_different_key(monkeypatch, pmode):
+    """Ensure backup round trip works when seed is encrypted with another key."""
+    with TemporaryDirectory() as td:
+        tmp = Path(td)
+        vault, backup = setup_vault(tmp)
+        vault.save_index({"v": 123})
+
+        monkeypatch.setattr(
+            "password_manager.portable_backup.prompt_existing_password",
+            lambda *_a, **_k: PASSWORD,
+        )
+
+        path = export_backup(vault, backup, pmode, parent_seed=SEED)
+        vault.save_index({"v": 0})
+        import_backup(vault, backup, path, parent_seed=SEED)
+        assert vault.load_index()["v"] == 123

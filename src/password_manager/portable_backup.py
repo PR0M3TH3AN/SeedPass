@@ -55,6 +55,7 @@ def export_backup(
     dest_path: Path | None = None,
     *,
     publish: bool = False,
+    parent_seed: str | None = None,
 ) -> Path:
     """Export the current vault state to a portable encrypted file."""
 
@@ -65,7 +66,11 @@ def export_backup(
         dest_path = dest_dir / EXPORT_NAME_TEMPLATE.format(ts=ts)
 
     index_data = vault.load_index()
-    seed = vault.encryption_manager.decrypt_parent_seed()
+    seed = (
+        parent_seed
+        if parent_seed is not None
+        else vault.encryption_manager.decrypt_parent_seed()
+    )
     password = None
     if mode in (PortableMode.SEED_PLUS_PW, PortableMode.PW_ONLY):
         password = prompt_existing_password("Enter your master password: ")
@@ -109,6 +114,7 @@ def import_backup(
     vault: Vault,
     backup_manager: BackupManager,
     path: Path,
+    parent_seed: str | None = None,
 ) -> None:
     """Import a portable backup file and replace the current index."""
 
@@ -123,7 +129,11 @@ def import_backup(
     mode = PortableMode(wrapper.get("encryption_mode", PortableMode.SEED_ONLY.value))
     payload = base64.b64decode(wrapper["payload"])
 
-    seed = vault.encryption_manager.decrypt_parent_seed()
+    seed = (
+        parent_seed
+        if parent_seed is not None
+        else vault.encryption_manager.decrypt_parent_seed()
+    )
     password = None
     if mode in (PortableMode.SEED_PLUS_PW, PortableMode.PW_ONLY):
         password = prompt_existing_password("Enter your master password: ")
