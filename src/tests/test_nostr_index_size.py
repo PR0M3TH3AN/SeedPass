@@ -41,17 +41,20 @@ def test_nostr_index_size_limits():
 
             delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
             size = 16
+            batch = 100
             entry_count = 0
             max_payload = 60 * 1024
             try:
                 while True:
-                    entry_mgr.add_entry(
-                        website_name=f"site-{entry_count + 1}",
-                        length=12,
-                        username="u" * size,
-                        url="https://example.com/" + "a" * size,
-                    )
-                    entry_count += 1
+                    for _ in range(batch):
+                        entry_mgr.add_entry(
+                            website_name=f"site-{entry_count + 1}",
+                            length=12,
+                            username="u" * size,
+                            url="https://example.com/" + "a" * size,
+                        )
+                        entry_count += 1
+
                     encrypted = vault.get_encrypted_index()
                     payload_size = len(encrypted) if encrypted else 0
                     published = client.publish_json_to_nostr(encrypted or b"")
