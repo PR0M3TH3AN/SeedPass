@@ -239,16 +239,22 @@ pytest -vv
 
 ### Exploring Nostr Index Size Limits
 
-The `test_nostr_index_size.py` test probes how large the encrypted index can
-be when posted to Nostr. It requires network access and is tagged with
-`desktop` and `network`, so run it manually when you want to measure payload
-limits:
+`test_nostr_index_size.py` now keeps adding entries until either the Nostr
+relay or the SDK fails to publish or retrieve the encrypted index. This helps
+discover the practical payload ceiling (the loop stops just below the 65 kB
+event limit). Because each iteration pushes a larger blob to the relay, the
+test is marked with both `desktop` and `network` and is not included in the
+default test run.
+
+Set `NOSTR_TEST_DELAY` to throttle how many seconds the test waits between
+publishes. The default is `5` seconds, but you can lengthen it to avoid rate
+limits when exploring very large indexes.
 
 ```bash
-pytest -vv src/tests/test_nostr_index_size.py
+NOSTR_TEST_DELAY=10 pytest -vv src/tests/test_nostr_index_size.py -m "desktop and network"
 ```
 
-Add `-m "desktop and network"` if you normally exclude those markers.
+If you normally exclude those markers, remember to pass `-m "desktop and network"`.
 
 ### Automatically Updating the Script Checksum
 
