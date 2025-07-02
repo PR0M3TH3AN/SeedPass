@@ -256,22 +256,28 @@ class PasswordManager:
             sys.exit(1)
 
     def setup_encryption_manager(
-        self, fingerprint_dir: Path, password: Optional[str] = None
-    ) -> None:
+        self,
+        fingerprint_dir: Path,
+        password: Optional[str] = None,
+        *,
+        exit_on_fail: bool = True,
+    ) -> bool:
         """Set up encryption for the current fingerprint and load the seed."""
 
         try:
             if password is None:
                 password = prompt_existing_password("Enter your master password: ")
 
-            if not self.parent_seed:
-                seed_key = derive_key_from_password(password)
-                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                try:
-                    self.parent_seed = seed_mgr.decrypt_parent_seed()
-                except Exception:
-                    print(colored("Invalid password. Exiting.", "red"))
-                    raise
+            seed_key = derive_key_from_password(password)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            try:
+                self.parent_seed = seed_mgr.decrypt_parent_seed()
+            except Exception:
+                msg = "Invalid password for selected seed profile."
+                print(colored(msg, "red"))
+                if exit_on_fail:
+                    sys.exit(1)
+                return False
 
             key = derive_index_key(
                 self.parent_seed,
@@ -289,12 +295,17 @@ class PasswordManager:
 
             self.fingerprint_dir = fingerprint_dir
             if not self.verify_password(password):
-                print(colored("Invalid password. Exiting.", "red"))
-                sys.exit(1)
+                print(colored("Invalid password.", "red"))
+                if exit_on_fail:
+                    sys.exit(1)
+                return False
+            return True
         except Exception as e:
             logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
             print(colored(f"Error: Failed to set up encryption: {e}", "red"))
-            sys.exit(1)
+            if exit_on_fail:
+                sys.exit(1)
+            return False
 
     def load_parent_seed(
         self, fingerprint_dir: Path, password: Optional[str] = None
@@ -354,10 +365,15 @@ class PasswordManager:
                 return False  # Return False to indicate failure
 
             # Prompt for master password for the selected seed profile
-            password = prompt_existing_password("Enter your master password: ")
+            password = prompt_existing_password(
+                "Enter the master password for the selected seed profile: "
+            )
 
             # Set up the encryption manager with the new password and seed profile directory
-            self.setup_encryption_manager(self.fingerprint_dir, password)
+            if not self.setup_encryption_manager(
+                self.fingerprint_dir, password, exit_on_fail=False
+            ):
+                return False
 
             # Initialize BIP85 and other managers
             self.initialize_bip85()
