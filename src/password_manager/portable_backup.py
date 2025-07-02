@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import base64
 import json
-import hashlib
 import logging
 import os
 import time
@@ -22,6 +21,7 @@ from utils.key_derivation import (
 )
 from utils.password_prompt import prompt_existing_password
 from password_manager.encryption import EncryptionManager
+from utils.checksum import json_checksum, canonical_json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +72,10 @@ def export_backup(
 
     key = _derive_export_key(seed, mode, password)
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
-    payload_bytes = enc_mgr.encrypt_data(
-        json.dumps(index_data, indent=4).encode("utf-8")
-    )
-    checksum = hashlib.sha256(payload_bytes).hexdigest()
+
+    canonical = canonical_json_dumps(index_data)
+    payload_bytes = enc_mgr.encrypt_data(canonical.encode("utf-8"))
+    checksum = json_checksum(index_data)
 
     wrapper = {
         "format_version": FORMAT_VERSION,
@@ -122,9 +122,6 @@ def import_backup(
 
     mode = PortableMode(wrapper.get("encryption_mode", PortableMode.SEED_ONLY.value))
     payload = base64.b64decode(wrapper["payload"])
-    checksum = hashlib.sha256(payload).hexdigest()
-    if checksum != wrapper.get("checksum"):
-        raise ValueError("Checksum mismatch")
 
     seed = vault.encryption_manager.decrypt_parent_seed()
     password = None
@@ -135,6 +132,10 @@ def import_backup(
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
     index_bytes = enc_mgr.decrypt_data(payload)
     index = json.loads(index_bytes.decode("utf-8"))
+
+    checksum = json_checksum(index)
+    if checksum != wrapper.get("checksum"):
+        raise ValueError("Checksum mismatch")
 
     backup_manager.create_backup()
     vault.save_index(index)
