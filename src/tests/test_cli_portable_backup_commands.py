@@ -15,7 +15,7 @@ def _run(argv, monkeypatch):
     monkeypatch.setattr(main, "load_global_config", lambda: {})
     called = {}
 
-    def fake_init(self, encryption_mode):
+    def fake_init(self, *args, **kwargs):
         called["init"] = True
 
     def fake_export(self, dest):
