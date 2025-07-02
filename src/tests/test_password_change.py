@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.config_manager import ConfigManager
 from password_manager.vault import Vault
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 def test_change_password_triggers_nostr_backup(monkeypatch):
@@ -22,6 +22,7 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
         cfg_mgr = ConfigManager(vault, fp)
 
         pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.encryption_manager = enc_mgr
         pm.entry_manager = entry_mgr
         pm.config_manager = cfg_mgr

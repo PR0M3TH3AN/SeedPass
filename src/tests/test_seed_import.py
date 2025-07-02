@@ -8,7 +8,7 @@ from mnemonic import Mnemonic
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 def test_seed_encryption_round_trip():
@@ -22,4 +22,5 @@ def test_seed_encryption_round_trip():
 
         assert decrypted == seed
         pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         assert pm.validate_bip85_seed(seed)

@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 VALID_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -22,6 +22,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
         assert expected_dir.exists()
 
         pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.fingerprint_manager = fm
         pm.encryption_manager = object()
         pm.current_fingerprint = None
