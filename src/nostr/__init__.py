@@ -5,9 +5,24 @@
 from importlib import import_module
 import logging
 
+from .backup_models import (
+    KIND_MANIFEST,
+    KIND_SNAPSHOT_CHUNK,
+    KIND_DELTA,
+    Manifest,
+    ChunkMeta,
+)
+
 logger = logging.getLogger(__name__)
 
-__all__ = ["NostrClient"]
+__all__ = [
+    "NostrClient",
+    "KIND_MANIFEST",
+    "KIND_SNAPSHOT_CHUNK",
+    "KIND_DELTA",
+    "Manifest",
+    "ChunkMeta",
+]
 
 
 def __getattr__(name: str):
