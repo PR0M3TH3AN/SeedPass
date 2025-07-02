@@ -115,6 +115,30 @@ class PasswordManager:
         """Record the current time as the last user activity."""
         self.last_activity = time.time()
 
+    def prompt_encryption_mode(self) -> EncryptionMode:
+        """Prompt the user to select an encryption mode.
+
+        Returns:
+            EncryptionMode: The chosen encryption mode.
+        """
+        print("Choose encryption mode  [Enter for seed-only]")
+        print("    1) seed-only")
+        print("    2) seed+password")
+        print("    3) password-only (legacy)")
+        mode_choice = input("Select option: ").strip()
+
+        if mode_choice == "2":
+            return EncryptionMode.SEED_PLUS_PW
+        elif mode_choice == "3":
+            print(
+                colored(
+                    "⚠️ Password-only encryption is less secure and not recommended.",
+                    "yellow",
+                )
+            )
+            return EncryptionMode.PW_ONLY
+        return EncryptionMode.SEED_ONLY
+
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
         self.parent_seed = None
@@ -197,9 +221,11 @@ class PasswordManager:
 
     def add_new_fingerprint(self):
         """
-        Adds a new seed profile by generating it from a seed phrase.
+        Adds a new seed profile by prompting for encryption mode and generating
+        it from a seed phrase.
         """
         try:
+            self.encryption_mode = self.prompt_encryption_mode()
             choice = input(
                 "Do you want to (1) Enter an existing seed or (2) Generate a new seed? (1/2): "
             ).strip()
@@ -480,24 +506,7 @@ class PasswordManager:
         """
         print(colored("No existing seed found. Let's set up a new one!", "yellow"))
 
-        print("Choose encryption mode  [Enter for seed-only]")
-        print("    1) seed-only")
-        print("    2) seed+password")
-        print("    3) password-only (legacy)")
-        mode_choice = input("Select option: ").strip()
-
-        if mode_choice == "2":
-            self.encryption_mode = EncryptionMode.SEED_PLUS_PW
-        elif mode_choice == "3":
-            self.encryption_mode = EncryptionMode.PW_ONLY
-            print(
-                colored(
-                    "⚠️ Password-only encryption is less secure and not recommended.",
-                    "yellow",
-                )
-            )
-        else:
-            self.encryption_mode = EncryptionMode.SEED_ONLY
+        self.encryption_mode = self.prompt_encryption_mode()
 
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
