@@ -39,33 +39,40 @@ def test_nostr_index_size_limits():
             vault = Vault(enc_mgr, tmpdir)
             entry_mgr = EntryManager(vault, Path(tmpdir))
 
-            sizes = [16, 64, 256, 1024, 2048, 4096, 8192]
             delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
-            for size in sizes:
-                try:
+            size = 16
+            entry_count = 0
+            max_payload = 60 * 1024
+            try:
+                while True:
                     entry_mgr.add_entry(
-                        website_name=f"site-{size}",
+                        website_name=f"site-{entry_count + 1}",
                         length=12,
                         username="u" * size,
                         url="https://example.com/" + "a" * size,
                     )
+                    entry_count += 1
                     encrypted = vault.get_encrypted_index()
                     payload_size = len(encrypted) if encrypted else 0
                     published = client.publish_json_to_nostr(encrypted or b"")
                     time.sleep(delay)
                     retrieved = client.retrieve_json_from_nostr_sync()
                     retrieved_ok = retrieved == encrypted
-                    results.append((size, payload_size, published, retrieved_ok))
-                    if not published or not retrieved_ok:
+                    results.append((entry_count, payload_size, published, retrieved_ok))
+                    if not published or not retrieved_ok or payload_size > max_payload:
                         break
-                except Exception:
-                    results.append((size, None, False, False))
-                    break
-            client.close_client_pool()
+                    size *= 2
+            except Exception:
+                results.append((entry_count + 1, None, False, False))
+            finally:
+                client.close_client_pool()
 
     note_kind = Kind.from_std(KindStandard.TEXT_NOTE).as_u16()
     print(f"\nNostr note Kind: {note_kind}")
     print(f"Nostr account npub: {npub}")
-    print("Size | Payload Bytes | Published | Retrieved")
-    for size, payload, pub, ret in results:
-        print(f"{size:>4} | {payload:>13} | {pub} | {ret}")
+    print("Count | Payload Bytes | Published | Retrieved")
+    for cnt, payload, pub, ret in results:
+        print(f"{cnt:>5} | {payload:>13} | {pub} | {ret}")
+
+    synced = sum(1 for _, _, pub, ret in results if pub and ret)
+    print(f"Successfully synced entries: {synced}")
