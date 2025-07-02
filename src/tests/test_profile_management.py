@@ -60,9 +60,7 @@ def test_add_and_delete_entry(monkeypatch):
 
         published = []
         pm.nostr_client = SimpleNamespace(
-            publish_json_to_nostr=lambda data, alt_summary=None: (
-                published.append(data) or True
-            )
+            publish_snapshot=lambda data, alt_summary=None: published.append(data)
         )
 
         inputs = iter([str(index)])

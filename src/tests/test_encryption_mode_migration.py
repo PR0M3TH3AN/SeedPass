@@ -57,7 +57,7 @@ def test_encryption_mode_migration(monkeypatch, start_mode, new_mode):
         pm.current_fingerprint = "fp"
         pm.parent_seed = TEST_SEED
         pm.encryption_mode = start_mode
-        pm.nostr_client = SimpleNamespace(publish_json_to_nostr=lambda *a, **k: None)
+        pm.nostr_client = SimpleNamespace(publish_snapshot=lambda *a, **k: None)
 
         monkeypatch.setattr(
             "password_manager.manager.prompt_existing_password",
@@ -65,9 +65,7 @@ def test_encryption_mode_migration(monkeypatch, start_mode, new_mode):
         )
         monkeypatch.setattr(
             "password_manager.manager.NostrClient",
-            lambda *a, **kw: SimpleNamespace(
-                publish_json_to_nostr=lambda *a, **k: None
-            ),
+            lambda *a, **kw: SimpleNamespace(publish_snapshot=lambda *a, **k: None),
         )
 
         pm.change_encryption_mode(new_mode)

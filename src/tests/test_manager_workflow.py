@@ -20,9 +20,8 @@ class FakeNostrClient:
     def __init__(self, *args, **kwargs):
         self.published = []
 
-    def publish_json_to_nostr(self, data: bytes):
+    def publish_snapshot(self, data: bytes):
         self.published.append(data)
-        return True
 
 
 def test_manager_workflow(monkeypatch):

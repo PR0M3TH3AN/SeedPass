@@ -33,7 +33,7 @@ def setup_pm(tmp_path, monkeypatch):
         relays=list(DEFAULT_RELAYS),
         close_client_pool=lambda: None,
         initialize_client_pool=lambda: None,
-        publish_json_to_nostr=lambda data, alt_summary=None: None,
+        publish_snapshot=lambda data, alt_summary=None: None,
         key_manager=SimpleNamespace(get_npub=lambda: "npub"),
     )
 

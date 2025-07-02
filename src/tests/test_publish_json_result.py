@@ -2,12 +2,14 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import asyncio
+import pytest
 from cryptography.fernet import Fernet
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
-from nostr.client import NostrClient
+from nostr.client import NostrClient, Manifest
 
 
 def setup_client(tmp_path):
@@ -27,21 +29,34 @@ def setup_client(tmp_path):
 
 
 class FakeEvent:
-    def __init__(self):
+    def __init__(self, content="evt"):
         self._id = "id"
+        self._content = content
 
     def id(self):
         return self._id
 
+    def content(self):
+        return self._content
+
 
 class FakeUnsignedEvent:
+    def __init__(self, content="evt"):
+        self._content = content
+
     def sign_with_keys(self, _):
-        return FakeEvent()
+        return FakeEvent(self._content)
 
 
 class FakeBuilder:
+    def __init__(self, _kind=None, content="evt"):
+        self._content = content
+
+    def tags(self, _tags):
+        return self
+
     def build(self, _):
-        return FakeUnsignedEvent()
+        return FakeUnsignedEvent(self._content)
 
 
 class FakeEventId:
@@ -54,22 +69,32 @@ class FakeSendEventOutput:
         self.id = FakeEventId()
 
 
-def test_publish_json_success():
+def test_publish_snapshot_success():
     with TemporaryDirectory() as tmpdir, patch(
-        "nostr.client.EventBuilder.text_note", return_value=FakeBuilder()
+        "nostr.client.EventBuilder", FakeBuilder
     ):
         client = setup_client(Path(tmpdir))
+
+        async def fake_send(event):
+            return FakeSendEventOutput()
+
         with patch.object(
-            client, "publish_event", return_value=FakeSendEventOutput()
-        ) as mock_pub:
-            assert client.publish_json_to_nostr(b"data") is True
-            mock_pub.assert_called()
+            client.client, "send_event", side_effect=fake_send
+        ) as mock_send:
+            manifest = asyncio.run(client.publish_snapshot(b"data"))
+            assert isinstance(manifest, Manifest)
+            assert mock_send.await_count >= 1
 
 
-def test_publish_json_failure():
+def test_publish_snapshot_failure():
     with TemporaryDirectory() as tmpdir, patch(
-        "nostr.client.EventBuilder.text_note", return_value=FakeBuilder()
+        "nostr.client.EventBuilder", FakeBuilder
     ):
         client = setup_client(Path(tmpdir))
-        with patch.object(client, "publish_event", side_effect=Exception("boom")):
-            assert client.publish_json_to_nostr(b"data") is False
+
+        async def boom(_):
+            raise Exception("boom")
+
+        with patch.object(client.client, "send_event", side_effect=boom):
+            with pytest.raises(Exception):
+                asyncio.run(client.publish_snapshot(b"data"))
