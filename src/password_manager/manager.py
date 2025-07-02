@@ -24,6 +24,11 @@ from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
+from password_manager.portable_backup import (
+    export_backup,
+    import_backup,
+    PortableMode,
+)
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -1136,6 +1141,35 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
+
+    def handle_export_database(
+        self,
+        mode: "PortableMode" = PortableMode.SEED_ONLY,
+        dest: Path | None = None,
+    ) -> Path | None:
+        """Export the current database to an encrypted portable file."""
+        try:
+            path = export_backup(
+                self.vault,
+                self.backup_manager,
+                mode,
+                dest,
+            )
+            print(colored(f"Database exported to '{path}'.", "green"))
+            return path
+        except Exception as e:
+            logging.error(f"Failed to export database: {e}", exc_info=True)
+            print(colored(f"Error: Failed to export database: {e}", "red"))
+            return None
+
+    def handle_import_database(self, src: Path) -> None:
+        """Import a portable database file, replacing the current index."""
+        try:
+            import_backup(self.vault, self.backup_manager, src)
+            print(colored("Database imported successfully.", "green"))
+        except Exception as e:
+            logging.error(f"Failed to import database: {e}", exc_info=True)
+            print(colored(f"Error: Failed to import database: {e}", "red"))
 
     def handle_backup_reveal_parent_seed(self) -> None:
         """
