@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import uuid
 
 import pytest
 from cryptography.fernet import Fernet
@@ -26,7 +27,7 @@ def test_nostr_publish_and_retrieve():
         with patch.object(enc_mgr, "decrypt_parent_seed", return_value=seed):
             client = NostrClient(
                 enc_mgr,
-                "test_fp_real",
+                f"test_fp_{uuid.uuid4().hex}",
                 relays=["wss://relay.snort.social"],
             )
             payload = b"seedpass"

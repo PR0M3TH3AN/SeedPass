@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import sys
+import uuid
 
 import pytest
 
@@ -32,7 +33,7 @@ def test_nostr_index_size_limits():
         with patch.object(enc_mgr, "decrypt_parent_seed", return_value=seed):
             client = NostrClient(
                 enc_mgr,
-                "size_test_fp",
+                f"size_test_{uuid.uuid4().hex}",
                 relays=["wss://relay.snort.social"],
             )
             npub = client.key_manager.get_npub()
