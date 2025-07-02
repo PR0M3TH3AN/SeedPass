@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 class FakePasswordGenerator:
@@ -34,6 +34,7 @@ def test_manager_workflow(monkeypatch):
         monkeypatch.setattr("password_manager.manager.NostrClient", FakeNostrClient)
 
         pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.encryption_manager = enc_mgr
         pm.vault = vault
         pm.entry_manager = entry_mgr

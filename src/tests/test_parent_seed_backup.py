@@ -5,12 +5,13 @@ from types import SimpleNamespace
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 from constants import DEFAULT_SEED_BACKUP_FILENAME
 
 
 def _make_pm(tmp_path: Path) -> PasswordManager:
     pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
     pm.parent_seed = "seed phrase"
     pm.fingerprint_dir = tmp_path
     pm.encryption_manager = SimpleNamespace(encrypt_and_save_file=lambda *a, **k: None)

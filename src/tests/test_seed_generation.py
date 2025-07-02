@@ -17,6 +17,7 @@ def setup_password_manager():
     importlib.reload(manager_module)
 
     pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
+    pm.encryption_mode = manager_module.EncryptionMode.SEED_ONLY
     pm.fingerprint_manager = manager_module.FingerprintManager(constants.APP_DIR)
     pm.current_fingerprint = None
     pm.save_and_encrypt_seed = lambda seed, fingerprint_dir: None

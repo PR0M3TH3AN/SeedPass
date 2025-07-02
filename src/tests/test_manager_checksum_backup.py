@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 class FakeBackupManager:
@@ -19,6 +19,7 @@ class FakeBackupManager:
 
 def _make_pm():
     pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
     return pm
 
 
