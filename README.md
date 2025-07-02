@@ -111,11 +111,11 @@ SeedPass and create a backup:
 # Start the application
 python src/main.py
 
-# Export your index using seed-only encryption
-seedpass export --mode seed-only --file "~/seedpass_backup.json"
+# Export your index
+seedpass export --file "~/seedpass_backup.json"
 
 # Later you can restore it
-seedpass import --mode seed-only --file "~/seedpass_backup.json"
+seedpass import --file "~/seedpass_backup.json"
 ```
 
 
@@ -154,29 +154,6 @@ python src/main.py
    Enter your choice (1-5):
    ```
 
-### Encryption Mode
-
-Use the `--encryption-mode` flag to control how SeedPass derives the key used to
-encrypt your vault. Valid values are:
-
-- `seed-only` – default mode that derives the vault key solely from your BIP-85
-  seed.
-- `seed+pw` – combines the seed with your master password for key derivation.
-- `pw-only` – derives the key from your password alone.
-
-You can set this option when launching the application:
-
-```bash
-python src/main.py --encryption-mode seed+pw
-```
-
-To make the choice persistent, add it to `~/.seedpass/config.toml`:
-
-```toml
-encryption_mode = "seed+pw"
-```
-
-SeedPass will read this value on startup and use the specified mode by default.
 
 ### Managing Multiple Seeds
 
