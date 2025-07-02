@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import time
 from typing import List, Optional
 import hashlib
 import asyncio
@@ -69,6 +70,9 @@ class NostrClient:
 
         self.relays = relays if relays else DEFAULT_RELAYS
 
+        # store the last error encountered during network operations
+        self.last_error: Optional[str] = None
+
         # Configure and initialize the nostr-sdk Client
         signer = NostrSigner.keys(self.keys)
         self.client = Client(signer)
@@ -106,6 +110,7 @@ class NostrClient:
             If provided, include an ``alt`` tag so uploads can be
             associated with a specific event like a password change.
         """
+        self.last_error = None
         try:
             content = base64.b64encode(encrypted_json).decode("utf-8")
 
@@ -130,6 +135,7 @@ class NostrClient:
             return True
 
         except Exception as e:
+            self.last_error = str(e)
             logger.error(f"Failed to publish JSON to Nostr: {e}")
             return False
 
@@ -140,13 +146,33 @@ class NostrClient:
     async def _publish_event(self, event):
         return await self.client.send_event(event)
 
-    def retrieve_json_from_nostr_sync(self) -> Optional[bytes]:
-        """Retrieves the latest Kind 1 event from the author."""
-        try:
-            return asyncio.run(self._retrieve_json_from_nostr())
-        except Exception as e:
-            logger.error("Failed to retrieve events from Nostr: %s", e)
-            return None
+    def update_relays(self, new_relays: List[str]) -> None:
+        """Reconnect the client using a new set of relays."""
+        self.close_client_pool()
+        self.relays = new_relays
+        signer = NostrSigner.keys(self.keys)
+        self.client = Client(signer)
+        self.initialize_client_pool()
+
+    def retrieve_json_from_nostr_sync(
+        self, retries: int = 0, delay: float = 2.0
+    ) -> Optional[bytes]:
+        """Retrieve the latest Kind 1 event from the author with optional retries."""
+        self.last_error = None
+        attempt = 0
+        while True:
+            try:
+                result = asyncio.run(self._retrieve_json_from_nostr())
+                if result is not None:
+                    return result
+            except Exception as e:
+                self.last_error = str(e)
+                logger.error("Failed to retrieve events from Nostr: %s", e)
+            if attempt >= retries:
+                break
+            attempt += 1
+            time.sleep(delay)
+        return None
 
     async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
         # Filter for the latest text note (Kind 1) from our public key
@@ -157,7 +183,8 @@ class NostrClient:
         events = (await self.client.fetch_events(f, timeout)).to_vec()
 
         if not events:
-            logger.warning("No events found on relays for this user.")
+            self.last_error = "No events found on relays for this user."
+            logger.warning(self.last_error)
             return None
 
         latest_event = events[0]
@@ -165,6 +192,7 @@ class NostrClient:
 
         if content_b64:
             return base64.b64decode(content_b64.encode("utf-8"))
+        self.last_error = "Latest event contained no content"
         return None
 
     def close_client_pool(self) -> None:
