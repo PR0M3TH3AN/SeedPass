@@ -231,10 +231,24 @@ Back in the Settings menu you can:
 
 SeedPass includes a small suite of unit tests located under `src/tests`. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
+
 ```bash
 pip install -r src/requirements.txt
 pytest -vv
 ```
+
+### Exploring Nostr Index Size Limits
+
+The `test_nostr_index_size.py` test probes how large the encrypted index can
+be when posted to Nostr. It requires network access and is tagged with
+`desktop` and `network`, so run it manually when you want to measure payload
+limits:
+
+```bash
+pytest -vv src/tests/test_nostr_index_size.py
+```
+
+Add `-m "desktop and network"` if you normally exclude those markers.
 
 ### Automatically Updating the Script Checksum
 
