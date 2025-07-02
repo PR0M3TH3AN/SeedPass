@@ -1,13 +1,12 @@
 import bcrypt
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from cryptography.fernet import Fernet
 import pytest
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
 from password_manager.config_manager import ConfigManager
 from password_manager.vault import Vault
 from nostr.client import DEFAULT_RELAYS
@@ -15,9 +14,7 @@ from nostr.client import DEFAULT_RELAYS
 
 def test_config_defaults_and_round_trip():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, Path(tmpdir))
-        vault = Vault(enc_mgr, Path(tmpdir))
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
 
         cfg = cfg_mgr.load_config(require_pin=False)
@@ -35,9 +32,7 @@ def test_config_defaults_and_round_trip():
 
 def test_pin_verification_and_change():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, Path(tmpdir))
-        vault = Vault(enc_mgr, Path(tmpdir))
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
 
         cfg_mgr.set_pin("1234")
@@ -52,9 +47,7 @@ import json
 
 def test_config_file_encrypted_after_save():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, Path(tmpdir))
-        vault = Vault(enc_mgr, Path(tmpdir))
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
 
         data = {"relays": ["wss://r"], "pin_hash": ""}
@@ -72,9 +65,7 @@ def test_config_file_encrypted_after_save():
 
 def test_set_relays_persists_changes():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, Path(tmpdir))
-        vault = Vault(enc_mgr, Path(tmpdir))
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
         cfg_mgr.set_relays(["wss://custom"], require_pin=False)
         cfg = cfg_mgr.load_config(require_pin=False)
@@ -83,18 +74,14 @@ def test_set_relays_persists_changes():
 
 def test_set_relays_requires_at_least_one():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
-        enc_mgr = EncryptionManager(key, Path(tmpdir))
-        vault = Vault(enc_mgr, Path(tmpdir))
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
         with pytest.raises(ValueError):
             cfg_mgr.set_relays([], require_pin=False)
 
 
 def test_password_hash_migrates_from_file(tmp_path):
-    key = Fernet.generate_key()
-    enc_mgr = EncryptionManager(key, tmp_path)
-    vault = Vault(enc_mgr, tmp_path)
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
     cfg_mgr = ConfigManager(vault, tmp_path)
 
     # save legacy config without password_hash

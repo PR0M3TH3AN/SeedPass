@@ -1,19 +1,15 @@
 import sys
 from pathlib import Path
 import pytest
-from cryptography.fernet import Fernet
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
 from password_manager.migrations import LATEST_VERSION
 
 
 def setup(tmp_path: Path):
-    key = Fernet.generate_key()
-    enc_mgr = EncryptionManager(key, tmp_path)
-    vault = Vault(enc_mgr, tmp_path)
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
     return enc_mgr, vault
 
 
