@@ -864,59 +864,96 @@ class PasswordManager:
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
     def handle_add_totp(self) -> None:
-        """Prompt for details and add a new TOTP entry."""
+        """Add a TOTP entry either derived from the seed or imported."""
         try:
-            label = input("Enter the account label: ").strip()
-            if not label:
-                print(colored("Error: Label cannot be empty.", "red"))
-                return
-
-            totp_index = self.entry_manager.get_next_totp_index()
-
-            period_input = input("TOTP period in seconds (default 30): ").strip()
-            period = 30
-            if period_input:
-                if not period_input.isdigit():
-                    print(colored("Error: Period must be a number.", "red"))
+            while True:
+                print("\nAdd TOTP:")
+                print("1. Make 2FA (derive from seed)")
+                print("2. Import 2FA (paste otpauth URI or secret)")
+                print("3. Back")
+                choice = input("Select option: ").strip()
+                if choice == "1":
+                    label = input("Label: ").strip()
+                    if not label:
+                        print(colored("Error: Label cannot be empty.", "red"))
+                        continue
+                    period = input("Period (default 30): ").strip() or "30"
+                    digits = input("Digits (default 6): ").strip() or "6"
+                    if not period.isdigit() or not digits.isdigit():
+                        print(
+                            colored("Error: Period and digits must be numbers.", "red")
+                        )
+                        continue
+                    totp_index = self.entry_manager.get_next_totp_index()
+                    entry_id = self.entry_manager.get_next_index()
+                    uri = self.entry_manager.add_totp(
+                        label,
+                        self.parent_seed,
+                        index=totp_index,
+                        period=int(period),
+                        digits=int(digits),
+                    )
+                    secret = TotpManager.derive_secret(self.parent_seed, totp_index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                    print(
+                        colored(
+                            f"\n[+] TOTP entry added with ID {entry_id}.\n", "green"
+                        )
+                    )
+                    print(colored("Add this URI to your authenticator app:", "cyan"))
+                    print(colored(uri, "yellow"))
+                    print(colored(f"Secret: {secret}\n", "cyan"))
+                    try:
+                        self.sync_vault()
+                    except Exception as nostr_error:
+                        logging.error(
+                            f"Failed to post updated index to Nostr: {nostr_error}",
+                            exc_info=True,
+                        )
+                    break
+                elif choice == "2":
+                    raw = input("Paste otpauth URI or secret: ").strip()
+                    try:
+                        if raw.lower().startswith("otpauth://"):
+                            label, secret, period, digits = TotpManager.parse_otpauth(
+                                raw
+                            )
+                        else:
+                            label = input("Label: ").strip()
+                            secret = raw.upper()
+                            period = int(input("Period (default 30): ").strip() or 30)
+                            digits = int(input("Digits (default 6): ").strip() or 6)
+                        entry_id = self.entry_manager.get_next_index()
+                        uri = self.entry_manager.add_totp(
+                            label,
+                            self.parent_seed,
+                            secret=secret,
+                            period=period,
+                            digits=digits,
+                        )
+                        self.is_dirty = True
+                        self.last_update = time.time()
+                        print(
+                            colored(
+                                f"\nImported \u2714  Codes for {label} are now stored in SeedPass.",
+                                "green",
+                            )
+                        )
+                        try:
+                            self.sync_vault()
+                        except Exception as nostr_error:
+                            logging.error(
+                                f"Failed to post updated index to Nostr: {nostr_error}",
+                                exc_info=True,
+                            )
+                        break
+                    except ValueError as err:
+                        print(colored(f"Error: {err}", "red"))
+                elif choice == "3":
                     return
-                period = int(period_input)
-
-            digits_input = input("Number of digits (default 6): ").strip()
-            digits = 6
-            if digits_input:
-                if not digits_input.isdigit():
-                    print(colored("Error: Digits must be a number.", "red"))
-                    return
-                digits = int(digits_input)
-
-            entry_id = self.entry_manager.get_next_index()
-            uri = self.entry_manager.add_totp(
-                label,
-                self.parent_seed,
-                index=totp_index,
-                period=period,
-                digits=digits,
-            )
-
-            self.is_dirty = True
-            self.last_update = time.time()
-
-            secret = TotpManager.derive_secret(self.parent_seed, totp_index)
-
-            print(colored(f"\n[+] TOTP entry added with ID {entry_id}.\n", "green"))
-            print(colored("Add this URI to your authenticator app:", "cyan"))
-            print(colored(uri, "yellow"))
-            print(colored(f"Secret: {secret}\n", "cyan"))
-
-            try:
-                self.sync_vault()
-                logging.info("Encrypted index posted to Nostr after TOTP add.")
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-
+                else:
+                    print(colored("Invalid choice.", "red"))
         except Exception as e:
             logging.error(f"Error during TOTP setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))

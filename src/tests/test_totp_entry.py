@@ -12,6 +12,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.vault import Vault
 from password_manager.totp import TotpManager
+import pyotp
 
 
 def test_add_totp_and_get_code():
@@ -47,3 +48,20 @@ def test_totp_time_remaining(monkeypatch):
         monkeypatch.setattr(TotpManager, "time_remaining", lambda period: 7)
         remaining = entry_mgr.get_totp_time_remaining(0)
         assert remaining == 7
+
+
+def test_add_totp_imported(tmp_path):
+    vault, enc = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    em = EntryManager(vault, tmp_path)
+    secret = "JBSWY3DPEHPK3PXP"
+    em.add_totp("Imported", TEST_SEED, secret=secret)
+    entry = em.retrieve_entry(0)
+    assert entry == {
+        "type": "totp",
+        "label": "Imported",
+        "secret": secret,
+        "period": 30,
+        "digits": 6,
+    }
+    code = em.get_totp_code(0, timestamp=0)
+    assert code == pyotp.TOTP(secret).at(0)
