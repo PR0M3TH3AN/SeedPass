@@ -8,11 +8,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from utils.checksum import calculate_checksum
-from constants import SCRIPT_CHECKSUM_FILE
+from constants import SCRIPT_CHECKSUM_FILE, initialize_app
 
 
 def main() -> None:
     """Calculate checksum for the main script and write it to SCRIPT_CHECKSUM_FILE."""
+    initialize_app()
     script_path = SRC_DIR / "password_manager" / "manager.py"
     checksum = calculate_checksum(str(script_path))
     if checksum is None:

@@ -9,50 +9,48 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
-from utils.key_derivation import (
-    derive_index_key,
-    derive_key_from_password,
-    EncryptionMode,
-)
+from utils.key_derivation import derive_index_key, derive_key_from_password
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 PASSWORD = "passw0rd"
 
 
-def setup_vault(tmp: Path, mode: EncryptionMode) -> Vault:
+def setup_vault(tmp: Path) -> Vault:
     seed_key = derive_key_from_password(PASSWORD)
     seed_mgr = EncryptionManager(seed_key, tmp)
     seed_mgr.encrypt_parent_seed(SEED)
 
-    key = derive_index_key(SEED, PASSWORD, mode)
+    key = derive_index_key(SEED)
     enc_mgr = EncryptionManager(key, tmp)
     return Vault(enc_mgr, tmp)
 
 
-@pytest.mark.parametrize(
-    "mode",
-    [
-        EncryptionMode.SEED_ONLY,
-        EncryptionMode.SEED_PLUS_PW,
-        EncryptionMode.PW_ONLY,
-    ],
-)
-def test_index_export_import_round_trip(mode):
+def test_index_export_import_round_trip():
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault = setup_vault(tmp, mode)
+        vault = setup_vault(tmp)
 
-        original = {"passwords": {"0": {"website": "example"}}}
+        original = {
+            "schema_version": 2,
+            "entries": {"0": {"website": "example", "type": "password", "notes": ""}},
+        }
         vault.save_index(original)
 
         encrypted = vault.get_encrypted_index()
         assert isinstance(encrypted, bytes)
 
-        vault.save_index({"passwords": {"0": {"website": "changed"}}})
+        vault.save_index(
+            {
+                "schema_version": 2,
+                "entries": {
+                    "0": {"website": "changed", "type": "password", "notes": ""}
+                },
+            }
+        )
         vault.decrypt_and_save_index_from_nostr(encrypted)
 
         loaded = vault.load_index()
-        assert loaded["passwords"] == original["passwords"]
+        assert loaded["entries"] == original["entries"]
 
 
 def test_get_encrypted_index_missing_file(tmp_path):

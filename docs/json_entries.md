@@ -29,7 +29,27 @@
 
 ## Introduction
 
-**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
+**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. Instead of pushing one large index file, SeedPass posts **snapshot chunks** of the index followed by lightweight **delta events** whenever changes occur. This chunked approach improves reliability and keeps bandwidth usage minimal. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
+
+---
+
+## Index File Format
+
+All entries belonging to a seed profile are summarized in an encrypted file named `seedpass_entries_db.json.enc`. This index starts with `schema_version` `2` and contains an `entries` object keyed by entry numbers.
+
+```json
+{
+  "schema_version": 2,
+  "entries": {
+    "0": {
+      "website": "example.com",
+      "length": 8,
+      "type": "password",
+      "notes": ""
+    }
+  }
+}
+```
 
 ---
 
@@ -444,9 +464,8 @@ All backups are organized based on fingerprints, ensuring that each seed's data 
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 ├── b5c6d7e8/
 │   ├── entries/
 │   │   ├── entry_0.json
@@ -458,9 +477,8 @@ All backups are organized based on fingerprints, ensuring that each seed's data 
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 └── ...
 ```
 
@@ -498,9 +516,9 @@ seedpass rollback --fingerprint a1b2c3d4 --file entry_0_v1.json
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_script_checksum.txt
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 ├── ...
 ```
 

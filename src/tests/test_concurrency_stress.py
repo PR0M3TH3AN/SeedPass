@@ -9,11 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
-from utils.key_derivation import (
-    derive_index_key,
-    derive_key_from_password,
-    EncryptionMode,
-)
+from utils.key_derivation import derive_index_key, derive_key_from_password
 
 
 def _writer(index_key: bytes, dir_path: Path, loops: int, out: Queue) -> None:
@@ -50,7 +46,7 @@ def _backup(dir_path: Path, loops: int, out: Queue) -> None:
 @pytest.mark.parametrize("loops", [5, pytest.param(20, marks=pytest.mark.stress)])
 @pytest.mark.parametrize("_", range(3))
 def test_concurrency_stress(tmp_path: Path, loops: int, _):
-    index_key = derive_index_key(TEST_SEED, TEST_PASSWORD, EncryptionMode.SEED_ONLY)
+    index_key = derive_index_key(TEST_SEED)
     seed_key = derive_key_from_password(TEST_PASSWORD)
     EncryptionManager(seed_key, tmp_path).encrypt_parent_seed(TEST_SEED)
     enc = EncryptionManager(index_key, tmp_path)

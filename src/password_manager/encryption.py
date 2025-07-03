@@ -246,10 +246,10 @@ class EncryptionManager:
 
         :param data: The JSON data to save.
         :param relative_path: The relative path within the fingerprint directory where data will be saved.
-                              Defaults to 'seedpass_passwords_db.json.enc'.
+                              Defaults to 'seedpass_entries_db.json.enc'.
         """
         if relative_path is None:
-            relative_path = Path("seedpass_passwords_db.json.enc")
+            relative_path = Path("seedpass_entries_db.json.enc")
         try:
             json_data = json.dumps(data, indent=4).encode("utf-8")
             self.encrypt_and_save_file(json_data, relative_path)
@@ -273,11 +273,11 @@ class EncryptionManager:
         Decrypts and loads JSON data from the specified relative path within the fingerprint directory.
 
         :param relative_path: The relative path within the fingerprint directory from which data will be loaded.
-                              Defaults to 'seedpass_passwords_db.json.enc'.
+                              Defaults to 'seedpass_entries_db.json.enc'.
         :return: The decrypted JSON data as a dictionary.
         """
         if relative_path is None:
-            relative_path = Path("seedpass_passwords_db.json.enc")
+            relative_path = Path("seedpass_entries_db.json.enc")
 
         file_path = self.fingerprint_dir / relative_path
 
@@ -291,7 +291,7 @@ class EncryptionManager:
                     "yellow",
                 )
             )
-            return {"passwords": {}}
+            return {"entries": {}}
 
         try:
             decrypted_data = self.decrypt_file(relative_path)
@@ -320,10 +320,10 @@ class EncryptionManager:
         Updates the checksum file for the specified file within the fingerprint directory.
 
         :param relative_path: The relative path within the fingerprint directory for which the checksum will be updated.
-                              Defaults to 'seedpass_passwords_db.json.enc'.
+                              Defaults to 'seedpass_entries_db.json.enc'.
         """
         if relative_path is None:
-            relative_path = Path("seedpass_passwords_db.json.enc")
+            relative_path = Path("seedpass_entries_db.json.enc")
         try:
             file_path = self.fingerprint_dir / relative_path
             logger.debug("Calculating checksum of the encrypted file bytes.")
@@ -368,7 +368,7 @@ class EncryptionManager:
         :return: Encrypted data as bytes or None if the index file does not exist.
         """
         try:
-            relative_path = Path("seedpass_passwords_db.json.enc")
+            relative_path = Path("seedpass_entries_db.json.enc")
             if not (self.fingerprint_dir / relative_path).exists():
                 logger.error(
                     f"Index file '{relative_path}' does not exist in '{self.fingerprint_dir}'."
@@ -407,10 +407,10 @@ class EncryptionManager:
 
         :param encrypted_data: The encrypted data retrieved from Nostr.
         :param relative_path: The relative path within the fingerprint directory to update.
-                              Defaults to 'seedpass_passwords_db.json.enc'.
+                              Defaults to 'seedpass_entries_db.json.enc'.
         """
         if relative_path is None:
-            relative_path = Path("seedpass_passwords_db.json.enc")
+            relative_path = Path("seedpass_entries_db.json.enc")
         try:
             decrypted_data = self.decrypt_data(encrypted_data)
             data = json.loads(decrypted_data.decode("utf-8"))

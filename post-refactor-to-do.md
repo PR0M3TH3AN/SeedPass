@@ -14,7 +14,7 @@
 | ------------ | ------------------------------------------------------------------------------ |
 | **Core API** | `seedpass.api`  – headless services consumed by CLI / GUI                      |
 | **Profile**  | A fingerprint‑scoped vault:   parent‑seed + hashed pw + entries                |
-| **Entry**    | One encrypted JSON blob on disk *and* one replaceable Nostr event (kind 31111) |
+| **Entry**    | One encrypted JSON blob on disk plus Nostr snapshot chunks and delta events |
 | **GUI MVP**  | Desktop app built with PySide 6 announced in the v2 roadmap                    |
 
 ---

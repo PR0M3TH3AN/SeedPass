@@ -1,10 +1,7 @@
 # constants.py
 
-import os
 import logging
-import sys
 from pathlib import Path
-import traceback
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -15,38 +12,32 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 3  # Maximum number of retries for relay connections
 RETRY_DELAY = 5  # Seconds to wait before retrying a failed connection
 
-try:
-    # -----------------------------------
-    # Application Directory and Paths
-    # -----------------------------------
-    APP_DIR = Path.home() / ".seedpass"
-    APP_DIR.mkdir(exist_ok=True, parents=True)  # Ensure the directory exists
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.info(f"Application directory created at {APP_DIR}")
-except Exception as e:
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Failed to create application directory: {e}", exc_info=True)
-
-try:
-    PARENT_SEED_FILE = APP_DIR / "parent_seed.enc"  # Encrypted parent seed
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.info(f"Parent seed file path set to {PARENT_SEED_FILE}")
-except Exception as e:
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Error setting file paths: {e}", exc_info=True)
+# -----------------------------------
+# Application Directory and Paths
+# -----------------------------------
+APP_DIR = Path.home() / ".seedpass"
+PARENT_SEED_FILE = APP_DIR / "parent_seed.enc"  # Encrypted parent seed
 
 # -----------------------------------
 # Checksum Files for Integrity
 # -----------------------------------
-try:
-    SCRIPT_CHECKSUM_FILE = (
-        APP_DIR / "seedpass_script_checksum.txt"
-    )  # Checksum for main script
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.info(f"Checksum file path set: Script {SCRIPT_CHECKSUM_FILE}")
-except Exception as e:
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Error setting checksum file paths: {e}", exc_info=True)
+SCRIPT_CHECKSUM_FILE = (
+    APP_DIR / "seedpass_script_checksum.txt"
+)  # Checksum for main script
+
+
+def initialize_app() -> None:
+    """Ensure the application directory exists."""
+    try:
+        APP_DIR.mkdir(exist_ok=True, parents=True)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.info(f"Application directory created at {APP_DIR}")
+    except Exception as exc:
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.error(
+                f"Failed to create application directory: {exc}", exc_info=True
+            )
+
 
 # -----------------------------------
 # Password Generation Constants

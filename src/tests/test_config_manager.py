@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.config_manager import ConfigManager
 from password_manager.vault import Vault
 from nostr.client import DEFAULT_RELAYS
+from constants import INACTIVITY_TIMEOUT
 
 
 def test_config_defaults_and_round_trip():
@@ -78,6 +79,19 @@ def test_set_relays_requires_at_least_one():
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
         with pytest.raises(ValueError):
             cfg_mgr.set_relays([], require_pin=False)
+
+
+def test_inactivity_timeout_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["inactivity_timeout"] == INACTIVITY_TIMEOUT
+
+        cfg_mgr.set_inactivity_timeout(123)
+        cfg2 = cfg_mgr.load_config(require_pin=False)
+        assert cfg2["inactivity_timeout"] == 123
 
 
 def test_password_hash_migrates_from_file(tmp_path):

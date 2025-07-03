@@ -28,6 +28,7 @@ from pathlib import Path
 
 from termcolor import colored
 from password_manager.migrations import LATEST_VERSION
+from password_manager.entry_types import EntryType
 
 from password_manager.vault import Vault
 from utils.file_lock import exclusive_lock
@@ -49,8 +50,8 @@ class EntryManager:
         self.fingerprint_dir = fingerprint_dir
 
         # Use paths relative to the fingerprint directory
-        self.index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-        self.checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+        self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
+        self.checksum_file = self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
 
         logger.debug(f"EntryManager initialized with index file at {self.index_file}")
 
@@ -62,12 +63,12 @@ class EntryManager:
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
-                return {"schema_version": LATEST_VERSION, "passwords": {}}
+                return {"schema_version": LATEST_VERSION, "entries": {}}
         else:
             logger.info(
-                f"Index file '{self.index_file}' not found. Initializing new password database."
+                f"Index file '{self.index_file}' not found. Initializing new entries database."
             )
-            return {"schema_version": LATEST_VERSION, "passwords": {}}
+            return {"schema_version": LATEST_VERSION, "entries": {}}
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
@@ -79,14 +80,14 @@ class EntryManager:
 
     def get_next_index(self) -> int:
         """
-        Retrieves the next available index for a new password entry.
+        Retrieves the next available index for a new entry.
 
         :return: The next index number as an integer.
         """
         try:
             data = self.vault.load_index()
-            if "passwords" in data and isinstance(data["passwords"], dict):
-                indices = [int(idx) for idx in data["passwords"].keys()]
+            if "entries" in data and isinstance(data["entries"], dict):
+                indices = [int(idx) for idx in data["entries"].keys()]
                 next_index = max(indices) + 1 if indices else 0
             else:
                 next_index = 0
@@ -104,32 +105,35 @@ class EntryManager:
         username: Optional[str] = None,
         url: Optional[str] = None,
         blacklisted: bool = False,
+        notes: str = "",
     ) -> int:
         """
-        Adds a new password entry to the encrypted JSON index file.
+        Adds a new entry to the encrypted JSON index file.
 
         :param website_name: The name of the website.
         :param length: The desired length of the password.
         :param username: (Optional) The username associated with the website.
         :param url: (Optional) The URL of the website.
         :param blacklisted: (Optional) Whether the password is blacklisted. Defaults to False.
+        :param notes: (Optional) Extra notes to attach to the entry.
         :return: The assigned index of the new entry.
         """
         try:
             index = self.get_next_index()
             data = self.vault.load_index()
 
-            data["passwords"][str(index)] = {
+            data.setdefault("entries", {})
+            data["entries"][str(index)] = {
                 "website": website_name,
                 "length": length,
                 "username": username if username else "",
                 "url": url if url else "",
                 "blacklisted": blacklisted,
+                "type": EntryType.PASSWORD.value,
+                "notes": notes,
             }
 
-            logger.debug(
-                f"Added entry at index {index}: {data['passwords'][str(index)]}"
-            )
+            logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
 
             self._save_index(data)
             self.update_checksum()
@@ -144,6 +148,39 @@ class EntryManager:
             logger.error(f"Failed to add entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
+
+    def add_totp(self, notes: str = "") -> int:
+        """Placeholder for adding a TOTP entry."""
+        index = self.get_next_index()
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {"type": EntryType.TOTP.value, "notes": notes}
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_index_file()
+        raise NotImplementedError("TOTP entry support not implemented yet")
+
+    def add_ssh_key(self, notes: str = "") -> int:
+        """Placeholder for adding an SSH key entry."""
+        index = self.get_next_index()
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {"type": EntryType.SSH.value, "notes": notes}
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_index_file()
+        raise NotImplementedError("SSH key entry support not implemented yet")
+
+    def add_seed(self, notes: str = "") -> int:
+        """Placeholder for adding a seed entry."""
+        index = self.get_next_index()
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {"type": EntryType.SEED.value, "notes": notes}
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_index_file()
+        raise NotImplementedError("Seed entry support not implemented yet")
 
     def get_encrypted_index(self) -> Optional[bytes]:
         """
@@ -162,14 +199,14 @@ class EntryManager:
 
     def retrieve_entry(self, index: int) -> Optional[Dict[str, Any]]:
         """
-        Retrieves a password entry based on the provided index.
+        Retrieves an entry based on the provided index.
 
-        :param index: The index number of the password entry.
+        :param index: The index number of the entry.
         :return: A dictionary containing the entry details or None if not found.
         """
         try:
             data = self.vault.load_index()
-            entry = data.get("passwords", {}).get(str(index))
+            entry = data.get("entries", {}).get(str(index))
 
             if entry:
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
@@ -194,18 +231,20 @@ class EntryManager:
         username: Optional[str] = None,
         url: Optional[str] = None,
         blacklisted: Optional[bool] = None,
+        notes: Optional[str] = None,
     ) -> None:
         """
-        Modifies an existing password entry based on the provided index and new values.
+        Modifies an existing entry based on the provided index and new values.
 
-        :param index: The index number of the password entry to modify.
+        :param index: The index number of the entry to modify.
         :param username: (Optional) The new username.
         :param url: (Optional) The new URL.
         :param blacklisted: (Optional) The new blacklist status.
+        :param notes: (Optional) New notes to attach to the entry.
         """
         try:
             data = self.vault.load_index()
-            entry = data.get("passwords", {}).get(str(index))
+            entry = data.get("entries", {}).get(str(index))
 
             if not entry:
                 logger.warning(
@@ -233,7 +272,11 @@ class EntryManager:
                     f"Updated blacklist status to '{blacklisted}' for index {index}."
                 )
 
-            data["passwords"][str(index)] = entry
+            if notes is not None:
+                entry["notes"] = notes
+                logger.debug(f"Updated notes for index {index}.")
+
+            data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
 
             self._save_index(data)
@@ -253,21 +296,21 @@ class EntryManager:
 
     def list_entries(self) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
         """
-        Lists all password entries in the index.
+        Lists all entries in the index.
 
         :return: A list of tuples containing entry details: (index, website, username, url, blacklisted)
         """
         try:
             data = self.vault.load_index()
-            passwords = data.get("passwords", {})
+            entries_data = data.get("entries", {})
 
-            if not passwords:
-                logger.info("No password entries found.")
-                print(colored("No password entries found.", "yellow"))
+            if not entries_data:
+                logger.info("No entries found.")
+                print(colored("No entries found.", "yellow"))
                 return []
 
             entries = []
-            for idx, entry in sorted(passwords.items(), key=lambda x: int(x[0])):
+            for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
                 entries.append(
                     (
                         int(idx),
@@ -296,14 +339,14 @@ class EntryManager:
 
     def delete_entry(self, index: int) -> None:
         """
-        Deletes a password entry based on the provided index.
+        Deletes an entry based on the provided index.
 
-        :param index: The index number of the password entry to delete.
+        :param index: The index number of the entry to delete.
         """
         try:
             data = self.vault.load_index()
-            if "passwords" in data and str(index) in data["passwords"]:
-                del data["passwords"][str(index)]
+            if "entries" in data and str(index) in data["entries"]:
+                del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self.vault.save_index(data)
                 self.update_checksum()
@@ -367,7 +410,7 @@ class EntryManager:
                 return
 
             timestamp = int(time.time())
-            backup_filename = f"passwords_db_backup_{timestamp}.json.enc"
+            backup_filename = f"entries_db_backup_{timestamp}.json.enc"
             backup_path = self.fingerprint_dir / backup_filename
 
             with open(index_file_path, "rb") as original_file, open(
@@ -425,7 +468,7 @@ class EntryManager:
 
     def list_all_entries(self) -> None:
         """
-        Displays all password entries in a formatted manner.
+        Displays all entries in a formatted manner.
         """
         try:
             entries = self.list_entries()
@@ -433,7 +476,7 @@ class EntryManager:
                 print(colored("No entries to display.", "yellow"))
                 return
 
-            print(colored("\n[+] Listing All Password Entries:\n", "green"))
+            print(colored("\n[+] Listing All Entries:\n", "green"))
             for entry in entries:
                 index, website, username, url, blacklisted = entry
                 print(colored(f"Index: {index}", "cyan"))

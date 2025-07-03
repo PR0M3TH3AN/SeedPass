@@ -14,6 +14,7 @@ import constants
 import password_manager.manager as manager_module
 from password_manager.vault import Vault
 from password_manager.entry_management import EntryManager
+from password_manager.manager import EncryptionMode
 
 
 def test_add_and_delete_entry(monkeypatch):
@@ -25,6 +26,7 @@ def test_add_and_delete_entry(monkeypatch):
         importlib.reload(manager_module)
 
         pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.fingerprint_manager = FingerprintManager(constants.APP_DIR)
         pm.current_fingerprint = None
         pm.save_and_encrypt_seed = lambda seed, fingerprint_dir: None
@@ -56,13 +58,14 @@ def test_add_and_delete_entry(monkeypatch):
         pm.entry_manager = entry_mgr
 
         index = entry_mgr.add_entry("example.com", 12)
-        assert str(index) in vault.load_index()["passwords"]
+        assert str(index) in vault.load_index()["entries"]
 
         published = []
         pm.nostr_client = SimpleNamespace(
-            publish_json_to_nostr=lambda data, alt_summary=None: (
-                published.append(data) or True
-            )
+            publish_snapshot=lambda data, alt_summary=None: (
+                published.append(data),
+                (None, "abcd"),
+            )[1]
         )
 
         inputs = iter([str(index)])
@@ -70,5 +73,5 @@ def test_add_and_delete_entry(monkeypatch):
 
         pm.delete_entry()
 
-        assert str(index) not in vault.load_index()["passwords"]
+        assert str(index) not in vault.load_index()["entries"]
         assert published

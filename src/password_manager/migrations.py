@@ -26,7 +26,20 @@ def _v0_to_v1(data: dict) -> dict:
     return data
 
 
-LATEST_VERSION = 1
+@migration(1)
+def _v1_to_v2(data: dict) -> dict:
+    passwords = data.pop("passwords", {})
+    entries = {}
+    for k, v in passwords.items():
+        v.setdefault("type", "password")
+        v.setdefault("notes", "")
+        entries[k] = v
+    data["entries"] = entries
+    data["schema_version"] = 2
+    return data
+
+
+LATEST_VERSION = 2
 
 
 def apply_migrations(data: dict) -> dict:

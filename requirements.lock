@@ -6,7 +6,6 @@ base58==2.1.1
 bcrypt==4.3.0
 bech32==1.2.0
 bip-utils==2.9.3
-bip85==0.2.0
 cbor2==5.6.5
 certifi==2025.6.15
 cffi==1.17.1

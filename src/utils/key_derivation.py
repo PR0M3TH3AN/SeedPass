@@ -23,12 +23,7 @@ import traceback
 from enum import Enum
 from typing import Optional, Union
 from bip_utils import Bip39SeedGenerator
-from local_bip85.bip85 import BIP85
 
-try:
-    from monstr.encrypt import Keys
-except ImportError:  # Fall back to local coincurve implementation
-    from nostr.coincurve_keys import Keys
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -41,8 +36,6 @@ class EncryptionMode(Enum):
     """Supported key derivation modes for database encryption."""
 
     SEED_ONLY = "seed-only"
-    SEED_PLUS_PW = "seed+pw"
-    PW_ONLY = "pw-only"
 
 
 DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
@@ -142,43 +135,6 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
         raise
 
 
-class KeyManager:
-    def __init__(self, parent_seed: str, fingerprint: str = None):
-        self.parent_seed = parent_seed
-        self.fingerprint = fingerprint
-        self.bip85 = self.initialize_bip85()
-        self.keys = self.generate_nostr_keys()
-
-    def initialize_bip85(self):
-        seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
-        bip85 = BIP85(seed_bytes)
-        return bip85
-
-    def generate_nostr_keys(self) -> Keys:
-        """
-        Derives a unique Nostr key pair for the given fingerprint using BIP-85.
-
-        :return: An instance of Keys containing the Nostr key pair.
-        """
-        # Use a derivation path that includes the fingerprint
-        # Convert fingerprint to an integer index (e.g., using a hash function)
-        index = (
-            int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (2**31)
-            if self.fingerprint
-            else 0
-        )
-
-        # Derive entropy for Nostr key (32 bytes)
-        entropy_bytes = self.bip85.derive_entropy(
-            app=BIP85.Applications.ENTROPY, index=index, size=32
-        )
-
-        # Generate Nostr key pair from entropy
-        private_key_hex = entropy_bytes.hex()
-        keys = Keys(priv_key=private_key_hex)
-        return keys
-
-
 def derive_index_key_seed_only(seed: str) -> bytes:
     """Derive a deterministic Fernet key from only the BIP-39 seed."""
     seed_bytes = Bip39SeedGenerator(seed).Generate()
@@ -193,35 +149,6 @@ def derive_index_key_seed_only(seed: str) -> bytes:
     return base64.urlsafe_b64encode(key)
 
 
-def derive_index_key_seed_plus_pw(seed: str, password: str) -> bytes:
-    """Derive the index key from seed and password combined."""
-    seed_bytes = Bip39SeedGenerator(seed).Generate()
-    pw_bytes = unicodedata.normalize("NFKD", password).encode("utf-8")
-    hkdf = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b"password-db",
-        backend=default_backend(),
-    )
-    key = hkdf.derive(seed_bytes + b"|" + pw_bytes)
-    return base64.urlsafe_b64encode(key)
-
-
-def derive_index_key(
-    seed: str,
-    password: Optional[str] = None,
-    mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE,
-) -> bytes:
-    """Derive the index encryption key based on the selected mode."""
-    if mode == EncryptionMode.SEED_ONLY:
-        return derive_index_key_seed_only(seed)
-    if mode == EncryptionMode.SEED_PLUS_PW:
-        if password is None:
-            raise ValueError("Password required for seed+pw mode")
-        return derive_index_key_seed_plus_pw(seed, password)
-    if mode == EncryptionMode.PW_ONLY:
-        if password is None:
-            raise ValueError("Password required for pw-only mode")
-        return derive_key_from_password(password)
-    raise ValueError(f"Unsupported encryption mode: {mode}")
+def derive_index_key(seed: str) -> bytes:
+    """Derive the index encryption key."""
+    return derive_index_key_seed_only(seed)

@@ -53,7 +53,7 @@
                 <div class="container">
                     <h1 id="intro-heading">SeedPass: Secure Password Manager</h1>
                     <p><strong>SeedPass</strong> is a secure password generator and manager built on Bitcoin's BIP-85 standard. It uses deterministic key derivation to generate passwords that are never stored but can be easily regenerated when needed.</p>
-                    <p>By integrating with the <strong>Nostr network</strong>, SeedPass ensures that your passwords are safe and accessible across devices.</p>
+                    <p>By integrating with the <strong>Nostr network</strong>, SeedPass compresses your encrypted vault and publishes it in 50&#8201;KB chunks. Each chunk is sent as a parameterised replaceable event, with deltas tracking changes between snapshots and automatic rotation when deltas grow large.</p>
                     <a href="https://github.com/PR0M3TH3AN/SeedPass" class="btn-primary cta-button"><i class="fas fa-download" aria-hidden="true"></i> Get Started</a>
                 </div>
             </section>
@@ -64,7 +64,7 @@
                     <ul>
                         <li><i class="fas fa-key" aria-hidden="true"></i> Deterministic password generation using BIP-85</li>
                         <li><i class="fas fa-lock" aria-hidden="true"></i> Encrypted local storage for seeds and sensitive data</li>
-                        <li><i class="fas fa-network-wired" aria-hidden="true"></i> Nostr relay integration for secure backup and retrieval</li>
+                        <li><i class="fas fa-network-wired" aria-hidden="true"></i> Nostr relay integration with parameterised replaceable events for chunked snapshots and deltas</li>
                         <li><i class="fas fa-exchange-alt" aria-hidden="true"></i> Seed/Fingerprint switching for managing multiple profiles</li>
                         <li><i class="fas fa-check" aria-hidden="true"></i> Checksum verification to ensure script integrity</li>
                         <li><i class="fas fa-terminal" aria-hidden="true"></i> Interactive TUI for managing entries and settings</li>
@@ -91,7 +91,7 @@
                     <h3 class="subsection-title">Seed/Fingerprint Switching</h3>
                     <p>SeedPass allows you to manage multiple seed profiles (fingerprints). You can switch between different seeds to compartmentalize your passwords.</p>
                     <h3 class="subsection-title">Nostr Relay Integration</h3>
-                    <p>By integrating with the Nostr network, SeedPass securely backs up your encrypted password index to Nostr relays, allowing you to retrieve your index on multiple devices without compromising security.</p>
+                    <p>SeedPass publishes your encrypted vault to Nostr in 50&#8201;KB chunks using parameterised replaceable events. A manifest describes each snapshot while deltas record updates. When too many deltas accumulate, a new snapshot is rotated in automatically.</p>
                     <h3 class="subsection-title">Checksum Verification</h3>
                     <p>Built-in checksum verification ensures your SeedPass installation hasn't been tampered with.</p>
                     <h3 class="subsection-title">Interactive TUI</h3>
@@ -209,7 +209,7 @@ Enter your choice (1-5):
             <section class="disclaimer" id="disclaimer" aria-labelledby="disclaimer-heading">
                 <div class="container">
                     <h2 class="section-title" id="disclaimer-heading">Disclaimer</h2>
-                    <p><strong>⚠️ Disclaimer:</strong> This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.</p>
+                    <p><strong>⚠️ Disclaimer:</strong> This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.</p>
                 </div>
             </section>
         </main>

@@ -2,7 +2,7 @@
 
 ![SeedPass Logo](https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/logo/png/SeedPass-Logo-03.png)
 
-**SeedPass** is a secure password generator and manager built on **Bitcoin's BIP-85 standard**. It uses deterministic key derivation to generate **passwords that are never stored**, but can be easily regenerated when needed. By integrating with the **Nostr network**, SeedPass ensures that your passwords are safe and accessible across devices. The index for retrieving each password is securely stored on Nostr relays, allowing seamless password recovery on multiple devices without compromising security.
+**SeedPass** is a secure password generator and manager built on **Bitcoin's BIP-85 standard**. It uses deterministic key derivation to generate **passwords that are never stored**, but can be easily regenerated when needed. By integrating with the **Nostr network**, SeedPass compresses your encrypted vault and splits it into 50 KB chunks. Each chunk is published as a parameterised replaceable event (`kind 30071`), with a manifest (`kind 30070`) describing the snapshot and deltas (`kind 30072`) capturing changes between snapshots. This allows secure password recovery across devices without exposing your data.
 
 [Tip Jar](https://nostrtipjar.netlify.app/?n=npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp)
 
@@ -10,7 +10,7 @@
 
 **⚠️ Disclaimer**
 
-This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. For instance, the maximum size of the index before the Nostr backup starts to have problems is unknown. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.
+This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Each vault chunk is limited to 50 KB and SeedPass periodically publishes a new snapshot to keep accumulated deltas small. The security of the program's memory management and logs has not been evaluated and may leak sensitive information.
 
 ---
 ### Supported OS
@@ -42,6 +42,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
+- **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas.
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
@@ -112,11 +113,29 @@ SeedPass and create a backup:
 # Start the application
 python src/main.py
 
-# Export your index using seed-only encryption
-seedpass export --mode seed-only --file "~/seedpass_backup.json"
+# Export your index
+seedpass export --file "~/seedpass_backup.json"
 
 # Later you can restore it
-seedpass import --mode seed-only --file "~/seedpass_backup.json"
+seedpass import --file "~/seedpass_backup.json"
+```
+
+### Vault JSON Layout
+
+The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_version` `2` and stores an `entries` map keyed by entry numbers.
+
+```json
+{
+  "schema_version": 2,
+  "entries": {
+    "0": {
+      "website": "example.com",
+      "length": 8,
+      "type": "password",
+      "notes": ""
+    }
+  }
+}
 ```
 
 
@@ -155,29 +174,6 @@ python src/main.py
    Enter your choice (1-5):
    ```
 
-### Encryption Mode
-
-Use the `--encryption-mode` flag to control how SeedPass derives the key used to
-encrypt your vault. Valid values are:
-
-- `seed-only` – default mode that derives the vault key solely from your BIP-85
-  seed.
-- `seed+pw` – combines the seed with your master password for key derivation.
-- `pw-only` – derives the key from your password alone.
-
-You can set this option when launching the application:
-
-```bash
-python src/main.py --encryption-mode seed+pw
-```
-
-To make the choice persistent, add it to `~/.seedpass/config.toml`:
-
-```toml
-encryption_mode = "seed+pw"
-```
-
-SeedPass will read this value on startup and use the specified mode by default.
 
 ### Managing Multiple Seeds
 
@@ -233,9 +229,21 @@ Back in the Settings menu you can:
 
 SeedPass includes a small suite of unit tests located under `src/tests`. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
+
 ```bash
 pip install -r src/requirements.txt
 pytest -vv
+```
+
+### Exploring Nostr Index Size Limits
+
+`test_nostr_index_size.py` demonstrates how SeedPass rotates snapshots after too many delta events.
+Each chunk is limited to 50 KB, so the test gradually grows the vault to observe
+when a new snapshot is triggered. Use the `NOSTR_TEST_DELAY` environment
+variable to control the delay between publishes when experimenting with large vaults.
+
+```bash
+NOSTR_TEST_DELAY=10 pytest -vv src/tests/test_nostr_index_size.py -m "desktop and network"
 ```
 
 ### Automatically Updating the Script Checksum
@@ -275,7 +283,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
 - **No PBKDF2 Salt Needed:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
-- **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. The maximum size of the password index before encountering issues with Nostr backups is unknown. Additionally, the security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
+- **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 

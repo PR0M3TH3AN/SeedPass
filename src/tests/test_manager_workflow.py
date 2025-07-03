@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager
+from password_manager.manager import PasswordManager, EncryptionMode
 
 
 class FakePasswordGenerator:
@@ -20,9 +20,9 @@ class FakeNostrClient:
     def __init__(self, *args, **kwargs):
         self.published = []
 
-    def publish_json_to_nostr(self, data: bytes):
+    def publish_snapshot(self, data: bytes):
         self.published.append(data)
-        return True
+        return None, "abcd"
 
 
 def test_manager_workflow(monkeypatch):
@@ -35,6 +35,7 @@ def test_manager_workflow(monkeypatch):
         monkeypatch.setattr("password_manager.manager.NostrClient", FakeNostrClient)
 
         pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
         pm.encryption_manager = enc_mgr
         pm.vault = vault
         pm.entry_manager = entry_mgr
@@ -50,20 +51,22 @@ def test_manager_workflow(monkeypatch):
                 "",  # username
                 "",  # url
                 "",  # length (default)
+                "",  # notes
                 "0",  # retrieve index
                 "0",  # modify index
                 "user",  # new username
                 "",  # new url
                 "",  # blacklist status
+                "",  # new notes
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
 
         pm.handle_add_password()
-        assert pm.is_dirty is True
-        backups = list(tmp_path.glob("passwords_db_backup_*.json.enc"))
+        assert pm.is_dirty is False
+        backups = list(tmp_path.glob("entries_db_backup_*.json.enc"))
         assert len(backups) == 1
-        checksum_file = tmp_path / "seedpass_passwords_db_checksum.txt"
+        checksum_file = tmp_path / "seedpass_entries_db_checksum.txt"
         assert checksum_file.exists()
         checksum_after_add = checksum_file.read_text()
         first_post = pm.nostr_client.published[-1]
@@ -73,10 +76,10 @@ def test_manager_workflow(monkeypatch):
         assert pm.is_dirty is False
 
         pm.handle_modify_entry()
-        assert pm.is_dirty is True
+        assert pm.is_dirty is False
         pm.backup_manager.create_backup()
         backup_dir = tmp_path / "backups"
-        backups_mod = list(backup_dir.glob("passwords_db_backup_*.json.enc"))
+        backups_mod = list(backup_dir.glob("entries_db_backup_*.json.enc"))
         assert backups_mod
         checksum_after_modify = checksum_file.read_text()
         assert checksum_after_modify != checksum_after_add

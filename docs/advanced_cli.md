@@ -25,17 +25,17 @@ The **Advanced CLI Commands** document provides an in-depth guide to the various
    - [13. Disable Auto-Lock](#13-disable-auto-lock)
    - [14. Generate a Strong Password](#14-generate-a-strong-password)
    - [15. Verify Script Checksum](#15-verify-script-checksum)
-   - [16. Post Encrypted Index to Nostr](#16-post-encrypted-index-to-nostr)
+   - [16. Post Encrypted Snapshots to Nostr](#16-post-encrypted-snapshots-to-nostr)
    - [17. Retrieve from Nostr](#17-retrieve-from-nostr)
    - [18. Display Nostr Public Key](#18-display-nostr-public-key)
    - [19. Set Custom Nostr Relays](#19-set-custom-nostr-relays)
    - [20. Enable "Secret" Mode](#20-enable-secret-mode)
-   - [21. Batch Post Index Items to Nostr](#21-batch-post-index-items-to-nostr)
+   - [21. Batch Post Snapshot Deltas to Nostr](#21-batch-post-snapshot-deltas-to-nostr)
    - [22. Show All Passwords](#22-show-all-passwords)
    - [23. Add Notes to an Entry](#23-add-notes-to-an-entry)
    - [24. Add Tags to an Entry](#24-add-tags-to-an-entry)
    - [25. Search by Tag or Title](#25-search-by-tag-or-title)
-   - [26. Automatically Post Index to Nostr After Edit](#26-automatically-post-index-to-nostr-after-edit)
+   - [26. Automatically Post Deltas to Nostr After Edit](#26-automatically-post-deltas-to-nostr-after-edit)
    - [27. Initial Setup Prompt for Seed Generation/Import](#27-initial-setup-prompt-for-seed-generationimport)
 3. [Notes on New CLI Commands](#notes-on-new-cli-commands)
 
@@ -62,17 +62,17 @@ The following table provides a quick reference to all available advanced CLI com
 | Disable auto-lock                         | `autolock --disable`   | `-DL`          | `--auto-lock --disable`           | `seedpass autolock --disable`                                                                                                                                                                      |
 | Generate a strong password                | `generate`             | `-G`           | `--generate`                      | `seedpass generate --length 20`                                                                                                                                                                    |
 | Verify script checksum                    | `verify`               | `-V`           | `--verify`                        | `seedpass verify`                                                                                                                                                                                  |
-| Post encrypted index to Nostr             | `post`                 | `-P`           | `--post`                          | `seedpass post`                                                                                                                                                                                    |
-| Retrieve from Nostr                       | `get-nostr`            | `-GN`          | `--get-nostr`                     | `seedpass get-nostr`                                                                                                                                                                               |
+| Post encrypted snapshots to Nostr             | `post`                 | `-P`           | `--post`                          | `seedpass post` |
+| Retrieve snapshots from Nostr                 | `get-nostr`            | `-GN`          | `--get-nostr`                     | `seedpass get-nostr` |
 | Display Nostr public key                  | `show-pubkey`          | `-K`           | `--show-pubkey`                   | `seedpass show-pubkey`                                                                                                                                                                             |
 | Set Custom Nostr Relays                   | `set-relays`           | `-SR`          | `--set-relays`                    | `seedpass set-relays --add "wss://relay1.example.com" --add "wss://relay2.example.com"`                                                                                                           |
 | Enable "Secret" Mode                      | `set-secret`           | `-SS`          | `--set-secret`                    | `seedpass set-secret --enable` or `seedpass set-secret --disable`                                                                                                                                    |
-| Batch Post Index Items to Nostr           | `batch-post`           | `-BP`          | `--batch-post`                    | `seedpass batch-post --start 0 --end 9` or `seedpass batch-post --range 10-19`                                                                                                                       |
+| Batch Post Snapshot Deltas to Nostr       | `batch-post`           | `-BP`          | `--batch-post`                    | `seedpass batch-post --start 0 --end 9` or `seedpass batch-post --range 10-19` |
 | Show All Passwords                        | `show-all`             | `-SA`          | `--show-all`                      | `seedpass show-all`                                                                                                                                                                                |
 | Add Notes to an Entry                     | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
 | Add Tags to an Entry                      | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
 | Search by Tag or Title                    | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
-| Automatically Post Index to Nostr After Edit | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable`                                                                                                                                    |
+| Automatically Post Deltas After Edit      | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable` |
 | Initial Setup Prompt for Seed Generation/Import | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
 
 ---
@@ -219,23 +219,6 @@ seedpass export --file "backup_passwords.json"
 **Options:**
 - `--file` (`-F`): The destination file path for the exported data. If omitted, the export
   is saved to the current profile's `exports` directory under `~/.seedpass/<profile>/exports/`.
-- `--mode` (`-M`): Choose the encryption mode for the exported file. Valid values are:
-  `seed-only`, `seed+pw`, `pw-only`, and `plaintext`.
-
-**Examples:**
-```bash
-# Standard encrypted export
-seedpass export --mode seed-only --file "backup.json"
-# Combine seed and master password for the export key
-seedpass export --mode seed+pw --file "backup.json"
-# Derive the key solely from your password
-seedpass export --mode pw-only --file "backup.json"
-# Plaintext JSON export (not recommended)
-seedpass export --mode plaintext --file "backup.json"
-```
-
-**Warning:** The `plaintext` mode writes an unencrypted index to disk. Only use it
-for debugging and delete the file immediately after use.
 
 ---
 
@@ -255,15 +238,6 @@ seedpass import --file "backup_passwords.json"
 
 **Options:**
 - `--file` (`-F`): The source file path containing the password entries to import.
-- `--mode` (`-M`): Indicates the encryption mode used when the file was exported. Accepted values are `seed-only`, `seed+pw`, `pw-only`, and `plaintext`.
-
-**Examples:**
-```bash
-# Import a standard encrypted backup
-seedpass import --mode seed-only --file "backup.json"
-# Import a backup that also used the master password
-seedpass import --mode seed+pw --file "backup.json"
-```
 
 ---
 
@@ -389,14 +363,14 @@ seedpass verify
 
 ---
 
-### 16. Post Encrypted Index to Nostr
+### 16. Post Encrypted Snapshots to Nostr
 
 **Command:** `post`  
 **Short Flag:** `-P`  
 **Long Flag:** `--post`  
 
 **Description:**  
-Posts the encrypted password index to the Nostr network, facilitating secure backups and synchronization across devices.
+Posts encrypted snapshot chunks of the index to the Nostr network, followed by compact delta events for subsequent changes. This approach enables reliable backups and efficient synchronization across devices.
 
 **Usage Example:**
 ```bash
@@ -412,7 +386,7 @@ seedpass post
 **Long Flag:** `--get-nostr`  
 
 **Description:**  
-Retrieves the encrypted password index from the Nostr network, allowing users to restore their password data on a new device.
+Retrieves the encrypted snapshot chunks and any delta events from the Nostr network, allowing users to reconstruct the latest index on a new device.
 
 **Usage Example:**
 ```bash
@@ -444,7 +418,7 @@ seedpass show-pubkey
 **Long Flag:** `--set-relays`  
 
 **Description:**  
-Allows users to specify custom Nostr relays for publishing their encrypted backup index, providing flexibility and control over data distribution.
+Allows users to specify custom Nostr relays for publishing their encrypted backup snapshots, providing flexibility and control over data distribution.
 Relay URLs are stored in an encrypted configuration file located in `~/.seedpass/<fingerprint>/seedpass_config.json.enc` and loaded each time the Nostr client starts. New accounts use the following default relays until changed:
 
 ```
@@ -484,14 +458,14 @@ seedpass set-secret --disable
 
 ---
 
-### 21. Batch Post Index Items to Nostr
+### 21. Batch Post Snapshot Deltas to Nostr
 
 **Command:** `batch-post`  
 **Short Flag:** `-BP`  
 **Long Flag:** `--batch-post`  
 
 **Description:**  
-Posts a specified range of index items to the Nostr network in batches, ensuring efficient and manageable data transmission.
+Posts a specified range of snapshot delta events to the Nostr network in batches, ensuring efficient and manageable data transmission.
 
 **Usage Examples:**
 ```bash
@@ -583,14 +557,14 @@ seedpass search-by --title "GitHub"
 
 ---
 
-### 26. Automatically Post Index to Nostr After Edit
+### 26. Automatically Post Deltas to Nostr After Edit
 
 **Command:** `auto-post`  
 **Short Flag:** `-AP`  
 **Long Flag:** `--auto-post`  
 
 **Description:**  
-Enables or disables the automatic posting of the password index to the Nostr network whenever an edit occurs, ensuring real-time backups.
+Enables or disables the automatic posting of snapshot delta events to the Nostr network whenever an edit occurs, ensuring real-time backups.
 
 **Usage Examples:**
 ```bash
@@ -621,7 +595,7 @@ seedpass setup
 **Features to Implement:**
 - **Seed Choice Prompt:** Asks users whether they want to generate a new seed or import an existing one.
 - **Encryption of Seed:** Uses the user-selected password to encrypt the seed, whether generated or imported.
-- **Profile Creation:** Upon first login, automatically generates a profile and checks for existing index data notes that can be pulled and decrypted.
+- **Profile Creation:** Upon first login, automatically generates a profile and checks for existing snapshot data that can be pulled and decrypted.
 
 ---
 
@@ -782,8 +756,8 @@ seedpass fingerprint rename A1B2C3D4 PersonalProfile
 
 ## Notes on New CLI Commands
 
-1. **Automatically Post Index to Nostr After Edit (`auto-post`):**
-   - **Purpose:** Enables or disables the automatic posting of the index to Nostr whenever an edit occurs.
+1. **Automatically Post Deltas to Nostr After Edit (`auto-post`):**
+   - **Purpose:** Enables or disables the automatic posting of snapshot deltas to Nostr whenever an edit occurs.
    - **Usage Examples:**
      - Enable auto-post: `seedpass auto-post --enable`
      - Disable auto-post: `seedpass auto-post --disable`
@@ -793,7 +767,7 @@ seedpass fingerprint rename A1B2C3D4 PersonalProfile
    - **Features to Implement:**
      - **Seed Choice Prompt:** Ask users whether they want to generate a new seed or import an existing one.
      - **Encryption of Seed:** Use the user-selected password to encrypt the seed, whether generated or imported.
-     - **Profile Creation:** Upon first login, automatically generate a profile and check for existing index data notes that can be pulled and decrypted.
+     - **Profile Creation:** Upon first login, automatically generate a profile and check for existing snapshot data that can be pulled and decrypted.
    - **Usage Example:** `seedpass setup`
 
 3. **Advanced CLI Enhancements:**
@@ -807,8 +781,8 @@ seedpass fingerprint rename A1B2C3D4 PersonalProfile
      - **Description:** When running `seedpass setup`, prompts users to either enter an existing seed or generate a new one, followed by password creation for encryption.
      - **Usage Example:** `seedpass setup`
    
-   - **Automatic Profile Generation and Index Retrieval:**
-     - **Description:** During the initial setup or first login, generates a profile and attempts to retrieve and decrypt any existing index data from Nostr.
+   - **Automatic Profile Generation and Snapshot Retrieval:**
+     - **Description:** During the initial setup or first login, generates a profile and attempts to retrieve and decrypt any existing snapshots and deltas from Nostr.
      - **Usage Example:** `seedpass setup` (handles internally)
 
 ---

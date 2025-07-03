@@ -24,16 +24,11 @@ from password_manager.entry_management import EntryManager
 from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
-from password_manager.portable_backup import (
-    export_backup,
-    import_backup,
-    PortableMode,
-)
+from password_manager.portable_backup import export_backup, import_backup
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
     derive_index_key,
-    DEFAULT_ENCRYPTION_MODE,
     EncryptionMode,
 )
 from utils.checksum import calculate_checksum, verify_checksum
@@ -50,14 +45,18 @@ from constants import (
     MIN_PASSWORD_LENGTH,
     MAX_PASSWORD_LENGTH,
     DEFAULT_PASSWORD_LENGTH,
+    INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    initialize_app,
 )
 
 import traceback
+import asyncio
+import gzip
 import bcrypt
 from pathlib import Path
 
-from local_bip85.bip85 import BIP85
+from local_bip85.bip85 import BIP85, Bip85Error
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
 from datetime import datetime
 
@@ -80,11 +79,10 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(
-        self, encryption_mode: EncryptionMode = DEFAULT_ENCRYPTION_MODE
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize the PasswordManager."""
-        self.encryption_mode: EncryptionMode = encryption_mode
+        initialize_app()
+        self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
         self.password_generator: Optional[PasswordGenerator] = None
@@ -101,6 +99,7 @@ class PasswordManager:
         self.last_update: float = time.time()
         self.last_activity: float = time.time()
         self.locked: bool = False
+        self.inactivity_timeout: float = INACTIVITY_TIMEOUT
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -197,7 +196,8 @@ class PasswordManager:
 
     def add_new_fingerprint(self):
         """
-        Adds a new seed profile by generating it from a seed phrase.
+        Adds a new seed profile by prompting for encryption mode and generating
+        it from a seed phrase.
         """
         try:
             choice = input(
@@ -279,11 +279,7 @@ class PasswordManager:
                     sys.exit(1)
                 return False
 
-            key = derive_index_key(
-                self.parent_seed,
-                password,
-                self.encryption_mode,
-            )
+            key = derive_index_key(self.parent_seed)
 
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
@@ -480,25 +476,6 @@ class PasswordManager:
         """
         print(colored("No existing seed found. Let's set up a new one!", "yellow"))
 
-        print("Choose encryption mode  [Enter for seed-only]")
-        print("    1) seed-only")
-        print("    2) seed+password")
-        print("    3) password-only (legacy)")
-        mode_choice = input("Select option: ").strip()
-
-        if mode_choice == "2":
-            self.encryption_mode = EncryptionMode.SEED_PLUS_PW
-        elif mode_choice == "3":
-            self.encryption_mode = EncryptionMode.PW_ONLY
-            print(
-                colored(
-                    "⚠️ Password-only encryption is less secure and not recommended.",
-                    "yellow",
-                )
-            )
-        else:
-            self.encryption_mode = EncryptionMode.SEED_ONLY
-
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
         ).strip()
@@ -553,11 +530,7 @@ class PasswordManager:
 
                 # Initialize EncryptionManager with key and fingerprint_dir
                 password = prompt_for_password()
-                index_key = derive_index_key(
-                    parent_seed,
-                    password,
-                    self.encryption_mode,
-                )
+                index_key = derive_index_key(parent_seed)
                 seed_key = derive_key_from_password(password)
 
                 self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
@@ -674,6 +647,10 @@ class PasswordManager:
             bip85 = BIP85(master_seed)
             mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
             return mnemonic
+        except Bip85Error as e:
+            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
+            print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
+            sys.exit(1)
         except Exception as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
@@ -694,11 +671,7 @@ class PasswordManager:
             # Prompt for password
             password = prompt_for_password()
 
-            index_key = derive_index_key(
-                seed,
-                password,
-                self.encryption_mode,
-            )
+            index_key = derive_index_key(seed)
             seed_key = derive_key_from_password(password)
 
             self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
@@ -776,6 +749,9 @@ class PasswordManager:
             )
             config = self.config_manager.load_config()
             relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            self.inactivity_timeout = config.get(
+                "inactivity_timeout", INACTIVITY_TIMEOUT
+            )
 
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
@@ -793,12 +769,24 @@ class PasswordManager:
 
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally."""
-        index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
             return
         try:
-            encrypted = self.nostr_client.retrieve_json_from_nostr_sync()
-            if encrypted:
+            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            if result:
+                manifest, chunks = result
+                encrypted = gzip.decompress(b"".join(chunks))
+                if manifest.delta_since:
+                    try:
+                        version = int(manifest.delta_since)
+                        deltas = asyncio.run(
+                            self.nostr_client.fetch_deltas_since(version)
+                        )
+                        if deltas:
+                            encrypted = deltas[-1]
+                    except ValueError:
+                        pass
                 self.vault.decrypt_and_save_index_from_nostr(encrypted)
                 logger.info("Initialized local database from Nostr.")
         except Exception as e:
@@ -813,6 +801,7 @@ class PasswordManager:
 
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
+            notes = input("Enter notes (optional): ").strip()
 
             length_input = input(
                 f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
@@ -834,7 +823,12 @@ class PasswordManager:
 
             # Add the entry to the index and get the assigned index
             index = self.entry_manager.add_entry(
-                website_name, length, username, url, blacklisted=False
+                website_name,
+                length,
+                username,
+                url,
+                blacklisted=False,
+                notes=notes,
             )
 
             # Mark database as dirty for background sync
@@ -856,12 +850,8 @@ class PasswordManager:
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry addition."
-                    )
+                self.sync_vault()
+                logging.info("Encrypted index posted to Nostr after entry addition.")
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -897,6 +887,10 @@ class PasswordManager:
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
 
             print(
                 colored(
@@ -963,6 +957,7 @@ class PasswordManager:
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
+            notes = entry.get("notes", "")
 
             # Display current values
             print(
@@ -1012,9 +1007,20 @@ class PasswordManager:
                 )
                 new_blacklisted = blacklisted
 
+            new_notes = (
+                input(
+                    f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                ).strip()
+                or notes
+            )
+
             # Update the entry
             self.entry_manager.modify_entry(
-                index, new_username, new_url, new_blacklisted
+                index,
+                new_username,
+                new_url,
+                new_blacklisted,
+                new_notes,
             )
 
             # Mark database as dirty for background sync
@@ -1025,12 +1031,10 @@ class PasswordManager:
 
             # Push the updated index to Nostr so changes are backed up.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry modification."
-                    )
+                self.sync_vault()
+                logging.info(
+                    "Encrypted index posted to Nostr after entry modification."
+                )
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1066,12 +1070,8 @@ class PasswordManager:
 
             # Push updated index to Nostr after deletion
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    self.nostr_client.publish_json_to_nostr(encrypted_data)
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry deletion."
-                    )
+                self.sync_vault()
+                logging.info("Encrypted index posted to Nostr after entry deletion.")
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1157,6 +1157,27 @@ class PasswordManager:
             # Re-raise the exception to inform the calling function of the failure
             raise
 
+    def sync_vault(self, alt_summary: str | None = None) -> str | None:
+        """Publish the current vault contents to Nostr."""
+        try:
+            encrypted = self.get_encrypted_data()
+            if not encrypted:
+                return None
+            pub_snap = getattr(self.nostr_client, "publish_snapshot", None)
+            if callable(pub_snap):
+                if asyncio.iscoroutinefunction(pub_snap):
+                    _, event_id = asyncio.run(pub_snap(encrypted))
+                else:
+                    _, event_id = pub_snap(encrypted)
+            else:
+                # Fallback for tests using simplified stubs
+                event_id = self.nostr_client.publish_json_to_nostr(encrypted)
+            self.is_dirty = False
+            return event_id
+        except Exception as e:
+            logging.error(f"Failed to sync vault: {e}", exc_info=True)
+            return None
+
     def backup_database(self) -> None:
         """
         Creates a backup of the encrypted JSON index file.
@@ -1185,7 +1206,6 @@ class PasswordManager:
 
     def handle_export_database(
         self,
-        mode: "PortableMode" = PortableMode.SEED_ONLY,
         dest: Path | None = None,
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
@@ -1193,7 +1213,6 @@ class PasswordManager:
             path = export_backup(
                 self.vault,
                 self.backup_manager,
-                mode,
                 dest,
                 parent_seed=self.parent_seed,
             )
@@ -1397,15 +1416,7 @@ class PasswordManager:
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
-            mode = getattr(self, "encryption_mode", DEFAULT_ENCRYPTION_MODE)
-            try:
-                new_key = derive_index_key(
-                    self.parent_seed,
-                    new_password,
-                    mode,
-                )
-            except Exception:
-                new_key = derive_key_from_password(new_password)
+            new_key = derive_index_key(self.parent_seed)
 
             seed_key = derive_key_from_password(new_password)
             seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
@@ -1436,13 +1447,8 @@ class PasswordManager:
             # Push a fresh backup to Nostr so the newly encrypted index is
             # stored remotely. Include a tag to mark the password change.
             try:
-                encrypted_data = self.get_encrypted_data()
-                if encrypted_data:
-                    summary = f"password-change-{int(time.time())}"
-                    self.nostr_client.publish_json_to_nostr(
-                        encrypted_data,
-                        alt_summary=summary,
-                    )
+                summary = f"password-change-{int(time.time())}"
+                self.sync_vault(alt_summary=summary)
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr after password change: {nostr_error}"

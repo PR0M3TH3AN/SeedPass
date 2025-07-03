@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
+import asyncio
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -23,7 +24,8 @@ def test_backup_and_publish_to_nostr():
         assert encrypted_index is not None
 
         with patch(
-            "nostr.client.NostrClient.publish_json_to_nostr", return_value=True
+            "nostr.client.NostrClient.publish_snapshot",
+            AsyncMock(return_value=(None, "abcd")),
         ) as mock_publish, patch("nostr.client.ClientBuilder"), patch(
             "nostr.client.KeyManager"
         ), patch.object(
@@ -33,7 +35,7 @@ def test_backup_and_publish_to_nostr():
         ):
             nostr_client = NostrClient(enc_mgr, "fp")
             entry_mgr.backup_index_file()
-            result = nostr_client.publish_json_to_nostr(encrypted_index)
+            result = asyncio.run(nostr_client.publish_snapshot(encrypted_index))
 
-        mock_publish.assert_called_with(encrypted_index)
-        assert result is True
+        mock_publish.assert_awaited_with(encrypted_index)
+        assert result == (None, "abcd")

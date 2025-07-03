@@ -17,35 +17,45 @@ def test_backup_restore_workflow(monkeypatch):
         vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
         backup_mgr = BackupManager(fp_dir)
 
-        index_file = fp_dir / "seedpass_passwords_db.json.enc"
+        index_file = fp_dir / "seedpass_entries_db.json.enc"
 
-        data1 = {"passwords": {"0": {"website": "a", "length": 10}}}
+        data1 = {
+            "schema_version": 2,
+            "entries": {
+                "0": {"website": "a", "length": 10, "type": "password", "notes": ""}
+            },
+        }
         vault.save_index(data1)
         os.utime(index_file, (1, 1))
 
         monkeypatch.setattr(time, "time", lambda: 1111)
         backup_mgr.create_backup()
-        backup1 = fp_dir / "backups" / "passwords_db_backup_1111.json.enc"
+        backup1 = fp_dir / "backups" / "entries_db_backup_1111.json.enc"
         assert backup1.exists()
         assert backup1.stat().st_mode & 0o777 == 0o600
 
-        data2 = {"passwords": {"0": {"website": "b", "length": 12}}}
+        data2 = {
+            "schema_version": 2,
+            "entries": {
+                "0": {"website": "b", "length": 12, "type": "password", "notes": ""}
+            },
+        }
         vault.save_index(data2)
         os.utime(index_file, (2, 2))
 
         monkeypatch.setattr(time, "time", lambda: 2222)
         backup_mgr.create_backup()
-        backup2 = fp_dir / "backups" / "passwords_db_backup_2222.json.enc"
+        backup2 = fp_dir / "backups" / "entries_db_backup_2222.json.enc"
         assert backup2.exists()
         assert backup2.stat().st_mode & 0o777 == 0o600
 
-        vault.save_index({"passwords": {"temp": {}}})
+        vault.save_index({"schema_version": 2, "entries": {"temp": {}}})
         backup_mgr.restore_latest_backup()
-        assert vault.load_index()["passwords"] == data2["passwords"]
+        assert vault.load_index()["entries"] == data2["entries"]
 
-        vault.save_index({"passwords": {}})
+        vault.save_index({"schema_version": 2, "entries": {}})
         backup_mgr.restore_backup_by_timestamp(1111)
-        assert vault.load_index()["passwords"] == data1["passwords"]
+        assert vault.load_index()["entries"] == data1["entries"]
 
         backup1.unlink()
         current = vault.load_index()
