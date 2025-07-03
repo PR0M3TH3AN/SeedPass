@@ -44,6 +44,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
+- **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
 
 ## Prerequisites
 
