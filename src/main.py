@@ -16,7 +16,7 @@ import traceback
 
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
-from constants import INACTIVITY_TIMEOUT
+from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
 from local_bip85.bip85 import Bip85Error
 
@@ -613,6 +613,7 @@ def display_menu(
 if __name__ == "__main__":
     # Configure logging with both file and console handlers
     configure_logging()
+    initialize_app()
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")
 

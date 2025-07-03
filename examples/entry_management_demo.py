@@ -4,10 +4,12 @@ from cryptography.fernet import Fernet
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.entry_management import EntryManager
+from constants import initialize_app
 
 
 def main() -> None:
     """Demonstrate basic EntryManager usage."""
+    initialize_app()
     key = Fernet.generate_key()
     enc = EncryptionManager(key, Path("."))
     vault = Vault(enc, Path("."))
