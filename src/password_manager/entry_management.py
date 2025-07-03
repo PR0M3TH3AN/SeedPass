@@ -449,6 +449,49 @@ class EntryManager:
             print(colored(f"Error: Failed to list entries: {e}", "red"))
             return []
 
+    def search_entries(
+        self, query: str
+    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
+        """Return entries matching the query across common fields."""
+        data = self.vault.load_index()
+        entries_data = data.get("entries", {})
+
+        if not entries_data:
+            return []
+
+        query_lower = query.lower()
+        results: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
+
+        for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
+            etype = entry.get("type", EntryType.PASSWORD.value)
+            if etype == EntryType.TOTP.value:
+                label = entry.get("label", "")
+                notes = entry.get("notes", "")
+                if query_lower in label.lower() or query_lower in notes.lower():
+                    results.append((int(idx), label, None, None, False))
+            else:
+                website = entry.get("website", "")
+                username = entry.get("username", "")
+                url = entry.get("url", "")
+                notes = entry.get("notes", "")
+                if (
+                    query_lower in website.lower()
+                    or query_lower in username.lower()
+                    or query_lower in url.lower()
+                    or query_lower in notes.lower()
+                ):
+                    results.append(
+                        (
+                            int(idx),
+                            website,
+                            username,
+                            url,
+                            entry.get("blacklisted", False),
+                        )
+                    )
+
+        return results
+
     def delete_entry(self, index: int) -> None:
         """
         Deletes an entry based on the provided index.
