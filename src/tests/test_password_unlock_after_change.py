@@ -54,7 +54,9 @@ def test_password_change_and_unlock(monkeypatch):
         pm.fingerprint_dir = fp
         pm.current_fingerprint = "fp"
         pm.parent_seed = SEED
-        pm.nostr_client = SimpleNamespace(publish_snapshot=lambda *a, **k: None)
+        pm.nostr_client = SimpleNamespace(
+            publish_snapshot=lambda *a, **k: (None, "abcd")
+        )
 
         monkeypatch.setattr(
             "password_manager.manager.prompt_existing_password", lambda *_: old_pw
@@ -64,7 +66,9 @@ def test_password_change_and_unlock(monkeypatch):
         )
         monkeypatch.setattr(
             "password_manager.manager.NostrClient",
-            lambda *a, **kw: SimpleNamespace(publish_snapshot=lambda *a, **k: None),
+            lambda *a, **kw: SimpleNamespace(
+                publish_snapshot=lambda *a, **k: (None, "abcd")
+            ),
         )
 
         pm.change_password()

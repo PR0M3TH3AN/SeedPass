@@ -62,7 +62,10 @@ def test_add_and_delete_entry(monkeypatch):
 
         published = []
         pm.nostr_client = SimpleNamespace(
-            publish_snapshot=lambda data, alt_summary=None: published.append(data)
+            publish_snapshot=lambda data, alt_summary=None: (
+                published.append(data),
+                (None, "abcd"),
+            )[1]
         )
 
         inputs = iter([str(index)])

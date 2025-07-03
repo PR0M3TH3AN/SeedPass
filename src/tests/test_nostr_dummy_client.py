@@ -29,7 +29,7 @@ def test_retrieve_multi_chunk_snapshot(dummy_nostr_client):
 
     client, relay = dummy_nostr_client
     data = os.urandom(120000)
-    manifest = asyncio.run(client.publish_snapshot(data, limit=50000))
+    manifest, _ = asyncio.run(client.publish_snapshot(data, limit=50000))
     assert len(manifest.chunks) > 1
     fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
     assert len(chunk_bytes) == len(manifest.chunks)
@@ -40,7 +40,7 @@ def test_retrieve_multi_chunk_snapshot(dummy_nostr_client):
 def test_publish_and_fetch_deltas(dummy_nostr_client):
     client, relay = dummy_nostr_client
     base = b"base"
-    manifest = asyncio.run(client.publish_snapshot(base))
+    manifest, _ = asyncio.run(client.publish_snapshot(base))
     manifest_id = relay.manifests[-1].id
     d1 = b"d1"
     d2 = b"d2"
