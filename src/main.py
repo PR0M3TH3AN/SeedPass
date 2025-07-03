@@ -809,6 +809,7 @@ def main(argv: list[str] | None = None) -> int:
         print(code)
         try:
             pyperclip.copy(code)
+            print(colored("Code copied to clipboard", "green"))
         except Exception as exc:
             logging.warning(f"Clipboard copy failed: {exc}")
         return 0
