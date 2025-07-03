@@ -254,6 +254,8 @@ Back in the Settings menu you can:
 * Choose `9` to set an additional backup location.
 * Select `10` to change the inactivity timeout.
 * Choose `11` to lock the vault and require re-entry of your password.
+* Select `12` to return to the main menu.
+* Choose `13` to view seed profile stats.
 
 ## Running Tests
 
