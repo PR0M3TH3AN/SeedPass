@@ -19,10 +19,7 @@ import json
 import logging
 import hashlib
 import sys
-import os
 import shutil
-import time
-import traceback
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
@@ -32,7 +29,7 @@ from password_manager.entry_types import EntryType
 from password_manager.totp import TotpManager
 
 from password_manager.vault import Vault
-from utils.file_lock import exclusive_lock
+from password_manager.backup import BackupManager
 
 
 # Instantiate the logger
@@ -40,15 +37,16 @@ logger = logging.getLogger(__name__)
 
 
 class EntryManager:
-    def __init__(self, vault: Vault, fingerprint_dir: Path):
-        """
-        Initializes the EntryManager with the EncryptionManager and fingerprint directory.
+    def __init__(self, vault: Vault, backup_manager: BackupManager):
+        """Initialize the EntryManager.
 
-        :param vault: The Vault instance for file access.
-        :param fingerprint_dir: The directory corresponding to the fingerprint.
+        Parameters:
+            vault: The Vault instance for file access.
+            backup_manager: Manages creation of entry database backups.
         """
         self.vault = vault
-        self.fingerprint_dir = fingerprint_dir
+        self.backup_manager = backup_manager
+        self.fingerprint_dir = backup_manager.fingerprint_dir
 
         # Use paths relative to the fingerprint directory
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
@@ -141,7 +139,7 @@ class EntryManager:
 
             self._save_index(data)
             self.update_checksum()
-            self.backup_index_file()
+            self.backup_manager.create_backup()
 
             logger.info(f"Entry added successfully at index {index}.")
             print(colored(f"[+] Entry added successfully at index {index}.", "green"))
@@ -203,7 +201,7 @@ class EntryManager:
 
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
+        self.backup_manager.create_backup()
 
         try:
             return TotpManager.make_otpauth_uri(label, secret, period, digits)
@@ -219,7 +217,7 @@ class EntryManager:
         data["entries"][str(index)] = {"type": EntryType.SSH.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
+        self.backup_manager.create_backup()
         raise NotImplementedError("SSH key entry support not implemented yet")
 
     def add_seed(self, notes: str = "") -> int:
@@ -230,7 +228,7 @@ class EntryManager:
         data["entries"][str(index)] = {"type": EntryType.SEED.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
+        self.backup_manager.create_backup()
         raise NotImplementedError("Seed entry support not implemented yet")
 
     def get_totp_code(
@@ -355,7 +353,7 @@ class EntryManager:
 
             self._save_index(data)
             self.update_checksum()
-            self.backup_index_file()
+            self.backup_manager.create_backup()
 
             logger.info(f"Entry at index {index} modified successfully.")
             print(
@@ -445,7 +443,7 @@ class EntryManager:
                 logger.debug(f"Deleted entry at index {index}.")
                 self.vault.save_index(data)
                 self.update_checksum()
-                self.backup_index_file()
+                self.backup_manager.create_backup()
                 logger.info(f"Entry at index {index} deleted successfully.")
                 print(
                     colored(
@@ -490,35 +488,6 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}", exc_info=True)
             print(colored(f"Error: Failed to update checksum: {e}", "red"))
-
-    def backup_index_file(self) -> None:
-        """
-        Creates a backup of the encrypted JSON index file to prevent data loss.
-        """
-        try:
-            # self.index_file already includes the fingerprint directory
-            index_file_path = self.index_file
-            if not index_file_path.exists():
-                logger.warning(
-                    f"Index file '{index_file_path}' does not exist. No backup created."
-                )
-                return
-
-            timestamp = int(time.time())
-            backup_filename = f"entries_db_backup_{timestamp}.json.enc"
-            backup_path = self.fingerprint_dir / backup_filename
-
-            with open(index_file_path, "rb") as original_file, open(
-                backup_path, "wb"
-            ) as backup_file:
-                shutil.copyfileobj(original_file, backup_file)
-
-            logger.debug(f"Backup created at '{backup_path}'.")
-            print(colored(f"[+] Backup created at '{backup_path}'.", "green"))
-
-        except Exception as e:
-            logger.error(f"Failed to create backup: {e}", exc_info=True)
-            print(colored(f"Warning: Failed to create backup: {e}", "yellow"))
 
     def restore_from_backup(self, backup_path: str) -> None:
         """

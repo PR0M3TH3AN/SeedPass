@@ -24,8 +24,8 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        entry_mgr = EntryManager(vault, tmp_path)
         backup_mgr = BackupManager(tmp_path)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         pm = PasswordManager.__new__(PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY
