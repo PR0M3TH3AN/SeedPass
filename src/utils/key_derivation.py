@@ -20,6 +20,7 @@ import base64
 import unicodedata
 import logging
 import traceback
+import hmac
 from enum import Enum
 from typing import Optional, Union
 from bip_utils import Bip39SeedGenerator
@@ -39,6 +40,9 @@ class EncryptionMode(Enum):
 
 
 DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
+
+# Purpose constant for TOTP secret derivation using BIP85
+TOTP_PURPOSE = 39
 
 
 def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
@@ -159,10 +163,22 @@ def derive_totp_secret(seed: str, index: int) -> str:
     try:
         from local_bip85 import BIP85
 
+        # Initialize BIP85 from the BIP39 seed bytes
         seed_bytes = Bip39SeedGenerator(seed).Generate()
         bip85 = BIP85(seed_bytes)
-        entropy = bip85.derive_entropy(index=index, bytes_len=10, app_no=2)
-        secret = base64.b32encode(entropy).decode("utf-8")
+
+        # Build the BIP32 path m/83696968'/39'/TOTP'/{index}'
+        totp_int = int.from_bytes(b"TOTP", "big")
+        path = f"m/83696968'/{TOTP_PURPOSE}'/{totp_int}'/{index}'"
+
+        # Derive entropy using the same scheme as BIP85
+        child_key = bip85.bip32_ctx.DerivePath(path)
+        key_bytes = child_key.PrivateKey().Raw().ToBytes()
+        entropy = hmac.new(b"bip-entropy-from-k", key_bytes, hashlib.sha512).digest()
+
+        # Hash the first 32 bytes of entropy and encode the first 20 bytes
+        hashed = hashlib.sha256(entropy[:32]).digest()
+        secret = base64.b32encode(hashed[:20]).decode("utf-8")
         logger.debug(f"Derived TOTP secret for index {index}: {secret}")
         return secret
     except Exception as e:

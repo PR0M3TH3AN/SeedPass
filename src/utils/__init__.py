@@ -11,8 +11,10 @@ try:
         derive_key_from_password,
         derive_key_from_parent_seed,
         derive_index_key,
+        derive_totp_secret,
         EncryptionMode,
         DEFAULT_ENCRYPTION_MODE,
+        TOTP_PURPOSE,
     )
     from .checksum import (
         calculate_checksum,
@@ -33,8 +35,10 @@ __all__ = [
     "derive_key_from_password",
     "derive_key_from_parent_seed",
     "derive_index_key",
+    "derive_totp_secret",
     "EncryptionMode",
     "DEFAULT_ENCRYPTION_MODE",
+    "TOTP_PURPOSE",
     "calculate_checksum",
     "verify_checksum",
     "json_checksum",

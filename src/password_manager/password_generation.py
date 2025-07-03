@@ -335,12 +335,6 @@ class PasswordGenerator:
             raise
 
 
-def derive_totp_secret(bip85: BIP85, idx: int) -> str:
-    """Derive a TOTP secret for the given index using BIP85."""
-    entropy = bip85.derive_entropy(index=idx, bytes_len=10, app_no=2)
-    return base64.b32encode(entropy).decode("utf-8")
-
-
 def derive_ssh_key(bip85: BIP85, idx: int) -> bytes:
     """Derive 32 bytes of entropy suitable for an SSH key."""
     return bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
