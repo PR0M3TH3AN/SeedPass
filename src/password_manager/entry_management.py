@@ -304,15 +304,22 @@ class EntryManager:
         url: Optional[str] = None,
         blacklisted: Optional[bool] = None,
         notes: Optional[str] = None,
+        *,
+        label: Optional[str] = None,
+        period: Optional[int] = None,
+        digits: Optional[int] = None,
     ) -> None:
         """
         Modifies an existing entry based on the provided index and new values.
 
         :param index: The index number of the entry to modify.
-        :param username: (Optional) The new username.
-        :param url: (Optional) The new URL.
+        :param username: (Optional) The new username (password entries).
+        :param url: (Optional) The new URL (password entries).
         :param blacklisted: (Optional) The new blacklist status.
         :param notes: (Optional) New notes to attach to the entry.
+        :param label: (Optional) The new label for TOTP entries.
+        :param period: (Optional) The new TOTP period in seconds.
+        :param digits: (Optional) The new number of digits for TOTP codes.
         """
         try:
             data = self.vault.load_index()
@@ -330,13 +337,25 @@ class EntryManager:
                 )
                 return
 
-            if username is not None:
-                entry["username"] = username
-                logger.debug(f"Updated username to '{username}' for index {index}.")
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
 
-            if url is not None:
-                entry["url"] = url
-                logger.debug(f"Updated URL to '{url}' for index {index}.")
+            if entry_type == EntryType.TOTP.value:
+                if label is not None:
+                    entry["label"] = label
+                    logger.debug(f"Updated label to '{label}' for index {index}.")
+                if period is not None:
+                    entry["period"] = period
+                    logger.debug(f"Updated period to '{period}' for index {index}.")
+                if digits is not None:
+                    entry["digits"] = digits
+                    logger.debug(f"Updated digits to '{digits}' for index {index}.")
+            else:
+                if username is not None:
+                    entry["username"] = username
+                    logger.debug(f"Updated username to '{username}' for index {index}.")
+                if url is not None:
+                    entry["url"] = url
+                    logger.debug(f"Updated URL to '{url}' for index {index}.")
 
             if blacklisted is not None:
                 entry["blacklisted"] = blacklisted

@@ -192,6 +192,13 @@ python src/main.py
 5. Optionally specify the TOTP period and digit count.
 6. SeedPass will display the URI and secret so you can add it to your authenticator app.
 
+### Modifying a 2FA Entry
+
+1. From the main menu choose **Modify an Existing Entry** and enter the index of the 2FA code you want to edit.
+2. SeedPass will show the current label, period, digit count, and blacklist status.
+3. Enter new values or press **Enter** to keep the existing settings.
+4. The updated entry is saved back to your encrypted vault.
+
 
 ### Managing Multiple Seeds
 

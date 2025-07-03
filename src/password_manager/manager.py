@@ -1121,76 +1121,165 @@ class PasswordManager:
             if not entry:
                 return
 
-            website_name = entry.get("website")
-            length = entry.get("length")
-            username = entry.get("username")
-            url = entry.get("url")
-            blacklisted = entry.get("blacklisted")
-            notes = entry.get("notes", "")
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
 
-            # Display current values
-            print(
-                colored(
-                    f"Modifying entry for '{website_name}' (Index: {index}):", "cyan"
-                )
-            )
-            print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
-            print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
-            print(
-                colored(
-                    f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
-                    "cyan",
-                )
-            )
+            if entry_type == EntryType.TOTP.value:
+                label = entry.get("label", "")
+                period = int(entry.get("period", 30))
+                digits = int(entry.get("digits", 6))
+                blacklisted = entry.get("blacklisted", False)
+                notes = entry.get("notes", "")
 
-            # Prompt for new values (optional)
-            new_username = (
-                input(
-                    f'Enter new username (leave blank to keep "{username or "N/A"}"): '
-                ).strip()
-                or username
-            )
-            new_url = (
-                input(f'Enter new URL (leave blank to keep "{url or "N/A"}"): ').strip()
-                or url
-            )
-            blacklist_input = (
-                input(
-                    f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
-                )
-                .strip()
-                .lower()
-            )
-            if blacklist_input == "":
-                new_blacklisted = blacklisted
-            elif blacklist_input == "y":
-                new_blacklisted = True
-            elif blacklist_input == "n":
-                new_blacklisted = False
-            else:
                 print(
                     colored(
-                        "Invalid input for blacklist status. Keeping the current status.",
-                        "yellow",
+                        f"Modifying 2FA entry '{label}' (Index: {index}):",
+                        "cyan",
                     )
                 )
-                new_blacklisted = blacklisted
-
-            new_notes = (
-                input(
-                    f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                print(colored(f"Current Period: {period}s", "cyan"))
+                print(colored(f"Current Digits: {digits}", "cyan"))
+                print(
+                    colored(
+                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                period_input = input(
+                    f"Enter new period in seconds (current: {period}): "
                 ).strip()
-                or notes
-            )
+                new_period = period
+                if period_input:
+                    if period_input.isdigit():
+                        new_period = int(period_input)
+                    else:
+                        print(
+                            colored("Invalid period value. Keeping current.", "yellow")
+                        )
+                digits_input = input(
+                    f"Enter new digit count (current: {digits}): "
+                ).strip()
+                new_digits = digits
+                if digits_input:
+                    if digits_input.isdigit():
+                        new_digits = int(digits_input)
+                    else:
+                        print(
+                            colored(
+                                "Invalid digits value. Keeping current.",
+                                "yellow",
+                            )
+                        )
+                blacklist_input = (
+                    input(
+                        f'Is this 2FA code blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for blacklist status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
 
-            # Update the entry
-            self.entry_manager.modify_entry(
-                index,
-                new_username,
-                new_url,
-                new_blacklisted,
-                new_notes,
-            )
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    blacklisted=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    period=new_period,
+                    digits=new_digits,
+                )
+            else:
+                website_name = entry.get("website")
+                username = entry.get("username")
+                url = entry.get("url")
+                blacklisted = entry.get("blacklisted")
+                notes = entry.get("notes", "")
+
+                print(
+                    colored(
+                        f"Modifying entry for '{website_name}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(
+                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        "cyan",
+                    )
+                )
+
+                new_username = (
+                    input(
+                        f'Enter new username (leave blank to keep "{username or "N/A"}"): '
+                    ).strip()
+                    or username
+                )
+                new_url = (
+                    input(
+                        f'Enter new URL (leave blank to keep "{url or "N/A"}"): '
+                    ).strip()
+                    or url
+                )
+                blacklist_input = (
+                    input(
+                        f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for blacklist status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    new_username,
+                    new_url,
+                    new_blacklisted,
+                    new_notes,
+                )
 
             # Mark database as dirty for background sync
             self.is_dirty = True
