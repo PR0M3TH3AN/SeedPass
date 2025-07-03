@@ -45,12 +45,14 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
 
-        def interrupt(_):
-            raise KeyboardInterrupt()
-
-        monkeypatch.setattr("password_manager.manager.time.sleep", interrupt)
+        # interrupt the loop after first iteration
+        monkeypatch.setattr(
+            "password_manager.manager.select.select",
+            lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
+        )
 
         pm.handle_display_totp_codes()
         out = capsys.readouterr().out
-        assert "Example" in out
+        assert "Generated 2FA Codes" in out
+        assert "[0] Example" in out
         assert "123456" in out

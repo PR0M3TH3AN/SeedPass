@@ -17,6 +17,7 @@ import os
 from typing import Optional
 import shutil
 import time
+import select
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -937,7 +938,7 @@ class PasswordManager:
                         self.last_update = time.time()
                         print(
                             colored(
-                                f"\nImported \u2714  Codes for {label} are now stored in SeedPass.",
+                                f"\nImported \u2714  Codes for {label} are now stored in SeedPass at ID {entry_id}.",
                                 "green",
                             )
                         )
@@ -1184,32 +1185,50 @@ class PasswordManager:
         try:
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
-            totp_list: list[tuple[str, int, int]] = []
+            totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
                 if entry.get("type") == EntryType.TOTP.value:
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
-                    totp_list.append((label, int(idx_str), period))
+                    imported = "secret" in entry
+                    totp_list.append((label, int(idx_str), period, imported))
 
             if not totp_list:
                 print(colored("No 2FA entries found.", "yellow"))
                 return
 
             totp_list.sort(key=lambda t: t[0].lower())
-
-            print(colored("Press Ctrl+C to return to the menu.", "cyan"))
+            print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
             while True:
                 print("\033c", end="")
-                for label, idx, period in totp_list:
-                    code = self.entry_manager.get_totp_code(idx, self.parent_seed)
-                    remaining = self.entry_manager.get_totp_time_remaining(idx)
-                    filled = int(20 * (period - remaining) / period)
-                    bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                    print(f"{label}: {code} {bar} {remaining:2d}s")
+                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+                generated = [t for t in totp_list if not t[3]]
+                imported_list = [t for t in totp_list if t[3]]
+                if generated:
+                    print(colored("\nGenerated 2FA Codes:", "green"))
+                    for label, idx, period, _ in generated:
+                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
+                        remaining = self.entry_manager.get_totp_time_remaining(idx)
+                        filled = int(20 * (period - remaining) / period)
+                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                if imported_list:
+                    print(colored("\nImported 2FA Codes:", "green"))
+                    for label, idx, period, _ in imported_list:
+                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
+                        remaining = self.entry_manager.get_totp_time_remaining(idx)
+                        filled = int(20 * (period - remaining) / period)
+                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
                 sys.stdout.flush()
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print()
+                try:
+                    if sys.stdin in select.select([sys.stdin], [], [], 1)[0]:
+                        user_input = sys.stdin.readline().strip().lower()
+                        if user_input == "b":
+                            break
+                except KeyboardInterrupt:
+                    print()
+                    break
         except Exception as e:
             logging.error(f"Error displaying TOTP codes: {e}", exc_info=True)
             print(colored(f"Error: Failed to display TOTP codes: {e}", "red"))
