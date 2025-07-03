@@ -291,7 +291,7 @@ class EncryptionManager:
                     "yellow",
                 )
             )
-            return {"passwords": {}}
+            return {"entries": {}}
 
         try:
             decrypted_data = self.decrypt_file(relative_path)

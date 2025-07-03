@@ -32,7 +32,7 @@ def test_password_change_and_unlock(monkeypatch):
         entry_mgr = EntryManager(vault, fp)
         cfg_mgr = ConfigManager(vault, fp)
 
-        vault.save_index({"passwords": {}})
+        vault.save_index({"entries": {}})
         cfg_mgr.save_config(
             {
                 "relays": [],
