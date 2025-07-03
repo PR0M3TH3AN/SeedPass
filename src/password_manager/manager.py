@@ -47,6 +47,7 @@ from constants import (
     DEFAULT_PASSWORD_LENGTH,
     INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    initialize_app,
 )
 
 import traceback
@@ -80,6 +81,7 @@ class PasswordManager:
 
     def __init__(self) -> None:
         """Initialize the PasswordManager."""
+        initialize_app()
         self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
