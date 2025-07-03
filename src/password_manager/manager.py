@@ -870,11 +870,7 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
 
-            index_input = input("Enter derivation index (number): ").strip()
-            if not index_input.isdigit():
-                print(colored("Error: Index must be a number.", "red"))
-                return
-            totp_index = int(index_input)
+            totp_index = self.entry_manager.get_next_totp_index()
 
             period_input = input("TOTP period in seconds (default 30): ").strip()
             period = 30
@@ -893,7 +889,13 @@ class PasswordManager:
                 digits = int(digits_input)
 
             entry_id = self.entry_manager.get_next_index()
-            uri = self.entry_manager.add_totp(label, totp_index, period, digits)
+            uri = self.entry_manager.add_totp(
+                label,
+                self.parent_seed,
+                index=totp_index,
+                period=period,
+                digits=digits,
+            )
 
             self.is_dirty = True
             self.last_update = time.time()

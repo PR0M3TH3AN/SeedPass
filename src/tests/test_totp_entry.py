@@ -19,9 +19,8 @@ def test_add_totp_and_get_code():
         vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         entry_mgr = EntryManager(vault, Path(tmpdir))
 
-        with patch.object(enc_mgr, "decrypt_parent_seed", return_value=TEST_SEED):
-            uri = entry_mgr.add_totp("Example", 0)
-            assert uri.startswith("otpauth://totp/")
+        uri = entry_mgr.add_totp("Example", TEST_SEED)
+        assert uri.startswith("otpauth://totp/")
 
         entry = entry_mgr.retrieve_entry(0)
         assert entry == {
@@ -32,8 +31,7 @@ def test_add_totp_and_get_code():
             "digits": 6,
         }
 
-        with patch.object(enc_mgr, "decrypt_parent_seed", return_value=TEST_SEED):
-            code = entry_mgr.get_totp_code(0, timestamp=0)
+        code = entry_mgr.get_totp_code(0, TEST_SEED, timestamp=0)
 
         expected = TotpManager.current_code(TEST_SEED, 0, timestamp=0)
         assert code == expected
@@ -44,8 +42,7 @@ def test_totp_time_remaining(monkeypatch):
         vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         entry_mgr = EntryManager(vault, Path(tmpdir))
 
-        with patch.object(enc_mgr, "decrypt_parent_seed", return_value=TEST_SEED):
-            entry_mgr.add_totp("Example", 0)
+        entry_mgr.add_totp("Example", TEST_SEED)
 
         monkeypatch.setattr(TotpManager, "time_remaining", lambda period: 7)
         remaining = entry_mgr.get_totp_time_remaining(0)
