@@ -29,6 +29,12 @@ colorama_init()
 logger = logging.getLogger(__name__)
 
 
+class PasswordPromptError(Exception):
+    """Exception raised for password prompt errors."""
+
+    pass
+
+
 def prompt_new_password() -> str:
     """
     Prompts the user to enter and confirm a new password for encrypting the parent seed.
@@ -40,7 +46,7 @@ def prompt_new_password() -> str:
         str: The confirmed password entered by the user.
 
     Raises:
-        SystemExit: If the user fails to provide a valid password after multiple attempts.
+        PasswordPromptError: If the user fails to provide a valid password after multiple attempts.
     """
     max_retries = 5
     attempts = 0
@@ -87,7 +93,7 @@ def prompt_new_password() -> str:
         except KeyboardInterrupt:
             print(colored("\nOperation cancelled by user.", "yellow"))
             logging.info("Password prompt interrupted by user.")
-            sys.exit(0)
+            raise PasswordPromptError("Operation cancelled by user")
         except Exception as e:
             logging.error(
                 f"Unexpected error during password prompt: {e}", exc_info=True
@@ -97,7 +103,7 @@ def prompt_new_password() -> str:
 
     print(colored("Maximum password attempts exceeded. Exiting.", "red"))
     logging.error("User failed to provide a valid password after multiple attempts.")
-    sys.exit(1)
+    raise PasswordPromptError("Maximum password attempts exceeded")
 
 
 def prompt_existing_password(prompt_message: str = "Enter your password: ") -> str:
@@ -113,7 +119,7 @@ def prompt_existing_password(prompt_message: str = "Enter your password: ") -> s
         str: The password entered by the user.
 
     Raises:
-        SystemExit: If the user interrupts the operation.
+        PasswordPromptError: If the user interrupts the operation.
     """
     try:
         password = getpass.getpass(prompt=prompt_message).strip()
@@ -121,7 +127,7 @@ def prompt_existing_password(prompt_message: str = "Enter your password: ") -> s
         if not password:
             print(colored("Error: Password cannot be empty.", "red"))
             logging.warning("User attempted to enter an empty password.")
-            sys.exit(1)
+            raise PasswordPromptError("Password cannot be empty")
 
         # Normalize the password to NFKD form
         normalized_password = unicodedata.normalize("NFKD", password)
@@ -131,13 +137,13 @@ def prompt_existing_password(prompt_message: str = "Enter your password: ") -> s
     except KeyboardInterrupt:
         print(colored("\nOperation cancelled by user.", "yellow"))
         logging.info("Existing password prompt interrupted by user.")
-        sys.exit(0)
+        raise PasswordPromptError("Operation cancelled by user")
     except Exception as e:
         logging.error(
             f"Unexpected error during existing password prompt: {e}", exc_info=True
         )
         print(colored(f"Error: {e}", "red"))
-        sys.exit(1)
+        raise PasswordPromptError(str(e))
 
 
 def confirm_action(
@@ -154,7 +160,7 @@ def confirm_action(
         bool: True if the user confirms the action, False otherwise.
 
     Raises:
-        SystemExit: If the user interrupts the operation.
+        PasswordPromptError: If the user interrupts the operation.
     """
     try:
         while True:
@@ -171,13 +177,13 @@ def confirm_action(
     except KeyboardInterrupt:
         print(colored("\nOperation cancelled by user.", "yellow"))
         logging.info("Action confirmation interrupted by user.")
-        sys.exit(0)
+        raise PasswordPromptError("Operation cancelled by user")
     except Exception as e:
         logging.error(
             f"Unexpected error during action confirmation: {e}", exc_info=True
         )
         print(colored(f"Error: {e}", "red"))
-        sys.exit(1)
+        raise PasswordPromptError(str(e))
 
 
 def prompt_for_password() -> str:

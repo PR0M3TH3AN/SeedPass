@@ -4,7 +4,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from local_bip85.bip85 import BIP85
+from local_bip85.bip85 import BIP85, Bip85Error
 
 MASTER_XPRV = "xprv9s21ZrQH143K2LBWUUQRFXhucrQqBpKdRRxNVq2zBqsx8HVqFk2uYo8kmbaLLHRdqtQpUm98uKfu3vca1LqdGhUtyoFnCNkfmXRyPXLjbKb"
 
@@ -33,7 +33,7 @@ def test_bip85_symmetric_key(bip85):
 
 
 def test_invalid_params(bip85):
-    with pytest.raises(SystemExit):
+    with pytest.raises(Bip85Error):
         bip85.derive_mnemonic(index=0, words_num=15)
-    with pytest.raises(SystemExit):
+    with pytest.raises(Bip85Error):
         bip85.derive_mnemonic(index=-1, words_num=12)

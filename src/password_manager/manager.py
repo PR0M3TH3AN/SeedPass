@@ -55,7 +55,7 @@ import gzip
 import bcrypt
 from pathlib import Path
 
-from local_bip85.bip85 import BIP85
+from local_bip85.bip85 import BIP85, Bip85Error
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
 from datetime import datetime
 
@@ -645,6 +645,10 @@ class PasswordManager:
             bip85 = BIP85(master_seed)
             mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
             return mnemonic
+        except Bip85Error as e:
+            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
+            print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
+            sys.exit(1)
         except Exception as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))

@@ -31,6 +31,12 @@ from cryptography.hazmat.backends import default_backend
 logger = logging.getLogger(__name__)
 
 
+class Bip85Error(Exception):
+    """Exception raised for BIP85-related errors."""
+
+    pass
+
+
 class BIP85:
     def __init__(self, seed_bytes: bytes | str):
         """Initialize from BIP39 seed bytes or BIP32 xprv string."""
@@ -43,7 +49,7 @@ class BIP85:
         except Exception as e:
             logging.error(f"Error initializing BIP32 context: {e}", exc_info=True)
             print(f"{Fore.RED}Error initializing BIP32 context: {e}")
-            sys.exit(1)
+            raise Bip85Error(f"Error initializing BIP32 context: {e}")
 
     def derive_entropy(
         self, index: int, bytes_len: int, app_no: int = 39, words_len: int | None = None
@@ -90,21 +96,23 @@ class BIP85:
                 print(
                     f"{Fore.RED}Error: Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes."
                 )
-                sys.exit(1)
+                raise Bip85Error(
+                    f"Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes."
+                )
 
             logging.debug(f"Derived entropy: {entropy.hex()}")
             return entropy
         except Exception as e:
             logging.error(f"Error deriving entropy: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving entropy: {e}")
-            sys.exit(1)
+            raise Bip85Error(f"Error deriving entropy: {e}")
 
     def derive_mnemonic(self, index: int, words_num: int) -> str:
         bytes_len = {12: 16, 18: 24, 24: 32}.get(words_num)
         if not bytes_len:
             logging.error(f"Unsupported number of words: {words_num}")
             print(f"{Fore.RED}Error: Unsupported number of words: {words_num}")
-            sys.exit(1)
+            raise Bip85Error(f"Unsupported number of words: {words_num}")
 
         entropy = self.derive_entropy(
             index=index, bytes_len=bytes_len, app_no=39, words_len=words_num
@@ -118,7 +126,7 @@ class BIP85:
         except Exception as e:
             logging.error(f"Error generating mnemonic: {e}", exc_info=True)
             print(f"{Fore.RED}Error generating mnemonic: {e}")
-            sys.exit(1)
+            raise Bip85Error(f"Error generating mnemonic: {e}")
 
     def derive_symmetric_key(self, index: int = 0, app_no: int = 2) -> bytes:
         """Derive 32 bytes of entropy for symmetric key usage."""
@@ -129,4 +137,4 @@ class BIP85:
         except Exception as e:
             logging.error(f"Error deriving symmetric key: {e}", exc_info=True)
             print(f"{Fore.RED}Error deriving symmetric key: {e}")
-            sys.exit(1)
+            raise Bip85Error(f"Error deriving symmetric key: {e}")

@@ -17,6 +17,8 @@ import traceback
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
 from constants import INACTIVITY_TIMEOUT
+from utils.password_prompt import PasswordPromptError
+from local_bip85.bip85 import Bip85Error
 
 
 colorama_init()
@@ -631,6 +633,10 @@ if __name__ == "__main__":
     try:
         password_manager = PasswordManager()
         logger.info("PasswordManager initialized successfully.")
+    except (PasswordPromptError, Bip85Error) as e:
+        logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
+        print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
@@ -677,6 +683,16 @@ if __name__ == "__main__":
             logging.error(f"Error during shutdown: {e}")
             print(colored(f"Error during shutdown: {e}", "red"))
         sys.exit(0)
+    except (PasswordPromptError, Bip85Error) as e:
+        logger.error(f"A user-related error occurred: {e}", exc_info=True)
+        print(colored(f"Error: {e}", "red"))
+        try:
+            password_manager.nostr_client.close_client_pool()
+            logging.info("NostrClient closed successfully.")
+        except Exception as close_error:
+            logging.error(f"Error during shutdown: {close_error}")
+            print(colored(f"Error during shutdown: {close_error}", "red"))
+        sys.exit(1)
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
