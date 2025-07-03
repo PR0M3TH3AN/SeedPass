@@ -22,6 +22,7 @@ def test_config_defaults_and_round_trip():
         assert cfg["relays"] == list(DEFAULT_RELAYS)
         assert cfg["pin_hash"] == ""
         assert cfg["password_hash"] == ""
+        assert cfg["additional_backup_path"] == ""
 
         cfg_mgr.set_pin("1234")
         cfg_mgr.set_relays(["wss://example.com"], require_pin=False)
@@ -111,3 +112,21 @@ def test_password_hash_migrates_from_file(tmp_path):
     (tmp_path / "hashed_password.enc").unlink()
     cfg2 = cfg_mgr.load_config(require_pin=False)
     assert cfg2["password_hash"] == hashed.decode()
+
+
+def test_additional_backup_path_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        # default should be empty string
+        assert cfg_mgr.load_config(require_pin=False)["additional_backup_path"] == ""
+
+        cfg_mgr.set_additional_backup_path("/tmp/my_backups")
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["additional_backup_path"] == "/tmp/my_backups"
+        assert cfg_mgr.get_additional_backup_path() == "/tmp/my_backups"
+
+        cfg_mgr.set_additional_backup_path(None)
+        cfg2 = cfg_mgr.load_config(require_pin=False)
+        assert cfg2["additional_backup_path"] == ""

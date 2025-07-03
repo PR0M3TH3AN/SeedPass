@@ -44,6 +44,7 @@ class ConfigManager:
                 "pin_hash": "",
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
+                "additional_backup_path": "",
             }
         try:
             data = self.vault.load_config()
@@ -54,6 +55,7 @@ class ConfigManager:
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
+            data.setdefault("additional_backup_path", "")
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -130,3 +132,15 @@ class ConfigManager:
         """Retrieve the inactivity timeout setting in seconds."""
         config = self.load_config(require_pin=False)
         return float(config.get("inactivity_timeout", INACTIVITY_TIMEOUT))
+
+    def set_additional_backup_path(self, path: Optional[str]) -> None:
+        """Persist an optional additional backup path in the config."""
+        config = self.load_config(require_pin=False)
+        config["additional_backup_path"] = path or ""
+        self.save_config(config)
+
+    def get_additional_backup_path(self) -> Optional[str]:
+        """Retrieve the additional backup path if configured."""
+        config = self.load_config(require_pin=False)
+        value = config.get("additional_backup_path", "")
+        return value or None
