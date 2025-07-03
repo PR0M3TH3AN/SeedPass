@@ -40,3 +40,42 @@ def test_search_by_username():
 
         result = entry_mgr.search_entries("bob")
         assert result == [(idx1, "Test.com", "Bob", "", False)]
+
+
+def test_search_by_url():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        idx = entry_mgr.add_entry("Example", 12, url="https://ex.com/login")
+        entry_mgr.add_entry("Other", 8)
+
+        result = entry_mgr.search_entries("login")
+        assert result == [(idx, "Example", "", "https://ex.com/login", False)]
+
+
+def test_search_by_notes_and_totp():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        idx_pw = entry_mgr.add_entry("Site", 8, notes="secret note")
+        entry_mgr.add_totp("GH", TEST_SEED)
+        idx_totp = entry_mgr.search_entries("GH")[0][0]
+        entry_mgr.modify_entry(idx_totp, notes="otp note")
+
+        res_notes = entry_mgr.search_entries("secret")
+        assert res_notes == [(idx_pw, "Site", "", "", False)]
+
+        res_totp = entry_mgr.search_entries("otp")
+        assert res_totp == [(idx_totp, "GH", None, None, False)]
+
+
+def test_search_no_results():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        entry_mgr.add_entry("Example.com", 12, "alice")
+        result = entry_mgr.search_entries("missing")
+        assert result == []
