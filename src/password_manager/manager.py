@@ -751,9 +751,10 @@ class PasswordManager:
                 raise ValueError("EncryptionManager is not initialized.")
 
             # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
+            self.backup_manager = BackupManager(fingerprint_dir=self.fingerprint_dir)
             self.entry_manager = EntryManager(
                 vault=self.vault,
-                fingerprint_dir=self.fingerprint_dir,
+                backup_manager=self.backup_manager,
             )
 
             self.password_generator = PasswordGenerator(
@@ -761,8 +762,6 @@ class PasswordManager:
                 parent_seed=self.parent_seed,
                 bip85=self.bip85,
             )
-
-            self.backup_manager = BackupManager(fingerprint_dir=self.fingerprint_dir)
 
             # Load relay configuration and initialize NostrClient
             self.config_manager = ConfigManager(

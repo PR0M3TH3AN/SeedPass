@@ -21,8 +21,8 @@ class FakeNostrClient:
 
 def test_handle_export_totp_codes(monkeypatch, tmp_path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-    entry_mgr = EntryManager(vault, tmp_path)
     backup_mgr = BackupManager(tmp_path)
+    entry_mgr = EntryManager(vault, backup_mgr)
 
     pm = PasswordManager.__new__(PasswordManager)
     pm.encryption_mode = EncryptionMode.SEED_ONLY

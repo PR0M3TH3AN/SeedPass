@@ -29,8 +29,8 @@ def test_manager_workflow(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        entry_mgr = EntryManager(vault, tmp_path)
         backup_mgr = BackupManager(tmp_path)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         monkeypatch.setattr("password_manager.manager.NostrClient", FakeNostrClient)
 
@@ -64,7 +64,7 @@ def test_manager_workflow(monkeypatch):
 
         pm.handle_add_password()
         assert pm.is_dirty is False
-        backups = list(tmp_path.glob("entries_db_backup_*.json.enc"))
+        backups = list((tmp_path / "backups").glob("entries_db_backup_*.json.enc"))
         assert len(backups) == 1
         checksum_file = tmp_path / "seedpass_entries_db_checksum.txt"
         assert checksum_file.exists()

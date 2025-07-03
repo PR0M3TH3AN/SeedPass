@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.entry_management import EntryManager
+from password_manager.backup import BackupManager
 from password_manager.config_manager import ConfigManager
 from password_manager.manager import PasswordManager, EncryptionMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
@@ -29,7 +30,8 @@ def test_password_change_and_unlock(monkeypatch):
         enc_mgr = EncryptionManager(index_key, fp)
         seed_mgr = EncryptionManager(seed_key, fp)
         vault = Vault(enc_mgr, fp)
-        entry_mgr = EntryManager(vault, fp)
+        backup_mgr = BackupManager(fp)
+        entry_mgr = EntryManager(vault, backup_mgr)
         cfg_mgr = ConfigManager(vault, fp)
 
         vault.save_index({"entries": {}})

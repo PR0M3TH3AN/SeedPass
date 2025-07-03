@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.entry_management import EntryManager
 from password_manager.config_manager import ConfigManager
+from password_manager.backup import BackupManager
 from password_manager.vault import Vault
 from password_manager.manager import PasswordManager, EncryptionMode
 
@@ -18,7 +19,8 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp = Path(tmpdir)
         vault, enc_mgr = create_vault(fp, TEST_SEED, TEST_PASSWORD)
-        entry_mgr = EntryManager(vault, fp)
+        backup_mgr = BackupManager(fp)
+        entry_mgr = EntryManager(vault, backup_mgr)
         cfg_mgr = ConfigManager(vault, fp)
 
         pm = PasswordManager.__new__(PasswordManager)

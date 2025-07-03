@@ -6,6 +6,7 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.entry_management import EntryManager
+from password_manager.backup import BackupManager
 from password_manager.vault import Vault
 
 
@@ -13,7 +14,8 @@ def test_update_checksum_writes_to_expected_path():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        entry_mgr = EntryManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         # create an empty index file
         vault.save_index({"entries": {}})
@@ -27,10 +29,12 @@ def test_backup_index_file_creates_backup_in_directory():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        entry_mgr = EntryManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         vault.save_index({"entries": {}})
-        entry_mgr.backup_index_file()
+        entry_mgr.backup_manager.create_backup()
 
-        backups = list(tmp_path.glob("entries_db_backup_*.json.enc"))
+        backup_dir = tmp_path / "backups"
+        backups = list(backup_dir.glob("entries_db_backup_*.json.enc"))
         assert len(backups) == 1
