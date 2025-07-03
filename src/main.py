@@ -222,6 +222,17 @@ def handle_display_npub(password_manager: PasswordManager):
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
+def handle_display_stats(password_manager: PasswordManager) -> None:
+    """Print seed profile statistics."""
+    try:
+        display_fn = getattr(password_manager, "display_stats", None)
+        if callable(display_fn):
+            display_fn()
+    except Exception as e:  # pragma: no cover - display best effort
+        logging.error(f"Failed to display stats: {e}", exc_info=True)
+        print(colored(f"Error: Failed to display stats: {e}", "red"))
+
+
 def handle_post_to_nostr(
     password_manager: PasswordManager, alt_summary: str | None = None
 ):
@@ -556,6 +567,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("10. Set inactivity timeout")
         print("11. Lock Vault")
         print("12. Back")
+        print("13. Stats")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -585,6 +597,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
             password_manager.unlock_vault()
         elif choice == "12":
             break
+        elif choice == "13":
+            handle_display_stats(password_manager)
         else:
             print(colored("Invalid choice.", "red"))
 
@@ -606,6 +620,9 @@ def display_menu(
     5. Settings
     6. Exit
     """
+    display_fn = getattr(password_manager, "display_stats", None)
+    if callable(display_fn):
+        display_fn()
     while True:
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))

@@ -34,7 +34,7 @@ from utils.key_derivation import (
     derive_index_key,
     EncryptionMode,
 )
-from utils.checksum import calculate_checksum, verify_checksum
+from utils.checksum import calculate_checksum, verify_checksum, json_checksum
 from utils.password_prompt import (
     prompt_for_password,
     prompt_existing_password,
@@ -1826,3 +1826,93 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))
+
+    def get_profile_stats(self) -> dict:
+        """Return various statistics about the current seed profile."""
+        if not all([self.entry_manager, self.config_manager, self.backup_manager]):
+            return {}
+
+        stats: dict[str, object] = {}
+
+        # Entry counts by type
+        data = self.entry_manager.vault.load_index()
+        entries = data.get("entries", {})
+        counts: dict[str, int] = {}
+        for entry in entries.values():
+            etype = entry.get("type", EntryType.PASSWORD.value)
+            counts[etype] = counts.get(etype, 0) + 1
+        stats["entries"] = counts
+        stats["total_entries"] = len(entries)
+
+        # Schema version and checksum status
+        stats["schema_version"] = data.get("schema_version")
+        current_checksum = json_checksum(data)
+        chk_path = self.entry_manager.checksum_file
+        if chk_path.exists():
+            stored = chk_path.read_text().strip()
+            stats["checksum_ok"] = stored == current_checksum
+        else:
+            stored = None
+            stats["checksum_ok"] = False
+        stats["checksum"] = stored
+
+        # Relay info
+        cfg = self.config_manager.load_config(require_pin=False)
+        relays = cfg.get("relays", [])
+        stats["relays"] = relays
+        stats["relay_count"] = len(relays)
+
+        # Backup info
+        backups = list(
+            self.backup_manager.backup_dir.glob("entries_db_backup_*.json.enc")
+        )
+        stats["backup_count"] = len(backups)
+        stats["backup_dir"] = str(self.backup_manager.backup_dir)
+        stats["additional_backup_path"] = (
+            self.config_manager.get_additional_backup_path()
+        )
+
+        # Nostr sync info
+        manifest = getattr(self.nostr_client, "current_manifest", None)
+        if manifest is not None:
+            stats["chunk_count"] = len(manifest.chunks)
+            stats["delta_since"] = manifest.delta_since
+        else:
+            stats["chunk_count"] = 0
+            stats["delta_since"] = None
+        stats["pending_deltas"] = len(getattr(self.nostr_client, "_delta_events", []))
+
+        return stats
+
+    def display_stats(self) -> None:
+        """Print a summary of :meth:`get_profile_stats` to the console."""
+        stats = self.get_profile_stats()
+        if not stats:
+            print(colored("No statistics available.", "red"))
+            return
+
+        print(colored("\n=== Seed Profile Stats ===", "yellow"))
+        print(colored(f"Total entries: {stats['total_entries']}", "cyan"))
+        for etype, count in stats["entries"].items():
+            print(colored(f"  {etype}: {count}", "cyan"))
+        print(colored(f"Relays configured: {stats['relay_count']}", "cyan"))
+        print(
+            colored(
+                f"Backups: {stats['backup_count']} (dir: {stats['backup_dir']})", "cyan"
+            )
+        )
+        if stats.get("additional_backup_path"):
+            print(
+                colored(f"Additional backup: {stats['additional_backup_path']}", "cyan")
+            )
+        print(colored(f"Schema version: {stats['schema_version']}", "cyan"))
+        print(
+            colored(
+                f"Checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                "cyan",
+            )
+        )
+        print(colored(f"Snapshot chunks: {stats['chunk_count']}", "cyan"))
+        print(colored(f"Pending deltas: {stats['pending_deltas']}", "cyan"))
+        if stats.get("delta_since"):
+            print(colored(f"Latest delta id: {stats['delta_since']}", "cyan"))
