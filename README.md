@@ -46,6 +46,11 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Checksum Verification:** Ensure the integrity of the script with checksum verification.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
+- **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
+- **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
+- **Export 2FA Codes:** Save all stored TOTP entries to an encrypted JSON file for use with other apps.
+- **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
+- **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 
 ## Prerequisites
 
@@ -118,6 +123,9 @@ seedpass export --file "~/seedpass_backup.json"
 
 # Later you can restore it
 seedpass import --file "~/seedpass_backup.json"
+
+# Use the **Settings** menu to configure an extra backup directory
+# on an external drive.
 ```
 
 ### Vault JSON Layout
@@ -168,11 +176,30 @@ python src/main.py
    1. Add Entry
    2. Retrieve Entry
    3. Modify an Existing Entry
-   4. Settings
-   5. Exit
+   4. 2FA Codes
+   5. Settings
+   6. Exit
 
-   Enter your choice (1-5):
+   Enter your choice (1-6):
    ```
+
+   When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
+
+### Adding a 2FA Entry
+
+1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.
+2. Pick **Make 2FA** to derive a new secret from your seed or **Import 2FA** to paste an existing `otpauth://` URI or secret.
+3. Provide a label for the account (for example, `GitHub`).
+4. SeedPass automatically chooses the next available derivation index when deriving.
+5. Optionally specify the TOTP period and digit count.
+6. SeedPass will display the URI and secret so you can add it to your authenticator app.
+
+### Modifying a 2FA Entry
+
+1. From the main menu choose **Modify an Existing Entry** and enter the index of the 2FA code you want to edit.
+2. SeedPass will show the current label, period, digit count, and blacklist status.
+3. Enter new values or press **Enter** to keep the existing settings.
+4. The updated entry is saved back to your encrypted vault.
 
 
 ### Managing Multiple Seeds
@@ -223,7 +250,14 @@ Back in the Settings menu you can:
 * Select `3` to change your master password.
 * Choose `4` to verify the script checksum.
 * Choose `5` to back up the parent seed.
-* Choose `6` to lock the vault and require re-entry of your password.
+* Select `6` to export the database to an encrypted file.
+* Choose `7` to import a database from a backup file.
+* Select `8` to export all 2FA codes.
+* Choose `9` to set an additional backup location.
+* Select `10` to change the inactivity timeout.
+* Choose `11` to lock the vault and require re-entry of your password.
+* Select `12` to return to the main menu.
+* Choose `13` to view seed profile stats.
 
 ## Running Tests
 

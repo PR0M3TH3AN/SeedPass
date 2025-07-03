@@ -11,8 +11,10 @@ try:
         derive_key_from_password,
         derive_key_from_parent_seed,
         derive_index_key,
+        derive_totp_secret,
         EncryptionMode,
         DEFAULT_ENCRYPTION_MODE,
+        TOTP_PURPOSE,
     )
     from .checksum import (
         calculate_checksum,
@@ -22,6 +24,7 @@ try:
     )
     from .password_prompt import prompt_for_password
     from .input_utils import timed_input
+    from .memory_protection import InMemorySecret
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -33,8 +36,10 @@ __all__ = [
     "derive_key_from_password",
     "derive_key_from_parent_seed",
     "derive_index_key",
+    "derive_totp_secret",
     "EncryptionMode",
     "DEFAULT_ENCRYPTION_MODE",
+    "TOTP_PURPOSE",
     "calculate_checksum",
     "verify_checksum",
     "json_checksum",
@@ -43,4 +48,5 @@ __all__ = [
     "shared_lock",
     "prompt_for_password",
     "timed_input",
+    "InMemorySecret",
 ]

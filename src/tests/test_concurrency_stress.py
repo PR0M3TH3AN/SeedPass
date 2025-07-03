@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
+from password_manager.config_manager import ConfigManager
 from utils.key_derivation import derive_index_key, derive_key_from_password
 
 
@@ -34,9 +35,12 @@ def _reader(index_key: bytes, dir_path: Path, loops: int, out: Queue) -> None:
         out.put(repr(e))
 
 
-def _backup(dir_path: Path, loops: int, out: Queue) -> None:
+def _backup(index_key: bytes, dir_path: Path, loops: int, out: Queue) -> None:
     try:
-        bm = BackupManager(dir_path)
+        enc = EncryptionManager(index_key, dir_path)
+        vault = Vault(enc, dir_path)
+        cfg = ConfigManager(vault, dir_path)
+        bm = BackupManager(dir_path, cfg)
         for _ in range(loops):
             bm.create_backup()
     except Exception as e:  # pragma: no cover - capture
@@ -58,7 +62,7 @@ def test_concurrency_stress(tmp_path: Path, loops: int, _):
         Process(target=_writer, args=(index_key, tmp_path, loops, q)),
         Process(target=_reader, args=(index_key, tmp_path, loops, q)),
         Process(target=_reader, args=(index_key, tmp_path, loops, q)),
-        Process(target=_backup, args=(tmp_path, loops, q)),
+        Process(target=_backup, args=(index_key, tmp_path, loops, q)),
     ]
 
     for p in procs:

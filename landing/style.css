@@ -90,8 +90,8 @@ body.dark-mode {
 /* Dark Mode Toggle */
 .dark-mode-toggle {
     position: fixed;
-    top: 12px;
-    right: 20px;
+    bottom: 12px;
+    left: 20px;
     z-index: 1000;
 }
 
@@ -856,8 +856,8 @@ footer .social-media a:focus {
     }
 
     .dark-mode-toggle {
-        top: 10px;
-        right: 10px;
+        bottom: 10px;
+        left: 10px;
     }
 
     /* Adjust disclaimer container padding on smaller screens */

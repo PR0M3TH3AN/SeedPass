@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------
 MAX_RETRIES = 3  # Maximum number of retries for relay connections
 RETRY_DELAY = 5  # Seconds to wait before retrying a failed connection
+MIN_HEALTHY_RELAYS = 2  # Minimum relays that should return data on startup
 
 # -----------------------------------
 # Application Directory and Paths

@@ -39,6 +39,7 @@ def _make_pm(called, locked=None):
         last_activity=time.time(),
         nostr_client=SimpleNamespace(close_client_pool=lambda: None),
         handle_add_password=add,
+        handle_add_totp=lambda: None,
         handle_retrieve_entry=retrieve,
         handle_modify_entry=modify,
         update_activity=update,
@@ -51,7 +52,7 @@ def _make_pm(called, locked=None):
 def test_empty_and_non_numeric_choice(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["", "abc", "5"])
+    inputs = iter(["", "abc", "6"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -64,7 +65,7 @@ def test_empty_and_non_numeric_choice(monkeypatch, capsys):
 def test_out_of_range_menu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["9", "5"])
+    inputs = iter(["9", "6"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -76,7 +77,7 @@ def test_out_of_range_menu(monkeypatch, capsys):
 def test_invalid_add_entry_submenu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["1", "3", "2", "5"])
+    inputs = iter(["1", "4", "3", "6"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
@@ -91,7 +92,7 @@ def test_inactivity_timeout_loop(monkeypatch, capsys):
     pm, locked = _make_pm(called)
     pm.last_activity = 0
     monkeypatch.setattr(time, "time", lambda: 100.0)
-    monkeypatch.setattr(main, "timed_input", lambda *_: "5")
+    monkeypatch.setattr(main, "timed_input", lambda *_: "6")
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=0.1)
     out = capsys.readouterr().out

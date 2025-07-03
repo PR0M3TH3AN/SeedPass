@@ -17,6 +17,7 @@ import os
 from typing import Optional
 import shutil
 import time
+import select
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -25,18 +26,23 @@ from password_manager.password_generation import PasswordGenerator
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
 from password_manager.portable_backup import export_backup, import_backup
+from password_manager.totp import TotpManager
+from password_manager.entry_types import EntryType
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
     derive_index_key,
     EncryptionMode,
 )
-from utils.checksum import calculate_checksum, verify_checksum
+from utils.checksum import calculate_checksum, verify_checksum, json_checksum
 from utils.password_prompt import (
     prompt_for_password,
     prompt_existing_password,
+    prompt_new_password,
     confirm_action,
 )
+from utils.memory_protection import InMemorySecret
+from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
     APP_DIR,
@@ -89,7 +95,7 @@ class PasswordManager:
         self.backup_manager: Optional[BackupManager] = None
         self.vault: Optional[Vault] = None
         self.fingerprint_manager: Optional[FingerprintManager] = None
-        self.parent_seed: Optional[str] = None
+        self._parent_seed_secret: Optional[InMemorySecret] = None
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
@@ -109,6 +115,22 @@ class PasswordManager:
 
         # Set the current fingerprint directory
         self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+
+    @property
+    def parent_seed(self) -> Optional[str]:
+        """Return the decrypted parent seed if set."""
+        if self._parent_seed_secret is None:
+            return None
+        return self._parent_seed_secret.get_str()
+
+    @parent_seed.setter
+    def parent_seed(self, value: Optional[str]) -> None:
+        if value is None:
+            if self._parent_seed_secret:
+                self._parent_seed_secret.wipe()
+            self._parent_seed_secret = None
+        else:
+            self._parent_seed_secret = InMemorySecret(value.encode("utf-8"))
 
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
@@ -729,9 +751,17 @@ class PasswordManager:
                 raise ValueError("EncryptionManager is not initialized.")
 
             # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
-            self.entry_manager = EntryManager(
+            self.config_manager = ConfigManager(
                 vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
+            )
+            self.backup_manager = BackupManager(
+                fingerprint_dir=self.fingerprint_dir,
+                config_manager=self.config_manager,
+            )
+            self.entry_manager = EntryManager(
+                vault=self.vault,
+                backup_manager=self.backup_manager,
             )
 
             self.password_generator = PasswordGenerator(
@@ -740,13 +770,7 @@ class PasswordManager:
                 bip85=self.bip85,
             )
 
-            self.backup_manager = BackupManager(fingerprint_dir=self.fingerprint_dir)
-
             # Load relay configuration and initialize NostrClient
-            self.config_manager = ConfigManager(
-                vault=self.vault,
-                fingerprint_dir=self.fingerprint_dir,
-            )
             config = self.config_manager.load_config()
             relay_list = config.get("relays", list(DEFAULT_RELAYS))
             self.inactivity_timeout = config.get(
@@ -759,6 +783,17 @@ class PasswordManager:
                 relays=relay_list,
                 parent_seed=getattr(self, "parent_seed", None),
             )
+
+            if hasattr(self.nostr_client, "check_relay_health"):
+                healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
+                if healthy < MIN_HEALTHY_RELAYS:
+                    print(
+                        colored(
+                            f"Only {healthy} relay(s) responded with your latest event."
+                            " Consider adding more relays via Settings.",
+                            "yellow",
+                        )
+                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
@@ -862,6 +897,101 @@ class PasswordManager:
             logging.error(f"Error during password generation: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
+    def handle_add_totp(self) -> None:
+        """Add a TOTP entry either derived from the seed or imported."""
+        try:
+            while True:
+                print("\nAdd TOTP:")
+                print("1. Make 2FA (derive from seed)")
+                print("2. Import 2FA (paste otpauth URI or secret)")
+                print("3. Back")
+                choice = input("Select option: ").strip()
+                if choice == "1":
+                    label = input("Label: ").strip()
+                    if not label:
+                        print(colored("Error: Label cannot be empty.", "red"))
+                        continue
+                    period = input("Period (default 30): ").strip() or "30"
+                    digits = input("Digits (default 6): ").strip() or "6"
+                    if not period.isdigit() or not digits.isdigit():
+                        print(
+                            colored("Error: Period and digits must be numbers.", "red")
+                        )
+                        continue
+                    totp_index = self.entry_manager.get_next_totp_index()
+                    entry_id = self.entry_manager.get_next_index()
+                    uri = self.entry_manager.add_totp(
+                        label,
+                        self.parent_seed,
+                        index=totp_index,
+                        period=int(period),
+                        digits=int(digits),
+                    )
+                    secret = TotpManager.derive_secret(self.parent_seed, totp_index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                    print(
+                        colored(
+                            f"\n[+] TOTP entry added with ID {entry_id}.\n", "green"
+                        )
+                    )
+                    print(colored("Add this URI to your authenticator app:", "cyan"))
+                    print(colored(uri, "yellow"))
+                    print(colored(f"Secret: {secret}\n", "cyan"))
+                    try:
+                        self.sync_vault()
+                    except Exception as nostr_error:
+                        logging.error(
+                            f"Failed to post updated index to Nostr: {nostr_error}",
+                            exc_info=True,
+                        )
+                    break
+                elif choice == "2":
+                    raw = input("Paste otpauth URI or secret: ").strip()
+                    try:
+                        if raw.lower().startswith("otpauth://"):
+                            label, secret, period, digits = TotpManager.parse_otpauth(
+                                raw
+                            )
+                        else:
+                            label = input("Label: ").strip()
+                            secret = raw.upper()
+                            period = int(input("Period (default 30): ").strip() or 30)
+                            digits = int(input("Digits (default 6): ").strip() or 6)
+                        entry_id = self.entry_manager.get_next_index()
+                        uri = self.entry_manager.add_totp(
+                            label,
+                            self.parent_seed,
+                            secret=secret,
+                            period=period,
+                            digits=digits,
+                        )
+                        self.is_dirty = True
+                        self.last_update = time.time()
+                        print(
+                            colored(
+                                f"\nImported \u2714  Codes for {label} are now stored in SeedPass at ID {entry_id}.",
+                                "green",
+                            )
+                        )
+                        try:
+                            self.sync_vault()
+                        except Exception as nostr_error:
+                            logging.error(
+                                f"Failed to post updated index to Nostr: {nostr_error}",
+                                exc_info=True,
+                            )
+                        break
+                    except ValueError as err:
+                        print(colored(f"Error: {err}", "red"))
+                elif choice == "3":
+                    return
+                else:
+                    print(colored("Invalid choice.", "red"))
+        except Exception as e:
+            logging.error(f"Error during TOTP setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add TOTP: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -876,20 +1006,61 @@ class PasswordManager:
                 return
             index = int(index_input)
 
-            # Retrieve entry details
             entry = self.entry_manager.retrieve_entry(index)
             if not entry:
                 return
 
-            # Display entry details
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
+
+            if entry_type == EntryType.TOTP.value:
+                label = entry.get("label", "")
+                period = int(entry.get("period", 30))
+                notes = entry.get("notes", "")
+                print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
+                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+                try:
+                    while True:
+                        code = self.entry_manager.get_totp_code(index, self.parent_seed)
+                        print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
+                        print(colored(f"Label: {label}", "cyan"))
+                        print(colored(f"Code: {code}", "yellow"))
+                        if notes:
+                            print(colored(f"Notes: {notes}", "cyan"))
+                        remaining = self.entry_manager.get_totp_time_remaining(index)
+                        exit_loop = False
+                        while remaining > 0:
+                            filled = int(20 * (period - remaining) / period)
+                            bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                            sys.stdout.write(f"\r{bar} {remaining:2d}s")
+                            sys.stdout.flush()
+                            try:
+                                if (
+                                    sys.stdin
+                                    in select.select([sys.stdin], [], [], 1)[0]
+                                ):
+                                    user_input = sys.stdin.readline().strip().lower()
+                                    if user_input == "b":
+                                        exit_loop = True
+                                        break
+                            except KeyboardInterrupt:
+                                exit_loop = True
+                                print()
+                                break
+                            remaining -= 1
+                        sys.stdout.write("\n")
+                        sys.stdout.flush()
+                        if exit_loop:
+                            break
+                except Exception as e:
+                    logging.error(f"Error generating TOTP code: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                return
+
             website_name = entry.get("website")
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
-            notes = entry.get("notes", "")
-            notes = entry.get("notes", "")
-            notes = entry.get("notes", "")
             notes = entry.get("notes", "")
 
             print(
@@ -910,10 +1081,8 @@ class PasswordManager:
                     )
                 )
 
-            # Generate the password
             password = self.password_generator.generate_password(length, index)
 
-            # Display the password and associated details
             if password:
                 print(
                     colored(f"\n[+] Retrieved Password for {website_name}:\n", "green")
@@ -952,76 +1121,165 @@ class PasswordManager:
             if not entry:
                 return
 
-            website_name = entry.get("website")
-            length = entry.get("length")
-            username = entry.get("username")
-            url = entry.get("url")
-            blacklisted = entry.get("blacklisted")
-            notes = entry.get("notes", "")
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
 
-            # Display current values
-            print(
-                colored(
-                    f"Modifying entry for '{website_name}' (Index: {index}):", "cyan"
-                )
-            )
-            print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
-            print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
-            print(
-                colored(
-                    f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
-                    "cyan",
-                )
-            )
+            if entry_type == EntryType.TOTP.value:
+                label = entry.get("label", "")
+                period = int(entry.get("period", 30))
+                digits = int(entry.get("digits", 6))
+                blacklisted = entry.get("blacklisted", False)
+                notes = entry.get("notes", "")
 
-            # Prompt for new values (optional)
-            new_username = (
-                input(
-                    f'Enter new username (leave blank to keep "{username or "N/A"}"): '
-                ).strip()
-                or username
-            )
-            new_url = (
-                input(f'Enter new URL (leave blank to keep "{url or "N/A"}"): ').strip()
-                or url
-            )
-            blacklist_input = (
-                input(
-                    f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
-                )
-                .strip()
-                .lower()
-            )
-            if blacklist_input == "":
-                new_blacklisted = blacklisted
-            elif blacklist_input == "y":
-                new_blacklisted = True
-            elif blacklist_input == "n":
-                new_blacklisted = False
-            else:
                 print(
                     colored(
-                        "Invalid input for blacklist status. Keeping the current status.",
-                        "yellow",
+                        f"Modifying 2FA entry '{label}' (Index: {index}):",
+                        "cyan",
                     )
                 )
-                new_blacklisted = blacklisted
-
-            new_notes = (
-                input(
-                    f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                print(colored(f"Current Period: {period}s", "cyan"))
+                print(colored(f"Current Digits: {digits}", "cyan"))
+                print(
+                    colored(
+                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                period_input = input(
+                    f"Enter new period in seconds (current: {period}): "
                 ).strip()
-                or notes
-            )
+                new_period = period
+                if period_input:
+                    if period_input.isdigit():
+                        new_period = int(period_input)
+                    else:
+                        print(
+                            colored("Invalid period value. Keeping current.", "yellow")
+                        )
+                digits_input = input(
+                    f"Enter new digit count (current: {digits}): "
+                ).strip()
+                new_digits = digits
+                if digits_input:
+                    if digits_input.isdigit():
+                        new_digits = int(digits_input)
+                    else:
+                        print(
+                            colored(
+                                "Invalid digits value. Keeping current.",
+                                "yellow",
+                            )
+                        )
+                blacklist_input = (
+                    input(
+                        f'Is this 2FA code blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for blacklist status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
 
-            # Update the entry
-            self.entry_manager.modify_entry(
-                index,
-                new_username,
-                new_url,
-                new_blacklisted,
-                new_notes,
-            )
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    blacklisted=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    period=new_period,
+                    digits=new_digits,
+                )
+            else:
+                website_name = entry.get("website")
+                username = entry.get("username")
+                url = entry.get("url")
+                blacklisted = entry.get("blacklisted")
+                notes = entry.get("notes", "")
+
+                print(
+                    colored(
+                        f"Modifying entry for '{website_name}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(
+                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        "cyan",
+                    )
+                )
+
+                new_username = (
+                    input(
+                        f'Enter new username (leave blank to keep "{username or "N/A"}"): '
+                    ).strip()
+                    or username
+                )
+                new_url = (
+                    input(
+                        f'Enter new URL (leave blank to keep "{url or "N/A"}"): '
+                    ).strip()
+                    or url
+                )
+                blacklist_input = (
+                    input(
+                        f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for blacklist status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    new_username,
+                    new_url,
+                    new_blacklisted,
+                    new_notes,
+                )
 
             # Mark database as dirty for background sync
             self.is_dirty = True
@@ -1081,6 +1339,61 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
+
+    def handle_display_totp_codes(self) -> None:
+        """Display all stored TOTP codes with a countdown progress bar."""
+        try:
+            data = self.entry_manager.vault.load_index()
+            entries = data.get("entries", {})
+            totp_list: list[tuple[str, int, int, bool]] = []
+            for idx_str, entry in entries.items():
+                if entry.get("type") == EntryType.TOTP.value and not entry.get(
+                    "blacklisted", False
+                ):
+                    label = entry.get("label", "")
+                    period = int(entry.get("period", 30))
+                    imported = "secret" in entry
+                    totp_list.append((label, int(idx_str), period, imported))
+
+            if not totp_list:
+                print(colored("No 2FA entries found.", "yellow"))
+                return
+
+            totp_list.sort(key=lambda t: t[0].lower())
+            print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+            while True:
+                print("\033c", end="")
+                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+                generated = [t for t in totp_list if not t[3]]
+                imported_list = [t for t in totp_list if t[3]]
+                if generated:
+                    print(colored("\nGenerated 2FA Codes:", "green"))
+                    for label, idx, period, _ in generated:
+                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
+                        remaining = self.entry_manager.get_totp_time_remaining(idx)
+                        filled = int(20 * (period - remaining) / period)
+                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                if imported_list:
+                    print(colored("\nImported 2FA Codes:", "green"))
+                    for label, idx, period, _ in imported_list:
+                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
+                        remaining = self.entry_manager.get_totp_time_remaining(idx)
+                        filled = int(20 * (period - remaining) / period)
+                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                sys.stdout.flush()
+                try:
+                    if sys.stdin in select.select([sys.stdin], [], [], 1)[0]:
+                        user_input = sys.stdin.readline().strip().lower()
+                        if user_input == "b":
+                            break
+                except KeyboardInterrupt:
+                    print()
+                    break
+        except Exception as e:
+            logging.error(f"Error displaying TOTP codes: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display TOTP codes: {e}", "red"))
 
     def handle_verify_checksum(self) -> None:
         """
@@ -1236,6 +1549,63 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
             print(colored(f"Error: Failed to import database: {e}", "red"))
+
+    def handle_export_totp_codes(self) -> Path | None:
+        """Export all 2FA codes to a JSON file for other authenticator apps."""
+        try:
+            data = self.entry_manager.vault.load_index()
+            entries = data.get("entries", {})
+
+            totp_entries = []
+            for entry in entries.values():
+                if entry.get("type") == EntryType.TOTP.value:
+                    label = entry.get("label", "")
+                    period = int(entry.get("period", 30))
+                    digits = int(entry.get("digits", 6))
+                    if "secret" in entry:
+                        secret = entry["secret"]
+                    else:
+                        idx = int(entry.get("index", 0))
+                        secret = TotpManager.derive_secret(self.parent_seed, idx)
+                    uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
+                    totp_entries.append(
+                        {
+                            "label": label,
+                            "secret": secret,
+                            "period": period,
+                            "digits": digits,
+                            "uri": uri,
+                        }
+                    )
+
+            if not totp_entries:
+                print(colored("No 2FA codes to export.", "yellow"))
+                return None
+
+            dest_str = input(
+                "Enter destination file path (default: totp_export.json): "
+            ).strip()
+            dest = Path(dest_str) if dest_str else Path("totp_export.json")
+
+            json_data = json.dumps({"entries": totp_entries}, indent=2)
+
+            if confirm_action("Encrypt export with a password? (Y/N): "):
+                password = prompt_new_password()
+                key = derive_key_from_password(password)
+                enc_mgr = EncryptionManager(key, dest.parent)
+                data_bytes = enc_mgr.encrypt_data(json_data.encode("utf-8"))
+                dest = dest.with_suffix(dest.suffix + ".enc")
+                dest.write_bytes(data_bytes)
+            else:
+                dest.write_text(json_data)
+
+            os.chmod(dest, 0o600)
+            print(colored(f"2FA codes exported to '{dest}'.", "green"))
+            return dest
+        except Exception as e:
+            logging.error(f"Failed to export TOTP codes: {e}", exc_info=True)
+            print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
+            return None
 
     def handle_backup_reveal_parent_seed(self) -> None:
         """
@@ -1456,3 +1826,93 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
             print(colored(f"Error: Failed to change password: {e}", "red"))
+
+    def get_profile_stats(self) -> dict:
+        """Return various statistics about the current seed profile."""
+        if not all([self.entry_manager, self.config_manager, self.backup_manager]):
+            return {}
+
+        stats: dict[str, object] = {}
+
+        # Entry counts by type
+        data = self.entry_manager.vault.load_index()
+        entries = data.get("entries", {})
+        counts: dict[str, int] = {}
+        for entry in entries.values():
+            etype = entry.get("type", EntryType.PASSWORD.value)
+            counts[etype] = counts.get(etype, 0) + 1
+        stats["entries"] = counts
+        stats["total_entries"] = len(entries)
+
+        # Schema version and checksum status
+        stats["schema_version"] = data.get("schema_version")
+        current_checksum = json_checksum(data)
+        chk_path = self.entry_manager.checksum_file
+        if chk_path.exists():
+            stored = chk_path.read_text().strip()
+            stats["checksum_ok"] = stored == current_checksum
+        else:
+            stored = None
+            stats["checksum_ok"] = False
+        stats["checksum"] = stored
+
+        # Relay info
+        cfg = self.config_manager.load_config(require_pin=False)
+        relays = cfg.get("relays", [])
+        stats["relays"] = relays
+        stats["relay_count"] = len(relays)
+
+        # Backup info
+        backups = list(
+            self.backup_manager.backup_dir.glob("entries_db_backup_*.json.enc")
+        )
+        stats["backup_count"] = len(backups)
+        stats["backup_dir"] = str(self.backup_manager.backup_dir)
+        stats["additional_backup_path"] = (
+            self.config_manager.get_additional_backup_path()
+        )
+
+        # Nostr sync info
+        manifest = getattr(self.nostr_client, "current_manifest", None)
+        if manifest is not None:
+            stats["chunk_count"] = len(manifest.chunks)
+            stats["delta_since"] = manifest.delta_since
+        else:
+            stats["chunk_count"] = 0
+            stats["delta_since"] = None
+        stats["pending_deltas"] = len(getattr(self.nostr_client, "_delta_events", []))
+
+        return stats
+
+    def display_stats(self) -> None:
+        """Print a summary of :meth:`get_profile_stats` to the console."""
+        stats = self.get_profile_stats()
+        if not stats:
+            print(colored("No statistics available.", "red"))
+            return
+
+        print(colored("\n=== Seed Profile Stats ===", "yellow"))
+        print(colored(f"Total entries: {stats['total_entries']}", "cyan"))
+        for etype, count in stats["entries"].items():
+            print(colored(f"  {etype}: {count}", "cyan"))
+        print(colored(f"Relays configured: {stats['relay_count']}", "cyan"))
+        print(
+            colored(
+                f"Backups: {stats['backup_count']} (dir: {stats['backup_dir']})", "cyan"
+            )
+        )
+        if stats.get("additional_backup_path"):
+            print(
+                colored(f"Additional backup: {stats['additional_backup_path']}", "cyan")
+            )
+        print(colored(f"Schema version: {stats['schema_version']}", "cyan"))
+        print(
+            colored(
+                f"Checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                "cyan",
+            )
+        )
+        print(colored(f"Snapshot chunks: {stats['chunk_count']}", "cyan"))
+        print(colored(f"Pending deltas: {stats['pending_deltas']}", "cyan"))
+        if stats.get("delta_since"):
+            print(colored(f"Latest delta id: {stats['delta_since']}", "cyan"))

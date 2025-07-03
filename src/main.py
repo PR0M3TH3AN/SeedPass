@@ -222,6 +222,17 @@ def handle_display_npub(password_manager: PasswordManager):
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
+def handle_display_stats(password_manager: PasswordManager) -> None:
+    """Print seed profile statistics."""
+    try:
+        display_fn = getattr(password_manager, "display_stats", None)
+        if callable(display_fn):
+            display_fn()
+    except Exception as e:  # pragma: no cover - display best effort
+        logging.error(f"Failed to display stats: {e}", exc_info=True)
+        print(colored(f"Error: Failed to display stats: {e}", "red"))
+
+
 def handle_post_to_nostr(
     password_manager: PasswordManager, alt_summary: str | None = None
 ):
@@ -422,6 +433,54 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_additional_backup_location(pm: PasswordManager) -> None:
+    """Configure an optional second backup directory."""
+    cfg_mgr = pm.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        current = cfg_mgr.get_additional_backup_path()
+        if current:
+            print(colored(f"Current path: {current}", "cyan"))
+        else:
+            print(colored("No additional backup location configured.", "cyan"))
+    except Exception as e:
+        logging.error(f"Error loading backup path: {e}")
+        print(colored(f"Error: {e}", "red"))
+        return
+
+    value = input(
+        "Enter directory for extra backups (leave blank to disable): "
+    ).strip()
+    if not value:
+        try:
+            cfg_mgr.set_additional_backup_path(None)
+            print(colored("Additional backup location disabled.", "green"))
+        except Exception as e:
+            logging.error(f"Error clearing path: {e}")
+            print(colored(f"Error: {e}", "red"))
+        return
+
+    try:
+        path = Path(value).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
+        test_file = path / ".seedpass_write_test"
+        with open(test_file, "w") as f:
+            f.write("test")
+        test_file.unlink()
+    except Exception as e:
+        print(colored(f"Path not writable: {e}", "red"))
+        return
+
+    try:
+        cfg_mgr.set_additional_backup_path(str(path))
+        print(colored(f"Additional backups will be copied to {path}", "green"))
+    except Exception as e:
+        logging.error(f"Error saving backup path: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -503,9 +562,12 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("5. Backup Parent Seed")
         print("6. Export database")
         print("7. Import database")
-        print("8. Set inactivity timeout")
-        print("9. Lock Vault")
-        print("10. Back")
+        print("8. Export 2FA codes")
+        print("9. Set additional backup location")
+        print("10. Set inactivity timeout")
+        print("11. Lock Vault")
+        print("12. Back")
+        print("13. Stats")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -524,13 +586,19 @@ def handle_settings(password_manager: PasswordManager) -> None:
             if path:
                 password_manager.handle_import_database(Path(path))
         elif choice == "8":
-            handle_set_inactivity_timeout(password_manager)
+            password_manager.handle_export_totp_codes()
         elif choice == "9":
+            handle_set_additional_backup_location(password_manager)
+        elif choice == "10":
+            handle_set_inactivity_timeout(password_manager)
+        elif choice == "11":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "10":
+        elif choice == "12":
             break
+        elif choice == "13":
+            handle_display_stats(password_manager)
         else:
             print(colored("Invalid choice.", "red"))
 
@@ -548,9 +616,13 @@ def display_menu(
     1. Add Entry
     2. Retrieve Entry
     3. Modify an Existing Entry
-    4. Settings
-    5. Exit
+    4. 2FA Codes
+    5. Settings
+    6. Exit
     """
+    display_fn = getattr(password_manager, "display_stats", None)
+    if callable(display_fn):
+        display_fn()
     while True:
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -571,7 +643,7 @@ def display_menu(
         print(colored(menu, "cyan"))
         try:
             choice = timed_input(
-                "Enter your choice (1-5): ", inactivity_timeout
+                "Enter your choice (1-6): ", inactivity_timeout
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -582,7 +654,7 @@ def display_menu(
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 5.",
+                    "No input detected. Please enter a number between 1 and 6.",
                     "yellow",
                 )
             )
@@ -591,13 +663,17 @@ def display_menu(
             while True:
                 print("\nAdd Entry:")
                 print("1. Password")
-                print("2. Back")
+                print("2. 2FA (TOTP)")
+                print("3. Back")
                 sub_choice = input("Select entry type: ").strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
                     break
                 elif sub_choice == "2":
+                    password_manager.handle_add_totp()
+                    break
+                elif sub_choice == "3":
                     break
                 else:
                     print(colored("Invalid choice.", "red"))
@@ -609,8 +685,11 @@ def display_menu(
             password_manager.handle_modify_entry()
         elif choice == "4":
             password_manager.update_activity()
-            handle_settings(password_manager)
+            password_manager.handle_display_totp_codes()
         elif choice == "5":
+            password_manager.update_activity()
+            handle_settings(password_manager)
+        elif choice == "6":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()

@@ -16,7 +16,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
+from password_manager.backup import BackupManager
 from password_manager.vault import Vault
+from password_manager.config_manager import ConfigManager
 from nostr.client import NostrClient, Kind, KindStandard
 
 
@@ -40,7 +42,9 @@ def test_nostr_index_size_limits():
             )
             npub = client.key_manager.get_npub()
             vault = Vault(enc_mgr, tmpdir)
-            entry_mgr = EntryManager(vault, Path(tmpdir))
+            cfg_mgr = ConfigManager(vault, Path(tmpdir))
+            backup_mgr = BackupManager(Path(tmpdir), cfg_mgr)
+            entry_mgr = EntryManager(vault, backup_mgr)
 
             delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
             size = 16

@@ -19,19 +19,17 @@ import json
 import logging
 import hashlib
 import sys
-import os
 import shutil
-import time
-import traceback
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
 from termcolor import colored
 from password_manager.migrations import LATEST_VERSION
 from password_manager.entry_types import EntryType
+from password_manager.totp import TotpManager
 
 from password_manager.vault import Vault
-from utils.file_lock import exclusive_lock
+from password_manager.backup import BackupManager
 
 
 # Instantiate the logger
@@ -39,15 +37,16 @@ logger = logging.getLogger(__name__)
 
 
 class EntryManager:
-    def __init__(self, vault: Vault, fingerprint_dir: Path):
-        """
-        Initializes the EntryManager with the EncryptionManager and fingerprint directory.
+    def __init__(self, vault: Vault, backup_manager: BackupManager):
+        """Initialize the EntryManager.
 
-        :param vault: The Vault instance for file access.
-        :param fingerprint_dir: The directory corresponding to the fingerprint.
+        Parameters:
+            vault: The Vault instance for file access.
+            backup_manager: Manages creation of entry database backups.
         """
         self.vault = vault
-        self.fingerprint_dir = fingerprint_dir
+        self.backup_manager = backup_manager
+        self.fingerprint_dir = backup_manager.fingerprint_dir
 
         # Use paths relative to the fingerprint directory
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
@@ -59,6 +58,9 @@ class EntryManager:
         if self.index_file.exists():
             try:
                 data = self.vault.load_index()
+                # Ensure legacy entries without a type are treated as passwords
+                for entry in data.get("entries", {}).values():
+                    entry.setdefault("type", EntryType.PASSWORD.value)
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -137,7 +139,7 @@ class EntryManager:
 
             self._save_index(data)
             self.update_checksum()
-            self.backup_index_file()
+            self.backup_manager.create_backup()
 
             logger.info(f"Entry added successfully at index {index}.")
             print(colored(f"[+] Entry added successfully at index {index}.", "green"))
@@ -149,16 +151,63 @@ class EntryManager:
             print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
 
-    def add_totp(self, notes: str = "") -> int:
-        """Placeholder for adding a TOTP entry."""
-        index = self.get_next_index()
+    def get_next_totp_index(self) -> int:
+        """Return the next available derivation index for TOTP secrets."""
+        data = self.vault.load_index()
+        entries = data.get("entries", {})
+        indices = [
+            int(v.get("index", 0))
+            for v in entries.values()
+            if v.get("type") == EntryType.TOTP.value
+        ]
+        return (max(indices) + 1) if indices else 0
+
+    def add_totp(
+        self,
+        label: str,
+        parent_seed: str,
+        *,
+        secret: str | None = None,
+        index: int | None = None,
+        period: int = 30,
+        digits: int = 6,
+    ) -> str:
+        """Add a new TOTP entry and return the provisioning URI."""
+        entry_id = self.get_next_index()
         data = self.vault.load_index()
         data.setdefault("entries", {})
-        data["entries"][str(index)] = {"type": EntryType.TOTP.value, "notes": notes}
+
+        if secret is None:
+            if index is None:
+                index = self.get_next_totp_index()
+            secret = TotpManager.derive_secret(parent_seed, index)
+            entry = {
+                "type": EntryType.TOTP.value,
+                "label": label,
+                "index": index,
+                "period": period,
+                "digits": digits,
+            }
+        else:
+            entry = {
+                "type": EntryType.TOTP.value,
+                "label": label,
+                "secret": secret,
+                "period": period,
+                "digits": digits,
+            }
+
+        data["entries"][str(entry_id)] = entry
+
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
-        raise NotImplementedError("TOTP entry support not implemented yet")
+        self.backup_manager.create_backup()
+
+        try:
+            return TotpManager.make_otpauth_uri(label, secret, period, digits)
+        except Exception as e:
+            logger.error(f"Failed to generate otpauth URI: {e}")
+            raise
 
     def add_ssh_key(self, notes: str = "") -> int:
         """Placeholder for adding an SSH key entry."""
@@ -168,7 +217,7 @@ class EntryManager:
         data["entries"][str(index)] = {"type": EntryType.SSH.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
+        self.backup_manager.create_backup()
         raise NotImplementedError("SSH key entry support not implemented yet")
 
     def add_seed(self, notes: str = "") -> int:
@@ -179,8 +228,31 @@ class EntryManager:
         data["entries"][str(index)] = {"type": EntryType.SEED.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
-        self.backup_index_file()
+        self.backup_manager.create_backup()
         raise NotImplementedError("Seed entry support not implemented yet")
+
+    def get_totp_code(
+        self, index: int, parent_seed: str | None = None, timestamp: int | None = None
+    ) -> str:
+        """Return the current TOTP code for the specified entry."""
+        entry = self.retrieve_entry(index)
+        if not entry or entry.get("type") != EntryType.TOTP.value:
+            raise ValueError("Entry is not a TOTP entry")
+        if "secret" in entry:
+            return TotpManager.current_code_from_secret(entry["secret"], timestamp)
+        if parent_seed is None:
+            raise ValueError("Seed required for derived TOTP")
+        totp_index = int(entry.get("index", 0))
+        return TotpManager.current_code(parent_seed, totp_index, timestamp)
+
+    def get_totp_time_remaining(self, index: int) -> int:
+        """Return seconds remaining in the TOTP period for the given entry."""
+        entry = self.retrieve_entry(index)
+        if not entry or entry.get("type") != EntryType.TOTP.value:
+            raise ValueError("Entry is not a TOTP entry")
+
+        period = int(entry.get("period", 30))
+        return TotpManager.time_remaining(period)
 
     def get_encrypted_index(self) -> Optional[bytes]:
         """
@@ -232,15 +304,22 @@ class EntryManager:
         url: Optional[str] = None,
         blacklisted: Optional[bool] = None,
         notes: Optional[str] = None,
+        *,
+        label: Optional[str] = None,
+        period: Optional[int] = None,
+        digits: Optional[int] = None,
     ) -> None:
         """
         Modifies an existing entry based on the provided index and new values.
 
         :param index: The index number of the entry to modify.
-        :param username: (Optional) The new username.
-        :param url: (Optional) The new URL.
+        :param username: (Optional) The new username (password entries).
+        :param url: (Optional) The new URL (password entries).
         :param blacklisted: (Optional) The new blacklist status.
         :param notes: (Optional) New notes to attach to the entry.
+        :param label: (Optional) The new label for TOTP entries.
+        :param period: (Optional) The new TOTP period in seconds.
+        :param digits: (Optional) The new number of digits for TOTP codes.
         """
         try:
             data = self.vault.load_index()
@@ -258,13 +337,25 @@ class EntryManager:
                 )
                 return
 
-            if username is not None:
-                entry["username"] = username
-                logger.debug(f"Updated username to '{username}' for index {index}.")
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
 
-            if url is not None:
-                entry["url"] = url
-                logger.debug(f"Updated URL to '{url}' for index {index}.")
+            if entry_type == EntryType.TOTP.value:
+                if label is not None:
+                    entry["label"] = label
+                    logger.debug(f"Updated label to '{label}' for index {index}.")
+                if period is not None:
+                    entry["period"] = period
+                    logger.debug(f"Updated period to '{period}' for index {index}.")
+                if digits is not None:
+                    entry["digits"] = digits
+                    logger.debug(f"Updated digits to '{digits}' for index {index}.")
+            else:
+                if username is not None:
+                    entry["username"] = username
+                    logger.debug(f"Updated username to '{username}' for index {index}.")
+                if url is not None:
+                    entry["url"] = url
+                    logger.debug(f"Updated URL to '{url}' for index {index}.")
 
             if blacklisted is not None:
                 entry["blacklisted"] = blacklisted
@@ -281,7 +372,7 @@ class EntryManager:
 
             self._save_index(data)
             self.update_checksum()
-            self.backup_index_file()
+            self.backup_manager.create_backup()
 
             logger.info(f"Entry at index {index} modified successfully.")
             print(
@@ -295,11 +386,7 @@ class EntryManager:
             )
 
     def list_entries(self) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """
-        Lists all entries in the index.
-
-        :return: A list of tuples containing entry details: (index, website, username, url, blacklisted)
-        """
+        """List all entries in the index."""
         try:
             data = self.vault.load_index()
             entries_data = data.get("entries", {})
@@ -311,23 +398,48 @@ class EntryManager:
 
             entries = []
             for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
-                entries.append(
-                    (
-                        int(idx),
-                        entry.get("website", ""),
-                        entry.get("username", ""),
-                        entry.get("url", ""),
-                        entry.get("blacklisted", False),
+                etype = entry.get("type", EntryType.PASSWORD.value)
+                if etype == EntryType.TOTP.value:
+                    entries.append(
+                        (int(idx), entry.get("label", ""), None, None, False)
                     )
-                )
+                else:
+                    entries.append(
+                        (
+                            int(idx),
+                            entry.get("website", ""),
+                            entry.get("username", ""),
+                            entry.get("url", ""),
+                            entry.get("blacklisted", False),
+                        )
+                    )
 
             logger.debug(f"Total entries found: {len(entries)}")
-            for entry in entries:
-                print(colored(f"Index: {entry[0]}", "cyan"))
-                print(colored(f"  Website: {entry[1]}", "cyan"))
-                print(colored(f"  Username: {entry[2] or 'N/A'}", "cyan"))
-                print(colored(f"  URL: {entry[3] or 'N/A'}", "cyan"))
-                print(colored(f"  Blacklisted: {'Yes' if entry[4] else 'No'}", "cyan"))
+            for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
+                etype = entry.get("type", EntryType.PASSWORD.value)
+                print(colored(f"Index: {idx}", "cyan"))
+                if etype == EntryType.TOTP.value:
+                    print(colored("  Type: TOTP", "cyan"))
+                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                    print(colored(f"  Derivation Index: {entry.get('index')}", "cyan"))
+                    print(
+                        colored(
+                            f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
+                            "cyan",
+                        )
+                    )
+                else:
+                    print(colored(f"  Website: {entry.get('website', '')}", "cyan"))
+                    print(
+                        colored(f"  Username: {entry.get('username') or 'N/A'}", "cyan")
+                    )
+                    print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
+                    print(
+                        colored(
+                            f"  Blacklisted: {'Yes' if entry.get('blacklisted', False) else 'No'}",
+                            "cyan",
+                        )
+                    )
                 print("-" * 40)
 
             return entries
@@ -350,7 +462,7 @@ class EntryManager:
                 logger.debug(f"Deleted entry at index {index}.")
                 self.vault.save_index(data)
                 self.update_checksum()
-                self.backup_index_file()
+                self.backup_manager.create_backup()
                 logger.info(f"Entry at index {index} deleted successfully.")
                 print(
                     colored(
@@ -395,35 +507,6 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}", exc_info=True)
             print(colored(f"Error: Failed to update checksum: {e}", "red"))
-
-    def backup_index_file(self) -> None:
-        """
-        Creates a backup of the encrypted JSON index file to prevent data loss.
-        """
-        try:
-            # self.index_file already includes the fingerprint directory
-            index_file_path = self.index_file
-            if not index_file_path.exists():
-                logger.warning(
-                    f"Index file '{index_file_path}' does not exist. No backup created."
-                )
-                return
-
-            timestamp = int(time.time())
-            backup_filename = f"entries_db_backup_{timestamp}.json.enc"
-            backup_path = self.fingerprint_dir / backup_filename
-
-            with open(index_file_path, "rb") as original_file, open(
-                backup_path, "wb"
-            ) as backup_file:
-                shutil.copyfileobj(original_file, backup_file)
-
-            logger.debug(f"Backup created at '{backup_path}'.")
-            print(colored(f"[+] Backup created at '{backup_path}'.", "green"))
-
-        except Exception as e:
-            logger.error(f"Failed to create backup: {e}", exc_info=True)
-            print(colored(f"Warning: Failed to create backup: {e}", "yellow"))
 
     def restore_from_backup(self, backup_path: str) -> None:
         """
