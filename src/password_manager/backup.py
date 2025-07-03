@@ -40,12 +40,14 @@ class BackupManager:
     BACKUP_FILENAME_TEMPLATE = "entries_db_backup_{timestamp}.json.enc"
 
     def __init__(self, fingerprint_dir: Path, config_manager: ConfigManager):
-        """
-        Initializes the BackupManager with the fingerprint directory.
+        """Initialize BackupManager for a specific profile.
 
-        Parameters:
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
-            config_manager (ConfigManager): Configuration manager for profile settings.
+        Parameters
+        ----------
+        fingerprint_dir : Path
+            Directory for this profile.
+        config_manager : ConfigManager
+            Configuration manager used for retrieving settings.
         """
         self.fingerprint_dir = fingerprint_dir
         self.config_manager = config_manager
@@ -76,9 +78,29 @@ class BackupManager:
             shutil.copy2(index_file, backup_file)
             logger.info(f"Backup created successfully at '{backup_file}'.")
             print(colored(f"Backup created successfully at '{backup_file}'.", "green"))
+
+            self._create_additional_backup(backup_file)
         except Exception as e:
             logger.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to create backup: {e}", "red"))
+
+    def _create_additional_backup(self, backup_file: Path) -> None:
+        """Write a copy of *backup_file* to the configured secondary location."""
+        path = self.config_manager.get_additional_backup_path()
+        if not path:
+            return
+
+        try:
+            dest_dir = Path(path).expanduser()
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_file = dest_dir / f"{self.fingerprint_dir.name}_{backup_file.name}"
+            shutil.copy2(backup_file, dest_file)
+            logger.info(f"Additional backup created at '{dest_file}'.")
+        except Exception as e:  # pragma: no cover - best-effort logging
+            logger.error(
+                f"Failed to write additional backup to '{path}': {e}",
+                exc_info=True,
+            )
 
     def restore_latest_backup(self) -> None:
         try:

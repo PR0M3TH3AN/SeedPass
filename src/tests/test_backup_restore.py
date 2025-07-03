@@ -63,3 +63,24 @@ def test_backup_restore_workflow(monkeypatch):
         current = vault.load_index()
         backup_mgr.restore_backup_by_timestamp(1111)
         assert vault.load_index() == current
+
+
+def test_additional_backup_location(monkeypatch):
+    with TemporaryDirectory() as tmpdir, TemporaryDirectory() as extra:
+        fp_dir = Path(tmpdir)
+        vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, fp_dir)
+        cfg_mgr.set_additional_backup_path(extra)
+        backup_mgr = BackupManager(fp_dir, cfg_mgr)
+
+        vault.save_index({"schema_version": 2, "entries": {"a": {}}})
+
+        monkeypatch.setattr(time, "time", lambda: 3333)
+        backup_mgr.create_backup()
+
+        backup = fp_dir / "backups" / "entries_db_backup_3333.json.enc"
+        assert backup.exists()
+
+        extra_file = Path(extra) / f"{fp_dir.name}_entries_db_backup_3333.json.enc"
+        assert extra_file.exists()
+        assert extra_file.stat().st_mode & 0o777 == 0o600
