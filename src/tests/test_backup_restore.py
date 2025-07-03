@@ -9,13 +9,15 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.backup import BackupManager
+from password_manager.config_manager import ConfigManager
 
 
 def test_backup_restore_workflow(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp_dir = Path(tmpdir)
         vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(fp_dir)
+        cfg_mgr = ConfigManager(vault, fp_dir)
+        backup_mgr = BackupManager(fp_dir, cfg_mgr)
 
         index_file = fp_dir / "seedpass_entries_db.json.enc"
 

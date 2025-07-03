@@ -19,6 +19,8 @@ import traceback
 from pathlib import Path
 from termcolor import colored
 
+from password_manager.config_manager import ConfigManager
+
 from utils.file_lock import exclusive_lock
 from constants import APP_DIR
 
@@ -37,14 +39,16 @@ class BackupManager:
 
     BACKUP_FILENAME_TEMPLATE = "entries_db_backup_{timestamp}.json.enc"
 
-    def __init__(self, fingerprint_dir: Path):
+    def __init__(self, fingerprint_dir: Path, config_manager: ConfigManager):
         """
         Initializes the BackupManager with the fingerprint directory.
 
         Parameters:
             fingerprint_dir (Path): The directory corresponding to the fingerprint.
+            config_manager (ConfigManager): Configuration manager for profile settings.
         """
         self.fingerprint_dir = fingerprint_dir
+        self.config_manager = config_manager
         self.backup_dir = self.fingerprint_dir / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"

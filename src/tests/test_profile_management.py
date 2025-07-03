@@ -16,6 +16,7 @@ from password_manager.vault import Vault
 from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
 from password_manager.manager import EncryptionMode
+from password_manager.config_manager import ConfigManager
 
 
 def test_add_and_delete_entry(monkeypatch):
@@ -52,7 +53,8 @@ def test_add_and_delete_entry(monkeypatch):
         assert pm.fingerprint_manager.current_fingerprint == fingerprint
 
         vault, enc_mgr = create_vault(fingerprint_dir, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(fingerprint_dir)
+        cfg_mgr = ConfigManager(vault, fingerprint_dir)
+        backup_mgr = BackupManager(fingerprint_dir, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
         pm.encryption_manager = enc_mgr
