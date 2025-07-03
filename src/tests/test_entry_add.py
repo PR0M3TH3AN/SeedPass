@@ -64,3 +64,18 @@ def test_round_trip_entry_types(method, expected_type):
         assert entry["type"] == expected_type
         data = enc_mgr.load_json_data(entry_mgr.index_file)
         assert data["entries"][str(index)]["type"] == expected_type
+
+
+def test_legacy_entry_defaults_to_password():
+    with TemporaryDirectory() as tmpdir:
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        entry_mgr = EntryManager(vault, Path(tmpdir))
+
+        index = entry_mgr.add_entry("example.com", 8)
+
+        data = enc_mgr.load_json_data(entry_mgr.index_file)
+        data["entries"][str(index)].pop("type", None)
+        enc_mgr.save_json_data(data, entry_mgr.index_file)
+
+        loaded = entry_mgr._load_index()
+        assert loaded["entries"][str(index)]["type"] == "password"
