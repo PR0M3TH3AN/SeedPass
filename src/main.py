@@ -591,13 +591,17 @@ def display_menu(
             while True:
                 print("\nAdd Entry:")
                 print("1. Password")
-                print("2. Back")
+                print("2. 2FA (TOTP)")
+                print("3. Back")
                 sub_choice = input("Select entry type: ").strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
                     break
                 elif sub_choice == "2":
+                    password_manager.handle_add_totp()
+                    break
+                elif sub_choice == "3":
                     break
                 else:
                     print(colored("Invalid choice.", "red"))
