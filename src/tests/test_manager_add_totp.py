@@ -21,7 +21,7 @@ class FakeNostrClient:
         return None, "abcd"
 
 
-def test_handle_add_totp(monkeypatch):
+def test_handle_add_totp(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -51,6 +51,7 @@ def test_handle_add_totp(monkeypatch):
         monkeypatch.setattr(pm, "sync_vault", lambda: None)
 
         pm.handle_add_totp()
+        out = capsys.readouterr().out
 
         entry = entry_mgr.retrieve_entry(0)
         assert entry == {
@@ -60,3 +61,4 @@ def test_handle_add_totp(monkeypatch):
             "period": 30,
             "digits": 6,
         }
+        assert "ID 0" in out
