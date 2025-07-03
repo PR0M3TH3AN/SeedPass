@@ -118,6 +118,24 @@ seedpass export --file "~/seedpass_backup.json"
 seedpass import --file "~/seedpass_backup.json"
 ```
 
+### Vault JSON Layout
+
+The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_version` `2` and stores an `entries` map keyed by entry numbers.
+
+```json
+{
+  "schema_version": 2,
+  "entries": {
+    "0": {
+      "website": "example.com",
+      "length": 8,
+      "type": "password",
+      "notes": ""
+    }
+  }
+}
+```
+
 
 ## Usage
 
