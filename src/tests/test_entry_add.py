@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
 import pytest
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -49,6 +51,10 @@ def test_round_trip_entry_types(method, expected_type):
 
         if method == "add_entry":
             index = entry_mgr.add_entry("example.com", 8)
+        elif method == "add_totp":
+            with patch.object(enc_mgr, "decrypt_parent_seed", return_value=TEST_SEED):
+                entry_mgr.add_totp("example", 0)
+            index = 0
         else:
             with pytest.raises(NotImplementedError):
                 getattr(entry_mgr, method)()
