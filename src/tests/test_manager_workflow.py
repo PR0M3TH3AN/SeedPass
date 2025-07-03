@@ -51,11 +51,13 @@ def test_manager_workflow(monkeypatch):
                 "",  # username
                 "",  # url
                 "",  # length (default)
+                "",  # notes
                 "0",  # retrieve index
                 "0",  # modify index
                 "user",  # new username
                 "",  # new url
                 "",  # blacklist status
+                "",  # new notes
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))

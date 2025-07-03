@@ -801,6 +801,7 @@ class PasswordManager:
 
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
+            notes = input("Enter notes (optional): ").strip()
 
             length_input = input(
                 f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
@@ -822,7 +823,12 @@ class PasswordManager:
 
             # Add the entry to the index and get the assigned index
             index = self.entry_manager.add_entry(
-                website_name, length, username, url, blacklisted=False
+                website_name,
+                length,
+                username,
+                url,
+                blacklisted=False,
+                notes=notes,
             )
 
             # Mark database as dirty for background sync
@@ -881,6 +887,10 @@ class PasswordManager:
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
+            notes = entry.get("notes", "")
 
             print(
                 colored(
@@ -947,6 +957,7 @@ class PasswordManager:
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
+            notes = entry.get("notes", "")
 
             # Display current values
             print(
@@ -996,9 +1007,20 @@ class PasswordManager:
                 )
                 new_blacklisted = blacklisted
 
+            new_notes = (
+                input(
+                    f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                ).strip()
+                or notes
+            )
+
             # Update the entry
             self.entry_manager.modify_entry(
-                index, new_username, new_url, new_blacklisted
+                index,
+                new_username,
+                new_url,
+                new_blacklisted,
+                new_notes,
             )
 
             # Mark database as dirty for background sync
