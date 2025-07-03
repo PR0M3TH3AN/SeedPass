@@ -862,6 +862,62 @@ class PasswordManager:
             logging.error(f"Error during password generation: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
 
+    def handle_add_totp(self) -> None:
+        """Prompt for details and add a new TOTP entry."""
+        try:
+            label = input("Enter the account label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
+
+            index_input = input("Enter derivation index (number): ").strip()
+            if not index_input.isdigit():
+                print(colored("Error: Index must be a number.", "red"))
+                return
+            totp_index = int(index_input)
+
+            period_input = input("TOTP period in seconds (default 30): ").strip()
+            period = 30
+            if period_input:
+                if not period_input.isdigit():
+                    print(colored("Error: Period must be a number.", "red"))
+                    return
+                period = int(period_input)
+
+            digits_input = input("Number of digits (default 6): ").strip()
+            digits = 6
+            if digits_input:
+                if not digits_input.isdigit():
+                    print(colored("Error: Digits must be a number.", "red"))
+                    return
+                digits = int(digits_input)
+
+            entry_id = self.entry_manager.get_next_index()
+            uri = self.entry_manager.add_totp(label, totp_index, period, digits)
+
+            self.is_dirty = True
+            self.last_update = time.time()
+
+            secret = TotpManager.derive_secret(self.parent_seed, totp_index)
+
+            print(colored(f"\n[+] TOTP entry added with ID {entry_id}.\n", "green"))
+            print(colored("Add this URI to your authenticator app:", "cyan"))
+            print(colored(uri, "yellow"))
+            print(colored(f"Secret: {secret}\n", "cyan"))
+
+            try:
+                self.sync_vault()
+                logging.info("Encrypted index posted to Nostr after TOTP add.")
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+
+        except Exception as e:
+            logging.error(f"Error during TOTP setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add TOTP: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
