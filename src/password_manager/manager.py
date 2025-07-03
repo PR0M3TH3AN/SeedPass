@@ -1003,20 +1003,34 @@ class PasswordManager:
                 return
             index = int(index_input)
 
-            # Retrieve entry details
             entry = self.entry_manager.retrieve_entry(index)
             if not entry:
                 return
 
-            # Display entry details
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
+
+            if entry_type == EntryType.TOTP.value:
+                label = entry.get("label", "")
+                period = int(entry.get("period", 30))
+                notes = entry.get("notes", "")
+                print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
+                try:
+                    code = self.entry_manager.get_totp_code(index, self.parent_seed)
+                    print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
+                    print(colored(f"Code: {code}", "yellow"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    TotpManager.print_progress_bar(period)
+                except Exception as e:
+                    logging.error(f"Error generating TOTP code: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                return
+
             website_name = entry.get("website")
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
             blacklisted = entry.get("blacklisted")
-            notes = entry.get("notes", "")
-            notes = entry.get("notes", "")
-            notes = entry.get("notes", "")
             notes = entry.get("notes", "")
 
             print(
@@ -1037,10 +1051,8 @@ class PasswordManager:
                     )
                 )
 
-            # Generate the password
             password = self.password_generator.generate_password(length, index)
 
-            # Display the password and associated details
             if password:
                 print(
                     colored(f"\n[+] Retrieved Password for {website_name}:\n", "green")
