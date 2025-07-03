@@ -62,12 +62,12 @@ class EntryManager:
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
-                return {"schema_version": LATEST_VERSION, "passwords": {}}
+                return {"schema_version": LATEST_VERSION, "entries": {}}
         else:
             logger.info(
                 f"Index file '{self.index_file}' not found. Initializing new password database."
             )
-            return {"schema_version": LATEST_VERSION, "passwords": {}}
+            return {"schema_version": LATEST_VERSION, "entries": {}}
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
@@ -85,8 +85,8 @@ class EntryManager:
         """
         try:
             data = self.vault.load_index()
-            if "passwords" in data and isinstance(data["passwords"], dict):
-                indices = [int(idx) for idx in data["passwords"].keys()]
+            if "entries" in data and isinstance(data["entries"], dict):
+                indices = [int(idx) for idx in data["entries"].keys()]
                 next_index = max(indices) + 1 if indices else 0
             else:
                 next_index = 0
@@ -119,7 +119,8 @@ class EntryManager:
             index = self.get_next_index()
             data = self.vault.load_index()
 
-            data["passwords"][str(index)] = {
+            data.setdefault("entries", {})
+            data["entries"][str(index)] = {
                 "website": website_name,
                 "length": length,
                 "username": username if username else "",
@@ -127,9 +128,7 @@ class EntryManager:
                 "blacklisted": blacklisted,
             }
 
-            logger.debug(
-                f"Added entry at index {index}: {data['passwords'][str(index)]}"
-            )
+            logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
 
             self._save_index(data)
             self.update_checksum()
@@ -169,7 +168,7 @@ class EntryManager:
         """
         try:
             data = self.vault.load_index()
-            entry = data.get("passwords", {}).get(str(index))
+            entry = data.get("entries", {}).get(str(index))
 
             if entry:
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
@@ -205,7 +204,7 @@ class EntryManager:
         """
         try:
             data = self.vault.load_index()
-            entry = data.get("passwords", {}).get(str(index))
+            entry = data.get("entries", {}).get(str(index))
 
             if not entry:
                 logger.warning(
@@ -233,7 +232,7 @@ class EntryManager:
                     f"Updated blacklist status to '{blacklisted}' for index {index}."
                 )
 
-            data["passwords"][str(index)] = entry
+            data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
 
             self._save_index(data)
@@ -259,15 +258,15 @@ class EntryManager:
         """
         try:
             data = self.vault.load_index()
-            passwords = data.get("passwords", {})
+            entries_data = data.get("entries", {})
 
-            if not passwords:
+            if not entries_data:
                 logger.info("No password entries found.")
                 print(colored("No password entries found.", "yellow"))
                 return []
 
             entries = []
-            for idx, entry in sorted(passwords.items(), key=lambda x: int(x[0])):
+            for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
                 entries.append(
                     (
                         int(idx),
@@ -302,8 +301,8 @@ class EntryManager:
         """
         try:
             data = self.vault.load_index()
-            if "passwords" in data and str(index) in data["passwords"]:
-                del data["passwords"][str(index)]
+            if "entries" in data and str(index) in data["entries"]:
+                del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self.vault.save_index(data)
                 self.update_checksum()

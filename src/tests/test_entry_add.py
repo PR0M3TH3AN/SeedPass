@@ -26,5 +26,5 @@ def test_add_and_retrieve_entry():
         }
 
         data = enc_mgr.load_json_data(entry_mgr.index_file)
-        assert str(index) in data.get("passwords", {})
-        assert data["passwords"][str(index)] == entry
+        assert str(index) in data.get("entries", {})
+        assert data["entries"][str(index)] == entry

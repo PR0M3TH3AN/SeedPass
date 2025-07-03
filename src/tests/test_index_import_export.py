@@ -30,17 +30,27 @@ def test_index_export_import_round_trip():
         tmp = Path(td)
         vault = setup_vault(tmp)
 
-        original = {"passwords": {"0": {"website": "example"}}}
+        original = {
+            "schema_version": 2,
+            "entries": {"0": {"website": "example", "type": "password", "notes": ""}},
+        }
         vault.save_index(original)
 
         encrypted = vault.get_encrypted_index()
         assert isinstance(encrypted, bytes)
 
-        vault.save_index({"passwords": {"0": {"website": "changed"}}})
+        vault.save_index(
+            {
+                "schema_version": 2,
+                "entries": {
+                    "0": {"website": "changed", "type": "password", "notes": ""}
+                },
+            }
+        )
         vault.decrypt_and_save_index_from_nostr(encrypted)
 
         loaded = vault.load_index()
-        assert loaded["passwords"] == original["passwords"]
+        assert loaded["entries"] == original["entries"]
 
 
 def test_get_encrypted_index_missing_file(tmp_path):

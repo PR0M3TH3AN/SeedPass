@@ -58,7 +58,7 @@ def test_add_and_delete_entry(monkeypatch):
         pm.entry_manager = entry_mgr
 
         index = entry_mgr.add_entry("example.com", 12)
-        assert str(index) in vault.load_index()["passwords"]
+        assert str(index) in vault.load_index()["entries"]
 
         published = []
         pm.nostr_client = SimpleNamespace(
@@ -73,5 +73,5 @@ def test_add_and_delete_entry(monkeypatch):
 
         pm.delete_entry()
 
-        assert str(index) not in vault.load_index()["passwords"]
+        assert str(index) not in vault.load_index()["entries"]
         assert published
