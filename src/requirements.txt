@@ -21,3 +21,4 @@ mutmut==2.4.4
 pyotp>=2.8.0
 
 freezegun
+pyperclip
