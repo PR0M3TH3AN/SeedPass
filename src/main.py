@@ -548,8 +548,9 @@ def display_menu(
     1. Add Entry
     2. Retrieve Entry
     3. Modify an Existing Entry
-    4. Settings
-    5. Exit
+    4. 2FA Codes
+    5. Settings
+    6. Exit
     """
     while True:
         if time.time() - password_manager.last_activity > inactivity_timeout:
@@ -571,7 +572,7 @@ def display_menu(
         print(colored(menu, "cyan"))
         try:
             choice = timed_input(
-                "Enter your choice (1-5): ", inactivity_timeout
+                "Enter your choice (1-6): ", inactivity_timeout
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -582,7 +583,7 @@ def display_menu(
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 5.",
+                    "No input detected. Please enter a number between 1 and 6.",
                     "yellow",
                 )
             )
@@ -613,8 +614,11 @@ def display_menu(
             password_manager.handle_modify_entry()
         elif choice == "4":
             password_manager.update_activity()
-            handle_settings(password_manager)
+            password_manager.handle_display_totp_codes()
         elif choice == "5":
+            password_manager.update_activity()
+            handle_settings(password_manager)
+        elif choice == "6":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()
