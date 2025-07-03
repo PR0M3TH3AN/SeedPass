@@ -4,7 +4,7 @@
 
 from importlib import import_module
 
-__all__ = ["PasswordManager", "ConfigManager", "Vault"]
+__all__ = ["PasswordManager", "ConfigManager", "Vault", "EntryType"]
 
 
 def __getattr__(name: str):
@@ -14,4 +14,6 @@ def __getattr__(name: str):
         return import_module(".config_manager", __name__).ConfigManager
     if name == "Vault":
         return import_module(".vault", __name__).Vault
+    if name == "EntryType":
+        return import_module(".entry_types", __name__).EntryType
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
