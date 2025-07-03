@@ -7,7 +7,6 @@ coincurve>=18.0.0
 mnemonic
 aiohttp
 bcrypt
-bip85
 pytest>=7.0
 pytest-cov
 pytest-xdist
