@@ -41,6 +41,7 @@ def test_handle_add_totp(monkeypatch):
 
         inputs = iter(
             [
+                "1",  # choose derive
                 "Example",  # label
                 "",  # period
                 "",  # digits

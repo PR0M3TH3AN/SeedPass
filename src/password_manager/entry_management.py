@@ -168,31 +168,44 @@ class EntryManager:
         self,
         label: str,
         parent_seed: str,
+        *,
+        secret: str | None = None,
         index: int | None = None,
         period: int = 30,
         digits: int = 6,
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
-        if index is None:
-            index = self.get_next_totp_index()
         data = self.vault.load_index()
         data.setdefault("entries", {})
 
-        data["entries"][str(entry_id)] = {
-            "type": EntryType.TOTP.value,
-            "label": label,
-            "index": index,
-            "period": period,
-            "digits": digits,
-        }
+        if secret is None:
+            if index is None:
+                index = self.get_next_totp_index()
+            secret = TotpManager.derive_secret(parent_seed, index)
+            entry = {
+                "type": EntryType.TOTP.value,
+                "label": label,
+                "index": index,
+                "period": period,
+                "digits": digits,
+            }
+        else:
+            entry = {
+                "type": EntryType.TOTP.value,
+                "label": label,
+                "secret": secret,
+                "period": period,
+                "digits": digits,
+            }
+
+        data["entries"][str(entry_id)] = entry
 
         self._save_index(data)
         self.update_checksum()
         self.backup_index_file()
 
         try:
-            secret = TotpManager.derive_secret(parent_seed, index)
             return TotpManager.make_otpauth_uri(label, secret, period, digits)
         except Exception as e:
             logger.error(f"Failed to generate otpauth URI: {e}")
@@ -221,13 +234,16 @@ class EntryManager:
         raise NotImplementedError("Seed entry support not implemented yet")
 
     def get_totp_code(
-        self, index: int, parent_seed: str, timestamp: int | None = None
+        self, index: int, parent_seed: str | None = None, timestamp: int | None = None
     ) -> str:
         """Return the current TOTP code for the specified entry."""
         entry = self.retrieve_entry(index)
         if not entry or entry.get("type") != EntryType.TOTP.value:
             raise ValueError("Entry is not a TOTP entry")
-
+        if "secret" in entry:
+            return TotpManager.current_code_from_secret(entry["secret"], timestamp)
+        if parent_seed is None:
+            raise ValueError("Seed required for derived TOTP")
         totp_index = int(entry.get("index", 0))
         return TotpManager.current_code(parent_seed, totp_index, timestamp)
 
