@@ -10,7 +10,7 @@ from .encryption import EncryptionManager
 class Vault:
     """Simple wrapper around :class:`EncryptionManager` for vault storage."""
 
-    INDEX_FILENAME = "seedpass_passwords_db.json.enc"
+    INDEX_FILENAME = "seedpass_entries_db.json.enc"
     CONFIG_FILENAME = "seedpass_config.json.enc"
 
     def __init__(

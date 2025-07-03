@@ -17,7 +17,7 @@ def test_backup_restore_workflow(monkeypatch):
         vault, enc_mgr = create_vault(fp_dir, TEST_SEED, TEST_PASSWORD)
         backup_mgr = BackupManager(fp_dir)
 
-        index_file = fp_dir / "seedpass_passwords_db.json.enc"
+        index_file = fp_dir / "seedpass_entries_db.json.enc"
 
         data1 = {
             "schema_version": 2,
@@ -30,7 +30,7 @@ def test_backup_restore_workflow(monkeypatch):
 
         monkeypatch.setattr(time, "time", lambda: 1111)
         backup_mgr.create_backup()
-        backup1 = fp_dir / "backups" / "passwords_db_backup_1111.json.enc"
+        backup1 = fp_dir / "backups" / "entries_db_backup_1111.json.enc"
         assert backup1.exists()
         assert backup1.stat().st_mode & 0o777 == 0o600
 
@@ -45,7 +45,7 @@ def test_backup_restore_workflow(monkeypatch):
 
         monkeypatch.setattr(time, "time", lambda: 2222)
         backup_mgr.create_backup()
-        backup2 = fp_dir / "backups" / "passwords_db_backup_2222.json.enc"
+        backup2 = fp_dir / "backups" / "entries_db_backup_2222.json.enc"
         assert backup2.exists()
         assert backup2.stat().st_mode & 0o777 == 0o600
 

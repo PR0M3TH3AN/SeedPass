@@ -19,7 +19,7 @@ def test_update_checksum_writes_to_expected_path():
         vault.save_index({"entries": {}})
         entry_mgr.update_checksum()
 
-        expected = tmp_path / "seedpass_passwords_db_checksum.txt"
+        expected = tmp_path / "seedpass_entries_db_checksum.txt"
         assert expected.exists()
 
 
@@ -32,5 +32,5 @@ def test_backup_index_file_creates_backup_in_directory():
         vault.save_index({"entries": {}})
         entry_mgr.backup_index_file()
 
-        backups = list(tmp_path.glob("passwords_db_backup_*.json.enc"))
+        backups = list(tmp_path.glob("entries_db_backup_*.json.enc"))
         assert len(backups) == 1

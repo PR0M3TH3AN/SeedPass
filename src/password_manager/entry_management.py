@@ -50,8 +50,8 @@ class EntryManager:
         self.fingerprint_dir = fingerprint_dir
 
         # Use paths relative to the fingerprint directory
-        self.index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
-        self.checksum_file = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+        self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
+        self.checksum_file = self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
 
         logger.debug(f"EntryManager initialized with index file at {self.index_file}")
 
@@ -410,7 +410,7 @@ class EntryManager:
                 return
 
             timestamp = int(time.time())
-            backup_filename = f"passwords_db_backup_{timestamp}.json.enc"
+            backup_filename = f"entries_db_backup_{timestamp}.json.enc"
             backup_path = self.fingerprint_dir / backup_filename
 
             with open(index_file_path, "rb") as original_file, open(

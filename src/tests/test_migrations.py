@@ -23,6 +23,21 @@ def test_migrate_v0_to_v2(tmp_path: Path):
     assert data["entries"]["0"] == expected_entry
 
 
+def test_migrate_v1_to_v2(tmp_path: Path):
+    enc_mgr, vault = setup(tmp_path)
+    legacy = {"schema_version": 1, "passwords": {"0": {"website": "b", "length": 10}}}
+    enc_mgr.save_json_data(legacy)
+    data = vault.load_index()
+    assert data["schema_version"] == LATEST_VERSION
+    expected_entry = {
+        "website": "b",
+        "length": 10,
+        "type": "password",
+        "notes": "",
+    }
+    assert data["entries"]["0"] == expected_entry
+
+
 def test_error_on_future_version(tmp_path: Path):
     enc_mgr, vault = setup(tmp_path)
     future = {"schema_version": LATEST_VERSION + 1, "entries": {}}
