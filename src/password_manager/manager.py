@@ -1303,6 +1303,35 @@ class PasswordManager:
             logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
+    def handle_search_entries(self) -> None:
+        """Prompt for a query and display matching entries."""
+        try:
+            query = input("Enter search string: ").strip()
+            if not query:
+                print(colored("No search string provided.", "yellow"))
+                return
+
+            results = self.entry_manager.search_entries(query)
+            if not results:
+                print(colored("No matching entries found.", "yellow"))
+                return
+
+            print(colored("\n[+] Search Results:\n", "green"))
+            for entry in results:
+                index, website, username, url, blacklisted = entry
+                print(colored(f"Index: {index}", "cyan"))
+                print(colored(f"  Website: {website}", "cyan"))
+                print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
+                )
+                print("-" * 40)
+
+        except Exception as e:
+            logging.error(f"Failed to search entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to search entries: {e}", "red"))
+
     def delete_entry(self) -> None:
         """Deletes an entry from the password index."""
         try:
