@@ -36,7 +36,7 @@ class EventHandler:
             # Assuming evt.created_at is always an integer Unix timestamp
             if isinstance(evt.created_at, int):
                 created_at_str = time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(evt.created_at)
+                    "%Y-%m-%d %H:%M:%S", time.gmtime(evt.created_at)
                 )
             else:
                 # Handle unexpected types gracefully
