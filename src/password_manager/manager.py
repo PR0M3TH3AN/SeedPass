@@ -1024,14 +1024,30 @@ class PasswordManager:
                         print(colored(f"Code: {code}", "yellow"))
                         if notes:
                             print(colored(f"Notes: {notes}", "cyan"))
-                        TotpManager.print_progress_bar(period)
-                        try:
-                            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                                user_input = sys.stdin.readline().strip().lower()
-                                if user_input == "b":
-                                    break
-                        except KeyboardInterrupt:
-                            print()
+                        remaining = self.entry_manager.get_totp_time_remaining(index)
+                        exit_loop = False
+                        while remaining > 0:
+                            filled = int(20 * (period - remaining) / period)
+                            bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                            sys.stdout.write(f"\r{bar} {remaining:2d}s")
+                            sys.stdout.flush()
+                            try:
+                                if (
+                                    sys.stdin
+                                    in select.select([sys.stdin], [], [], 1)[0]
+                                ):
+                                    user_input = sys.stdin.readline().strip().lower()
+                                    if user_input == "b":
+                                        exit_loop = True
+                                        break
+                            except KeyboardInterrupt:
+                                exit_loop = True
+                                print()
+                                break
+                            remaining -= 1
+                        sys.stdout.write("\n")
+                        sys.stdout.flush()
+                        if exit_loop:
                             break
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
@@ -1240,7 +1256,9 @@ class PasswordManager:
             entries = data.get("entries", {})
             totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
-                if entry.get("type") == EntryType.TOTP.value:
+                if entry.get("type") == EntryType.TOTP.value and not entry.get(
+                    "blacklisted", False
+                ):
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
                     imported = "secret" in entry
