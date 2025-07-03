@@ -185,13 +185,14 @@ python src/main.py
    Select an option:
    1. Add Entry
    2. Retrieve Entry
-   3. Modify an Existing Entry
-   4. 2FA Codes
-   5. Settings
-   6. Exit
+   3. Search Entries
+   4. Modify an Existing Entry
+   5. 2FA Codes
+   6. Settings
+   7. Exit
 
-   Enter your choice (1-6):
-   ```
+   Enter your choice (1-7):
+  ```
 
    When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
 
@@ -244,7 +245,7 @@ wss://relay.primal.net
 
 You can manage your relays and sync with Nostr from the **Settings** menu:
 
-1. From the main menu choose `4` (**Settings**).
+1. From the main menu choose `6` (**Settings**).
 2. Select `2` (**Nostr**) to open the Nostr submenu.
 3. Choose `1` to back up your encrypted index to Nostr.
 4. Select `2` to restore the index from Nostr.

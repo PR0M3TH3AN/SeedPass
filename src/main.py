@@ -707,10 +707,10 @@ def display_menu(
             password_manager.handle_modify_entry()
         elif choice == "5":
             password_manager.update_activity()
-            handle_settings(password_manager)
+            password_manager.handle_display_totp_codes()
         elif choice == "6":
             password_manager.update_activity()
-            password_manager.handle_display_totp_codes()
+            handle_settings(password_manager)
         elif choice == "7":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
