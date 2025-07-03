@@ -36,7 +36,7 @@ def test_inactivity_triggers_lock(monkeypatch):
         unlock_vault=unlock_vault,
     )
 
-    monkeypatch.setattr(main, "timed_input", lambda *_: "5")
+    monkeypatch.setattr(main, "timed_input", lambda *_: "6")
 
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=0.1)
@@ -72,7 +72,7 @@ def test_input_timeout_triggers_lock(monkeypatch):
         unlock_vault=unlock_vault,
     )
 
-    responses = iter([TimeoutError(), "5"])
+    responses = iter([TimeoutError(), "6"])
 
     def fake_input(*_args, **_kwargs):
         val = next(responses)

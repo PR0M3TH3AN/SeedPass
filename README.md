@@ -167,10 +167,11 @@ python src/main.py
    1. Add Entry
    2. Retrieve Entry
    3. Modify an Existing Entry
-   4. Settings
-   5. Exit
+   4. 2FA Codes
+   5. Settings
+   6. Exit
 
-   Enter your choice (1-5):
+   Enter your choice (1-6):
    ```
 
    When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.

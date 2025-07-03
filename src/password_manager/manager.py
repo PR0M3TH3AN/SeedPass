@@ -1178,6 +1178,41 @@ class PasswordManager:
             logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
+    def handle_display_totp_codes(self) -> None:
+        """Display all stored TOTP codes with a countdown progress bar."""
+        try:
+            data = self.entry_manager.vault.load_index()
+            entries = data.get("entries", {})
+            totp_list: list[tuple[str, int, int]] = []
+            for idx_str, entry in entries.items():
+                if entry.get("type") == EntryType.TOTP.value:
+                    label = entry.get("label", "")
+                    period = int(entry.get("period", 30))
+                    totp_list.append((label, int(idx_str), period))
+
+            if not totp_list:
+                print(colored("No 2FA entries found.", "yellow"))
+                return
+
+            totp_list.sort(key=lambda t: t[0].lower())
+
+            print(colored("Press Ctrl+C to return to the menu.", "cyan"))
+            while True:
+                print("\033c", end="")
+                for label, idx, period in totp_list:
+                    code = self.entry_manager.get_totp_code(idx, self.parent_seed)
+                    remaining = self.entry_manager.get_totp_time_remaining(idx)
+                    filled = int(20 * (period - remaining) / period)
+                    bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                    print(f"{label}: {code} {bar} {remaining:2d}s")
+                sys.stdout.flush()
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print()
+        except Exception as e:
+            logging.error(f"Error displaying TOTP codes: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display TOTP codes: {e}", "red"))
+
     def handle_verify_checksum(self) -> None:
         """
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
