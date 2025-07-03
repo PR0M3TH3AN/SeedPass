@@ -33,6 +33,26 @@
 
 ---
 
+## Index File Format
+
+All entries belonging to a seed profile are summarized in an encrypted file named `seedpass_entries_db.json.enc`. This index starts with `schema_version` `2` and contains an `entries` object keyed by entry numbers.
+
+```json
+{
+  "schema_version": 2,
+  "entries": {
+    "0": {
+      "website": "example.com",
+      "length": 8,
+      "type": "password",
+      "notes": ""
+    }
+  }
+}
+```
+
+---
+
 ## JSON Schema for Individual Entries
 
 Each SeedPass entry is stored as an individual JSON file, promoting isolated management and easy synchronization with Nostr. This structure supports diverse entry types (`kind`) and allows for future expansions.
@@ -444,9 +464,8 @@ All backups are organized based on fingerprints, ensuring that each seed's data 
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 ├── b5c6d7e8/
 │   ├── entries/
 │   │   ├── entry_0.json
@@ -458,9 +477,8 @@ All backups are organized based on fingerprints, ensuring that each seed's data 
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 └── ...
 ```
 
@@ -498,9 +516,9 @@ seedpass rollback --fingerprint a1b2c3d4 --file entry_0_v1.json
 │   │   ├── entry_1_v1.json
 │   │   └── ...
 │   ├── parent_seed.enc
-│   ├── seedpass_passwords_checksum.txt
-│   ├── seedpass_passwords_db_checksum.txt
-│   └── seedpass_passwords_db.json
+│   ├── seedpass_script_checksum.txt
+│   ├── seedpass_entries_db_checksum.txt
+│   └── seedpass_entries_db.json
 ├── ...
 ```
 
