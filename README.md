@@ -45,6 +45,10 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
+- **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
+- **Export 2FA Codes:** Save all stored TOTP entries to an encrypted JSON file for use with other apps.
+- **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
+- **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 
 ## Prerequisites
 
@@ -117,6 +121,9 @@ seedpass export --file "~/seedpass_backup.json"
 
 # Later you can restore it
 seedpass import --file "~/seedpass_backup.json"
+
+# Use the **Settings** menu to configure an extra backup directory
+# on an external drive.
 ```
 
 ### Vault JSON Layout
@@ -179,11 +186,11 @@ python src/main.py
 ### Adding a 2FA Entry
 
 1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.
-2. Provide a label for the account (for example, `GitHub`).
-3. SeedPass automatically chooses the next available derivation index.
-4. Optionally specify the TOTP period and digit count.
-5. SeedPass will display an `otpauth://` URI and secret that you can manually
-   enter into your authenticator app.
+2. Pick **Make 2FA** to derive a new secret from your seed or **Import 2FA** to paste an existing `otpauth://` URI or secret.
+3. Provide a label for the account (for example, `GitHub`).
+4. SeedPass automatically chooses the next available derivation index when deriving.
+5. Optionally specify the TOTP period and digit count.
+6. SeedPass will display the URI and secret so you can add it to your authenticator app.
 
 
 ### Managing Multiple Seeds
@@ -234,7 +241,12 @@ Back in the Settings menu you can:
 * Select `3` to change your master password.
 * Choose `4` to verify the script checksum.
 * Choose `5` to back up the parent seed.
-* Choose `6` to lock the vault and require re-entry of your password.
+* Select `6` to export the database to an encrypted file.
+* Choose `7` to import a database from a backup file.
+* Select `8` to export all 2FA codes.
+* Choose `9` to set an additional backup location.
+* Select `10` to change the inactivity timeout.
+* Choose `11` to lock the vault and require re-entry of your password.
 
 ## Running Tests
 
