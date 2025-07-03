@@ -40,6 +40,7 @@ from utils.password_prompt import (
     prompt_existing_password,
     confirm_action,
 )
+from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
     APP_DIR,
@@ -762,6 +763,17 @@ class PasswordManager:
                 relays=relay_list,
                 parent_seed=getattr(self, "parent_seed", None),
             )
+
+            if hasattr(self.nostr_client, "check_relay_health"):
+                healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
+                if healthy < MIN_HEALTHY_RELAYS:
+                    print(
+                        colored(
+                            f"Only {healthy} relay(s) responded with your latest event."
+                            " Consider adding more relays via Settings.",
+                            "yellow",
+                        )
+                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 

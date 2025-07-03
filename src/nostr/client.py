@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple
 import hashlib
 import asyncio
 import gzip
+import websockets
 
 # Imports from the nostr-sdk library
 from nostr_sdk import (
@@ -136,6 +137,42 @@ class NostrClient:
                 await self.client.add_relay(relay)
         await self.client.connect()
         logger.info(f"NostrClient connected to relays: {self.relays}")
+
+    async def _ping_relay(self, relay: str, timeout: float) -> bool:
+        """Attempt to retrieve the latest event from a single relay."""
+        sub_id = "seedpass-health"
+        pubkey = self.keys.public_key().to_hex()
+        req = json.dumps(
+            ["REQ", sub_id, {"kinds": [1], "authors": [pubkey], "limit": 1}]
+        )
+        try:
+            async with websockets.connect(
+                relay, open_timeout=timeout, close_timeout=timeout
+            ) as ws:
+                await ws.send(req)
+                while True:
+                    msg = await asyncio.wait_for(ws.recv(), timeout=timeout)
+                    data = json.loads(msg)
+                    if data[0] == "EVENT":
+                        return True
+                    if data[0] == "EOSE":
+                        return False
+        except Exception:
+            return False
+
+    async def _check_relay_health(self, min_relays: int, timeout: float) -> int:
+        tasks = [self._ping_relay(r, timeout) for r in self.relays]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        healthy = sum(1 for r in results if r is True)
+        if healthy < min_relays:
+            logger.warning(
+                "Only %s relays responded with data; consider adding more.", healthy
+            )
+        return healthy
+
+    def check_relay_health(self, min_relays: int = 2, timeout: float = 5.0) -> int:
+        """Ping relays and return the count of those providing data."""
+        return asyncio.run(self._check_relay_health(min_relays, timeout))
 
     def publish_json_to_nostr(
         self,
