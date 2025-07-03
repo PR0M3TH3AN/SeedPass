@@ -226,9 +226,14 @@ def handle_post_to_nostr(
     Handles the action of posting the encrypted password index to Nostr.
     """
     try:
-        success = password_manager.sync_vault(alt_summary=alt_summary)
-        if success:
-            print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
+        event_id = password_manager.sync_vault(alt_summary=alt_summary)
+        if event_id:
+            print(
+                colored(
+                    f"\N{WHITE HEAVY CHECK MARK} Sync complete. Event ID: {event_id}",
+                    "green",
+                )
+            )
             logging.info("Encrypted index posted to Nostr successfully.")
         else:
             print(colored("\N{CROSS MARK} Sync failed…", "red"))

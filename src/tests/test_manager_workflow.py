@@ -22,6 +22,7 @@ class FakeNostrClient:
 
     def publish_snapshot(self, data: bytes):
         self.published.append(data)
+        return None, "abcd"
 
 
 def test_manager_workflow(monkeypatch):

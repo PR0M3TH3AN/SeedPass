@@ -43,7 +43,7 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
 
         with patch("password_manager.manager.NostrClient") as MockClient:
             mock_instance = MockClient.return_value
-            mock_instance.publish_snapshot = AsyncMock(return_value=None)
+            mock_instance.publish_snapshot = AsyncMock(return_value=(None, "abcd"))
             pm.nostr_client = mock_instance
             pm.change_password()
             mock_instance.publish_snapshot.assert_called_once()

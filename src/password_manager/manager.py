@@ -1129,26 +1129,26 @@ class PasswordManager:
             # Re-raise the exception to inform the calling function of the failure
             raise
 
-    def sync_vault(self, alt_summary: str | None = None) -> bool:
+    def sync_vault(self, alt_summary: str | None = None) -> str | None:
         """Publish the current vault contents to Nostr."""
         try:
             encrypted = self.get_encrypted_data()
             if not encrypted:
-                return False
+                return None
             pub_snap = getattr(self.nostr_client, "publish_snapshot", None)
             if callable(pub_snap):
                 if asyncio.iscoroutinefunction(pub_snap):
-                    asyncio.run(pub_snap(encrypted))
+                    _, event_id = asyncio.run(pub_snap(encrypted))
                 else:
-                    pub_snap(encrypted)
+                    _, event_id = pub_snap(encrypted)
             else:
                 # Fallback for tests using simplified stubs
-                self.nostr_client.publish_json_to_nostr(encrypted)
+                event_id = self.nostr_client.publish_json_to_nostr(encrypted)
             self.is_dirty = False
-            return True
+            return event_id
         except Exception as e:
             logging.error(f"Failed to sync vault: {e}", exc_info=True)
-            return False
+            return None
 
     def backup_database(self) -> None:
         """

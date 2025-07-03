@@ -25,7 +25,7 @@ def test_backup_and_publish_to_nostr():
 
         with patch(
             "nostr.client.NostrClient.publish_snapshot",
-            AsyncMock(return_value=None),
+            AsyncMock(return_value=(None, "abcd")),
         ) as mock_publish, patch("nostr.client.ClientBuilder"), patch(
             "nostr.client.KeyManager"
         ), patch.object(
@@ -38,4 +38,4 @@ def test_backup_and_publish_to_nostr():
             result = asyncio.run(nostr_client.publish_snapshot(encrypted_index))
 
         mock_publish.assert_awaited_with(encrypted_index)
-        assert result is None
+        assert result == (None, "abcd")

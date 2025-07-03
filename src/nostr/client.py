@@ -142,7 +142,7 @@ class NostrClient:
         encrypted_json: bytes,
         to_pubkey: str | None = None,
         alt_summary: str | None = None,
-    ) -> bool:
+    ) -> str | None:
         """Builds and publishes a Kind 1 text note or direct message.
 
         Parameters
@@ -177,12 +177,12 @@ class NostrClient:
                 else str(event_output)
             )
             logger.info(f"Successfully published event with ID: {event_id_hex}")
-            return True
+            return event_id_hex
 
         except Exception as e:
             self.last_error = str(e)
             logger.error(f"Failed to publish JSON to Nostr: {e}")
-            return False
+            return None
 
     def publish_event(self, event):
         """Publish a prepared event to the configured relays."""
@@ -242,7 +242,7 @@ class NostrClient:
 
     async def publish_snapshot(
         self, encrypted_bytes: bytes, limit: int = 50_000
-    ) -> Manifest:
+    ) -> tuple[Manifest, str]:
         """Publish a compressed snapshot split into chunks.
 
         Parameters
@@ -276,10 +276,11 @@ class NostrClient:
             .build(self.keys.public_key())
             .sign_with_keys(self.keys)
         )
-        await self.client.send_event(manifest_event)
+        result = await self.client.send_event(manifest_event)
+        manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
         self.current_manifest = manifest
         self._delta_events = []
-        return manifest
+        return manifest, manifest_id
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
         """Retrieve the latest manifest and all snapshot chunks."""

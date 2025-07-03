@@ -81,8 +81,9 @@ def test_publish_snapshot_success():
         with patch.object(
             client.client, "send_event", side_effect=fake_send
         ) as mock_send:
-            manifest = asyncio.run(client.publish_snapshot(b"data"))
+            manifest, event_id = asyncio.run(client.publish_snapshot(b"data"))
             assert isinstance(manifest, Manifest)
+            assert event_id == "abcd"
             assert mock_send.await_count >= 1
 
 
