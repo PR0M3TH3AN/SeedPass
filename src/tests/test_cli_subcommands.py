@@ -63,4 +63,5 @@ def test_totp_command(monkeypatch, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "123456" in out
+    assert "copied to clipboard" in out.lower()
     assert called.get("val") == "123456"
