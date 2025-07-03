@@ -38,6 +38,7 @@ from utils.checksum import calculate_checksum, verify_checksum
 from utils.password_prompt import (
     prompt_for_password,
     prompt_existing_password,
+    prompt_new_password,
     confirm_action,
 )
 from utils.memory_protection import InMemorySecret
@@ -1439,6 +1440,63 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
             print(colored(f"Error: Failed to import database: {e}", "red"))
+
+    def handle_export_totp_codes(self) -> Path | None:
+        """Export all 2FA codes to a JSON file for other authenticator apps."""
+        try:
+            data = self.entry_manager.vault.load_index()
+            entries = data.get("entries", {})
+
+            totp_entries = []
+            for entry in entries.values():
+                if entry.get("type") == EntryType.TOTP.value:
+                    label = entry.get("label", "")
+                    period = int(entry.get("period", 30))
+                    digits = int(entry.get("digits", 6))
+                    if "secret" in entry:
+                        secret = entry["secret"]
+                    else:
+                        idx = int(entry.get("index", 0))
+                        secret = TotpManager.derive_secret(self.parent_seed, idx)
+                    uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
+                    totp_entries.append(
+                        {
+                            "label": label,
+                            "secret": secret,
+                            "period": period,
+                            "digits": digits,
+                            "uri": uri,
+                        }
+                    )
+
+            if not totp_entries:
+                print(colored("No 2FA codes to export.", "yellow"))
+                return None
+
+            dest_str = input(
+                "Enter destination file path (default: totp_export.json): "
+            ).strip()
+            dest = Path(dest_str) if dest_str else Path("totp_export.json")
+
+            json_data = json.dumps({"entries": totp_entries}, indent=2)
+
+            if confirm_action("Encrypt export with a password? (Y/N): "):
+                password = prompt_new_password()
+                key = derive_key_from_password(password)
+                enc_mgr = EncryptionManager(key, dest.parent)
+                data_bytes = enc_mgr.encrypt_data(json_data.encode("utf-8"))
+                dest = dest.with_suffix(dest.suffix + ".enc")
+                dest.write_bytes(data_bytes)
+            else:
+                dest.write_text(json_data)
+
+            os.chmod(dest, 0o600)
+            print(colored(f"2FA codes exported to '{dest}'.", "green"))
+            return dest
+        except Exception as e:
+            logging.error(f"Failed to export TOTP codes: {e}", exc_info=True)
+            print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
+            return None
 
     def handle_backup_reveal_parent_seed(self) -> None:
         """

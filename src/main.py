@@ -503,9 +503,10 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("5. Backup Parent Seed")
         print("6. Export database")
         print("7. Import database")
-        print("8. Set inactivity timeout")
-        print("9. Lock Vault")
-        print("10. Back")
+        print("8. Export 2FA codes")
+        print("9. Set inactivity timeout")
+        print("10. Lock Vault")
+        print("11. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -524,12 +525,14 @@ def handle_settings(password_manager: PasswordManager) -> None:
             if path:
                 password_manager.handle_import_database(Path(path))
         elif choice == "8":
-            handle_set_inactivity_timeout(password_manager)
+            password_manager.handle_export_totp_codes()
         elif choice == "9":
+            handle_set_inactivity_timeout(password_manager)
+        elif choice == "10":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "10":
+        elif choice == "11":
             break
         else:
             print(colored("Invalid choice.", "red"))
