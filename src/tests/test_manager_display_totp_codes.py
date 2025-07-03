@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
 from password_manager.manager import PasswordManager, EncryptionMode
+from password_manager.config_manager import ConfigManager
 
 
 class FakeNostrClient:
@@ -24,7 +25,8 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(tmp_path)
+        cfg_mgr = ConfigManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
         pm = PasswordManager.__new__(PasswordManager)
@@ -62,7 +64,8 @@ def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(tmp_path)
+        cfg_mgr = ConfigManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
         pm = PasswordManager.__new__(PasswordManager)

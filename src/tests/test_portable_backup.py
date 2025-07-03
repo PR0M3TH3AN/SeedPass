@@ -11,6 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
+from password_manager.config_manager import ConfigManager
 from password_manager.portable_backup import export_backup, import_backup
 from utils.key_derivation import derive_index_key, derive_key_from_password
 
@@ -27,7 +28,8 @@ def setup_vault(tmp: Path):
     index_key = derive_index_key(SEED)
     enc_mgr = EncryptionManager(index_key, tmp)
     vault = Vault(enc_mgr, tmp)
-    backup = BackupManager(tmp)
+    cfg = ConfigManager(vault, tmp)
+    backup = BackupManager(tmp, cfg)
     return vault, backup
 
 

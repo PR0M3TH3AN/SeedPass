@@ -5,12 +5,14 @@ import math
 from helpers import create_vault, dummy_nostr_client
 from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
+from password_manager.config_manager import ConfigManager
 from nostr.client import prepare_snapshot
 
 
 def test_manifest_generation(tmp_path):
     vault, enc_mgr = create_vault(tmp_path)
-    backup_mgr = BackupManager(tmp_path)
+    cfg_mgr = ConfigManager(vault, tmp_path)
+    backup_mgr = BackupManager(tmp_path, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
     entry_mgr.add_entry("example.com", 12)
     entry_mgr.add_entry("test.com", 12)

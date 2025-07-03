@@ -19,9 +19,9 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         fp = Path(tmpdir)
         vault, enc_mgr = create_vault(fp, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(fp)
-        entry_mgr = EntryManager(vault, backup_mgr)
         cfg_mgr = ConfigManager(vault, fp)
+        backup_mgr = BackupManager(fp, cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         pm = PasswordManager.__new__(PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY

@@ -30,9 +30,9 @@ def test_password_change_and_unlock(monkeypatch):
         enc_mgr = EncryptionManager(index_key, fp)
         seed_mgr = EncryptionManager(seed_key, fp)
         vault = Vault(enc_mgr, fp)
-        backup_mgr = BackupManager(fp)
-        entry_mgr = EntryManager(vault, backup_mgr)
         cfg_mgr = ConfigManager(vault, fp)
+        backup_mgr = BackupManager(fp, cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
 
         vault.save_index({"entries": {}})
         cfg_mgr.save_config(

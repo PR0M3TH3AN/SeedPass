@@ -8,13 +8,15 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
+from password_manager.config_manager import ConfigManager
 
 
 def test_update_checksum_writes_to_expected_path():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(tmp_path)
+        cfg_mgr = ConfigManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
         # create an empty index file
@@ -29,7 +31,8 @@ def test_backup_index_file_creates_backup_in_directory():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
-        backup_mgr = BackupManager(tmp_path)
+        cfg_mgr = ConfigManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
         vault.save_index({"entries": {}})
