@@ -179,7 +179,7 @@ python src/main.py
 
 1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.
 2. Provide a label for the account (for example, `GitHub`).
-3. Enter the derivation index you wish to use for this 2FA code.
+3. SeedPass automatically chooses the next available derivation index.
 4. Optionally specify the TOTP period and digit count.
 5. SeedPass will display an `otpauth://` URI and secret that you can manually
    enter into your authenticator app.

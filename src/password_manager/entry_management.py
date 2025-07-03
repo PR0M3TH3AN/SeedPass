@@ -153,11 +153,29 @@ class EntryManager:
             print(colored(f"Error: Failed to add entry: {e}", "red"))
             sys.exit(1)
 
+    def get_next_totp_index(self) -> int:
+        """Return the next available derivation index for TOTP secrets."""
+        data = self.vault.load_index()
+        entries = data.get("entries", {})
+        indices = [
+            int(v.get("index", 0))
+            for v in entries.values()
+            if v.get("type") == EntryType.TOTP.value
+        ]
+        return (max(indices) + 1) if indices else 0
+
     def add_totp(
-        self, label: str, index: int, period: int = 30, digits: int = 6
+        self,
+        label: str,
+        parent_seed: str,
+        index: int | None = None,
+        period: int = 30,
+        digits: int = 6,
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
+        if index is None:
+            index = self.get_next_totp_index()
         data = self.vault.load_index()
         data.setdefault("entries", {})
 
@@ -174,8 +192,7 @@ class EntryManager:
         self.backup_index_file()
 
         try:
-            seed = self.vault.encryption_manager.decrypt_parent_seed()
-            secret = TotpManager.derive_secret(seed, index)
+            secret = TotpManager.derive_secret(parent_seed, index)
             return TotpManager.make_otpauth_uri(label, secret, period, digits)
         except Exception as e:
             logger.error(f"Failed to generate otpauth URI: {e}")
@@ -203,15 +220,16 @@ class EntryManager:
         self.backup_index_file()
         raise NotImplementedError("Seed entry support not implemented yet")
 
-    def get_totp_code(self, index: int, timestamp: int | None = None) -> str:
+    def get_totp_code(
+        self, index: int, parent_seed: str, timestamp: int | None = None
+    ) -> str:
         """Return the current TOTP code for the specified entry."""
         entry = self.retrieve_entry(index)
         if not entry or entry.get("type") != EntryType.TOTP.value:
             raise ValueError("Entry is not a TOTP entry")
 
-        seed = self.vault.encryption_manager.decrypt_parent_seed()
         totp_index = int(entry.get("index", 0))
-        return TotpManager.current_code(seed, totp_index, timestamp)
+        return TotpManager.current_code(parent_seed, totp_index, timestamp)
 
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""
