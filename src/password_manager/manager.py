@@ -26,6 +26,7 @@ from password_manager.backup import BackupManager
 from password_manager.vault import Vault
 from password_manager.portable_backup import export_backup, import_backup
 from password_manager.totp import TotpManager
+from password_manager.entry_types import EntryType
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
