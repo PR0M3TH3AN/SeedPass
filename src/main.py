@@ -422,6 +422,54 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_additional_backup_location(pm: PasswordManager) -> None:
+    """Configure an optional second backup directory."""
+    cfg_mgr = pm.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        current = cfg_mgr.get_additional_backup_path()
+        if current:
+            print(colored(f"Current path: {current}", "cyan"))
+        else:
+            print(colored("No additional backup location configured.", "cyan"))
+    except Exception as e:
+        logging.error(f"Error loading backup path: {e}")
+        print(colored(f"Error: {e}", "red"))
+        return
+
+    value = input(
+        "Enter directory for extra backups (leave blank to disable): "
+    ).strip()
+    if not value:
+        try:
+            cfg_mgr.set_additional_backup_path(None)
+            print(colored("Additional backup location disabled.", "green"))
+        except Exception as e:
+            logging.error(f"Error clearing path: {e}")
+            print(colored(f"Error: {e}", "red"))
+        return
+
+    try:
+        path = Path(value).expanduser()
+        path.mkdir(parents=True, exist_ok=True)
+        test_file = path / ".seedpass_write_test"
+        with open(test_file, "w") as f:
+            f.write("test")
+        test_file.unlink()
+    except Exception as e:
+        print(colored(f"Path not writable: {e}", "red"))
+        return
+
+    try:
+        cfg_mgr.set_additional_backup_path(str(path))
+        print(colored(f"Additional backups will be copied to {path}", "green"))
+    except Exception as e:
+        logging.error(f"Error saving backup path: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -504,9 +552,10 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("6. Export database")
         print("7. Import database")
         print("8. Export 2FA codes")
-        print("9. Set inactivity timeout")
-        print("10. Lock Vault")
-        print("11. Back")
+        print("9. Set additional backup location")
+        print("10. Set inactivity timeout")
+        print("11. Lock Vault")
+        print("12. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -527,12 +576,14 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "8":
             password_manager.handle_export_totp_codes()
         elif choice == "9":
-            handle_set_inactivity_timeout(password_manager)
+            handle_set_additional_backup_location(password_manager)
         elif choice == "10":
+            handle_set_inactivity_timeout(password_manager)
+        elif choice == "11":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "11":
+        elif choice == "12":
             break
         else:
             print(colored("Invalid choice.", "red"))
