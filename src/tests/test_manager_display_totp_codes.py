@@ -56,3 +56,41 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
         assert "Generated 2FA Codes" in out
         assert "[0] Example" in out
         assert "123456" in out
+
+
+def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+        entry_mgr = EntryManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path)
+
+        pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
+        pm.encryption_manager = enc_mgr
+        pm.vault = vault
+        pm.entry_manager = entry_mgr
+        pm.backup_manager = backup_mgr
+        pm.parent_seed = TEST_SEED
+        pm.nostr_client = FakeNostrClient()
+        pm.fingerprint_dir = tmp_path
+        pm.is_dirty = False
+
+        entry_mgr.add_totp("Visible", TEST_SEED)
+        entry_mgr.add_totp("Hidden", TEST_SEED)
+        entry_mgr.modify_entry(1, blacklisted=True)
+
+        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
+        )
+
+        monkeypatch.setattr(
+            "password_manager.manager.select.select",
+            lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
+        )
+
+        pm.handle_display_totp_codes()
+        out = capsys.readouterr().out
+        assert "Visible" in out
+        assert "Hidden" not in out

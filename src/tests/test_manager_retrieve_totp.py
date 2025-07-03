@@ -42,10 +42,14 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
 
         monkeypatch.setattr("builtins.input", lambda *a, **k: "0")
         monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
-        monkeypatch.setattr(TotpManager, "print_progress_bar", lambda period: None)
+        monkeypatch.setattr(
+            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
+        )
+        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr(sys.stdin, "readline", lambda *a, **k: "b\n")
         monkeypatch.setattr(
             "password_manager.manager.select.select",
-            lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
+            lambda *a, **k: ([sys.stdin], [], []),
         )
 
         pm.handle_retrieve_entry()
