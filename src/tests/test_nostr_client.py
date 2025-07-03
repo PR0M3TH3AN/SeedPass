@@ -75,3 +75,19 @@ def test_initialize_client_pool_add_relay_fallback(tmp_path):
     fc = client.client
     assert fc.added == client.relays
     assert fc.connected is True
+
+
+def test_check_relay_health_runs_async(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    recorded = {}
+
+    async def fake_check(min_relays, timeout):
+        recorded["args"] = (min_relays, timeout)
+        return 1
+
+    monkeypatch.setattr(client, "_check_relay_health", fake_check)
+    result = client.check_relay_health(3, timeout=2)
+
+    assert result == 1
+    assert recorded["args"] == (3, 2)
