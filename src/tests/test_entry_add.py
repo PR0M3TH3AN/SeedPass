@@ -23,6 +23,8 @@ def test_add_and_retrieve_entry():
             "username": "user",
             "url": "",
             "blacklisted": False,
+            "type": "password",
+            "notes": "",
         }
 
         data = enc_mgr.load_json_data(entry_mgr.index_file)
