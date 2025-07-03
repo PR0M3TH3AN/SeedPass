@@ -16,22 +16,24 @@ The **Advanced CLI Commands** document provides an in-depth guide to the various
    - [4. Delete an Entry](#4-delete-an-entry)
    - [5. List All Entries](#5-list-all-entries)
    - [6. Search for a Password Entry](#6-search-for-a-password-entry)
-   - [7. Export Passwords to a File](#7-export-passwords-to-a-file)
-   - [8. Import Passwords from a File](#8-import-passwords-from-a-file)
-   - [9. Display Help Information](#9-display-help-information)
-   - [10. Display Application Version](#10-display-application-version)
-   - [11. Change Master Password](#11-change-master-password)
-   - [12. Enable Auto-Lock](#12-enable-auto-lock)
-   - [13. Disable Auto-Lock](#13-disable-auto-lock)
-   - [14. Generate a Strong Password](#14-generate-a-strong-password)
-   - [15. Verify Script Checksum](#15-verify-script-checksum)
-   - [16. Post Encrypted Snapshots to Nostr](#16-post-encrypted-snapshots-to-nostr)
-   - [17. Retrieve from Nostr](#17-retrieve-from-nostr)
-   - [18. Display Nostr Public Key](#18-display-nostr-public-key)
-   - [19. Set Custom Nostr Relays](#19-set-custom-nostr-relays)
-   - [20. Enable "Secret" Mode](#20-enable-secret-mode)
-   - [21. Batch Post Snapshot Deltas to Nostr](#21-batch-post-snapshot-deltas-to-nostr)
-   - [22. Show All Passwords](#22-show-all-passwords)
+   - [7. Get a Password by Query](#7-get-a-password-by-query)
+   - [8. Display a TOTP Code](#8-display-a-totp-code)
+   - [9. Export Passwords to a File](#9-export-passwords-to-a-file)
+   - [10. Import Passwords from a File](#8-import-passwords-from-a-file)
+   - [11. Display Help Information](#9-display-help-information)
+   - [12. Display Application Version](#10-display-application-version)
+   - [13. Change Master Password](#11-change-master-password)
+   - [14. Enable Auto-Lock](#12-enable-auto-lock)
+   - [15. Disable Auto-Lock](#13-disable-auto-lock)
+   - [16. Generate a Strong Password](#14-generate-a-strong-password)
+   - [17. Verify Script Checksum](#15-verify-script-checksum)
+   - [18. Post Encrypted Snapshots to Nostr](#16-post-encrypted-snapshots-to-nostr)
+   - [19. Retrieve from Nostr](#17-retrieve-from-nostr)
+   - [20. Display Nostr Public Key](#18-display-nostr-public-key)
+   - [21. Set Custom Nostr Relays](#19-set-custom-nostr-relays)
+   - [22. Enable "Secret" Mode](#20-enable-secret-mode)
+   - [23. Batch Post Snapshot Deltas to Nostr](#21-batch-post-snapshot-deltas-to-nostr)
+   - [24. Show All Passwords](#22-show-all-passwords)
    - [23. Add Notes to an Entry](#23-add-notes-to-an-entry)
    - [24. Add Tags to an Entry](#24-add-tags-to-an-entry)
    - [25. Search by Tag or Title](#25-search-by-tag-or-title)
@@ -51,8 +53,11 @@ The following table provides a quick reference to all available advanced CLI com
 | Retrieve a password entry                 | `retrieve`             | `-R`           | `--retrieve`                      | `seedpass retrieve --index 3` or `seedpass retrieve --title "GitHub"`                                                                                                                           |
 | Modify an existing entry                  | `modify`               | `-M`           | `--modify`                        | `seedpass modify --index 3 --title "GitHub Pro" --notes "Updated to pro account" --tags "work,development,pro" --length 22`                                                                        |
 | Delete an entry                           | `delete`               | `-D`           | `--delete`                        | `seedpass delete --index 3`                                                                                                                                                                       |
-| List all entries                          | `list`                 | `-L`           | `--list`                          | `seedpass list`                                                                                                                                                                                    |
-| Search for a password entry               | `search`               | `-S`           | `--search`                        | `seedpass search --query "GitHub"`                                                                                                                                                                 |
+| List all entries                          | `list`                 | `-L`           | `--list`                          | `seedpass list --sort website`                                                                                                                                                                                    |
+| Search for a password entry               | `search`               | `-S`           | `--search`                        | `seedpass search "GitHub"`                                                                                                                                                                 |
+| Get password from query                   | `get`                  |           |                                   | `seedpass get "GitHub"`
+| Display a TOTP code                       | `totp`                 |           |                                   | `seedpass totp "email"`
+|                                           |                        |           |                                   | `seedpass list --filter totp`
 | Export passwords to a file                | `export`               | `-E`           | `--export`                        | `seedpass export --file "backup_passwords.json"`                                                                                                                                                   |
 | Import passwords from a file              | `import`               | `-I`           | `--import`                        | `seedpass import --file "backup_passwords.json"`                                                                                                                                                   |
 | Display help information                  | `help`                 | `-H`           | `--help`                          | `seedpass help`                                                                                                                                                                                    |
@@ -174,11 +179,12 @@ seedpass delete --index 3
 **Long Flag:** `--list`  
 
 **Description:**  
-Lists all password entries stored in the password manager, displaying their indices, titles, and associated tags for easy reference.
+Lists all password entries stored in the password manager. You can sort the output by index, website, or username and filter by entry type.
 
 **Usage Example:**
 ```bash
-seedpass list
+seedpass list --sort website
+seedpass list --filter totp
 ```
 
 ---
@@ -194,11 +200,43 @@ Searches for password entries based on a query string, allowing users to find sp
 
 **Usage Example:**
 ```bash
-seedpass search --query "GitHub"
+seedpass search "GitHub"
 ```
 
 **Options:**
-- `--query` (`-Q`): The search string to look for in titles, tags, or notes.
+- `<query>`: The search string to look for in titles, usernames, URLs or notes.
+
+---
+
+### 7. Get a Password by Query
+
+**Command:** `get`
+
+**Description:**
+Searches for a password entry and immediately prints the generated password when exactly one match is found.
+
+**Usage Example:**
+```bash
+seedpass get "GitHub"
+```
+
+---
+
+### 8. Display a TOTP Code
+
+**Command:** `totp`
+
+**Description:**
+Looks up a TOTP entry by query and prints the current code. The code is also copied to your clipboard if possible.
+
+**Usage Example:**
+```bash
+seedpass totp "email"
+```
+
+---
+
+### 9. Export Passwords to a File
 
 ---
 

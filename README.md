@@ -124,6 +124,16 @@ seedpass export --file "~/seedpass_backup.json"
 # Later you can restore it
 seedpass import --file "~/seedpass_backup.json"
 
+# Quickly find or retrieve entries
+seedpass search "github"
+seedpass get "github"
+seedpass totp "email"
+# The code is printed and copied to your clipboard
+
+# Sort or filter the list view
+seedpass list --sort website
+seedpass list --filter totp
+
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
 ```
