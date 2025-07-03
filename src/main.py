@@ -18,6 +18,7 @@ from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
+from utils import timed_input
 from local_bip85.bip85 import Bip85Error
 
 
@@ -568,7 +569,15 @@ def display_menu(
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(colored(menu, "cyan"))
-        choice = input("Enter your choice (1-5): ").strip()
+        try:
+            choice = timed_input(
+                "Enter your choice (1-5): ", inactivity_timeout
+            ).strip()
+        except TimeoutError:
+            print(colored("Session timed out. Vault locked.", "yellow"))
+            password_manager.lock_vault()
+            password_manager.unlock_vault()
+            continue
         password_manager.update_activity()
         if not choice:
             print(

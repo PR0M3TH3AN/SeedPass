@@ -31,7 +31,7 @@ def test_auto_sync_triggers_post(monkeypatch):
         called = True
 
     monkeypatch.setattr(main, "handle_post_to_nostr", fake_post)
-    monkeypatch.setattr("builtins.input", lambda _: "5")
+    monkeypatch.setattr(main, "timed_input", lambda *_: "5")
 
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=0.1)

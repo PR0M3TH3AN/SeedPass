@@ -21,6 +21,7 @@ try:
         canonical_json_dumps,
     )
     from .password_prompt import prompt_for_password
+    from .input_utils import timed_input
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -41,4 +42,5 @@ __all__ = [
     "exclusive_lock",
     "shared_lock",
     "prompt_for_password",
+    "timed_input",
 ]
