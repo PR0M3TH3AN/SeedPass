@@ -152,3 +152,19 @@ def derive_index_key_seed_only(seed: str) -> bytes:
 def derive_index_key(seed: str) -> bytes:
     """Derive the index encryption key."""
     return derive_index_key_seed_only(seed)
+
+
+def derive_totp_secret(seed: str, index: int) -> str:
+    """Derive a base32-encoded TOTP secret from a BIP39 seed."""
+    try:
+        from local_bip85 import BIP85
+
+        seed_bytes = Bip39SeedGenerator(seed).Generate()
+        bip85 = BIP85(seed_bytes)
+        entropy = bip85.derive_entropy(index=index, bytes_len=10, app_no=2)
+        secret = base64.b32encode(entropy).decode("utf-8")
+        logger.debug(f"Derived TOTP secret for index {index}: {secret}")
+        return secret
+    except Exception as e:
+        logger.error(f"Failed to derive TOTP secret: {e}", exc_info=True)
+        raise
