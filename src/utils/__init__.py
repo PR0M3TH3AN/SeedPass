@@ -24,6 +24,7 @@ try:
     )
     from .password_prompt import prompt_for_password
     from .input_utils import timed_input
+    from .memory_protection import InMemorySecret
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -47,4 +48,5 @@ __all__ = [
     "shared_lock",
     "prompt_for_password",
     "timed_input",
+    "InMemorySecret",
 ]
