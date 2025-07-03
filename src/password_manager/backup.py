@@ -35,7 +35,7 @@ class BackupManager:
     timestamped filenames to facilitate easy identification and retrieval.
     """
 
-    BACKUP_FILENAME_TEMPLATE = "passwords_db_backup_{timestamp}.json.enc"
+    BACKUP_FILENAME_TEMPLATE = "entries_db_backup_{timestamp}.json.enc"
 
     def __init__(self, fingerprint_dir: Path):
         """
@@ -47,7 +47,7 @@ class BackupManager:
         self.fingerprint_dir = fingerprint_dir
         self.backup_dir = self.fingerprint_dir / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
-        self.index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         logger.debug(
             f"BackupManager initialized with backup directory at {self.backup_dir}"
         )
@@ -79,7 +79,7 @@ class BackupManager:
     def restore_latest_backup(self) -> None:
         try:
             backup_files = sorted(
-                self.backup_dir.glob("passwords_db_backup_*.json.enc"),
+                self.backup_dir.glob("entries_db_backup_*.json.enc"),
                 key=lambda x: x.stat().st_mtime,
                 reverse=True,
             )
@@ -112,7 +112,7 @@ class BackupManager:
     def list_backups(self) -> None:
         try:
             backup_files = sorted(
-                self.backup_dir.glob("passwords_db_backup_*.json.enc"),
+                self.backup_dir.glob("entries_db_backup_*.json.enc"),
                 key=lambda x: x.stat().st_mtime,
                 reverse=True,
             )

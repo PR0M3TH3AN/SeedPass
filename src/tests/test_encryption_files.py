@@ -20,7 +20,7 @@ def test_json_save_and_load_round_trip():
         loaded = manager.load_json_data()
         assert loaded == data
 
-        file_path = Path(tmpdir) / "seedpass_passwords_db.json.enc"
+        file_path = Path(tmpdir) / "seedpass_entries_db.json.enc"
         raw = file_path.read_bytes()
         assert raw != json.dumps(data, indent=4).encode("utf-8")
 

@@ -769,7 +769,7 @@ class PasswordManager:
 
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally."""
-        index_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
             return
         try:

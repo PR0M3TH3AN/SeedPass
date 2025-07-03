@@ -64,9 +64,9 @@ def test_manager_workflow(monkeypatch):
 
         pm.handle_add_password()
         assert pm.is_dirty is False
-        backups = list(tmp_path.glob("passwords_db_backup_*.json.enc"))
+        backups = list(tmp_path.glob("entries_db_backup_*.json.enc"))
         assert len(backups) == 1
-        checksum_file = tmp_path / "seedpass_passwords_db_checksum.txt"
+        checksum_file = tmp_path / "seedpass_entries_db_checksum.txt"
         assert checksum_file.exists()
         checksum_after_add = checksum_file.read_text()
         first_post = pm.nostr_client.published[-1]
@@ -79,7 +79,7 @@ def test_manager_workflow(monkeypatch):
         assert pm.is_dirty is False
         pm.backup_manager.create_backup()
         backup_dir = tmp_path / "backups"
-        backups_mod = list(backup_dir.glob("passwords_db_backup_*.json.enc"))
+        backups_mod = list(backup_dir.glob("entries_db_backup_*.json.enc"))
         assert backups_mod
         checksum_after_modify = checksum_file.read_text()
         assert checksum_after_modify != checksum_after_add

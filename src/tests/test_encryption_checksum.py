@@ -21,8 +21,8 @@ def test_encryption_checksum_workflow():
         manager.save_json_data(data)
         manager.update_checksum()
 
-        enc_file = tmp_path / "seedpass_passwords_db.json.enc"
-        chk_file = tmp_path / "seedpass_passwords_db.json_checksum.txt"
+        enc_file = tmp_path / "seedpass_entries_db.json.enc"
+        chk_file = tmp_path / "seedpass_entries_db.json_checksum.txt"
 
         checksum = chk_file.read_text().strip()
         assert re.fullmatch(r"[0-9a-f]{64}", checksum)
