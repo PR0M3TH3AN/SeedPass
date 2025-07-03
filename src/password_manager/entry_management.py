@@ -385,8 +385,10 @@ class EntryManager:
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
 
-    def list_entries(self) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """List all entries in the index."""
+    def list_entries(
+        self, sort_by: str = "index", filter_kind: str | None = None
+    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
+        """List entries in the index with optional sorting and filtering."""
         try:
             data = self.vault.load_index()
             entries_data = data.get("entries", {})
@@ -396,17 +398,36 @@ class EntryManager:
                 print(colored("No entries found.", "yellow"))
                 return []
 
-            entries = []
-            for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
+            def sort_key(item: Tuple[str, Dict[str, Any]]):
+                idx_str, entry = item
+                if sort_by == "index":
+                    return int(idx_str)
+                if sort_by == "website":
+                    return entry.get("website", "").lower()
+                if sort_by == "username":
+                    return entry.get("username", "").lower()
+                raise ValueError("sort_by must be 'index', 'website', or 'username'")
+
+            sorted_items = sorted(entries_data.items(), key=sort_key)
+
+            filtered_items: List[Tuple[int, Dict[str, Any]]] = []
+            for idx_str, entry in sorted_items:
+                if (
+                    filter_kind is not None
+                    and entry.get("type", EntryType.PASSWORD.value) != filter_kind
+                ):
+                    continue
+                filtered_items.append((int(idx_str), entry))
+
+            entries: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
+            for idx, entry in filtered_items:
                 etype = entry.get("type", EntryType.PASSWORD.value)
                 if etype == EntryType.TOTP.value:
-                    entries.append(
-                        (int(idx), entry.get("label", ""), None, None, False)
-                    )
+                    entries.append((idx, entry.get("label", ""), None, None, False))
                 else:
                     entries.append(
                         (
-                            int(idx),
+                            idx,
                             entry.get("website", ""),
                             entry.get("username", ""),
                             entry.get("url", ""),
@@ -415,7 +436,7 @@ class EntryManager:
                     )
 
             logger.debug(f"Total entries found: {len(entries)}")
-            for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
+            for idx, entry in filtered_items:
                 etype = entry.get("type", EntryType.PASSWORD.value)
                 print(colored(f"Index: {idx}", "cyan"))
                 if etype == EntryType.TOTP.value:
@@ -592,12 +613,12 @@ class EntryManager:
                 )
             )
 
-    def list_all_entries(self) -> None:
-        """
-        Displays all entries in a formatted manner.
-        """
+    def list_all_entries(
+        self, sort_by: str = "index", filter_kind: str | None = None
+    ) -> None:
+        """Display all entries using :meth:`list_entries`."""
         try:
-            entries = self.list_entries()
+            entries = self.list_entries(sort_by=sort_by, filter_kind=filter_kind)
             if not entries:
                 print(colored("No entries to display.", "yellow"))
                 return
