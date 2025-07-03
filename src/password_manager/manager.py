@@ -40,6 +40,7 @@ from utils.password_prompt import (
     prompt_existing_password,
     confirm_action,
 )
+from utils.memory_protection import InMemorySecret
 from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
@@ -93,7 +94,7 @@ class PasswordManager:
         self.backup_manager: Optional[BackupManager] = None
         self.vault: Optional[Vault] = None
         self.fingerprint_manager: Optional[FingerprintManager] = None
-        self.parent_seed: Optional[str] = None
+        self._parent_seed_secret: Optional[InMemorySecret] = None
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
@@ -113,6 +114,22 @@ class PasswordManager:
 
         # Set the current fingerprint directory
         self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+
+    @property
+    def parent_seed(self) -> Optional[str]:
+        """Return the decrypted parent seed if set."""
+        if self._parent_seed_secret is None:
+            return None
+        return self._parent_seed_secret.get_str()
+
+    @parent_seed.setter
+    def parent_seed(self, value: Optional[str]) -> None:
+        if value is None:
+            if self._parent_seed_secret:
+                self._parent_seed_secret.wipe()
+            self._parent_seed_secret = None
+        else:
+            self._parent_seed_secret = InMemorySecret(value.encode("utf-8"))
 
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
