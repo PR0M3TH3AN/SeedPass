@@ -1014,13 +1014,24 @@ class PasswordManager:
                 period = int(entry.get("period", 30))
                 notes = entry.get("notes", "")
                 print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
+                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
                 try:
-                    code = self.entry_manager.get_totp_code(index, self.parent_seed)
-                    print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
-                    print(colored(f"Code: {code}", "yellow"))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    TotpManager.print_progress_bar(period)
+                    while True:
+                        code = self.entry_manager.get_totp_code(index, self.parent_seed)
+                        print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
+                        print(colored(f"Label: {label}", "cyan"))
+                        print(colored(f"Code: {code}", "yellow"))
+                        if notes:
+                            print(colored(f"Notes: {notes}", "cyan"))
+                        TotpManager.print_progress_bar(period)
+                        try:
+                            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                                user_input = sys.stdin.readline().strip().lower()
+                                if user_input == "b":
+                                    break
+                        except KeyboardInterrupt:
+                            print()
+                            break
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
