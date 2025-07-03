@@ -23,12 +23,7 @@ import traceback
 from enum import Enum
 from typing import Optional, Union
 from bip_utils import Bip39SeedGenerator
-from local_bip85.bip85 import BIP85
 
-try:
-    from monstr.encrypt import Keys
-except ImportError:  # Fall back to local coincurve implementation
-    from nostr.coincurve_keys import Keys
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
@@ -138,43 +133,6 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
     except Exception as e:
         logger.error(f"Failed to derive key using HKDF: {e}", exc_info=True)
         raise
-
-
-class KeyManager:
-    def __init__(self, parent_seed: str, fingerprint: str = None):
-        self.parent_seed = parent_seed
-        self.fingerprint = fingerprint
-        self.bip85 = self.initialize_bip85()
-        self.keys = self.generate_nostr_keys()
-
-    def initialize_bip85(self):
-        seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
-        bip85 = BIP85(seed_bytes)
-        return bip85
-
-    def generate_nostr_keys(self) -> Keys:
-        """
-        Derives a unique Nostr key pair for the given fingerprint using BIP-85.
-
-        :return: An instance of Keys containing the Nostr key pair.
-        """
-        # Use a derivation path that includes the fingerprint
-        # Convert fingerprint to an integer index (e.g., using a hash function)
-        index = (
-            int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (2**31)
-            if self.fingerprint
-            else 0
-        )
-
-        # Derive entropy for Nostr key (32 bytes)
-        entropy_bytes = self.bip85.derive_entropy(
-            app=BIP85.Applications.ENTROPY, index=index, size=32
-        )
-
-        # Generate Nostr key pair from entropy
-        private_key_hex = entropy_bytes.hex()
-        keys = Keys(priv_key=private_key_hex)
-        return keys
 
 
 def derive_index_key_seed_only(seed: str) -> bytes:
