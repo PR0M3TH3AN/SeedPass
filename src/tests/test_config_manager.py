@@ -130,3 +130,19 @@ def test_additional_backup_path_round_trip():
         cfg_mgr.set_additional_backup_path(None)
         cfg2 = cfg_mgr.load_config(require_pin=False)
         assert cfg2["additional_backup_path"] == ""
+
+
+def test_secret_mode_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, enc_mgr = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["secret_mode_enabled"] is False
+        assert cfg["clipboard_clear_delay"] == 45
+
+        cfg_mgr.set_secret_mode_enabled(True)
+        cfg_mgr.set_clipboard_clear_delay(99)
+        cfg2 = cfg_mgr.load_config(require_pin=False)
+        assert cfg2["secret_mode_enabled"] is True
+        assert cfg2["clipboard_clear_delay"] == 99

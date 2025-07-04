@@ -494,6 +494,8 @@ seedpass set-secret --disable
 - `--enable`: Activates "secret" mode.
 - `--disable`: Deactivates "secret" mode.
 
+You can also enable or disable secret mode from the interactive Settings menu by selecting **Toggle Secret Mode**.
+
 ---
 
 ### 21. Batch Post Snapshot Deltas to Nostr
