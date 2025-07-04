@@ -11,3 +11,4 @@ class EntryType(str, Enum):
     TOTP = "totp"
     SSH = "ssh"
     SEED = "seed"
+    PGP = "pgp"

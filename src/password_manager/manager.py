@@ -1021,6 +1021,95 @@ class PasswordManager:
             logging.error(f"Error during TOTP setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))
 
+    def handle_add_ssh_key(self) -> None:
+        """Add an SSH key pair entry and display the derived keys."""
+        try:
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_ssh_key(self.parent_seed, notes=notes)
+            priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
+                index, self.parent_seed
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
+            print(colored("Public Key:", "cyan"))
+            print(pub_pem)
+            print(colored("Private Key:", "cyan"))
+            print(priv_pem)
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during SSH key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add SSH key: {e}", "red"))
+
+    def handle_add_seed(self) -> None:
+        """Add a derived BIP-39 seed phrase entry."""
+        try:
+            words_input = input("Word count (12 or 24, default 24): ").strip()
+            notes = input("Notes (optional): ").strip()
+            if words_input and words_input not in {"12", "24"}:
+                print(colored("Invalid word count. Choose 12 or 24.", "red"))
+                return
+            words = int(words_input) if words_input else 24
+            index = self.entry_manager.add_seed(
+                self.parent_seed, words_num=words, notes=notes
+            )
+            phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] Seed entry added with ID {index}.\n", "green"))
+            print(colored("Seed Phrase:", "cyan"))
+            print(colored(phrase, "yellow"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
+
+    def handle_add_pgp(self) -> None:
+        """Add a PGP key entry and display the generated key."""
+        try:
+            key_type = (
+                input("Key type (ed25519 or rsa, default ed25519): ").strip().lower()
+                or "ed25519"
+            )
+            user_id = input("User ID (optional): ").strip()
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_pgp_key(
+                self.parent_seed,
+                key_type=key_type,
+                user_id=user_id,
+                notes=notes,
+            )
+            priv_key, fingerprint = self.entry_manager.get_pgp_key(
+                index, self.parent_seed
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
+            print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+            print(priv_key)
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during PGP key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add PGP key: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1028,7 +1117,7 @@ class PasswordManager:
         """
         try:
             index_input = input(
-                "Enter the index number of the password to retrieve: "
+                "Enter the index number of the entry to retrieve: "
             ).strip()
             if not index_input.isdigit():
                 print(colored("Error: Index must be a number.", "red"))
@@ -1092,6 +1181,94 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                return
+            if entry_type == EntryType.SSH.value:
+                notes = entry.get("notes", "")
+                try:
+                    priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                        print(colored("Public Key:", "cyan"))
+                        print(pub_pem)
+                    else:
+                        print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
+                        print(colored("Public Key:", "cyan"))
+                        print(pub_pem)
+                        print(colored("Private Key:", "cyan"))
+                        print(priv_pem)
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                return
+            if entry_type == EntryType.SEED.value:
+                notes = entry.get("notes", "")
+                try:
+                    phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(phrase, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                        print(colored(phrase, "yellow"))
+                    if confirm_action("Show derived entropy as hex? (Y/N): "):
+                        from local_bip85.bip85 import BIP85
+                        from bip_utils import Bip39SeedGenerator
+
+                        words = int(entry.get("words", 24))
+                        bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
+                        seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+                        bip85 = BIP85(seed_bytes)
+                        entropy = bip85.derive_entropy(
+                            index=int(entry.get("index", index)),
+                            bytes_len=bytes_len,
+                            app_no=39,
+                            words_len=words,
+                        )
+                        print(colored(f"Entropy: {entropy.hex()}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                return
+            if entry_type == EntryType.PGP.value:
+                notes = entry.get("notes", "")
+                try:
+                    priv_key, fingerprint = self.entry_manager.get_pgp_key(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(priv_key, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("\n[+] Retrieved PGP Key:\n", "green"))
+                        print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                        print(priv_key)
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving PGP key: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
                 return
 
             website_name = entry.get("website")
@@ -1948,7 +2125,7 @@ class PasswordManager:
         # Entry counts by type
         data = self.entry_manager.vault.load_index()
         entries = data.get("entries", {})
-        counts: dict[str, int] = {}
+        counts: dict[str, int] = {etype.value: 0 for etype in EntryType}
         for entry in entries.values():
             etype = entry.get("type", EntryType.PASSWORD.value)
             counts[etype] = counts.get(etype, 0) + 1

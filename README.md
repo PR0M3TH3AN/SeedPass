@@ -59,6 +59,30 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 ## Installation
 
+
+### Quick Installer
+
+Use the automated installer to download SeedPass and its dependencies in one step.
+
+**Linux and macOS:**
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+```
+*Install the beta branch:*
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
+```
+
+**Windows (PowerShell):**
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
+```
+*Install the beta branch:*
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent)) -Branch beta
+```
+
+### Manual Setup
 Follow these steps to set up SeedPass on your local machine.
 
 ### 1. Clone the Repository
@@ -205,7 +229,8 @@ python src/main.py
    Enter your choice (1-7):
   ```
 
-   When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
+   When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
+   **SSH Key**, **Seed Phrase**, or **PGP Key**.
 
 ### Adding a 2FA Entry
 
@@ -287,7 +312,8 @@ Back in the Settings menu you can:
 * Choose `10` to set an additional backup location.
 * Select `11` to change the inactivity timeout.
 * Choose `12` to lock the vault and require re-entry of your password.
-* Select `13` to view seed profile stats.
+* Select `13` to view seed profile stats. The summary lists counts for
+  passwords, TOTP codes, SSH keys, seed phrases, and PGP keys.
 * Choose `14` to toggle Secret Mode and set the clipboard clear delay.
 * Select `15` to return to the main menu.
 

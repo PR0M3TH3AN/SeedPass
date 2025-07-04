@@ -58,6 +58,7 @@ def test_handle_add_totp(monkeypatch, capsys):
         entry = entry_mgr.retrieve_entry(0)
         assert entry == {
             "type": "totp",
+            "kind": "totp",
             "label": "Example",
             "index": 0,
             "period": 30,

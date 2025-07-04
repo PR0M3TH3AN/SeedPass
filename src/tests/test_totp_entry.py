@@ -30,6 +30,7 @@ def test_add_totp_and_get_code():
         entry = entry_mgr.retrieve_entry(0)
         assert entry == {
             "type": "totp",
+            "kind": "totp",
             "label": "Example",
             "index": 0,
             "period": 30,
@@ -66,6 +67,7 @@ def test_add_totp_imported(tmp_path):
     entry = em.retrieve_entry(0)
     assert entry == {
         "type": "totp",
+        "kind": "totp",
         "label": "Imported",
         "secret": secret,
         "period": 30,

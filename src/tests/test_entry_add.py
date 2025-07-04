@@ -31,6 +31,7 @@ def test_add_and_retrieve_entry():
             "url": "",
             "blacklisted": False,
             "type": "password",
+            "kind": "password",
             "notes": "",
         }
 
@@ -61,14 +62,19 @@ def test_round_trip_entry_types(method, expected_type):
             entry_mgr.add_totp("example", TEST_SEED)
             index = 0
         else:
-            with pytest.raises(NotImplementedError):
-                getattr(entry_mgr, method)()
-            index = 0
+            if method == "add_ssh_key":
+                index = entry_mgr.add_ssh_key(TEST_SEED)
+            elif method == "add_seed":
+                index = entry_mgr.add_seed(TEST_SEED)
+            else:
+                index = getattr(entry_mgr, method)()
 
         entry = entry_mgr.retrieve_entry(index)
         assert entry["type"] == expected_type
+        assert entry["kind"] == expected_type
         data = enc_mgr.load_json_data(entry_mgr.index_file)
         assert data["entries"][str(index)]["type"] == expected_type
+        assert data["entries"][str(index)]["kind"] == expected_type
 
 
 def test_legacy_entry_defaults_to_password():
