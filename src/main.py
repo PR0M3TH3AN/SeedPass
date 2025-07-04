@@ -19,9 +19,8 @@ from nostr.client import NostrClient
 from password_manager.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
-from utils import timed_input
+from utils import timed_input, copy_to_clipboard
 from local_bip85.bip85 import Bip85Error
-import pyperclip
 
 
 colorama_init()
@@ -852,7 +851,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(code)
         try:
-            pyperclip.copy(code)
+            copy_to_clipboard(code, password_manager.clipboard_clear_delay)
             print(colored("Code copied to clipboard", "green"))
         except Exception as exc:
             logging.warning(f"Clipboard copy failed: {exc}")
