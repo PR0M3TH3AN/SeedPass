@@ -1985,13 +1985,33 @@ class PasswordManager:
 
         # Nostr sync info
         manifest = getattr(self.nostr_client, "current_manifest", None)
+        if manifest is None:
+            try:
+                result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+                if result:
+                    manifest, _ = result
+            except Exception:
+                manifest = None
+
         if manifest is not None:
             stats["chunk_count"] = len(manifest.chunks)
             stats["delta_since"] = manifest.delta_since
+            delta_count = 0
+            if manifest.delta_since:
+                try:
+                    version = int(manifest.delta_since)
+                except ValueError:
+                    version = 0
+                try:
+                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                    delta_count = len(deltas)
+                except Exception:
+                    delta_count = 0
+            stats["pending_deltas"] = delta_count
         else:
             stats["chunk_count"] = 0
             stats["delta_since"] = None
-        stats["pending_deltas"] = len(getattr(self.nostr_client, "_delta_events", []))
+            stats["pending_deltas"] = 0
 
         return stats
 
