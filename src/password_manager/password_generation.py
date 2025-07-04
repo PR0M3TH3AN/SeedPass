@@ -452,11 +452,11 @@ def derive_pgp_key(
     uid = PGPUID.new(user_id)
     key.add_uid(
         uid,
-        usage={
+        usage=[
             KeyFlags.Sign,
             KeyFlags.EncryptCommunications,
             KeyFlags.EncryptStorage,
-        },
+        ],
         hashes=[HashAlgorithm.SHA256],
         ciphers=[SymmetricKeyAlgorithm.AES256],
         compression=[CompressionAlgorithm.ZLIB],

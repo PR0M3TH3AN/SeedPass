@@ -59,6 +59,30 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 ## Installation
 
+
+### Quick Installer
+
+Use the automated installer to download SeedPass and its dependencies in one step.
+
+**Linux and macOS:**
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+```
+*Install the beta branch:*
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
+```
+
+**Windows (PowerShell):**
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
+```
+*Install the beta branch:*
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent)) -Branch beta
+```
+
+### Manual Setup
 Follow these steps to set up SeedPass on your local machine.
 
 ### 1. Clone the Repository
