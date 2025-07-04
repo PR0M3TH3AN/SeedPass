@@ -22,7 +22,11 @@ from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
-from password_manager.password_generation import PasswordGenerator
+from password_manager.password_generation import (
+    PasswordGenerator,
+    derive_ssh_key,
+    derive_seed_phrase,
+)
 from password_manager.backup import BackupManager
 from password_manager.vault import Vault
 from password_manager.portable_backup import export_backup, import_backup
@@ -1021,6 +1025,83 @@ class PasswordManager:
             logging.error(f"Error during TOTP setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))
 
+    def handle_add_ssh_key(self) -> None:
+        """Add a new SSH key entry derived from the seed."""
+        try:
+            notes = input("Enter notes (optional): ").strip()
+            ssh_index = self.entry_manager.get_next_ssh_index()
+            entry_id = self.entry_manager.add_ssh_key(index=ssh_index, notes=notes)
+            self.is_dirty = True
+            self.last_update = time.time()
+            key_hex = derive_ssh_key(self.password_generator.bip85, ssh_index).hex()
+            print(colored(f"\n[+] SSH key entry added with ID {entry_id}.", "green"))
+            print(colored(f"Derivation index: {ssh_index}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(key_hex, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"SSH key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"SSH key (hex): {key_hex}", "yellow"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during SSH key generation: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add SSH key: {e}", "red"))
+
+    def handle_add_seed(self) -> None:
+        """Add a new BIP-39 seed phrase entry derived from the seed."""
+        try:
+            words_input = input("Number of words (12 or 24, default 24): ").strip()
+            notes = input("Enter notes (optional): ").strip()
+            words = 24
+            if words_input:
+                if words_input not in {"12", "24"}:
+                    print(colored("Invalid word count. Use 12 or 24.", "red"))
+                    return
+                words = int(words_input)
+            seed_index = self.entry_manager.get_next_seed_index()
+            entry_id = self.entry_manager.add_seed(
+                index=seed_index, words=words, notes=notes
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+            phrase = derive_seed_phrase(
+                self.password_generator.bip85, seed_index, words
+            )
+            print(
+                colored(f"\n[+] Seed phrase entry added with ID {entry_id}.", "green")
+            )
+            print(colored(f"Derivation index: {seed_index}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(phrase, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"Seed phrase: {phrase}", "yellow"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during seed phrase generation: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1092,6 +1173,57 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                return
+
+            elif entry_type == EntryType.SSH.value:
+                ssh_index = int(entry.get("index", 0))
+                notes = entry.get("notes", "")
+                ssh_key = derive_ssh_key(self.password_generator.bip85, ssh_index).hex()
+                print(
+                    colored(
+                        f"Retrieving SSH key derived from index {ssh_index}.", "cyan"
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(ssh_key, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] SSH key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(colored("\n[+] Retrieved SSH Key:\n", "green"))
+                    print(colored(ssh_key, "yellow"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                return
+            elif entry_type == EntryType.SEED.value:
+                seed_index = int(entry.get("index", 0))
+                words = int(entry.get("words", 24))
+                notes = entry.get("notes", "")
+                phrase = derive_seed_phrase(
+                    self.password_generator.bip85, seed_index, words
+                )
+                print(
+                    colored(
+                        f"Retrieving {words}-word seed derived from index {seed_index}.",
+                        "cyan",
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(phrase, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                    print(colored(phrase, "yellow"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
                 return
 
             website_name = entry.get("website")
