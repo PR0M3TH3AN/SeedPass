@@ -729,9 +729,7 @@ def display_menu(
                 print("\nAdd Entry:")
                 print("1. Password")
                 print("2. 2FA (TOTP)")
-                print("3. SSH Key")
-                print("4. BIP-39 Seed")
-                print("5. Back")
+                print("3. Back")
                 sub_choice = input("Select entry type: ").strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
@@ -741,12 +739,6 @@ def display_menu(
                     password_manager.handle_add_totp()
                     break
                 elif sub_choice == "3":
-                    password_manager.handle_add_ssh_key()
-                    break
-                elif sub_choice == "4":
-                    password_manager.handle_add_seed()
-                    break
-                elif sub_choice == "5":
                     break
                 else:
                     print(colored("Invalid choice.", "red"))
