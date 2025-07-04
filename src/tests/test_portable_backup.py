@@ -1,5 +1,6 @@
 import json
 import base64
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -30,13 +31,13 @@ def setup_vault(tmp: Path):
     vault = Vault(enc_mgr, tmp)
     cfg = ConfigManager(vault, tmp)
     backup = BackupManager(tmp, cfg)
-    return vault, backup
+    return vault, backup, cfg
 
 
 def test_round_trip(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault, backup = setup_vault(tmp)
+        vault, backup, _ = setup_vault(tmp)
         data = {"pw": 1}
         vault.save_index(data)
 
@@ -54,7 +55,7 @@ from cryptography.fernet import InvalidToken
 def test_corruption_detection(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault, backup = setup_vault(tmp)
+        vault, backup, _ = setup_vault(tmp)
         vault.save_index({"a": 1})
 
         path = export_backup(vault, backup, parent_seed=SEED)
@@ -72,7 +73,7 @@ def test_corruption_detection(monkeypatch):
 def test_import_over_existing(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault, backup = setup_vault(tmp)
+        vault, backup, _ = setup_vault(tmp)
         vault.save_index({"v": 1})
 
         path = export_backup(vault, backup, parent_seed=SEED)
@@ -86,7 +87,7 @@ def test_import_over_existing(monkeypatch):
 def test_checksum_mismatch_detection(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault, backup = setup_vault(tmp)
+        vault, backup, _ = setup_vault(tmp)
         vault.save_index({"a": 1})
 
         path = export_backup(vault, backup, parent_seed=SEED)
@@ -110,10 +111,38 @@ def test_export_import_seed_encrypted_with_different_key(monkeypatch):
     """Ensure backup round trip works when seed is encrypted with another key."""
     with TemporaryDirectory() as td:
         tmp = Path(td)
-        vault, backup = setup_vault(tmp)
+        vault, backup, _ = setup_vault(tmp)
         vault.save_index({"v": 123})
 
         path = export_backup(vault, backup, parent_seed=SEED)
         vault.save_index({"v": 0})
         import_backup(vault, backup, path, parent_seed=SEED)
         assert vault.load_index()["v"] == 123
+
+
+def test_export_creates_additional_backup_and_import(monkeypatch):
+    with TemporaryDirectory() as td, TemporaryDirectory() as extra:
+        tmp = Path(td)
+
+        seed_key = derive_key_from_password(PASSWORD)
+        seed_mgr = EncryptionManager(seed_key, tmp)
+        seed_mgr.encrypt_parent_seed(SEED)
+
+        index_key = derive_index_key(SEED)
+        enc_mgr = EncryptionManager(index_key, tmp)
+        vault = Vault(enc_mgr, tmp)
+        cfg = ConfigManager(vault, tmp)
+        cfg.set_additional_backup_path(extra)
+        backup = BackupManager(tmp, cfg)
+
+        vault.save_index({"v": 1})
+
+        monkeypatch.setattr(time, "time", lambda: 4444)
+        path = export_backup(vault, backup, parent_seed=SEED)
+
+        extra_file = Path(extra) / f"{tmp.name}_{path.name}"
+        assert extra_file.exists()
+
+        vault.save_index({"v": 0})
+        import_backup(vault, backup, extra_file, parent_seed=SEED)
+        assert vault.load_index()["v"] == 1
