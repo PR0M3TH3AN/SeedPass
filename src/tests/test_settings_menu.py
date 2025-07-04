@@ -93,7 +93,7 @@ def test_settings_menu_additional_backup(monkeypatch):
         tmp_path = Path(tmpdir)
         pm, cfg_mgr, fp_mgr = setup_pm(tmp_path, monkeypatch)
 
-        inputs = iter(["9", "12"])
+        inputs = iter(["9", "13"])
         with patch("main.handle_set_additional_backup_location") as handler:
             with patch("builtins.input", side_effect=lambda *_: next(inputs)):
                 main.handle_settings(pm)

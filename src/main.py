@@ -584,8 +584,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("9. Set additional backup location")
         print("10. Set inactivity timeout")
         print("11. Lock Vault")
-        print("12. Back")
-        print("13. Stats")
+        print("12. Stats")
+        print("13. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -614,9 +614,9 @@ def handle_settings(password_manager: PasswordManager) -> None:
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
         elif choice == "12":
-            break
-        elif choice == "13":
             handle_display_stats(password_manager)
+        elif choice == "13":
+            break
         else:
             print(colored("Invalid choice.", "red"))
 
