@@ -205,7 +205,8 @@ python src/main.py
    Enter your choice (1-7):
   ```
 
-   When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
+   When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
+   **SSH Key**, or **Seed Phrase**.
 
 ### Adding a 2FA Entry
 

@@ -58,9 +58,13 @@ class EntryManager:
         if self.index_file.exists():
             try:
                 data = self.vault.load_index()
-                # Ensure legacy entries without a type are treated as passwords
+                # Normalize legacy fields
                 for entry in data.get("entries", {}).values():
-                    entry.setdefault("type", EntryType.PASSWORD.value)
+                    if "type" not in entry and "kind" in entry:
+                        entry["type"] = entry["kind"]
+                    if "kind" not in entry:
+                        entry["kind"] = entry.get("type", EntryType.PASSWORD.value)
+                    entry.setdefault("type", entry["kind"])
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -132,6 +136,7 @@ class EntryManager:
                 "url": url if url else "",
                 "blacklisted": blacklisted,
                 "type": EntryType.PASSWORD.value,
+                "kind": EntryType.PASSWORD.value,
                 "notes": notes,
             }
 
@@ -158,7 +163,10 @@ class EntryManager:
         indices = [
             int(v.get("index", 0))
             for v in entries.values()
-            if v.get("type") == EntryType.TOTP.value
+            if (
+                v.get("type") == EntryType.TOTP.value
+                or v.get("kind") == EntryType.TOTP.value
+            )
         ]
         return (max(indices) + 1) if indices else 0
 
@@ -183,6 +191,7 @@ class EntryManager:
             secret = TotpManager.derive_secret(parent_seed, index)
             entry = {
                 "type": EntryType.TOTP.value,
+                "kind": EntryType.TOTP.value,
                 "label": label,
                 "index": index,
                 "period": period,
@@ -191,6 +200,7 @@ class EntryManager:
         else:
             entry = {
                 "type": EntryType.TOTP.value,
+                "kind": EntryType.TOTP.value,
                 "label": label,
                 "secret": secret,
                 "period": period,
@@ -226,6 +236,7 @@ class EntryManager:
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.SSH.value,
+            "kind": EntryType.SSH.value,
             "index": index,
             "notes": notes,
         }
@@ -238,7 +249,9 @@ class EntryManager:
         """Return the PEM formatted SSH key pair for the given entry."""
 
         entry = self.retrieve_entry(index)
-        if not entry or entry.get("type") != EntryType.SSH.value:
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (etype != EntryType.SSH.value and kind != EntryType.SSH.value):
             raise ValueError("Entry is not an SSH key entry")
 
         from password_manager.password_generation import derive_ssh_key_pair
@@ -262,6 +275,7 @@ class EntryManager:
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.SEED.value,
+            "kind": EntryType.SEED.value,
             "index": index,
             "words": words_num,
             "notes": notes,
@@ -275,7 +289,11 @@ class EntryManager:
         """Return the mnemonic seed phrase for the given entry."""
 
         entry = self.retrieve_entry(index)
-        if not entry or entry.get("type") != EntryType.SEED.value:
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.SEED.value and kind != EntryType.SEED.value
+        ):
             raise ValueError("Entry is not a seed entry")
 
         from password_manager.password_generation import derive_seed_phrase
@@ -294,7 +312,11 @@ class EntryManager:
     ) -> str:
         """Return the current TOTP code for the specified entry."""
         entry = self.retrieve_entry(index)
-        if not entry or entry.get("type") != EntryType.TOTP.value:
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
+        ):
             raise ValueError("Entry is not a TOTP entry")
         if "secret" in entry:
             return TotpManager.current_code_from_secret(entry["secret"], timestamp)
@@ -306,7 +328,11 @@ class EntryManager:
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""
         entry = self.retrieve_entry(index)
-        if not entry or entry.get("type") != EntryType.TOTP.value:
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
+        ):
             raise ValueError("Entry is not a TOTP entry")
 
         period = int(entry.get("period", 30))
@@ -395,7 +421,7 @@ class EntryManager:
                 )
                 return
 
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
 
             if entry_type == EntryType.TOTP.value:
                 if label is not None:
@@ -472,14 +498,15 @@ class EntryManager:
             for idx_str, entry in sorted_items:
                 if (
                     filter_kind is not None
-                    and entry.get("type", EntryType.PASSWORD.value) != filter_kind
+                    and entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+                    != filter_kind
                 ):
                     continue
                 filtered_items.append((int(idx_str), entry))
 
             entries: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
             for idx, entry in filtered_items:
-                etype = entry.get("type", EntryType.PASSWORD.value)
+                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 if etype == EntryType.TOTP.value:
                     entries.append((idx, entry.get("label", ""), None, None, False))
                 else:
@@ -495,7 +522,7 @@ class EntryManager:
 
             logger.debug(f"Total entries found: {len(entries)}")
             for idx, entry in filtered_items:
-                etype = entry.get("type", EntryType.PASSWORD.value)
+                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 print(colored(f"Index: {idx}", "cyan"))
                 if etype == EntryType.TOTP.value:
                     print(colored("  Type: TOTP", "cyan"))
@@ -542,7 +569,7 @@ class EntryManager:
         results: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
-            etype = entry.get("type", EntryType.PASSWORD.value)
+            etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
             if etype == EntryType.TOTP.value:
                 label = entry.get("label", "")
                 notes = entry.get("notes", "")
