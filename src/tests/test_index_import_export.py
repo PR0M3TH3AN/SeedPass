@@ -31,8 +31,16 @@ def test_index_export_import_round_trip():
         vault = setup_vault(tmp)
 
         original = {
-            "schema_version": 2,
-            "entries": {"0": {"website": "example", "type": "password", "notes": ""}},
+            "schema_version": 3,
+            "entries": {
+                "0": {
+                    "website": "example",
+                    "type": "password",
+                    "notes": "",
+                    "custom_fields": [],
+                    "origin": "",
+                }
+            },
         }
         vault.save_index(original)
 
@@ -41,9 +49,15 @@ def test_index_export_import_round_trip():
 
         vault.save_index(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "entries": {
-                    "0": {"website": "changed", "type": "password", "notes": ""}
+                    "0": {
+                        "website": "changed",
+                        "type": "password",
+                        "notes": "",
+                        "custom_fields": [],
+                        "origin": "",
+                    }
                 },
             }
         )
