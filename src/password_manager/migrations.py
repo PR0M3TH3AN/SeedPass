@@ -39,7 +39,18 @@ def _v1_to_v2(data: dict) -> dict:
     return data
 
 
-LATEST_VERSION = 2
+@migration(2)
+def _v2_to_v3(data: dict) -> dict:
+    """Add custom_fields and origin defaults to each entry."""
+    entries = data.get("entries", {})
+    for entry in entries.values():
+        entry.setdefault("custom_fields", [])
+        entry.setdefault("origin", "")
+    data["schema_version"] = 3
+    return data
+
+
+LATEST_VERSION = 3
 
 
 def apply_migrations(data: dict) -> dict:
