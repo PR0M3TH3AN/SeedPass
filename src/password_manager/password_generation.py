@@ -25,8 +25,10 @@ from termcolor import colored
 from pathlib import Path
 import shutil
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.backends import default_backend
+from bip_utils import Bip39SeedGenerator
 
 from local_bip85.bip85 import BIP85
 
@@ -338,6 +340,29 @@ class PasswordGenerator:
 def derive_ssh_key(bip85: BIP85, idx: int) -> bytes:
     """Derive 32 bytes of entropy suitable for an SSH key."""
     return bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+
+
+def derive_ssh_key_pair(parent_seed: str, index: int) -> tuple[str, str]:
+    """Derive an Ed25519 SSH key pair from the seed phrase and index."""
+
+    seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+    bip85 = BIP85(seed_bytes)
+    entropy = derive_ssh_key(bip85, index)
+
+    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(entropy)
+    priv_pem = private_key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+
+    public_key = private_key.public_key()
+    pub_pem = public_key.public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode()
+
+    return priv_pem, pub_pem
 
 
 def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:

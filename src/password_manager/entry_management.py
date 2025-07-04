@@ -209,16 +209,42 @@ class EntryManager:
             logger.error(f"Failed to generate otpauth URI: {e}")
             raise
 
-    def add_ssh_key(self, notes: str = "") -> int:
-        """Placeholder for adding an SSH key entry."""
-        index = self.get_next_index()
+    def add_ssh_key(
+        self, parent_seed: str, index: int | None = None, notes: str = ""
+    ) -> int:
+        """Add a new SSH key pair entry.
+
+        The provided ``index`` serves both as the vault entry identifier and
+        derivation index for the key. If not supplied, the next available index
+        is used. Only metadata is stored – keys are derived on demand.
+        """
+
+        if index is None:
+            index = self.get_next_index()
+
         data = self.vault.load_index()
         data.setdefault("entries", {})
-        data["entries"][str(index)] = {"type": EntryType.SSH.value, "notes": notes}
+        data["entries"][str(index)] = {
+            "type": EntryType.SSH.value,
+            "index": index,
+            "notes": notes,
+        }
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
-        raise NotImplementedError("SSH key entry support not implemented yet")
+        return index
+
+    def get_ssh_key_pair(self, index: int, parent_seed: str) -> tuple[str, str]:
+        """Return the PEM formatted SSH key pair for the given entry."""
+
+        entry = self.retrieve_entry(index)
+        if not entry or entry.get("type") != EntryType.SSH.value:
+            raise ValueError("Entry is not an SSH key entry")
+
+        from password_manager.password_generation import derive_ssh_key_pair
+
+        key_index = int(entry.get("index", index))
+        return derive_ssh_key_pair(parent_seed, key_index)
 
     def add_seed(self, notes: str = "") -> int:
         """Placeholder for adding a seed entry."""
