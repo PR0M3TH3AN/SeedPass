@@ -310,6 +310,56 @@ class EntryManager:
         user_id = entry.get("user_id", "")
         return derive_pgp_key(bip85, key_idx, key_type, user_id)
 
+    def add_nostr_key(
+        self,
+        label: str,
+        index: int | None = None,
+        notes: str = "",
+    ) -> int:
+        """Add a new Nostr key pair entry."""
+
+        if index is None:
+            index = self.get_next_index()
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.NOSTR.value,
+            "kind": EntryType.NOSTR.value,
+            "index": index,
+            "label": label,
+            "notes": notes,
+        }
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def get_nostr_key_pair(self, index: int, parent_seed: str) -> tuple[str, str]:
+        """Return the npub and nsec for the specified entry."""
+
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.NOSTR.value and kind != EntryType.NOSTR.value
+        ):
+            raise ValueError("Entry is not a Nostr key entry")
+
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+        from nostr.coincurve_keys import Keys
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        key_idx = int(entry.get("index", index))
+        entropy = bip85.derive_entropy(index=key_idx, bytes_len=32)
+        keys = Keys(priv_k=entropy.hex())
+        npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
+        nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
+        return npub, nsec
+
     def add_seed(
         self,
         parent_seed: str,

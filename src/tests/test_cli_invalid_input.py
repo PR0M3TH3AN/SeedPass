@@ -77,7 +77,7 @@ def test_out_of_range_menu(monkeypatch, capsys):
 def test_invalid_add_entry_submenu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["1", "7", "6", "7"])
+    inputs = iter(["1", "8", "7", "7"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
