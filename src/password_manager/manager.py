@@ -1076,6 +1076,40 @@ class PasswordManager:
             logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
 
+    def handle_add_pgp(self) -> None:
+        """Add a PGP key entry and display the generated key."""
+        try:
+            key_type = (
+                input("Key type (ed25519 or rsa, default ed25519): ").strip().lower()
+                or "ed25519"
+            )
+            user_id = input("User ID (optional): ").strip()
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_pgp_key(
+                self.parent_seed,
+                key_type=key_type,
+                user_id=user_id,
+                notes=notes,
+            )
+            priv_key, fingerprint = self.entry_manager.get_pgp_key(
+                index, self.parent_seed
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
+            print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+            print(priv_key)
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during PGP key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add PGP key: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1083,7 +1117,7 @@ class PasswordManager:
         """
         try:
             index_input = input(
-                "Enter the index number of the password to retrieve: "
+                "Enter the index number of the entry to retrieve: "
             ).strip()
             if not index_input.isdigit():
                 print(colored("Error: Index must be a number.", "red"))
@@ -2091,7 +2125,7 @@ class PasswordManager:
         # Entry counts by type
         data = self.entry_manager.vault.load_index()
         entries = data.get("entries", {})
-        counts: dict[str, int] = {}
+        counts: dict[str, int] = {etype.value: 0 for etype in EntryType}
         for entry in entries.values():
             etype = entry.get("type", EntryType.PASSWORD.value)
             counts[etype] = counts.get(etype, 0) + 1
