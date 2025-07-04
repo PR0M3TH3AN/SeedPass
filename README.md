@@ -288,7 +288,7 @@ when a new snapshot is triggered. Use the `NOSTR_TEST_DELAY` environment
 variable to control the delay between publishes when experimenting with large vaults.
 
 ```bash
-NOSTR_TEST_DELAY=10 pytest -vv src/tests/test_nostr_index_size.py -m "desktop and network"
+pytest -vv -s -n 0 src/tests/test_nostr_index_size.py --desktop --max-entries=1000
 ```
 
 ### Automatically Updating the Script Checksum
