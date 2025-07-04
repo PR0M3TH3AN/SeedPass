@@ -88,12 +88,13 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
                         )
                         retrieved_ok = retrieved == encrypted
                     results.append((entry_count, payload_size, True, retrieved_ok))
-                    if (
-                        not retrieved_ok
-                        or payload_size > max_payload
-                        or (max_entries is not None and entry_count >= max_entries)
-                    ):
-                        break
+                    if max_entries is not None:
+                        if entry_count >= max_entries:
+                            break
+                    else:
+                        if not retrieved_ok or payload_size > max_payload:
+                            break
+
                     size *= 2
             except Exception:
                 results.append((entry_count + 1, None, False, False))
