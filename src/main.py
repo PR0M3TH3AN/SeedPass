@@ -16,10 +16,12 @@ import traceback
 
 from password_manager.manager import PasswordManager
 from nostr.client import NostrClient
+from password_manager.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
 from utils import timed_input
 from local_bip85.bip85 import Bip85Error
+import pyperclip
 
 
 colorama_init()
@@ -231,6 +233,22 @@ def handle_display_stats(password_manager: PasswordManager) -> None:
     except Exception as e:  # pragma: no cover - display best effort
         logging.error(f"Failed to display stats: {e}", exc_info=True)
         print(colored(f"Error: Failed to display stats: {e}", "red"))
+
+
+def print_matches(matches: list[tuple[int, str, str | None, str | None, bool]]) -> None:
+    """Print a list of search matches."""
+    print(colored("\n[+] Matches:\n", "green"))
+    for entry in matches:
+        idx, website, username, url, blacklisted = entry
+        print(colored(f"Index: {idx}", "cyan"))
+        if website:
+            print(colored(f"  Website: {website}", "cyan"))
+        if username:
+            print(colored(f"  Username: {username}", "cyan"))
+        if url:
+            print(colored(f"  URL: {url}", "cyan"))
+        print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+        print("-" * 40)
 
 
 def handle_post_to_nostr(
@@ -481,6 +499,47 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_toggle_secret_mode(pm: PasswordManager) -> None:
+    """Toggle secret mode and adjust clipboard delay."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_secret_mode_enabled()
+        delay = cfg.get_clipboard_clear_delay()
+    except Exception as exc:
+        logging.error(f"Error loading secret mode settings: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Secret mode is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    value = input("Enable secret mode? (y/n, blank to keep): ").strip().lower()
+    if value in ("y", "yes"):
+        enabled = True
+    elif value in ("n", "no"):
+        enabled = False
+    dur = input(f"Clipboard clear delay in seconds [{delay}]: ").strip()
+    if dur:
+        try:
+            delay = int(dur)
+            if delay <= 0:
+                print(colored("Delay must be positive.", "red"))
+                return
+        except ValueError:
+            print(colored("Invalid number.", "red"))
+            return
+    try:
+        cfg.set_secret_mode_enabled(enabled)
+        cfg.set_clipboard_clear_delay(delay)
+        pm.secret_mode_enabled = enabled
+        pm.clipboard_clear_delay = delay
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Secret mode {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving secret mode: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -566,8 +625,9 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("9. Set additional backup location")
         print("10. Set inactivity timeout")
         print("11. Lock Vault")
-        print("12. Back")
-        print("13. Stats")
+        print("12. Stats")
+        print("13. Toggle Secret Mode")
+        print("14. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -596,9 +656,11 @@ def handle_settings(password_manager: PasswordManager) -> None:
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
         elif choice == "12":
-            break
-        elif choice == "13":
             handle_display_stats(password_manager)
+        elif choice == "13":
+            handle_toggle_secret_mode(password_manager)
+        elif choice == "14":
+            break
         else:
             print(colored("Invalid choice.", "red"))
 
@@ -615,10 +677,11 @@ def display_menu(
     Select an option:
     1. Add Entry
     2. Retrieve Entry
-    3. Modify an Existing Entry
-    4. 2FA Codes
-    5. Settings
-    6. Exit
+    3. Search Entries
+    4. Modify an Existing Entry
+    5. 2FA Codes
+    6. Settings
+    7. Exit
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
@@ -643,7 +706,7 @@ def display_menu(
         print(colored(menu, "cyan"))
         try:
             choice = timed_input(
-                "Enter your choice (1-6): ", inactivity_timeout
+                "Enter your choice (1-7): ", inactivity_timeout
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -654,7 +717,7 @@ def display_menu(
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 6.",
+                    "No input detected. Please enter a number between 1 and 7.",
                     "yellow",
                 )
             )
@@ -682,14 +745,17 @@ def display_menu(
             password_manager.handle_retrieve_entry()
         elif choice == "3":
             password_manager.update_activity()
-            password_manager.handle_modify_entry()
+            password_manager.handle_search_entries()
         elif choice == "4":
             password_manager.update_activity()
-            password_manager.handle_display_totp_codes()
+            password_manager.handle_modify_entry()
         elif choice == "5":
             password_manager.update_activity()
-            handle_settings(password_manager)
+            password_manager.handle_display_totp_codes()
         elif choice == "6":
+            password_manager.update_activity()
+            handle_settings(password_manager)
+        elif choice == "7":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()
@@ -698,15 +764,14 @@ def display_menu(
             print(colored("Invalid choice. Please select a valid option.", "red"))
 
 
-if __name__ == "__main__":
-    # Configure logging with both file and console handlers
+def main(argv: list[str] | None = None) -> int:
+    """Entry point for the SeedPass CLI."""
     configure_logging()
     initialize_app()
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")
 
-    # Load config from disk and parse command-line arguments
-    cfg = load_global_config()
+    load_global_config()
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
 
@@ -716,48 +781,97 @@ if __name__ == "__main__":
     imp = sub.add_parser("import")
     imp.add_argument("--file")
 
-    args = parser.parse_args()
+    search_p = sub.add_parser("search")
+    search_p.add_argument("query")
 
-    # Initialize PasswordManager and proceed with application logic
+    get_p = sub.add_parser("get")
+    get_p.add_argument("query")
+
+    totp_p = sub.add_parser("totp")
+    totp_p.add_argument("query")
+
+    args = parser.parse_args(argv)
+
     try:
         password_manager = PasswordManager()
         logger.info("PasswordManager initialized successfully.")
     except (PasswordPromptError, Bip85Error) as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
-        sys.exit(1)
+        return 1
     except Exception as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
-        sys.exit(1)
+        return 1
 
     if args.command == "export":
         password_manager.handle_export_database(Path(args.file))
-        sys.exit(0)
-    elif args.command == "import":
+        return 0
+    if args.command == "import":
         password_manager.handle_import_database(Path(args.file))
-        sys.exit(0)
+        return 0
+    if args.command == "search":
+        matches = password_manager.entry_manager.search_entries(args.query)
+        if matches:
+            print_matches(matches)
+        else:
+            print(colored("No matching entries found.", "yellow"))
+        return 0
+    if args.command == "get":
+        matches = password_manager.entry_manager.search_entries(args.query)
+        if len(matches) != 1:
+            if not matches:
+                print(colored("No matching entries found.", "yellow"))
+            else:
+                print_matches(matches)
+            return 1
+        idx = matches[0][0]
+        entry = password_manager.entry_manager.retrieve_entry(idx)
+        if entry.get("type", EntryType.PASSWORD.value) != EntryType.PASSWORD.value:
+            print(colored("Entry is not a password entry.", "red"))
+            return 1
+        length = int(entry.get("length", 0))
+        pw = password_manager.password_generator.generate_password(length, idx)
+        print(pw)
+        return 0
+    if args.command == "totp":
+        matches = password_manager.entry_manager.search_entries(args.query)
+        if len(matches) != 1:
+            if not matches:
+                print(colored("No matching entries found.", "yellow"))
+            else:
+                print_matches(matches)
+            return 1
+        idx = matches[0][0]
+        entry = password_manager.entry_manager.retrieve_entry(idx)
+        if entry.get("type") != EntryType.TOTP.value:
+            print(colored("Entry is not a TOTP entry.", "red"))
+            return 1
+        code = password_manager.entry_manager.get_totp_code(
+            idx, password_manager.parent_seed
+        )
+        print(code)
+        try:
+            pyperclip.copy(code)
+            print(colored("Code copied to clipboard", "green"))
+        except Exception as exc:
+            logging.warning(f"Clipboard copy failed: {exc}")
+        return 0
 
-    # Register signal handlers for graceful shutdown
-    def signal_handler(sig, frame):
-        """
-        Handles termination signals to gracefully shutdown the NostrClient.
-        """
+    def signal_handler(sig, _frame):
         print(colored("\nReceived shutdown signal. Exiting gracefully...", "yellow"))
         logging.info(f"Received shutdown signal: {sig}. Initiating graceful shutdown.")
         try:
-            password_manager.nostr_client.close_client_pool()  # Gracefully close the ClientPool
+            password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
-        except Exception as e:
-            logging.error(f"Error during shutdown: {e}")
-            print(colored(f"Error during shutdown: {e}", "red"))
+        except Exception as exc:
+            logging.error(f"Error during shutdown: {exc}")
+            print(colored(f"Error during shutdown: {exc}", "red"))
         sys.exit(0)
 
-    # Register the signal handlers
-    signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
-    signal.signal(signal.SIGTERM, signal_handler)  # Handle termination signals
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-    # Display the interactive menu to the user
     try:
         display_menu(
             password_manager, inactivity_timeout=password_manager.inactivity_timeout
@@ -766,29 +880,34 @@ if __name__ == "__main__":
         logger.info("Program terminated by user via KeyboardInterrupt.")
         print(colored("\nProgram terminated by user.", "yellow"))
         try:
-            password_manager.nostr_client.close_client_pool()  # Gracefully close the ClientPool
+            password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
-        except Exception as e:
-            logging.error(f"Error during shutdown: {e}")
-            print(colored(f"Error during shutdown: {e}", "red"))
-        sys.exit(0)
+        except Exception as exc:
+            logging.error(f"Error during shutdown: {exc}")
+            print(colored(f"Error during shutdown: {exc}", "red"))
+        return 0
     except (PasswordPromptError, Bip85Error) as e:
         logger.error(f"A user-related error occurred: {e}", exc_info=True)
         print(colored(f"Error: {e}", "red"))
         try:
             password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
-        except Exception as close_error:
-            logging.error(f"Error during shutdown: {close_error}")
-            print(colored(f"Error during shutdown: {close_error}", "red"))
-        sys.exit(1)
+        except Exception as exc:
+            logging.error(f"Error during shutdown: {exc}")
+            print(colored(f"Error during shutdown: {exc}", "red"))
+        return 1
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
-            password_manager.nostr_client.close_client_pool()  # Attempt to close the ClientPool
+            password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
-        except Exception as close_error:
-            logging.error(f"Error during shutdown: {close_error}")
-            print(colored(f"Error during shutdown: {close_error}", "red"))
-        sys.exit(1)
+        except Exception as exc:
+            logging.error(f"Error during shutdown: {exc}")
+            print(colored(f"Error during shutdown: {exc}", "red"))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

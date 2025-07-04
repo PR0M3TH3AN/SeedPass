@@ -39,6 +39,7 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
         pm.nostr_client = FakeNostrClient()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
 
@@ -78,6 +79,7 @@ def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
         pm.nostr_client = FakeNostrClient()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Visible", TEST_SEED)
         entry_mgr.add_totp("Hidden", TEST_SEED)

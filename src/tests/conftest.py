@@ -20,6 +20,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="run desktop-only tests",
     )
+    parser.addoption(
+        "--max-entries",
+        type=int,
+        default=None,
+        help="maximum entries for nostr index size test",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:

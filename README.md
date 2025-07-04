@@ -124,6 +124,16 @@ seedpass export --file "~/seedpass_backup.json"
 # Later you can restore it
 seedpass import --file "~/seedpass_backup.json"
 
+# Quickly find or retrieve entries
+seedpass search "github"
+seedpass get "github"
+seedpass totp "email"
+# The code is printed and copied to your clipboard
+
+# Sort or filter the list view
+seedpass list --sort website
+seedpass list --filter totp
+
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
 ```
@@ -175,13 +185,14 @@ python src/main.py
    Select an option:
    1. Add Entry
    2. Retrieve Entry
-   3. Modify an Existing Entry
-   4. 2FA Codes
-   5. Settings
-   6. Exit
+   3. Search Entries
+   4. Modify an Existing Entry
+   5. 2FA Codes
+   6. Settings
+   7. Exit
 
-   Enter your choice (1-6):
-   ```
+   Enter your choice (1-7):
+  ```
 
    When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
 
@@ -234,7 +245,7 @@ wss://relay.primal.net
 
 You can manage your relays and sync with Nostr from the **Settings** menu:
 
-1. From the main menu choose `4` (**Settings**).
+1. From the main menu choose `6` (**Settings**).
 2. Select `2` (**Nostr**) to open the Nostr submenu.
 3. Choose `1` to back up your encrypted index to Nostr.
 4. Select `2` to restore the index from Nostr.
@@ -255,9 +266,10 @@ Back in the Settings menu you can:
 * Select `8` to export all 2FA codes.
 * Choose `9` to set an additional backup location.
 * Select `10` to change the inactivity timeout.
-* Choose `11` to lock the vault and require re-entry of your password.
-* Select `12` to return to the main menu.
-* Choose `13` to view seed profile stats.
+* Choose `11` to toggle Secret Mode and set the clipboard clear delay.
+* Select `12` to lock the vault and require re-entry of your password.
+* Choose `13` to return to the main menu.
+* Select `14` to view seed profile stats.
 
 ## Running Tests
 
@@ -277,7 +289,7 @@ when a new snapshot is triggered. Use the `NOSTR_TEST_DELAY` environment
 variable to control the delay between publishes when experimenting with large vaults.
 
 ```bash
-NOSTR_TEST_DELAY=10 pytest -vv src/tests/test_nostr_index_size.py -m "desktop and network"
+pytest -vv -s -n 0 src/tests/test_nostr_index_size.py --desktop --max-entries=1000
 ```
 
 ### Automatically Updating the Script Checksum
@@ -429,6 +441,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Toggle Setting:** Allow users to enable or disable "secret" mode.
        - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
        - **User Feedback:** Notify users that the password has been copied to the clipboard.
+      - **Settings Menu:** Toggle this mode under `Settings -> Toggle Secret Mode` and set how long the clipboard is retained.
    - **Two-Factor Security Model with Random Index Generation**
      - **Description:** Create a robust two-factor security system using a master seed and master password combination, enhanced with random index generation for additional security.
      - **Key Features:**

@@ -42,6 +42,7 @@ from utils.password_prompt import (
     confirm_action,
 )
 from utils.memory_protection import InMemorySecret
+from utils.clipboard import copy_to_clipboard
 from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
@@ -106,6 +107,8 @@ class PasswordManager:
         self.last_activity: float = time.time()
         self.locked: bool = False
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
+        self.secret_mode_enabled: bool = False
+        self.clipboard_clear_delay: int = 45
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -776,6 +779,8 @@ class PasswordManager:
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
             )
+            self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
+            self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
 
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
@@ -1021,9 +1026,18 @@ class PasswordManager:
                 try:
                     while True:
                         code = self.entry_manager.get_totp_code(index, self.parent_seed)
-                        print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
-                        print(colored(f"Label: {label}", "cyan"))
-                        print(colored(f"Code: {code}", "yellow"))
+                        if self.secret_mode_enabled:
+                            copy_to_clipboard(code, self.clipboard_clear_delay)
+                            print(
+                                colored(
+                                    f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                    "green",
+                                )
+                            )
+                        else:
+                            print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
+                            print(colored(f"Label: {label}", "cyan"))
+                            print(colored(f"Code: {code}", "yellow"))
                         if notes:
                             print(colored(f"Notes: {notes}", "cyan"))
                         remaining = self.entry_manager.get_totp_time_remaining(index)
@@ -1084,18 +1098,30 @@ class PasswordManager:
             password = self.password_generator.generate_password(length, index)
 
             if password:
-                print(
-                    colored(f"\n[+] Retrieved Password for {website_name}:\n", "green")
-                )
-                print(colored(f"Password: {password}", "yellow"))
-                print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
-                print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(
-                        f"Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
-                        "cyan",
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(password, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
                     )
-                )
+                else:
+                    print(
+                        colored(
+                            f"\n[+] Retrieved Password for {website_name}:\n",
+                            "green",
+                        )
+                    )
+                    print(colored(f"Password: {password}", "yellow"))
+                    print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
+                    print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
+                    print(
+                        colored(
+                            f"Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                            "cyan",
+                        )
+                    )
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
         except Exception as e:
@@ -1303,6 +1329,35 @@ class PasswordManager:
             logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
+    def handle_search_entries(self) -> None:
+        """Prompt for a query and display matching entries."""
+        try:
+            query = input("Enter search string: ").strip()
+            if not query:
+                print(colored("No search string provided.", "yellow"))
+                return
+
+            results = self.entry_manager.search_entries(query)
+            if not results:
+                print(colored("No matching entries found.", "yellow"))
+                return
+
+            print(colored("\n[+] Search Results:\n", "green"))
+            for entry in results:
+                index, website, username, url, blacklisted = entry
+                print(colored(f"Index: {index}", "cyan"))
+                print(colored(f"  Website: {website}", "cyan"))
+                print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
+                )
+                print("-" * 40)
+
+        except Exception as e:
+            logging.error(f"Failed to search entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to search entries: {e}", "red"))
+
     def delete_entry(self) -> None:
         """Deletes an entry from the password index."""
         try:
@@ -1373,7 +1428,13 @@ class PasswordManager:
                         remaining = self.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                        if self.secret_mode_enabled:
+                            copy_to_clipboard(code, self.clipboard_clear_delay)
+                            print(
+                                f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
+                            )
+                        else:
+                            print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
                     for label, idx, period, _ in imported_list:
@@ -1381,7 +1442,13 @@ class PasswordManager:
                         remaining = self.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                        print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                        if self.secret_mode_enabled:
+                            copy_to_clipboard(code, self.clipboard_clear_delay)
+                            print(
+                                f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
+                            )
+                        else:
+                            print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
                 sys.stdout.flush()
                 try:
                     if sys.stdin in select.select([sys.stdin], [], [], 1)[0]:
