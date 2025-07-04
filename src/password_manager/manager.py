@@ -1121,6 +1121,42 @@ class PasswordManager:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
                 return
+            if entry_type == EntryType.SEED.value:
+                notes = entry.get("notes", "")
+                try:
+                    phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(phrase, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                        print(colored(phrase, "yellow"))
+                    if confirm_action("Show derived entropy as hex? (Y/N): "):
+                        from local_bip85.bip85 import BIP85
+                        from bip_utils import Bip39SeedGenerator
+
+                        words = int(entry.get("words", 24))
+                        bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
+                        seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+                        bip85 = BIP85(seed_bytes)
+                        entropy = bip85.derive_entropy(
+                            index=int(entry.get("index", index)),
+                            bytes_len=bytes_len,
+                            app_no=39,
+                            words_len=words,
+                        )
+                        print(colored(f"Entropy: {entropy.hex()}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                return
 
             website_name = entry.get("website")
             length = entry.get("length")
