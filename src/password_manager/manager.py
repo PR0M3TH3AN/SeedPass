@@ -1394,6 +1394,36 @@ class PasswordManager:
                             "cyan",
                         )
                     )
+                    custom_fields = entry.get("custom_fields", [])
+                    if custom_fields:
+                        print(colored("Additional Fields:", "cyan"))
+                        hidden_fields = []
+                        for field in custom_fields:
+                            label = field.get("label", "")
+                            value = field.get("value", "")
+                            if field.get("is_hidden"):
+                                hidden_fields.append((label, value))
+                                print(colored(f"  {label}: [hidden]", "cyan"))
+                            else:
+                                print(colored(f"  {label}: {value}", "cyan"))
+                        if hidden_fields:
+                            show = (
+                                input("Reveal hidden fields? (y/N): ").strip().lower()
+                            )
+                            if show == "y":
+                                for label, value in hidden_fields:
+                                    if self.secret_mode_enabled:
+                                        copy_to_clipboard(
+                                            value, self.clipboard_clear_delay
+                                        )
+                                        print(
+                                            colored(
+                                                f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                                "green",
+                                            )
+                                        )
+                                    else:
+                                        print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
         except Exception as e:
