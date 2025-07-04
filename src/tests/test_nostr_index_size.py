@@ -106,7 +106,8 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
     print(f"Nostr account npub: {npub}")
     print("Count | Payload Bytes | Published | Retrieved")
     for cnt, payload, pub, ret in results:
-        print(f"{cnt:>5} | {payload:>13} | {pub} | {ret}")
+        payload_str = str(payload) if payload is not None else "N/A"
+        print(f"{cnt:>5} | {payload_str:>13} | {pub} | {ret}")
 
     synced = sum(1 for _, _, pub, ret in results if pub and ret)
     print(f"Successfully synced entries: {synced}")
