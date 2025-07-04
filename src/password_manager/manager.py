@@ -867,6 +867,18 @@ class PasswordManager:
             url = input("Enter the URL (optional): ").strip()
             notes = input("Enter notes (optional): ").strip()
 
+            custom_fields: list[dict[str, object]] = []
+            while True:
+                add_field = input("Add custom field? (y/N): ").strip().lower()
+                if add_field != "y":
+                    break
+                label = input("  Field label: ").strip()
+                value = input("  Field value: ").strip()
+                hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                custom_fields.append(
+                    {"label": label, "value": value, "is_hidden": hidden}
+                )
+
             length_input = input(
                 f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
             ).strip()
@@ -893,6 +905,7 @@ class PasswordManager:
                 url,
                 blacklisted=False,
                 notes=notes,
+                custom_fields=custom_fields,
             )
 
             # Mark database as dirty for background sync
@@ -1429,6 +1442,20 @@ class PasswordManager:
                     or notes
                 )
 
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        label = input("  Field label (leave blank to finish): ").strip()
+                        if not label:
+                            break
+                        value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": label, "value": value, "is_hidden": hidden}
+                        )
+
                 self.entry_manager.modify_entry(
                     index,
                     blacklisted=new_blacklisted,
@@ -1436,6 +1463,7 @@ class PasswordManager:
                     label=new_label,
                     period=new_period,
                     digits=new_digits,
+                    custom_fields=custom_fields,
                 )
             else:
                 website_name = entry.get("website")
@@ -1500,12 +1528,27 @@ class PasswordManager:
                     or notes
                 )
 
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        label = input("  Field label (leave blank to finish): ").strip()
+                        if not label:
+                            break
+                        value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": label, "value": value, "is_hidden": hidden}
+                        )
+
                 self.entry_manager.modify_entry(
                     index,
                     new_username,
                     new_url,
                     new_blacklisted,
                     new_notes,
+                    custom_fields=custom_fields,
                 )
 
             # Mark database as dirty for background sync
