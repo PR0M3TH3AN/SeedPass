@@ -1212,6 +1212,30 @@ class PasswordManager:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
                 return
+            if entry_type == EntryType.PGP.value:
+                notes = entry.get("notes", "")
+                try:
+                    priv_key, fingerprint = self.entry_manager.get_pgp_key(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(priv_key, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("\n[+] Retrieved PGP Key:\n", "green"))
+                        print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                        print(priv_key)
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving PGP key: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                return
 
             website_name = entry.get("website")
             length = entry.get("length")

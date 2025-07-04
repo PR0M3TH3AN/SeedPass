@@ -33,6 +33,7 @@ mutmut==2.4.4
 nostr-sdk==0.42.1
 packaging==25.0
 parso==0.8.4
+pgpy==0.6.0
 pluggy==1.6.0
 pony==0.7.19
 portalocker==3.2.0

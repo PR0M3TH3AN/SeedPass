@@ -259,6 +259,55 @@ class EntryManager:
         key_index = int(entry.get("index", index))
         return derive_ssh_key_pair(parent_seed, key_index)
 
+    def add_pgp_key(
+        self,
+        parent_seed: str,
+        index: int | None = None,
+        key_type: str = "ed25519",
+        user_id: str = "",
+        notes: str = "",
+    ) -> int:
+        """Add a new PGP key entry."""
+
+        if index is None:
+            index = self.get_next_index()
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.PGP.value,
+            "kind": EntryType.PGP.value,
+            "index": index,
+            "key_type": key_type,
+            "user_id": user_id,
+            "notes": notes,
+        }
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def get_pgp_key(self, index: int, parent_seed: str) -> tuple[str, str]:
+        """Return the armored PGP private key and fingerprint for the entry."""
+
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (etype != EntryType.PGP.value and kind != EntryType.PGP.value):
+            raise ValueError("Entry is not a PGP key entry")
+
+        from password_manager.password_generation import derive_pgp_key
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        key_idx = int(entry.get("index", index))
+        key_type = entry.get("key_type", "ed25519")
+        user_id = entry.get("user_id", "")
+        return derive_pgp_key(bip85, key_idx, key_type, user_id)
+
     def add_seed(
         self,
         parent_seed: str,

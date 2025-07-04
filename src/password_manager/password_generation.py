@@ -368,3 +368,97 @@ def derive_ssh_key_pair(parent_seed: str, index: int) -> tuple[str, str]:
 def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
     """Derive a new BIP39 seed phrase using BIP85."""
     return bip85.derive_mnemonic(index=idx, words_num=words)
+
+
+def derive_pgp_key(
+    bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
+) -> tuple[str, str]:
+    """Derive a deterministic PGP private key and return it with its fingerprint."""
+
+    from pgpy import PGPKey, PGPUID
+    from pgpy.packet.packets import PrivKeyV4
+    from pgpy.packet.fields import (
+        EdDSAPriv,
+        RSAPriv,
+        ECPoint,
+        ECPointFormat,
+        EllipticCurveOID,
+        MPI,
+    )
+    from pgpy.constants import (
+        PubKeyAlgorithm,
+        KeyFlags,
+        HashAlgorithm,
+        SymmetricKeyAlgorithm,
+        CompressionAlgorithm,
+    )
+    from Crypto.PublicKey import RSA
+    from Crypto.Util.number import inverse
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    from cryptography.hazmat.primitives import serialization
+    import hashlib
+    import datetime
+
+    entropy = bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+    created = datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
+
+    if key_type.lower() == "rsa":
+
+        class DRNG:
+            def __init__(self, seed: bytes) -> None:
+                self.seed = seed
+
+            def __call__(self, n: int) -> bytes:  # pragma: no cover - deterministic
+                out = b""
+                while len(out) < n:
+                    self.seed = hashlib.sha256(self.seed).digest()
+                    out += self.seed
+                return out[:n]
+
+        rsa_key = RSA.generate(2048, randfunc=DRNG(entropy))
+        keymat = RSAPriv()
+        keymat.n = MPI(rsa_key.n)
+        keymat.e = MPI(rsa_key.e)
+        keymat.d = MPI(rsa_key.d)
+        keymat.p = MPI(rsa_key.p)
+        keymat.q = MPI(rsa_key.q)
+        keymat.u = MPI(inverse(keymat.p, keymat.q))
+        keymat._compute_chksum()
+
+        pkt = PrivKeyV4()
+        pkt.pkalg = PubKeyAlgorithm.RSAEncryptOrSign
+        pkt.keymaterial = keymat
+    else:
+        priv = ed25519.Ed25519PrivateKey.from_private_bytes(entropy)
+        public = priv.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
+        keymat = EdDSAPriv()
+        keymat.oid = EllipticCurveOID.Ed25519
+        keymat.s = MPI(int.from_bytes(entropy, "big"))
+        keymat.p = ECPoint.from_values(
+            keymat.oid.key_size, ECPointFormat.Native, public
+        )
+        keymat._compute_chksum()
+
+        pkt = PrivKeyV4()
+        pkt.pkalg = PubKeyAlgorithm.EdDSA
+        pkt.keymaterial = keymat
+
+    pkt.created = created
+    pkt.update_hlen()
+    key = PGPKey()
+    key._key = pkt
+    uid = PGPUID.new(user_id)
+    key.add_uid(
+        uid,
+        usage={
+            KeyFlags.Sign,
+            KeyFlags.EncryptCommunications,
+            KeyFlags.EncryptStorage,
+        },
+        hashes=[HashAlgorithm.SHA256],
+        ciphers=[SymmetricKeyAlgorithm.AES256],
+        compression=[CompressionAlgorithm.ZLIB],
+    )
+    return str(key), key.fingerprint
