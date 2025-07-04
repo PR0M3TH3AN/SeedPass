@@ -21,6 +21,8 @@ try:
         verify_checksum,
         json_checksum,
         canonical_json_dumps,
+        initialize_checksum,
+        update_checksum_file,
     )
     from .password_prompt import prompt_for_password
     from .input_utils import timed_input
@@ -45,6 +47,8 @@ __all__ = [
     "verify_checksum",
     "json_checksum",
     "canonical_json_dumps",
+    "initialize_checksum",
+    "update_checksum_file",
     "exclusive_lock",
     "shared_lock",
     "prompt_for_password",

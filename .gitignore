@@ -32,3 +32,4 @@ coverage.xml
 
 # Other
 .hypothesis
+totp_export.json.enc

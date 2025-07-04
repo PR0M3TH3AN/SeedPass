@@ -21,6 +21,7 @@ def make_pm(search_results, entry=None, totp_code="123456"):
         nostr_client=SimpleNamespace(close_client_pool=lambda: None),
         parent_seed="seed",
         inactivity_timeout=1,
+        clipboard_clear_delay=45,
     )
     return pm
 
@@ -58,7 +59,9 @@ def test_totp_command(monkeypatch, capsys):
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
-    monkeypatch.setattr(main.pyperclip, "copy", lambda v: called.setdefault("val", v))
+    monkeypatch.setattr(
+        main, "copy_to_clipboard", lambda v, d: called.setdefault("val", v)
+    )
     rc = main.main(["totp", "ex"])
     assert rc == 0
     out = capsys.readouterr().out
