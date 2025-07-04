@@ -51,6 +51,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Export 2FA Codes:** Save all stored TOTP entries to an encrypted JSON file for use with other apps.
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
+- **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
 
 ## Prerequisites
 
@@ -211,6 +212,14 @@ python src/main.py
 2. SeedPass will show the current label, period, digit count, and blacklist status.
 3. Enter new values or press **Enter** to keep the existing settings.
 4. The updated entry is saved back to your encrypted vault.
+
+### Using Secret Mode
+
+When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to your clipboard instead of displaying them on screen. The clipboard clears automatically after the delay you choose.
+
+1. From the main menu open **Settings** and select **Toggle Secret Mode**.
+2. Choose how many seconds to keep passwords on the clipboard.
+3. Retrieve an entry and SeedPass will confirm the password was copied.
 
 
 ### Managing Multiple Seeds
