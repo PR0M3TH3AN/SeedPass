@@ -82,6 +82,7 @@ def export_backup(
     json_bytes = json.dumps(wrapper, indent=2).encode("utf-8")
     dest_path.write_bytes(json_bytes)
     os.chmod(dest_path, 0o600)
+    backup_manager._create_additional_backup(dest_path)
 
     if publish:
         encrypted = vault.encryption_manager.encrypt_data(json_bytes)
