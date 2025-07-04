@@ -80,3 +80,52 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
         assert "123456" not in out
         assert "copied to clipboard" in out
         assert called == [("123456", 5)]
+
+
+def test_password_retrieve_no_secret_mode(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        pm, entry_mgr = setup_pm(tmp)
+        pm.secret_mode_enabled = False
+        entry_mgr.add_entry("example", 8)
+
+        monkeypatch.setattr("builtins.input", lambda *a, **k: "0")
+        called = []
+        monkeypatch.setattr(
+            "password_manager.manager.copy_to_clipboard",
+            lambda *a, **k: called.append((a, k)),
+        )
+
+        pm.handle_retrieve_entry()
+        out = capsys.readouterr().out
+        assert "Password:" in out
+        assert "copied to clipboard" not in out
+        assert called == []
+
+
+def test_totp_display_no_secret_mode(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        pm, entry_mgr = setup_pm(tmp)
+        pm.secret_mode_enabled = False
+        entry_mgr.add_totp("Example", TEST_SEED)
+
+        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
+        )
+        monkeypatch.setattr(
+            "password_manager.manager.select.select",
+            lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
+        )
+        called = []
+        monkeypatch.setattr(
+            "password_manager.manager.copy_to_clipboard",
+            lambda *a, **k: called.append((a, k)),
+        )
+
+        pm.handle_display_totp_codes()
+        out = capsys.readouterr().out
+        assert "123456" in out
+        assert "copied to clipboard" not in out
+        assert called == []
