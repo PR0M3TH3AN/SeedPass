@@ -31,6 +31,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - [Usage](#usage)
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
+    - [Additional Entry Types](#additional-entry-types)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -255,6 +256,14 @@ When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to
 1. From the main menu open **Settings** and select **Toggle Secret Mode**.
 2. Choose how many seconds to keep passwords on the clipboard.
 3. Retrieve an entry and SeedPass will confirm the password was copied.
+
+### Additional Entry Types
+
+SeedPass supports storing more than just passwords and 2FA secrets. You can also create entries for:
+- **SSH Key** – deterministically derive an Ed25519 key pair for servers or git hosting platforms.
+- **Seed Phrase** – generate a BIP-39 mnemonic and keep it encrypted until needed.
+- **PGP Key** – derive an OpenPGP key pair from your master seed.
+- **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients.
 
 
 ### Managing Multiple Seeds
