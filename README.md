@@ -407,7 +407,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
 
 [see the docs](https://github.com/PR0M3TH3AN/SeedPass/blob/main/docs/json_entries.md) 
 
-1. **Configuration File Management**
+1. **Configuration File Management** *(implemented)*
    - **Description:** Implement a configuration file to store user-specific settings, starting with user-determined Nostr relays.
    - **Implementation Steps:**
      - Create a `config.yaml` or `config.json` file in the SeedPass data directory.
@@ -429,13 +429,13 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - Upon modifying an entry, save the previous version in `backups/entry_<entry_num>_v<version>.json`.
        - Implement rollback functionality to restore from backups if needed.
 
-3. **Enhanced JSON Schema Integration**
+3. **Enhanced JSON Schema Integration** *(implemented)*
    - **Description:** Adopt the new JSON schema for all entry types, ensuring consistency and flexibility.
    - **Implementation Steps:**
      - Update existing entries to conform to the new schema.
      - Ensure that new kinds adhere to the defined structure, facilitating future expansions.
 
-4. **Nostr Integration Enhancements**
+4. **Nostr Integration Enhancements** *(implemented)*
    - **Description:** Improve Nostr integration by changing the posting mechanism and enabling efficient synchronization.
    - **Implementation Steps:**
      - **Selective Posting:**
@@ -446,7 +446,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
      - **Configuration Integration:**
        - Utilize the newly added configuration file to manage Nostr relays and synchronization settings.
 
-5. **Backup and Restore Index Option**
+5. **Backup and Restore Index Option** *(implemented)*
    - **Description:** Provide users with the ability to backup and restore the index, offering flexibility in backup locations.
    - **Implementation Steps:**
      - Introduce CLI commands such as `backup-index` and `restore-index`.
@@ -455,7 +455,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
      - Validate the integrity of backups during the restore process.
 
 6. **Security Enhancements**
-   - **"Secret" Mode (Clipboard-Only Password Retrieval)**
+   - **"Secret" Mode (Clipboard-Only Password Retrieval)** *(implemented)*
      - **Description:** Introduce a "secret" mode where passwords are copied directly to the clipboard rather than displayed on the screen upon retrieval.
      - **Features:**
        - **Toggle Setting:** Allow users to enable or disable "secret" mode.
@@ -498,13 +498,13 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
      - **Additional Security Layers:** Implement MFA or role-based access for managing family members' accounts.
      - **User-Friendly CLI Commands:** Develop intuitive CLI commands to handle family member password sets efficiently.
 
-3. **Easy BIP39 Seed Generation for Various Use Cases**
+3. **Easy BIP39 Seed Generation for Various Use Cases** *(implemented)*
    - **Description:** Provide an easy method for generating new BIP39 seeds for different purposes, such as cryptocurrency wallets.
    - **Features:**
      - **Seed Generation:** Ensure seeds are generated securely and comply with BIP39 standards.
      - **User Guidance:** Offer CLI instructions on securely handling and storing generated seeds.
 
-4. **Nostr Public/Private Key Pair Generation**
+4. **Nostr Public/Private Key Pair Generation** *(implemented)*
    - **Description:** Allow users to generate new Nostr public/private key pairs within the application.
    - **Features:**
      - **Secure Key Generation:** Ensure key pairs are generated securely and tied to specific index entries.
