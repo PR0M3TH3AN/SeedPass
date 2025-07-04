@@ -12,3 +12,4 @@ class EntryType(str, Enum):
     SSH = "ssh"
     SEED = "seed"
     PGP = "pgp"
+    NOSTR = "nostr"

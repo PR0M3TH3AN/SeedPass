@@ -1123,6 +1123,38 @@ class PasswordManager:
             logging.error(f"Error during PGP key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add PGP key: {e}", "red"))
 
+    def handle_add_nostr_key(self) -> None:
+        """Add a Nostr key entry and display the derived keys."""
+        try:
+            label = input("Label (optional): ").strip()
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_nostr_key(label, notes=notes)
+            npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] Nostr key entry added with ID {index}.\n", "green"))
+            print(colored(f"npub: {npub}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(nsec, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"nsec: {nsec}", "cyan"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1282,6 +1314,32 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                return
+            if entry_type == EntryType.NOSTR.value:
+                label = entry.get("label", "")
+                notes = entry.get("notes", "")
+                try:
+                    npub, nsec = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
+                    print(colored("\n[+] Retrieved Nostr Keys:\n", "green"))
+                    print(colored(f"Label: {label}", "cyan"))
+                    print(colored(f"npub: {npub}", "cyan"))
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(nsec, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored(f"nsec: {nsec}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
                 return
 
             website_name = entry.get("website")
