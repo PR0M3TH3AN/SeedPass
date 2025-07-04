@@ -1093,6 +1093,34 @@ class PasswordManager:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
                 return
+            if entry_type == EntryType.SSH.value:
+                notes = entry.get("notes", "")
+                try:
+                    priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                        print(colored("Public Key:", "cyan"))
+                        print(pub_pem)
+                    else:
+                        print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
+                        print(colored("Public Key:", "cyan"))
+                        print(pub_pem)
+                        print(colored("Private Key:", "cyan"))
+                        print(priv_pem)
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                return
 
             website_name = entry.get("website")
             length = entry.get("length")
