@@ -617,16 +617,17 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("2. Nostr")
         print("3. Change password")
         print("4. Verify Script Checksum")
-        print("5. Backup Parent Seed")
-        print("6. Export database")
-        print("7. Import database")
-        print("8. Export 2FA codes")
-        print("9. Set additional backup location")
-        print("10. Set inactivity timeout")
-        print("11. Lock Vault")
-        print("12. Stats")
-        print("13. Toggle Secret Mode")
-        print("14. Back")
+        print("5. Generate Script Checksum")
+        print("6. Backup Parent Seed")
+        print("7. Export database")
+        print("8. Import database")
+        print("9. Export 2FA codes")
+        print("10. Set additional backup location")
+        print("11. Set inactivity timeout")
+        print("12. Lock Vault")
+        print("13. Stats")
+        print("14. Toggle Secret Mode")
+        print("15. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -637,28 +638,30 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "4":
             password_manager.handle_verify_checksum()
         elif choice == "5":
-            password_manager.handle_backup_reveal_parent_seed()
+            password_manager.handle_update_script_checksum()
         elif choice == "6":
-            password_manager.handle_export_database()
+            password_manager.handle_backup_reveal_parent_seed()
         elif choice == "7":
+            password_manager.handle_export_database()
+        elif choice == "8":
             path = input("Enter path to backup file: ").strip()
             if path:
                 password_manager.handle_import_database(Path(path))
-        elif choice == "8":
-            password_manager.handle_export_totp_codes()
         elif choice == "9":
-            handle_set_additional_backup_location(password_manager)
+            password_manager.handle_export_totp_codes()
         elif choice == "10":
-            handle_set_inactivity_timeout(password_manager)
+            handle_set_additional_backup_location(password_manager)
         elif choice == "11":
+            handle_set_inactivity_timeout(password_manager)
+        elif choice == "12":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "12":
-            handle_display_stats(password_manager)
         elif choice == "13":
-            handle_toggle_secret_mode(password_manager)
+            handle_display_stats(password_manager)
         elif choice == "14":
+            handle_toggle_secret_mode(password_manager)
+        elif choice == "15":
             break
         else:
             print(colored("Invalid choice.", "red"))
