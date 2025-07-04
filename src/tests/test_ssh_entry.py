@@ -22,7 +22,7 @@ def test_add_and_retrieve_ssh_key_pair():
 
         index = entry_mgr.add_ssh_key(TEST_SEED)
         entry = entry_mgr.retrieve_entry(index)
-        assert entry == {"type": "ssh", "index": index, "notes": ""}
+        assert entry == {"type": "ssh", "kind": "ssh", "index": index, "notes": ""}
 
         priv1, pub1 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)
         priv2, pub2 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)

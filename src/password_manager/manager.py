@@ -1021,6 +1021,61 @@ class PasswordManager:
             logging.error(f"Error during TOTP setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))
 
+    def handle_add_ssh_key(self) -> None:
+        """Add an SSH key pair entry and display the derived keys."""
+        try:
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_ssh_key(self.parent_seed, notes=notes)
+            priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
+                index, self.parent_seed
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
+            print(colored("Public Key:", "cyan"))
+            print(pub_pem)
+            print(colored("Private Key:", "cyan"))
+            print(priv_pem)
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during SSH key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add SSH key: {e}", "red"))
+
+    def handle_add_seed(self) -> None:
+        """Add a derived BIP-39 seed phrase entry."""
+        try:
+            words_input = input("Word count (12 or 24, default 24): ").strip()
+            notes = input("Notes (optional): ").strip()
+            if words_input and words_input not in {"12", "24"}:
+                print(colored("Invalid word count. Choose 12 or 24.", "red"))
+                return
+            words = int(words_input) if words_input else 24
+            index = self.entry_manager.add_seed(
+                self.parent_seed, words_num=words, notes=notes
+            )
+            phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] Seed entry added with ID {index}.\n", "green"))
+            print(colored("Seed Phrase:", "cyan"))
+            print(colored(phrase, "yellow"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number

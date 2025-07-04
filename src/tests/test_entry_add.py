@@ -31,6 +31,7 @@ def test_add_and_retrieve_entry():
             "url": "",
             "blacklisted": False,
             "type": "password",
+            "kind": "password",
             "notes": "",
         }
 
@@ -70,8 +71,10 @@ def test_round_trip_entry_types(method, expected_type):
 
         entry = entry_mgr.retrieve_entry(index)
         assert entry["type"] == expected_type
+        assert entry["kind"] == expected_type
         data = enc_mgr.load_json_data(entry_mgr.index_file)
         assert data["entries"][str(index)]["type"] == expected_type
+        assert data["entries"][str(index)]["kind"] == expected_type
 
 
 def test_legacy_entry_defaults_to_password():

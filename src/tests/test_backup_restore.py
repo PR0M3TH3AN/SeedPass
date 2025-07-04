@@ -24,7 +24,13 @@ def test_backup_restore_workflow(monkeypatch):
         data1 = {
             "schema_version": 2,
             "entries": {
-                "0": {"website": "a", "length": 10, "type": "password", "notes": ""}
+                "0": {
+                    "website": "a",
+                    "length": 10,
+                    "type": "password",
+                    "kind": "password",
+                    "notes": "",
+                }
             },
         }
         vault.save_index(data1)
@@ -39,7 +45,13 @@ def test_backup_restore_workflow(monkeypatch):
         data2 = {
             "schema_version": 2,
             "entries": {
-                "0": {"website": "b", "length": 12, "type": "password", "notes": ""}
+                "0": {
+                    "website": "b",
+                    "length": 12,
+                    "type": "password",
+                    "kind": "password",
+                    "notes": "",
+                }
             },
         }
         vault.save_index(data2)
