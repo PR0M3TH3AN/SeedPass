@@ -579,6 +579,12 @@ footer .social-media a:focus {
     color: var(--text-secondary);
 }
 
+/* Style for completed roadmap tasks */
+.timeline-item .timeline-content ul li.completed {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
 @media screen and (max-width: 768px) {
     .timeline:before {
         left: 20px;
