@@ -71,6 +71,21 @@ def test_search_by_notes_and_totp():
         assert res_totp == [(idx_totp, "GH", None, None, False)]
 
 
+def test_search_by_custom_field():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        custom = [
+            {"label": "api", "value": "secret123", "is_hidden": True},
+            {"label": "note", "value": "visible", "is_hidden": False},
+        ]
+        idx = entry_mgr.add_entry("Example", 8, custom_fields=custom)
+
+        result = entry_mgr.search_entries("secret123")
+        assert result == [(idx, "Example", "", "", False)]
+
+
 def test_search_no_results():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
