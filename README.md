@@ -110,6 +110,16 @@ pip install --upgrade pip
 pip install -r src/requirements.txt
 ```
 
+#### Linux Clipboard Support
+
+On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`.
+SeedPass will attempt to install **xclip** automatically if neither tool is
+available. If the automatic installation fails, you can install it manually:
+
+```bash
+sudo apt-get install xclip
+```
+
 ## Quick Start
 
 After installing dependencies and activating your virtual environment, launch
