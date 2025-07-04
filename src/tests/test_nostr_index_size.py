@@ -24,7 +24,7 @@ from nostr.client import NostrClient, Kind, KindStandard
 
 @pytest.mark.desktop
 @pytest.mark.network
-def test_nostr_index_size_limits():
+def test_nostr_index_size_limits(pytestconfig: pytest.Config):
     """Manually explore maximum index size for Nostr backups."""
     seed = (
         "abandon abandon abandon abandon abandon abandon abandon "
@@ -47,13 +47,16 @@ def test_nostr_index_size_limits():
             entry_mgr = EntryManager(vault, backup_mgr)
 
             delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
+            max_entries = pytestconfig.getoption("--max-entries")
             size = 16
             batch = 100
             entry_count = 0
             max_payload = 60 * 1024
             try:
-                while True:
+                while max_entries is None or entry_count < max_entries:
                     for _ in range(batch):
+                        if max_entries is not None and entry_count >= max_entries:
+                            break
                         entry_mgr.add_entry(
                             website_name=f"site-{entry_count + 1}",
                             length=12,
@@ -85,7 +88,11 @@ def test_nostr_index_size_limits():
                         )
                         retrieved_ok = retrieved == encrypted
                     results.append((entry_count, payload_size, True, retrieved_ok))
-                    if not retrieved_ok or payload_size > max_payload:
+                    if (
+                        not retrieved_ok
+                        or payload_size > max_payload
+                        or (max_entries is not None and entry_count >= max_entries)
+                    ):
                         break
                     size *= 2
             except Exception:
