@@ -198,3 +198,29 @@ def initialize_checksum(file_path: str, checksum_file_path: str) -> bool:
             )
         )
         return False
+
+
+def update_checksum_file(file_path: str, checksum_file_path: str) -> bool:
+    """Update ``checksum_file_path`` with the SHA-256 checksum of ``file_path``."""
+    checksum = calculate_checksum(file_path)
+    if checksum is None:
+        return False
+    try:
+        with open(checksum_file_path, "w") as f:
+            f.write(checksum)
+        logging.debug(
+            f"Updated checksum for '{file_path}' to '{checksum}' at '{checksum_file_path}'."
+        )
+        return True
+    except Exception as exc:
+        logging.error(
+            f"Failed to update checksum file '{checksum_file_path}': {exc}",
+            exc_info=True,
+        )
+        print(
+            colored(
+                f"Error: Failed to update checksum file '{checksum_file_path}': {exc}",
+                "red",
+            )
+        )
+        return False

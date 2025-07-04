@@ -57,7 +57,7 @@ def test_handle_verify_checksum_missing(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr("password_manager.manager.verify_checksum", raise_missing)
     pm.handle_verify_checksum()
     out = capsys.readouterr().out.lower()
-    assert "update_checksum.py" in out
+    assert "generate script checksum" in out
 
 
 def test_backup_and_restore_database(monkeypatch, capsys):

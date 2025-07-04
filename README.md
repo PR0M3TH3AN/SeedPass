@@ -43,7 +43,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
 - **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas.
-- **Checksum Verification:** Ensure the integrity of the script with checksum verification.
+- **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
@@ -279,16 +279,17 @@ Back in the Settings menu you can:
 
 * Select `3` to change your master password.
 * Choose `4` to verify the script checksum.
-* Choose `5` to back up the parent seed.
-* Select `6` to export the database to an encrypted file.
-* Choose `7` to import a database from a backup file.
-* Select `8` to export all 2FA codes.
-* Choose `9` to set an additional backup location.
-* Select `10` to change the inactivity timeout.
-* Choose `11` to toggle Secret Mode and set the clipboard clear delay.
-* Select `12` to lock the vault and require re-entry of your password.
-* Choose `13` to return to the main menu.
-* Select `14` to view seed profile stats.
+* Select `5` to generate a new script checksum.
+* Choose `6` to back up the parent seed.
+* Select `7` to export the database to an encrypted file.
+* Choose `8` to import a database from a backup file.
+* Select `9` to export all 2FA codes.
+* Choose `10` to set an additional backup location.
+* Select `11` to change the inactivity timeout.
+* Choose `12` to lock the vault and require re-entry of your password.
+* Select `13` to view seed profile stats.
+* Choose `14` to toggle Secret Mode and set the clipboard clear delay.
+* Select `15` to return to the main menu.
 
 ## Running Tests
 

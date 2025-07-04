@@ -34,7 +34,13 @@ from utils.key_derivation import (
     derive_index_key,
     EncryptionMode,
 )
-from utils.checksum import calculate_checksum, verify_checksum, json_checksum
+from utils.checksum import (
+    calculate_checksum,
+    verify_checksum,
+    json_checksum,
+    initialize_checksum,
+    update_checksum_file,
+)
 from utils.password_prompt import (
     prompt_for_password,
     prompt_existing_password,
@@ -89,6 +95,7 @@ class PasswordManager:
     def __init__(self) -> None:
         """Initialize the PasswordManager."""
         initialize_app()
+        self.ensure_script_checksum()
         self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
         self.encryption_manager: Optional[EncryptionManager] = None
         self.entry_manager: Optional[EntryManager] = None
@@ -118,6 +125,23 @@ class PasswordManager:
 
         # Set the current fingerprint directory
         self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+
+    def ensure_script_checksum(self) -> None:
+        """Initialize or verify the checksum of the manager script."""
+        script_path = Path(__file__).resolve()
+        if not SCRIPT_CHECKSUM_FILE.exists():
+            initialize_checksum(str(script_path), SCRIPT_CHECKSUM_FILE)
+            return
+        checksum = calculate_checksum(str(script_path))
+        if checksum and not verify_checksum(checksum, SCRIPT_CHECKSUM_FILE):
+            logging.warning("Script checksum mismatch detected on startup")
+            print(
+                colored(
+                    "Warning: script checksum mismatch. "
+                    "Run 'Generate Script Checksum' in Settings if you've updated the app.",
+                    "red",
+                )
+            )
 
     @property
     def parent_seed(self) -> Optional[str]:
@@ -1473,7 +1497,7 @@ class PasswordManager:
             except FileNotFoundError:
                 print(
                     colored(
-                        "Checksum file missing. Run scripts/update_checksum.py to generate it.",
+                        "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
                         "yellow",
                     )
                 )
@@ -1494,6 +1518,26 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Error during checksum verification: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify checksum: {e}", "red"))
+
+    def handle_update_script_checksum(self) -> None:
+        """Generate a new checksum for the manager script."""
+        if not confirm_action("Generate new script checksum? (Y/N): "):
+            print(colored("Operation cancelled.", "yellow"))
+            return
+        try:
+            script_path = Path(__file__).resolve()
+            if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
+                print(
+                    colored(
+                        f"Checksum updated at '{SCRIPT_CHECKSUM_FILE}'.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored("Failed to update checksum.", "red"))
+        except Exception as e:
+            logging.error(f"Error updating checksum: {e}", exc_info=True)
+            print(colored(f"Error: Failed to update checksum: {e}", "red"))
 
     def get_encrypted_data(self) -> Optional[bytes]:
         """
