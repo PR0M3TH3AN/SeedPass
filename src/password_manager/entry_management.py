@@ -246,16 +246,48 @@ class EntryManager:
         key_index = int(entry.get("index", index))
         return derive_ssh_key_pair(parent_seed, key_index)
 
-    def add_seed(self, notes: str = "") -> int:
-        """Placeholder for adding a seed entry."""
-        index = self.get_next_index()
+    def add_seed(
+        self,
+        parent_seed: str,
+        index: int | None = None,
+        words_num: int = 24,
+        notes: str = "",
+    ) -> int:
+        """Add a new derived seed phrase entry."""
+
+        if index is None:
+            index = self.get_next_index()
+
         data = self.vault.load_index()
         data.setdefault("entries", {})
-        data["entries"][str(index)] = {"type": EntryType.SEED.value, "notes": notes}
+        data["entries"][str(index)] = {
+            "type": EntryType.SEED.value,
+            "index": index,
+            "words": words_num,
+            "notes": notes,
+        }
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
-        raise NotImplementedError("Seed entry support not implemented yet")
+        return index
+
+    def get_seed_phrase(self, index: int, parent_seed: str) -> str:
+        """Return the mnemonic seed phrase for the given entry."""
+
+        entry = self.retrieve_entry(index)
+        if not entry or entry.get("type") != EntryType.SEED.value:
+            raise ValueError("Entry is not a seed entry")
+
+        from password_manager.password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        words = int(entry.get("words", 24))
+        seed_index = int(entry.get("index", index))
+        return derive_seed_phrase(bip85, seed_index, words)
 
     def get_totp_code(
         self, index: int, parent_seed: str | None = None, timestamp: int | None = None
