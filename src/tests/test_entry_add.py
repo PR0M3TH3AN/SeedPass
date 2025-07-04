@@ -21,7 +21,12 @@ def test_add_and_retrieve_entry():
         backup_mgr = BackupManager(Path(tmpdir), cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        index = entry_mgr.add_entry("example.com", 12, "user")
+        custom = [
+            {"label": "api", "value": "123", "is_hidden": True},
+            {"label": "note", "value": "hello", "is_hidden": False},
+        ]
+
+        index = entry_mgr.add_entry("example.com", 12, "user", custom_fields=custom)
         entry = entry_mgr.retrieve_entry(index)
 
         assert entry == {
@@ -33,6 +38,7 @@ def test_add_and_retrieve_entry():
             "type": "password",
             "kind": "password",
             "notes": "",
+            "custom_fields": custom,
         }
 
         data = enc_mgr.load_json_data(entry_mgr.index_file)

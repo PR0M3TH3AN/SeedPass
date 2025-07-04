@@ -87,12 +87,13 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
 
 - **fingerprint** (`string`): A unique identifier generated from the seed associated with the entry. This fingerprint ensures that each seed's data is isolated and securely managed.
 
-- **kind** (`string`): Specifies the type of entry. Initial kinds include:
-  - `generated_password`
-  - `stored_password`
-  - `managed_user`
-  - `12_word_seed`
-  - `nostr_keys`
+- **kind** (`string`): Specifies the type of entry. Supported kinds include:
+  - `password`
+  - `totp`
+  - `ssh`
+  - `seed`
+  - `pgp`
+  - `nostr`
   - `note`
 
 - **data** (`object`): Contains fields specific to the `kind`. This allows for extensibility as new kinds are introduced.
@@ -103,6 +104,17 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
   - **created_at** (`string`): ISO 8601 format timestamp of creation.
   - **updated_at** (`string`): ISO 8601 format timestamp of the last update.
   - **checksum** (`string`): A checksum value to ensure data integrity.
+
+- **custom_fields** (`array`, optional): A list of user-defined name/value pairs
+  to store extra information.
+  Example:
+
+  ```json
+  "custom_fields": [
+    {"name": "account_id", "value": "123"},
+    {"name": "recovery_hint", "value": "mother's maiden name"}
+  ]
+  ```
 
 ### Example Entries
 
@@ -121,6 +133,9 @@ Each SeedPass entry is stored as an individual JSON file, promoting isolated man
     "url": "https://example.com",
     "password": "<encrypted_password>"
   },
+  "custom_fields": [
+    {"name": "department", "value": "finance"}
+  ],
   "timestamp": "2024-04-27T12:34:56Z",
   "metadata": {
     "created_at": "2024-04-27T12:34:56Z",

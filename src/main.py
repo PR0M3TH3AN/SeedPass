@@ -731,8 +731,9 @@ def display_menu(
                 print("2. 2FA (TOTP)")
                 print("3. SSH Key")
                 print("4. Seed Phrase")
-                print("5. PGP Key")
-                print("6. Back")
+                print("5. Nostr Key Pair")
+                print("6. PGP Key")
+                print("7. Back")
                 sub_choice = input("Select entry type: ").strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
@@ -748,9 +749,12 @@ def display_menu(
                     password_manager.handle_add_seed()
                     break
                 elif sub_choice == "5":
-                    password_manager.handle_add_pgp()
+                    password_manager.handle_add_nostr_key()
                     break
                 elif sub_choice == "6":
+                    password_manager.handle_add_pgp()
+                    break
+                elif sub_choice == "7":
                     break
                 else:
                     print(colored("Invalid choice.", "red"))

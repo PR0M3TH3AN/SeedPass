@@ -128,3 +128,14 @@ class KeyManager:
         except Exception as e:
             logger.error(f"Failed to generate npub: {e}", exc_info=True)
             raise
+
+    def get_nsec(self) -> str:
+        """Return the nsec (Bech32 encoded private key)."""
+        try:
+            priv_hex = self.get_private_key_hex()
+            priv_bytes = bytes.fromhex(priv_hex)
+            data = convertbits(priv_bytes, 8, 5, True)
+            return bech32_encode("nsec", data)
+        except Exception as e:
+            logger.error(f"Failed to generate nsec: {e}", exc_info=True)
+            raise

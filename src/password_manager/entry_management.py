@@ -112,6 +112,7 @@ class EntryManager:
         url: Optional[str] = None,
         blacklisted: bool = False,
         notes: str = "",
+        custom_fields: List[Dict[str, Any]] | None = None,
     ) -> int:
         """
         Adds a new entry to the encrypted JSON index file.
@@ -138,6 +139,7 @@ class EntryManager:
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
+                "custom_fields": custom_fields or [],
             }
 
             logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
@@ -308,6 +310,56 @@ class EntryManager:
         user_id = entry.get("user_id", "")
         return derive_pgp_key(bip85, key_idx, key_type, user_id)
 
+    def add_nostr_key(
+        self,
+        label: str,
+        index: int | None = None,
+        notes: str = "",
+    ) -> int:
+        """Add a new Nostr key pair entry."""
+
+        if index is None:
+            index = self.get_next_index()
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.NOSTR.value,
+            "kind": EntryType.NOSTR.value,
+            "index": index,
+            "label": label,
+            "notes": notes,
+        }
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def get_nostr_key_pair(self, index: int, parent_seed: str) -> tuple[str, str]:
+        """Return the npub and nsec for the specified entry."""
+
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.NOSTR.value and kind != EntryType.NOSTR.value
+        ):
+            raise ValueError("Entry is not a Nostr key entry")
+
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+        from nostr.coincurve_keys import Keys
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        key_idx = int(entry.get("index", index))
+        entropy = bip85.derive_entropy(index=key_idx, bytes_len=32)
+        keys = Keys(priv_k=entropy.hex())
+        npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
+        nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
+        return npub, nsec
+
     def add_seed(
         self,
         parent_seed: str,
@@ -414,6 +466,8 @@ class EntryManager:
             entry = data.get("entries", {}).get(str(index))
 
             if entry:
+                if entry.get("type", entry.get("kind")) == EntryType.PASSWORD.value:
+                    entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
             else:
@@ -441,6 +495,7 @@ class EntryManager:
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
+        custom_fields: List[Dict[str, Any]] | None = None,
     ) -> None:
         """
         Modifies an existing entry based on the provided index and new values.
@@ -499,6 +554,12 @@ class EntryManager:
             if notes is not None:
                 entry["notes"] = notes
                 logger.debug(f"Updated notes for index {index}.")
+
+            if custom_fields is not None:
+                entry["custom_fields"] = custom_fields
+                logger.debug(
+                    f"Updated custom fields for index {index}: {custom_fields}"
+                )
 
             data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
@@ -629,11 +690,18 @@ class EntryManager:
                 username = entry.get("username", "")
                 url = entry.get("url", "")
                 notes = entry.get("notes", "")
+                custom_fields = entry.get("custom_fields", [])
+                custom_match = any(
+                    query_lower in str(cf.get("label", "")).lower()
+                    or query_lower in str(cf.get("value", "")).lower()
+                    for cf in custom_fields
+                )
                 if (
                     query_lower in website.lower()
                     or query_lower in username.lower()
                     or query_lower in url.lower()
                     or query_lower in notes.lower()
+                    or custom_match
                 ):
                     results.append(
                         (

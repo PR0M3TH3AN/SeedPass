@@ -867,6 +867,18 @@ class PasswordManager:
             url = input("Enter the URL (optional): ").strip()
             notes = input("Enter notes (optional): ").strip()
 
+            custom_fields: list[dict[str, object]] = []
+            while True:
+                add_field = input("Add custom field? (y/N): ").strip().lower()
+                if add_field != "y":
+                    break
+                label = input("  Field label: ").strip()
+                value = input("  Field value: ").strip()
+                hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                custom_fields.append(
+                    {"label": label, "value": value, "is_hidden": hidden}
+                )
+
             length_input = input(
                 f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
             ).strip()
@@ -893,6 +905,7 @@ class PasswordManager:
                 url,
                 blacklisted=False,
                 notes=notes,
+                custom_fields=custom_fields,
             )
 
             # Mark database as dirty for background sync
@@ -1110,6 +1123,38 @@ class PasswordManager:
             logging.error(f"Error during PGP key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add PGP key: {e}", "red"))
 
+    def handle_add_nostr_key(self) -> None:
+        """Add a Nostr key entry and display the derived keys."""
+        try:
+            label = input("Label (optional): ").strip()
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_nostr_key(label, notes=notes)
+            npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(colored(f"\n[+] Nostr key entry added with ID {index}.\n", "green"))
+            print(colored(f"npub: {npub}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(nsec, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"nsec: {nsec}", "cyan"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+        except Exception as e:
+            logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1270,6 +1315,32 @@ class PasswordManager:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
                 return
+            if entry_type == EntryType.NOSTR.value:
+                label = entry.get("label", "")
+                notes = entry.get("notes", "")
+                try:
+                    npub, nsec = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
+                    print(colored("\n[+] Retrieved Nostr Keys:\n", "green"))
+                    print(colored(f"Label: {label}", "cyan"))
+                    print(colored(f"npub: {npub}", "cyan"))
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(nsec, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored(f"nsec: {nsec}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                except Exception as e:
+                    logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
+                    print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+                return
 
             website_name = entry.get("website")
             length = entry.get("length")
@@ -1323,6 +1394,36 @@ class PasswordManager:
                             "cyan",
                         )
                     )
+                    custom_fields = entry.get("custom_fields", [])
+                    if custom_fields:
+                        print(colored("Additional Fields:", "cyan"))
+                        hidden_fields = []
+                        for field in custom_fields:
+                            label = field.get("label", "")
+                            value = field.get("value", "")
+                            if field.get("is_hidden"):
+                                hidden_fields.append((label, value))
+                                print(colored(f"  {label}: [hidden]", "cyan"))
+                            else:
+                                print(colored(f"  {label}: {value}", "cyan"))
+                        if hidden_fields:
+                            show = (
+                                input("Reveal hidden fields? (y/N): ").strip().lower()
+                            )
+                            if show == "y":
+                                for label, value in hidden_fields:
+                                    if self.secret_mode_enabled:
+                                        copy_to_clipboard(
+                                            value, self.clipboard_clear_delay
+                                        )
+                                        print(
+                                            colored(
+                                                f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                                "green",
+                                            )
+                                        )
+                                    else:
+                                        print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
         except Exception as e:
@@ -1429,6 +1530,20 @@ class PasswordManager:
                     or notes
                 )
 
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        label = input("  Field label (leave blank to finish): ").strip()
+                        if not label:
+                            break
+                        value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": label, "value": value, "is_hidden": hidden}
+                        )
+
                 self.entry_manager.modify_entry(
                     index,
                     blacklisted=new_blacklisted,
@@ -1436,6 +1551,7 @@ class PasswordManager:
                     label=new_label,
                     period=new_period,
                     digits=new_digits,
+                    custom_fields=custom_fields,
                 )
             else:
                 website_name = entry.get("website")
@@ -1500,12 +1616,27 @@ class PasswordManager:
                     or notes
                 )
 
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        label = input("  Field label (leave blank to finish): ").strip()
+                        if not label:
+                            break
+                        value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": label, "value": value, "is_hidden": hidden}
+                        )
+
                 self.entry_manager.modify_entry(
                     index,
                     new_username,
                     new_url,
                     new_blacklisted,
                     new_notes,
+                    custom_fields=custom_fields,
                 )
 
             # Mark database as dirty for background sync
