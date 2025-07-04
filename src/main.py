@@ -499,6 +499,47 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_toggle_secret_mode(pm: PasswordManager) -> None:
+    """Toggle secret mode and adjust clipboard delay."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_secret_mode_enabled()
+        delay = cfg.get_clipboard_clear_delay()
+    except Exception as exc:
+        logging.error(f"Error loading secret mode settings: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Secret mode is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    value = input("Enable secret mode? (y/n, blank to keep): ").strip().lower()
+    if value in ("y", "yes"):
+        enabled = True
+    elif value in ("n", "no"):
+        enabled = False
+    dur = input(f"Clipboard clear delay in seconds [{delay}]: ").strip()
+    if dur:
+        try:
+            delay = int(dur)
+            if delay <= 0:
+                print(colored("Delay must be positive.", "red"))
+                return
+        except ValueError:
+            print(colored("Invalid number.", "red"))
+            return
+    try:
+        cfg.set_secret_mode_enabled(enabled)
+        cfg.set_clipboard_clear_delay(delay)
+        pm.secret_mode_enabled = enabled
+        pm.clipboard_clear_delay = delay
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Secret mode {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving secret mode: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -583,9 +624,10 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("8. Export 2FA codes")
         print("9. Set additional backup location")
         print("10. Set inactivity timeout")
-        print("11. Lock Vault")
-        print("12. Stats")
-        print("13. Back")
+        print("11. Toggle Secret Mode")
+        print("12. Lock Vault")
+        print("13. Stats")
+        print("14. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -610,12 +652,14 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "10":
             handle_set_inactivity_timeout(password_manager)
         elif choice == "11":
+            handle_toggle_secret_mode(password_manager)
+        elif choice == "12":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "12":
-            handle_display_stats(password_manager)
         elif choice == "13":
+            handle_display_stats(password_manager)
+        elif choice == "14":
             break
         else:
             print(colored("Invalid choice.", "red"))

@@ -45,6 +45,8 @@ class ConfigManager:
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
                 "additional_backup_path": "",
+                "secret_mode_enabled": False,
+                "clipboard_clear_delay": 45,
             }
         try:
             data = self.vault.load_config()
@@ -56,6 +58,8 @@ class ConfigManager:
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
             data.setdefault("additional_backup_path", "")
+            data.setdefault("secret_mode_enabled", False)
+            data.setdefault("clipboard_clear_delay", 45)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -144,3 +148,27 @@ class ConfigManager:
         config = self.load_config(require_pin=False)
         value = config.get("additional_backup_path", "")
         return value or None
+
+    def set_secret_mode_enabled(self, enabled: bool) -> None:
+        """Persist the secret mode toggle."""
+        config = self.load_config(require_pin=False)
+        config["secret_mode_enabled"] = bool(enabled)
+        self.save_config(config)
+
+    def get_secret_mode_enabled(self) -> bool:
+        """Retrieve whether secret mode is enabled."""
+        config = self.load_config(require_pin=False)
+        return bool(config.get("secret_mode_enabled", False))
+
+    def set_clipboard_clear_delay(self, delay: int) -> None:
+        """Persist clipboard clear timeout in seconds."""
+        if delay <= 0:
+            raise ValueError("Delay must be positive")
+        config = self.load_config(require_pin=False)
+        config["clipboard_clear_delay"] = int(delay)
+        self.save_config(config)
+
+    def get_clipboard_clear_delay(self) -> int:
+        """Retrieve clipboard clear delay in seconds."""
+        config = self.load_config(require_pin=False)
+        return int(config.get("clipboard_clear_delay", 45))

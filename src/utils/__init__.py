@@ -25,6 +25,7 @@ try:
     from .password_prompt import prompt_for_password
     from .input_utils import timed_input
     from .memory_protection import InMemorySecret
+    from .clipboard import copy_to_clipboard
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -49,4 +50,5 @@ __all__ = [
     "prompt_for_password",
     "timed_input",
     "InMemorySecret",
+    "copy_to_clipboard",
 ]

@@ -266,9 +266,10 @@ Back in the Settings menu you can:
 * Select `8` to export all 2FA codes.
 * Choose `9` to set an additional backup location.
 * Select `10` to change the inactivity timeout.
-* Choose `11` to lock the vault and require re-entry of your password.
-* Select `12` to return to the main menu.
-* Choose `13` to view seed profile stats.
+* Choose `11` to toggle Secret Mode and set the clipboard clear delay.
+* Select `12` to lock the vault and require re-entry of your password.
+* Choose `13` to return to the main menu.
+* Select `14` to view seed profile stats.
 
 ## Running Tests
 
@@ -440,6 +441,7 @@ The SeedPass roadmap outlines a structured development plan divided into distinc
        - **Toggle Setting:** Allow users to enable or disable "secret" mode.
        - **Clipboard Integration:** Ensure passwords are copied securely to the clipboard when "secret" mode is active.
        - **User Feedback:** Notify users that the password has been copied to the clipboard.
+      - **Settings Menu:** Toggle this mode under `Settings -> Toggle Secret Mode` and set how long the clipboard is retained.
    - **Two-Factor Security Model with Random Index Generation**
      - **Description:** Create a robust two-factor security system using a master seed and master password combination, enhanced with random index generation for additional security.
      - **Key Features:**

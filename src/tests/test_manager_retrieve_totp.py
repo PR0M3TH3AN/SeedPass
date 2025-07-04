@@ -39,6 +39,7 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
         pm.nostr_client = FakeNostrClient()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
 
