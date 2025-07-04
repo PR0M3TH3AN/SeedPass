@@ -49,7 +49,6 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
 - **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
 - **Export 2FA Codes:** Save all stored TOTP entries to an encrypted JSON file for use with other apps.
-- **SSH Key & Seed Derivation:** Generate deterministic SSH keys and new BIP-39 seed phrases from your master seed.
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
@@ -206,8 +205,7 @@ python src/main.py
    Enter your choice (1-7):
   ```
 
-   When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
-   **SSH Key**, or **BIP-39 Seed**.
+   When choosing **Add Entry**, you can now select **Password** or **2FA (TOTP)**.
 
 ### Adding a 2FA Entry
 

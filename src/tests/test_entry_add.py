@@ -60,10 +60,10 @@ def test_round_trip_entry_types(method, expected_type):
         elif method == "add_totp":
             entry_mgr.add_totp("example", TEST_SEED)
             index = 0
-        elif method == "add_ssh_key":
-            index = entry_mgr.add_ssh_key()
-        elif method == "add_seed":
-            index = entry_mgr.add_seed()
+        else:
+            with pytest.raises(NotImplementedError):
+                getattr(entry_mgr, method)()
+            index = 0
 
         entry = entry_mgr.retrieve_entry(index)
         assert entry["type"] == expected_type

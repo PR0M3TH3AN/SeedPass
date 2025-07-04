@@ -209,68 +209,27 @@ class EntryManager:
             logger.error(f"Failed to generate otpauth URI: {e}")
             raise
 
-    def get_next_ssh_index(self) -> int:
-        """Return the next available derivation index for SSH keys."""
-        data = self.vault.load_index()
-        entries = data.get("entries", {})
-        indices = [
-            int(v.get("index", 0))
-            for v in entries.values()
-            if v.get("type") == EntryType.SSH.value
-        ]
-        return (max(indices) + 1) if indices else 0
-
-    def add_ssh_key(self, *, index: int | None = None, notes: str = "") -> int:
-        """Add an SSH key entry and return the entry id."""
-        entry_id = self.get_next_index()
+    def add_ssh_key(self, notes: str = "") -> int:
+        """Placeholder for adding an SSH key entry."""
+        index = self.get_next_index()
         data = self.vault.load_index()
         data.setdefault("entries", {})
-        if index is None:
-            index = self.get_next_ssh_index()
-        data["entries"][str(entry_id)] = {
-            "type": EntryType.SSH.value,
-            "index": index,
-            "notes": notes,
-        }
+        data["entries"][str(index)] = {"type": EntryType.SSH.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
-        return entry_id
+        raise NotImplementedError("SSH key entry support not implemented yet")
 
-    def get_next_seed_index(self) -> int:
-        """Return the next available derivation index for seed phrases."""
-        data = self.vault.load_index()
-        entries = data.get("entries", {})
-        indices = [
-            int(v.get("index", 0))
-            for v in entries.values()
-            if v.get("type") == EntryType.SEED.value
-        ]
-        return (max(indices) + 1) if indices else 0
-
-    def add_seed(
-        self,
-        *,
-        index: int | None = None,
-        words: int = 24,
-        notes: str = "",
-    ) -> int:
-        """Add a BIP-39 seed phrase entry and return the entry id."""
-        entry_id = self.get_next_index()
+    def add_seed(self, notes: str = "") -> int:
+        """Placeholder for adding a seed entry."""
+        index = self.get_next_index()
         data = self.vault.load_index()
         data.setdefault("entries", {})
-        if index is None:
-            index = self.get_next_seed_index()
-        data["entries"][str(entry_id)] = {
-            "type": EntryType.SEED.value,
-            "index": index,
-            "words": words,
-            "notes": notes,
-        }
+        data["entries"][str(index)] = {"type": EntryType.SEED.value, "notes": notes}
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
-        return entry_id
+        raise NotImplementedError("Seed entry support not implemented yet")
 
     def get_totp_code(
         self, index: int, parent_seed: str | None = None, timestamp: int | None = None
