@@ -624,9 +624,9 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print("8. Export 2FA codes")
         print("9. Set additional backup location")
         print("10. Set inactivity timeout")
-        print("11. Toggle Secret Mode")
-        print("12. Lock Vault")
-        print("13. Stats")
+        print("11. Lock Vault")
+        print("12. Stats")
+        print("13. Toggle Secret Mode")
         print("14. Back")
         choice = input("Select an option: ").strip()
         if choice == "1":
@@ -652,13 +652,13 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "10":
             handle_set_inactivity_timeout(password_manager)
         elif choice == "11":
-            handle_toggle_secret_mode(password_manager)
-        elif choice == "12":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-        elif choice == "13":
+        elif choice == "12":
             handle_display_stats(password_manager)
+        elif choice == "13":
+            handle_toggle_secret_mode(password_manager)
         elif choice == "14":
             break
         else:
