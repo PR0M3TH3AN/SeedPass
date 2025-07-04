@@ -206,7 +206,7 @@ python src/main.py
   ```
 
    When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
-   **SSH Key**, or **Seed Phrase**.
+   **SSH Key**, **Seed Phrase**, or **PGP Key**.
 
 ### Adding a 2FA Entry
 
@@ -288,7 +288,8 @@ Back in the Settings menu you can:
 * Choose `10` to set an additional backup location.
 * Select `11` to change the inactivity timeout.
 * Choose `12` to lock the vault and require re-entry of your password.
-* Select `13` to view seed profile stats.
+* Select `13` to view seed profile stats. The summary lists counts for
+  passwords, TOTP codes, SSH keys, seed phrases, and PGP keys.
 * Choose `14` to toggle Secret Mode and set the clipboard clear delay.
 * Select `15` to return to the main menu.
 
