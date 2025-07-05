@@ -53,7 +53,7 @@ The following table provides a quick reference to all available advanced CLI com
 | Retrieve a password entry                 | `retrieve`             | `-R`           | `--retrieve`                      | `seedpass retrieve --index 3` or `seedpass retrieve --title "GitHub"`                                                                                                                           |
 | Modify an existing entry                  | `modify`               | `-M`           | `--modify`                        | `seedpass modify --index 3 --title "GitHub Pro" --notes "Updated to pro account" --tags "work,development,pro" --length 22`                                                                        |
 | Delete an entry                           | `delete`               | `-D`           | `--delete`                        | `seedpass delete --index 3`                                                                                                                                                                       |
-| List all entries                          | `list`                 | `-L`           | `--list`                          | `seedpass list --sort website`                                                                                                                                                                                    |
+| List all entries                          | `list`                 | `-L`           | `--list`                          | `seedpass list --sort label`                                                                                                                                                                                    |
 | Search for a password entry               | `search`               | `-S`           | `--search`                        | `seedpass search "GitHub"`                                                                                                                                                                 |
 | Get password from query                   | `get`                  |           |                                   | `seedpass get "GitHub"`
 | Display a TOTP code                       | `totp`                 |           |                                   | `seedpass totp "email"`
@@ -179,11 +179,11 @@ seedpass delete --index 3
 **Long Flag:** `--list`  
 
 **Description:**  
-Lists all password entries stored in the password manager. You can sort the output by index, website, or username and filter by entry type.
+Lists all password entries stored in the password manager. You can sort the output by index, label, or username and filter by entry type.
 
 **Usage Example:**
 ```bash
-seedpass list --sort website
+seedpass list --sort label
 seedpass list --filter totp
 ```
 

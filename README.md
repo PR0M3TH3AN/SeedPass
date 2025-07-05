@@ -169,7 +169,7 @@ seedpass totp "email"
 # The code is printed and copied to your clipboard
 
 # Sort or filter the list view
-seedpass list --sort website
+seedpass list --sort label
 seedpass list --filter totp
 
 # Use the **Settings** menu to configure an extra backup directory
@@ -185,7 +185,7 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
   "schema_version": 2,
   "entries": {
     "0": {
-      "website": "example.com",
+      "label": "example.com",
       "length": 8,
       "type": "password",
       "notes": ""

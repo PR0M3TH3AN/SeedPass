@@ -34,7 +34,7 @@ def test_index_export_import_round_trip():
             "schema_version": 3,
             "entries": {
                 "0": {
-                    "website": "example",
+                    "label": "example",
                     "type": "password",
                     "notes": "",
                     "custom_fields": [],
@@ -52,7 +52,7 @@ def test_index_export_import_round_trip():
                 "schema_version": 3,
                 "entries": {
                     "0": {
-                        "website": "changed",
+                        "label": "changed",
                         "type": "password",
                         "notes": "",
                         "custom_fields": [],

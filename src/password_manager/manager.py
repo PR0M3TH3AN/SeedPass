@@ -859,9 +859,9 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
-            website_name = input("Enter the website name: ").strip()
+            website_name = input("Enter the label or website name: ").strip()
             if not website_name:
-                print(colored("Error: Website name cannot be empty.", "red"))
+                print(colored("Error: Label cannot be empty.", "red"))
                 return
 
             username = input("Enter the username (optional): ").strip()
@@ -1040,8 +1040,12 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_ssh_key(self.parent_seed, notes=notes)
+            index = self.entry_manager.add_ssh_key(label, self.parent_seed, notes=notes)
             priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                 index, self.parent_seed
             )
@@ -1075,6 +1079,10 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             words_input = input("Word count (12 or 24, default 24): ").strip()
             notes = input("Notes (optional): ").strip()
             if words_input and words_input not in {"12", "24"}:
@@ -1082,7 +1090,7 @@ class PasswordManager:
                 return
             words = int(words_input) if words_input else 24
             index = self.entry_manager.add_seed(
-                self.parent_seed, words_num=words, notes=notes
+                label, self.parent_seed, words_num=words, notes=notes
             )
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
             self.is_dirty = True
@@ -1117,6 +1125,10 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             key_type = (
                 input("Key type (ed25519 or rsa, default ed25519): ").strip().lower()
                 or "ed25519"
@@ -1124,6 +1136,7 @@ class PasswordManager:
             user_id = input("User ID (optional): ").strip()
             notes = input("Notes (optional): ").strip()
             index = self.entry_manager.add_pgp_key(
+                label,
                 self.parent_seed,
                 key_type=key_type,
                 user_id=user_id,
@@ -1162,7 +1175,10 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
-            label = input("Label (optional): ").strip()
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             notes = input("Notes (optional): ").strip()
             index = self.entry_manager.add_nostr_key(label, notes=notes)
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
@@ -1779,6 +1795,7 @@ class PasswordManager:
                 print(colored(f"  Notes: {notes}", "cyan"))
         elif etype == EntryType.SEED.value:
             print(colored("  Type: Seed Phrase", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
             print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
             print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
             notes = entry.get("notes", "")
@@ -1786,12 +1803,14 @@ class PasswordManager:
                 print(colored(f"  Notes: {notes}", "cyan"))
         elif etype == EntryType.SSH.value:
             print(colored("  Type: SSH Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
             print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
             notes = entry.get("notes", "")
             if notes:
                 print(colored(f"  Notes: {notes}", "cyan"))
         elif etype == EntryType.PGP.value:
             print(colored("  Type: PGP Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
             print(colored(f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"))
             uid = entry.get("user_id", "")
             if uid:
@@ -1808,11 +1827,11 @@ class PasswordManager:
             if notes:
                 print(colored(f"  Notes: {notes}", "cyan"))
         else:
-            website = entry.get("website", "")
+            website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
             url = entry.get("url", "")
             blacklisted = entry.get("blacklisted", False)
-            print(colored(f"  Website: {website}", "cyan"))
+            print(colored(f"  Label: {website}", "cyan"))
             print(colored(f"  Username: {username or 'N/A'}", "cyan"))
             print(colored(f"  URL: {url or 'N/A'}", "cyan"))
             print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))

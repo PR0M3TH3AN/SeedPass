@@ -19,7 +19,9 @@ def test_pgp_key_determinism():
         backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        idx = entry_mgr.add_pgp_key(TEST_SEED, key_type="ed25519", user_id="Test")
+        idx = entry_mgr.add_pgp_key(
+            "pgp", TEST_SEED, key_type="ed25519", user_id="Test"
+        )
         key1, fp1 = entry_mgr.get_pgp_key(idx, TEST_SEED)
         key2, fp2 = entry_mgr.get_pgp_key(idx, TEST_SEED)
 

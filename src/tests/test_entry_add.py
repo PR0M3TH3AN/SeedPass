@@ -30,7 +30,7 @@ def test_add_and_retrieve_entry():
         entry = entry_mgr.retrieve_entry(index)
 
         assert entry == {
-            "website": "example.com",
+            "label": "example.com",
             "length": 12,
             "username": "user",
             "url": "",
@@ -69,9 +69,9 @@ def test_round_trip_entry_types(method, expected_type):
             index = 0
         else:
             if method == "add_ssh_key":
-                index = entry_mgr.add_ssh_key(TEST_SEED)
+                index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
             elif method == "add_seed":
-                index = entry_mgr.add_seed(TEST_SEED)
+                index = entry_mgr.add_seed("seed", TEST_SEED)
             else:
                 index = getattr(entry_mgr, method)()
 

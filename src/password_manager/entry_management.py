@@ -65,6 +65,13 @@ class EntryManager:
                     if "kind" not in entry:
                         entry["kind"] = entry.get("type", EntryType.PASSWORD.value)
                     entry.setdefault("type", entry["kind"])
+                    if "label" not in entry and "website" in entry:
+                        entry["label"] = entry["website"]
+                    if (
+                        "website" in entry
+                        and entry.get("type") == EntryType.PASSWORD.value
+                    ):
+                        entry.pop("website", None)
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -106,7 +113,7 @@ class EntryManager:
 
     def add_entry(
         self,
-        website_name: str,
+        label: str,
         length: int,
         username: Optional[str] = None,
         url: Optional[str] = None,
@@ -117,7 +124,7 @@ class EntryManager:
         """
         Adds a new entry to the encrypted JSON index file.
 
-        :param website_name: The name of the website.
+        :param label: A label describing the entry (e.g. website name).
         :param length: The desired length of the password.
         :param username: (Optional) The username associated with the website.
         :param url: (Optional) The URL of the website.
@@ -131,7 +138,7 @@ class EntryManager:
 
             data.setdefault("entries", {})
             data["entries"][str(index)] = {
-                "website": website_name,
+                "label": label,
                 "length": length,
                 "username": username if username else "",
                 "url": url if url else "",
@@ -222,7 +229,11 @@ class EntryManager:
             raise
 
     def add_ssh_key(
-        self, parent_seed: str, index: int | None = None, notes: str = ""
+        self,
+        label: str,
+        parent_seed: str,
+        index: int | None = None,
+        notes: str = "",
     ) -> int:
         """Add a new SSH key pair entry.
 
@@ -240,6 +251,7 @@ class EntryManager:
             "type": EntryType.SSH.value,
             "kind": EntryType.SSH.value,
             "index": index,
+            "label": label,
             "notes": notes,
         }
         self._save_index(data)
@@ -263,6 +275,7 @@ class EntryManager:
 
     def add_pgp_key(
         self,
+        label: str,
         parent_seed: str,
         index: int | None = None,
         key_type: str = "ed25519",
@@ -280,6 +293,7 @@ class EntryManager:
             "type": EntryType.PGP.value,
             "kind": EntryType.PGP.value,
             "index": index,
+            "label": label,
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
@@ -362,6 +376,7 @@ class EntryManager:
 
     def add_seed(
         self,
+        label: str,
         parent_seed: str,
         index: int | None = None,
         words_num: int = 24,
@@ -378,6 +393,7 @@ class EntryManager:
             "type": EntryType.SEED.value,
             "kind": EntryType.SEED.value,
             "index": index,
+            "label": label,
             "words": words_num,
             "notes": notes,
         }
@@ -596,11 +612,11 @@ class EntryManager:
                 idx_str, entry = item
                 if sort_by == "index":
                     return int(idx_str)
-                if sort_by == "website":
-                    return entry.get("website", "").lower()
+                if sort_by in {"website", "label"}:
+                    return entry.get("label", entry.get("website", "")).lower()
                 if sort_by == "username":
                     return entry.get("username", "").lower()
-                raise ValueError("sort_by must be 'index', 'website', or 'username'")
+                raise ValueError("sort_by must be 'index', 'label', or 'username'")
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
 
@@ -616,19 +632,20 @@ class EntryManager:
 
             entries: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
             for idx, entry in filtered_items:
+                label = entry.get("label", entry.get("website", ""))
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                if etype == EntryType.TOTP.value:
-                    entries.append((idx, entry.get("label", ""), None, None, False))
-                else:
+                if etype == EntryType.PASSWORD.value:
                     entries.append(
                         (
                             idx,
-                            entry.get("website", ""),
+                            label,
                             entry.get("username", ""),
                             entry.get("url", ""),
                             entry.get("blacklisted", False),
                         )
                     )
+                else:
+                    entries.append((idx, label, None, None, False))
 
             logger.debug(f"Total entries found: {len(entries)}")
             for idx, entry in filtered_items:
@@ -644,8 +661,13 @@ class EntryManager:
                             "cyan",
                         )
                     )
-                else:
-                    print(colored(f"  Website: {entry.get('website', '')}", "cyan"))
+                elif etype == EntryType.PASSWORD.value:
+                    print(
+                        colored(
+                            f"  Label: {entry.get('label', entry.get('website', ''))}",
+                            "cyan",
+                        )
+                    )
                     print(
                         colored(f"  Username: {entry.get('username') or 'N/A'}", "cyan")
                     )
@@ -654,6 +676,13 @@ class EntryManager:
                         colored(
                             f"  Blacklisted: {'Yes' if entry.get('blacklisted', False) else 'No'}",
                             "cyan",
+                        )
+                    )
+                else:
+                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
                         )
                     )
                 print("-" * 40)
@@ -680,16 +709,14 @@ class EntryManager:
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
             etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-            if etype == EntryType.TOTP.value:
-                label = entry.get("label", "")
-                notes = entry.get("notes", "")
-                if query_lower in label.lower() or query_lower in notes.lower():
-                    results.append((int(idx), label, None, None, False))
-            else:
-                website = entry.get("website", "")
+            label = entry.get("label", entry.get("website", ""))
+            notes = entry.get("notes", "")
+            label_match = query_lower in label.lower()
+            notes_match = query_lower in notes.lower()
+
+            if etype == EntryType.PASSWORD.value:
                 username = entry.get("username", "")
                 url = entry.get("url", "")
-                notes = entry.get("notes", "")
                 custom_fields = entry.get("custom_fields", [])
                 custom_match = any(
                     query_lower in str(cf.get("label", "")).lower()
@@ -697,21 +724,24 @@ class EntryManager:
                     for cf in custom_fields
                 )
                 if (
-                    query_lower in website.lower()
+                    label_match
                     or query_lower in username.lower()
                     or query_lower in url.lower()
-                    or query_lower in notes.lower()
+                    or notes_match
                     or custom_match
                 ):
                     results.append(
                         (
                             int(idx),
-                            website,
+                            label,
                             username,
                             url,
                             entry.get("blacklisted", False),
                         )
                     )
+            else:
+                if label_match or notes_match:
+                    results.append((int(idx), label, None, None, False))
 
         return results
 
@@ -829,7 +859,7 @@ class EntryManager:
             for entry in entries:
                 index, website, username, url, blacklisted = entry
                 print(colored(f"Index: {index}", "cyan"))
-                print(colored(f"  Website: {website}", "cyan"))
+                print(colored(f"  Label: {website}", "cyan"))
                 print(colored(f"  Username: {username or 'N/A'}", "cyan"))
                 print(colored(f"  URL: {url or 'N/A'}", "cyan"))
                 print(
@@ -856,19 +886,9 @@ class EntryManager:
                 if filter_kind and etype != filter_kind:
                     continue
                 if etype == EntryType.PASSWORD.value:
-                    label = entry.get("website", "")
-                elif etype == EntryType.TOTP.value:
-                    label = entry.get("label", "")
-                elif etype == EntryType.SSH.value:
-                    label = "SSH Key"
-                elif etype == EntryType.SEED.value:
-                    label = "Seed Phrase"
-                elif etype == EntryType.NOSTR.value:
-                    label = entry.get("label", "Nostr Key")
-                elif etype == EntryType.PGP.value:
-                    label = "PGP Key"
+                    label = entry.get("label", entry.get("website", ""))
                 else:
-                    label = etype
+                    label = entry.get("label", etype)
                 summaries.append((int(idx_str), label))
 
             summaries.sort(key=lambda x: x[0])
