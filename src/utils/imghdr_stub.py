@@ -11,7 +11,11 @@ import warnings
 
 __all__ = ["what"]
 
-warnings._deprecated(__name__, remove=(3, 13))
+warnings.warn(
+    "'imghdr' is deprecated and will be removed in Python 3.13",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # -------------------------
 # Recognize image headers
