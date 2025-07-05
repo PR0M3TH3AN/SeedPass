@@ -1,4 +1,5 @@
 import multiprocessing as mp
+import os
 import time
 from pathlib import Path
 
@@ -19,6 +20,10 @@ def _try_lock(path: Path, wait_time: mp.Value):
         wait_time.value = time.perf_counter() - t0
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="file locking semantics are unreliable on Windows runners",
+)
 def test_exclusive_lock_blocks_until_released(tmp_path: Path) -> None:
     file_path = tmp_path / "locktest.txt"
 
