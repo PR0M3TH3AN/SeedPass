@@ -1128,7 +1128,14 @@ class PasswordManager:
                 print(colored("Seed phrase display cancelled.", "yellow"))
                 return
 
-            print(colored(f"\n[+] Seed entry added with ID {index}.\n", "green"))
+            print(
+                colored(
+                    f"\n[+] Seed entry '{label}' added with ID {index}.\n",
+                    "green",
+                )
+            )
+            print(colored(f"Index: {index}", "cyan"))
+            print(colored(f"Label: {label}", "cyan"))
             if notes:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Seed Phrase:", "cyan"))
@@ -1374,6 +1381,7 @@ class PasswordManager:
                 try:
                     phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
                     print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                    print(colored(f"Index: {index}", "cyan"))
                     if label:
                         print(colored(f"Label: {label}", "cyan"))
                     if notes:
@@ -1407,8 +1415,6 @@ class PasswordManager:
                             words_len=words,
                         )
                         print(colored(f"Entropy: {entropy.hex()}", "cyan"))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
