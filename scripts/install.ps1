@@ -27,6 +27,28 @@ function Write-Error {
     exit 1
 }
 
+# Check for Microsoft C++ Build Tools and try to install them if missing
+function Ensure-BuildTools {
+    if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+        Write-Warning "Microsoft C++ Build Tools not found. Some packages may fail to build."
+        if (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Info "Attempting to install Microsoft C++ Build Tools via winget..."
+            try {
+                winget install --id Microsoft.VisualStudio.2022.BuildTools -e --source winget -h
+            } catch {
+                Write-Warning "Failed to install Build Tools via winget. Please install them manually from https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+            }
+        } else {
+            Write-Warning "Winget is not available. Please install Build Tools from https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+        }
+        if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            Write-Warning "Microsoft C++ Build Tools still not found. Dependency installation may fail."
+        }
+    } else {
+        Write-Info "Microsoft C++ Build Tools found."
+    }
+}
+
 # --- Main Script ---
 
 # 1. Check for prerequisites
@@ -73,6 +95,9 @@ if ($pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
     Write-Warning "If installation fails, install Python 3.11 or 3.12 or ensure Microsoft C++ Build Tools are available."
 }
 
+# Ensure C++ build tools are available before installing dependencies
+Ensure-BuildTools
+
 # 2. Clone or update the repository
 if (Test-Path (Join-Path $InstallDir ".git")) {
     Write-Info "SeedPass directory found. Fetching updates and switching to '$Branch' branch..."
@@ -99,12 +124,12 @@ if (-not (Test-Path $VenvDir)) {
 
 # 4. Install/Update Python dependencies
 Write-Info "Installing/updating Python dependencies..."
-& "$VenvDir\Scripts\pip.exe" install --upgrade pip
+& "$VenvDir\Scripts\python.exe" -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to upgrade pip"
 }
 
-& "$VenvDir\Scripts\pip.exe" install -r "src\requirements.txt"
+& "$VenvDir\Scripts\python.exe" -m pip install -r "src\requirements.txt"
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "Failed to install Python dependencies. If errors mention C++, install Microsoft C++ Build Tools: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
     Write-Error "Dependency installation failed."

@@ -129,11 +129,12 @@ Once activated, your terminal prompt should be prefixed with `(venv)` indicating
 
 ### 4. Install Dependencies
 
-Install the required Python packages and build dependencies using `pip`:
+Install the required Python packages and build dependencies using `pip`.
+When upgrading pip, use `python -m pip` inside the virtual environment so that pip can update itself cleanly:
 
 ```bash
-pip install --upgrade pip
-pip install -r src/requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r src/requirements.txt
 ```
 
 #### Linux Clipboard Support
