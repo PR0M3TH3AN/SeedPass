@@ -76,6 +76,7 @@ class BackupManager:
             backup_file = self.backup_dir / backup_filename
 
             shutil.copy2(index_file, backup_file)
+            os.chmod(backup_file, 0o600)
             logger.info(f"Backup created successfully at '{backup_file}'.")
             print(colored(f"Backup created successfully at '{backup_file}'.", "green"))
 
@@ -95,6 +96,7 @@ class BackupManager:
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest_file = dest_dir / f"{self.fingerprint_dir.name}_{backup_file.name}"
             shutil.copy2(backup_file, dest_file)
+            os.chmod(dest_file, 0o600)
             logger.info(f"Additional backup created at '{dest_file}'.")
         except Exception as e:  # pragma: no cover - best-effort logging
             logger.error(
@@ -118,6 +120,7 @@ class BackupManager:
             latest_backup = backup_files[0]
             index_file = self.index_file
             shutil.copy2(latest_backup, index_file)
+            os.chmod(index_file, 0o600)
             logger.info(f"Restored the index file from backup '{latest_backup}'.")
             print(
                 colored(
@@ -168,8 +171,12 @@ class BackupManager:
             return
 
         try:
-            with exclusive_lock(backup_file):
-                shutil.copy2(backup_file, self.index_file)
+            with exclusive_lock(backup_file) as fh_src, open(
+                self.index_file, "wb"
+            ) as dst:
+                fh_src.seek(0)
+                shutil.copyfileobj(fh_src, dst)
+            os.chmod(self.index_file, 0o600)
             logger.info(f"Restored the index file from backup '{backup_file}'.")
             print(
                 colored(

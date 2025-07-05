@@ -77,9 +77,11 @@ class EncryptionManager:
             encrypted_data = self.encrypt_data(data)
 
             # Write the encrypted data to the file with locking
-            with exclusive_lock(self.parent_seed_file):
-                with open(self.parent_seed_file, "wb") as f:
-                    f.write(encrypted_data)
+            with exclusive_lock(self.parent_seed_file) as fh:
+                fh.seek(0)
+                fh.truncate()
+                fh.write(encrypted_data)
+                fh.flush()
 
             # Set file permissions to read/write for the user only
             os.chmod(self.parent_seed_file, 0o600)
@@ -106,9 +108,9 @@ class EncryptionManager:
         """
         try:
             parent_seed_path = self.fingerprint_dir / "parent_seed.enc"
-            with exclusive_lock(parent_seed_path):
-                with open(parent_seed_path, "rb") as f:
-                    encrypted_data = f.read()
+            with exclusive_lock(parent_seed_path) as fh:
+                fh.seek(0)
+                encrypted_data = fh.read()
 
             decrypted_data = self.decrypt_data(encrypted_data)
             parent_seed = decrypted_data.decode("utf-8").strip()
@@ -182,9 +184,11 @@ class EncryptionManager:
             encrypted_data = self.encrypt_data(data)
 
             # Write the encrypted data to the file with locking
-            with exclusive_lock(file_path):
-                with open(file_path, "wb") as f:
-                    f.write(encrypted_data)
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                fh.truncate()
+                fh.write(encrypted_data)
+                fh.flush()
 
             # Set file permissions to read/write for the user only
             os.chmod(file_path, 0o600)
@@ -216,9 +220,9 @@ class EncryptionManager:
             file_path = self.fingerprint_dir / relative_path
 
             # Read the encrypted data with locking
-            with exclusive_lock(file_path):
-                with open(file_path, "rb") as f:
-                    encrypted_data = f.read()
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                encrypted_data = fh.read()
 
             # Decrypt the data
             decrypted_data = self.decrypt_data(encrypted_data)
@@ -328,9 +332,9 @@ class EncryptionManager:
             file_path = self.fingerprint_dir / relative_path
             logger.debug("Calculating checksum of the encrypted file bytes.")
 
-            with exclusive_lock(file_path):
-                with open(file_path, "rb") as f:
-                    encrypted_bytes = f.read()
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                encrypted_bytes = fh.read()
 
             checksum = hashlib.sha256(encrypted_bytes).hexdigest()
             logger.debug(f"New checksum: {checksum}")
@@ -338,9 +342,11 @@ class EncryptionManager:
             checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
 
             # Write the checksum to the file with locking
-            with exclusive_lock(checksum_file):
-                with open(checksum_file, "w") as f:
-                    f.write(checksum)
+            with exclusive_lock(checksum_file) as fh:
+                fh.seek(0)
+                fh.truncate()
+                fh.write(checksum.encode("utf-8"))
+                fh.flush()
 
             # Set file permissions to read/write for the user only
             os.chmod(checksum_file, 0o600)
@@ -380,9 +386,10 @@ class EncryptionManager:
                 )
                 return None
 
-            with exclusive_lock(self.fingerprint_dir / relative_path):
-                with open(self.fingerprint_dir / relative_path, "rb") as file:
-                    encrypted_data = file.read()
+            file_path = self.fingerprint_dir / relative_path
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                encrypted_data = fh.read()
 
             logger.debug(f"Encrypted index data read from '{relative_path}'.")
             return encrypted_data
