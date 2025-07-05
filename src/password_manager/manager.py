@@ -1007,7 +1007,7 @@ class PasswordManager:
                     print(colored("Add this URI to your authenticator app:", "cyan"))
                     print(colored(uri, "yellow"))
                     TotpManager.print_qr_code(uri)
-                    print(colored(f"Secret: {secret}\n", "cyan"))
+                    print(color_text(f"Secret: {secret}\n", "deterministic"))
                     try:
                         self.sync_vault()
                     except Exception as nostr_error:
@@ -1088,9 +1088,9 @@ class PasswordManager:
             if notes:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Public Key:", "cyan"))
-            print(pub_pem)
+            print(color_text(pub_pem, "default"))
             print(colored("Private Key:", "cyan"))
-            print(priv_pem)
+            print(color_text(priv_pem, "deterministic"))
             try:
                 self.sync_vault()
             except Exception as nostr_error:
@@ -1139,7 +1139,7 @@ class PasswordManager:
             if notes:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Seed Phrase:", "cyan"))
-            print(colored(phrase, "yellow"))
+            print(color_text(phrase, "deterministic"))
             if confirm_action("Show Compact Seed QR? (Y/N): "):
                 from password_manager.seedqr import encode_seedqr
 
@@ -1193,7 +1193,7 @@ class PasswordManager:
             if notes:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
-            print(priv_key)
+            print(color_text(priv_key, "deterministic"))
             try:
                 self.sync_vault()
             except Exception as nostr_error:  # pragma: no cover - best effort
@@ -1228,7 +1228,7 @@ class PasswordManager:
                     )
                 )
             else:
-                print(colored(f"nsec: {nsec}", "cyan"))
+                print(color_text(f"nsec: {nsec}", "deterministic"))
             if confirm_action("Show QR code for npub? (Y/N): "):
                 TotpManager.print_qr_code(f"nostr:{npub}")
             if confirm_action(
@@ -1306,7 +1306,9 @@ class PasswordManager:
                         else:
                             print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
                             print(colored(f"Label: {label}", "cyan"))
-                            print(colored(f"Code: {code}", "yellow"))
+                            imported = "secret" in entry
+                            category = "imported" if imported else "deterministic"
+                            print(color_text(f"Code: {code}", category))
                         if notes:
                             print(colored(f"Notes: {notes}", "cyan"))
                         remaining = self.entry_manager.get_totp_time_remaining(index)
@@ -1354,7 +1356,7 @@ class PasswordManager:
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
                     print(colored("Public Key:", "cyan"))
-                    print(pub_pem)
+                    print(color_text(pub_pem, "default"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
                         print(
@@ -1365,7 +1367,7 @@ class PasswordManager:
                         )
                     else:
                         print(colored("Private Key:", "cyan"))
-                        print(priv_pem)
+                        print(color_text(priv_pem, "deterministic"))
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
@@ -1395,7 +1397,7 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored(phrase, "yellow"))
+                        print(color_text(phrase, "deterministic"))
                     if confirm_action("Show Compact Seed QR? (Y/N): "):
                         from password_manager.seedqr import encode_seedqr
 
@@ -1414,7 +1416,7 @@ class PasswordManager:
                             app_no=39,
                             words_len=words,
                         )
-                        print(colored(f"Entropy: {entropy.hex()}", "cyan"))
+                        print(color_text(f"Entropy: {entropy.hex()}", "deterministic"))
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
@@ -1446,7 +1448,7 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(priv_key)
+                        print(color_text(priv_key, "deterministic"))
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
@@ -1470,7 +1472,7 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored(f"nsec: {nsec}", "cyan"))
+                        print(color_text(f"nsec: {nsec}", "deterministic"))
                     if confirm_action("Show QR code for npub? (Y/N): "):
                         TotpManager.print_qr_code(f"nostr:{npub}")
                     if confirm_action(
@@ -1527,7 +1529,7 @@ class PasswordManager:
                             "green",
                         )
                     )
-                    print(colored(f"Password: {password}", "yellow"))
+                    print(color_text(f"Password: {password}", "deterministic"))
                     print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
                     print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
                     print(
@@ -2044,7 +2046,9 @@ class PasswordManager:
                                 f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
                             )
                         else:
-                            print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                            print(
+                                f"[{idx}] {label}: {color_text(code, 'deterministic')} {bar} {remaining:2d}s"
+                            )
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
                     for label, idx, period, _ in imported_list:
@@ -2058,7 +2062,9 @@ class PasswordManager:
                                 f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
                             )
                         else:
-                            print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
+                            print(
+                                f"[{idx}] {label}: {color_text(code, 'imported')} {bar} {remaining:2d}s"
+                            )
                 sys.stdout.flush()
                 try:
                     user_input = timed_input("", 1)
@@ -2341,7 +2347,7 @@ class PasswordManager:
 
             # Reveal the parent seed
             print(colored("\n=== Your BIP-85 Parent Seed ===", "green"))
-            print(colored(self.parent_seed, "yellow"))
+            print(color_text(self.parent_seed, "imported"))
             print(
                 colored(
                     "\nPlease write this down and store it securely. Do not share it with anyone.",
