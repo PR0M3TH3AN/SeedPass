@@ -72,6 +72,7 @@ jobs:
           pip install pip-audit
           pip-audit -r requirements.lock
       - name: Determine stress args
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo "STRESS_ARGS=--stress" >> $GITHUB_ENV
