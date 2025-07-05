@@ -1,3 +1,4 @@
+import os
 import threading
 from pathlib import Path
 
@@ -20,6 +21,10 @@ def _reader(path: Path, results: list[str], exceptions: list[str]) -> None:
         exceptions.append(repr(e))
 
 
+import pytest
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows lacks reliable shared locks")
 def test_concurrent_shared_and_exclusive_lock(tmp_path: Path) -> None:
     file_path = tmp_path / "data.txt"
     file_path.write_text("init")

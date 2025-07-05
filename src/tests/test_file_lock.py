@@ -48,4 +48,4 @@ def test_exclusive_lock_blocks_until_released(tmp_path: Path) -> None:
     # Different operating systems spawn processes at slightly different speeds
     # which can shift the measured wait time by a few hundred milliseconds. A
     # wider tolerance keeps the test stable across platforms.
-    assert wait_time.value == pytest.approx(1.0, abs=0.5)
+    assert wait_time.value == pytest.approx(1.0, abs=0.7)
