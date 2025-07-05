@@ -168,8 +168,11 @@ class BackupManager:
             return
 
         try:
-            with exclusive_lock(backup_file):
-                shutil.copy2(backup_file, self.index_file)
+            with exclusive_lock(backup_file) as fh_src, open(
+                self.index_file, "wb"
+            ) as dst:
+                fh_src.seek(0)
+                shutil.copyfileobj(fh_src, dst)
             logger.info(f"Restored the index file from backup '{backup_file}'.")
             print(
                 colored(
