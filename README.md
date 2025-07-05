@@ -240,7 +240,7 @@ python src/main.py
 3. Provide a label for the account (for example, `GitHub`).
 4. SeedPass automatically chooses the next available derivation index when deriving.
 5. Optionally specify the TOTP period and digit count.
-6. SeedPass will display the URI and secret so you can add it to your authenticator app.
+6. SeedPass displays the URI and secret, along with a QR code you can scan to import it into your authenticator app.
 
 ### Modifying a 2FA Entry
 

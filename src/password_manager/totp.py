@@ -7,6 +7,8 @@ import time
 from urllib.parse import quote
 from urllib.parse import urlparse, parse_qs, unquote
 
+import qrcode
+
 import pyotp
 
 from utils import key_derivation
@@ -81,3 +83,11 @@ class TotpManager:
             remaining -= 1
         sys.stdout.write("\n")
         sys.stdout.flush()
+
+    @staticmethod
+    def print_qr_code(uri: str) -> None:
+        """Display a QR code representing the provided URI in the terminal."""
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(uri)
+        qr.make()
+        qr.print_ascii(invert=True)
