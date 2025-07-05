@@ -841,3 +841,39 @@ class EntryManager:
             logger.error(f"Failed to list all entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list all entries: {e}", "red"))
             return
+
+    def get_entry_summaries(
+        self, filter_kind: str | None = None
+    ) -> list[tuple[int, str]]:
+        """Return a list of entry index and display labels."""
+        try:
+            data = self.vault.load_index()
+            entries_data = data.get("entries", {})
+
+            summaries: list[tuple[int, str]] = []
+            for idx_str, entry in entries_data.items():
+                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+                if filter_kind and etype != filter_kind:
+                    continue
+                if etype == EntryType.PASSWORD.value:
+                    label = entry.get("website", "")
+                elif etype == EntryType.TOTP.value:
+                    label = entry.get("label", "")
+                elif etype == EntryType.SSH.value:
+                    label = "SSH Key"
+                elif etype == EntryType.SEED.value:
+                    label = "Seed Phrase"
+                elif etype == EntryType.NOSTR.value:
+                    label = entry.get("label", "Nostr Key")
+                elif etype == EntryType.PGP.value:
+                    label = "PGP Key"
+                else:
+                    label = etype
+                summaries.append((int(idx_str), label))
+
+            summaries.sort(key=lambda x: x[0])
+            return summaries
+        except Exception as e:
+            logger.error(f"Failed to get entry summaries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to get entry summaries: {e}", "red"))
+            return []
