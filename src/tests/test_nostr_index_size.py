@@ -58,7 +58,7 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
                         if max_entries is not None and entry_count >= max_entries:
                             break
                         entry_mgr.add_entry(
-                            website_name=f"site-{entry_count + 1}",
+                            label=f"site-{entry_count + 1}",
                             length=12,
                             username="u" * size,
                             url="https://example.com/" + "a" * size,

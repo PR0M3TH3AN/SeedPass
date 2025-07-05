@@ -21,7 +21,7 @@ def test_ssh_private_key_corresponds_to_public():
         backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        idx = entry_mgr.add_ssh_key(TEST_SEED)
+        idx = entry_mgr.add_ssh_key("ssh", TEST_SEED)
         priv_pem, pub_pem = entry_mgr.get_ssh_key_pair(idx, TEST_SEED)
 
         priv_key = serialization.load_pem_private_key(

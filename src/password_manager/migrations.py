@@ -33,6 +33,10 @@ def _v1_to_v2(data: dict) -> dict:
     for k, v in passwords.items():
         v.setdefault("type", "password")
         v.setdefault("notes", "")
+        if "label" not in v and "website" in v:
+            v["label"] = v["website"]
+        if v.get("type") == "password" and "website" in v:
+            v.pop("website", None)
         entries[k] = v
     data["entries"] = entries
     data["schema_version"] = 2
@@ -46,6 +50,10 @@ def _v2_to_v3(data: dict) -> dict:
     for entry in entries.values():
         entry.setdefault("custom_fields", [])
         entry.setdefault("origin", "")
+        if entry.get("type", "password") == "password":
+            if "label" not in entry and "website" in entry:
+                entry["label"] = entry["website"]
+            entry.pop("website", None)
     data["schema_version"] = 3
     return data
 

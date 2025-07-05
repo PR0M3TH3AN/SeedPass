@@ -25,7 +25,7 @@ def test_backup_restore_workflow(monkeypatch):
             "schema_version": 3,
             "entries": {
                 "0": {
-                    "website": "a",
+                    "label": "a",
                     "length": 10,
                     "type": "password",
                     "kind": "password",
@@ -48,7 +48,7 @@ def test_backup_restore_workflow(monkeypatch):
             "schema_version": 3,
             "entries": {
                 "0": {
-                    "website": "b",
+                    "label": "b",
                     "length": 12,
                     "type": "password",
                     "kind": "password",

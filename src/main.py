@@ -262,7 +262,7 @@ def print_matches(
             print(colored("  Type: Nostr Key", "cyan"))
         else:
             if website:
-                print(colored(f"  Website: {website}", "cyan"))
+                print(colored(f"  Label: {website}", "cyan"))
             if username:
                 print(colored(f"  Username: {username}", "cyan"))
             if url:
