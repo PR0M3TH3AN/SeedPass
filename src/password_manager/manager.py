@@ -14,6 +14,7 @@ import json
 import logging
 import getpass
 import os
+import hashlib
 from typing import Optional
 import shutil
 import time
@@ -2267,7 +2268,8 @@ class PasswordManager:
 
         # Schema version and checksum status
         stats["schema_version"] = data.get("schema_version")
-        current_checksum = json_checksum(data)
+        json_content = json.dumps(data, indent=4)
+        current_checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
         chk_path = self.entry_manager.checksum_file
         if chk_path.exists():
             stored = chk_path.read_text().strip()
