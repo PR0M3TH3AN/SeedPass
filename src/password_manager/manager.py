@@ -1147,6 +1147,12 @@ class PasswordManager:
                 )
             else:
                 print(colored(f"nsec: {nsec}", "cyan"))
+            if confirm_action("Show QR code for npub? (Y/N): "):
+                TotpManager.print_qr_code(f"nostr:{npub}")
+            if confirm_action(
+                "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
+            ):
+                TotpManager.print_qr_code(nsec)
             try:
                 self.sync_vault()
             except Exception as nostr_error:  # pragma: no cover - best effort
@@ -1342,6 +1348,12 @@ class PasswordManager:
                         )
                     else:
                         print(colored(f"nsec: {nsec}", "cyan"))
+                    if confirm_action("Show QR code for npub? (Y/N): "):
+                        TotpManager.print_qr_code(f"nostr:{npub}")
+                    if confirm_action(
+                        "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
+                    ):
+                        TotpManager.print_qr_code(nsec)
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
