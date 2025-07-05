@@ -514,6 +514,8 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
     try:
         cfg_mgr.set_additional_backup_path(str(path))
         print(colored(f"Additional backups will be copied to {path}", "green"))
+        if pm.backup_manager is not None:
+            pm.backup_manager.create_backup()
     except Exception as e:
         logging.error(f"Error saving backup path: {e}")
         print(colored(f"Error: {e}", "red"))
