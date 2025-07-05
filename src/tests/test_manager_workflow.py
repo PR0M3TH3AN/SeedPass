@@ -57,6 +57,7 @@ def test_manager_workflow(monkeypatch):
                 "",  # length (default)
                 "0",  # retrieve index
                 "0",  # modify index
+                "",  # new label
                 "user",  # new username
                 "",  # new url
                 "",  # blacklist status
