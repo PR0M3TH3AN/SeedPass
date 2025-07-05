@@ -2497,7 +2497,7 @@ class PasswordManager:
         stats["entries"] = counts
         stats["total_entries"] = len(entries)
 
-        # Schema version and checksum status
+        # Schema version and database checksum status
         stats["schema_version"] = data.get("schema_version")
         json_content = json.dumps(data, indent=4)
         current_checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
@@ -2509,6 +2509,19 @@ class PasswordManager:
             stored = None
             stats["checksum_ok"] = False
         stats["checksum"] = stored
+
+        # Script checksum status
+        script_path = Path(__file__).resolve()
+        try:
+            script_checksum = calculate_checksum(str(script_path))
+        except Exception:
+            script_checksum = None
+
+        if SCRIPT_CHECKSUM_FILE.exists() and script_checksum:
+            stored_script = SCRIPT_CHECKSUM_FILE.read_text().strip()
+            stats["script_checksum_ok"] = stored_script == script_checksum
+        else:
+            stats["script_checksum_ok"] = False
 
         # Relay info
         cfg = self.config_manager.load_config(require_pin=False)
@@ -2582,7 +2595,13 @@ class PasswordManager:
         print(colored(f"Schema version: {stats['schema_version']}", "cyan"))
         print(
             colored(
-                f"Checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                f"Database checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                "cyan",
+            )
+        )
+        print(
+            colored(
+                f"Script checksum ok: {'yes' if stats['script_checksum_ok'] else 'no'}",
                 "cyan",
             )
         )
