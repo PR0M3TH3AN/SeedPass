@@ -19,6 +19,7 @@ from typing import Optional
 import shutil
 import time
 import select
+import builtins
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -1213,6 +1214,26 @@ class PasswordManager:
             logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
 
+    def show_entry_details_by_index(self, index: int) -> None:
+        """Display entry details using :meth:`handle_retrieve_entry` for the
+        given index without prompting for it again."""
+
+        original_input = builtins.input
+        first_call = True
+
+        def patched_input(prompt: str = "") -> str:
+            nonlocal first_call
+            if first_call:
+                first_call = False
+                return str(index)
+            return original_input(prompt)
+
+        try:
+            builtins.input = patched_input
+            self.handle_retrieve_entry()
+        finally:
+            builtins.input = original_input
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1885,7 +1906,7 @@ class PasswordManager:
                 if not idx_input.isdigit():
                     print(colored("Invalid index.", "red"))
                     continue
-                self.display_entry_details(int(idx_input))
+                self.show_entry_details_by_index(int(idx_input))
                 return
         except Exception as e:
             logging.error(f"Failed to list entries: {e}", exc_info=True)
