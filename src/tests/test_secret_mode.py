@@ -66,7 +66,7 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
         monkeypatch.setattr(
-            "password_manager.manager.select.select",
+            "password_manager.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
         called = []
@@ -115,7 +115,7 @@ def test_totp_display_no_secret_mode(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
         monkeypatch.setattr(
-            "password_manager.manager.select.select",
+            "password_manager.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
         called = []
