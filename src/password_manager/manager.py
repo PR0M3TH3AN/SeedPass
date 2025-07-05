@@ -1694,15 +1694,88 @@ class PasswordManager:
                 return
 
             print(colored("\n[+] Search Results:\n", "green"))
-            for entry in results:
-                index, website, username, url, blacklisted = entry
+            for match in results:
+                index, website, username, url, blacklisted = match
+                entry = self.entry_manager.retrieve_entry(index)
+                if not entry:
+                    continue
+                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 print(colored(f"Index: {index}", "cyan"))
-                print(colored(f"  Website: {website}", "cyan"))
-                print(colored(f"  Username: {username or 'N/A'}", "cyan"))
-                print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
-                )
+                if etype == EntryType.TOTP.value:
+                    print(colored(f"  Label: {entry.get('label', website)}", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                        )
+                    )
+                    print(
+                        colored(
+                            f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
+                            "cyan",
+                        )
+                    )
+                    notes = entry.get("notes", "")
+                    if notes:
+                        print(colored(f"  Notes: {notes}", "cyan"))
+                elif etype == EntryType.SEED.value:
+                    print(colored("  Type: Seed Phrase", "cyan"))
+                    print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                        )
+                    )
+                    notes = entry.get("notes", "")
+                    if notes:
+                        print(colored(f"  Notes: {notes}", "cyan"))
+                elif etype == EntryType.SSH.value:
+                    print(colored("  Type: SSH Key", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                        )
+                    )
+                    notes = entry.get("notes", "")
+                    if notes:
+                        print(colored(f"  Notes: {notes}", "cyan"))
+                elif etype == EntryType.PGP.value:
+                    print(colored("  Type: PGP Key", "cyan"))
+                    print(
+                        colored(
+                            f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"
+                        )
+                    )
+                    uid = entry.get("user_id", "")
+                    if uid:
+                        print(colored(f"  User ID: {uid}", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                        )
+                    )
+                    notes = entry.get("notes", "")
+                    if notes:
+                        print(colored(f"  Notes: {notes}", "cyan"))
+                elif etype == EntryType.NOSTR.value:
+                    print(colored("  Type: Nostr Key", "cyan"))
+                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                    print(
+                        colored(
+                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                        )
+                    )
+                    notes = entry.get("notes", "")
+                    if notes:
+                        print(colored(f"  Notes: {notes}", "cyan"))
+                else:
+                    print(colored(f"  Website: {website}", "cyan"))
+                    print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+                    print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+                    print(
+                        colored(
+                            f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"
+                        )
+                    )
                 print("-" * 40)
 
         except Exception as e:

@@ -234,19 +234,40 @@ def handle_display_stats(password_manager: PasswordManager) -> None:
         print(colored(f"Error: Failed to display stats: {e}", "red"))
 
 
-def print_matches(matches: list[tuple[int, str, str | None, str | None, bool]]) -> None:
+def print_matches(
+    password_manager: PasswordManager,
+    matches: list[tuple[int, str, str | None, str | None, bool]],
+) -> None:
     """Print a list of search matches."""
     print(colored("\n[+] Matches:\n", "green"))
     for entry in matches:
         idx, website, username, url, blacklisted = entry
+        data = password_manager.entry_manager.retrieve_entry(idx)
+        etype = (
+            data.get("type", data.get("kind", EntryType.PASSWORD.value))
+            if data
+            else EntryType.PASSWORD.value
+        )
         print(colored(f"Index: {idx}", "cyan"))
-        if website:
-            print(colored(f"  Website: {website}", "cyan"))
-        if username:
-            print(colored(f"  Username: {username}", "cyan"))
-        if url:
-            print(colored(f"  URL: {url}", "cyan"))
-        print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+        if etype == EntryType.TOTP.value:
+            print(colored(f"  Label: {data.get('label', website)}", "cyan"))
+            print(colored(f"  Derivation Index: {data.get('index', idx)}", "cyan"))
+        elif etype == EntryType.SEED.value:
+            print(colored("  Type: Seed Phrase", "cyan"))
+        elif etype == EntryType.SSH.value:
+            print(colored("  Type: SSH Key", "cyan"))
+        elif etype == EntryType.PGP.value:
+            print(colored("  Type: PGP Key", "cyan"))
+        elif etype == EntryType.NOSTR.value:
+            print(colored("  Type: Nostr Key", "cyan"))
+        else:
+            if website:
+                print(colored(f"  Website: {website}", "cyan"))
+            if username:
+                print(colored(f"  Username: {username}", "cyan"))
+            if url:
+                print(colored(f"  URL: {url}", "cyan"))
+            print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
         print("-" * 40)
 
 
@@ -831,7 +852,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "search":
         matches = password_manager.entry_manager.search_entries(args.query)
         if matches:
-            print_matches(matches)
+            print_matches(password_manager, matches)
         else:
             print(colored("No matching entries found.", "yellow"))
         return 0
@@ -841,7 +862,7 @@ def main(argv: list[str] | None = None) -> int:
             if not matches:
                 print(colored("No matching entries found.", "yellow"))
             else:
-                print_matches(matches)
+                print_matches(password_manager, matches)
             return 1
         idx = matches[0][0]
         entry = password_manager.entry_manager.retrieve_entry(idx)
@@ -858,7 +879,7 @@ def main(argv: list[str] | None = None) -> int:
             if not matches:
                 print(colored("No matching entries found.", "yellow"))
             else:
-                print_matches(matches)
+                print_matches(password_manager, matches)
             return 1
         idx = matches[0][0]
         entry = password_manager.entry_manager.retrieve_entry(idx)
