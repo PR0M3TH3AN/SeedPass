@@ -42,7 +42,7 @@ All entries belonging to a seed profile are summarized in an encrypted file name
   "schema_version": 2,
   "entries": {
     "0": {
-      "website": "example.com",
+      "label": "example.com",
       "length": 8,
       "type": "password",
       "notes": ""

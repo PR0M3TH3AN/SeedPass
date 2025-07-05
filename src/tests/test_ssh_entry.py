@@ -20,9 +20,15 @@ def test_add_and_retrieve_ssh_key_pair():
         backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        index = entry_mgr.add_ssh_key(TEST_SEED)
+        index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
         entry = entry_mgr.retrieve_entry(index)
-        assert entry == {"type": "ssh", "kind": "ssh", "index": index, "notes": ""}
+        assert entry == {
+            "type": "ssh",
+            "kind": "ssh",
+            "index": index,
+            "label": "ssh",
+            "notes": "",
+        }
 
         priv1, pub1 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)
         priv2, pub2 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)

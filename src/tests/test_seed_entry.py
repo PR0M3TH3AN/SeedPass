@@ -23,8 +23,8 @@ def test_seed_phrase_determinism():
         backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        idx_12 = entry_mgr.add_seed(TEST_SEED, words_num=12)
-        idx_24 = entry_mgr.add_seed(TEST_SEED, words_num=24)
+        idx_12 = entry_mgr.add_seed("seed12", TEST_SEED, words_num=12)
+        idx_24 = entry_mgr.add_seed("seed24", TEST_SEED, words_num=24)
 
         phrase12_a = entry_mgr.get_seed_phrase(idx_12, TEST_SEED)
         phrase12_b = entry_mgr.get_seed_phrase(idx_12, TEST_SEED)

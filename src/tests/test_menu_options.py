@@ -30,7 +30,7 @@ def _make_pm(calls):
 def test_menu_totp_option(monkeypatch):
     calls = []
     pm = _make_pm(calls)
-    inputs = iter(["5", "7"])
+    inputs = iter(["6", "8"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr(main, "handle_settings", lambda *_: None)
     with pytest.raises(SystemExit):
@@ -41,7 +41,7 @@ def test_menu_totp_option(monkeypatch):
 def test_menu_settings_option(monkeypatch):
     calls = []
     pm = _make_pm(calls)
-    inputs = iter(["6", "7"])
+    inputs = iter(["7", "8"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr(main, "handle_settings", lambda *_: calls.append("settings"))
     with pytest.raises(SystemExit):

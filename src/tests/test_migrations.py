@@ -20,7 +20,7 @@ def test_migrate_v0_to_v3(tmp_path: Path):
     data = vault.load_index()
     assert data["schema_version"] == LATEST_VERSION
     expected_entry = {
-        "website": "a",
+        "label": "a",
         "length": 8,
         "type": "password",
         "notes": "",
@@ -37,7 +37,7 @@ def test_migrate_v1_to_v3(tmp_path: Path):
     data = vault.load_index()
     assert data["schema_version"] == LATEST_VERSION
     expected_entry = {
-        "website": "b",
+        "label": "b",
         "length": 10,
         "type": "password",
         "notes": "",
@@ -59,7 +59,7 @@ def test_migrate_v2_to_v3(tmp_path: Path):
     data = vault.load_index()
     assert data["schema_version"] == LATEST_VERSION
     expected_entry = {
-        "website": "c",
+        "label": "c",
         "length": 5,
         "type": "password",
         "notes": "",

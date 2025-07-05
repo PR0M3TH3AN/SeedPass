@@ -19,6 +19,7 @@ from typing import Optional
 import shutil
 import time
 import select
+import builtins
 from termcolor import colored
 
 from password_manager.encryption import EncryptionManager
@@ -859,9 +860,9 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
-            website_name = input("Enter the website name: ").strip()
+            website_name = input("Enter the label or website name: ").strip()
             if not website_name:
-                print(colored("Error: Website name cannot be empty.", "red"))
+                print(colored("Error: Label cannot be empty.", "red"))
                 return
 
             username = input("Enter the username (optional): ").strip()
@@ -1040,14 +1041,27 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_ssh_key(self.parent_seed, notes=notes)
+            index = self.entry_manager.add_ssh_key(label, self.parent_seed, notes=notes)
             priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                 index, self.parent_seed
             )
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("SSH key display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Public Key:", "cyan"))
             print(pub_pem)
             print(colored("Private Key:", "cyan"))
@@ -1066,6 +1080,10 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             words_input = input("Word count (12 or 24, default 24): ").strip()
             notes = input("Notes (optional): ").strip()
             if words_input and words_input not in {"12", "24"}:
@@ -1073,14 +1091,27 @@ class PasswordManager:
                 return
             words = int(words_input) if words_input else 24
             index = self.entry_manager.add_seed(
-                self.parent_seed, words_num=words, notes=notes
+                label, self.parent_seed, words_num=words, notes=notes
             )
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("Seed phrase display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] Seed entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Seed Phrase:", "cyan"))
             print(colored(phrase, "yellow"))
+            if confirm_action("Show Compact Seed QR? (Y/N): "):
+                from password_manager.seedqr import encode_seedqr
+
+                TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
                 self.sync_vault()
             except Exception as nostr_error:
@@ -1095,6 +1126,10 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             key_type = (
                 input("Key type (ed25519 or rsa, default ed25519): ").strip().lower()
                 or "ed25519"
@@ -1102,6 +1137,7 @@ class PasswordManager:
             user_id = input("User ID (optional): ").strip()
             notes = input("Notes (optional): ").strip()
             index = self.entry_manager.add_pgp_key(
+                label,
                 self.parent_seed,
                 key_type=key_type,
                 user_id=user_id,
@@ -1112,7 +1148,18 @@ class PasswordManager:
             )
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("PGP key display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
+            if user_id:
+                print(colored(f"User ID: {user_id}", "cyan"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             print(priv_key)
             try:
@@ -1129,7 +1176,10 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
-            label = input("Label (optional): ").strip()
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
             notes = input("Notes (optional): ").strip()
             index = self.entry_manager.add_nostr_key(label, notes=notes)
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
@@ -1147,6 +1197,12 @@ class PasswordManager:
                 )
             else:
                 print(colored(f"nsec: {nsec}", "cyan"))
+            if confirm_action("Show QR code for npub? (Y/N): "):
+                TotpManager.print_qr_code(f"nostr:{npub}")
+            if confirm_action(
+                "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
+            ):
+                TotpManager.print_qr_code(nsec)
             try:
                 self.sync_vault()
             except Exception as nostr_error:  # pragma: no cover - best effort
@@ -1157,6 +1213,26 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
+
+    def show_entry_details_by_index(self, index: int) -> None:
+        """Display entry details using :meth:`handle_retrieve_entry` for the
+        given index without prompting for it again."""
+
+        original_input = builtins.input
+        first_call = True
+
+        def patched_input(prompt: str = "") -> str:
+            nonlocal first_call
+            if first_call:
+                first_call = False
+                return str(index)
+            return original_input(prompt)
+
+        try:
+            builtins.input = patched_input
+            self.handle_retrieve_entry()
+        finally:
+            builtins.input = original_input
 
     def handle_retrieve_entry(self) -> None:
         """
@@ -1232,10 +1308,23 @@ class PasswordManager:
                 return
             if entry_type == EntryType.SSH.value:
                 notes = entry.get("notes", "")
+                label = entry.get("label", "")
+                if not confirm_action(
+                    "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("SSH key display cancelled.", "yellow"))
+                    return
                 try:
                     priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                         index, self.parent_seed
                     )
+                    print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
+                    if label:
+                        print(colored(f"Label: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    print(colored("Public Key:", "cyan"))
+                    print(pub_pem)
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
                         print(
@@ -1244,24 +1333,28 @@ class PasswordManager:
                                 "green",
                             )
                         )
-                        print(colored("Public Key:", "cyan"))
-                        print(pub_pem)
                     else:
-                        print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
-                        print(colored("Public Key:", "cyan"))
-                        print(pub_pem)
                         print(colored("Private Key:", "cyan"))
                         print(priv_pem)
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
                 return
             if entry_type == EntryType.SEED.value:
                 notes = entry.get("notes", "")
+                label = entry.get("label", "")
+                if not confirm_action(
+                    "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("Seed phrase display cancelled.", "yellow"))
+                    return
                 try:
                     phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                    print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                    if label:
+                        print(colored(f"Label: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(phrase, self.clipboard_clear_delay)
                         print(
@@ -1271,9 +1364,8 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
                         print(colored(phrase, "yellow"))
-                    if confirm_action("Show SeedQR? (Y/N): "):
+                    if confirm_action("Show Compact Seed QR? (Y/N): "):
                         from password_manager.seedqr import encode_seedqr
 
                         TotpManager.print_qr_code(encode_seedqr(phrase))
@@ -1300,10 +1392,22 @@ class PasswordManager:
                 return
             if entry_type == EntryType.PGP.value:
                 notes = entry.get("notes", "")
+                label = entry.get("user_id", "")
+                if not confirm_action(
+                    "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("PGP key display cancelled.", "yellow"))
+                    return
                 try:
                     priv_key, fingerprint = self.entry_manager.get_pgp_key(
                         index, self.parent_seed
                     )
+                    print(colored("\n[+] Retrieved PGP Key:\n", "green"))
+                    if label:
+                        print(colored(f"User ID: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_key, self.clipboard_clear_delay)
                         print(
@@ -1313,11 +1417,7 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored("\n[+] Retrieved PGP Key:\n", "green"))
-                        print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                         print(priv_key)
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
@@ -1342,6 +1442,12 @@ class PasswordManager:
                         )
                     else:
                         print(colored(f"nsec: {nsec}", "cyan"))
+                    if confirm_action("Show QR code for npub? (Y/N): "):
+                        TotpManager.print_qr_code(f"nostr:{npub}")
+                    if confirm_action(
+                        "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
+                    ):
+                        TotpManager.print_qr_code(nsec)
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
@@ -1682,20 +1788,133 @@ class PasswordManager:
                 return
 
             print(colored("\n[+] Search Results:\n", "green"))
-            for entry in results:
-                index, website, username, url, blacklisted = entry
-                print(colored(f"Index: {index}", "cyan"))
-                print(colored(f"  Website: {website}", "cyan"))
-                print(colored(f"  Username: {username or 'N/A'}", "cyan"))
-                print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
-                )
-                print("-" * 40)
-
+            for match in results:
+                self.display_entry_details(match[0])
         except Exception as e:
             logging.error(f"Failed to search entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to search entries: {e}", "red"))
+
+    def display_entry_details(self, index: int) -> None:
+        """Print detailed information for a single entry."""
+        entry = self.entry_manager.retrieve_entry(index)
+        if not entry:
+            return
+
+        etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+        print(colored(f"Index: {index}", "cyan"))
+        if etype == EntryType.TOTP.value:
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(
+                colored(
+                    f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
+                    "cyan",
+                )
+            )
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.SEED.value:
+            print(colored("  Type: Seed Phrase", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.SSH.value:
+            print(colored("  Type: SSH Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.PGP.value:
+            print(colored("  Type: PGP Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"))
+            uid = entry.get("user_id", "")
+            if uid:
+                print(colored(f"  User ID: {uid}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.NOSTR.value:
+            print(colored("  Type: Nostr Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        else:
+            website = entry.get("label", entry.get("website", ""))
+            username = entry.get("username", "")
+            url = entry.get("url", "")
+            blacklisted = entry.get("blacklisted", False)
+            print(colored(f"  Label: {website}", "cyan"))
+            print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+            print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+            print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+        print("-" * 40)
+
+    def handle_list_entries(self) -> None:
+        """List entries and optionally show details."""
+        try:
+            while True:
+                print("\nList Entries:")
+                print("1. All")
+                print("2. Passwords")
+                print("3. 2FA (TOTP)")
+                print("4. SSH Key")
+                print("5. Seed Phrase")
+                print("6. Nostr Key Pair")
+                print("7. PGP")
+                print("8. Back")
+                choice = input("Select entry type: ").strip()
+                if choice == "1":
+                    filter_kind = None
+                elif choice == "2":
+                    filter_kind = EntryType.PASSWORD.value
+                elif choice == "3":
+                    filter_kind = EntryType.TOTP.value
+                elif choice == "4":
+                    filter_kind = EntryType.SSH.value
+                elif choice == "5":
+                    filter_kind = EntryType.SEED.value
+                elif choice == "6":
+                    filter_kind = EntryType.NOSTR.value
+                elif choice == "7":
+                    filter_kind = EntryType.PGP.value
+                elif choice == "8":
+                    return
+                else:
+                    print(colored("Invalid choice.", "red"))
+                    continue
+
+                summaries = self.entry_manager.get_entry_summaries(filter_kind)
+                if not summaries:
+                    continue
+                while True:
+                    print(colored("\n[+] Entries:\n", "green"))
+                    for idx, etype, label in summaries:
+                        if filter_kind is None:
+                            display_type = etype.capitalize()
+                            print(colored(f"{idx}. {display_type} - {label}", "cyan"))
+                        else:
+                            print(colored(f"{idx}. {label}", "cyan"))
+                    idx_input = input(
+                        "Enter index to view details or press Enter to go back: "
+                    ).strip()
+                    if not idx_input:
+                        break
+                    if not idx_input.isdigit():
+                        print(colored("Invalid index.", "red"))
+                        continue
+                    self.show_entry_details_by_index(int(idx_input))
+        except Exception as e:
+            logging.error(f"Failed to list entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to list entries: {e}", "red"))
 
     def delete_entry(self) -> None:
         """Deletes an entry from the password index."""

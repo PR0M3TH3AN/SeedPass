@@ -169,7 +169,7 @@ seedpass totp "email"
 # The code is printed and copied to your clipboard
 
 # Sort or filter the list view
-seedpass list --sort website
+seedpass list --sort label
 seedpass list --filter totp
 
 # Use the **Settings** menu to configure an extra backup directory
@@ -185,7 +185,7 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
   "schema_version": 2,
   "entries": {
     "0": {
-      "website": "example.com",
+      "label": "example.com",
       "length": 8,
       "type": "password",
       "notes": ""
@@ -266,6 +266,9 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
 - **Seed Phrase** – generate a BIP-39 mnemonic and keep it encrypted until needed.
 - **PGP Key** – derive an OpenPGP key pair from your master seed.
 - **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients.
+  When you retrieve one of these entries, SeedPass can display QR codes for the
+  keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
+  it, while the `nsec` QR is shown only after a security warning.
 
 
 ### Managing Multiple Seeds

@@ -52,7 +52,7 @@ def _make_pm(called, locked=None):
 def test_empty_and_non_numeric_choice(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["", "abc", "7"])
+    inputs = iter(["", "abc", "8"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -65,7 +65,7 @@ def test_empty_and_non_numeric_choice(monkeypatch, capsys):
 def test_out_of_range_menu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["9", "7"])
+    inputs = iter(["9", "8"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -77,7 +77,7 @@ def test_out_of_range_menu(monkeypatch, capsys):
 def test_invalid_add_entry_submenu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["1", "8", "7", "7"])
+    inputs = iter(["1", "8", "7", "8"])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
@@ -92,7 +92,7 @@ def test_inactivity_timeout_loop(monkeypatch, capsys):
     pm, locked = _make_pm(called)
     pm.last_activity = 0
     monkeypatch.setattr(time, "time", lambda: 100.0)
-    monkeypatch.setattr(main, "timed_input", lambda *_: "7")
+    monkeypatch.setattr(main, "timed_input", lambda *_: "8")
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=0.1)
     out = capsys.readouterr().out
