@@ -1273,6 +1273,10 @@ class PasswordManager:
                     else:
                         print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
                         print(colored(phrase, "yellow"))
+                    if confirm_action("Show SeedQR? (Y/N): "):
+                        from password_manager.seedqr import encode_seedqr
+
+                        TotpManager.print_qr_code(encode_seedqr(phrase))
                     if confirm_action("Show derived entropy as hex? (Y/N): "):
                         from local_bip85.bip85 import BIP85
                         from bip_utils import Bip39SeedGenerator
