@@ -266,6 +266,9 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
 - **Seed Phrase** – generate a BIP-39 mnemonic and keep it encrypted until needed.
 - **PGP Key** – derive an OpenPGP key pair from your master seed.
 - **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients.
+  When you retrieve one of these entries, SeedPass can display QR codes for the
+  keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
+  it, while the `nsec` QR is shown only after a security warning.
 
 
 ### Managing Multiple Seeds
