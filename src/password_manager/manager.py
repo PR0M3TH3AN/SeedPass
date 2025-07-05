@@ -1665,7 +1665,7 @@ class PasswordManager:
                     custom_fields=custom_fields,
                 )
             else:
-                website_name = entry.get("website")
+                website_name = entry.get("label", entry.get("website"))
                 username = entry.get("username")
                 url = entry.get("url")
                 blacklisted = entry.get("blacklisted")
@@ -1677,6 +1677,7 @@ class PasswordManager:
                         "cyan",
                     )
                 )
+                print(colored(f"Current Label: {website_name}", "cyan"))
                 print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
                 print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
                 print(
@@ -1684,6 +1685,13 @@ class PasswordManager:
                         f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
                         "cyan",
                     )
+                )
+
+                new_label = (
+                    input(
+                        f'Enter new label (leave blank to keep "{website_name}"): '
+                    ).strip()
+                    or website_name
                 )
 
                 new_username = (
@@ -1747,6 +1755,7 @@ class PasswordManager:
                     new_url,
                     new_blacklisted,
                     new_notes,
+                    label=new_label,
                     custom_fields=custom_fields,
                 )
 
@@ -2488,7 +2497,7 @@ class PasswordManager:
         stats["entries"] = counts
         stats["total_entries"] = len(entries)
 
-        # Schema version and checksum status
+        # Schema version and database checksum status
         stats["schema_version"] = data.get("schema_version")
         json_content = json.dumps(data, indent=4)
         current_checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
@@ -2500,6 +2509,19 @@ class PasswordManager:
             stored = None
             stats["checksum_ok"] = False
         stats["checksum"] = stored
+
+        # Script checksum status
+        script_path = Path(__file__).resolve()
+        try:
+            script_checksum = calculate_checksum(str(script_path))
+        except Exception:
+            script_checksum = None
+
+        if SCRIPT_CHECKSUM_FILE.exists() and script_checksum:
+            stored_script = SCRIPT_CHECKSUM_FILE.read_text().strip()
+            stats["script_checksum_ok"] = stored_script == script_checksum
+        else:
+            stats["script_checksum_ok"] = False
 
         # Relay info
         cfg = self.config_manager.load_config(require_pin=False)
@@ -2573,7 +2595,13 @@ class PasswordManager:
         print(colored(f"Schema version: {stats['schema_version']}", "cyan"))
         print(
             colored(
-                f"Checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                f"Database checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
+                "cyan",
+            )
+        )
+        print(
+            colored(
+                f"Script checksum ok: {'yes' if stats['script_checksum_ok'] else 'no'}",
                 "cyan",
             )
         )

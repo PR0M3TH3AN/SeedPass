@@ -521,7 +521,7 @@ class EntryManager:
         :param url: (Optional) The new URL (password entries).
         :param blacklisted: (Optional) The new blacklist status.
         :param notes: (Optional) New notes to attach to the entry.
-        :param label: (Optional) The new label for TOTP entries.
+        :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
         :param digits: (Optional) The new number of digits for TOTP codes.
         """
@@ -554,6 +554,9 @@ class EntryManager:
                     entry["digits"] = digits
                     logger.debug(f"Updated digits to '{digits}' for index {index}.")
             else:
+                if label is not None:
+                    entry["label"] = label
+                    logger.debug(f"Updated label to '{label}' for index {index}.")
                 if username is not None:
                     entry["username"] = username
                     logger.debug(f"Updated username to '{username}' for index {index}.")
