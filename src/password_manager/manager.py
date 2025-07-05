@@ -187,6 +187,7 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
+        self.sync_index_from_nostr()
 
     def initialize_fingerprint_manager(self):
         """
@@ -832,6 +833,29 @@ class PasswordManager:
             logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
+
+    def sync_index_from_nostr(self) -> None:
+        """Always fetch the latest vault data from Nostr and update the local index."""
+        try:
+            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            if not result:
+                return
+            manifest, chunks = result
+            encrypted = gzip.decompress(b"".join(chunks))
+            if manifest.delta_since:
+                try:
+                    version = int(manifest.delta_since)
+                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                    if deltas:
+                        encrypted = deltas[-1]
+                except ValueError:
+                    pass
+            current = self.vault.get_encrypted_index()
+            if current != encrypted:
+                self.vault.decrypt_and_save_index_from_nostr(encrypted)
+                logger.info("Local database synchronized from Nostr.")
+        except Exception as e:
+            logger.warning(f"Unable to sync index from Nostr: {e}")
 
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally."""

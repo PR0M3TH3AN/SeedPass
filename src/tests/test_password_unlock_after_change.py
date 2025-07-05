@@ -81,6 +81,7 @@ def test_password_change_and_unlock(monkeypatch):
         )
         monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
         monkeypatch.setattr(PasswordManager, "initialize_managers", lambda self: None)
+        monkeypatch.setattr(PasswordManager, "sync_index_from_nostr", lambda self: None)
 
         pm.unlock_vault()
 
