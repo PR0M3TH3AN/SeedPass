@@ -20,6 +20,7 @@ import shutil
 import time
 import builtins
 from termcolor import colored
+from utils.color_scheme import color_text
 from utils.input_utils import timed_input
 
 from password_manager.encryption import EncryptionManager
@@ -1832,76 +1833,90 @@ class PasswordManager:
             return
 
         etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-        print(colored(f"Index: {index}", "cyan"))
+        print(color_text(f"Index: {index}", "index"))
         if etype == EntryType.TOTP.value:
-            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
             print(
-                colored(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
+            print(
+                color_text(
                     f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
-                    "cyan",
+                    "index",
                 )
             )
             notes = entry.get("notes", "")
             if notes:
-                print(colored(f"  Notes: {notes}", "cyan"))
+                print(color_text(f"  Notes: {notes}", "index"))
         elif etype == EntryType.SEED.value:
-            print(colored("  Type: Seed Phrase", "cyan"))
-            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-            print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
-            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(color_text("  Type: Seed Phrase", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(color_text(f"  Words: {entry.get('words', 24)}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
             notes = entry.get("notes", "")
             if notes:
-                print(colored(f"  Notes: {notes}", "cyan"))
+                print(color_text(f"  Notes: {notes}", "index"))
         elif etype == EntryType.SSH.value:
-            print(colored("  Type: SSH Key", "cyan"))
-            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(color_text("  Type: SSH Key", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
             notes = entry.get("notes", "")
             if notes:
-                print(colored(f"  Notes: {notes}", "cyan"))
+                print(color_text(f"  Notes: {notes}", "index"))
         elif etype == EntryType.PGP.value:
-            print(colored("  Type: PGP Key", "cyan"))
-            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-            print(colored(f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"))
+            print(color_text("  Type: PGP Key", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(
+                color_text(f"  Key Type: {entry.get('key_type', 'ed25519')}", "index")
+            )
             uid = entry.get("user_id", "")
             if uid:
-                print(colored(f"  User ID: {uid}", "cyan"))
-            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+                print(color_text(f"  User ID: {uid}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
             notes = entry.get("notes", "")
             if notes:
-                print(colored(f"  Notes: {notes}", "cyan"))
+                print(color_text(f"  Notes: {notes}", "index"))
         elif etype == EntryType.NOSTR.value:
-            print(colored("  Type: Nostr Key", "cyan"))
-            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(color_text("  Type: Nostr Key", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
             notes = entry.get("notes", "")
             if notes:
-                print(colored(f"  Notes: {notes}", "cyan"))
+                print(color_text(f"  Notes: {notes}", "index"))
         else:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
             url = entry.get("url", "")
             blacklisted = entry.get("blacklisted", False)
-            print(colored(f"  Label: {website}", "cyan"))
-            print(colored(f"  Username: {username or 'N/A'}", "cyan"))
-            print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-            print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+            print(color_text(f"  Label: {website}", "index"))
+            print(color_text(f"  Username: {username or 'N/A'}", "index"))
+            print(color_text(f"  URL: {url or 'N/A'}", "index"))
+            print(
+                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
+            )
         print("-" * 40)
 
     def handle_list_entries(self) -> None:
         """List entries and optionally show details."""
         try:
             while True:
-                print("\nList Entries:")
-                print("1. All")
-                print("2. Passwords")
-                print("3. 2FA (TOTP)")
-                print("4. SSH Key")
-                print("5. Seed Phrase")
-                print("6. Nostr Key Pair")
-                print("7. PGP")
-                print("8. Back")
+                print(color_text("\nList Entries:", "menu"))
+                print(color_text("1. All", "menu"))
+                print(color_text("2. Passwords", "menu"))
+                print(color_text("3. 2FA (TOTP)", "menu"))
+                print(color_text("4. SSH Key", "menu"))
+                print(color_text("5. Seed Phrase", "menu"))
+                print(color_text("6. Nostr Key Pair", "menu"))
+                print(color_text("7. PGP", "menu"))
+                print(color_text("8. Back", "menu"))
                 choice = input("Select entry type: ").strip()
                 if choice == "1":
                     filter_kind = None
@@ -2602,34 +2617,37 @@ class PasswordManager:
             print(colored("No statistics available.", "red"))
             return
 
-        print(colored("\n=== Seed Profile Stats ===", "yellow"))
-        print(colored(f"Total entries: {stats['total_entries']}", "cyan"))
+        print(color_text("\n=== Seed Profile Stats ===", "stats"))
+        print(color_text(f"Total entries: {stats['total_entries']}", "stats"))
         for etype, count in stats["entries"].items():
-            print(colored(f"  {etype}: {count}", "cyan"))
-        print(colored(f"Relays configured: {stats['relay_count']}", "cyan"))
+            print(color_text(f"  {etype}: {count}", "stats"))
+        print(color_text(f"Relays configured: {stats['relay_count']}", "stats"))
         print(
-            colored(
-                f"Backups: {stats['backup_count']} (dir: {stats['backup_dir']})", "cyan"
+            color_text(
+                f"Backups: {stats['backup_count']} (dir: {stats['backup_dir']})",
+                "stats",
             )
         )
         if stats.get("additional_backup_path"):
             print(
-                colored(f"Additional backup: {stats['additional_backup_path']}", "cyan")
+                color_text(
+                    f"Additional backup: {stats['additional_backup_path']}", "stats"
+                )
             )
-        print(colored(f"Schema version: {stats['schema_version']}", "cyan"))
+        print(color_text(f"Schema version: {stats['schema_version']}", "stats"))
         print(
-            colored(
+            color_text(
                 f"Database checksum ok: {'yes' if stats['checksum_ok'] else 'no'}",
-                "cyan",
+                "stats",
             )
         )
         print(
-            colored(
+            color_text(
                 f"Script checksum ok: {'yes' if stats['script_checksum_ok'] else 'no'}",
-                "cyan",
+                "stats",
             )
         )
-        print(colored(f"Snapshot chunks: {stats['chunk_count']}", "cyan"))
-        print(colored(f"Pending deltas: {stats['pending_deltas']}", "cyan"))
+        print(color_text(f"Snapshot chunks: {stats['chunk_count']}", "stats"))
+        print(color_text(f"Pending deltas: {stats['pending_deltas']}", "stats"))
         if stats.get("delta_since"):
-            print(colored(f"Latest delta id: {stats['delta_since']}", "cyan"))
+            print(color_text(f"Latest delta id: {stats['delta_since']}", "stats"))
