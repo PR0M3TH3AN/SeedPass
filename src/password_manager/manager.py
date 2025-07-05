@@ -1665,7 +1665,7 @@ class PasswordManager:
                     custom_fields=custom_fields,
                 )
             else:
-                website_name = entry.get("website")
+                website_name = entry.get("label", entry.get("website"))
                 username = entry.get("username")
                 url = entry.get("url")
                 blacklisted = entry.get("blacklisted")
@@ -1677,6 +1677,7 @@ class PasswordManager:
                         "cyan",
                     )
                 )
+                print(colored(f"Current Label: {website_name}", "cyan"))
                 print(colored(f"Current Username: {username or 'N/A'}", "cyan"))
                 print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
                 print(
@@ -1684,6 +1685,13 @@ class PasswordManager:
                         f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
                         "cyan",
                     )
+                )
+
+                new_label = (
+                    input(
+                        f'Enter new label (leave blank to keep "{website_name}"): '
+                    ).strip()
+                    or website_name
                 )
 
                 new_username = (
@@ -1747,6 +1755,7 @@ class PasswordManager:
                     new_url,
                     new_blacklisted,
                     new_notes,
+                    label=new_label,
                     custom_fields=custom_fields,
                 )
 
