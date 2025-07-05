@@ -1047,7 +1047,16 @@ class PasswordManager:
             )
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("SSH key display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Public Key:", "cyan"))
             print(pub_pem)
             print(colored("Private Key:", "cyan"))
@@ -1078,9 +1087,22 @@ class PasswordManager:
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("Seed phrase display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] Seed entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Seed Phrase:", "cyan"))
             print(colored(phrase, "yellow"))
+            if confirm_action("Show QR? (Y/N): "):
+                from password_manager.seedqr import encode_seedqr
+
+                TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
                 self.sync_vault()
             except Exception as nostr_error:
@@ -1112,7 +1134,18 @@ class PasswordManager:
             )
             self.is_dirty = True
             self.last_update = time.time()
+
+            if not confirm_action(
+                "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
+            ):
+                print(colored("PGP key display cancelled.", "yellow"))
+                return
+
             print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
+            if user_id:
+                print(colored(f"User ID: {user_id}", "cyan"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             print(priv_key)
             try:
@@ -1238,10 +1271,23 @@ class PasswordManager:
                 return
             if entry_type == EntryType.SSH.value:
                 notes = entry.get("notes", "")
+                label = entry.get("label", "")
+                if not confirm_action(
+                    "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("SSH key display cancelled.", "yellow"))
+                    return
                 try:
                     priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                         index, self.parent_seed
                     )
+                    print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
+                    if label:
+                        print(colored(f"Label: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    print(colored("Public Key:", "cyan"))
+                    print(pub_pem)
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
                         print(
@@ -1250,24 +1296,28 @@ class PasswordManager:
                                 "green",
                             )
                         )
-                        print(colored("Public Key:", "cyan"))
-                        print(pub_pem)
                     else:
-                        print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
-                        print(colored("Public Key:", "cyan"))
-                        print(pub_pem)
                         print(colored("Private Key:", "cyan"))
                         print(priv_pem)
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
                 return
             if entry_type == EntryType.SEED.value:
                 notes = entry.get("notes", "")
+                label = entry.get("label", "")
+                if not confirm_action(
+                    "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("Seed phrase display cancelled.", "yellow"))
+                    return
                 try:
                     phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                    print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                    if label:
+                        print(colored(f"Label: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(phrase, self.clipboard_clear_delay)
                         print(
@@ -1277,9 +1327,8 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
                         print(colored(phrase, "yellow"))
-                    if confirm_action("Show SeedQR? (Y/N): "):
+                    if confirm_action("Show QR? (Y/N): "):
                         from password_manager.seedqr import encode_seedqr
 
                         TotpManager.print_qr_code(encode_seedqr(phrase))
@@ -1306,10 +1355,22 @@ class PasswordManager:
                 return
             if entry_type == EntryType.PGP.value:
                 notes = entry.get("notes", "")
+                label = entry.get("user_id", "")
+                if not confirm_action(
+                    "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
+                ):
+                    print(colored("PGP key display cancelled.", "yellow"))
+                    return
                 try:
                     priv_key, fingerprint = self.entry_manager.get_pgp_key(
                         index, self.parent_seed
                     )
+                    print(colored("\n[+] Retrieved PGP Key:\n", "green"))
+                    if label:
+                        print(colored(f"User ID: {label}", "cyan"))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_key, self.clipboard_clear_delay)
                         print(
@@ -1319,11 +1380,7 @@ class PasswordManager:
                             )
                         )
                     else:
-                        print(colored("\n[+] Retrieved PGP Key:\n", "green"))
-                        print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                         print(priv_key)
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
