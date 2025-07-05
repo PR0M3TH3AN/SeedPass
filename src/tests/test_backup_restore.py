@@ -42,7 +42,8 @@ def test_backup_restore_workflow(monkeypatch):
         backup_mgr.create_backup()
         backup1 = fp_dir / "backups" / "entries_db_backup_1111.json.enc"
         assert backup1.exists()
-        assert backup1.stat().st_mode & 0o777 == 0o600
+        if os.name != "nt":
+            assert backup1.stat().st_mode & 0o777 == 0o600
 
         data2 = {
             "schema_version": 3,
@@ -65,7 +66,8 @@ def test_backup_restore_workflow(monkeypatch):
         backup_mgr.create_backup()
         backup2 = fp_dir / "backups" / "entries_db_backup_2222.json.enc"
         assert backup2.exists()
-        assert backup2.stat().st_mode & 0o777 == 0o600
+        if os.name != "nt":
+            assert backup2.stat().st_mode & 0o777 == 0o600
 
         vault.save_index({"schema_version": 3, "entries": {"temp": {}}})
         backup_mgr.restore_latest_backup()
@@ -99,4 +101,5 @@ def test_additional_backup_location(monkeypatch):
 
         extra_file = Path(extra) / f"{fp_dir.name}_entries_db_backup_3333.json.enc"
         assert extra_file.exists()
-        assert extra_file.stat().st_mode & 0o777 == 0o600
+        if os.name != "nt":
+            assert extra_file.stat().st_mode & 0o777 == 0o600
