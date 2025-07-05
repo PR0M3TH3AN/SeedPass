@@ -30,6 +30,15 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.backends import default_backend
 from bip_utils import Bip39SeedGenerator
 
+# Ensure the ``imghdr`` module is available for ``pgpy`` on Python 3.13+
+try:  # pragma: no cover - only executed on Python >= 3.13
+    import imghdr  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - fallback for removed module
+    from utils import imghdr_stub as imghdr  # type: ignore
+    import sys
+
+    sys.modules.setdefault("imghdr", imghdr)
+
 from local_bip85.bip85 import BIP85
 
 from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH

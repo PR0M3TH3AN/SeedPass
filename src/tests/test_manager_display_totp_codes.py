@@ -50,7 +50,7 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
 
         # interrupt the loop after first iteration
         monkeypatch.setattr(
-            "password_manager.manager.select.select",
+            "password_manager.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
 
@@ -91,7 +91,7 @@ def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
         )
 
         monkeypatch.setattr(
-            "password_manager.manager.select.select",
+            "password_manager.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
 
