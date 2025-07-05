@@ -18,9 +18,9 @@ import hashlib
 from typing import Optional
 import shutil
 import time
-import select
 import builtins
 from termcolor import colored
+from utils.input_utils import timed_input
 
 from password_manager.encryption import EncryptionManager
 from password_manager.entry_management import EntryManager
@@ -1285,14 +1285,12 @@ class PasswordManager:
                             sys.stdout.write(f"\r{bar} {remaining:2d}s")
                             sys.stdout.flush()
                             try:
-                                if (
-                                    sys.stdin
-                                    in select.select([sys.stdin], [], [], 1)[0]
-                                ):
-                                    user_input = sys.stdin.readline().strip().lower()
-                                    if user_input == "b":
-                                        exit_loop = True
-                                        break
+                                user_input = timed_input("", 1)
+                                if user_input.strip().lower() == "b":
+                                    exit_loop = True
+                                    break
+                            except TimeoutError:
+                                pass
                             except KeyboardInterrupt:
                                 exit_loop = True
                                 print()
@@ -2009,10 +2007,11 @@ class PasswordManager:
                             print(f"[{idx}] {label}: {code} {bar} {remaining:2d}s")
                 sys.stdout.flush()
                 try:
-                    if sys.stdin in select.select([sys.stdin], [], [], 1)[0]:
-                        user_input = sys.stdin.readline().strip().lower()
-                        if user_input == "b":
-                            break
+                    user_input = timed_input("", 1)
+                    if user_input.strip().lower() == "b":
+                        break
+                except TimeoutError:
+                    pass
                 except KeyboardInterrupt:
                     print()
                     break

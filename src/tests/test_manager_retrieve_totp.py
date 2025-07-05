@@ -49,10 +49,9 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )
         monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
-        monkeypatch.setattr(sys.stdin, "readline", lambda *a, **k: "b\n")
         monkeypatch.setattr(
-            "password_manager.manager.select.select",
-            lambda *a, **k: ([sys.stdin], [], []),
+            "password_manager.manager.timed_input",
+            lambda *a, **k: "b",
         )
 
         pm.handle_retrieve_entry()
