@@ -701,10 +701,11 @@ def display_menu(
     1. Add Entry
     2. Retrieve Entry
     3. Search Entries
-    4. Modify an Existing Entry
-    5. 2FA Codes
-    6. Settings
-    7. Exit
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. Exit
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
@@ -729,7 +730,7 @@ def display_menu(
         print(colored(menu, "cyan"))
         try:
             choice = timed_input(
-                "Enter your choice (1-7): ", inactivity_timeout
+                "Enter your choice (1-8): ", inactivity_timeout
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -740,7 +741,7 @@ def display_menu(
         if not choice:
             print(
                 colored(
-                    "No input detected. Please enter a number between 1 and 7.",
+                    "No input detected. Please enter a number between 1 and 8.",
                     "yellow",
                 )
             )
@@ -787,14 +788,17 @@ def display_menu(
             password_manager.handle_search_entries()
         elif choice == "4":
             password_manager.update_activity()
-            password_manager.handle_modify_entry()
+            password_manager.handle_list_entries()
         elif choice == "5":
             password_manager.update_activity()
-            password_manager.handle_display_totp_codes()
+            password_manager.handle_modify_entry()
         elif choice == "6":
             password_manager.update_activity()
-            handle_settings(password_manager)
+            password_manager.handle_display_totp_codes()
         elif choice == "7":
+            password_manager.update_activity()
+            handle_settings(password_manager)
+        elif choice == "8":
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()

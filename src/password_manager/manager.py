@@ -1752,92 +1752,125 @@ class PasswordManager:
 
             print(colored("\n[+] Search Results:\n", "green"))
             for match in results:
-                index, website, username, url, blacklisted = match
-                entry = self.entry_manager.retrieve_entry(index)
-                if not entry:
-                    continue
-                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                print(colored(f"Index: {index}", "cyan"))
-                if etype == EntryType.TOTP.value:
-                    print(colored(f"  Label: {entry.get('label', website)}", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
-                        )
-                    )
-                    print(
-                        colored(
-                            f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
-                            "cyan",
-                        )
-                    )
-                    notes = entry.get("notes", "")
-                    if notes:
-                        print(colored(f"  Notes: {notes}", "cyan"))
-                elif etype == EntryType.SEED.value:
-                    print(colored("  Type: Seed Phrase", "cyan"))
-                    print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
-                        )
-                    )
-                    notes = entry.get("notes", "")
-                    if notes:
-                        print(colored(f"  Notes: {notes}", "cyan"))
-                elif etype == EntryType.SSH.value:
-                    print(colored("  Type: SSH Key", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
-                        )
-                    )
-                    notes = entry.get("notes", "")
-                    if notes:
-                        print(colored(f"  Notes: {notes}", "cyan"))
-                elif etype == EntryType.PGP.value:
-                    print(colored("  Type: PGP Key", "cyan"))
-                    print(
-                        colored(
-                            f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"
-                        )
-                    )
-                    uid = entry.get("user_id", "")
-                    if uid:
-                        print(colored(f"  User ID: {uid}", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
-                        )
-                    )
-                    notes = entry.get("notes", "")
-                    if notes:
-                        print(colored(f"  Notes: {notes}", "cyan"))
-                elif etype == EntryType.NOSTR.value:
-                    print(colored("  Type: Nostr Key", "cyan"))
-                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
-                        )
-                    )
-                    notes = entry.get("notes", "")
-                    if notes:
-                        print(colored(f"  Notes: {notes}", "cyan"))
-                else:
-                    print(colored(f"  Website: {website}", "cyan"))
-                    print(colored(f"  Username: {username or 'N/A'}", "cyan"))
-                    print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-                    print(
-                        colored(
-                            f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"
-                        )
-                    )
-                print("-" * 40)
-
+                self.display_entry_details(match[0])
         except Exception as e:
             logging.error(f"Failed to search entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to search entries: {e}", "red"))
+
+    def display_entry_details(self, index: int) -> None:
+        """Print detailed information for a single entry."""
+        entry = self.entry_manager.retrieve_entry(index)
+        if not entry:
+            return
+
+        etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+        print(colored(f"Index: {index}", "cyan"))
+        if etype == EntryType.TOTP.value:
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            print(
+                colored(
+                    f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
+                    "cyan",
+                )
+            )
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.SEED.value:
+            print(colored("  Type: Seed Phrase", "cyan"))
+            print(colored(f"  Words: {entry.get('words', 24)}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.SSH.value:
+            print(colored("  Type: SSH Key", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.PGP.value:
+            print(colored("  Type: PGP Key", "cyan"))
+            print(colored(f"  Key Type: {entry.get('key_type', 'ed25519')}", "cyan"))
+            uid = entry.get("user_id", "")
+            if uid:
+                print(colored(f"  User ID: {uid}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        elif etype == EntryType.NOSTR.value:
+            print(colored("  Type: Nostr Key", "cyan"))
+            print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+            print(colored(f"  Derivation Index: {entry.get('index', index)}", "cyan"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(colored(f"  Notes: {notes}", "cyan"))
+        else:
+            website = entry.get("website", "")
+            username = entry.get("username", "")
+            url = entry.get("url", "")
+            blacklisted = entry.get("blacklisted", False)
+            print(colored(f"  Website: {website}", "cyan"))
+            print(colored(f"  Username: {username or 'N/A'}", "cyan"))
+            print(colored(f"  URL: {url or 'N/A'}", "cyan"))
+            print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+        print("-" * 40)
+
+    def handle_list_entries(self) -> None:
+        """List entries and optionally show details."""
+        try:
+            while True:
+                print("\nList Entries:")
+                print("1. All")
+                print("2. Passwords")
+                print("3. 2FA (TOTP)")
+                print("4. SSH Key")
+                print("5. Seed Phrase")
+                print("6. Nostr Key Pair")
+                print("7. PGP")
+                print("8. Back")
+                choice = input("Select entry type: ").strip()
+                if choice == "1":
+                    filter_kind = None
+                elif choice == "2":
+                    filter_kind = EntryType.PASSWORD.value
+                elif choice == "3":
+                    filter_kind = EntryType.TOTP.value
+                elif choice == "4":
+                    filter_kind = EntryType.SSH.value
+                elif choice == "5":
+                    filter_kind = EntryType.SEED.value
+                elif choice == "6":
+                    filter_kind = EntryType.NOSTR.value
+                elif choice == "7":
+                    filter_kind = EntryType.PGP.value
+                elif choice == "8":
+                    return
+                else:
+                    print(colored("Invalid choice.", "red"))
+                    continue
+
+                summaries = self.entry_manager.get_entry_summaries(filter_kind)
+                if not summaries:
+                    continue
+                print(colored("\n[+] Entries:\n", "green"))
+                for idx, label in summaries:
+                    print(colored(f"{idx}. {label}", "cyan"))
+                idx_input = input(
+                    "Enter index to view details or press Enter to return: "
+                ).strip()
+                if not idx_input:
+                    return
+                if not idx_input.isdigit():
+                    print(colored("Invalid index.", "red"))
+                    continue
+                self.display_entry_details(int(idx_input))
+                return
+        except Exception as e:
+            logging.error(f"Failed to list entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to list entries: {e}", "red"))
 
     def delete_entry(self) -> None:
         """Deletes an entry from the password index."""
