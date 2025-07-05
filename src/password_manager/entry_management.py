@@ -874,13 +874,13 @@ class EntryManager:
 
     def get_entry_summaries(
         self, filter_kind: str | None = None
-    ) -> list[tuple[int, str]]:
-        """Return a list of entry index and display labels."""
+    ) -> list[tuple[int, str, str]]:
+        """Return a list of entry index, type, and display labels."""
         try:
             data = self.vault.load_index()
             entries_data = data.get("entries", {})
 
-            summaries: list[tuple[int, str]] = []
+            summaries: list[tuple[int, str, str]] = []
             for idx_str, entry in entries_data.items():
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 if filter_kind and etype != filter_kind:
@@ -889,7 +889,7 @@ class EntryManager:
                     label = entry.get("label", entry.get("website", ""))
                 else:
                     label = entry.get("label", etype)
-                summaries.append((int(idx_str), label))
+                summaries.append((int(idx_str), etype, label))
 
             summaries.sort(key=lambda x: x[0])
             return summaries

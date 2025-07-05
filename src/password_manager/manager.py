@@ -1895,19 +1895,23 @@ class PasswordManager:
                 summaries = self.entry_manager.get_entry_summaries(filter_kind)
                 if not summaries:
                     continue
-                print(colored("\n[+] Entries:\n", "green"))
-                for idx, label in summaries:
-                    print(colored(f"{idx}. {label}", "cyan"))
-                idx_input = input(
-                    "Enter index to view details or press Enter to return: "
-                ).strip()
-                if not idx_input:
-                    return
-                if not idx_input.isdigit():
-                    print(colored("Invalid index.", "red"))
-                    continue
-                self.show_entry_details_by_index(int(idx_input))
-                return
+                while True:
+                    print(colored("\n[+] Entries:\n", "green"))
+                    for idx, etype, label in summaries:
+                        if filter_kind is None:
+                            display_type = etype.capitalize()
+                            print(colored(f"{idx}. {display_type} - {label}", "cyan"))
+                        else:
+                            print(colored(f"{idx}. {label}", "cyan"))
+                    idx_input = input(
+                        "Enter index to view details or press Enter to go back: "
+                    ).strip()
+                    if not idx_input:
+                        break
+                    if not idx_input.isdigit():
+                        print(colored("Invalid index.", "red"))
+                        continue
+                    self.show_entry_details_by_index(int(idx_input))
         except Exception as e:
             logging.error(f"Failed to list entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list entries: {e}", "red"))
