@@ -25,3 +25,15 @@ def test_pgp_key_determinism():
 
         assert fp1 == fp2
         assert key1 == key2
+
+        # parse returned armored key and verify fingerprint
+        from pgpy import PGPKey
+
+        parsed_key, _ = PGPKey.from_blob(key1)
+        assert parsed_key.fingerprint == fp1
+
+        # ensure the index file stores key_type and user_id
+        data = enc_mgr.load_json_data(entry_mgr.index_file)
+        entry = data["entries"][str(idx)]
+        assert entry["key_type"] == "ed25519"
+        assert entry["user_id"] == "Test"
