@@ -1099,7 +1099,7 @@ class PasswordManager:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored("Seed Phrase:", "cyan"))
             print(colored(phrase, "yellow"))
-            if confirm_action("Show QR? (Y/N): "):
+            if confirm_action("Show Compact Seed QR? (Y/N): "):
                 from password_manager.seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
@@ -1328,7 +1328,7 @@ class PasswordManager:
                         )
                     else:
                         print(colored(phrase, "yellow"))
-                    if confirm_action("Show QR? (Y/N): "):
+                    if confirm_action("Show Compact Seed QR? (Y/N): "):
                         from password_manager.seedqr import encode_seedqr
 
                         TotpManager.print_qr_code(encode_seedqr(phrase))
