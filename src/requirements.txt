@@ -23,3 +23,4 @@ pyotp>=2.8.0
 
 freezegun
 pyperclip
+qrcode>=8.2

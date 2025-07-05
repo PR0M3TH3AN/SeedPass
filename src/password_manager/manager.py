@@ -979,6 +979,7 @@ class PasswordManager:
                     )
                     print(colored("Add this URI to your authenticator app:", "cyan"))
                     print(colored(uri, "yellow"))
+                    TotpManager.print_qr_code(uri)
                     print(colored(f"Secret: {secret}\n", "cyan"))
                     try:
                         self.sync_vault()
@@ -1016,6 +1017,7 @@ class PasswordManager:
                                 "green",
                             )
                         )
+                        TotpManager.print_qr_code(uri)
                         try:
                             self.sync_vault()
                         except Exception as nostr_error:
