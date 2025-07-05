@@ -218,7 +218,7 @@ python src/main.py
 
    Example menu:
 
-   ```
+   ```bash
    Select an option:
    1. Add Entry
    2. Retrieve Entry
@@ -229,9 +229,9 @@ python src/main.py
    7. Exit
 
    Enter your choice (1-7):
-  ```
+   ```
 
-   When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
+When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
    **SSH Key**, **Seed Phrase**, or **PGP Key**.
 
 ### Adding a 2FA Entry

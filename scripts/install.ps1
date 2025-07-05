@@ -43,7 +43,24 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     } else {
         Write-Error "Git is not installed. Please install it from https://git-scm.com/ and ensure it's in your PATH."
     }
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error "Git installation failed or git not found in PATH after installation." }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        # Refresh PATH from machine and user environment in case the installer updated it
+        $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                     [System.Environment]::GetEnvironmentVariable('Path','User')
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            # Fallback to common install locations if PATH isn't updated for this session
+            $possibleGit = @(
+                Join-Path $env:ProgramFiles 'Git\cmd\git.exe'
+                Join-Path $env:ProgramFiles 'Git\bin\git.exe'
+                Join-Path ${env:ProgramFiles(x86)} 'Git\cmd\git.exe'
+                Join-Path ${env:ProgramFiles(x86)} 'Git\bin\git.exe'
+            ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($possibleGit) { $env:Path = "$(Split-Path $possibleGit);$env:Path" }
+        }
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            Write-Error "Git installation succeeded but git not found in PATH. Please open a new terminal or add Git to PATH manually."
+        }
+    }
 }
 $pythonExe = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonExe) { Write-Error "Python 3 is not installed or not in your PATH. Please install it from https://www.python.org/" }
