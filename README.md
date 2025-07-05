@@ -324,7 +324,8 @@ Back in the Settings menu you can:
 * Select `7` to export the database to an encrypted file.
 * Choose `8` to import a database from a backup file.
 * Select `9` to export all 2FA codes.
-* Choose `10` to set an additional backup location.
+* Choose `10` to set an additional backup location. A backup is created
+  immediately after the directory is configured.
 * Select `11` to change the inactivity timeout.
 * Choose `12` to lock the vault and require re-entry of your password.
 * Select `13` to view seed profile stats. The summary lists counts for
