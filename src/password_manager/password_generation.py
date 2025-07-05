@@ -469,5 +469,6 @@ def derive_pgp_key(
         hashes=[HashAlgorithm.SHA256],
         ciphers=[SymmetricKeyAlgorithm.AES256],
         compression=[CompressionAlgorithm.ZLIB],
+        created=created,
     )
     return str(key), key.fingerprint
