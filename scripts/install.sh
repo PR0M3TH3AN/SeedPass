@@ -57,7 +57,21 @@ main() {
 
     # 2. Check for prerequisites
     print_info "Checking for prerequisites (git, python3, pip)..."
-    if ! command -v git &> /dev/null; then print_error "Git is not installed. Please install it."; fi
+    if ! command -v git &> /dev/null; then
+        print_warning "Git is not installed. Attempting to install..."
+        if [ "$OS_NAME" = "Linux" ]; then
+            if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y git;
+            elif command -v dnf &> /dev/null; then sudo dnf install -y git;
+            elif command -v pacman &> /dev/null; then sudo pacman -Syu --noconfirm git;
+            else print_error "Git is not installed and automatic installation is not supported on this system."; fi
+        elif [ "$OS_NAME" = "Darwin" ]; then
+            if command -v brew &> /dev/null; then brew install git;
+            else print_error "Git is not installed and Homebrew was not found. Please install Git manually."; fi
+        else
+            print_error "Git is not installed. Please install it."
+        fi
+        if ! command -v git &> /dev/null; then print_error "Git installation failed or git not found in PATH."; fi
+    fi
     if ! command -v python3 &> /dev/null; then print_error "Python 3 is not installed. Please install it."; fi
     if ! python3 -m ensurepip --default-pip &> /dev/null && ! command -v pip3 &> /dev/null; then print_error "pip for Python 3 is not available. Please install it."; fi
     if ! python3 -c "import venv" &> /dev/null; then

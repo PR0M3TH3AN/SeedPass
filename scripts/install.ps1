@@ -32,7 +32,19 @@ function Write-Error {
 # 1. Check for prerequisites
 Write-Info "Installing SeedPass from branch: '$Branch'"
 Write-Info "Checking for prerequisites..."
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error "Git is not installed. Please install it from https://git-scm.com/ and ensure it's in your PATH." }
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Warning "Git is not installed. Attempting to install..."
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        try { winget install --id Git.Git -e --source winget -h } catch { Write-Error "Failed to install Git via winget. Error: $_" }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        try { choco install git -y } catch { Write-Error "Failed to install Git via Chocolatey. Error: $_" }
+    } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+        try { scoop install git } catch { Write-Error "Failed to install Git via Scoop. Error: $_" }
+    } else {
+        Write-Error "Git is not installed. Please install it from https://git-scm.com/ and ensure it's in your PATH."
+    }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error "Git installation failed or git not found in PATH after installation." }
+}
 $pythonExe = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonExe) { Write-Error "Python 3 is not installed or not in your PATH. Please install it from https://www.python.org/" }
 
