@@ -328,7 +328,9 @@ Back in the Settings menu you can:
 * Select `11` to change the inactivity timeout.
 * Choose `12` to lock the vault and require re-entry of your password.
 * Select `13` to view seed profile stats. The summary lists counts for
-  passwords, TOTP codes, SSH keys, seed phrases, and PGP keys.
+  passwords, TOTP codes, SSH keys, seed phrases, and PGP keys. It also shows
+  whether both the encrypted database and the script itself pass checksum
+  validation.
 * Choose `14` to toggle Secret Mode and set the clipboard clear delay.
 * Select `15` to return to the main menu.
 
