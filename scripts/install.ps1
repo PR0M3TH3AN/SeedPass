@@ -65,6 +65,14 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 $pythonExe = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonExe) { Write-Error "Python 3 is not installed or not in your PATH. Please install it from https://www.python.org/" }
 
+# Warn about unsupported Python versions
+$pyVersionString = (& python --version) -replace '[^0-9\.]', ''
+try { $pyVersion = [version]$pyVersionString } catch { $pyVersion = $null }
+if ($pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
+    Write-Warning "Python $pyVersionString detected. Some dependencies may not have prebuilt wheels yet."
+    Write-Warning "If installation fails, install Python 3.11 or 3.12 or ensure Microsoft C++ Build Tools are available."
+}
+
 # 2. Clone or update the repository
 if (Test-Path (Join-Path $InstallDir ".git")) {
     Write-Info "SeedPass directory found. Fetching updates and switching to '$Branch' branch..."
@@ -91,12 +99,15 @@ if (-not (Test-Path $VenvDir)) {
 
 # 4. Install/Update Python dependencies
 Write-Info "Installing/updating Python dependencies..."
-try {
-    & "$VenvDir\Scripts\pip.exe" install --upgrade pip
-    & "$VenvDir\Scripts\pip.exe" install -r "src\requirements.txt"
-} catch {
+& "$VenvDir\Scripts\pip.exe" install --upgrade pip
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to upgrade pip"
+}
+
+& "$VenvDir\Scripts\pip.exe" install -r "src\requirements.txt"
+if ($LASTEXITCODE -ne 0) {
     Write-Warning "Failed to install Python dependencies. If errors mention C++, install Microsoft C++ Build Tools: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
-    Write-Error "Dependency installation failed. Error: $_"
+    Write-Error "Dependency installation failed."
 }
 
 # 5. Create launcher script
