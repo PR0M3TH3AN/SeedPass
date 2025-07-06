@@ -142,7 +142,7 @@ class PasswordManager:
                 colored(
                     "Warning: script checksum mismatch. "
                     "Run 'Generate Script Checksum' in Settings if you've updated the app.",
-                    "red",
+                    "yellow",
                 )
             )
 
@@ -1507,7 +1507,7 @@ class PasswordManager:
                 print(
                     colored(
                         f"Warning: This password is blacklisted and should not be used.",
-                        "red",
+                        "yellow",
                     )
                 )
 
@@ -2320,13 +2320,13 @@ class PasswordManager:
             print(
                 colored(
                     "Warning: Revealing your parent seed is a highly sensitive operation.",
-                    "red",
+                    "yellow",
                 )
             )
             print(
                 colored(
                     "Ensure you're in a secure, private environment and no one is watching your screen.",
-                    "red",
+                    "yellow",
                 )
             )
 
