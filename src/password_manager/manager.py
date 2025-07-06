@@ -52,7 +52,7 @@ from utils.password_prompt import (
 )
 from utils.memory_protection import InMemorySecret
 from utils.clipboard import copy_to_clipboard
-from utils.terminal_utils import clear_screen
+from utils.terminal_utils import clear_screen, pause
 from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
@@ -1285,11 +1285,13 @@ class PasswordManager:
             ).strip()
             if not index_input.isdigit():
                 print(colored("Error: Index must be a number.", "red"))
+                pause()
                 return
             index = int(index_input)
 
             entry = self.entry_manager.retrieve_entry(index)
             if not entry:
+                pause()
                 return
 
             entry_type = entry.get("type", EntryType.PASSWORD.value)
@@ -1345,6 +1347,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                pause()
                 return
             if entry_type == EntryType.SSH.value:
                 notes = entry.get("notes", "")
@@ -1379,6 +1382,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                pause()
                 return
             if entry_type == EntryType.SEED.value:
                 notes = entry.get("notes", "")
@@ -1428,6 +1432,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                pause()
                 return
             if entry_type == EntryType.PGP.value:
                 notes = entry.get("notes", "")
@@ -1460,6 +1465,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                pause()
                 return
             if entry_type == EntryType.NOSTR.value:
                 label = entry.get("label", "")
@@ -1492,6 +1498,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+                pause()
                 return
 
             website_name = entry.get("website")
@@ -1578,9 +1585,11 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
+            pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve password: {e}", "red"))
+            pause()
 
     def handle_modify_entry(self) -> None:
         """
