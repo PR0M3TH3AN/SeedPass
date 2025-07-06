@@ -364,6 +364,8 @@ python scripts/generate_test_profile.py --profile my_profile --count 100
 ```
 
 This command creates `~/.seedpass/my_profile` if needed and adds 100 example entries.
+After populating the vault, the script now automatically publishes the encrypted
+index to Nostr so the data can be retrieved on other devices.
 
 ### Automatically Updating the Script Checksum
 
