@@ -376,13 +376,9 @@ class EncryptionManager:
         try:
             relative_path = Path("seedpass_entries_db.json.enc")
             if not (self.fingerprint_dir / relative_path).exists():
-                logger.error(
+                # Missing index is normal on first run
+                logger.info(
                     f"Index file '{relative_path}' does not exist in '{self.fingerprint_dir}'."
-                )
-                print(
-                    colored(
-                        f"Error: Index file '{relative_path}' does not exist.", "red"
-                    )
                 )
                 return None
 
