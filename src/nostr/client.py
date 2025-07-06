@@ -153,10 +153,8 @@ class NostrClient:
                 while True:
                     msg = await asyncio.wait_for(ws.recv(), timeout=timeout)
                     data = json.loads(msg)
-                    if data[0] == "EVENT":
+                    if data[0] in {"EVENT", "EOSE"}:
                         return True
-                    if data[0] == "EOSE":
-                        return False
         except Exception:
             return False
 
