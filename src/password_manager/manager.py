@@ -1846,7 +1846,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
     def handle_search_entries(self) -> None:
-        """Prompt for a query and display matching entries."""
+        """Prompt for a query, list matches and optionally show details."""
         try:
             clear_screen()
             query = input("Enter search string: ").strip()
@@ -1861,10 +1861,27 @@ class PasswordManager:
                 pause()
                 return
 
-            print(colored("\n[+] Search Results:\n", "green"))
-            for match in results:
-                self.display_entry_details(match[0])
-            pause()
+            while True:
+                clear_screen()
+                print(colored("\n[+] Search Results:\n", "green"))
+                for idx, label, username, _url, _b in results:
+                    display_label = label
+                    if username:
+                        display_label += f" ({username})"
+                    print(colored(f"{idx}. {display_label}", "cyan"))
+
+                idx_input = input(
+                    "Enter index to view details or press Enter to go back: "
+                ).strip()
+                if not idx_input:
+                    break
+                if not idx_input.isdigit() or int(idx_input) not in [
+                    r[0] for r in results
+                ]:
+                    print(colored("Invalid index.", "red"))
+                    pause()
+                    continue
+                self.show_entry_details_by_index(int(idx_input))
         except Exception as e:
             logging.error(f"Failed to search entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to search entries: {e}", "red"))
