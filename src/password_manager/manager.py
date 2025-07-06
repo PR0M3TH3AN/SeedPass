@@ -1849,6 +1849,7 @@ class PasswordManager:
             print(colored("\n[+] Search Results:\n", "green"))
             for match in results:
                 self.display_entry_details(match[0])
+            pause()
         except Exception as e:
             logging.error(f"Failed to search entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to search entries: {e}", "red"))

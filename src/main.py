@@ -20,7 +20,7 @@ from nostr.client import NostrClient
 from password_manager.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
-from utils import timed_input, copy_to_clipboard, clear_screen
+from utils import timed_input, copy_to_clipboard, clear_screen, pause
 from local_bip85.bip85 import Bip85Error
 
 
@@ -202,6 +202,7 @@ def handle_list_fingerprints(password_manager: PasswordManager):
         print(colored("Available Seed Profiles:", "cyan"))
         for fp in fingerprints:
             print(colored(f"- {fp}", "cyan"))
+        pause()
     except Exception as e:
         logging.error(f"Error listing seed profiles: {e}", exc_info=True)
         print(colored(f"Error: Failed to list seed profiles: {e}", "red"))
@@ -219,6 +220,7 @@ def handle_display_npub(password_manager: PasswordManager):
         else:
             print(colored("Nostr public key not available.", "red"))
             logging.error("Nostr public key not available.")
+        pause()
     except Exception as e:
         logging.error(f"Failed to display npub: {e}", exc_info=True)
         print(colored(f"Error: Failed to display npub: {e}", "red"))
@@ -341,6 +343,7 @@ def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
         print(colored("\nCurrent Relays:", "cyan"))
         for idx, relay in enumerate(relays, start=1):
             print(colored(f"{idx}. {relay}", "cyan"))
+        pause()
     except Exception as e:
         logging.error(f"Error displaying relays: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -718,6 +721,7 @@ def display_menu(
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
         display_fn()
+        pause()
     while True:
         clear_screen()
         if time.time() - password_manager.last_activity > inactivity_timeout:
