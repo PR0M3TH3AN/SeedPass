@@ -45,9 +45,16 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path]:
     seed_key = derive_key_from_password(DEFAULT_PASSWORD)
     seed_mgr = EncryptionManager(seed_key, profile_dir)
     seed_file = profile_dir / "parent_seed.enc"
+    clear_path = profile_dir / "seed_phrase.txt"
 
     if seed_file.exists():
         seed_phrase = seed_mgr.decrypt_parent_seed()
+        if not clear_path.exists():
+            clear_path.write_text(seed_phrase)
+            clear_path.chmod(0o600)
+    elif clear_path.exists():
+        seed_phrase = clear_path.read_text().strip()
+        seed_mgr.encrypt_parent_seed(seed_phrase)
     else:
         seed_phrase = (
             Bip39MnemonicGenerator(Bip39Languages.ENGLISH)
@@ -55,7 +62,6 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path]:
             .ToStr()
         )
         seed_mgr.encrypt_parent_seed(seed_phrase)
-        clear_path = profile_dir / "seed_phrase.txt"
         clear_path.write_text(seed_phrase)
         clear_path.chmod(0o600)
 
