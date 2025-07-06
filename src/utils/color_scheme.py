@@ -18,7 +18,7 @@ _COLOR_MAP = {
     "deterministic": "red",
     "imported": "orange",
     "index": "yellow",
-    "menu": "blue",
+    "menu": "cyan",
     "stats": "green",
     "default": "white",
 }
