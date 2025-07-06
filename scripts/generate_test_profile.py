@@ -31,6 +31,8 @@ from password_manager.backup import BackupManager
 from password_manager.entry_management import EntryManager
 from nostr.client import NostrClient
 from utils.fingerprint import generate_fingerprint
+from utils.fingerprint_manager import FingerprintManager
+import bcrypt
 import asyncio
 import gzip
 
@@ -52,7 +54,12 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]
         seed_txt.write_text(seed_phrase)
         seed_txt.chmod(0o600)
 
-    fingerprint = generate_fingerprint(seed_phrase) or profile_name
+    fp_mgr = FingerprintManager(APP_DIR)
+    fingerprint = fp_mgr.add_fingerprint(seed_phrase) or generate_fingerprint(
+        seed_phrase
+    )
+    if fingerprint is None:
+        fingerprint = profile_name
     profile_dir = APP_DIR / fingerprint
     profile_dir.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +86,9 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]
     enc_mgr = EncryptionManager(index_key, profile_dir)
     vault = Vault(enc_mgr, profile_dir)
     cfg_mgr = ConfigManager(vault, profile_dir)
+    # Store the default password hash so the profile can be opened
+    hashed = bcrypt.hashpw(DEFAULT_PASSWORD.encode(), bcrypt.gensalt()).decode()
+    cfg_mgr.set_password_hash(hashed)
     backup_mgr = BackupManager(profile_dir, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
     return seed_phrase, entry_mgr, profile_dir, fingerprint
