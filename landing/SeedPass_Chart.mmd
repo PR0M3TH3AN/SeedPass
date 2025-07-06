@@ -1,0 +1,46 @@
+---
+config:
+  layout: fixed
+  theme: neo-dark
+  look: classic
+---
+flowchart TD
+ subgraph subGraph0["Local Storage"]
+    direction TB
+        V["Vault<br>(password_manager.Vault)<br>• encrypted index<br>• config"]
+  end
+ subgraph subGraph1["Backup Pipeline"]
+    direction TB
+        BK1["Incremental Backups<br>(BackupManager)"]
+        BK2["Portable Backup<br>(portable_backup.py)<br>.json.enc"]
+        BK3["Nostr Snapshot<br>(nostr.client)<br>gzip chunks"]
+  end
+ subgraph Restore["Restore"]
+    direction TB
+        R1["Local Backup File"]
+        R2["Nostr Snapshot"]
+        R3["Portable Backup"]
+        R4["Vault Restore<br>(Vault / BackupManager)"]
+  end
+    A["Parent Seed<br>(BIP-39 Mnemonic)"] --> B["Seed Bytes<br>(BIP-39 → 512-bit)"]
+    B --> C["BIP-85 Derivation<br>(local_bip85.BIP85)"]
+    C --> D1["Password Entropy<br>(password_generation)"] & D2["TOTP Secret<br>(utils.key_derivation.derive_totp_secret)"] & D3["SSH Key Entropy<br>(password_generation.derive_ssh_key)"] & D4["PGP Key Entropy<br>(entry_management.add_pgp_key)"] & D5["Child Mnemonic<br>(BIP-85 derive_mnemonic)"] & D6["Nostr Key Entropy<br>(nostr.KeyManager)"]
+    D1 --> E1["Passwords"]
+    D2 --> E2["2FA Codes"]
+    D3 --> E3["SSH Key Pair"]
+    D4 --> E4["PGP Key"]
+    D5 --> E5["Seed Phrase"]
+    D6 --> E6["Nostr Keys<br>(npub / nsec)"]
+    E1 --> V
+    E2 --> V
+    E3 --> V
+    E4 --> V
+    E5 --> V
+    E6 --> V
+    V --> BK1 & BK2 & BK3
+    R1 --> R4
+    R2 --> R4
+    R3 --> R4
+    R4 --> V
+    A -. "Same seed ⇒ re-derive any artifact on demand" .- E1
+    A -.-> E2 & E3 & E4 & E5 & E6
