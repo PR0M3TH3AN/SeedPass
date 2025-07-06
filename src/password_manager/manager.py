@@ -1852,11 +1852,13 @@ class PasswordManager:
             query = input("Enter search string: ").strip()
             if not query:
                 print(colored("No search string provided.", "yellow"))
+                pause()
                 return
 
             results = self.entry_manager.search_entries(query)
             if not results:
                 print(colored("No matching entries found.", "yellow"))
+                pause()
                 return
 
             print(colored("\n[+] Search Results:\n", "green"))
@@ -1866,6 +1868,7 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to search entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to search entries: {e}", "red"))
+            pause()
 
     def display_entry_details(self, index: int) -> None:
         """Print detailed information for a single entry."""
