@@ -22,7 +22,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from constants import APP_DIR
+from constants import APP_DIR, initialize_app
 from utils.key_derivation import derive_key_from_password, derive_index_key
 from password_manager.encryption import EncryptionManager
 from password_manager.vault import Vault
@@ -39,6 +39,7 @@ DEFAULT_PASSWORD = "testpassword"
 
 def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]:
     """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
+    initialize_app()
     seed_txt = APP_DIR / f"{profile_name}_seed.txt"
     if seed_txt.exists():
         seed_phrase = seed_txt.read_text().strip()
