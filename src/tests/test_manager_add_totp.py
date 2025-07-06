@@ -51,7 +51,6 @@ def test_handle_add_totp(monkeypatch, capsys):
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
         monkeypatch.setattr(pm, "sync_vault", lambda: None)
-        monkeypatch.setattr(pm, "pause", lambda *a, **k: None)
 
         pm.handle_add_totp()
         out = capsys.readouterr().out

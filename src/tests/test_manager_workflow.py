@@ -66,7 +66,6 @@ def test_manager_workflow(monkeypatch):
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
-        monkeypatch.setattr(pm, "pause", lambda *a, **k: None)
 
         pm.handle_add_password()
         assert pm.is_dirty is False
