@@ -29,6 +29,8 @@ from password_manager.vault import Vault
 from password_manager.config_manager import ConfigManager
 from password_manager.backup import BackupManager
 from password_manager.entry_management import EntryManager
+from nostr.client import NostrClient
+import asyncio
 
 DEFAULT_PASSWORD = "testpassword"
 
@@ -127,6 +129,18 @@ def main() -> None:
     print(f"Parent seed: {seed}")
     populate(entry_mgr, seed, args.count)
     print(f"Added {args.count} entries.")
+
+    encrypted = entry_mgr.vault.get_encrypted_index()
+    if encrypted:
+        client = NostrClient(
+            entry_mgr.vault.encryption_manager,
+            dir_path.name,
+            parent_seed=seed,
+        )
+        asyncio.run(client.publish_snapshot(encrypted))
+        print("[+] Data synchronized to Nostr.")
+    else:
+        print("[-] No encrypted index found to sync.")
 
 
 if __name__ == "__main__":
