@@ -220,18 +220,18 @@ python src/main.py
 
    Example menu:
 
-   ```bash
-   Select an option:
-   1. Add Entry
-   2. Retrieve Entry
-   3. Search Entries
-   4. Modify an Existing Entry
-   5. 2FA Codes
-   6. Settings
-   7. Exit
+    ```bash
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
 
-   Enter your choice (1-7):
-   ```
+    Enter your choice (1-7) or press Enter to exit:
+    ```
 
 When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
    **SSH Key**, **Seed Phrase**, or **PGP Key**.
