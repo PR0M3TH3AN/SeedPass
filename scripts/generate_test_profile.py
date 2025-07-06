@@ -22,6 +22,13 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+import constants as consts
+
+# Use a dedicated subdirectory for test profiles so regular data is not polluted
+consts.APP_DIR = consts.APP_DIR / "tests"
+consts.PARENT_SEED_FILE = consts.APP_DIR / "parent_seed.enc"
+consts.SCRIPT_CHECKSUM_FILE = consts.APP_DIR / "seedpass_script_checksum.txt"
+
 from constants import APP_DIR, initialize_app
 from utils.key_derivation import derive_key_from_password, derive_index_key
 from password_manager.encryption import EncryptionManager
@@ -142,7 +149,7 @@ def main() -> None:
     parser.add_argument(
         "--profile",
         default="test_profile",
-        help="profile name inside ~/.seedpass",
+        help="profile name inside ~/.seedpass/tests",
     )
     parser.add_argument(
         "--count",
