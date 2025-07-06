@@ -20,7 +20,7 @@ from nostr.client import NostrClient
 from password_manager.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
-from utils import timed_input, copy_to_clipboard
+from utils import timed_input, copy_to_clipboard, clear_screen
 from local_bip85.bip85 import Bip85Error
 
 
@@ -568,6 +568,7 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
+        clear_screen()
         print(color_text("\nProfiles:", "menu"))
         print(color_text("1. Switch Seed Profile", "menu"))
         print(color_text("2. Add a New Seed Profile", "menu"))
@@ -604,6 +605,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         return
 
     while True:
+        clear_screen()
         print(color_text("\nNostr Settings:", "menu"))
         print(color_text("1. Backup to Nostr", "menu"))
         print(color_text("2. Restore from Nostr", "menu"))
@@ -638,6 +640,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
 def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
+        clear_screen()
         print(color_text("\nSettings:", "menu"))
         print(color_text("1. Profiles", "menu"))
         print(color_text("2. Nostr", "menu"))
@@ -716,6 +719,7 @@ def display_menu(
     if callable(display_fn):
         display_fn()
     while True:
+        clear_screen()
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
@@ -788,6 +792,7 @@ def display_menu(
         elif choice == "2":
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
+            clear_screen()
         elif choice == "3":
             password_manager.update_activity()
             password_manager.handle_search_entries()
