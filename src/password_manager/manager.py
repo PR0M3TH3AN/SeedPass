@@ -886,6 +886,7 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
+            clear_screen()
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -970,6 +971,7 @@ class PasswordManager:
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
+            clear_screen()
             while True:
                 print("\nAdd TOTP:")
                 print("1. Make 2FA (derive from seed)")
@@ -1067,6 +1069,7 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
+            clear_screen()
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1106,6 +1109,7 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
+            clear_screen()
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1159,6 +1163,7 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
+            clear_screen()
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1209,6 +1214,7 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
+            clear_screen()
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1273,6 +1279,7 @@ class PasswordManager:
         and displaying the corresponding password and associated details.
         """
         try:
+            clear_screen()
             index_input = input(
                 "Enter the index number of the entry to retrieve: "
             ).strip()
@@ -1581,6 +1588,7 @@ class PasswordManager:
         and new details to update.
         """
         try:
+            clear_screen()
             index_input = input(
                 "Enter the index number of the entry to modify: "
             ).strip()
@@ -1818,6 +1826,7 @@ class PasswordManager:
     def handle_search_entries(self) -> None:
         """Prompt for a query and display matching entries."""
         try:
+            clear_screen()
             query = input("Enter search string: ").strip()
             if not query:
                 print(colored("No search string provided.", "yellow"))
@@ -1917,6 +1926,7 @@ class PasswordManager:
         """List entries and optionally show details."""
         try:
             while True:
+                clear_screen()
                 print(color_text("\nList Entries:", "menu"))
                 print(color_text("1. All", "menu"))
                 print(color_text("2. Passwords", "menu"))
@@ -1951,6 +1961,7 @@ class PasswordManager:
                 if not summaries:
                     continue
                 while True:
+                    clear_screen()
                     print(colored("\n[+] Entries:\n", "green"))
                     for idx, etype, label in summaries:
                         if filter_kind is None:
@@ -2085,6 +2096,7 @@ class PasswordManager:
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
         """
         try:
+            clear_screen()
             current_checksum = calculate_checksum(__file__)
             try:
                 verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
@@ -2119,6 +2131,7 @@ class PasswordManager:
             print(colored("Operation cancelled.", "yellow"))
             return
         try:
+            clear_screen()
             script_path = Path(__file__).resolve()
             if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
                 print(
@@ -2228,6 +2241,7 @@ class PasswordManager:
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
         try:
+            clear_screen()
             path = export_backup(
                 self.vault,
                 self.backup_manager,
@@ -2244,6 +2258,7 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
         try:
+            clear_screen()
             import_backup(
                 self.vault,
                 self.backup_manager,
@@ -2258,6 +2273,7 @@ class PasswordManager:
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
+            clear_screen()
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
 
@@ -2317,6 +2333,7 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
+            clear_screen()
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
             print(
                 colored(
