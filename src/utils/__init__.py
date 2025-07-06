@@ -28,7 +28,7 @@ try:
     from .input_utils import timed_input
     from .memory_protection import InMemorySecret
     from .clipboard import copy_to_clipboard
-    from .terminal_utils import clear_screen
+    from .terminal_utils import clear_screen, pause
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -57,4 +57,5 @@ __all__ = [
     "InMemorySecret",
     "copy_to_clipboard",
     "clear_screen",
+    "pause",
 ]
