@@ -37,15 +37,15 @@ import gzip
 DEFAULT_PASSWORD = "testpassword"
 
 
-def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path]:
-    """Create or load a profile and return the seed phrase and manager."""
-    profile_dir = APP_DIR / profile_name
-    profile_dir.mkdir(parents=True, exist_ok=True)
+def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]:
+    """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
+    temp_dir = APP_DIR / profile_name
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
     seed_key = derive_key_from_password(DEFAULT_PASSWORD)
-    seed_mgr = EncryptionManager(seed_key, profile_dir)
-    seed_file = profile_dir / "parent_seed.enc"
-    clear_path = profile_dir / "seed_phrase.txt"
+    seed_mgr = EncryptionManager(seed_key, temp_dir)
+    seed_file = temp_dir / "parent_seed.enc"
+    clear_path = temp_dir / "seed_phrase.txt"
 
     if seed_file.exists():
         seed_phrase = seed_mgr.decrypt_parent_seed()
@@ -65,13 +65,27 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path]:
         clear_path.write_text(seed_phrase)
         clear_path.chmod(0o600)
 
+    fingerprint = generate_fingerprint(seed_phrase) or profile_name
+    profile_dir = APP_DIR / fingerprint
+    if profile_dir != temp_dir:
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        for p in temp_dir.iterdir():
+            target = profile_dir / p.name
+            if not target.exists():
+                p.rename(target)
+        try:
+            temp_dir.rmdir()
+        except OSError:
+            pass
+        seed_mgr.fingerprint_dir = profile_dir
+
     index_key = derive_index_key(seed_phrase)
     enc_mgr = EncryptionManager(index_key, profile_dir)
     vault = Vault(enc_mgr, profile_dir)
     cfg_mgr = ConfigManager(vault, profile_dir)
     backup_mgr = BackupManager(profile_dir, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
-    return seed_phrase, entry_mgr, profile_dir
+    return seed_phrase, entry_mgr, profile_dir, fingerprint
 
 
 def random_secret(length: int = 16) -> str:
@@ -132,8 +146,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    seed, entry_mgr, dir_path = initialize_profile(args.profile)
-    fingerprint = generate_fingerprint(seed)
+    seed, entry_mgr, dir_path, fingerprint = initialize_profile(args.profile)
     print(f"Using profile directory: {dir_path}")
     print(f"Parent seed: {seed}")
     if fingerprint:

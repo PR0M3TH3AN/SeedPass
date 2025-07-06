@@ -360,14 +360,14 @@ pytest -vv -s -n 0 src/tests/test_nostr_index_size.py --desktop --max-entries=10
 Use the helper script below to populate a profile with sample entries for testing:
 
 ```bash
-python scripts/generate_test_profile.py --profile my_profile --count 100
+python scripts/generate_test_profile.py --profile demo_profile --count 100
 ```
 
-This command creates `~/.seedpass/my_profile` if needed and adds 100 example entries.
-After populating the vault, the script prints the derived **fingerprint** and
-automatically publishes the encrypted index to Nostr under that fingerprint.
-Use the same seed phrase when loading SeedPass so it can retrieve the data from
-Nostr.
+The script now determines the fingerprint from the generated seed and stores the
+vault under `~/.seedpass/<fingerprint>`. It also prints the fingerprint after
+creation and publishes the encrypted index to Nostr. Use that same seed phrase
+to load SeedPass. The app checks Nostr on startup and pulls any newer snapshot
+so your vault stays in sync across machines.
 
 ### Automatically Updating the Script Checksum
 
