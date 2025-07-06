@@ -2,12 +2,15 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+import json
+import asyncio
 from cryptography.fernet import Fernet
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.encryption import EncryptionManager
 from nostr.client import NostrClient
+import nostr.client as nostr_client
 
 
 def test_nostr_client_uses_custom_relays():
@@ -48,6 +51,25 @@ class FakeAddRelayClient:
 
     async def connect(self):
         self.connected = True
+
+
+class FakeWebSocket:
+    def __init__(self, messages):
+        self.messages = messages
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        pass
+
+    async def send(self, _):
+        pass
+
+    async def recv(self):
+        if self.messages:
+            return self.messages.pop(0)
+        await asyncio.sleep(0)
 
 
 def _setup_client(tmpdir, fake_cls):
@@ -91,3 +113,18 @@ def test_check_relay_health_runs_async(tmp_path, monkeypatch):
 
     assert result == 1
     assert recorded["args"] == (3, 2)
+
+
+def test_ping_relay_accepts_eose(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    fake_ws = FakeWebSocket([json.dumps(["EOSE"])])
+
+    def fake_connect(*_args, **_kwargs):
+        return fake_ws
+
+    monkeypatch.setattr(nostr_client.websockets, "connect", fake_connect)
+
+    result = asyncio.run(client._ping_relay("wss://relay", timeout=0.1))
+
+    assert result is True

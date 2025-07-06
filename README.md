@@ -355,6 +355,20 @@ variable to control the delay between publishes when experimenting with large va
 pytest -vv -s -n 0 src/tests/test_nostr_index_size.py --desktop --max-entries=1000
 ```
 
+### Generating a Test Profile
+
+Use the helper script below to populate a profile with sample entries for testing:
+
+```bash
+python scripts/generate_test_profile.py --profile demo_profile --count 100
+```
+
+The script now determines the fingerprint from the generated seed and stores the
+vault under `~/.seedpass/<fingerprint>`. It also prints the fingerprint after
+creation and publishes the encrypted index to Nostr. Use that same seed phrase
+to load SeedPass. The app checks Nostr on startup and pulls any newer snapshot
+so your vault stays in sync across machines.
+
 ### Automatically Updating the Script Checksum
 
 SeedPass stores a SHA-256 checksum for the main program in `~/.seedpass/seedpass_script_checksum.txt`.

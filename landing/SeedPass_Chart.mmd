@@ -1,7 +1,12 @@
 ---
 config:
   layout: fixed
-  theme: neo-dark
+  theme: base
+  themeVariables:
+    primaryColor: '#e94a39'
+    primaryBorderColor: '#e94a39'
+    primaryTextColor: '#ffffff'
+    lineColor: '#e94a39'
   look: classic
 ---
 flowchart TD
@@ -11,7 +16,7 @@ flowchart TD
   end
  subgraph subGraph1["Backup Pipeline"]
     direction TB
-        BK1["Incremental Backups<br>(BackupManager)"]
+        BK1["Timestamped Backups<br>(BackupManager)"]
         BK2["Portable Backup<br>(portable_backup.py)<br>.json.enc"]
         BK3["Nostr Snapshot<br>(nostr.client)<br>gzip chunks"]
   end

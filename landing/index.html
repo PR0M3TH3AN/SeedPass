@@ -49,9 +49,28 @@
             <!-- Intro Section -->
             <section class="intro" id="intro" aria-labelledby="intro-heading">
                 <div class="container">
-                    <h1 id="intro-heading">SeedPass: Secure Password Manager</h1>
-                    <p><strong>SeedPass</strong> is a secure password generator and manager built on Bitcoin's BIP-85 standard. It uses deterministic key derivation to generate passwords that are never stored but can be easily regenerated when needed.</p>
-                    <p>By integrating with the <strong>Nostr network</strong>, SeedPass compresses your encrypted vault and publishes it in 50&#8201;KB chunks. Each chunk is sent as a parameterised replaceable event, with deltas tracking changes between snapshots and automatic rotation when deltas grow large.</p>
+                    <h1 id="intro-heading">One Seed to Rule Them All</h1>
+                    <p>SeedPass deterministically derives every key and password from a single 12‑word phrase.</p>
+                    <pre class="mermaid mini-chart">
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#e94a39'
+    primaryBorderColor: '#e94a39'
+    lineColor: '#e94a39'
+  look: classic
+---
+flowchart TB
+    seed["alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima"]
+    seed --> pw["🔑 Passwords"]
+    seed --> totp["📱 2FA Codes"]
+    seed --> ssh["🖧 SSH Keys"]
+    seed --> pgp["🔒 PGP Key"]
+    seed --> mn["🌱 Seed Phrase"]
+    seed --> nostr["⚡ Nostr Keys"]
+    classDef default fill:#ffffff,stroke:#e94a39,stroke-width:2px,color:#283c4f;
+                    </pre>
                     <a href="https://github.com/PR0M3TH3AN/SeedPass" class="btn-primary cta-button"><i class="fas fa-download" aria-hidden="true"></i> Get Started</a>
                 </div>
         </section>
@@ -63,7 +82,12 @@
 ---
 config:
   layout: fixed
-  theme: neo-dark
+  theme: base
+  themeVariables:
+    primaryColor: '#e94a39'
+    primaryBorderColor: '#e94a39'
+    primaryTextColor: '#ffffff'
+    lineColor: '#e94a39'
   look: classic
 ---
 flowchart TD
@@ -73,7 +97,7 @@ flowchart TD
   end
  subgraph subGraph1["Backup Pipeline"]
     direction TB
-        BK1["Incremental Backups<br>(BackupManager)"]
+        BK1["Timestamped Backups<br>(BackupManager)"]
         BK2["Portable Backup<br>(portable_backup.py)<br>.json.enc"]
         BK3["Nostr Snapshot<br>(nostr.client)<br>gzip chunks"]
   end

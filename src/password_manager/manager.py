@@ -302,7 +302,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr_if_missing()
+            self.sync_index_from_nostr()
             print(
                 colored(
                     f"Seed profile {fingerprint} selected and managers initialized.",
@@ -432,7 +432,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr_if_missing()
+            self.sync_index_from_nostr()
             print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
@@ -616,7 +616,7 @@ class PasswordManager:
 
                 self.initialize_bip85()
                 self.initialize_managers()
-                self.sync_index_from_nostr_if_missing()
+                self.sync_index_from_nostr()
                 return fingerprint  # Return the generated or added fingerprint
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
@@ -757,7 +757,7 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr_if_missing()
+            self.sync_index_from_nostr()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
