@@ -13,7 +13,7 @@ from password_manager.manager import PasswordManager, EncryptionMode
 from password_manager.config_manager import ConfigManager
 
 
-def test_search_entries_shows_totp_details(monkeypatch, capsys):
+def test_search_entries_prompt_for_details(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -27,15 +27,25 @@ def test_search_entries_shows_totp_details(monkeypatch, capsys):
         pm.vault = vault
         pm.entry_manager = entry_mgr
         pm.backup_manager = backup_mgr
+        pm.parent_seed = TEST_SEED
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        monkeypatch.setattr("builtins.input", lambda *a, **k: "Example")
+        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
+        )
+        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
+
+        inputs = iter(["Example", "0", ""])
+        monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
 
         pm.handle_search_entries()
         out = capsys.readouterr().out
-        assert "Label: Example" in out
-        assert "Derivation Index" in out
+        assert "0. Example" in out
+        assert "Retrieved 2FA Code" in out
+        assert "123456" in out
