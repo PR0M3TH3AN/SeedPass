@@ -370,10 +370,28 @@ footer .social-media a:focus {
     margin-right: 20px;
 }
 
+
 .features ul li:hover,
 .features ul li:focus-within {
     transform: translateY(-5px);
     box-shadow: 0 8px 16px var(--shadow-light);
+}
+
+/* Flow Chart Section */
+.flow-chart {
+    background-color: var(--background-section);
+    padding: 80px 20px;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.flow-chart .mermaid {
+    margin: 0 auto;
+    max-width: 1000px;
+}
+
+body.dark-mode .flow-chart {
+    background-color: var(--background-dark-section);
 }
 
 /* How It Works Section */
