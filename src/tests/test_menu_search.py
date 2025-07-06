@@ -30,7 +30,7 @@ def _make_pm(called):
 def test_menu_search_option(monkeypatch):
     called = []
     pm = _make_pm(called)
-    inputs = iter(["3", "8"])
+    inputs = iter(["3", ""])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: "query")
     with pytest.raises(SystemExit):

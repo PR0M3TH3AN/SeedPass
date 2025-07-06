@@ -577,8 +577,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
         print(color_text("2. Add a New Seed Profile", "menu"))
         print(color_text("3. Remove an Existing Seed Profile", "menu"))
         print(color_text("4. List All Seed Profiles", "menu"))
-        print(color_text("5. Back", "menu"))
-        choice = input("Select an option: ").strip()
+        choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         if choice == "1":
             if not password_manager.handle_switch_fingerprint():
@@ -589,7 +588,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             handle_remove_fingerprint(password_manager)
         elif choice == "4":
             handle_list_fingerprints(password_manager)
-        elif choice == "5":
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -617,8 +616,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         print(color_text("5. Remove a relay by number", "menu"))
         print(color_text("6. Reset to default relays", "menu"))
         print(color_text("7. Display Nostr Public Key", "menu"))
-        print(color_text("8. Back", "menu"))
-        choice = input("Select an option: ").strip()
+        choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         if choice == "1":
             handle_post_to_nostr(password_manager)
@@ -634,7 +632,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             handle_reset_relays(password_manager)
         elif choice == "7":
             handle_display_npub(password_manager)
-        elif choice == "8":
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -659,8 +657,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("12. Lock Vault", "menu"))
         print(color_text("13. Stats", "menu"))
         print(color_text("14. Toggle Secret Mode", "menu"))
-        print(color_text("15. Back", "menu"))
-        choice = input("Select an option: ").strip()
+        choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
             pause()
@@ -707,7 +704,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "14":
             handle_toggle_secret_mode(password_manager)
             pause()
-        elif choice == "15":
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -730,7 +727,6 @@ def display_menu(
     5. Modify an Existing Entry
     6. 2FA Codes
     7. Settings
-    8. Exit
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
@@ -757,7 +753,8 @@ def display_menu(
         print(color_text(menu, "menu"))
         try:
             choice = timed_input(
-                "Enter your choice (1-8): ", inactivity_timeout
+                "Enter your choice (1-7) or press Enter to exit: ",
+                inactivity_timeout,
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -766,13 +763,10 @@ def display_menu(
             continue
         password_manager.update_activity()
         if not choice:
-            print(
-                colored(
-                    "No input detected. Please enter a number between 1 and 8.",
-                    "yellow",
-                )
-            )
-            continue  # Re-display the menu without marking as invalid
+            logging.info("Exiting the program.")
+            print(colored("Exiting the program.", "green"))
+            password_manager.nostr_client.close_client_pool()
+            sys.exit(0)
         if choice == "1":
             while True:
                 print(color_text("\nAdd Entry:", "menu"))
@@ -782,8 +776,9 @@ def display_menu(
                 print(color_text("4. Seed Phrase", "menu"))
                 print(color_text("5. Nostr Key Pair", "menu"))
                 print(color_text("6. PGP Key", "menu"))
-                print(color_text("7. Back", "menu"))
-                sub_choice = input("Select entry type: ").strip()
+                sub_choice = input(
+                    "Select entry type or press Enter to go back: "
+                ).strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
@@ -803,7 +798,7 @@ def display_menu(
                 elif sub_choice == "6":
                     password_manager.handle_add_pgp()
                     break
-                elif sub_choice == "7":
+                elif not sub_choice:
                     break
                 else:
                     print(colored("Invalid choice.", "red"))
@@ -826,11 +821,6 @@ def display_menu(
         elif choice == "7":
             password_manager.update_activity()
             handle_settings(password_manager)
-        elif choice == "8":
-            logging.info("Exiting the program.")
-            print(colored("Exiting the program.", "green"))
-            password_manager.nostr_client.close_client_pool()
-            sys.exit(0)
         else:
             print(colored("Invalid choice. Please select a valid option.", "red"))
 

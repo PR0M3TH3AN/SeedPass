@@ -978,8 +978,7 @@ class PasswordManager:
                 print("\nAdd TOTP:")
                 print("1. Make 2FA (derive from seed)")
                 print("2. Import 2FA (paste otpauth URI or secret)")
-                print("3. Back")
-                choice = input("Select option: ").strip()
+                choice = input("Select option or press Enter to go back: ").strip()
                 if choice == "1":
                     label = input("Label: ").strip()
                     if not label:
@@ -1062,7 +1061,7 @@ class PasswordManager:
                         break
                     except ValueError as err:
                         print(colored(f"Error: {err}", "red"))
-                elif choice == "3":
+                elif not choice:
                     return
                 else:
                     print(colored("Invalid choice.", "red"))
@@ -1978,8 +1977,7 @@ class PasswordManager:
                 print(color_text("5. Seed Phrase", "menu"))
                 print(color_text("6. Nostr Key Pair", "menu"))
                 print(color_text("7. PGP", "menu"))
-                print(color_text("8. Back", "menu"))
-                choice = input("Select entry type: ").strip()
+                choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
                     filter_kind = None
                 elif choice == "2":
@@ -1994,7 +1992,7 @@ class PasswordManager:
                     filter_kind = EntryType.NOSTR.value
                 elif choice == "7":
                     filter_kind = EntryType.PGP.value
-                elif choice == "8":
+                elif not choice:
                     return
                 else:
                     print(colored("Invalid choice.", "red"))
