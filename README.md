@@ -366,7 +366,8 @@ python scripts/generate_test_profile.py --profile demo_profile --count 100
 The script now determines the fingerprint from the generated seed and stores the
 vault under `~/.seedpass/<fingerprint>`. It also prints the fingerprint after
 creation and publishes the encrypted index to Nostr. Use that same seed phrase
-to load SeedPass so it can automatically retrieve the data from Nostr.
+to load SeedPass. The app checks Nostr on startup and pulls any newer snapshot
+so your vault stays in sync across machines.
 
 ### Automatically Updating the Script Checksum
 
