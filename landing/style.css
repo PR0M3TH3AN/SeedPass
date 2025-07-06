@@ -337,6 +337,13 @@ footer .social-media a:focus {
     transform: translateY(-3px);
 }
 
+/* Mini flow chart in hero */
+.mini-chart {
+    max-width: 600px;
+    margin: 40px auto;
+    background-color: transparent;
+}
+
 /* Features Section */
 .features {
     background-color: var(--background-section);
