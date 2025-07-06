@@ -1317,7 +1317,7 @@ class PasswordManager:
                 period = int(entry.get("period", 30))
                 notes = entry.get("notes", "")
                 print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
-                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+                print(colored("Press Enter to return to the menu.", "cyan"))
                 try:
                     while True:
                         code = self.entry_manager.get_totp_code(index, self.parent_seed)
@@ -1346,7 +1346,10 @@ class PasswordManager:
                             sys.stdout.flush()
                             try:
                                 user_input = timed_input("", 1)
-                                if user_input.strip().lower() == "b":
+                                if (
+                                    user_input.strip() == ""
+                                    or user_input.strip().lower() == "b"
+                                ):
                                     exit_loop = True
                                     break
                             except TimeoutError:
@@ -2086,10 +2089,10 @@ class PasswordManager:
                 return
 
             totp_list.sort(key=lambda t: t[0].lower())
-            print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+            print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
                 clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
-                print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
+                print(colored("Press Enter to return to the menu.", "cyan"))
                 generated = [t for t in totp_list if not t[3]]
                 imported_list = [t for t in totp_list if t[3]]
                 if generated:
@@ -2127,7 +2130,7 @@ class PasswordManager:
                 sys.stdout.flush()
                 try:
                     user_input = timed_input("", 1)
-                    if user_input.strip().lower() == "b":
+                    if user_input.strip() == "" or user_input.strip().lower() == "b":
                         break
                 except TimeoutError:
                     pass
