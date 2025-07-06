@@ -304,6 +304,8 @@ def handle_post_to_nostr(
     except Exception as e:
         logging.error(f"Failed to post to Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to post to Nostr: {e}", "red"))
+    finally:
+        pause()
 
 
 def handle_retrieve_from_nostr(password_manager: PasswordManager):
@@ -336,6 +338,8 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
     except Exception as e:
         logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
+    finally:
+        pause()
 
 
 def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
@@ -395,6 +399,8 @@ def handle_add_relay(password_manager: PasswordManager) -> None:
     except Exception as e:
         logging.error(f"Error adding relay: {e}")
         print(colored(f"Error: {e}", "red"))
+    finally:
+        pause()
 
 
 def handle_remove_relay(password_manager: PasswordManager) -> None:
@@ -430,6 +436,8 @@ def handle_remove_relay(password_manager: PasswordManager) -> None:
     except Exception as e:
         logging.error(f"Error removing relay: {e}")
         print(colored(f"Error: {e}", "red"))
+    finally:
+        pause()
 
 
 def handle_reset_relays(password_manager: PasswordManager) -> None:
@@ -447,6 +455,8 @@ def handle_reset_relays(password_manager: PasswordManager) -> None:
     except Exception as e:
         logging.error(f"Error resetting relays: {e}")
         print(colored(f"Error: {e}", "red"))
+    finally:
+        pause()
 
 
 def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
