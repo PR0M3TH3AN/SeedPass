@@ -1995,7 +1995,8 @@ class PasswordManager:
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
             while True:
-                print("\033c", end="")
+                # Clear screen while preserving scrollback
+                print("\033[2J\033[H", end="")
                 print(colored("Press 'b' then Enter to return to the menu.", "cyan"))
                 generated = [t for t in totp_list if not t[3]]
                 imported_list = [t for t in totp_list if t[3]]
