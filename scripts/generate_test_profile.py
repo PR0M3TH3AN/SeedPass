@@ -39,45 +39,40 @@ DEFAULT_PASSWORD = "testpassword"
 
 def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]:
     """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
-    temp_dir = APP_DIR / profile_name
-    temp_dir.mkdir(parents=True, exist_ok=True)
-
-    seed_key = derive_key_from_password(DEFAULT_PASSWORD)
-    seed_mgr = EncryptionManager(seed_key, temp_dir)
-    seed_file = temp_dir / "parent_seed.enc"
-    clear_path = temp_dir / "seed_phrase.txt"
-
-    if seed_file.exists():
-        seed_phrase = seed_mgr.decrypt_parent_seed()
-        if not clear_path.exists():
-            clear_path.write_text(seed_phrase)
-            clear_path.chmod(0o600)
-    elif clear_path.exists():
-        seed_phrase = clear_path.read_text().strip()
-        seed_mgr.encrypt_parent_seed(seed_phrase)
+    seed_txt = APP_DIR / f"{profile_name}_seed.txt"
+    if seed_txt.exists():
+        seed_phrase = seed_txt.read_text().strip()
     else:
         seed_phrase = (
             Bip39MnemonicGenerator(Bip39Languages.ENGLISH)
             .FromWordsNumber(Bip39WordsNum.WORDS_NUM_12)
             .ToStr()
         )
-        seed_mgr.encrypt_parent_seed(seed_phrase)
-        clear_path.write_text(seed_phrase)
-        clear_path.chmod(0o600)
+        seed_txt.write_text(seed_phrase)
+        seed_txt.chmod(0o600)
 
     fingerprint = generate_fingerprint(seed_phrase) or profile_name
     profile_dir = APP_DIR / fingerprint
-    if profile_dir != temp_dir:
-        profile_dir.mkdir(parents=True, exist_ok=True)
-        for p in temp_dir.iterdir():
-            target = profile_dir / p.name
-            if not target.exists():
-                p.rename(target)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+
+    seed_key = derive_key_from_password(DEFAULT_PASSWORD)
+    seed_mgr = EncryptionManager(seed_key, profile_dir)
+    seed_file = profile_dir / "parent_seed.enc"
+    clear_path = profile_dir / "seed_phrase.txt"
+
+    if seed_file.exists():
         try:
-            temp_dir.rmdir()
-        except OSError:
-            pass
-        seed_mgr.fingerprint_dir = profile_dir
+            current = seed_mgr.decrypt_parent_seed()
+        except Exception:
+            current = None
+        if current != seed_phrase:
+            seed_mgr.encrypt_parent_seed(seed_phrase)
+    else:
+        seed_mgr.encrypt_parent_seed(seed_phrase)
+
+    if not clear_path.exists():
+        clear_path.write_text(seed_phrase)
+        clear_path.chmod(0o600)
 
     index_key = derive_index_key(seed_phrase)
     enc_mgr = EncryptionManager(index_key, profile_dir)
