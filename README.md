@@ -220,18 +220,18 @@ python src/main.py
 
    Example menu:
 
-   ```bash
-   Select an option:
-   1. Add Entry
-   2. Retrieve Entry
-   3. Search Entries
-   4. Modify an Existing Entry
-   5. 2FA Codes
-   6. Settings
-   7. Exit
+    ```bash
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
 
-   Enter your choice (1-7):
-   ```
+    Enter your choice (1-7) or press Enter to exit:
+    ```
 
 When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
    **SSH Key**, **Seed Phrase**, or **PGP Key**.
@@ -324,7 +324,8 @@ Back in the Settings menu you can:
 * Select `7` to export the database to an encrypted file.
 * Choose `8` to import a database from a backup file.
 * Select `9` to export all 2FA codes.
-* Choose `10` to set an additional backup location.
+* Choose `10` to set an additional backup location. A backup is created
+  immediately after the directory is configured.
 * Select `11` to change the inactivity timeout.
 * Choose `12` to lock the vault and require re-entry of your password.
 * Select `13` to view seed profile stats. The summary lists counts for

@@ -12,6 +12,7 @@ import gzip
 import tomli
 from colorama import init as colorama_init
 from termcolor import colored
+from utils.color_scheme import color_text
 import traceback
 
 from password_manager.manager import PasswordManager
@@ -19,7 +20,13 @@ from nostr.client import NostrClient
 from password_manager.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
-from utils import timed_input, copy_to_clipboard
+from utils import (
+    timed_input,
+    copy_to_clipboard,
+    clear_screen,
+    pause,
+    clear_and_print_fingerprint,
+)
 from local_bip85.bip85 import Bip85Error
 
 
@@ -201,6 +208,7 @@ def handle_list_fingerprints(password_manager: PasswordManager):
         print(colored("Available Seed Profiles:", "cyan"))
         for fp in fingerprints:
             print(colored(f"- {fp}", "cyan"))
+        pause()
     except Exception as e:
         logging.error(f"Error listing seed profiles: {e}", exc_info=True)
         print(colored(f"Error: Failed to list seed profiles: {e}", "red"))
@@ -218,6 +226,7 @@ def handle_display_npub(password_manager: PasswordManager):
         else:
             print(colored("Nostr public key not available.", "red"))
             logging.error("Nostr public key not available.")
+        pause()
     except Exception as e:
         logging.error(f"Failed to display npub: {e}", exc_info=True)
         print(colored(f"Error: Failed to display npub: {e}", "red"))
@@ -248,26 +257,28 @@ def print_matches(
             if data
             else EntryType.PASSWORD.value
         )
-        print(colored(f"Index: {idx}", "cyan"))
+        print(color_text(f"Index: {idx}", "index"))
         if etype == EntryType.TOTP.value:
-            print(colored(f"  Label: {data.get('label', website)}", "cyan"))
-            print(colored(f"  Derivation Index: {data.get('index', idx)}", "cyan"))
+            print(color_text(f"  Label: {data.get('label', website)}", "index"))
+            print(color_text(f"  Derivation Index: {data.get('index', idx)}", "index"))
         elif etype == EntryType.SEED.value:
-            print(colored("  Type: Seed Phrase", "cyan"))
+            print(color_text("  Type: Seed Phrase", "index"))
         elif etype == EntryType.SSH.value:
-            print(colored("  Type: SSH Key", "cyan"))
+            print(color_text("  Type: SSH Key", "index"))
         elif etype == EntryType.PGP.value:
-            print(colored("  Type: PGP Key", "cyan"))
+            print(color_text("  Type: PGP Key", "index"))
         elif etype == EntryType.NOSTR.value:
-            print(colored("  Type: Nostr Key", "cyan"))
+            print(color_text("  Type: Nostr Key", "index"))
         else:
             if website:
-                print(colored(f"  Label: {website}", "cyan"))
+                print(color_text(f"  Label: {website}", "index"))
             if username:
-                print(colored(f"  Username: {username}", "cyan"))
+                print(color_text(f"  Username: {username}", "index"))
             if url:
-                print(colored(f"  URL: {url}", "cyan"))
-            print(colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan"))
+                print(color_text(f"  URL: {url}", "index"))
+            print(
+                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
+            )
         print("-" * 40)
 
 
@@ -338,6 +349,7 @@ def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
         print(colored("\nCurrent Relays:", "cyan"))
         for idx, relay in enumerate(relays, start=1):
             print(colored(f"{idx}. {relay}", "cyan"))
+        pause()
     except Exception as e:
         logging.error(f"Error displaying relays: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -514,6 +526,8 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
     try:
         cfg_mgr.set_additional_backup_path(str(path))
         print(colored(f"Additional backups will be copied to {path}", "green"))
+        if pm.backup_manager is not None:
+            pm.backup_manager.create_backup()
     except Exception as e:
         logging.error(f"Error saving backup path: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -563,13 +577,16 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
-        print("\nProfiles:")
-        print("1. Switch Seed Profile")
-        print("2. Add a New Seed Profile")
-        print("3. Remove an Existing Seed Profile")
-        print("4. List All Seed Profiles")
-        print("5. Back")
-        choice = input("Select an option: ").strip()
+        clear_and_print_fingerprint(
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings > Profiles",
+        )
+        print(color_text("\nProfiles:", "menu"))
+        print(color_text("1. Switch Seed Profile", "menu"))
+        print(color_text("2. Add a New Seed Profile", "menu"))
+        print(color_text("3. Remove an Existing Seed Profile", "menu"))
+        print(color_text("4. List All Seed Profiles", "menu"))
+        choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         if choice == "1":
             if not password_manager.handle_switch_fingerprint():
@@ -580,7 +597,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             handle_remove_fingerprint(password_manager)
         elif choice == "4":
             handle_list_fingerprints(password_manager)
-        elif choice == "5":
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -599,16 +616,19 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         return
 
     while True:
-        print("\nNostr Settings:")
-        print("1. Backup to Nostr")
-        print("2. Restore from Nostr")
-        print("3. View current relays")
-        print("4. Add a relay URL")
-        print("5. Remove a relay by number")
-        print("6. Reset to default relays")
-        print("7. Display Nostr Public Key")
-        print("8. Back")
-        choice = input("Select an option: ").strip()
+        clear_and_print_fingerprint(
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings > Nostr",
+        )
+        print(color_text("\nNostr Settings:", "menu"))
+        print(color_text("1. Backup to Nostr", "menu"))
+        print(color_text("2. Restore from Nostr", "menu"))
+        print(color_text("3. View current relays", "menu"))
+        print(color_text("4. Add a relay URL", "menu"))
+        print(color_text("5. Remove a relay by number", "menu"))
+        print(color_text("6. Reset to default relays", "menu"))
+        print(color_text("7. Display Nostr Public Key", "menu"))
+        choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         if choice == "1":
             handle_post_to_nostr(password_manager)
@@ -624,7 +644,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             handle_reset_relays(password_manager)
         elif choice == "7":
             handle_display_npub(password_manager)
-        elif choice == "8":
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -633,56 +653,73 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
 def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
-        print("\nSettings:")
-        print("1. Profiles")
-        print("2. Nostr")
-        print("3. Change password")
-        print("4. Verify Script Checksum")
-        print("5. Generate Script Checksum")
-        print("6. Backup Parent Seed")
-        print("7. Export database")
-        print("8. Import database")
-        print("9. Export 2FA codes")
-        print("10. Set additional backup location")
-        print("11. Set inactivity timeout")
-        print("12. Lock Vault")
-        print("13. Stats")
-        print("14. Toggle Secret Mode")
-        print("15. Back")
-        choice = input("Select an option: ").strip()
+        clear_and_print_fingerprint(
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings",
+        )
+        print(color_text("\nSettings:", "menu"))
+        print(color_text("1. Profiles", "menu"))
+        print(color_text("2. Nostr", "menu"))
+        print(color_text("3. Change password", "menu"))
+        print(color_text("4. Verify Script Checksum", "menu"))
+        print(color_text("5. Generate Script Checksum", "menu"))
+        print(color_text("6. Backup Parent Seed", "menu"))
+        print(color_text("7. Export database", "menu"))
+        print(color_text("8. Import database", "menu"))
+        print(color_text("9. Export 2FA codes", "menu"))
+        print(color_text("10. Set additional backup location", "menu"))
+        print(color_text("11. Set inactivity timeout", "menu"))
+        print(color_text("12. Lock Vault", "menu"))
+        print(color_text("13. Stats", "menu"))
+        print(color_text("14. Toggle Secret Mode", "menu"))
+        choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
+            pause()
         elif choice == "2":
             handle_nostr_menu(password_manager)
+            pause()
         elif choice == "3":
             password_manager.change_password()
+            pause()
         elif choice == "4":
             password_manager.handle_verify_checksum()
+            pause()
         elif choice == "5":
             password_manager.handle_update_script_checksum()
+            pause()
         elif choice == "6":
             password_manager.handle_backup_reveal_parent_seed()
+            pause()
         elif choice == "7":
             password_manager.handle_export_database()
+            pause()
         elif choice == "8":
             path = input("Enter path to backup file: ").strip()
             if path:
                 password_manager.handle_import_database(Path(path))
+            pause()
         elif choice == "9":
             password_manager.handle_export_totp_codes()
+            pause()
         elif choice == "10":
             handle_set_additional_backup_location(password_manager)
+            pause()
         elif choice == "11":
             handle_set_inactivity_timeout(password_manager)
+            pause()
         elif choice == "12":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
+            pause()
         elif choice == "13":
             handle_display_stats(password_manager)
+            pause()
         elif choice == "14":
             handle_toggle_secret_mode(password_manager)
-        elif choice == "15":
+            pause()
+        elif not choice:
             break
         else:
             print(colored("Invalid choice.", "red"))
@@ -705,12 +742,16 @@ def display_menu(
     5. Modify an Existing Entry
     6. 2FA Codes
     7. Settings
-    8. Exit
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
         display_fn()
+        pause()
     while True:
+        clear_and_print_fingerprint(
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu",
+        )
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
@@ -727,10 +768,11 @@ def display_menu(
         # Flush logging handlers
         for handler in logging.getLogger().handlers:
             handler.flush()
-        print(colored(menu, "cyan"))
+        print(color_text(menu, "menu"))
         try:
             choice = timed_input(
-                "Enter your choice (1-8): ", inactivity_timeout
+                "Enter your choice (1-7) or press Enter to exit: ",
+                inactivity_timeout,
             ).strip()
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -739,24 +781,26 @@ def display_menu(
             continue
         password_manager.update_activity()
         if not choice:
-            print(
-                colored(
-                    "No input detected. Please enter a number between 1 and 8.",
-                    "yellow",
-                )
-            )
-            continue  # Re-display the menu without marking as invalid
+            logging.info("Exiting the program.")
+            print(colored("Exiting the program.", "green"))
+            password_manager.nostr_client.close_client_pool()
+            sys.exit(0)
         if choice == "1":
             while True:
-                print("\nAdd Entry:")
-                print("1. Password")
-                print("2. 2FA (TOTP)")
-                print("3. SSH Key")
-                print("4. Seed Phrase")
-                print("5. Nostr Key Pair")
-                print("6. PGP Key")
-                print("7. Back")
-                sub_choice = input("Select entry type: ").strip()
+                clear_and_print_fingerprint(
+                    getattr(password_manager, "current_fingerprint", None),
+                    "Main Menu > Add Entry",
+                )
+                print(color_text("\nAdd Entry:", "menu"))
+                print(color_text("1. Password", "menu"))
+                print(color_text("2. 2FA (TOTP)", "menu"))
+                print(color_text("3. SSH Key", "menu"))
+                print(color_text("4. Seed Phrase", "menu"))
+                print(color_text("5. Nostr Key Pair", "menu"))
+                print(color_text("6. PGP Key", "menu"))
+                sub_choice = input(
+                    "Select entry type or press Enter to go back: "
+                ).strip()
                 password_manager.update_activity()
                 if sub_choice == "1":
                     password_manager.handle_add_password()
@@ -776,13 +820,17 @@ def display_menu(
                 elif sub_choice == "6":
                     password_manager.handle_add_pgp()
                     break
-                elif sub_choice == "7":
+                elif not sub_choice:
                     break
                 else:
                     print(colored("Invalid choice.", "red"))
         elif choice == "2":
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
+            clear_and_print_fingerprint(
+                getattr(password_manager, "current_fingerprint", None),
+                "Main Menu",
+            )
         elif choice == "3":
             password_manager.update_activity()
             password_manager.handle_search_entries()
@@ -798,11 +846,6 @@ def display_menu(
         elif choice == "7":
             password_manager.update_activity()
             handle_settings(password_manager)
-        elif choice == "8":
-            logging.info("Exiting the program.")
-            print(colored("Exiting the program.", "green"))
-            password_manager.nostr_client.close_client_pool()
-            sys.exit(0)
         else:
             print(colored("Invalid choice. Please select a valid option.", "red"))
 
