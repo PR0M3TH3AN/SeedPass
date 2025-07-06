@@ -663,36 +663,50 @@ def handle_settings(password_manager: PasswordManager) -> None:
         choice = input("Select an option: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
+            pause()
         elif choice == "2":
             handle_nostr_menu(password_manager)
+            pause()
         elif choice == "3":
             password_manager.change_password()
+            pause()
         elif choice == "4":
             password_manager.handle_verify_checksum()
+            pause()
         elif choice == "5":
             password_manager.handle_update_script_checksum()
+            pause()
         elif choice == "6":
             password_manager.handle_backup_reveal_parent_seed()
+            pause()
         elif choice == "7":
             password_manager.handle_export_database()
+            pause()
         elif choice == "8":
             path = input("Enter path to backup file: ").strip()
             if path:
                 password_manager.handle_import_database(Path(path))
+            pause()
         elif choice == "9":
             password_manager.handle_export_totp_codes()
+            pause()
         elif choice == "10":
             handle_set_additional_backup_location(password_manager)
+            pause()
         elif choice == "11":
             handle_set_inactivity_timeout(password_manager)
+            pause()
         elif choice == "12":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
+            pause()
         elif choice == "13":
             handle_display_stats(password_manager)
+            pause()
         elif choice == "14":
             handle_toggle_secret_mode(password_manager)
+            pause()
         elif choice == "15":
             break
         else:
