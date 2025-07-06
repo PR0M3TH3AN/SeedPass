@@ -32,6 +32,7 @@ from password_manager.entry_management import EntryManager
 from nostr.client import NostrClient
 from utils.fingerprint import generate_fingerprint
 import asyncio
+import gzip
 
 DEFAULT_PASSWORD = "testpassword"
 
@@ -143,6 +144,21 @@ def main() -> None:
         )
         asyncio.run(client.publish_snapshot(encrypted))
         print("[+] Data synchronized to Nostr.")
+        try:
+            result = asyncio.run(client.fetch_latest_snapshot())
+            if result:
+                _, chunks = result
+                retrieved = gzip.decompress(b"".join(chunks))
+                if retrieved == encrypted:
+                    print("[+] Verified snapshot retrieval.")
+                else:
+                    print(
+                        f"[!] Retrieval failed: {client.last_error or 'data mismatch'}"
+                    )
+            else:
+                print(f"[!] Retrieval failed: {client.last_error or 'data mismatch'}")
+        except Exception as e:
+            print(f"[!] Retrieval failed: {e}")
     else:
         print("[-] No encrypted index found to sync.")
 
