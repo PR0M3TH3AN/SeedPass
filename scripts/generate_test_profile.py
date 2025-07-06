@@ -30,6 +30,7 @@ from password_manager.config_manager import ConfigManager
 from password_manager.backup import BackupManager
 from password_manager.entry_management import EntryManager
 from nostr.client import NostrClient
+from utils.fingerprint import generate_fingerprint
 import asyncio
 
 DEFAULT_PASSWORD = "testpassword"
@@ -125,8 +126,11 @@ def main() -> None:
     args = parser.parse_args()
 
     seed, entry_mgr, dir_path = initialize_profile(args.profile)
+    fingerprint = generate_fingerprint(seed)
     print(f"Using profile directory: {dir_path}")
     print(f"Parent seed: {seed}")
+    if fingerprint:
+        print(f"Fingerprint: {fingerprint}")
     populate(entry_mgr, seed, args.count)
     print(f"Added {args.count} entries.")
 
@@ -134,7 +138,7 @@ def main() -> None:
     if encrypted:
         client = NostrClient(
             entry_mgr.vault.encryption_manager,
-            dir_path.name,
+            fingerprint or dir_path.name,
             parent_seed=seed,
         )
         asyncio.run(client.publish_snapshot(encrypted))
