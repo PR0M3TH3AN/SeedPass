@@ -188,13 +188,6 @@ class PasswordManager:
         self.locked = False
         self.update_activity()
 
-    def pause(self, prompt: str = "Press Enter to continue...") -> None:
-        """Wait for the user to press Enter before proceeding."""
-        try:
-            input(colored(prompt, "cyan"))
-        except (EOFError, KeyboardInterrupt):
-            print()
-
     def initialize_fingerprint_manager(self):
         """
         Initializes the FingerprintManager.
@@ -943,7 +936,6 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
-            self.pause()
 
         except Exception as e:
             logging.error(f"Error during password generation: {e}", exc_info=True)
@@ -1035,7 +1027,6 @@ class PasswordManager:
                                 f"Failed to post updated index to Nostr: {nostr_error}",
                                 exc_info=True,
                             )
-                        self.pause()
                         break
                     except ValueError as err:
                         print(colored(f"Error: {err}", "red"))
@@ -1082,7 +1073,6 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
-            self.pause()
         except Exception as e:
             logging.error(f"Error during SSH key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add SSH key: {e}", "red"))
@@ -1129,7 +1119,6 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
-            self.pause()
         except Exception as e:
             logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
@@ -1180,7 +1169,6 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
-            self.pause()
         except Exception as e:
             logging.error(f"Error during PGP key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add PGP key: {e}", "red"))
@@ -1222,7 +1210,6 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
-            self.pause()
         except Exception as e:
             logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
