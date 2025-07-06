@@ -578,7 +578,8 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None)
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings > Profiles",
         )
         print(color_text("\nProfiles:", "menu"))
         print(color_text("1. Switch Seed Profile", "menu"))
@@ -616,7 +617,8 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
 
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None)
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings > Nostr",
         )
         print(color_text("\nNostr Settings:", "menu"))
         print(color_text("1. Backup to Nostr", "menu"))
@@ -652,7 +654,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None)
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu > Settings",
         )
         print(color_text("\nSettings:", "menu"))
         print(color_text("1. Profiles", "menu"))
@@ -746,7 +749,8 @@ def display_menu(
         pause()
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None)
+            getattr(password_manager, "current_fingerprint", None),
+            "Main Menu",
         )
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -783,6 +787,10 @@ def display_menu(
             sys.exit(0)
         if choice == "1":
             while True:
+                clear_and_print_fingerprint(
+                    getattr(password_manager, "current_fingerprint", None),
+                    "Main Menu > Add Entry",
+                )
                 print(color_text("\nAdd Entry:", "menu"))
                 print(color_text("1. Password", "menu"))
                 print(color_text("2. 2FA (TOTP)", "menu"))
@@ -820,7 +828,8 @@ def display_menu(
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
             clear_and_print_fingerprint(
-                getattr(password_manager, "current_fingerprint", None)
+                getattr(password_manager, "current_fingerprint", None),
+                "Main Menu",
             )
         elif choice == "3":
             password_manager.update_activity()

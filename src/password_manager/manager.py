@@ -890,7 +890,10 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > Password",
+            )
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -977,7 +980,10 @@ class PasswordManager:
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > 2FA (TOTP)",
+            )
             while True:
                 print("\nAdd TOTP:")
                 print("1. Make 2FA (derive from seed)")
@@ -1077,7 +1083,10 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > SSH Key",
+            )
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1119,7 +1128,10 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > Seed Phrase",
+            )
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1175,7 +1187,10 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > PGP Key",
+            )
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1228,7 +1243,10 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > Nostr Key Pair",
+            )
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1295,7 +1313,10 @@ class PasswordManager:
         and displaying the corresponding password and associated details.
         """
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Retrieve Entry",
+            )
             index_input = input(
                 "Enter the index number of the entry to retrieve: "
             ).strip()
@@ -1616,7 +1637,10 @@ class PasswordManager:
         and new details to update.
         """
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Modify Entry",
+            )
             index_input = input(
                 "Enter the index number of the entry to modify: "
             ).strip()
@@ -1854,7 +1878,10 @@ class PasswordManager:
     def handle_search_entries(self) -> None:
         """Prompt for a query, list matches and optionally show details."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Search Entries",
+            )
             query = input("Enter search string: ").strip()
             if not query:
                 print(colored("No search string provided.", "yellow"))
@@ -1868,7 +1895,10 @@ class PasswordManager:
                 return
 
             while True:
-                clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+                clear_and_print_fingerprint(
+                    getattr(self, "current_fingerprint", None),
+                    "Main Menu > Search Entries",
+                )
                 print(colored("\n[+] Search Results:\n", "green"))
                 for idx, label, username, _url, _b in results:
                     display_label = label
@@ -1975,7 +2005,10 @@ class PasswordManager:
         """List entries and optionally show details."""
         try:
             while True:
-                clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+                clear_and_print_fingerprint(
+                    getattr(self, "current_fingerprint", None),
+                    "Main Menu > List Entries",
+                )
                 print(color_text("\nList Entries:", "menu"))
                 print(color_text("1. All", "menu"))
                 print(color_text("2. Passwords", "menu"))
@@ -2010,7 +2043,8 @@ class PasswordManager:
                     continue
                 while True:
                     clear_and_print_fingerprint(
-                        getattr(self, "current_fingerprint", None)
+                        getattr(self, "current_fingerprint", None),
+                        "Main Menu > List Entries",
                     )
                     print(colored("\n[+] Entries:\n", "green"))
                     for idx, etype, label in summaries:
@@ -2072,6 +2106,10 @@ class PasswordManager:
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > 2FA Codes",
+            )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
             totp_list: list[tuple[str, int, int, bool]] = []
@@ -2091,7 +2129,10 @@ class PasswordManager:
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
-                clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+                clear_and_print_fingerprint(
+                    getattr(self, "current_fingerprint", None),
+                    "Main Menu > 2FA Codes",
+                )
                 print(colored("Press Enter to return to the menu.", "cyan"))
                 generated = [t for t in totp_list if not t[3]]
                 imported_list = [t for t in totp_list if t[3]]
@@ -2146,7 +2187,10 @@ class PasswordManager:
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
         """
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Verify Script Checksum",
+            )
             current_checksum = calculate_checksum(__file__)
             try:
                 verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
@@ -2181,7 +2225,10 @@ class PasswordManager:
             print(colored("Operation cancelled.", "yellow"))
             return
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Generate Script Checksum",
+            )
             script_path = Path(__file__).resolve()
             if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
                 print(
@@ -2291,7 +2338,10 @@ class PasswordManager:
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Export database",
+            )
             path = export_backup(
                 self.vault,
                 self.backup_manager,
@@ -2308,7 +2358,10 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Import database",
+            )
             import_backup(
                 self.vault,
                 self.backup_manager,
@@ -2323,7 +2376,10 @@ class PasswordManager:
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Export 2FA codes",
+            )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
 
@@ -2383,7 +2439,10 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
-            clear_and_print_fingerprint(getattr(self, "current_fingerprint", None))
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Settings > Backup Parent Seed",
+            )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
             print(
                 colored(

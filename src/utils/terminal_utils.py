@@ -11,11 +11,16 @@ def clear_screen() -> None:
     print("\033c", end="")
 
 
-def clear_and_print_fingerprint(fingerprint: str | None) -> None:
-    """Clear the screen and optionally display the current fingerprint."""
+def clear_and_print_fingerprint(
+    fingerprint: str | None, breadcrumb: str | None = None
+) -> None:
+    """Clear the screen and optionally display the current fingerprint and path."""
     clear_screen()
     if fingerprint:
-        print(colored(f"Seed Profile: {fingerprint}", "green"))
+        header = f"Seed Profile: {fingerprint}"
+        if breadcrumb:
+            header += f" > {breadcrumb}"
+        print(colored(header, "green"))
 
 
 def pause(message: str = "Press Enter to continue...") -> None:
