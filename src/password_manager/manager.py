@@ -963,10 +963,12 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+            pause()
 
         except Exception as e:
             logging.error(f"Error during password generation: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
+            pause()
 
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
@@ -1018,6 +1020,7 @@ class PasswordManager:
                             f"Failed to post updated index to Nostr: {nostr_error}",
                             exc_info=True,
                         )
+                    pause()
                     break
                 elif choice == "2":
                     raw = input("Paste otpauth URI or secret: ").strip()
@@ -1055,6 +1058,7 @@ class PasswordManager:
                                 f"Failed to post updated index to Nostr: {nostr_error}",
                                 exc_info=True,
                             )
+                        pause()
                         break
                     except ValueError as err:
                         print(colored(f"Error: {err}", "red"))
@@ -1065,6 +1069,7 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Error during TOTP setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))
+            pause()
 
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
@@ -1102,9 +1107,11 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+            pause()
         except Exception as e:
             logging.error(f"Error during SSH key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add SSH key: {e}", "red"))
+            pause()
 
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
@@ -1156,9 +1163,11 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+            pause()
         except Exception as e:
             logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
+            pause()
 
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
@@ -1207,9 +1216,11 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+            pause()
         except Exception as e:
             logging.error(f"Error during PGP key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add PGP key: {e}", "red"))
+            pause()
 
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
@@ -1249,9 +1260,11 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+            pause()
         except Exception as e:
             logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
+            pause()
 
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details using :meth:`handle_retrieve_entry` for the
