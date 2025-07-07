@@ -939,7 +939,7 @@ class PasswordManager:
                 length,
                 username,
                 url,
-                blacklisted=False,
+                archived=False,
                 notes=notes,
                 custom_fields=custom_fields,
             )
@@ -1545,7 +1545,7 @@ class PasswordManager:
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
-            blacklisted = entry.get("blacklisted")
+            blacklisted = entry.get("archived", entry.get("blacklisted"))
             notes = entry.get("notes", "")
 
             print(
@@ -1660,7 +1660,7 @@ class PasswordManager:
                 label = entry.get("label", "")
                 period = int(entry.get("period", 30))
                 digits = int(entry.get("digits", 6))
-                blacklisted = entry.get("blacklisted", False)
+                blacklisted = entry.get("archived", entry.get("blacklisted", False))
                 notes = entry.get("notes", "")
 
                 print(
@@ -1751,7 +1751,7 @@ class PasswordManager:
 
                 self.entry_manager.modify_entry(
                     index,
-                    blacklisted=new_blacklisted,
+                    archived=new_blacklisted,
                     notes=new_notes,
                     label=new_label,
                     period=new_period,
@@ -1762,7 +1762,7 @@ class PasswordManager:
                 website_name = entry.get("label", entry.get("website"))
                 username = entry.get("username")
                 url = entry.get("url")
-                blacklisted = entry.get("blacklisted")
+                blacklisted = entry.get("archived", entry.get("blacklisted"))
                 notes = entry.get("notes", "")
 
                 print(
@@ -1847,8 +1847,8 @@ class PasswordManager:
                     index,
                     new_username,
                     new_url,
-                    new_blacklisted,
-                    new_notes,
+                    archived=new_blacklisted,
+                    notes=new_notes,
                     label=new_label,
                     custom_fields=custom_fields,
                 )
@@ -1992,7 +1992,7 @@ class PasswordManager:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
             url = entry.get("url", "")
-            blacklisted = entry.get("blacklisted", False)
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
             print(color_text(f"  Label: {website}", "index"))
             print(color_text(f"  Username: {username or 'N/A'}", "index"))
             print(color_text(f"  URL: {url or 'N/A'}", "index"))
@@ -2115,7 +2115,7 @@ class PasswordManager:
             totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
                 if entry.get("type") == EntryType.TOTP.value and not entry.get(
-                    "blacklisted", False
+                    "archived", entry.get("blacklisted", False)
                 ):
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))

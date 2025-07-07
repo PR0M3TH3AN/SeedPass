@@ -63,5 +63,6 @@ def test_handle_add_totp(monkeypatch, capsys):
             "index": 0,
             "period": 30,
             "digits": 6,
+            "archived": False,
         }
         assert "ID 0" in out

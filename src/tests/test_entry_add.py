@@ -34,7 +34,7 @@ def test_add_and_retrieve_entry():
             "length": 12,
             "username": "user",
             "url": "",
-            "blacklisted": False,
+            "archived": False,
             "type": "password",
             "kind": "password",
             "notes": "",
