@@ -28,20 +28,56 @@ function Write-Error {
 }
 
 # Check for Microsoft C++ Build Tools and try to install them if missing
+function Get-ClPath {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        try {
+            $cl = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find '**\\cl.exe' 2>$null
+            if ($cl) { return $cl | Select-Object -First 1 }
+        } catch {}
+    }
+    $common = "Microsoft Visual Studio\\2022\\BuildTools"
+    $guess = @(
+        Join-Path ${env:ProgramFiles(x86)} "$common\\VC\\Tools\\MSVC";
+        Join-Path ${env:ProgramFiles} "$common\\VC\\Tools\\MSVC"
+    ) | Where-Object { Test-Path $_ }
+    foreach ($path in $guess) {
+        $cl = Get-ChildItem -Path $path -Filter cl.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cl) { return $cl.FullName }
+    }
+    return $null
+}
+
 function Ensure-BuildTools {
-    if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+    $clCmd = Get-Command cl.exe -ErrorAction SilentlyContinue
+    if (-not $clCmd) {
+        $clPath = Get-ClPath
+        if ($clPath) {
+            $env:Path = "$(Split-Path $clPath);$env:Path"
+            $clCmd = Get-Command cl.exe -ErrorAction SilentlyContinue
+        }
+    }
+
+    if (-not $clCmd) {
         Write-Warning "Microsoft C++ Build Tools not found. Some packages may fail to build."
         if (Get-Command winget -ErrorAction SilentlyContinue) {
             Write-Info "Attempting to install Microsoft C++ Build Tools via winget..."
             try {
-                winget install --id Microsoft.VisualStudio.2022.BuildTools -e --source winget -h
+                winget install --id Microsoft.VisualStudio.2022.BuildTools -e --source winget -h --accept-package-agreements --accept-source-agreements
             } catch {
                 Write-Warning "Failed to install Build Tools via winget. Please install them manually from https://visualstudio.microsoft.com/visual-cpp-build-tools/"
             }
         } else {
             Write-Warning "Winget is not available. Please install Build Tools from https://visualstudio.microsoft.com/visual-cpp-build-tools/"
         }
-        if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+
+        $clPath = Get-ClPath
+        if ($clPath) {
+            $env:Path = "$(Split-Path $clPath);$env:Path"
+            $clCmd = Get-Command cl.exe -ErrorAction SilentlyContinue
+        }
+
+        if (-not $clCmd) {
             Write-Warning "Microsoft C++ Build Tools still not found. Dependency installation may fail."
         }
     } else {
