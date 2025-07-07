@@ -195,6 +195,7 @@ class EntryManager:
         index: int | None = None,
         period: int = 30,
         digits: int = 6,
+        notes: str = "",
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
@@ -213,6 +214,7 @@ class EntryManager:
                 "period": period,
                 "digits": digits,
                 "archived": archived,
+                "notes": notes,
             }
         else:
             entry = {
@@ -223,6 +225,7 @@ class EntryManager:
                 "period": period,
                 "digits": digits,
                 "archived": archived,
+                "notes": notes,
             }
 
         data["entries"][str(entry_id)] = entry

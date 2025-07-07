@@ -1001,6 +1001,7 @@ class PasswordManager:
                             colored("Error: Period and digits must be numbers.", "red")
                         )
                         continue
+                    notes = input("Notes (optional): ").strip()
                     totp_index = self.entry_manager.get_next_totp_index()
                     entry_id = self.entry_manager.get_next_index()
                     uri = self.entry_manager.add_totp(
@@ -1009,6 +1010,7 @@ class PasswordManager:
                         index=totp_index,
                         period=int(period),
                         digits=int(digits),
+                        notes=notes,
                     )
                     secret = TotpManager.derive_secret(self.parent_seed, totp_index)
                     self.is_dirty = True
@@ -1043,6 +1045,7 @@ class PasswordManager:
                             secret = raw.upper()
                             period = int(input("Period (default 30): ").strip() or 30)
                             digits = int(input("Digits (default 6): ").strip() or 6)
+                        notes = input("Notes (optional): ").strip()
                         entry_id = self.entry_manager.get_next_index()
                         uri = self.entry_manager.add_totp(
                             label,
@@ -1050,6 +1053,7 @@ class PasswordManager:
                             secret=secret,
                             period=period,
                             digits=digits,
+                            notes=notes,
                         )
                         self.is_dirty = True
                         self.last_update = time.time()
