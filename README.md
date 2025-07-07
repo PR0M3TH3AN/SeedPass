@@ -257,7 +257,7 @@ When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
 2. SeedPass will show the current label, period, digit count, and archived status.
 3. Enter new values or press **Enter** to keep the existing settings.
 4. The updated entry is saved back to your encrypted vault.
-5. Archived entries are hidden from lists but can be restored from the **Archived Entries** menu.
+5. Archived entries are hidden from lists but can be restored from the **List Archived** menu.
 
 ### Using Secret Mode
 
