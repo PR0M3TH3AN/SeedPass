@@ -79,10 +79,11 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 ```
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to
 install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python`
-isn't on your PATH. If automatic installation fails, you'll be shown a link to download Python directly from
-<https://www.python.org/downloads/windows/>.
+isn't on your PATH. If these tools are unavailable you'll see a link to download Python directly from
+<https://www.python.org/downloads/windows/>. When Python 3.13 or newer is detected without the Microsoft C++ build tools,
+the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
-**Note:** If you are using Python 3.13 or newer, install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and reopen PowerShell before rerunning the installer.
+**Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
 *Install the beta branch:*
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent)) -Branch beta

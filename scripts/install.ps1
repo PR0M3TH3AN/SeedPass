@@ -100,6 +100,27 @@ function Get-PythonCommand {
     return $null
 }
 
+# Try to locate a specific Python version using the `py` launcher or
+# versioned executables like `python3.12`.
+function Get-PythonCommandByVersion {
+    param([string]$Version)
+    $cmd = Get-Command py -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $out = & $cmd -$Version --version 2>&1
+        if ($LASTEXITCODE -eq 0 -and $out -match '^Python') {
+            return @('py', "-$Version")
+        }
+    }
+    $cmd = Get-Command "python$Version" -ErrorAction SilentlyContinue
+    if ($cmd) {
+        $out = & $cmd --version 2>&1
+        if ($LASTEXITCODE -eq 0 -and $out -match '^Python') {
+            return ,("python$Version")
+        }
+    }
+    return $null
+}
+
 $PythonCmd = Get-PythonCommand
 if (-not $PythonCmd) {
     Write-Warning "Python 3 is not installed. Attempting to install..."
@@ -132,6 +153,34 @@ if ($pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
 
 # Ensure C++ build tools are available before installing dependencies
 Ensure-BuildTools
+
+# If build tools are still missing and Python 3.13+ is in use, try to
+# install Python 3.12 automatically since many packages lack wheels for
+# newer versions.
+$buildOk = Get-Command cl.exe -ErrorAction SilentlyContinue
+if (-not $buildOk -and $pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
+    Write-Warning "No Microsoft C++ Build Tools detected and Python $pyVersionString is in use."
+    Write-Info "Attempting to install Python 3.12 for compatibility..."
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        try { winget install --id Python.Python.3.12 -e --source winget -h } catch { Write-Warning "Failed to install Python 3.12 via winget." }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        try { choco install python --version=3.12 -y } catch { Write-Warning "Failed to install Python 3.12 via Chocolatey." }
+    } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+        try { scoop install python@3.12 } catch { Write-Warning "Failed to install Python 3.12 via Scoop." }
+    } else {
+        Write-Warning "Please install Python 3.12 manually from https://www.python.org/downloads/windows/"
+    }
+
+    $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                 [System.Environment]::GetEnvironmentVariable('Path','User')
+    $py12 = Get-PythonCommandByVersion '3.12'
+    if ($py12) {
+        Write-Info "Using Python 3.12 for installation."
+        $PythonCmd = $py12
+    } else {
+        Write-Warning "Python 3.12 not found after installation attempt."
+    }
+}
 
 # 2. Clone or update the repository
 if (Test-Path (Join-Path $InstallDir ".git")) {
