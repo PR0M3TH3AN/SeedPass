@@ -14,4 +14,4 @@ $ seedpass totp "email"
 Code: 123456
 ```
 
-See [advanced_cli.md](advanced_cli.md) for a full command reference.
+See [advanced_cli.md](advanced_cli.md) (future feature set) for details on the upcoming advanced CLI.
