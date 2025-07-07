@@ -38,9 +38,10 @@ The **Advanced CLI Commands** document provides an in-depth guide to the various
    - [24. Show All Passwords](#22-show-all-passwords)
    - [23. Add Notes to an Entry](#23-add-notes-to-an-entry)
    - [24. Add Tags to an Entry](#24-add-tags-to-an-entry)
-   - [25. Search by Tag or Title](#25-search-by-tag-or-title)
-   - [26. Automatically Post Deltas to Nostr After Edit](#26-automatically-post-deltas-to-nostr-after-edit)
-   - [27. Initial Setup Prompt for Seed Generation/Import](#27-initial-setup-prompt-for-seed-generationimport)
+   - [25. Add Key/Value Entry](#25-add-keyvalue-entry)
+   - [26. Search by Tag or Title](#26-search-by-tag-or-title)
+   - [27. Automatically Post Deltas to Nostr After Edit](#27-automatically-post-deltas-to-nostr-after-edit)
+   - [28. Initial Setup Prompt for Seed Generation/Import](#28-initial-setup-prompt-for-seed-generationimport)
 3. [Notes on New CLI Commands](#notes-on-new-cli-commands)
 
 ---
@@ -78,6 +79,7 @@ The following table provides a quick reference to all available advanced CLI com
 | Show All Passwords                        | `show-all`             | `-SA`          | `--show-all`                      | `seedpass show-all`                                                                                                                                                                                |
 | Add Notes to an Entry                     | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
 | Add Tags to an Entry                      | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
+| Add Key/Value entry                      | `add-kv`             | `-KV`      | `--add-kv`                      | `seedpass add-kv --label "API" --value "secret"`
 | Search by Tag or Title                    | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
 | Automatically Post Deltas After Edit      | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable` |
 | Initial Setup Prompt for Seed Generation/Import | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
@@ -578,7 +580,28 @@ seedpass add-tags --index 3 --tags "personal,finance"
 
 ---
 
-### 25. Search by Tag or Title
+### 25. Add Key/Value Entry
+
+**Command:** `add-kv`
+**Short Flag:** `-KV`
+**Long Flag:** `--add-kv`
+
+**Description:**
+Creates a simple key/value entry for storing items like API keys or configuration snippets. The value can be copied to the clipboard when secret mode is enabled.
+
+**Usage Example:**
+```bash
+seedpass add-kv --label "API" --value "secret" --notes "Service token"
+```
+
+**Options:**
+- `--label` (`-L`): Descriptive label for the entry.
+- `--value` (`-V`): The secret value to store.
+- `--notes` (`-N`): Optional notes about the entry.
+
+---
+
+### 26. Search by Tag or Title
 
 **Command:** `search-by`  
 **Short Flag:** `-SB`  
@@ -599,7 +622,7 @@ seedpass search-by --title "GitHub"
 
 ---
 
-### 26. Automatically Post Deltas to Nostr After Edit
+### 27. Automatically Post Deltas to Nostr After Edit
 
 **Command:** `auto-post`  
 **Short Flag:** `-AP`  
@@ -620,7 +643,7 @@ seedpass auto-post --disable
 
 ---
 
-### 27. Initial Setup Prompt for Seed Generation/Import
+### 28. Initial Setup Prompt for Seed Generation/Import
 
 **Command:** `setup`  
 **Short Flag:** `-ST`  

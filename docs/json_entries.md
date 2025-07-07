@@ -93,6 +93,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **notes** (`string`): Free-form notes.
 - **custom_fields** (`array`, optional): Additional user-defined fields.
 - **origin** (`string`, optional): Source identifier for imported data.
+- **value** (`string`, optional): For `key_value` entries, stores the secret value.
 - **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
   Example:
 
@@ -250,6 +251,10 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
   "timestamp": "2024-04-27T12:40:56Z"
 }
 ```
+
+The `key` field is purely descriptive, while `value` holds the sensitive string
+such as an API token. Notes and custom fields may also be included alongside the
+standard metadata.
 
 ---
 
