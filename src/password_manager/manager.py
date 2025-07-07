@@ -1373,6 +1373,23 @@ class PasswordManager:
         finally:
             builtins.input = original_input
 
+    def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
+        """Prompt the user to archive or restore ``entry`` based on its status."""
+        archived = entry.get("archived", entry.get("blacklisted", False))
+        prompt = (
+            "Restore this entry from archive? (y/N): "
+            if archived
+            else "Archive this entry? (y/N): "
+        )
+        choice = input(prompt).strip().lower()
+        if choice == "y":
+            if archived:
+                self.entry_manager.restore_entry(index)
+            else:
+                self.entry_manager.archive_entry(index)
+            self.is_dirty = True
+            self.last_update = time.time()
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1453,11 +1470,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.SSH.value:
@@ -1493,11 +1506,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.SEED.value:
@@ -1548,11 +1557,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.PGP.value:
@@ -1586,11 +1591,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.NOSTR.value:
@@ -1624,11 +1625,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
 
@@ -1685,11 +1682,7 @@ class PasswordManager:
                                     )
                                 else:
                                     print(colored(f"  {f_label}: {f_value}", "cyan"))
-                choice = input("Archive this entry? (y/N): ").strip().lower()
-                if choice == "y":
-                    self.entry_manager.archive_entry(index)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
 
@@ -1777,11 +1770,7 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
-            choice = input("Archive this entry? (y/N): ").strip().lower()
-            if choice == "y":
-                self.entry_manager.archive_entry(index)
-                self.is_dirty = True
-                self.last_update = time.time()
+            self._prompt_toggle_archive(entry, index)
             pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
