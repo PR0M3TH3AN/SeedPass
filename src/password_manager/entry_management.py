@@ -367,6 +367,36 @@ class EntryManager:
         self.backup_manager.create_backup()
         return index
 
+    def add_key_value(
+        self,
+        label: str,
+        value: str,
+        *,
+        notes: str = "",
+        custom_fields=None,
+        archived: bool = False,
+    ) -> int:
+        """Add a new generic key/value entry."""
+
+        index = self.get_next_index()
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.KEY_VALUE.value,
+            "kind": EntryType.KEY_VALUE.value,
+            "label": label,
+            "value": value,
+            "notes": notes,
+            "archived": archived,
+            "custom_fields": custom_fields or [],
+        }
+
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
     def get_nostr_key_pair(self, index: int, parent_seed: str) -> tuple[str, str]:
         """Return the npub and nsec for the specified entry."""
 
@@ -502,7 +532,8 @@ class EntryManager:
             entry = data.get("entries", {}).get(str(index))
 
             if entry:
-                if entry.get("type", entry.get("kind")) == EntryType.PASSWORD.value:
+                etype = entry.get("type", entry.get("kind"))
+                if etype in (EntryType.PASSWORD.value, EntryType.KEY_VALUE.value):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
@@ -531,6 +562,7 @@ class EntryManager:
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
+        value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
         **legacy,
     ) -> None:
@@ -545,6 +577,7 @@ class EntryManager:
         :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
         :param digits: (Optional) The new number of digits for TOTP codes.
+        :param value: (Optional) New value for key/value entries.
         """
         try:
             data = self.vault.load_index()
@@ -578,12 +611,19 @@ class EntryManager:
                 if label is not None:
                     entry["label"] = label
                     logger.debug(f"Updated label to '{label}' for index {index}.")
-                if username is not None:
-                    entry["username"] = username
-                    logger.debug(f"Updated username to '{username}' for index {index}.")
-                if url is not None:
-                    entry["url"] = url
-                    logger.debug(f"Updated URL to '{url}' for index {index}.")
+                if entry_type == EntryType.PASSWORD.value:
+                    if username is not None:
+                        entry["username"] = username
+                        logger.debug(
+                            f"Updated username to '{username}' for index {index}."
+                        )
+                    if url is not None:
+                        entry["url"] = url
+                        logger.debug(f"Updated URL to '{url}' for index {index}.")
+                elif entry_type == EntryType.KEY_VALUE.value:
+                    if value is not None:
+                        entry["value"] = value
+                        logger.debug(f"Updated value for index {index}.")
 
             if archived is None and "blacklisted" in legacy:
                 archived = legacy["blacklisted"]
@@ -794,6 +834,29 @@ class EntryManager:
                             label,
                             username,
                             url,
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
+            elif etype == EntryType.KEY_VALUE.value:
+                value_field = str(entry.get("value", ""))
+                custom_fields = entry.get("custom_fields", [])
+                custom_match = any(
+                    query_lower in str(cf.get("label", "")).lower()
+                    or query_lower in str(cf.get("value", "")).lower()
+                    for cf in custom_fields
+                )
+                if (
+                    label_match
+                    or query_lower in value_field.lower()
+                    or notes_match
+                    or custom_match
+                ):
+                    results.append(
+                        (
+                            int(idx),
+                            label,
+                            None,
+                            None,
                             entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
