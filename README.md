@@ -277,6 +277,18 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
   keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
   it, while the `nsec` QR is shown only after a security warning.
 
+The table below summarizes the extra fields stored for each entry type. Every
+entry includes a `label`, while only password entries track a `url`.
+
+| Entry Type    | Extra Fields |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| Password      | `username`, `url`, `length`, `blacklisted`, optional `notes`, optional `custom_fields` (may include hidden fields) |
+| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, optional `notes` |
+| SSH Key       | `index`, optional `notes` |
+| Seed Phrase   | `index`, `words`, optional `notes` |
+| PGP Key       | `index`, `key_type`, optional `user_id`, optional `notes` |
+| Nostr Key Pair| `index`, optional `notes` |
+
 
 ### Managing Multiple Seeds
 
