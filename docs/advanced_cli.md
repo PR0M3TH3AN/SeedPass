@@ -1,8 +1,10 @@
-# Advanced CLI Commands Documentation
+# Advanced CLI Commands Documentation (Future Feature Set)
 
 ## Overview
 
 The **Advanced CLI Commands** document provides an in-depth guide to the various command-line functionalities available in **SeedPass**, a secure password manager built on Bitcoin's BIP-85 standard. Designed for power users and developers, this guide outlines each command's purpose, usage, options, and examples to facilitate efficient and effective password management through the CLI.
+> **Note:** This documentation describes planned functionality. The advanced CLI is not yet part of the stable release. It will align with the current SeedPass design, using fingerprint-based profiles and a forthcoming API to allow secure integration for power users and external applications.
+
 
 ---
 
@@ -845,6 +847,10 @@ seedpass fingerprint rename A1B2C3D4 PersonalProfile
 - **Nostr Integration:**  
   - Ensure that your Nostr relays are reliable and secure.
   - Regularly verify your Nostr public key and manage relays through the `set-relays` command.
+## Planned API Integration
+
+SeedPass will expose a local API that allows third-party applications and browser extensions to interact with your encrypted vault. The advanced CLI will act as a power-user client for these endpoints, mapping commands directly to the API while preserving the fingerprint-based security model. This design enables automation and programmatic access without compromising security.
+
 
 ---
 
