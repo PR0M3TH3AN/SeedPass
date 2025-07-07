@@ -694,7 +694,15 @@ class EntryManager:
                         )
                     )
                 else:
-                    entries.append((idx, label, None, None, False))
+                    entries.append(
+                        (
+                            idx,
+                            label,
+                            None,
+                            None,
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
 
             logger.debug(f"Total entries found: {len(entries)}")
             for idx, entry in filtered_items:
@@ -791,7 +799,15 @@ class EntryManager:
                     )
             else:
                 if label_match or notes_match:
-                    results.append((int(idx), label, None, None, False))
+                    results.append(
+                        (
+                            int(idx),
+                            label,
+                            None,
+                            None,
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
 
         return results
 
