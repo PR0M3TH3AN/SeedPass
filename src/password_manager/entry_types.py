@@ -13,3 +13,4 @@ class EntryType(str, Enum):
     SEED = "seed"
     PGP = "pgp"
     NOSTR = "nostr"
+    KEY_VALUE = "key_value"
