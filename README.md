@@ -55,7 +55,8 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 ## Prerequisites
 
-- **Python 3.8+** (3.11 or 3.12 recommended): Ensure you have Python installed on your system. You can download it from [python.org](https://www.python.org/downloads/). Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.
+- **Python 3.8+** (3.11 or 3.12 recommended): Install Python from [python.org](https://www.python.org/downloads/) and be sure to check **"Add Python to PATH"** during setup. Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.
+*Windows only:* Install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and select the **C++ build tools** workload.
 
 ## Installation
 
@@ -77,6 +78,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
 ```
+Before running the script, install **Python 3.11** or **3.12** from [python.org](https://www.python.org/downloads/windows/) and tick **"Add Python to PATH"**. You should also install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **C++ build tools** workload so dependencies compile correctly.
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to
 install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python`
 isn't on your PATH. If these tools are unavailable you'll see a link to download Python directly from
