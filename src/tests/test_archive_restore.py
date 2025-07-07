@@ -111,3 +111,39 @@ def test_view_archived_entries_view_only(monkeypatch, capsys):
         assert entry_mgr.retrieve_entry(idx)["archived"] is True
         out = capsys.readouterr().out
         assert "example.com" in out
+
+
+def test_view_archived_entries_removed_after_restore(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, tmp_path)
+        backup_mgr = BackupManager(tmp_path, cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
+
+        pm = PasswordManager.__new__(PasswordManager)
+        pm.encryption_mode = EncryptionMode.SEED_ONLY
+        pm.encryption_manager = enc_mgr
+        pm.vault = vault
+        pm.entry_manager = entry_mgr
+        pm.backup_manager = backup_mgr
+        pm.parent_seed = TEST_SEED
+        pm.nostr_client = SimpleNamespace()
+        pm.fingerprint_dir = tmp_path
+        pm.is_dirty = False
+
+        idx = entry_mgr.add_entry("example.com", 8)
+
+        monkeypatch.setattr("builtins.input", lambda *_: str(idx))
+        pm.handle_archive_entry()
+        assert entry_mgr.retrieve_entry(idx)["archived"] is True
+
+        inputs = iter([str(idx), "r", "", ""])
+        monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
+        pm.handle_view_archived_entries()
+        assert entry_mgr.retrieve_entry(idx)["archived"] is False
+
+        monkeypatch.setattr("builtins.input", lambda *_: "")
+        pm.handle_view_archived_entries()
+        out = capsys.readouterr().out
+        assert "No archived entries found." in out
