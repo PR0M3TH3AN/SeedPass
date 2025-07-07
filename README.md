@@ -254,9 +254,10 @@ When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
 ### Modifying a 2FA Entry
 
 1. From the main menu choose **Modify an Existing Entry** and enter the index of the 2FA code you want to edit.
-2. SeedPass will show the current label, period, digit count, and blacklist status.
+2. SeedPass will show the current label, period, digit count, and archived status.
 3. Enter new values or press **Enter** to keep the existing settings.
 4. The updated entry is saved back to your encrypted vault.
+5. Archived entries are hidden from lists but can be restored from the **Archived Entries** menu.
 
 ### Using Secret Mode
 
@@ -282,12 +283,12 @@ entry includes a `label`, while only password entries track a `url`.
 
 | Entry Type    | Extra Fields |
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Password      | `username`, `url`, `length`, `blacklisted`, optional `notes`, optional `custom_fields` (may include hidden fields) |
-| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, optional `notes` |
-| SSH Key       | `index`, optional `notes` |
-| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, optional `notes` |
-| PGP Key       | `index`, `key_type`, optional `user_id`, optional `notes` |
-| Nostr Key Pair| `index`, optional `notes` |
+| Password      | `username`, `url`, `length`, `archived`, optional `notes`, optional `custom_fields` (may include hidden fields) |
+| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, `archived`, optional `notes` |
+| SSH Key       | `index`, `archived`, optional `notes` |
+| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes` |
+| PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
+| Nostr Key Pair| `index`, `archived`, optional `notes` |
 
 
 ### Managing Multiple Seeds
