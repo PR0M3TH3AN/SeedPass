@@ -1291,6 +1291,68 @@ class PasswordManager:
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
             pause()
 
+    def handle_add_key_value(self) -> None:
+        """Add a generic key/value entry."""
+        try:
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > Key/Value",
+            )
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
+            value = input("Value: ").strip()
+            notes = input("Notes (optional): ").strip()
+
+            custom_fields: list[dict[str, object]] = []
+            while True:
+                add_field = input("Add custom field? (y/N): ").strip().lower()
+                if add_field != "y":
+                    break
+                field_label = input("  Field label: ").strip()
+                field_value = input("  Field value: ").strip()
+                hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                custom_fields.append(
+                    {
+                        "label": field_label,
+                        "value": field_value,
+                        "is_hidden": hidden,
+                    }
+                )
+
+            index = self.entry_manager.add_key_value(
+                label, value, notes=notes, custom_fields=custom_fields
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+
+            print(colored(f"\n[+] Key/Value entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(value, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(color_text(f"Value: {value}", "deterministic"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+            pause()
+        except Exception as e:
+            logging.error(f"Error during key/value setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
+            pause()
+
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details using :meth:`handle_retrieve_entry` for the
         given index without prompting for it again."""
@@ -1570,6 +1632,67 @@ class PasswordManager:
                 pause()
                 return
 
+            if entry_type == EntryType.KEY_VALUE.value:
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                notes = entry.get("notes", "")
+                archived = entry.get("archived", False)
+                print(colored(f"Retrieving value for '{label}'.", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                print(
+                    colored(
+                        f"Archived Status: {'Archived' if archived else 'Active'}",
+                        "cyan",
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(value, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(f"Value: {value}", "deterministic"))
+
+                custom_fields = entry.get("custom_fields", [])
+                if custom_fields:
+                    print(colored("Additional Fields:", "cyan"))
+                    hidden_fields = []
+                    for field in custom_fields:
+                        f_label = field.get("label", "")
+                        f_value = field.get("value", "")
+                        if field.get("is_hidden"):
+                            hidden_fields.append((f_label, f_value))
+                            print(colored(f"  {f_label}: [hidden]", "cyan"))
+                        else:
+                            print(colored(f"  {f_label}: {f_value}", "cyan"))
+                    if hidden_fields:
+                        show = input("Reveal hidden fields? (y/N): ").strip().lower()
+                        if show == "y":
+                            for f_label, f_value in hidden_fields:
+                                if self.secret_mode_enabled:
+                                    copy_to_clipboard(
+                                        f_value, self.clipboard_clear_delay
+                                    )
+                                    print(
+                                        colored(
+                                            f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                            "green",
+                                        )
+                                    )
+                                else:
+                                    print(colored(f"  {f_label}: {f_value}", "cyan"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                pause()
+                return
+
             website_name = entry.get("website")
             length = entry.get("length")
             username = entry.get("username")
@@ -1790,6 +1913,85 @@ class PasswordManager:
                     label=new_label,
                     period=new_period,
                     digits=new_digits,
+                    custom_fields=custom_fields,
+                )
+            elif entry_type == EntryType.KEY_VALUE.value:
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                blacklisted = entry.get("archived", False)
+                notes = entry.get("notes", "")
+
+                print(
+                    colored(
+                        f"Modifying key/value entry '{label}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(
+                    colored(
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                new_value = (
+                    input("Enter new value (leave blank to keep current): ").strip()
+                    or value
+                )
+                blacklist_input = (
+                    input(
+                        f'Archive this entry? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for archived status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        f_label = input(
+                            "  Field label (leave blank to finish): "
+                        ).strip()
+                        if not f_label:
+                            break
+                        f_value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": f_label, "value": f_value, "is_hidden": hidden}
+                        )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    archived=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    value=new_value,
                     custom_fields=custom_fields,
                 )
             else:
@@ -2054,6 +2256,7 @@ class PasswordManager:
                 print(color_text("5. Seed Phrase", "menu"))
                 print(color_text("6. Nostr Key Pair", "menu"))
                 print(color_text("7. PGP", "menu"))
+                print(color_text("8. Key/Value", "menu"))
                 choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
                     filter_kind = None
@@ -2069,6 +2272,8 @@ class PasswordManager:
                     filter_kind = EntryType.NOSTR.value
                 elif choice == "7":
                     filter_kind = EntryType.PGP.value
+                elif choice == "8":
+                    filter_kind = EntryType.KEY_VALUE.value
                 elif not choice:
                     return
                 else:
