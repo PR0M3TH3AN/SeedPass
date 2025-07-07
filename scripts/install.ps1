@@ -1,4 +1,4 @@
-#
+# 
 # SeedPass Universal Installer for Windows
 #
 # Supports installing from a specific branch using the -Branch parameter.
@@ -85,6 +85,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     }
 }
 
+# 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
 function Get-PythonCommand {
     $cmd = Get-Command python -ErrorAction SilentlyContinue
     if ($cmd) { return ,('python') }
@@ -105,6 +106,8 @@ if (-not $PythonCmd) {
     } else {
         Write-Error "Python 3 is not installed. Please install it from https://www.python.org/ and ensure it's in your PATH."
     }
+
+    # 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
     $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
                  [System.Environment]::GetEnvironmentVariable('Path','User')
     $PythonCmd = Get-PythonCommand
