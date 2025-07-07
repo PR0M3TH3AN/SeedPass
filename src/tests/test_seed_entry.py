@@ -34,6 +34,29 @@ def test_seed_phrase_determinism():
         entry12 = entry_mgr.retrieve_entry(idx_12)
         entry24 = entry_mgr.retrieve_entry(idx_24)
 
+        assert entry12 == {
+            "type": "seed",
+            "kind": "seed",
+            "index": idx_12,
+            "label": "seed12",
+            "word_count": 12,
+            "notes": "",
+            "archived": False,
+        }
+
+        assert entry24 == {
+            "type": "seed",
+            "kind": "seed",
+            "index": idx_24,
+            "label": "seed24",
+            "word_count": 24,
+            "notes": "",
+            "archived": False,
+        }
+
+        assert phrase12_a not in entry12.values()
+        assert phrase24_a not in entry24.values()
+
         seed_bytes = Bip39SeedGenerator(TEST_SEED).Generate()
         bip85 = BIP85(seed_bytes)
         expected12 = derive_seed_phrase(bip85, idx_12, 12)
