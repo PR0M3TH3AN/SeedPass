@@ -728,7 +728,8 @@ class EntryManager:
                     print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
                     print(
                         colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                            f"  Derivation Index: {entry.get('index', idx)}",
+                            "cyan",
                         )
                     )
                 print("-" * 40)
