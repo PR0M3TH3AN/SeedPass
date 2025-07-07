@@ -88,9 +88,15 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
 function Get-PythonCommand {
     $cmd = Get-Command python -ErrorAction SilentlyContinue
-    if ($cmd) { return ,('python') }
+    if ($cmd) {
+        $out = & $cmd --version 2>&1
+        if ($LASTEXITCODE -eq 0 -and $out -match '^Python') { return ,('python') }
+    }
     $cmd = Get-Command py -ErrorAction SilentlyContinue
-    if ($cmd) { return @('py','-3') }
+    if ($cmd) {
+        $out = & $cmd -3 --version 2>&1
+        if ($LASTEXITCODE -eq 0 -and $out -match '^Python') { return @('py','-3') }
+    }
     return $null
 }
 
@@ -104,7 +110,7 @@ if (-not $PythonCmd) {
     } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
         try { scoop install python } catch { Write-Warning "Failed to install Python via Scoop." }
     } else {
-        Write-Error "Python 3 is not installed. Please install it from https://www.python.org/ and ensure it's in your PATH."
+        Write-Error "Python 3 is not installed. Download it from https://www.python.org/downloads/windows/ and ensure it's in your PATH."
     }
 
     # 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
@@ -112,7 +118,7 @@ if (-not $PythonCmd) {
                  [System.Environment]::GetEnvironmentVariable('Path','User')
     $PythonCmd = Get-PythonCommand
     if (-not $PythonCmd) {
-        Write-Error "Python installation succeeded but python not found in PATH. Please open a new terminal or add Python to PATH manually."
+        Write-Error "Python installation failed or python not found in PATH. Download Python from https://www.python.org/downloads/windows/, install it, then reopen PowerShell and rerun this script."
     }
 }
 
