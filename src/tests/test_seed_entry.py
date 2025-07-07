@@ -45,5 +45,5 @@ def test_seed_phrase_determinism():
         assert len(phrase24_a.split()) == 24
         assert Mnemonic("english").check(phrase12_a)
         assert Mnemonic("english").check(phrase24_a)
-        assert entry12.get("words") == 12
-        assert entry24.get("words") == 24
+        assert entry12.get("word_count") == 12
+        assert entry24.get("word_count") == 24
