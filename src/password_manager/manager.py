@@ -2157,7 +2157,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to archive entry: {e}", "red"))
 
     def handle_view_archived_entries(self) -> None:
-        """Display archived entries and optionally restore one."""
+        """Display archived entries and optionally view or restore them."""
         try:
             archived = self.entry_manager.list_entries(include_archived=True)
             archived = [e for e in archived if e[4]]
@@ -2171,26 +2171,45 @@ class PasswordManager:
                     "Main Menu > Archived Entries",
                 )
                 print(colored("\n[+] Archived Entries:\n", "green"))
-                for idx, label, username, url, _ in archived:
+                for idx, label, _username, _url, _ in archived:
                     print(colored(f"{idx}. {label}", "cyan"))
                 idx_input = input(
-                    "Enter index to restore or press Enter to go back: "
+                    "Enter index to manage or press Enter to go back: "
                 ).strip()
                 if not idx_input:
                     break
-                if not idx_input.isdigit():
+                if not idx_input.isdigit() or int(idx_input) not in [
+                    e[0] for e in archived
+                ]:
                     print(colored("Invalid index.", "red"))
                     continue
-                restore_index = int(idx_input)
-                self.entry_manager.restore_entry(restore_index)
-                self.is_dirty = True
-                self.last_update = time.time()
-                pause()
-                archived = [e for e in archived if e[0] != restore_index]
-                if not archived:
-                    print(colored("All entries restored.", "green"))
-                    pause()
-                    break
+                entry_index = int(idx_input)
+                while True:
+                    action = (
+                        input(
+                            "Enter 'v' to view details, 'r' to restore, or press Enter to go back: "
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if action == "v":
+                        self.display_entry_details(entry_index)
+                        pause()
+                    elif action == "r":
+                        self.entry_manager.restore_entry(entry_index)
+                        self.is_dirty = True
+                        self.last_update = time.time()
+                        pause()
+                        archived = [e for e in archived if e[0] != entry_index]
+                        if not archived:
+                            print(colored("All entries restored.", "green"))
+                            pause()
+                            return
+                        break
+                    elif not action:
+                        break
+                    else:
+                        print(colored("Invalid choice.", "red"))
         except Exception as e:
             logging.error(f"Error viewing archived entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to view archived entries: {e}", "red"))
