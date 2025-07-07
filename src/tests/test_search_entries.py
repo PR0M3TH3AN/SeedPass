@@ -86,6 +86,17 @@ def test_search_by_custom_field():
         assert result == [(idx, "Example", "", "", False)]
 
 
+def test_search_key_value_value():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        idx = entry_mgr.add_key_value("API", "token123")
+
+        result = entry_mgr.search_entries("token123")
+        assert result == [(idx, "API", None, None, False)]
+
+
 def test_search_no_results():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)

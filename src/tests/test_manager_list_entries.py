@@ -33,6 +33,7 @@ def test_handle_list_entries(monkeypatch, capsys):
 
         entry_mgr.add_totp("Example", TEST_SEED)
         entry_mgr.add_entry("example.com", 12)
+        entry_mgr.add_key_value("API", "abc123")
 
         inputs = iter(["1", ""])  # list all, then exit
         monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
@@ -41,6 +42,7 @@ def test_handle_list_entries(monkeypatch, capsys):
         out = capsys.readouterr().out
         assert "Example" in out
         assert "example.com" in out
+        assert "API" in out
 
 
 def test_list_entries_show_details(monkeypatch, capsys):
@@ -63,6 +65,7 @@ def test_list_entries_show_details(monkeypatch, capsys):
         pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
+        entry_mgr.add_key_value("API", "val")
 
         monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
         monkeypatch.setattr(
@@ -81,3 +84,4 @@ def test_list_entries_show_details(monkeypatch, capsys):
         out = capsys.readouterr().out
         assert "Retrieved 2FA Code" in out
         assert "123456" in out
+        assert "API" in out
