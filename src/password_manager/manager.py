@@ -1458,7 +1458,7 @@ class PasswordManager:
                         from local_bip85.bip85 import BIP85
                         from bip_utils import Bip39SeedGenerator
 
-                        words = int(entry.get("words", 24))
+                        words = int(entry.get("word_count", entry.get("words", 24)))
                         bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
                         seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
                         bip85 = BIP85(seed_bytes)

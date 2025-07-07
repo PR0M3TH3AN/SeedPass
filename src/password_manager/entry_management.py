@@ -75,6 +75,9 @@ class EntryManager:
                     if "archived" not in entry and "blacklisted" in entry:
                         entry["archived"] = entry["blacklisted"]
                     entry.pop("blacklisted", None)
+                    if "word_count" not in entry and "words" in entry:
+                        entry["word_count"] = entry["words"]
+                        entry.pop("words", None)
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -407,7 +410,7 @@ class EntryManager:
             "kind": EntryType.SEED.value,
             "index": index,
             "label": label,
-            "words": words_num,
+            "word_count": words_num,
             "notes": notes,
             "archived": archived,
         }
@@ -434,7 +437,7 @@ class EntryManager:
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        words = int(entry.get("words", 24))
+        words = int(entry.get("word_count", entry.get("words", 24)))
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
