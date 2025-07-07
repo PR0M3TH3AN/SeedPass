@@ -36,6 +36,7 @@ def test_add_totp_and_get_code():
             "period": 30,
             "digits": 6,
             "archived": False,
+            "notes": "",
         }
 
         code = entry_mgr.get_totp_code(0, TEST_SEED, timestamp=0)
@@ -74,6 +75,18 @@ def test_add_totp_imported(tmp_path):
         "period": 30,
         "digits": 6,
         "archived": False,
+        "notes": "",
     }
     code = em.get_totp_code(0, timestamp=0)
     assert code == pyotp.TOTP(secret).at(0)
+
+
+def test_add_totp_with_notes(tmp_path):
+    vault, _ = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    cfg_mgr = ConfigManager(vault, tmp_path)
+    backup_mgr = BackupManager(tmp_path, cfg_mgr)
+    em = EntryManager(vault, backup_mgr)
+
+    em.add_totp("NoteLabel", TEST_SEED, notes="some note")
+    entry = em.retrieve_entry(0)
+    assert entry["notes"] == "some note"
