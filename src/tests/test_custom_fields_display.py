@@ -42,7 +42,7 @@ def test_retrieve_entry_shows_custom_fields(monkeypatch, capsys):
             ],
         )
 
-        inputs = iter(["0", "y"])
+        inputs = iter(["0", "y", "n"])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
 
         pm.handle_retrieve_entry()

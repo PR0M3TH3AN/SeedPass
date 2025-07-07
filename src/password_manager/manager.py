@@ -1387,6 +1387,11 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
                 pause()
                 return
             if entry_type == EntryType.SSH.value:
@@ -1422,6 +1427,11 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
                 pause()
                 return
             if entry_type == EntryType.SEED.value:
@@ -1472,6 +1482,11 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
                 pause()
                 return
             if entry_type == EntryType.PGP.value:
@@ -1505,6 +1520,11 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
                 pause()
                 return
             if entry_type == EntryType.NOSTR.value:
@@ -1538,6 +1558,11 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+                choice = input("Archive this entry? (y/N): ").strip().lower()
+                if choice == "y":
+                    self.entry_manager.archive_entry(index)
+                    self.is_dirty = True
+                    self.last_update = time.time()
                 pause()
                 return
 
@@ -1625,6 +1650,11 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
+            choice = input("Archive this entry? (y/N): ").strip().lower()
+            if choice == "y":
+                self.entry_manager.archive_entry(index)
+                self.is_dirty = True
+                self.last_update = time.time()
             pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
