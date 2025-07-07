@@ -2403,7 +2403,10 @@ class PasswordManager:
                         self.is_dirty = True
                         self.last_update = time.time()
                         pause()
-                        archived = [e for e in archived if e[0] != entry_index]
+                        archived = self.entry_manager.list_entries(
+                            include_archived=True
+                        )
+                        archived = [e for e in archived if e[4]]
                         if not archived:
                             print(colored("All entries restored.", "green"))
                             pause()
