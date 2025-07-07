@@ -72,6 +72,12 @@ class EntryManager:
                         and entry.get("type") == EntryType.PASSWORD.value
                     ):
                         entry.pop("website", None)
+                    if "archived" not in entry and "blacklisted" in entry:
+                        entry["archived"] = entry["blacklisted"]
+                    entry.pop("blacklisted", None)
+                    if "word_count" not in entry and "words" in entry:
+                        entry["word_count"] = entry["words"]
+                        entry.pop("words", None)
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -117,7 +123,7 @@ class EntryManager:
         length: int,
         username: Optional[str] = None,
         url: Optional[str] = None,
-        blacklisted: bool = False,
+        archived: bool = False,
         notes: str = "",
         custom_fields: List[Dict[str, Any]] | None = None,
     ) -> int:
@@ -128,7 +134,7 @@ class EntryManager:
         :param length: The desired length of the password.
         :param username: (Optional) The username associated with the website.
         :param url: (Optional) The URL of the website.
-        :param blacklisted: (Optional) Whether the password is blacklisted. Defaults to False.
+        :param archived: (Optional) Whether the entry is archived. Defaults to False.
         :param notes: (Optional) Extra notes to attach to the entry.
         :return: The assigned index of the new entry.
         """
@@ -142,7 +148,7 @@ class EntryManager:
                 "length": length,
                 "username": username if username else "",
                 "url": url if url else "",
-                "blacklisted": blacklisted,
+                "archived": archived,
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
@@ -184,10 +190,12 @@ class EntryManager:
         label: str,
         parent_seed: str,
         *,
+        archived: bool = False,
         secret: str | None = None,
         index: int | None = None,
         period: int = 30,
         digits: int = 6,
+        notes: str = "",
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
@@ -205,6 +213,8 @@ class EntryManager:
                 "index": index,
                 "period": period,
                 "digits": digits,
+                "archived": archived,
+                "notes": notes,
             }
         else:
             entry = {
@@ -214,6 +224,8 @@ class EntryManager:
                 "secret": secret,
                 "period": period,
                 "digits": digits,
+                "archived": archived,
+                "notes": notes,
             }
 
         data["entries"][str(entry_id)] = entry
@@ -234,6 +246,7 @@ class EntryManager:
         parent_seed: str,
         index: int | None = None,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new SSH key pair entry.
 
@@ -253,6 +266,7 @@ class EntryManager:
             "index": index,
             "label": label,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -281,6 +295,7 @@ class EntryManager:
         key_type: str = "ed25519",
         user_id: str = "",
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new PGP key entry."""
 
@@ -297,6 +312,7 @@ class EntryManager:
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -329,6 +345,7 @@ class EntryManager:
         label: str,
         index: int | None = None,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new Nostr key pair entry."""
 
@@ -343,7 +360,38 @@ class EntryManager:
             "index": index,
             "label": label,
             "notes": notes,
+            "archived": archived,
         }
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def add_key_value(
+        self,
+        label: str,
+        value: str,
+        *,
+        notes: str = "",
+        custom_fields=None,
+        archived: bool = False,
+    ) -> int:
+        """Add a new generic key/value entry."""
+
+        index = self.get_next_index()
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.KEY_VALUE.value,
+            "kind": EntryType.KEY_VALUE.value,
+            "label": label,
+            "value": value,
+            "notes": notes,
+            "archived": archived,
+            "custom_fields": custom_fields or [],
+        }
+
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -381,6 +429,7 @@ class EntryManager:
         index: int | None = None,
         words_num: int = 24,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new derived seed phrase entry."""
 
@@ -394,8 +443,9 @@ class EntryManager:
             "kind": EntryType.SEED.value,
             "index": index,
             "label": label,
-            "words": words_num,
+            "word_count": words_num,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -420,7 +470,7 @@ class EntryManager:
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        words = int(entry.get("words", 24))
+        words = int(entry.get("word_count", entry.get("words", 24)))
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
@@ -482,7 +532,8 @@ class EntryManager:
             entry = data.get("entries", {}).get(str(index))
 
             if entry:
-                if entry.get("type", entry.get("kind")) == EntryType.PASSWORD.value:
+                etype = entry.get("type", entry.get("kind"))
+                if etype in (EntryType.PASSWORD.value, EntryType.KEY_VALUE.value):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
@@ -505,13 +556,15 @@ class EntryManager:
         index: int,
         username: Optional[str] = None,
         url: Optional[str] = None,
-        blacklisted: Optional[bool] = None,
+        archived: Optional[bool] = None,
         notes: Optional[str] = None,
         *,
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
+        value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
+        **legacy,
     ) -> None:
         """
         Modifies an existing entry based on the provided index and new values.
@@ -519,11 +572,12 @@ class EntryManager:
         :param index: The index number of the entry to modify.
         :param username: (Optional) The new username (password entries).
         :param url: (Optional) The new URL (password entries).
-        :param blacklisted: (Optional) The new blacklist status.
+        :param archived: (Optional) The new archived status.
         :param notes: (Optional) New notes to attach to the entry.
         :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
         :param digits: (Optional) The new number of digits for TOTP codes.
+        :param value: (Optional) New value for key/value entries.
         """
         try:
             data = self.vault.load_index()
@@ -557,17 +611,29 @@ class EntryManager:
                 if label is not None:
                     entry["label"] = label
                     logger.debug(f"Updated label to '{label}' for index {index}.")
-                if username is not None:
-                    entry["username"] = username
-                    logger.debug(f"Updated username to '{username}' for index {index}.")
-                if url is not None:
-                    entry["url"] = url
-                    logger.debug(f"Updated URL to '{url}' for index {index}.")
+                if entry_type == EntryType.PASSWORD.value:
+                    if username is not None:
+                        entry["username"] = username
+                        logger.debug(
+                            f"Updated username to '{username}' for index {index}."
+                        )
+                    if url is not None:
+                        entry["url"] = url
+                        logger.debug(f"Updated URL to '{url}' for index {index}.")
+                elif entry_type == EntryType.KEY_VALUE.value:
+                    if value is not None:
+                        entry["value"] = value
+                        logger.debug(f"Updated value for index {index}.")
 
-            if blacklisted is not None:
-                entry["blacklisted"] = blacklisted
+            if archived is None and "blacklisted" in legacy:
+                archived = legacy["blacklisted"]
+
+            if archived is not None:
+                entry["archived"] = archived
+                if "blacklisted" in entry:
+                    entry.pop("blacklisted", None)
                 logger.debug(
-                    f"Updated blacklist status to '{blacklisted}' for index {index}."
+                    f"Updated archived status to '{archived}' for index {index}."
                 )
 
             if notes is not None:
@@ -598,10 +664,26 @@ class EntryManager:
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
 
+    def archive_entry(self, index: int) -> None:
+        """Mark the specified entry as archived."""
+        self.modify_entry(index, archived=True)
+
+    def restore_entry(self, index: int) -> None:
+        """Unarchive the specified entry."""
+        self.modify_entry(index, archived=False)
+
     def list_entries(
-        self, sort_by: str = "index", filter_kind: str | None = None
+        self,
+        sort_by: str = "index",
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """List entries in the index with optional sorting and filtering."""
+        """List entries in the index with optional sorting and filtering.
+
+        By default archived entries are omitted unless ``include_archived`` is
+        ``True``.
+        """
         try:
             data = self.vault.load_index()
             entries_data = data.get("entries", {})
@@ -631,6 +713,10 @@ class EntryManager:
                     != filter_kind
                 ):
                     continue
+                if not include_archived and entry.get(
+                    "archived", entry.get("blacklisted", False)
+                ):
+                    continue
                 filtered_items.append((int(idx_str), entry))
 
             entries: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
@@ -644,11 +730,19 @@ class EntryManager:
                             label,
                             entry.get("username", ""),
                             entry.get("url", ""),
-                            entry.get("blacklisted", False),
+                            entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
                 else:
-                    entries.append((idx, label, None, None, False))
+                    entries.append(
+                        (
+                            idx,
+                            label,
+                            None,
+                            None,
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
 
             logger.debug(f"Total entries found: {len(entries)}")
             for idx, entry in filtered_items:
@@ -677,7 +771,7 @@ class EntryManager:
                     print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
                     print(
                         colored(
-                            f"  Blacklisted: {'Yes' if entry.get('blacklisted', False) else 'No'}",
+                            f"  Archived: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
                             "cyan",
                         )
                     )
@@ -685,7 +779,8 @@ class EntryManager:
                     print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
                     print(
                         colored(
-                            f"  Derivation Index: {entry.get('index', index)}", "cyan"
+                            f"  Derivation Index: {entry.get('index', idx)}",
+                            "cyan",
                         )
                     )
                 print("-" * 40)
@@ -739,12 +834,43 @@ class EntryManager:
                             label,
                             username,
                             url,
-                            entry.get("blacklisted", False),
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
+            elif etype == EntryType.KEY_VALUE.value:
+                value_field = str(entry.get("value", ""))
+                custom_fields = entry.get("custom_fields", [])
+                custom_match = any(
+                    query_lower in str(cf.get("label", "")).lower()
+                    or query_lower in str(cf.get("value", "")).lower()
+                    for cf in custom_fields
+                )
+                if (
+                    label_match
+                    or query_lower in value_field.lower()
+                    or notes_match
+                    or custom_match
+                ):
+                    results.append(
+                        (
+                            int(idx),
+                            label,
+                            None,
+                            None,
+                            entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
             else:
                 if label_match or notes_match:
-                    results.append((int(idx), label, None, None, False))
+                    results.append(
+                        (
+                            int(idx),
+                            label,
+                            None,
+                            None,
+                            entry.get("archived", entry.get("blacklisted", False)),
+                        )
+                    )
 
         return results
 
@@ -849,11 +975,19 @@ class EntryManager:
             )
 
     def list_all_entries(
-        self, sort_by: str = "index", filter_kind: str | None = None
+        self,
+        sort_by: str = "index",
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> None:
         """Display all entries using :meth:`list_entries`."""
         try:
-            entries = self.list_entries(sort_by=sort_by, filter_kind=filter_kind)
+            entries = self.list_entries(
+                sort_by=sort_by,
+                filter_kind=filter_kind,
+                include_archived=include_archived,
+            )
             if not entries:
                 print(colored("No entries to display.", "yellow"))
                 return
@@ -865,9 +999,7 @@ class EntryManager:
                 print(colored(f"  Label: {website}", "cyan"))
                 print(colored(f"  Username: {username or 'N/A'}", "cyan"))
                 print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
-                )
+                print(colored(f"  Archived: {'Yes' if blacklisted else 'No'}", "cyan"))
                 print("-" * 40)
 
         except Exception as e:
@@ -876,7 +1008,10 @@ class EntryManager:
             return
 
     def get_entry_summaries(
-        self, filter_kind: str | None = None
+        self,
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> list[tuple[int, str, str]]:
         """Return a list of entry index, type, and display labels."""
         try:
@@ -887,6 +1022,10 @@ class EntryManager:
             for idx_str, entry in entries_data.items():
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 if filter_kind and etype != filter_kind:
+                    continue
+                if not include_archived and entry.get(
+                    "archived", entry.get("blacklisted", False)
+                ):
                     continue
                 if etype == EntryType.PASSWORD.value:
                     label = entry.get("label", entry.get("website", ""))

@@ -269,6 +269,8 @@ def print_matches(
             print(color_text("  Type: PGP Key", "index"))
         elif etype == EntryType.NOSTR.value:
             print(color_text("  Type: Nostr Key", "index"))
+        elif etype == EntryType.KEY_VALUE.value:
+            print(color_text("  Type: Key/Value", "index"))
         else:
             if website:
                 print(color_text(f"  Label: {website}", "index"))
@@ -276,9 +278,7 @@ def print_matches(
                 print(color_text(f"  Username: {username}", "index"))
             if url:
                 print(color_text(f"  URL: {url}", "index"))
-            print(
-                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
-            )
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
         print("-" * 40)
 
 
@@ -685,10 +685,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
-            pause()
         elif choice == "2":
             handle_nostr_menu(password_manager)
-            pause()
         elif choice == "3":
             password_manager.change_password()
             pause()
@@ -752,6 +750,7 @@ def display_menu(
     5. Modify an Existing Entry
     6. 2FA Codes
     7. Settings
+    8. List Archived
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
@@ -781,7 +780,7 @@ def display_menu(
         print(color_text(menu, "menu"))
         try:
             choice = timed_input(
-                "Enter your choice (1-7) or press Enter to exit: ",
+                "Enter your choice (1-8) or press Enter to exit: ",
                 inactivity_timeout,
             ).strip()
         except TimeoutError:
@@ -808,6 +807,7 @@ def display_menu(
                 print(color_text("4. Seed Phrase", "menu"))
                 print(color_text("5. Nostr Key Pair", "menu"))
                 print(color_text("6. PGP Key", "menu"))
+                print(color_text("7. Key/Value", "menu"))
                 sub_choice = input(
                     "Select entry type or press Enter to go back: "
                 ).strip()
@@ -829,6 +829,9 @@ def display_menu(
                     break
                 elif sub_choice == "6":
                     password_manager.handle_add_pgp()
+                    break
+                elif sub_choice == "7":
+                    password_manager.handle_add_key_value()
                     break
                 elif not sub_choice:
                     break
@@ -856,6 +859,9 @@ def display_menu(
         elif choice == "7":
             password_manager.update_activity()
             handle_settings(password_manager)
+        elif choice == "8":
+            password_manager.update_activity()
+            password_manager.handle_view_archived_entries()
         else:
             print(colored("Invalid choice. Please select a valid option.", "red"))
 

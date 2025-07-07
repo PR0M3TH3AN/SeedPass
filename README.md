@@ -254,9 +254,11 @@ When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
 ### Modifying a 2FA Entry
 
 1. From the main menu choose **Modify an Existing Entry** and enter the index of the 2FA code you want to edit.
-2. SeedPass will show the current label, period, digit count, and blacklist status.
+2. SeedPass will show the current label, period, digit count, and archived status.
 3. Enter new values or press **Enter** to keep the existing settings.
 4. The updated entry is saved back to your encrypted vault.
+5. Archived entries are hidden from lists but can be viewed or restored from the **List Archived** menu.
+6. When editing an archived entry you'll be prompted to restore it after saving your changes.
 
 ### Using Secret Mode
 
@@ -270,12 +272,26 @@ When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to
 
 SeedPass supports storing more than just passwords and 2FA secrets. You can also create entries for:
 - **SSH Key** – deterministically derive an Ed25519 key pair for servers or git hosting platforms.
-- **Seed Phrase** – generate a BIP-39 mnemonic and keep it encrypted until needed.
+- **Seed Phrase** – store only the BIP-85 index and word count. The mnemonic is regenerated on demand.
 - **PGP Key** – derive an OpenPGP key pair from your master seed.
 - **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients.
   When you retrieve one of these entries, SeedPass can display QR codes for the
   keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
   it, while the `nsec` QR is shown only after a security warning.
+- **Key/Value** – store a simple key and value for miscellaneous secrets or configuration data.
+
+The table below summarizes the extra fields stored for each entry type. Every
+entry includes a `label`, while only password entries track a `url`.
+
+| Entry Type    | Extra Fields |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| Password      | `username`, `url`, `length`, `archived`, optional `notes`, optional `custom_fields` (may include hidden fields) |
+| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, `archived`, optional `notes` |
+| SSH Key       | `index`, `archived`, optional `notes` |
+| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes` |
+| PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
+| Nostr Key Pair| `index`, `archived`, optional `notes` |
+| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields` |
 
 
 ### Managing Multiple Seeds

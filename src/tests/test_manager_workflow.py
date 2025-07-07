@@ -46,6 +46,7 @@ def test_manager_workflow(monkeypatch):
         pm.nostr_client = FakeNostrClient()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.secret_mode_enabled = False
 
         inputs = iter(
             [
@@ -56,11 +57,12 @@ def test_manager_workflow(monkeypatch):
                 "n",  # add custom field
                 "",  # length (default)
                 "0",  # retrieve index
+                "n",  # archive entry prompt
                 "0",  # modify index
                 "",  # new label
                 "user",  # new username
                 "",  # new url
-                "",  # blacklist status
+                "",  # archive status
                 "",  # new notes
                 "n",  # edit custom fields
             ]

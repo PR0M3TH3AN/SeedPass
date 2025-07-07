@@ -61,7 +61,7 @@ def test_handle_display_totp_codes(monkeypatch, capsys):
         assert "123456" in out
 
 
-def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
+def test_display_totp_codes_excludes_archived(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -83,7 +83,7 @@ def test_display_totp_codes_excludes_blacklisted(monkeypatch, capsys):
 
         entry_mgr.add_totp("Visible", TEST_SEED)
         entry_mgr.add_totp("Hidden", TEST_SEED)
-        entry_mgr.modify_entry(1, blacklisted=True)
+        entry_mgr.modify_entry(1, archived=True)
 
         monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
         monkeypatch.setattr(

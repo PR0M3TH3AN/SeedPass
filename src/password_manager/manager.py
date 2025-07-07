@@ -939,7 +939,7 @@ class PasswordManager:
                 length,
                 username,
                 url,
-                blacklisted=False,
+                archived=False,
                 notes=notes,
                 custom_fields=custom_fields,
             )
@@ -1001,6 +1001,7 @@ class PasswordManager:
                             colored("Error: Period and digits must be numbers.", "red")
                         )
                         continue
+                    notes = input("Notes (optional): ").strip()
                     totp_index = self.entry_manager.get_next_totp_index()
                     entry_id = self.entry_manager.get_next_index()
                     uri = self.entry_manager.add_totp(
@@ -1009,6 +1010,7 @@ class PasswordManager:
                         index=totp_index,
                         period=int(period),
                         digits=int(digits),
+                        notes=notes,
                     )
                     secret = TotpManager.derive_secret(self.parent_seed, totp_index)
                     self.is_dirty = True
@@ -1043,6 +1045,7 @@ class PasswordManager:
                             secret = raw.upper()
                             period = int(input("Period (default 30): ").strip() or 30)
                             digits = int(input("Digits (default 6): ").strip() or 6)
+                        notes = input("Notes (optional): ").strip()
                         entry_id = self.entry_manager.get_next_index()
                         uri = self.entry_manager.add_totp(
                             label,
@@ -1050,6 +1053,7 @@ class PasswordManager:
                             secret=secret,
                             period=period,
                             digits=digits,
+                            notes=notes,
                         )
                         self.is_dirty = True
                         self.last_update = time.time()
@@ -1287,6 +1291,68 @@ class PasswordManager:
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
             pause()
 
+    def handle_add_key_value(self) -> None:
+        """Add a generic key/value entry."""
+        try:
+            clear_and_print_fingerprint(
+                getattr(self, "current_fingerprint", None),
+                "Main Menu > Add Entry > Key/Value",
+            )
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
+            value = input("Value: ").strip()
+            notes = input("Notes (optional): ").strip()
+
+            custom_fields: list[dict[str, object]] = []
+            while True:
+                add_field = input("Add custom field? (y/N): ").strip().lower()
+                if add_field != "y":
+                    break
+                field_label = input("  Field label: ").strip()
+                field_value = input("  Field value: ").strip()
+                hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                custom_fields.append(
+                    {
+                        "label": field_label,
+                        "value": field_value,
+                        "is_hidden": hidden,
+                    }
+                )
+
+            index = self.entry_manager.add_key_value(
+                label, value, notes=notes, custom_fields=custom_fields
+            )
+            self.is_dirty = True
+            self.last_update = time.time()
+
+            print(colored(f"\n[+] Key/Value entry added with ID {index}.\n", "green"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(value, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(color_text(f"Value: {value}", "deterministic"))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+            pause()
+        except Exception as e:
+            logging.error(f"Error during key/value setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
+            pause()
+
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details using :meth:`handle_retrieve_entry` for the
         given index without prompting for it again."""
@@ -1306,6 +1372,23 @@ class PasswordManager:
             self.handle_retrieve_entry()
         finally:
             builtins.input = original_input
+
+    def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
+        """Prompt the user to archive or restore ``entry`` based on its status."""
+        archived = entry.get("archived", entry.get("blacklisted", False))
+        prompt = (
+            "Restore this entry from archive? (y/N): "
+            if archived
+            else "Archive this entry? (y/N): "
+        )
+        choice = input(prompt).strip().lower()
+        if choice == "y":
+            if archived:
+                self.entry_manager.restore_entry(index)
+            else:
+                self.entry_manager.archive_entry(index)
+            self.is_dirty = True
+            self.last_update = time.time()
 
     def handle_retrieve_entry(self) -> None:
         """
@@ -1387,6 +1470,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.SSH.value:
@@ -1422,6 +1506,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.SEED.value:
@@ -1458,7 +1543,7 @@ class PasswordManager:
                         from local_bip85.bip85 import BIP85
                         from bip_utils import Bip39SeedGenerator
 
-                        words = int(entry.get("words", 24))
+                        words = int(entry.get("word_count", entry.get("words", 24)))
                         bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
                         seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
                         bip85 = BIP85(seed_bytes)
@@ -1472,6 +1557,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.PGP.value:
@@ -1505,6 +1591,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
             if entry_type == EntryType.NOSTR.value:
@@ -1538,6 +1625,64 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+                self._prompt_toggle_archive(entry, index)
+                pause()
+                return
+
+            if entry_type == EntryType.KEY_VALUE.value:
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                notes = entry.get("notes", "")
+                archived = entry.get("archived", False)
+                print(colored(f"Retrieving value for '{label}'.", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                print(
+                    colored(
+                        f"Archived Status: {'Archived' if archived else 'Active'}",
+                        "cyan",
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(value, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(f"Value: {value}", "deterministic"))
+
+                custom_fields = entry.get("custom_fields", [])
+                if custom_fields:
+                    print(colored("Additional Fields:", "cyan"))
+                    hidden_fields = []
+                    for field in custom_fields:
+                        f_label = field.get("label", "")
+                        f_value = field.get("value", "")
+                        if field.get("is_hidden"):
+                            hidden_fields.append((f_label, f_value))
+                            print(colored(f"  {f_label}: [hidden]", "cyan"))
+                        else:
+                            print(colored(f"  {f_label}: {f_value}", "cyan"))
+                    if hidden_fields:
+                        show = input("Reveal hidden fields? (y/N): ").strip().lower()
+                        if show == "y":
+                            for f_label, f_value in hidden_fields:
+                                if self.secret_mode_enabled:
+                                    copy_to_clipboard(
+                                        f_value, self.clipboard_clear_delay
+                                    )
+                                    print(
+                                        colored(
+                                            f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                            "green",
+                                        )
+                                    )
+                                else:
+                                    print(colored(f"  {f_label}: {f_value}", "cyan"))
+                self._prompt_toggle_archive(entry, index)
                 pause()
                 return
 
@@ -1545,7 +1690,7 @@ class PasswordManager:
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
-            blacklisted = entry.get("blacklisted")
+            blacklisted = entry.get("archived", entry.get("blacklisted"))
             notes = entry.get("notes", "")
 
             print(
@@ -1561,7 +1706,7 @@ class PasswordManager:
             if blacklisted:
                 print(
                     colored(
-                        f"Warning: This password is blacklisted and should not be used.",
+                        f"Warning: This password is archived and should not be used.",
                         "yellow",
                     )
                 )
@@ -1589,7 +1734,7 @@ class PasswordManager:
                     print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
                     print(
                         colored(
-                            f"Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                            f"Archived Status: {'Archived' if blacklisted else 'Active'}",
                             "cyan",
                         )
                     )
@@ -1625,6 +1770,7 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
+            self._prompt_toggle_archive(entry, index)
             pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
@@ -1660,7 +1806,7 @@ class PasswordManager:
                 label = entry.get("label", "")
                 period = int(entry.get("period", 30))
                 digits = int(entry.get("digits", 6))
-                blacklisted = entry.get("blacklisted", False)
+                blacklisted = entry.get("archived", entry.get("blacklisted", False))
                 notes = entry.get("notes", "")
 
                 print(
@@ -1673,7 +1819,7 @@ class PasswordManager:
                 print(colored(f"Current Digits: {digits}", "cyan"))
                 print(
                     colored(
-                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
                         "cyan",
                     )
                 )
@@ -1708,7 +1854,7 @@ class PasswordManager:
                         )
                 blacklist_input = (
                     input(
-                        f'Is this 2FA code blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                        f'Archive this 2FA code? (Y/N, current: {"Y" if blacklisted else "N"}): '
                     )
                     .strip()
                     .lower()
@@ -1722,7 +1868,7 @@ class PasswordManager:
                 else:
                     print(
                         colored(
-                            "Invalid input for blacklist status. Keeping the current status.",
+                            "Invalid input for archived status. Keeping the current status.",
                             "yellow",
                         )
                     )
@@ -1751,18 +1897,97 @@ class PasswordManager:
 
                 self.entry_manager.modify_entry(
                     index,
-                    blacklisted=new_blacklisted,
+                    archived=new_blacklisted,
                     notes=new_notes,
                     label=new_label,
                     period=new_period,
                     digits=new_digits,
                     custom_fields=custom_fields,
                 )
+            elif entry_type == EntryType.KEY_VALUE.value:
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                blacklisted = entry.get("archived", False)
+                notes = entry.get("notes", "")
+
+                print(
+                    colored(
+                        f"Modifying key/value entry '{label}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(
+                    colored(
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                new_value = (
+                    input("Enter new value (leave blank to keep current): ").strip()
+                    or value
+                )
+                blacklist_input = (
+                    input(
+                        f'Archive this entry? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    print(
+                        colored(
+                            "Invalid input for archived status. Keeping the current status.",
+                            "yellow",
+                        )
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                edit_fields = input("Edit custom fields? (y/N): ").strip().lower()
+                custom_fields = None
+                if edit_fields == "y":
+                    custom_fields = []
+                    while True:
+                        f_label = input(
+                            "  Field label (leave blank to finish): "
+                        ).strip()
+                        if not f_label:
+                            break
+                        f_value = input("  Field value: ").strip()
+                        hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
+                        custom_fields.append(
+                            {"label": f_label, "value": f_value, "is_hidden": hidden}
+                        )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    archived=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    value=new_value,
+                    custom_fields=custom_fields,
+                )
             else:
                 website_name = entry.get("label", entry.get("website"))
                 username = entry.get("username")
                 url = entry.get("url")
-                blacklisted = entry.get("blacklisted")
+                blacklisted = entry.get("archived", entry.get("blacklisted"))
                 notes = entry.get("notes", "")
 
                 print(
@@ -1776,7 +2001,7 @@ class PasswordManager:
                 print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
                 print(
                     colored(
-                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
                         "cyan",
                     )
                 )
@@ -1802,7 +2027,7 @@ class PasswordManager:
                 )
                 blacklist_input = (
                     input(
-                        f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                        f'Archive this password? (Y/N, current: {"Y" if blacklisted else "N"}): '
                     )
                     .strip()
                     .lower()
@@ -1816,7 +2041,7 @@ class PasswordManager:
                 else:
                     print(
                         colored(
-                            "Invalid input for blacklist status. Keeping the current status.",
+                            "Invalid input for archived status. Keeping the current status.",
                             "yellow",
                         )
                     )
@@ -1847,8 +2072,8 @@ class PasswordManager:
                     index,
                     new_username,
                     new_url,
-                    new_blacklisted,
-                    new_notes,
+                    archived=new_blacklisted,
+                    notes=new_notes,
                     label=new_label,
                     custom_fields=custom_fields,
                 )
@@ -1870,6 +2095,11 @@ class PasswordManager:
                     f"Failed to post updated index to Nostr: {nostr_error}",
                     exc_info=True,
                 )
+
+            updated_entry = self.entry_manager.retrieve_entry(index)
+            if updated_entry:
+                self._prompt_toggle_archive(updated_entry, index)
+            pause()
 
         except Exception as e:
             logging.error(f"Error during modifying entry: {e}", exc_info=True)
@@ -1992,12 +2222,15 @@ class PasswordManager:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
             url = entry.get("url", "")
-            blacklisted = entry.get("blacklisted", False)
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
             print(color_text(f"  Label: {website}", "index"))
             print(color_text(f"  Username: {username or 'N/A'}", "index"))
             print(color_text(f"  URL: {url or 'N/A'}", "index"))
             print(
-                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
+                color_text(
+                    f"  Archived: {'Yes' if blacklisted else 'No'}",
+                    "index",
+                )
             )
         print("-" * 40)
 
@@ -2017,6 +2250,7 @@ class PasswordManager:
                 print(color_text("5. Seed Phrase", "menu"))
                 print(color_text("6. Nostr Key Pair", "menu"))
                 print(color_text("7. PGP", "menu"))
+                print(color_text("8. Key/Value", "menu"))
                 choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
                     filter_kind = None
@@ -2032,13 +2266,17 @@ class PasswordManager:
                     filter_kind = EntryType.NOSTR.value
                 elif choice == "7":
                     filter_kind = EntryType.PGP.value
+                elif choice == "8":
+                    filter_kind = EntryType.KEY_VALUE.value
                 elif not choice:
                     return
                 else:
                     print(colored("Invalid choice.", "red"))
                     continue
 
-                summaries = self.entry_manager.get_entry_summaries(filter_kind)
+                summaries = self.entry_manager.get_entry_summaries(
+                    filter_kind, include_archived=False
+                )
                 if not summaries:
                     continue
                 while True:
@@ -2103,6 +2341,85 @@ class PasswordManager:
             logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
+    def handle_archive_entry(self) -> None:
+        """Archive an entry without deleting it."""
+        try:
+            index_input = input(
+                "Enter the index number of the entry to archive: "
+            ).strip()
+            if not index_input.isdigit():
+                print(colored("Error: Index must be a number.", "red"))
+                return
+            index = int(index_input)
+            self.entry_manager.archive_entry(index)
+            self.is_dirty = True
+            self.last_update = time.time()
+            pause()
+        except Exception as e:
+            logging.error(f"Error archiving entry: {e}", exc_info=True)
+            print(colored(f"Error: Failed to archive entry: {e}", "red"))
+
+    def handle_view_archived_entries(self) -> None:
+        """Display archived entries and optionally view or restore them."""
+        try:
+            archived = self.entry_manager.list_entries(include_archived=True)
+            archived = [e for e in archived if e[4]]
+            if not archived:
+                print(colored("No archived entries found.", "yellow"))
+                pause()
+                return
+            while True:
+                clear_and_print_fingerprint(
+                    getattr(self, "current_fingerprint", None),
+                    "Main Menu > Archived Entries",
+                )
+                print(colored("\n[+] Archived Entries:\n", "green"))
+                for idx, label, _username, _url, _ in archived:
+                    print(colored(f"{idx}. {label}", "cyan"))
+                idx_input = input(
+                    "Enter index to manage or press Enter to go back: "
+                ).strip()
+                if not idx_input:
+                    break
+                if not idx_input.isdigit() or int(idx_input) not in [
+                    e[0] for e in archived
+                ]:
+                    print(colored("Invalid index.", "red"))
+                    continue
+                entry_index = int(idx_input)
+                while True:
+                    action = (
+                        input(
+                            "Enter 'v' to view details, 'r' to restore, or press Enter to go back: "
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if action == "v":
+                        self.display_entry_details(entry_index)
+                        pause()
+                    elif action == "r":
+                        self.entry_manager.restore_entry(entry_index)
+                        self.is_dirty = True
+                        self.last_update = time.time()
+                        pause()
+                        archived = self.entry_manager.list_entries(
+                            include_archived=True
+                        )
+                        archived = [e for e in archived if e[4]]
+                        if not archived:
+                            print(colored("All entries restored.", "green"))
+                            pause()
+                            return
+                        break
+                    elif not action:
+                        break
+                    else:
+                        print(colored("Invalid choice.", "red"))
+        except Exception as e:
+            logging.error(f"Error viewing archived entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to view archived entries: {e}", "red"))
+
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
@@ -2115,7 +2432,7 @@ class PasswordManager:
             totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
                 if entry.get("type") == EntryType.TOTP.value and not entry.get(
-                    "blacklisted", False
+                    "archived", entry.get("blacklisted", False)
                 ):
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
