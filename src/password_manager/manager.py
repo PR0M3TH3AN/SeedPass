@@ -2151,6 +2151,7 @@ class PasswordManager:
             self.entry_manager.archive_entry(index)
             self.is_dirty = True
             self.last_update = time.time()
+            pause()
         except Exception as e:
             logging.error(f"Error archiving entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to archive entry: {e}", "red"))
@@ -2162,6 +2163,7 @@ class PasswordManager:
             archived = [e for e in archived if e[4]]
             if not archived:
                 print(colored("No archived entries found.", "yellow"))
+                pause()
                 return
             while True:
                 clear_and_print_fingerprint(
@@ -2183,9 +2185,11 @@ class PasswordManager:
                 self.entry_manager.restore_entry(restore_index)
                 self.is_dirty = True
                 self.last_update = time.time()
+                pause()
                 archived = [e for e in archived if e[0] != restore_index]
                 if not archived:
                     print(colored("All entries restored.", "green"))
+                    pause()
                     break
         except Exception as e:
             logging.error(f"Error viewing archived entries: {e}", exc_info=True)
