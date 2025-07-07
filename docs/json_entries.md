@@ -29,23 +29,29 @@
 
 ## Introduction
 
-**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. Instead of pushing one large index file, SeedPass posts **snapshot chunks** of the index followed by lightweight **delta events** whenever changes occur. This chunked approach improves reliability and keeps bandwidth usage minimal. To enhance modularity, scalability, and security, SeedPass now manages each password or data entry as a separate JSON file within a **Fingerprint-Based Backup and Local Storage** system. This document outlines the new entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
+**SeedPass** is a secure password generator and manager leveraging **Bitcoin's BIP-85 standard** and integrating with the **Nostr network** for decentralized synchronization. Instead of pushing one large index file, SeedPass posts **snapshot chunks** of the index followed by lightweight **delta events** whenever changes occur. This chunked approach improves reliability and keeps bandwidth usage minimal. To enhance modularity, scalability, and security, SeedPass stores all entries in a single encrypted index file named `seedpass_entries_db.json.enc`. This document outlines the entry management system, ensuring that new `kind` types can be added seamlessly without disrupting existing functionalities.
 
 ---
 
 ## Index File Format
 
-All entries belonging to a seed profile are summarized in an encrypted file named `seedpass_entries_db.json.enc`. This index starts with `schema_version` `2` and contains an `entries` object keyed by entry numbers.
+All entries belonging to a seed profile are stored in an encrypted file named `seedpass_entries_db.json.enc`. This index uses `schema_version` `3` and contains an `entries` object keyed by numeric identifiers.
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "entries": {
     "0": {
       "label": "example.com",
       "length": 8,
+      "username": "user",
+      "url": "https://example.com",
+      "archived": false,
       "type": "password",
-      "notes": ""
+      "kind": "password",
+      "notes": "",
+      "custom_fields": [],
+      "origin": ""
     }
   }
 }
@@ -55,58 +61,39 @@ All entries belonging to a seed profile are summarized in an encrypted file name
 
 ## JSON Schema for Individual Entries
 
-Each SeedPass entry is stored as an individual JSON file, promoting isolated management and easy synchronization with Nostr. This structure supports diverse entry types (`kind`) and allows for future expansions.
+Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` dictionary. The structure supports diverse entry types (`kind`) and allows for future expansions.
 
 ### General Structure
 
 ```json
 {
-  "entry_num": 0,
-  "index_num": 0,
-  "fingerprint": "a1b2c3d4",
-  "kind": "generated_password",
-  "data": {
-    // Fields specific to the kind
-  },
-  "timestamp": "2024-04-27T12:34:56Z",
-  "metadata": {
-    "created_at": "2024-04-27T12:34:56Z",
-    "updated_at": "2024-04-27T12:34:56Z",
-    "checksum": "<checksum_value>"
-  }
+  "label": "Example",
+  "length": 8,
+  "username": "user@example.com",
+  "url": "https://example.com",
+  "archived": false,
+  "type": "password",
+  "kind": "password",
+  "notes": "",
+  "custom_fields": [],
+  "origin": "",
+  "index": 0
 }
 ```
 
 ### Field Descriptions
 
-- **entry_num** (`integer`): Sequential number of the entry starting from 0. Maintains the order of entries.
-  
-- **index_num** (`integer` or `string`):
-  - For `generated_password` kind: Starts from 0 and increments sequentially.
-  - For other kinds: A secure random hexadecimal string (e.g., a hash of the content) used as the BIP-85 index.
-
-- **fingerprint** (`string`): A unique identifier generated from the seed associated with the entry. This fingerprint ensures that each seed's data is isolated and securely managed.
-
-- **kind** (`string`): Specifies the type of entry. Supported kinds include:
-  - `password`
-  - `totp`
-  - `ssh`
-  - `seed`
-  - `pgp`
-  - `nostr`
-  - `note`
-
-- **data** (`object`): Contains fields specific to the `kind`. This allows for extensibility as new kinds are introduced.
-
-- **timestamp** (`string`): ISO 8601 format timestamp indicating when the entry was created.
-
-- **metadata** (`object`):
-  - **created_at** (`string`): ISO 8601 format timestamp of creation.
-  - **updated_at** (`string`): ISO 8601 format timestamp of the last update.
-  - **checksum** (`string`): A checksum value to ensure data integrity.
-
-- **custom_fields** (`array`, optional): A list of user-defined name/value pairs
-  to store extra information.
+- **label** (`string`): Descriptive name for the entry (e.g., website or service).
+- **length** (`integer`, optional): Desired password length for generated passwords.
+- **username** (`string`, optional): Username associated with the entry.
+- **url** (`string`, optional): Website or service URL.
+- **archived** (`boolean`): Marks the entry as archived when `true`.
+- **type** (`string`): The entry type (`password`, `totp`, `ssh`, `seed`, `pgp`, `nostr`, `note`).
+- **kind** (`string`): Synonym for `type` kept for backward compatibility.
+- **notes** (`string`): Free-form notes.
+- **custom_fields** (`array`, optional): Additional user-defined fields.
+- **origin** (`string`, optional): Source identifier for imported data.
+- **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
   Example:
 
   ```json
