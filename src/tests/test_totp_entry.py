@@ -35,6 +35,7 @@ def test_add_totp_and_get_code():
             "index": 0,
             "period": 30,
             "digits": 6,
+            "archived": False,
         }
 
         code = entry_mgr.get_totp_code(0, TEST_SEED, timestamp=0)
@@ -72,6 +73,7 @@ def test_add_totp_imported(tmp_path):
         "secret": secret,
         "period": 30,
         "digits": 6,
+        "archived": False,
     }
     code = em.get_totp_code(0, timestamp=0)
     assert code == pyotp.TOTP(secret).at(0)

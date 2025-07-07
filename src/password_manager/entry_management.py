@@ -72,6 +72,9 @@ class EntryManager:
                         and entry.get("type") == EntryType.PASSWORD.value
                     ):
                         entry.pop("website", None)
+                    if "archived" not in entry and "blacklisted" in entry:
+                        entry["archived"] = entry["blacklisted"]
+                    entry.pop("blacklisted", None)
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -117,7 +120,7 @@ class EntryManager:
         length: int,
         username: Optional[str] = None,
         url: Optional[str] = None,
-        blacklisted: bool = False,
+        archived: bool = False,
         notes: str = "",
         custom_fields: List[Dict[str, Any]] | None = None,
     ) -> int:
@@ -128,7 +131,7 @@ class EntryManager:
         :param length: The desired length of the password.
         :param username: (Optional) The username associated with the website.
         :param url: (Optional) The URL of the website.
-        :param blacklisted: (Optional) Whether the password is blacklisted. Defaults to False.
+        :param archived: (Optional) Whether the entry is archived. Defaults to False.
         :param notes: (Optional) Extra notes to attach to the entry.
         :return: The assigned index of the new entry.
         """
@@ -142,7 +145,7 @@ class EntryManager:
                 "length": length,
                 "username": username if username else "",
                 "url": url if url else "",
-                "blacklisted": blacklisted,
+                "archived": archived,
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
@@ -184,6 +187,7 @@ class EntryManager:
         label: str,
         parent_seed: str,
         *,
+        archived: bool = False,
         secret: str | None = None,
         index: int | None = None,
         period: int = 30,
@@ -205,6 +209,7 @@ class EntryManager:
                 "index": index,
                 "period": period,
                 "digits": digits,
+                "archived": archived,
             }
         else:
             entry = {
@@ -214,6 +219,7 @@ class EntryManager:
                 "secret": secret,
                 "period": period,
                 "digits": digits,
+                "archived": archived,
             }
 
         data["entries"][str(entry_id)] = entry
@@ -234,6 +240,7 @@ class EntryManager:
         parent_seed: str,
         index: int | None = None,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new SSH key pair entry.
 
@@ -253,6 +260,7 @@ class EntryManager:
             "index": index,
             "label": label,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -281,6 +289,7 @@ class EntryManager:
         key_type: str = "ed25519",
         user_id: str = "",
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new PGP key entry."""
 
@@ -297,6 +306,7 @@ class EntryManager:
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -329,6 +339,7 @@ class EntryManager:
         label: str,
         index: int | None = None,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new Nostr key pair entry."""
 
@@ -343,6 +354,7 @@ class EntryManager:
             "index": index,
             "label": label,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -381,6 +393,7 @@ class EntryManager:
         index: int | None = None,
         words_num: int = 24,
         notes: str = "",
+        archived: bool = False,
     ) -> int:
         """Add a new derived seed phrase entry."""
 
@@ -396,6 +409,7 @@ class EntryManager:
             "label": label,
             "words": words_num,
             "notes": notes,
+            "archived": archived,
         }
         self._save_index(data)
         self.update_checksum()
@@ -505,13 +519,14 @@ class EntryManager:
         index: int,
         username: Optional[str] = None,
         url: Optional[str] = None,
-        blacklisted: Optional[bool] = None,
+        archived: Optional[bool] = None,
         notes: Optional[str] = None,
         *,
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
+        **legacy,
     ) -> None:
         """
         Modifies an existing entry based on the provided index and new values.
@@ -519,7 +534,7 @@ class EntryManager:
         :param index: The index number of the entry to modify.
         :param username: (Optional) The new username (password entries).
         :param url: (Optional) The new URL (password entries).
-        :param blacklisted: (Optional) The new blacklist status.
+        :param archived: (Optional) The new archived status.
         :param notes: (Optional) New notes to attach to the entry.
         :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
@@ -564,10 +579,15 @@ class EntryManager:
                     entry["url"] = url
                     logger.debug(f"Updated URL to '{url}' for index {index}.")
 
-            if blacklisted is not None:
-                entry["blacklisted"] = blacklisted
+            if archived is None and "blacklisted" in legacy:
+                archived = legacy["blacklisted"]
+
+            if archived is not None:
+                entry["archived"] = archived
+                if "blacklisted" in entry:
+                    entry.pop("blacklisted", None)
                 logger.debug(
-                    f"Updated blacklist status to '{blacklisted}' for index {index}."
+                    f"Updated archived status to '{archived}' for index {index}."
                 )
 
             if notes is not None:
@@ -597,6 +617,14 @@ class EntryManager:
             print(
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
+
+    def archive_entry(self, index: int) -> None:
+        """Mark the specified entry as archived."""
+        self.modify_entry(index, archived=True)
+
+    def restore_entry(self, index: int) -> None:
+        """Unarchive the specified entry."""
+        self.modify_entry(index, archived=False)
 
     def list_entries(
         self, sort_by: str = "index", filter_kind: str | None = None
@@ -644,7 +672,7 @@ class EntryManager:
                             label,
                             entry.get("username", ""),
                             entry.get("url", ""),
-                            entry.get("blacklisted", False),
+                            entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
                 else:
@@ -677,7 +705,7 @@ class EntryManager:
                     print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
                     print(
                         colored(
-                            f"  Blacklisted: {'Yes' if entry.get('blacklisted', False) else 'No'}",
+                            f"  Blacklisted: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
                             "cyan",
                         )
                     )
@@ -739,7 +767,7 @@ class EntryManager:
                             label,
                             username,
                             url,
-                            entry.get("blacklisted", False),
+                            entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
             else:
