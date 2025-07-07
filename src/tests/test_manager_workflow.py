@@ -60,7 +60,7 @@ def test_manager_workflow(monkeypatch):
                 "",  # new label
                 "user",  # new username
                 "",  # new url
-                "",  # blacklist status
+                "",  # archive status
                 "",  # new notes
                 "n",  # edit custom fields
             ]
