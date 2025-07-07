@@ -98,3 +98,31 @@ def test_legacy_entry_defaults_to_password():
 
         loaded = entry_mgr._load_index()
         assert loaded["entries"][str(index)]["type"] == "password"
+
+
+@pytest.mark.parametrize(
+    "method,args",
+    [
+        ("add_entry", ("site.com", 8)),
+        ("add_totp", ("totp", TEST_SEED)),
+        ("add_ssh_key", ("ssh", TEST_SEED)),
+        ("add_pgp_key", ("pgp", TEST_SEED)),
+        ("add_nostr_key", ("nostr",)),
+        ("add_seed", ("seed", TEST_SEED)),
+    ],
+)
+def test_add_default_archived_false(method, args):
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+        backup_mgr = BackupManager(Path(tmpdir), cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
+
+        if method == "add_totp":
+            getattr(entry_mgr, method)(*args)
+            index = 0
+        else:
+            index = getattr(entry_mgr, method)(*args)
+
+        entry = entry_mgr.retrieve_entry(index)
+        assert entry["archived"] is False
