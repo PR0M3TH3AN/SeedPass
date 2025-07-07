@@ -85,7 +85,25 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     }
 }
 $pythonExe = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonExe) { Write-Error "Python 3 is not installed or not in your PATH. Please install it from https://www.python.org/" }
+if (-not $pythonExe) {
+    Write-Warning "Python 3 is not installed. Attempting to install..."
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        try { winget install --id Python.Python.3 -e --source winget -h } catch { Write-Warning "Failed to install Python via winget." }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        try { choco install python -y } catch { Write-Warning "Failed to install Python via Chocolatey." }
+    } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+        try { scoop install python } catch { Write-Warning "Failed to install Python via Scoop." }
+    } else {
+        Write-Error "Python 3 is not installed. Please install it from https://www.python.org/ and ensure it's in your PATH."
+    }
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                     [System.Environment]::GetEnvironmentVariable('Path','User')
+        if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+            Write-Error "Python installation succeeded but python not found in PATH. Please open a new terminal or add Python to PATH manually."
+        }
+    }
+}
 
 # Warn about unsupported Python versions
 $pyVersionString = (& python --version) -replace '[^0-9\.]', ''
