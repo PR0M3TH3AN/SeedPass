@@ -751,7 +751,7 @@ def display_menu(
     6. 2FA Codes
     7. Settings
     8. Archive Entry
-    9. View Archived Entries
+    9. List Archived
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
