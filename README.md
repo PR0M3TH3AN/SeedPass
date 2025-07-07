@@ -270,7 +270,7 @@ When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to
 
 SeedPass supports storing more than just passwords and 2FA secrets. You can also create entries for:
 - **SSH Key** – deterministically derive an Ed25519 key pair for servers or git hosting platforms.
-- **Seed Phrase** – generate a BIP-39 mnemonic and keep it encrypted until needed.
+- **Seed Phrase** – store only the BIP-85 index and word count. The mnemonic is regenerated on demand.
 - **PGP Key** – derive an OpenPGP key pair from your master seed.
 - **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients.
   When you retrieve one of these entries, SeedPass can display QR codes for the
@@ -285,7 +285,7 @@ entry includes a `label`, while only password entries track a `url`.
 | Password      | `username`, `url`, `length`, `blacklisted`, optional `notes`, optional `custom_fields` (may include hidden fields) |
 | 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, optional `notes` |
 | SSH Key       | `index`, optional `notes` |
-| Seed Phrase   | `index`, `words`, optional `notes` |
+| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, optional `notes` |
 | PGP Key       | `index`, `key_type`, optional `user_id`, optional `notes` |
 | Nostr Key Pair| `index`, optional `notes` |
 
