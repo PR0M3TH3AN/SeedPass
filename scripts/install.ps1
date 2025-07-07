@@ -84,11 +84,37 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         }
     }
 }
-$pythonExe = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonExe) { Write-Error "Python 3 is not installed or not in your PATH. Please install it from https://www.python.org/" }
+
+function Get-PythonCommand {
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) { return ,('python') }
+    $cmd = Get-Command py -ErrorAction SilentlyContinue
+    if ($cmd) { return @('py','-3') }
+    return $null
+}
+
+$PythonCmd = Get-PythonCommand
+if (-not $PythonCmd) {
+    Write-Warning "Python 3 is not installed. Attempting to install..."
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        try { winget install --id Python.Python.3 -e --source winget -h } catch { Write-Warning "Failed to install Python via winget." }
+    } elseif (Get-Command choco -ErrorAction SilentlyContinue) {
+        try { choco install python -y } catch { Write-Warning "Failed to install Python via Chocolatey." }
+    } elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+        try { scoop install python } catch { Write-Warning "Failed to install Python via Scoop." }
+    } else {
+        Write-Error "Python 3 is not installed. Please install it from https://www.python.org/ and ensure it's in your PATH."
+    }
+    $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                 [System.Environment]::GetEnvironmentVariable('Path','User')
+    $PythonCmd = Get-PythonCommand
+    if (-not $PythonCmd) {
+        Write-Error "Python installation succeeded but python not found in PATH. Please open a new terminal or add Python to PATH manually."
+    }
+}
 
 # Warn about unsupported Python versions
-$pyVersionString = (& python --version) -replace '[^0-9\.]', ''
+$pyVersionString = (& $PythonCmd --version) -replace '[^0-9\.]', ''
 try { $pyVersion = [version]$pyVersionString } catch { $pyVersion = $null }
 if ($pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
     Write-Warning "Python $pyVersionString detected. Some dependencies may not have prebuilt wheels yet."
@@ -119,7 +145,7 @@ if (Test-Path (Join-Path $InstallDir ".git")) {
 # 3. Set up Python virtual environment
 Write-Info "Setting up Python virtual environment..."
 if (-not (Test-Path $VenvDir)) {
-    try { python -m venv $VenvDir } catch { Write-Error "Failed to create virtual environment. Error: $_" }
+    try { & $PythonCmd -m venv $VenvDir } catch { Write-Error "Failed to create virtual environment. Error: $_" }
 }
 
 # 4. Install/Update Python dependencies
