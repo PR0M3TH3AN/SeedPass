@@ -53,6 +53,7 @@ def test_add_and_retrieve_entry():
         ("add_totp", "totp"),
         ("add_ssh_key", "ssh"),
         ("add_seed", "seed"),
+        ("add_key_value", "key_value"),
     ],
 )
 def test_round_trip_entry_types(method, expected_type):
@@ -67,6 +68,8 @@ def test_round_trip_entry_types(method, expected_type):
         elif method == "add_totp":
             entry_mgr.add_totp("example", TEST_SEED)
             index = 0
+        elif method == "add_key_value":
+            index = entry_mgr.add_key_value("label", "val")
         else:
             if method == "add_ssh_key":
                 index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
@@ -109,6 +112,7 @@ def test_legacy_entry_defaults_to_password():
         ("add_pgp_key", ("pgp", TEST_SEED)),
         ("add_nostr_key", ("nostr",)),
         ("add_seed", ("seed", TEST_SEED)),
+        ("add_key_value", ("label", "val")),
     ],
 )
 def test_add_default_archived_false(method, args):
