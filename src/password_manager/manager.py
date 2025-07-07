@@ -2096,6 +2096,11 @@ class PasswordManager:
                     exc_info=True,
                 )
 
+            updated_entry = self.entry_manager.retrieve_entry(index)
+            if updated_entry:
+                self._prompt_toggle_archive(updated_entry, index)
+            pause()
+
         except Exception as e:
             logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))

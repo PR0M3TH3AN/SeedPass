@@ -258,6 +258,7 @@ When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
 3. Enter new values or press **Enter** to keep the existing settings.
 4. The updated entry is saved back to your encrypted vault.
 5. Archived entries are hidden from lists but can be viewed or restored from the **List Archived** menu.
+6. When editing an archived entry you'll be prompted to restore it after saving your changes.
 
 ### Using Secret Mode
 
