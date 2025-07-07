@@ -269,6 +269,8 @@ def print_matches(
             print(color_text("  Type: PGP Key", "index"))
         elif etype == EntryType.NOSTR.value:
             print(color_text("  Type: Nostr Key", "index"))
+        elif etype == EntryType.KEY_VALUE.value:
+            print(color_text("  Type: Key/Value", "index"))
         else:
             if website:
                 print(color_text(f"  Label: {website}", "index"))
@@ -805,6 +807,7 @@ def display_menu(
                 print(color_text("4. Seed Phrase", "menu"))
                 print(color_text("5. Nostr Key Pair", "menu"))
                 print(color_text("6. PGP Key", "menu"))
+                print(color_text("7. Key/Value", "menu"))
                 sub_choice = input(
                     "Select entry type or press Enter to go back: "
                 ).strip()
@@ -826,6 +829,9 @@ def display_menu(
                     break
                 elif sub_choice == "6":
                     password_manager.handle_add_pgp()
+                    break
+                elif sub_choice == "7":
+                    password_manager.handle_add_key_value()
                     break
                 elif not sub_choice:
                     break
