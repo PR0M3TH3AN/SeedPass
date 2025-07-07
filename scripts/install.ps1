@@ -1,4 +1,4 @@
-#
+# 
 # SeedPass Universal Installer for Windows
 #
 # Supports installing from a specific branch using the -Branch parameter.
@@ -84,8 +84,18 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         }
     }
 }
-$pythonExe = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonExe) {
+
+# 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
+function Get-PythonCommand {
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd) { return ,('python') }
+    $cmd = Get-Command py -ErrorAction SilentlyContinue
+    if ($cmd) { return @('py','-3') }
+    return $null
+}
+
+$PythonCmd = Get-PythonCommand
+if (-not $PythonCmd) {
     Write-Warning "Python 3 is not installed. Attempting to install..."
     if (Get-Command winget -ErrorAction SilentlyContinue) {
         try { winget install --id Python.Python.3 -e --source winget -h } catch { Write-Warning "Failed to install Python via winget." }
@@ -96,17 +106,18 @@ if (-not $pythonExe) {
     } else {
         Write-Error "Python 3 is not installed. Please install it from https://www.python.org/ and ensure it's in your PATH."
     }
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
-                     [System.Environment]::GetEnvironmentVariable('Path','User')
-        if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-            Write-Error "Python installation succeeded but python not found in PATH. Please open a new terminal or add Python to PATH manually."
-        }
+
+    # 🔧 merged conflicting changes from update-install-scripts-to-check-for-python vs main
+    $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' +
+                 [System.Environment]::GetEnvironmentVariable('Path','User')
+    $PythonCmd = Get-PythonCommand
+    if (-not $PythonCmd) {
+        Write-Error "Python installation succeeded but python not found in PATH. Please open a new terminal or add Python to PATH manually."
     }
 }
 
 # Warn about unsupported Python versions
-$pyVersionString = (& python --version) -replace '[^0-9\.]', ''
+$pyVersionString = (& $PythonCmd --version) -replace '[^0-9\.]', ''
 try { $pyVersion = [version]$pyVersionString } catch { $pyVersion = $null }
 if ($pyVersion -and $pyVersion.Major -eq 3 -and $pyVersion.Minor -ge 13) {
     Write-Warning "Python $pyVersionString detected. Some dependencies may not have prebuilt wheels yet."
@@ -137,7 +148,7 @@ if (Test-Path (Join-Path $InstallDir ".git")) {
 # 3. Set up Python virtual environment
 Write-Info "Setting up Python virtual environment..."
 if (-not (Test-Path $VenvDir)) {
-    try { python -m venv $VenvDir } catch { Write-Error "Failed to create virtual environment. Error: $_" }
+    try { & $PythonCmd -m venv $VenvDir } catch { Write-Error "Failed to create virtual environment. Error: $_" }
 }
 
 # 4. Install/Update Python dependencies

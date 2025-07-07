@@ -78,7 +78,10 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
 ```
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to
-install Python 3 using `winget`, `choco`, or `scoop` when Python is missing.
+
+install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python`
+isn't on your PATH.
+
 **Note:** If you are using Python 3.13 or newer, install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and reopen PowerShell before rerunning the installer.
 *Install the beta branch:*
 ```powershell
