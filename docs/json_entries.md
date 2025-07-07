@@ -88,7 +88,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **username** (`string`, optional): Username associated with the entry.
 - **url** (`string`, optional): Website or service URL.
 - **archived** (`boolean`): Marks the entry as archived when `true`.
-- **type** (`string`): The entry type (`password`, `totp`, `ssh`, `seed`, `pgp`, `nostr`, `note`).
+- **type** (`string`): The entry type (`password`, `totp`, `ssh`, `seed`, `pgp`, `nostr`, `note`, `key_value`).
 - **kind** (`string`): Synonym for `type` kept for backward compatibility.
 - **notes** (`string`): Free-form notes.
 - **custom_fields** (`array`, optional): Additional user-defined fields.
@@ -233,6 +233,21 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
     "updated_at": "2024-04-27T12:39:56Z",
     "checksum": "pqr345stu678"
   }
+}
+```
+
+#### 7. Key/Value
+
+```json
+{
+  "entry_num": 6,
+  "fingerprint": "a1b2c3d4",
+  "kind": "key_value",
+  "data": {
+    "key": "api_key",
+    "value": "<encrypted_value>"
+  },
+  "timestamp": "2024-04-27T12:40:56Z"
 }
 ```
 

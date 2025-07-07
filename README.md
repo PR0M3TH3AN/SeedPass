@@ -277,6 +277,7 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
   When you retrieve one of these entries, SeedPass can display QR codes for the
   keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
   it, while the `nsec` QR is shown only after a security warning.
+- **Key/Value** – store a simple key and value for miscellaneous secrets or configuration data.
 
 The table below summarizes the extra fields stored for each entry type. Every
 entry includes a `label`, while only password entries track a `url`.
@@ -289,6 +290,7 @@ entry includes a `label`, while only password entries track a `url`.
 | Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes` |
 | PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
 | Nostr Key Pair| `index`, `archived`, optional `notes` |
+| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields` |
 
 
 ### Managing Multiple Seeds
