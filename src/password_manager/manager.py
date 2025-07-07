@@ -1561,7 +1561,7 @@ class PasswordManager:
             if blacklisted:
                 print(
                     colored(
-                        f"Warning: This password is blacklisted and should not be used.",
+                        f"Warning: This password is archived and should not be used.",
                         "yellow",
                     )
                 )
@@ -1589,7 +1589,7 @@ class PasswordManager:
                     print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
                     print(
                         colored(
-                            f"Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                            f"Archived Status: {'Archived' if blacklisted else 'Active'}",
                             "cyan",
                         )
                     )
@@ -1673,7 +1673,7 @@ class PasswordManager:
                 print(colored(f"Current Digits: {digits}", "cyan"))
                 print(
                     colored(
-                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
                         "cyan",
                     )
                 )
@@ -1708,7 +1708,7 @@ class PasswordManager:
                         )
                 blacklist_input = (
                     input(
-                        f'Is this 2FA code blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                        f'Archive this 2FA code? (Y/N, current: {"Y" if blacklisted else "N"}): '
                     )
                     .strip()
                     .lower()
@@ -1722,7 +1722,7 @@ class PasswordManager:
                 else:
                     print(
                         colored(
-                            "Invalid input for blacklist status. Keeping the current status.",
+                            "Invalid input for archived status. Keeping the current status.",
                             "yellow",
                         )
                     )
@@ -1776,7 +1776,7 @@ class PasswordManager:
                 print(colored(f"Current URL: {url or 'N/A'}", "cyan"))
                 print(
                     colored(
-                        f"Current Blacklist Status: {'Blacklisted' if blacklisted else 'Not Blacklisted'}",
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
                         "cyan",
                     )
                 )
@@ -1802,7 +1802,7 @@ class PasswordManager:
                 )
                 blacklist_input = (
                     input(
-                        f'Is this password blacklisted? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                        f'Archive this password? (Y/N, current: {"Y" if blacklisted else "N"}): '
                     )
                     .strip()
                     .lower()
@@ -1816,7 +1816,7 @@ class PasswordManager:
                 else:
                     print(
                         colored(
-                            "Invalid input for blacklist status. Keeping the current status.",
+                            "Invalid input for archived status. Keeping the current status.",
                             "yellow",
                         )
                     )
@@ -1997,7 +1997,10 @@ class PasswordManager:
             print(color_text(f"  Username: {username or 'N/A'}", "index"))
             print(color_text(f"  URL: {url or 'N/A'}", "index"))
             print(
-                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
+                color_text(
+                    f"  Archived: {'Yes' if blacklisted else 'No'}",
+                    "index",
+                )
             )
         print("-" * 40)
 
@@ -2038,7 +2041,9 @@ class PasswordManager:
                     print(colored("Invalid choice.", "red"))
                     continue
 
-                summaries = self.entry_manager.get_entry_summaries(filter_kind)
+                summaries = self.entry_manager.get_entry_summaries(
+                    filter_kind, include_archived=False
+                )
                 if not summaries:
                     continue
                 while True:
@@ -2102,6 +2107,59 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
+
+    def handle_archive_entry(self) -> None:
+        """Archive an entry without deleting it."""
+        try:
+            index_input = input(
+                "Enter the index number of the entry to archive: "
+            ).strip()
+            if not index_input.isdigit():
+                print(colored("Error: Index must be a number.", "red"))
+                return
+            index = int(index_input)
+            self.entry_manager.archive_entry(index)
+            self.is_dirty = True
+            self.last_update = time.time()
+        except Exception as e:
+            logging.error(f"Error archiving entry: {e}", exc_info=True)
+            print(colored(f"Error: Failed to archive entry: {e}", "red"))
+
+    def handle_view_archived_entries(self) -> None:
+        """Display archived entries and optionally restore one."""
+        try:
+            archived = self.entry_manager.list_entries(include_archived=True)
+            archived = [e for e in archived if e[4]]
+            if not archived:
+                print(colored("No archived entries found.", "yellow"))
+                return
+            while True:
+                clear_and_print_fingerprint(
+                    getattr(self, "current_fingerprint", None),
+                    "Main Menu > Archived Entries",
+                )
+                print(colored("\n[+] Archived Entries:\n", "green"))
+                for idx, label, username, url, _ in archived:
+                    print(colored(f"{idx}. {label}", "cyan"))
+                idx_input = input(
+                    "Enter index to restore or press Enter to go back: "
+                ).strip()
+                if not idx_input:
+                    break
+                if not idx_input.isdigit():
+                    print(colored("Invalid index.", "red"))
+                    continue
+                restore_index = int(idx_input)
+                self.entry_manager.restore_entry(restore_index)
+                self.is_dirty = True
+                self.last_update = time.time()
+                archived = [e for e in archived if e[0] != restore_index]
+                if not archived:
+                    print(colored("All entries restored.", "green"))
+                    break
+        except Exception as e:
+            logging.error(f"Error viewing archived entries: {e}", exc_info=True)
+            print(colored(f"Error: Failed to view archived entries: {e}", "red"))
 
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""

@@ -64,7 +64,7 @@ def test_empty_and_non_numeric_choice(monkeypatch, capsys):
 def test_out_of_range_menu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["9", ""])
+    inputs = iter(["10", ""])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
