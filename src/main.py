@@ -276,9 +276,7 @@ def print_matches(
                 print(color_text(f"  Username: {username}", "index"))
             if url:
                 print(color_text(f"  URL: {url}", "index"))
-            print(
-                color_text(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "index")
-            )
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
         print("-" * 40)
 
 
@@ -752,6 +750,8 @@ def display_menu(
     5. Modify an Existing Entry
     6. 2FA Codes
     7. Settings
+    8. Archive Entry
+    9. View Archived Entries
     """
     display_fn = getattr(password_manager, "display_stats", None)
     if callable(display_fn):
@@ -781,7 +781,7 @@ def display_menu(
         print(color_text(menu, "menu"))
         try:
             choice = timed_input(
-                "Enter your choice (1-7) or press Enter to exit: ",
+                "Enter your choice (1-9) or press Enter to exit: ",
                 inactivity_timeout,
             ).strip()
         except TimeoutError:
@@ -856,6 +856,12 @@ def display_menu(
         elif choice == "7":
             password_manager.update_activity()
             handle_settings(password_manager)
+        elif choice == "8":
+            password_manager.update_activity()
+            password_manager.handle_archive_entry()
+        elif choice == "9":
+            password_manager.update_activity()
+            password_manager.handle_view_archived_entries()
         else:
             print(colored("Invalid choice. Please select a valid option.", "red"))
 

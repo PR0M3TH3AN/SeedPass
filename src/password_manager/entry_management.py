@@ -630,9 +630,17 @@ class EntryManager:
         self.modify_entry(index, archived=False)
 
     def list_entries(
-        self, sort_by: str = "index", filter_kind: str | None = None
+        self,
+        sort_by: str = "index",
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """List entries in the index with optional sorting and filtering."""
+        """List entries in the index with optional sorting and filtering.
+
+        By default archived entries are omitted unless ``include_archived`` is
+        ``True``.
+        """
         try:
             data = self.vault.load_index()
             entries_data = data.get("entries", {})
@@ -660,6 +668,10 @@ class EntryManager:
                     filter_kind is not None
                     and entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                     != filter_kind
+                ):
+                    continue
+                if not include_archived and entry.get(
+                    "archived", entry.get("blacklisted", False)
                 ):
                     continue
                 filtered_items.append((int(idx_str), entry))
@@ -708,7 +720,7 @@ class EntryManager:
                     print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
                     print(
                         colored(
-                            f"  Blacklisted: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
+                            f"  Archived: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
                             "cyan",
                         )
                     )
@@ -880,11 +892,19 @@ class EntryManager:
             )
 
     def list_all_entries(
-        self, sort_by: str = "index", filter_kind: str | None = None
+        self,
+        sort_by: str = "index",
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> None:
         """Display all entries using :meth:`list_entries`."""
         try:
-            entries = self.list_entries(sort_by=sort_by, filter_kind=filter_kind)
+            entries = self.list_entries(
+                sort_by=sort_by,
+                filter_kind=filter_kind,
+                include_archived=include_archived,
+            )
             if not entries:
                 print(colored("No entries to display.", "yellow"))
                 return
@@ -896,9 +916,7 @@ class EntryManager:
                 print(colored(f"  Label: {website}", "cyan"))
                 print(colored(f"  Username: {username or 'N/A'}", "cyan"))
                 print(colored(f"  URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(f"  Blacklisted: {'Yes' if blacklisted else 'No'}", "cyan")
-                )
+                print(colored(f"  Archived: {'Yes' if blacklisted else 'No'}", "cyan"))
                 print("-" * 40)
 
         except Exception as e:
@@ -907,7 +925,10 @@ class EntryManager:
             return
 
     def get_entry_summaries(
-        self, filter_kind: str | None = None
+        self,
+        filter_kind: str | None = None,
+        *,
+        include_archived: bool = False,
     ) -> list[tuple[int, str, str]]:
         """Return a list of entry index, type, and display labels."""
         try:
@@ -918,6 +939,10 @@ class EntryManager:
             for idx_str, entry in entries_data.items():
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
                 if filter_kind and etype != filter_kind:
+                    continue
+                if not include_archived and entry.get(
+                    "archived", entry.get("blacklisted", False)
+                ):
                     continue
                 if etype == EntryType.PASSWORD.value:
                     label = entry.get("label", entry.get("website", ""))
