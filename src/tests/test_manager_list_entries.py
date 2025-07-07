@@ -74,7 +74,7 @@ def test_list_entries_show_details(monkeypatch, capsys):
             lambda *a, **k: "b",
         )
 
-        inputs = iter(["1", "0"])
+        inputs = iter(["1", "0", "n"])
         monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
 
         pm.handle_list_entries()
