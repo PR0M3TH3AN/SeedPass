@@ -81,7 +81,7 @@ The following table provides a quick reference to all available advanced CLI com
 | Add Notes to an Entry                     | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
 | Add Tags to an Entry                      | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
 | Add Key/Value entry                      | `add-kv`             | `-KV`      | `--add-kv`                      | `seedpass add-kv --label "API" --value "secret"`
-| Add Managed Account                      | `add-managed`        | `-AM`      | `--add-managed`                 | `seedpass add-managed --label "Account" --words 12`
+| Add Managed Account                      | `add-managed`        | `-AM`      | `--add-managed`                 | `seedpass add-managed --label "Account"`
 | Search by Tag or Title                    | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
 | Automatically Post Deltas After Edit      | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable` |
 | Initial Setup Prompt for Seed Generation/Import | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
@@ -612,9 +612,11 @@ seedpass add-kv --label "API" --value "secret" --notes "Service token"
 **Description:**
 Creates a managed account derived from the current seed profile. The child profile is stored in `.seedpass/<parent_fp>/accounts/<child_fp>`.
 
+Managed account seeds are always **12 words** long.
+
 **Usage Example:**
 ```bash
-seedpass add-managed --label "Account" --words 12
+seedpass add-managed --label "Account"
 ```
 
 When loaded, the breadcrumb shows `<parent_fp> > Managed Account > <child_fp>`. Press Enter on the main menu to return to the parent profile.

@@ -29,7 +29,7 @@ def test_add_and_get_managed_account_seed():
         tmp_path = Path(tmpdir)
         mgr = setup_mgr(tmp_path)
 
-        idx = mgr.add_managed_account("acct", TEST_SEED, word_count=12)
+        idx = mgr.add_managed_account("acct", TEST_SEED)
         entry = mgr.retrieve_entry(idx)
         assert entry["type"] == "managed_account"
         assert entry["kind"] == "managed_account"
