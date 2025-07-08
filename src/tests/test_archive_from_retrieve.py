@@ -40,7 +40,7 @@ def test_archive_entry_from_retrieve(monkeypatch):
 
         index = entry_mgr.add_entry("example.com", 8)
 
-        inputs = iter([str(index), "y"])
+        inputs = iter([str(index), "a", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
 
         pm.handle_retrieve_entry()
@@ -72,7 +72,7 @@ def test_restore_entry_from_retrieve(monkeypatch):
         index = entry_mgr.add_entry("example.com", 8)
         entry_mgr.archive_entry(index)
 
-        inputs = iter([str(index), "y"])
+        inputs = iter([str(index), "u", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
 
         pm.handle_retrieve_entry()

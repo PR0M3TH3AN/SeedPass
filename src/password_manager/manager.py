@@ -1542,6 +1542,93 @@ class PasswordManager:
             self.is_dirty = True
             self.last_update = time.time()
 
+    def _entry_actions_menu(self, index: int, entry: dict) -> None:
+        """Provide actions for a retrieved entry."""
+        while True:
+            archived = entry.get("archived", entry.get("blacklisted", False))
+            print(colored("\n[+] Entry Actions:", "green"))
+            if archived:
+                print(colored("U. Unarchive", "cyan"))
+            else:
+                print(colored("A. Archive", "cyan"))
+            print(colored("N. Add Note", "cyan"))
+            print(colored("C. Add Custom Field", "cyan"))
+            print(colored("H. Add Hidden Field", "cyan"))
+            print(colored("E. Edit", "cyan"))
+
+            choice = (
+                input("Select an action or press Enter to return: ").strip().lower()
+            )
+            if not choice:
+                break
+            if choice == "a" and not archived:
+                self.entry_manager.archive_entry(index)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif choice == "u" and archived:
+                self.entry_manager.restore_entry(index)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif choice == "n":
+                note = input("Enter note: ").strip()
+                if note:
+                    notes = entry.get("notes", "")
+                    notes = f"{notes}\n{note}" if notes else note
+                    self.entry_manager.modify_entry(index, notes=notes)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif choice in {"c", "h"}:
+                label = input("  Field label: ").strip()
+                if not label:
+                    print(colored("Field label cannot be empty.", "red"))
+                else:
+                    value = input("  Field value: ").strip()
+                    hidden = choice == "h"
+                    custom_fields = entry.get("custom_fields", [])
+                    custom_fields.append(
+                        {"label": label, "value": value, "is_hidden": hidden}
+                    )
+                    self.entry_manager.modify_entry(index, custom_fields=custom_fields)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif choice == "e":
+                self._entry_edit_menu(index, entry)
+            else:
+                print(colored("Invalid choice.", "red"))
+            entry = self.entry_manager.retrieve_entry(index) or entry
+
+    def _entry_edit_menu(self, index: int, entry: dict) -> None:
+        """Sub-menu for editing common entry fields."""
+        entry_type = entry.get("type", EntryType.PASSWORD.value)
+        while True:
+            print(colored("\n[+] Edit Menu:", "green"))
+            print(colored("L. Edit Label", "cyan"))
+            if entry_type == EntryType.PASSWORD.value:
+                print(colored("U. Edit Username", "cyan"))
+                print(colored("R. Edit URL", "cyan"))
+            choice = input("Select option or press Enter to go back: ").strip().lower()
+            if not choice:
+                break
+            if choice == "l":
+                new_label = input("New label: ").strip()
+                if new_label:
+                    self.entry_manager.modify_entry(index, label=new_label)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif entry_type == EntryType.PASSWORD.value and choice == "u":
+                new_username = input("New username: ").strip()
+                self.entry_manager.modify_entry(index, username=new_username)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif entry_type == EntryType.PASSWORD.value and choice == "r":
+                new_url = input("New URL: ").strip()
+                self.entry_manager.modify_entry(index, url=new_url)
+                self.is_dirty = True
+                self.last_update = time.time()
+            else:
+                print(colored("Invalid choice.", "red"))
+            entry = self.entry_manager.retrieve_entry(index) or entry
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
@@ -1625,7 +1712,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.SSH.value:
@@ -1661,7 +1748,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.SEED.value:
@@ -1712,7 +1799,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.PGP.value:
@@ -1746,7 +1833,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.NOSTR.value:
@@ -1780,7 +1867,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
 
@@ -1837,7 +1924,7 @@ class PasswordManager:
                                     )
                                 else:
                                     print(colored(f"  {f_label}: {f_value}", "cyan"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.MANAGED_ACCOUNT.value:
@@ -1881,13 +1968,13 @@ class PasswordManager:
                         from password_manager.seedqr import encode_seedqr
 
                         TotpManager.print_qr_code(encode_seedqr(seed))
-                    self._prompt_toggle_archive(entry, index)
+                    self._entry_actions_menu(index, entry)
                     pause()
                     return
                 if action == "l":
                     self.load_managed_account(index)
                     return
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
 
@@ -1975,7 +2062,7 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
-            self._prompt_toggle_archive(entry, index)
+            self._entry_actions_menu(index, entry)
             pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
@@ -2625,7 +2712,7 @@ class PasswordManager:
                         .lower()
                     )
                     if action == "v":
-                        self.display_entry_details(entry_index)
+                        self.show_entry_details_by_index(entry_index)
                         pause()
                     elif action == "r":
                         self.entry_manager.restore_entry(entry_index)

@@ -57,7 +57,7 @@ def test_manager_workflow(monkeypatch):
                 "n",  # add custom field
                 "",  # length (default)
                 "0",  # retrieve index
-                "n",  # archive entry prompt
+                "",  # no action in entry menu
                 "0",  # modify index
                 "",  # new label
                 "user",  # new username
