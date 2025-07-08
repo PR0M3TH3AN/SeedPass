@@ -12,12 +12,22 @@ def clear_screen() -> None:
 
 
 def clear_and_print_fingerprint(
-    fingerprint: str | None, breadcrumb: str | None = None
+    fingerprint: str | None = None,
+    breadcrumb: str | None = None,
+    parent_fingerprint: str | None = None,
+    child_fingerprint: str | None = None,
 ) -> None:
     """Clear the screen and optionally display the current fingerprint and path."""
     clear_screen()
-    if fingerprint:
-        header = f"Seed Profile: {fingerprint}"
+    header_fp = None
+    if parent_fingerprint and child_fingerprint:
+        header_fp = f"{parent_fingerprint} > Managed Account > {child_fingerprint}"
+    elif fingerprint:
+        header_fp = fingerprint
+    elif parent_fingerprint or child_fingerprint:
+        header_fp = parent_fingerprint or child_fingerprint
+    if header_fp:
+        header = f"Seed Profile: {header_fp}"
         if breadcrumb:
             header += f" > {breadcrumb}"
         print(colored(header, "green"))
