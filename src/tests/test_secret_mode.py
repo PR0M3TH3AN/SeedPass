@@ -41,7 +41,7 @@ def test_password_retrieve_secret_mode(monkeypatch, capsys):
         pm, entry_mgr = setup_pm(tmp)
         entry_mgr.add_entry("example", 8)
 
-        inputs = iter(["0", "n"])
+        inputs = iter(["0", "n", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         called = []
         monkeypatch.setattr(
@@ -90,7 +90,7 @@ def test_password_retrieve_no_secret_mode(monkeypatch, capsys):
         pm.secret_mode_enabled = False
         entry_mgr.add_entry("example", 8)
 
-        inputs = iter(["0", "n"])
+        inputs = iter(["0", "n", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         called = []
         monkeypatch.setattr(

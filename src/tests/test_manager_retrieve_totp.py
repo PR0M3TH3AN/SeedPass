@@ -43,7 +43,7 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
 
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        inputs = iter(["0", "n"])
+        inputs = iter(["0", "n", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
         monkeypatch.setattr(
