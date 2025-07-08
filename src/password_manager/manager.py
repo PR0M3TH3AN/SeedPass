@@ -2476,6 +2476,7 @@ class PasswordManager:
                 print(color_text("6. Nostr Key Pair", "menu"))
                 print(color_text("7. PGP", "menu"))
                 print(color_text("8. Key/Value", "menu"))
+                print(color_text("9. Managed Account", "menu"))
                 choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
                     filter_kind = None
@@ -2493,6 +2494,8 @@ class PasswordManager:
                     filter_kind = EntryType.PGP.value
                 elif choice == "8":
                     filter_kind = EntryType.KEY_VALUE.value
+                elif choice == "9":
+                    filter_kind = EntryType.MANAGED_ACCOUNT.value
                 elif not choice:
                     return
                 else:
