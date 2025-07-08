@@ -588,7 +588,8 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            getattr(password_manager, "header_fingerprint", None)
+            or getattr(password_manager, "current_fingerprint", None),
             "Main Menu > Settings > Profiles",
         )
         print(color_text("\nProfiles:", "menu"))
@@ -627,7 +628,8 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
 
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            getattr(password_manager, "header_fingerprint", None)
+            or getattr(password_manager, "current_fingerprint", None),
             "Main Menu > Settings > Nostr",
         )
         print(color_text("\nNostr Settings:", "menu"))
@@ -664,7 +666,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            getattr(password_manager, "header_fingerprint", None)
+            or getattr(password_manager, "current_fingerprint", None),
             "Main Menu > Settings",
         )
         print(color_text("\nSettings:", "menu"))
@@ -758,7 +761,8 @@ def display_menu(
         pause()
     while True:
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            getattr(password_manager, "header_fingerprint", None)
+            or getattr(password_manager, "current_fingerprint", None),
             "Main Menu",
         )
         if time.time() - password_manager.last_activity > inactivity_timeout:
@@ -790,6 +794,9 @@ def display_menu(
             continue
         password_manager.update_activity()
         if not choice:
+            if getattr(password_manager, "profile_stack", []):
+                password_manager.exit_managed_account()
+                continue
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()
@@ -797,7 +804,8 @@ def display_menu(
         if choice == "1":
             while True:
                 clear_and_print_fingerprint(
-                    getattr(password_manager, "current_fingerprint", None),
+                    getattr(password_manager, "header_fingerprint", None)
+                    or getattr(password_manager, "current_fingerprint", None),
                     "Main Menu > Add Entry",
                 )
                 print(color_text("\nAdd Entry:", "menu"))
@@ -808,6 +816,7 @@ def display_menu(
                 print(color_text("5. Nostr Key Pair", "menu"))
                 print(color_text("6. PGP Key", "menu"))
                 print(color_text("7. Key/Value", "menu"))
+                print(color_text("8. Managed Account", "menu"))
                 sub_choice = input(
                     "Select entry type or press Enter to go back: "
                 ).strip()
@@ -833,6 +842,9 @@ def display_menu(
                 elif sub_choice == "7":
                     password_manager.handle_add_key_value()
                     break
+                elif sub_choice == "8":
+                    password_manager.handle_add_managed_account()
+                    break
                 elif not sub_choice:
                     break
                 else:
@@ -841,7 +853,8 @@ def display_menu(
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
             clear_and_print_fingerprint(
-                getattr(password_manager, "current_fingerprint", None),
+                getattr(password_manager, "header_fingerprint", None)
+                or getattr(password_manager, "current_fingerprint", None),
                 "Main Menu",
             )
         elif choice == "3":
