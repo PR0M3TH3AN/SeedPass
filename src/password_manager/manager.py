@@ -57,6 +57,7 @@ from utils.terminal_utils import (
     pause,
     clear_and_print_fingerprint,
 )
+from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
@@ -124,6 +125,7 @@ class PasswordManager:
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
+        self.profile_stack: list[tuple[str, Path, str]] = []
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -458,6 +460,54 @@ class PasswordManager:
             logging.error(f"Error during seed profile switching: {e}", exc_info=True)
             print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
             return False  # Return False to indicate failure
+
+    def load_managed_account(self, index: int) -> None:
+        """Load a managed account derived from the current seed profile."""
+        if not self.entry_manager or not self.parent_seed:
+            raise ValueError("Manager not initialized")
+
+        seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        managed_fp = generate_fingerprint(seed)
+        account_dir = self.fingerprint_dir / "accounts" / managed_fp
+        account_dir.mkdir(parents=True, exist_ok=True)
+
+        self.profile_stack.append(
+            (self.current_fingerprint, self.fingerprint_dir, self.parent_seed)
+        )
+
+        self.current_fingerprint = managed_fp
+        self.fingerprint_dir = account_dir
+        self.parent_seed = seed
+
+        key = derive_index_key(seed)
+        self.encryption_manager = EncryptionManager(key, account_dir)
+        self.vault = Vault(self.encryption_manager, account_dir)
+
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
+        self.sync_index_from_nostr_if_missing()
+
+    def exit_managed_account(self) -> None:
+        """Return to the parent seed profile if one is on the stack."""
+        if not self.profile_stack:
+            return
+        fp, path, seed = self.profile_stack.pop()
+
+        self.current_fingerprint = fp
+        self.fingerprint_dir = path
+        self.parent_seed = seed
+
+        key = derive_index_key(seed)
+        self.encryption_manager = EncryptionManager(key, path)
+        self.vault = Vault(self.encryption_manager, path)
+
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
+        self.sync_index_from_nostr()
 
     def handle_existing_seed(self) -> None:
         """
