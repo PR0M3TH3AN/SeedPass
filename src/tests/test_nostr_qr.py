@@ -21,7 +21,7 @@ class FakeNostrClient:
         return None, "abcd"
 
 
-def test_show_qr_for_nostr_keys(monkeypatch):
+def test_no_qr_for_nostr_keys(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -46,11 +46,6 @@ def test_show_qr_for_nostr_keys(monkeypatch):
 
         inputs = iter([str(idx), "n", "", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
-        responses = iter([True, False])
-        monkeypatch.setattr(
-            "password_manager.manager.confirm_action",
-            lambda *_a, **_k: next(responses),
-        )
         called = []
         monkeypatch.setattr(
             "password_manager.manager.TotpManager.print_qr_code",
@@ -58,4 +53,4 @@ def test_show_qr_for_nostr_keys(monkeypatch):
         )
 
         pm.handle_retrieve_entry()
-        assert called == [f"nostr:{npub}"]
+        assert called == []
