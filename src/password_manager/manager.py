@@ -185,6 +185,16 @@ class PasswordManager:
             header += f" > Managed Account > {fp}"
         return header
 
+    @property
+    def header_fingerprint_args(self) -> tuple[str | None, str | None, str | None]:
+        """Return fingerprint parameters for header display."""
+        if not getattr(self, "current_fingerprint", None):
+            return (None, None, None)
+        if not self.profile_stack:
+            return (self.current_fingerprint, None, None)
+        parent_fp = self.profile_stack[-1][0]
+        return (None, parent_fp, self.current_fingerprint)
+
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
         self.last_activity = time.time()
@@ -956,9 +966,12 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Password",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
@@ -1046,9 +1059,12 @@ class PasswordManager:
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > 2FA (TOTP)",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             while True:
                 print("\nAdd TOTP:")
@@ -1153,9 +1169,12 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > SSH Key",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1198,9 +1217,12 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Seed Phrase",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1257,9 +1279,12 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > PGP Key",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1313,9 +1338,12 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Nostr Key Pair",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1360,9 +1388,12 @@ class PasswordManager:
     def handle_add_key_value(self) -> None:
         """Add a generic key/value entry."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Key/Value",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1422,9 +1453,12 @@ class PasswordManager:
     def handle_add_managed_account(self) -> None:
         """Add a managed account seed entry."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Managed Account",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1519,9 +1553,12 @@ class PasswordManager:
         and displaying the corresponding password and associated details.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Retrieve Entry",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             index_input = input(
                 "Enter the index number of the entry to retrieve: "
@@ -1956,9 +1993,12 @@ class PasswordManager:
         and new details to update.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Modify Entry",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             index_input = input(
                 "Enter the index number of the entry to modify: "
@@ -2284,9 +2324,12 @@ class PasswordManager:
     def handle_search_entries(self) -> None:
         """Prompt for a query, list matches and optionally show details."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Search Entries",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             query = input("Enter search string: ").strip()
             if not query:
@@ -2301,9 +2344,12 @@ class PasswordManager:
                 return
 
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "header_fingerprint", None),
+                    fp,
                     "Main Menu > Search Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Search Results:\n", "green"))
                 for idx, label, username, _url, _b in results:
@@ -2414,9 +2460,12 @@ class PasswordManager:
         """List entries and optionally show details."""
         try:
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "header_fingerprint", None),
+                    fp,
                     "Main Menu > List Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(color_text("\nList Entries:", "menu"))
                 print(color_text("1. All", "menu"))
@@ -2456,9 +2505,12 @@ class PasswordManager:
                 if not summaries:
                     continue
                 while True:
+                    fp, parent_fp, child_fp = self.header_fingerprint_args
                     clear_and_print_fingerprint(
-                        getattr(self, "header_fingerprint", None),
+                        fp,
                         "Main Menu > List Entries",
+                        parent_fingerprint=parent_fp,
+                        child_fingerprint=child_fp,
                     )
                     print(colored("\n[+] Entries:\n", "green"))
                     for idx, etype, label in summaries:
@@ -2545,9 +2597,12 @@ class PasswordManager:
                 pause()
                 return
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "header_fingerprint", None),
+                    fp,
                     "Main Menu > Archived Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Archived Entries:\n", "green"))
                 for idx, label, _username, _url, _ in archived:
@@ -2599,9 +2654,12 @@ class PasswordManager:
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > 2FA Codes",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
@@ -2622,9 +2680,12 @@ class PasswordManager:
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "header_fingerprint", None),
+                    fp,
                     "Main Menu > 2FA Codes",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("Press Enter to return to the menu.", "cyan"))
                 generated = [t for t in totp_list if not t[3]]
@@ -2680,9 +2741,12 @@ class PasswordManager:
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Verify Script Checksum",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             current_checksum = calculate_checksum(__file__)
             try:
@@ -2718,9 +2782,12 @@ class PasswordManager:
             print(colored("Operation cancelled.", "yellow"))
             return
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Generate Script Checksum",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             script_path = Path(__file__).resolve()
             if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
@@ -2831,9 +2898,12 @@ class PasswordManager:
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Export database",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             path = export_backup(
                 self.vault,
@@ -2851,9 +2921,12 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Import database",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             import_backup(
                 self.vault,
@@ -2869,9 +2942,12 @@ class PasswordManager:
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Export 2FA codes",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
@@ -2932,9 +3008,12 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "header_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Backup Parent Seed",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
             print(
