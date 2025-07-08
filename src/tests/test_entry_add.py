@@ -54,6 +54,7 @@ def test_add_and_retrieve_entry():
         ("add_ssh_key", "ssh"),
         ("add_seed", "seed"),
         ("add_key_value", "key_value"),
+        ("add_managed_account", "managed_account"),
     ],
 )
 def test_round_trip_entry_types(method, expected_type):
@@ -75,6 +76,8 @@ def test_round_trip_entry_types(method, expected_type):
                 index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
             elif method == "add_seed":
                 index = entry_mgr.add_seed("seed", TEST_SEED)
+            elif method == "add_managed_account":
+                index = entry_mgr.add_managed_account("acct", TEST_SEED)
             else:
                 index = getattr(entry_mgr, method)()
 
@@ -113,6 +116,7 @@ def test_legacy_entry_defaults_to_password():
         ("add_nostr_key", ("nostr",)),
         ("add_seed", ("seed", TEST_SEED)),
         ("add_key_value", ("label", "val")),
+        ("add_managed_account", ("acct", TEST_SEED)),
     ],
 )
 def test_add_default_archived_false(method, args):
