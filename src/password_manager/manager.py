@@ -1623,6 +1623,7 @@ class PasswordManager:
             print(colored("C. Add Custom Field", "cyan"))
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
+            print(colored("T. Add Tags", "cyan"))
 
             choice = (
                 input("Select an action or press Enter to return: ").strip().lower()
@@ -1657,6 +1658,15 @@ class PasswordManager:
                         {"label": label, "value": value, "is_hidden": hidden}
                     )
                     self.entry_manager.modify_entry(index, custom_fields=custom_fields)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif choice == "t":
+                tags_input = input("Enter tags (comma-separated): ").strip()
+                if tags_input:
+                    new_tags = [t.strip() for t in tags_input.split(",") if t.strip()]
+                    existing_tags = entry.get("tags", [])
+                    tags = list({*existing_tags, *new_tags})
+                    self.entry_manager.modify_entry(index, tags=tags)
                     self.is_dirty = True
                     self.last_update = time.time()
             elif choice == "e":
