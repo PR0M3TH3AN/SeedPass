@@ -31,6 +31,7 @@ def test_nostr_key_determinism():
             "label": "main",
             "notes": "",
             "archived": False,
+            "tags": [],
         }
 
         npub1, nsec1 = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)

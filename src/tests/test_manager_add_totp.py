@@ -48,6 +48,7 @@ def test_handle_add_totp(monkeypatch, capsys):
                 "",  # period
                 "",  # digits
                 "",  # notes
+                "",  # tags
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
@@ -66,5 +67,6 @@ def test_handle_add_totp(monkeypatch, capsys):
             "digits": 6,
             "archived": False,
             "notes": "",
+            "tags": [],
         }
         assert "ID 0" in out

@@ -54,6 +54,7 @@ def test_manager_workflow(monkeypatch):
                 "",  # username
                 "",  # url
                 "",  # notes
+                "",  # tags
                 "n",  # add custom field
                 "",  # length (default)
                 "0",  # retrieve index
@@ -65,6 +66,7 @@ def test_manager_workflow(monkeypatch):
                 "",  # archive status
                 "",  # new notes
                 "n",  # edit custom fields
+                "",  # tags keep
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
