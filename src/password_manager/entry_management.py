@@ -27,6 +27,7 @@ from termcolor import colored
 from password_manager.migrations import LATEST_VERSION
 from password_manager.entry_types import EntryType
 from password_manager.totp import TotpManager
+from utils.fingerprint import generate_fingerprint
 
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
@@ -471,6 +472,75 @@ class EntryManager:
         bip85 = BIP85(seed_bytes)
 
         words = int(entry.get("word_count", entry.get("words", 24)))
+        seed_index = int(entry.get("index", index))
+        return derive_seed_phrase(bip85, seed_index, words)
+
+    def add_managed_account(
+        self,
+        label: str,
+        parent_seed: str,
+        *,
+        index: int | None = None,
+        word_count: int = 24,
+        notes: str = "",
+        archived: bool = False,
+    ) -> int:
+        """Add a new managed account seed entry."""
+
+        if index is None:
+            index = self.get_next_index()
+
+        from password_manager.password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        seed_phrase = derive_seed_phrase(bip85, index, word_count)
+        fingerprint = generate_fingerprint(seed_phrase)
+
+        account_dir = self.fingerprint_dir / "accounts" / fingerprint
+        account_dir.mkdir(parents=True, exist_ok=True)
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.MANAGED_ACCOUNT.value,
+            "kind": EntryType.MANAGED_ACCOUNT.value,
+            "index": index,
+            "label": label,
+            "word_count": word_count,
+            "notes": notes,
+            "fingerprint": fingerprint,
+            "archived": archived,
+        }
+
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def get_managed_account_seed(self, index: int, parent_seed: str) -> str:
+        """Return the seed phrase for a managed account entry."""
+
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.MANAGED_ACCOUNT.value
+            and kind != EntryType.MANAGED_ACCOUNT.value
+        ):
+            raise ValueError("Entry is not a managed account entry")
+
+        from password_manager.password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        words = int(entry.get("word_count", 24))
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
