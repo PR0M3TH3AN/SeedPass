@@ -1624,6 +1624,7 @@ class PasswordManager:
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
             print(colored("T. Add Tags", "cyan"))
+            print(colored("Q. Show QR codes", "cyan"))
 
             choice = (
                 input("Select an action or press Enter to return: ").strip().lower()
@@ -1671,6 +1672,8 @@ class PasswordManager:
                     self.last_update = time.time()
             elif choice == "e":
                 self._entry_edit_menu(index, entry)
+            elif choice == "q":
+                self._entry_qr_menu(index, entry)
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
@@ -1724,6 +1727,73 @@ class PasswordManager:
                     print(colored("Invalid digits value.", "red"))
             else:
                 print(colored("Invalid choice.", "red"))
+            entry = self.entry_manager.retrieve_entry(index) or entry
+
+    def _entry_qr_menu(self, index: int, entry: dict) -> None:
+        """Sub-menu for displaying QR codes related to ``entry``."""
+        entry_type = entry.get("type", EntryType.PASSWORD.value)
+
+        while True:
+            print(colored("\n[+] QR Codes:", "green"))
+            options_available = False
+
+            if entry_type == EntryType.TOTP.value:
+                print(colored("O. Show otpauth URI", "cyan"))
+                options_available = True
+            elif entry_type == EntryType.NOSTR.value:
+                print(colored("N. Show npub", "cyan"))
+                print(colored("P. Show nsec", "cyan"))
+                options_available = True
+            elif entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
+                print(colored("S. Show seed", "cyan"))
+                options_available = True
+
+            if not options_available:
+                print(colored("No QR codes available for this entry.", "yellow"))
+                pause()
+                return
+
+            choice = input("Select option or press Enter to go back: ").strip().lower()
+            if not choice:
+                break
+
+            if entry_type == EntryType.TOTP.value and choice == "o":
+                label = entry.get("label", "")
+                period = int(entry.get("period", 30))
+                digits = int(entry.get("digits", 6))
+                if "secret" in entry:
+                    secret = entry["secret"]
+                else:
+                    totp_index = int(entry.get("index", index))
+                    secret = TotpManager.derive_secret(self.parent_seed, totp_index)
+                uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
+                TotpManager.print_qr_code(uri)
+            elif entry_type == EntryType.NOSTR.value:
+                npub, nsec = self.entry_manager.get_nostr_key_pair(
+                    index, self.parent_seed
+                )
+                if choice == "n":
+                    TotpManager.print_qr_code(f"nostr:{npub}")
+                elif choice == "p":
+                    TotpManager.print_qr_code(nsec)
+                else:
+                    print(colored("Invalid choice.", "red"))
+            elif (
+                entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}
+                and choice == "s"
+            ):
+                if entry_type == EntryType.SEED.value:
+                    seed = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                else:
+                    seed = self.entry_manager.get_managed_account_seed(
+                        index, self.parent_seed
+                    )
+                from password_manager.seedqr import encode_seedqr
+
+                TotpManager.print_qr_code(encode_seedqr(seed))
+            else:
+                print(colored("Invalid choice.", "red"))
+
             entry = self.entry_manager.retrieve_entry(index) or entry
 
     def handle_retrieve_entry(self) -> None:
