@@ -279,6 +279,7 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
   keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
   it, while the `nsec` QR is shown only after a security warning.
 - **Key/Value** – store a simple key and value for miscellaneous secrets or configuration data.
+- **Managed Account** – derive a child seed under the current profile. Loading a managed account switches to a nested profile and the header shows `<parent_fp> > Managed Account > <child_fp>`. Press Enter on the main menu to return to the parent profile.
 
 The table below summarizes the extra fields stored for each entry type. Every
 entry includes a `label`, while only password entries track a `url`.
@@ -292,6 +293,7 @@ entry includes a `label`, while only password entries track a `url`.
 | PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
 | Nostr Key Pair| `index`, `archived`, optional `notes` |
 | Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields` |
+| Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes` |
 
 
 ### Managing Multiple Seeds
