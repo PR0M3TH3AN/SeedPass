@@ -481,11 +481,13 @@ class EntryManager:
         parent_seed: str,
         *,
         index: int | None = None,
-        word_count: int = 24,
         notes: str = "",
         archived: bool = False,
     ) -> int:
-        """Add a new managed account seed entry."""
+        """Add a new managed account seed entry.
+
+        Managed accounts always use a 12-word seed phrase.
+        """
 
         if index is None:
             index = self.get_next_index()
@@ -496,6 +498,8 @@ class EntryManager:
 
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
+
+        word_count = 12
 
         seed_phrase = derive_seed_phrase(bip85, index, word_count)
         fingerprint = generate_fingerprint(seed_phrase)
@@ -540,7 +544,7 @@ class EntryManager:
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        words = int(entry.get("word_count", 24))
+        words = int(entry.get("word_count", 12))
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 

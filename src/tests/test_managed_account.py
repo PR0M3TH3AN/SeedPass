@@ -26,7 +26,7 @@ def test_add_managed_account_fields_and_dir():
         tmp_path = Path(tmpdir)
         mgr = setup_entry_manager(tmp_path)
 
-        idx = mgr.add_managed_account("acct", TEST_SEED, word_count=12)
+        idx = mgr.add_managed_account("acct", TEST_SEED)
         entry = mgr.retrieve_entry(idx)
 
         assert entry["type"] == "managed_account"

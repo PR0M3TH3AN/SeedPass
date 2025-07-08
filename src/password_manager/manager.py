@@ -1464,14 +1464,9 @@ class PasswordManager:
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
-            words_input = input("Word count (12 or 24, default 24): ").strip()
             notes = input("Notes (optional): ").strip()
-            if words_input and words_input not in {"12", "24"}:
-                print(colored("Invalid word count. Choose 12 or 24.", "red"))
-                return
-            words = int(words_input) if words_input else 24
             index = self.entry_manager.add_managed_account(
-                label, self.parent_seed, word_count=words, notes=notes
+                label, self.parent_seed, notes=notes
             )
             seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
             self.is_dirty = True
