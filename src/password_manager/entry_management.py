@@ -533,7 +533,11 @@ class EntryManager:
 
             if entry:
                 etype = entry.get("type", entry.get("kind"))
-                if etype in (EntryType.PASSWORD.value, EntryType.KEY_VALUE.value):
+                if etype in (
+                    EntryType.PASSWORD.value,
+                    EntryType.KEY_VALUE.value,
+                    EntryType.MANAGED_ACCOUNT.value,
+                ):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
@@ -620,7 +624,10 @@ class EntryManager:
                     if url is not None:
                         entry["url"] = url
                         logger.debug(f"Updated URL to '{url}' for index {index}.")
-                elif entry_type == EntryType.KEY_VALUE.value:
+                elif entry_type in (
+                    EntryType.KEY_VALUE.value,
+                    EntryType.MANAGED_ACCOUNT.value,
+                ):
                     if value is not None:
                         entry["value"] = value
                         logger.debug(f"Updated value for index {index}.")
@@ -837,7 +844,7 @@ class EntryManager:
                             entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
-            elif etype == EntryType.KEY_VALUE.value:
+            elif etype in (EntryType.KEY_VALUE.value, EntryType.MANAGED_ACCOUNT.value):
                 value_field = str(entry.get("value", ""))
                 custom_fields = entry.get("custom_fields", [])
                 custom_match = any(

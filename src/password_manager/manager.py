@@ -1629,7 +1629,10 @@ class PasswordManager:
                 pause()
                 return
 
-            if entry_type == EntryType.KEY_VALUE.value:
+            if entry_type in (
+                EntryType.KEY_VALUE.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ):
                 label = entry.get("label", "")
                 value = entry.get("value", "")
                 notes = entry.get("notes", "")
@@ -1904,7 +1907,10 @@ class PasswordManager:
                     digits=new_digits,
                     custom_fields=custom_fields,
                 )
-            elif entry_type == EntryType.KEY_VALUE.value:
+            elif entry_type in (
+                EntryType.KEY_VALUE.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ):
                 label = entry.get("label", "")
                 value = entry.get("value", "")
                 blacklisted = entry.get("archived", False)
