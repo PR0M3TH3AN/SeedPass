@@ -267,9 +267,10 @@ When choosing **Add Entry**, you can now select from:
 1. From the main menu choose **Modify an Existing Entry** and enter the index of the 2FA code you want to edit.
 2. SeedPass will show the current label, period, digit count, and archived status.
 3. Enter new values or press **Enter** to keep the existing settings.
-4. The updated entry is saved back to your encrypted vault.
-5. Archived entries are hidden from lists but can be viewed or restored from the **List Archived** menu.
-6. When editing an archived entry you'll be prompted to restore it after saving your changes.
+4. When retrieving a 2FA entry you can press **E** to edit the label, period or digit count, or **A** to archive/unarchive it.
+5. The updated entry is saved back to your encrypted vault.
+6. Archived entries are hidden from lists but can be viewed or restored from the **List Archived** menu.
+7. When editing an archived entry you'll be prompted to restore it after saving your changes.
 
 ### Using Secret Mode
 

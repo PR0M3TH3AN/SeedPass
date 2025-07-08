@@ -1674,6 +1674,9 @@ class PasswordManager:
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
+            elif entry_type == EntryType.TOTP.value:
+                print(colored("P. Edit Period", "cyan"))
+                print(colored("D. Edit Digits", "cyan"))
             choice = input("Select option or press Enter to go back: ").strip().lower()
             if not choice:
                 break
@@ -1693,6 +1696,22 @@ class PasswordManager:
                 self.entry_manager.modify_entry(index, url=new_url)
                 self.is_dirty = True
                 self.last_update = time.time()
+            elif entry_type == EntryType.TOTP.value and choice == "p":
+                period_str = input("New period (seconds): ").strip()
+                if period_str.isdigit():
+                    self.entry_manager.modify_entry(index, period=int(period_str))
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                else:
+                    print(colored("Invalid period value.", "red"))
+            elif entry_type == EntryType.TOTP.value and choice == "d":
+                digits_str = input("New digits: ").strip()
+                if digits_str.isdigit():
+                    self.entry_manager.modify_entry(index, digits=int(digits_str))
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                else:
+                    print(colored("Invalid digits value.", "red"))
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
