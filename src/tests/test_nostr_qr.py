@@ -44,7 +44,7 @@ def test_show_qr_for_nostr_keys(monkeypatch):
         idx = entry_mgr.add_nostr_key("main")
         npub, _ = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
 
-        inputs = iter([str(idx), "n", ""])
+        inputs = iter([str(idx), "n", "", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         responses = iter([True, False])
         monkeypatch.setattr(
