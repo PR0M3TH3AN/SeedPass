@@ -252,6 +252,21 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 }
 ```
 
+#### 8. Managed Account
+
+```json
+{
+  "entry_num": 7,
+  "fingerprint": "a1b2c3d4",
+  "kind": "managed_account",
+  "data": {
+    "account": "alice@example.com",
+    "password": "<encrypted_password>"
+  },
+  "timestamp": "2024-04-27T12:41:56Z"
+}
+```
+
 The `key` field is purely descriptive, while `value` holds the sensitive string
 such as an API token. Notes and custom fields may also be included alongside the
 standard metadata.

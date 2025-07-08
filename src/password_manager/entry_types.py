@@ -14,3 +14,4 @@ class EntryType(str, Enum):
     PGP = "pgp"
     NOSTR = "nostr"
     KEY_VALUE = "key_value"
+    MANAGED_ACCOUNT = "managed_account"
