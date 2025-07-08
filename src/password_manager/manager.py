@@ -1730,71 +1730,57 @@ class PasswordManager:
             entry = self.entry_manager.retrieve_entry(index) or entry
 
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
-        """Sub-menu for displaying QR codes related to ``entry``."""
-        entry_type = entry.get("type", EntryType.PASSWORD.value)
+        """Display QR codes for the given ``entry``."""
 
-        while True:
-            print(colored("\n[+] QR Codes:", "green"))
-            options_available = False
+        entry_type = entry.get("type")
 
-            if entry_type == EntryType.TOTP.value:
-                print(colored("O. Show otpauth URI", "cyan"))
-                options_available = True
-            elif entry_type == EntryType.NOSTR.value:
-                print(colored("N. Show npub", "cyan"))
-                print(colored("P. Show nsec", "cyan"))
-                options_available = True
-            elif entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
-                print(colored("S. Show seed", "cyan"))
-                options_available = True
-
-            if not options_available:
-                print(colored("No QR codes available for this entry.", "yellow"))
-                pause()
-                return
-
-            choice = input("Select option or press Enter to go back: ").strip().lower()
-            if not choice:
-                break
-
-            if entry_type == EntryType.TOTP.value and choice == "o":
-                label = entry.get("label", "")
-                period = int(entry.get("period", 30))
-                digits = int(entry.get("digits", 6))
-                if "secret" in entry:
-                    secret = entry["secret"]
-                else:
-                    totp_index = int(entry.get("index", index))
-                    secret = TotpManager.derive_secret(self.parent_seed, totp_index)
-                uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
-                TotpManager.print_qr_code(uri)
-            elif entry_type == EntryType.NOSTR.value:
-                npub, nsec = self.entry_manager.get_nostr_key_pair(
-                    index, self.parent_seed
-                )
-                if choice == "n":
-                    TotpManager.print_qr_code(f"nostr:{npub}")
-                elif choice == "p":
-                    TotpManager.print_qr_code(nsec)
-                else:
-                    print(colored("Invalid choice.", "red"))
-            elif (
-                entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}
-                and choice == "s"
-            ):
+        try:
+            if entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
                 if entry_type == EntryType.SEED.value:
                     seed = self.entry_manager.get_seed_phrase(index, self.parent_seed)
                 else:
                     seed = self.entry_manager.get_managed_account_seed(
                         index, self.parent_seed
                     )
+
+                print(color_text(seed, "deterministic"))
                 from password_manager.seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(seed))
-            else:
-                print(colored("Invalid choice.", "red"))
+                return
 
-            entry = self.entry_manager.retrieve_entry(index) or entry
+            if entry_type == EntryType.NOSTR.value:
+                while True:
+                    print(colored("\n[+] QR Codes:", "green"))
+                    print(colored("P. Public key", "cyan"))
+                    print(colored("K. Private key", "cyan"))
+                    choice = (
+                        input("Select option or press Enter to return: ")
+                        .strip()
+                        .lower()
+                    )
+                    if not choice:
+                        break
+
+                    npub, nsec = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
+
+                    if choice == "p":
+                        print(colored(f"npub: {npub}", "cyan"))
+                        TotpManager.print_qr_code(f"nostr:{npub}")
+                    elif choice == "k":
+                        print(color_text(f"nsec: {nsec}", "deterministic"))
+                        TotpManager.print_qr_code(nsec)
+                    else:
+                        print(colored("Invalid choice.", "red"))
+                    entry = self.entry_manager.retrieve_entry(index) or entry
+                return
+
+            print(colored("No QR codes available for this entry.", "yellow"))
+        except Exception as e:  # pragma: no cover - best effort
+            logging.error(f"Error displaying QR menu: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display QR codes: {e}", "red"))
 
     def handle_retrieve_entry(self) -> None:
         """
