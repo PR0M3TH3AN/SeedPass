@@ -45,6 +45,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas.
 - **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
+- **Nested Managed Account Seeds:** SeedPass can derive nested managed account seeds.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
 - **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
