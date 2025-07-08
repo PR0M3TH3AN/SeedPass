@@ -53,6 +53,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
+- **Tagging Support:** Organize entries with optional tags and find them quickly via search.
 
 ## Prerequisites
 
@@ -172,6 +173,7 @@ seedpass import --file "~/seedpass_backup.json"
 
 # Quickly find or retrieve entries
 seedpass search "github"
+seedpass search --tags "work,personal"
 seedpass get "github"
 seedpass totp "email"
 # The code is printed and copied to your clipboard
@@ -295,14 +297,14 @@ entry includes a `label`, while only password entries track a `url`.
 
 | Entry Type    | Extra Fields |
 |---------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| Password      | `username`, `url`, `length`, `archived`, optional `notes`, optional `custom_fields` (may include hidden fields) |
-| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, `archived`, optional `notes` |
-| SSH Key       | `index`, `archived`, optional `notes` |
-| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes` |
-| PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
-| Nostr Key Pair| `index`, `archived`, optional `notes` |
-| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields` |
-| Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes` |
+| Password      | `username`, `url`, `length`, `archived`, optional `notes`, optional `custom_fields` (may include hidden fields), optional `tags` |
+| 2FA (TOTP)    | `index` or `secret`, `period`, `digits`, `archived`, optional `notes`, optional `tags` |
+| SSH Key       | `index`, `archived`, optional `notes`, optional `tags` |
+| Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes`, optional `tags` |
+| PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes`, optional `tags` |
+| Nostr Key Pair| `index`, `archived`, optional `notes`, optional `tags` |
+| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags` |
+| Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes`, optional `tags` |
 
 
 ### Managing Multiple Seeds
