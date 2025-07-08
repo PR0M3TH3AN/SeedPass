@@ -105,3 +105,26 @@ def test_search_no_results():
         entry_mgr.add_entry("Example.com", 12, "alice")
         result = entry_mgr.search_entries("missing")
         assert result == []
+
+
+def test_search_by_tag_password():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        idx = entry_mgr.add_entry("TaggedSite", 8, tags=["work"])
+
+        result = entry_mgr.search_entries("work")
+        assert result == [(idx, "TaggedSite", "", "", False)]
+
+
+def test_search_by_tag_totp():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        entry_mgr.add_totp("OTPAccount", TEST_SEED, tags=["mfa"])
+        idx = entry_mgr.search_entries("OTPAccount")[0][0]
+
+        result = entry_mgr.search_entries("mfa")
+        assert result == [(idx, "OTPAccount", None, None, False)]
