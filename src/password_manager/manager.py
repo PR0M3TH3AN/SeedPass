@@ -1944,10 +1944,7 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(phrase, "deterministic"))
-                    if confirm_action("Show Compact Seed QR? (Y/N): "):
-                        from password_manager.seedqr import encode_seedqr
-
-                        TotpManager.print_qr_code(encode_seedqr(phrase))
+                    # Removed QR code display prompt and output
                     if confirm_action("Show derived entropy as hex? (Y/N): "):
                         from local_bip85.bip85 import BIP85
                         from bip_utils import Bip39SeedGenerator
@@ -2023,12 +2020,7 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(f"nsec: {nsec}", "deterministic"))
-                    if confirm_action("Show QR code for npub? (Y/N): "):
-                        TotpManager.print_qr_code(f"nostr:{npub}")
-                    if confirm_action(
-                        "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
-                    ):
-                        TotpManager.print_qr_code(nsec)
+                    # QR code display removed for npub and nsec
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
                 except Exception as e:
@@ -2131,10 +2123,7 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(seed, "deterministic"))
-                    if confirm_action("Show Compact Seed QR? (Y/N): "):
-                        from password_manager.seedqr import encode_seedqr
-
-                        TotpManager.print_qr_code(encode_seedqr(seed))
+                    # QR code display removed for managed account seed
                     self._entry_actions_menu(index, entry)
                     pause()
                     return
