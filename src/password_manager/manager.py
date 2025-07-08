@@ -56,6 +56,7 @@ from utils.terminal_utils import (
     clear_screen,
     pause,
     clear_and_print_fingerprint,
+    clear_and_print_profile_chain,
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
@@ -168,6 +169,21 @@ class PasswordManager:
             self._parent_seed_secret = None
         else:
             self._parent_seed_secret = InMemorySecret(value.encode("utf-8"))
+
+    @property
+    def header_fingerprint(self) -> str | None:
+        """Return the fingerprint chain for header display."""
+        if not getattr(self, "current_fingerprint", None):
+            return None
+        if not self.profile_stack:
+            return self.current_fingerprint
+        chain = [fp for fp, _path, _seed in self.profile_stack] + [
+            self.current_fingerprint
+        ]
+        header = chain[0]
+        for fp in chain[1:]:
+            header += f" > Managed Account > {fp}"
+        return header
 
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
@@ -941,7 +957,7 @@ class PasswordManager:
     def handle_add_password(self) -> None:
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > Password",
             )
             website_name = input("Enter the label or website name: ").strip()
@@ -1031,7 +1047,7 @@ class PasswordManager:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > 2FA (TOTP)",
             )
             while True:
@@ -1138,7 +1154,7 @@ class PasswordManager:
         """Add an SSH key pair entry and display the derived keys."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > SSH Key",
             )
             label = input("Label: ").strip()
@@ -1183,7 +1199,7 @@ class PasswordManager:
         """Add a derived BIP-39 seed phrase entry."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > Seed Phrase",
             )
             label = input("Label: ").strip()
@@ -1242,7 +1258,7 @@ class PasswordManager:
         """Add a PGP key entry and display the generated key."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > PGP Key",
             )
             label = input("Label: ").strip()
@@ -1298,7 +1314,7 @@ class PasswordManager:
         """Add a Nostr key entry and display the derived keys."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > Nostr Key Pair",
             )
             label = input("Label: ").strip()
@@ -1345,7 +1361,7 @@ class PasswordManager:
         """Add a generic key/value entry."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Add Entry > Key/Value",
             )
             label = input("Label: ").strip()
@@ -1403,6 +1419,63 @@ class PasswordManager:
             print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
             pause()
 
+    def handle_add_managed_account(self) -> None:
+        """Add a managed account seed entry."""
+        try:
+            clear_and_print_fingerprint(
+                getattr(self, "header_fingerprint", None),
+                "Main Menu > Add Entry > Managed Account",
+            )
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
+            words_input = input("Word count (12 or 24, default 24): ").strip()
+            notes = input("Notes (optional): ").strip()
+            if words_input and words_input not in {"12", "24"}:
+                print(colored("Invalid word count. Choose 12 or 24.", "red"))
+                return
+            words = int(words_input) if words_input else 24
+            index = self.entry_manager.add_managed_account(
+                label, self.parent_seed, word_count=words, notes=notes
+            )
+            seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(
+                colored(
+                    f"\n[+] Managed account '{label}' added with ID {index}.\n",
+                    "green",
+                )
+            )
+            if confirm_action("Reveal seed now? (y/N): "):
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(seed, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Seed copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(seed, "deterministic"))
+                if confirm_action("Show Compact Seed QR? (Y/N): "):
+                    from password_manager.seedqr import encode_seedqr
+
+                    TotpManager.print_qr_code(encode_seedqr(seed))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+            pause()
+        except Exception as e:
+            logging.error(f"Error during managed account setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add managed account: {e}", "red"))
+            pause()
+
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details using :meth:`handle_retrieve_entry` for the
         given index without prompting for it again."""
@@ -1447,7 +1520,7 @@ class PasswordManager:
         """
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Retrieve Entry",
             )
             index_input = input(
@@ -1679,10 +1752,7 @@ class PasswordManager:
                 pause()
                 return
 
-            if entry_type in (
-                EntryType.KEY_VALUE.value,
-                EntryType.MANAGED_ACCOUNT.value,
-            ):
+            if entry_type == EntryType.KEY_VALUE.value:
                 label = entry.get("label", "")
                 value = entry.get("value", "")
                 notes = entry.get("notes", "")
@@ -1735,6 +1805,56 @@ class PasswordManager:
                                     )
                                 else:
                                     print(colored(f"  {f_label}: {f_value}", "cyan"))
+                self._prompt_toggle_archive(entry, index)
+                pause()
+                return
+            if entry_type == EntryType.MANAGED_ACCOUNT.value:
+                label = entry.get("label", "")
+                notes = entry.get("notes", "")
+                archived = entry.get("archived", False)
+                fingerprint = entry.get("fingerprint", "")
+                print(colored(f"Managed account '{label}'.", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                if fingerprint:
+                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                print(
+                    colored(
+                        f"Archived Status: {'Archived' if archived else 'Active'}",
+                        "cyan",
+                    )
+                )
+                action = (
+                    input(
+                        "Enter 'r' to reveal seed, 'l' to load account, or press Enter to go back: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if action == "r":
+                    seed = self.entry_manager.get_managed_account_seed(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(seed, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(color_text(seed, "deterministic"))
+                    if confirm_action("Show Compact Seed QR? (Y/N): "):
+                        from password_manager.seedqr import encode_seedqr
+
+                        TotpManager.print_qr_code(encode_seedqr(seed))
+                    self._prompt_toggle_archive(entry, index)
+                    pause()
+                    return
+                if action == "l":
+                    self.load_managed_account(index)
+                    return
                 self._prompt_toggle_archive(entry, index)
                 pause()
                 return
@@ -1837,7 +1957,7 @@ class PasswordManager:
         """
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Modify Entry",
             )
             index_input = input(
@@ -2165,7 +2285,7 @@ class PasswordManager:
         """Prompt for a query, list matches and optionally show details."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Search Entries",
             )
             query = input("Enter search string: ").strip()
@@ -2182,7 +2302,7 @@ class PasswordManager:
 
             while True:
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    getattr(self, "header_fingerprint", None),
                     "Main Menu > Search Entries",
                 )
                 print(colored("\n[+] Search Results:\n", "green"))
@@ -2295,7 +2415,7 @@ class PasswordManager:
         try:
             while True:
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    getattr(self, "header_fingerprint", None),
                     "Main Menu > List Entries",
                 )
                 print(color_text("\nList Entries:", "menu"))
@@ -2337,7 +2457,7 @@ class PasswordManager:
                     continue
                 while True:
                     clear_and_print_fingerprint(
-                        getattr(self, "current_fingerprint", None),
+                        getattr(self, "header_fingerprint", None),
                         "Main Menu > List Entries",
                     )
                     print(colored("\n[+] Entries:\n", "green"))
@@ -2426,7 +2546,7 @@ class PasswordManager:
                 return
             while True:
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    getattr(self, "header_fingerprint", None),
                     "Main Menu > Archived Entries",
                 )
                 print(colored("\n[+] Archived Entries:\n", "green"))
@@ -2480,7 +2600,7 @@ class PasswordManager:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > 2FA Codes",
             )
             data = self.entry_manager.vault.load_index()
@@ -2503,7 +2623,7 @@ class PasswordManager:
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    getattr(self, "header_fingerprint", None),
                     "Main Menu > 2FA Codes",
                 )
                 print(colored("Press Enter to return to the menu.", "cyan"))
@@ -2561,7 +2681,7 @@ class PasswordManager:
         """
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Verify Script Checksum",
             )
             current_checksum = calculate_checksum(__file__)
@@ -2599,7 +2719,7 @@ class PasswordManager:
             return
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Generate Script Checksum",
             )
             script_path = Path(__file__).resolve()
@@ -2712,7 +2832,7 @@ class PasswordManager:
         """Export the current database to an encrypted portable file."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Export database",
             )
             path = export_backup(
@@ -2732,7 +2852,7 @@ class PasswordManager:
         """Import a portable database file, replacing the current index."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Import database",
             )
             import_backup(
@@ -2750,7 +2870,7 @@ class PasswordManager:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Export 2FA codes",
             )
             data = self.entry_manager.vault.load_index()
@@ -2813,7 +2933,7 @@ class PasswordManager:
         """
         try:
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                getattr(self, "header_fingerprint", None),
                 "Main Menu > Settings > Backup Parent Seed",
             )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
