@@ -95,6 +95,8 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **origin** (`string`, optional): Source identifier for imported data.
 - **value** (`string`, optional): For `key_value` entries, stores the secret value.
 - **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
+- **word_count** (`integer`, managed_account only): Number of words in the child seed. Managed accounts always use `12`.
+- **fingerprint** (`string`, managed_account only): Identifier of the child profile, used for its directory name.
   Example:
 
   ```json
@@ -251,6 +253,26 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
   "timestamp": "2024-04-27T12:40:56Z"
 }
 ```
+
+#### 8. Managed Account
+
+```json
+{
+  "entry_num": 7,
+  "fingerprint": "a1b2c3d4",
+  "kind": "managed_account",
+  "data": {
+    "account": "alice@example.com",
+    "password": "<encrypted_password>"
+  },
+  "timestamp": "2024-04-27T12:41:56Z"
+}
+```
+
+Managed accounts store a child seed derived from the parent profile. The entry is saved under
+`.seedpass/<parent_fp>/accounts/<child_fp>` where `<child_fp>` is the managed account's
+fingerprint. When loaded, the CLI displays a breadcrumb like `<parent_fp> > Managed Account > <child_fp>`.
+Press **Enter** on the main menu to exit back to the parent profile.
 
 The `key` field is purely descriptive, while `value` holds the sensitive string
 such as an API token. Notes and custom fields may also be included alongside the

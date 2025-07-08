@@ -587,9 +587,16 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
+        fp, parent_fp, child_fp = getattr(
+            password_manager,
+            "header_fingerprint_args",
+            (getattr(password_manager, "current_fingerprint", None), None, None),
+        )
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            fp,
             "Main Menu > Settings > Profiles",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
         )
         print(color_text("\nProfiles:", "menu"))
         print(color_text("1. Switch Seed Profile", "menu"))
@@ -626,9 +633,16 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         return
 
     while True:
+        fp, parent_fp, child_fp = getattr(
+            password_manager,
+            "header_fingerprint_args",
+            (getattr(password_manager, "current_fingerprint", None), None, None),
+        )
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            fp,
             "Main Menu > Settings > Nostr",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
         )
         print(color_text("\nNostr Settings:", "menu"))
         print(color_text("1. Backup to Nostr", "menu"))
@@ -663,9 +677,16 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
 def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
+        fp, parent_fp, child_fp = getattr(
+            password_manager,
+            "header_fingerprint_args",
+            (getattr(password_manager, "current_fingerprint", None), None, None),
+        )
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            fp,
             "Main Menu > Settings",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
         )
         print(color_text("\nSettings:", "menu"))
         print(color_text("1. Profiles", "menu"))
@@ -757,9 +778,16 @@ def display_menu(
         display_fn()
         pause()
     while True:
+        fp, parent_fp, child_fp = getattr(
+            password_manager,
+            "header_fingerprint_args",
+            (getattr(password_manager, "current_fingerprint", None), None, None),
+        )
         clear_and_print_fingerprint(
-            getattr(password_manager, "current_fingerprint", None),
+            fp,
             "Main Menu",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
         )
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
@@ -790,15 +818,29 @@ def display_menu(
             continue
         password_manager.update_activity()
         if not choice:
+            if getattr(password_manager, "profile_stack", []):
+                password_manager.exit_managed_account()
+                continue
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             password_manager.nostr_client.close_client_pool()
             sys.exit(0)
         if choice == "1":
             while True:
+                fp, parent_fp, child_fp = getattr(
+                    password_manager,
+                    "header_fingerprint_args",
+                    (
+                        getattr(password_manager, "current_fingerprint", None),
+                        None,
+                        None,
+                    ),
+                )
                 clear_and_print_fingerprint(
-                    getattr(password_manager, "current_fingerprint", None),
+                    fp,
                     "Main Menu > Add Entry",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(color_text("\nAdd Entry:", "menu"))
                 print(color_text("1. Password", "menu"))
@@ -808,6 +850,7 @@ def display_menu(
                 print(color_text("5. Nostr Key Pair", "menu"))
                 print(color_text("6. PGP Key", "menu"))
                 print(color_text("7. Key/Value", "menu"))
+                print(color_text("8. Managed Account", "menu"))
                 sub_choice = input(
                     "Select entry type or press Enter to go back: "
                 ).strip()
@@ -833,6 +876,9 @@ def display_menu(
                 elif sub_choice == "7":
                     password_manager.handle_add_key_value()
                     break
+                elif sub_choice == "8":
+                    password_manager.handle_add_managed_account()
+                    break
                 elif not sub_choice:
                     break
                 else:
@@ -840,9 +886,16 @@ def display_menu(
         elif choice == "2":
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
+            fp, parent_fp, child_fp = getattr(
+                password_manager,
+                "header_fingerprint_args",
+                (getattr(password_manager, "current_fingerprint", None), None, None),
+            )
             clear_and_print_fingerprint(
-                getattr(password_manager, "current_fingerprint", None),
+                fp,
                 "Main Menu",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
         elif choice == "3":
             password_manager.update_activity()

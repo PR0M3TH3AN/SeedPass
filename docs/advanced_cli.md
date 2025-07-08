@@ -39,9 +39,10 @@ The **Advanced CLI Commands** document provides an in-depth guide to the various
    - [23. Add Notes to an Entry](#23-add-notes-to-an-entry)
    - [24. Add Tags to an Entry](#24-add-tags-to-an-entry)
    - [25. Add Key/Value Entry](#25-add-keyvalue-entry)
-   - [26. Search by Tag or Title](#26-search-by-tag-or-title)
-   - [27. Automatically Post Deltas to Nostr After Edit](#27-automatically-post-deltas-to-nostr-after-edit)
-   - [28. Initial Setup Prompt for Seed Generation/Import](#28-initial-setup-prompt-for-seed-generationimport)
+   - [26. Add Managed Account](#26-add-managed-account)
+   - [27. Search by Tag or Title](#26-search-by-tag-or-title)
+   - [28. Automatically Post Deltas to Nostr After Edit](#27-automatically-post-deltas-to-nostr-after-edit)
+   - [29. Initial Setup Prompt for Seed Generation/Import](#28-initial-setup-prompt-for-seed-generationimport)
 3. [Notes on New CLI Commands](#notes-on-new-cli-commands)
 
 ---
@@ -80,6 +81,7 @@ The following table provides a quick reference to all available advanced CLI com
 | Add Notes to an Entry                     | `add-notes`            | `-AN`          | `--add-notes`                     | `seedpass add-notes --index 3 --notes "This is a secured account"`                                                                                                                                  |
 | Add Tags to an Entry                      | `add-tags`             | `-AT`          | `--add-tags`                      | `seedpass add-tags --index 3 --tags "personal,finance"`                                                                                                                                              |
 | Add Key/Value entry                      | `add-kv`             | `-KV`      | `--add-kv`                      | `seedpass add-kv --label "API" --value "secret"`
+| Add Managed Account                      | `add-managed`        | `-AM`      | `--add-managed`                 | `seedpass add-managed --label "Account"`
 | Search by Tag or Title                    | `search-by`            | `-SB`          | `--search-by`                     | `seedpass search-by --tag "work"` or `seedpass search-by --title "GitHub"`                                                                                                                          |
 | Automatically Post Deltas After Edit      | `auto-post`            | `-AP`          | `--auto-post`                     | `seedpass auto-post --enable` or `seedpass auto-post --disable` |
 | Initial Setup Prompt for Seed Generation/Import | `setup`                | `-ST`          | `--setup`                         | `seedpass setup`                                                                                                                                                                                   |
@@ -601,7 +603,25 @@ seedpass add-kv --label "API" --value "secret" --notes "Service token"
 
 ---
 
-### 26. Search by Tag or Title
+### 26. Add Managed Account
+
+**Command:** `add-managed`
+**Short Flag:** `-AM`
+**Long Flag:** `--add-managed`
+
+**Description:**
+Creates a managed account derived from the current seed profile. The child profile is stored in `.seedpass/<parent_fp>/accounts/<child_fp>`.
+
+Managed account seeds are always **12 words** long.
+
+**Usage Example:**
+```bash
+seedpass add-managed --label "Account"
+```
+
+When loaded, the breadcrumb shows `<parent_fp> > Managed Account > <child_fp>`. Press Enter on the main menu to return to the parent profile.
+
+### 27. Search by Tag or Title
 
 **Command:** `search-by`  
 **Short Flag:** `-SB`  
@@ -622,7 +642,7 @@ seedpass search-by --title "GitHub"
 
 ---
 
-### 27. Automatically Post Deltas to Nostr After Edit
+### 28. Automatically Post Deltas to Nostr After Edit
 
 **Command:** `auto-post`  
 **Short Flag:** `-AP`  
@@ -643,7 +663,7 @@ seedpass auto-post --disable
 
 ---
 
-### 28. Initial Setup Prompt for Seed Generation/Import
+### 29. Initial Setup Prompt for Seed Generation/Import
 
 **Command:** `setup`  
 **Short Flag:** `-ST`  

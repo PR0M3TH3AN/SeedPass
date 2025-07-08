@@ -56,7 +56,9 @@ from utils.terminal_utils import (
     clear_screen,
     pause,
     clear_and_print_fingerprint,
+    clear_and_print_profile_chain,
 )
+from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
 
 from constants import (
@@ -124,6 +126,7 @@ class PasswordManager:
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
+        self.profile_stack: list[tuple[str, Path, str]] = []
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -166,6 +169,31 @@ class PasswordManager:
             self._parent_seed_secret = None
         else:
             self._parent_seed_secret = InMemorySecret(value.encode("utf-8"))
+
+    @property
+    def header_fingerprint(self) -> str | None:
+        """Return the fingerprint chain for header display."""
+        if not getattr(self, "current_fingerprint", None):
+            return None
+        if not self.profile_stack:
+            return self.current_fingerprint
+        chain = [fp for fp, _path, _seed in self.profile_stack] + [
+            self.current_fingerprint
+        ]
+        header = chain[0]
+        for fp in chain[1:]:
+            header += f" > Managed Account > {fp}"
+        return header
+
+    @property
+    def header_fingerprint_args(self) -> tuple[str | None, str | None, str | None]:
+        """Return fingerprint parameters for header display."""
+        if not getattr(self, "current_fingerprint", None):
+            return (None, None, None)
+        if not self.profile_stack:
+            return (self.current_fingerprint, None, None)
+        parent_fp = self.profile_stack[-1][0]
+        return (None, parent_fp, self.current_fingerprint)
 
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
@@ -458,6 +486,54 @@ class PasswordManager:
             logging.error(f"Error during seed profile switching: {e}", exc_info=True)
             print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
             return False  # Return False to indicate failure
+
+    def load_managed_account(self, index: int) -> None:
+        """Load a managed account derived from the current seed profile."""
+        if not self.entry_manager or not self.parent_seed:
+            raise ValueError("Manager not initialized")
+
+        seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        managed_fp = generate_fingerprint(seed)
+        account_dir = self.fingerprint_dir / "accounts" / managed_fp
+        account_dir.mkdir(parents=True, exist_ok=True)
+
+        self.profile_stack.append(
+            (self.current_fingerprint, self.fingerprint_dir, self.parent_seed)
+        )
+
+        self.current_fingerprint = managed_fp
+        self.fingerprint_dir = account_dir
+        self.parent_seed = seed
+
+        key = derive_index_key(seed)
+        self.encryption_manager = EncryptionManager(key, account_dir)
+        self.vault = Vault(self.encryption_manager, account_dir)
+
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
+        self.sync_index_from_nostr_if_missing()
+
+    def exit_managed_account(self) -> None:
+        """Return to the parent seed profile if one is on the stack."""
+        if not self.profile_stack:
+            return
+        fp, path, seed = self.profile_stack.pop()
+
+        self.current_fingerprint = fp
+        self.fingerprint_dir = path
+        self.parent_seed = seed
+
+        key = derive_index_key(seed)
+        self.encryption_manager = EncryptionManager(key, path)
+        self.vault = Vault(self.encryption_manager, path)
+
+        self.initialize_bip85()
+        self.initialize_managers()
+        self.locked = False
+        self.update_activity()
+        self.sync_index_from_nostr()
 
     def handle_existing_seed(self) -> None:
         """
@@ -890,9 +966,12 @@ class PasswordManager:
 
     def handle_add_password(self) -> None:
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Password",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
@@ -980,9 +1059,12 @@ class PasswordManager:
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > 2FA (TOTP)",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             while True:
                 print("\nAdd TOTP:")
@@ -1087,9 +1169,12 @@ class PasswordManager:
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > SSH Key",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1132,9 +1217,12 @@ class PasswordManager:
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Seed Phrase",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1191,9 +1279,12 @@ class PasswordManager:
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > PGP Key",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1247,9 +1338,12 @@ class PasswordManager:
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Nostr Key Pair",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1294,9 +1388,12 @@ class PasswordManager:
     def handle_add_key_value(self) -> None:
         """Add a generic key/value entry."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Add Entry > Key/Value",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             label = input("Label: ").strip()
             if not label:
@@ -1353,6 +1450,61 @@ class PasswordManager:
             print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
             pause()
 
+    def handle_add_managed_account(self) -> None:
+        """Add a managed account seed entry."""
+        try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
+            clear_and_print_fingerprint(
+                fp,
+                "Main Menu > Add Entry > Managed Account",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
+            label = input("Label: ").strip()
+            if not label:
+                print(colored("Error: Label cannot be empty.", "red"))
+                return
+            notes = input("Notes (optional): ").strip()
+            index = self.entry_manager.add_managed_account(
+                label, self.parent_seed, notes=notes
+            )
+            seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+            self.is_dirty = True
+            self.last_update = time.time()
+            print(
+                colored(
+                    f"\n[+] Managed account '{label}' added with ID {index}.\n",
+                    "green",
+                )
+            )
+            if confirm_action("Reveal seed now? (y/N): "):
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(seed, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Seed copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(seed, "deterministic"))
+                if confirm_action("Show Compact Seed QR? (Y/N): "):
+                    from password_manager.seedqr import encode_seedqr
+
+                    TotpManager.print_qr_code(encode_seedqr(seed))
+            try:
+                self.sync_vault()
+            except Exception as nostr_error:  # pragma: no cover - best effort
+                logging.error(
+                    f"Failed to post updated index to Nostr: {nostr_error}",
+                    exc_info=True,
+                )
+            pause()
+        except Exception as e:
+            logging.error(f"Error during managed account setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add managed account: {e}", "red"))
+            pause()
+
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details using :meth:`handle_retrieve_entry` for the
         given index without prompting for it again."""
@@ -1390,15 +1542,105 @@ class PasswordManager:
             self.is_dirty = True
             self.last_update = time.time()
 
+    def _entry_actions_menu(self, index: int, entry: dict) -> None:
+        """Provide actions for a retrieved entry."""
+        while True:
+            archived = entry.get("archived", entry.get("blacklisted", False))
+            print(colored("\n[+] Entry Actions:", "green"))
+            if archived:
+                print(colored("U. Unarchive", "cyan"))
+            else:
+                print(colored("A. Archive", "cyan"))
+            print(colored("N. Add Note", "cyan"))
+            print(colored("C. Add Custom Field", "cyan"))
+            print(colored("H. Add Hidden Field", "cyan"))
+            print(colored("E. Edit", "cyan"))
+
+            choice = (
+                input("Select an action or press Enter to return: ").strip().lower()
+            )
+            if not choice:
+                break
+            if choice == "a" and not archived:
+                self.entry_manager.archive_entry(index)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif choice == "u" and archived:
+                self.entry_manager.restore_entry(index)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif choice == "n":
+                note = input("Enter note: ").strip()
+                if note:
+                    notes = entry.get("notes", "")
+                    notes = f"{notes}\n{note}" if notes else note
+                    self.entry_manager.modify_entry(index, notes=notes)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif choice in {"c", "h"}:
+                label = input("  Field label: ").strip()
+                if not label:
+                    print(colored("Field label cannot be empty.", "red"))
+                else:
+                    value = input("  Field value: ").strip()
+                    hidden = choice == "h"
+                    custom_fields = entry.get("custom_fields", [])
+                    custom_fields.append(
+                        {"label": label, "value": value, "is_hidden": hidden}
+                    )
+                    self.entry_manager.modify_entry(index, custom_fields=custom_fields)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif choice == "e":
+                self._entry_edit_menu(index, entry)
+            else:
+                print(colored("Invalid choice.", "red"))
+            entry = self.entry_manager.retrieve_entry(index) or entry
+
+    def _entry_edit_menu(self, index: int, entry: dict) -> None:
+        """Sub-menu for editing common entry fields."""
+        entry_type = entry.get("type", EntryType.PASSWORD.value)
+        while True:
+            print(colored("\n[+] Edit Menu:", "green"))
+            print(colored("L. Edit Label", "cyan"))
+            if entry_type == EntryType.PASSWORD.value:
+                print(colored("U. Edit Username", "cyan"))
+                print(colored("R. Edit URL", "cyan"))
+            choice = input("Select option or press Enter to go back: ").strip().lower()
+            if not choice:
+                break
+            if choice == "l":
+                new_label = input("New label: ").strip()
+                if new_label:
+                    self.entry_manager.modify_entry(index, label=new_label)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif entry_type == EntryType.PASSWORD.value and choice == "u":
+                new_username = input("New username: ").strip()
+                self.entry_manager.modify_entry(index, username=new_username)
+                self.is_dirty = True
+                self.last_update = time.time()
+            elif entry_type == EntryType.PASSWORD.value and choice == "r":
+                new_url = input("New URL: ").strip()
+                self.entry_manager.modify_entry(index, url=new_url)
+                self.is_dirty = True
+                self.last_update = time.time()
+            else:
+                print(colored("Invalid choice.", "red"))
+            entry = self.entry_manager.retrieve_entry(index) or entry
+
     def handle_retrieve_entry(self) -> None:
         """
         Handles retrieving a password from the index by prompting the user for the index number
         and displaying the corresponding password and associated details.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Retrieve Entry",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             index_input = input(
                 "Enter the index number of the entry to retrieve: "
@@ -1470,7 +1712,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error generating TOTP code: {e}", exc_info=True)
                     print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.SSH.value:
@@ -1506,7 +1748,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.SEED.value:
@@ -1557,7 +1799,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.PGP.value:
@@ -1591,7 +1833,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
             if entry_type == EntryType.NOSTR.value:
@@ -1625,7 +1867,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
 
@@ -1682,11 +1924,61 @@ class PasswordManager:
                                     )
                                 else:
                                     print(colored(f"  {f_label}: {f_value}", "cyan"))
-                self._prompt_toggle_archive(entry, index)
+                self._entry_actions_menu(index, entry)
+                pause()
+                return
+            if entry_type == EntryType.MANAGED_ACCOUNT.value:
+                label = entry.get("label", "")
+                notes = entry.get("notes", "")
+                archived = entry.get("archived", False)
+                fingerprint = entry.get("fingerprint", "")
+                print(colored(f"Managed account '{label}'.", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                if fingerprint:
+                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                print(
+                    colored(
+                        f"Archived Status: {'Archived' if archived else 'Active'}",
+                        "cyan",
+                    )
+                )
+                action = (
+                    input(
+                        "Enter 'r' to reveal seed, 'l' to load account, or press Enter to go back: "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if action == "r":
+                    seed = self.entry_manager.get_managed_account_seed(
+                        index, self.parent_seed
+                    )
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(seed, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(color_text(seed, "deterministic"))
+                    if confirm_action("Show Compact Seed QR? (Y/N): "):
+                        from password_manager.seedqr import encode_seedqr
+
+                        TotpManager.print_qr_code(encode_seedqr(seed))
+                    self._entry_actions_menu(index, entry)
+                    pause()
+                    return
+                if action == "l":
+                    self.load_managed_account(index)
+                    return
+                self._entry_actions_menu(index, entry)
                 pause()
                 return
 
-            website_name = entry.get("website")
+            website_name = entry.get("label", entry.get("website"))
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
@@ -1770,7 +2062,7 @@ class PasswordManager:
                                         print(colored(f"  {label}: {value}", "cyan"))
             else:
                 print(colored("Error: Failed to retrieve the password.", "red"))
-            self._prompt_toggle_archive(entry, index)
+            self._entry_actions_menu(index, entry)
             pause()
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
@@ -1783,9 +2075,12 @@ class PasswordManager:
         and new details to update.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Modify Entry",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             index_input = input(
                 "Enter the index number of the entry to modify: "
@@ -1904,7 +2199,10 @@ class PasswordManager:
                     digits=new_digits,
                     custom_fields=custom_fields,
                 )
-            elif entry_type == EntryType.KEY_VALUE.value:
+            elif entry_type in (
+                EntryType.KEY_VALUE.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ):
                 label = entry.get("label", "")
                 value = entry.get("value", "")
                 blacklisted = entry.get("archived", False)
@@ -2108,9 +2406,12 @@ class PasswordManager:
     def handle_search_entries(self) -> None:
         """Prompt for a query, list matches and optionally show details."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Search Entries",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             query = input("Enter search string: ").strip()
             if not query:
@@ -2125,9 +2426,12 @@ class PasswordManager:
                 return
 
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    fp,
                     "Main Menu > Search Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Search Results:\n", "green"))
                 for idx, label, username, _url, _b in results:
@@ -2238,9 +2542,12 @@ class PasswordManager:
         """List entries and optionally show details."""
         try:
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    fp,
                     "Main Menu > List Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(color_text("\nList Entries:", "menu"))
                 print(color_text("1. All", "menu"))
@@ -2251,6 +2558,7 @@ class PasswordManager:
                 print(color_text("6. Nostr Key Pair", "menu"))
                 print(color_text("7. PGP", "menu"))
                 print(color_text("8. Key/Value", "menu"))
+                print(color_text("9. Managed Account", "menu"))
                 choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
                     filter_kind = None
@@ -2268,6 +2576,8 @@ class PasswordManager:
                     filter_kind = EntryType.PGP.value
                 elif choice == "8":
                     filter_kind = EntryType.KEY_VALUE.value
+                elif choice == "9":
+                    filter_kind = EntryType.MANAGED_ACCOUNT.value
                 elif not choice:
                     return
                 else:
@@ -2280,9 +2590,12 @@ class PasswordManager:
                 if not summaries:
                     continue
                 while True:
+                    fp, parent_fp, child_fp = self.header_fingerprint_args
                     clear_and_print_fingerprint(
-                        getattr(self, "current_fingerprint", None),
+                        fp,
                         "Main Menu > List Entries",
+                        parent_fingerprint=parent_fp,
+                        child_fingerprint=child_fp,
                     )
                     print(colored("\n[+] Entries:\n", "green"))
                     for idx, etype, label in summaries:
@@ -2369,9 +2682,12 @@ class PasswordManager:
                 pause()
                 return
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    fp,
                     "Main Menu > Archived Entries",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Archived Entries:\n", "green"))
                 for idx, label, _username, _url, _ in archived:
@@ -2396,7 +2712,7 @@ class PasswordManager:
                         .lower()
                     )
                     if action == "v":
-                        self.display_entry_details(entry_index)
+                        self.show_entry_details_by_index(entry_index)
                         pause()
                     elif action == "r":
                         self.entry_manager.restore_entry(entry_index)
@@ -2423,9 +2739,12 @@ class PasswordManager:
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > 2FA Codes",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
@@ -2446,9 +2765,12 @@ class PasswordManager:
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
+                fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_and_print_fingerprint(
-                    getattr(self, "current_fingerprint", None),
+                    fp,
                     "Main Menu > 2FA Codes",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
                 )
                 print(colored("Press Enter to return to the menu.", "cyan"))
                 generated = [t for t in totp_list if not t[3]]
@@ -2504,9 +2826,12 @@ class PasswordManager:
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Verify Script Checksum",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             current_checksum = calculate_checksum(__file__)
             try:
@@ -2542,9 +2867,12 @@ class PasswordManager:
             print(colored("Operation cancelled.", "yellow"))
             return
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Generate Script Checksum",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             script_path = Path(__file__).resolve()
             if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
@@ -2655,9 +2983,12 @@ class PasswordManager:
     ) -> Path | None:
         """Export the current database to an encrypted portable file."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Export database",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             path = export_backup(
                 self.vault,
@@ -2675,9 +3006,12 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Import database",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             import_backup(
                 self.vault,
@@ -2693,9 +3027,12 @@ class PasswordManager:
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Export 2FA codes",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             data = self.entry_manager.vault.load_index()
             entries = data.get("entries", {})
@@ -2756,9 +3093,12 @@ class PasswordManager:
         Handles the backup and reveal of the parent seed.
         """
         try:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_and_print_fingerprint(
-                getattr(self, "current_fingerprint", None),
+                fp,
                 "Main Menu > Settings > Backup Parent Seed",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
             )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
             print(

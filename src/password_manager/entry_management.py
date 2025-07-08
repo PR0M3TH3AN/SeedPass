@@ -27,6 +27,7 @@ from termcolor import colored
 from password_manager.migrations import LATEST_VERSION
 from password_manager.entry_types import EntryType
 from password_manager.totp import TotpManager
+from utils.fingerprint import generate_fingerprint
 
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
@@ -474,6 +475,79 @@ class EntryManager:
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
+    def add_managed_account(
+        self,
+        label: str,
+        parent_seed: str,
+        *,
+        index: int | None = None,
+        notes: str = "",
+        archived: bool = False,
+    ) -> int:
+        """Add a new managed account seed entry.
+
+        Managed accounts always use a 12-word seed phrase.
+        """
+
+        if index is None:
+            index = self.get_next_index()
+
+        from password_manager.password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        word_count = 12
+
+        seed_phrase = derive_seed_phrase(bip85, index, word_count)
+        fingerprint = generate_fingerprint(seed_phrase)
+
+        account_dir = self.fingerprint_dir / "accounts" / fingerprint
+        account_dir.mkdir(parents=True, exist_ok=True)
+
+        data = self.vault.load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.MANAGED_ACCOUNT.value,
+            "kind": EntryType.MANAGED_ACCOUNT.value,
+            "index": index,
+            "label": label,
+            "word_count": word_count,
+            "notes": notes,
+            "fingerprint": fingerprint,
+            "archived": archived,
+        }
+
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def get_managed_account_seed(self, index: int, parent_seed: str) -> str:
+        """Return the seed phrase for a managed account entry."""
+
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.MANAGED_ACCOUNT.value
+            and kind != EntryType.MANAGED_ACCOUNT.value
+        ):
+            raise ValueError("Entry is not a managed account entry")
+
+        from password_manager.password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        words = int(entry.get("word_count", 12))
+        seed_index = int(entry.get("index", index))
+        return derive_seed_phrase(bip85, seed_index, words)
+
     def get_totp_code(
         self, index: int, parent_seed: str | None = None, timestamp: int | None = None
     ) -> str:
@@ -533,7 +607,11 @@ class EntryManager:
 
             if entry:
                 etype = entry.get("type", entry.get("kind"))
-                if etype in (EntryType.PASSWORD.value, EntryType.KEY_VALUE.value):
+                if etype in (
+                    EntryType.PASSWORD.value,
+                    EntryType.KEY_VALUE.value,
+                    EntryType.MANAGED_ACCOUNT.value,
+                ):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
                 return entry
@@ -620,7 +698,10 @@ class EntryManager:
                     if url is not None:
                         entry["url"] = url
                         logger.debug(f"Updated URL to '{url}' for index {index}.")
-                elif entry_type == EntryType.KEY_VALUE.value:
+                elif entry_type in (
+                    EntryType.KEY_VALUE.value,
+                    EntryType.MANAGED_ACCOUNT.value,
+                ):
                     if value is not None:
                         entry["value"] = value
                         logger.debug(f"Updated value for index {index}.")
@@ -837,7 +918,7 @@ class EntryManager:
                             entry.get("archived", entry.get("blacklisted", False)),
                         )
                     )
-            elif etype == EntryType.KEY_VALUE.value:
+            elif etype in (EntryType.KEY_VALUE.value, EntryType.MANAGED_ACCOUNT.value):
                 value_field = str(entry.get("value", ""))
                 custom_fields = entry.get("custom_fields", [])
                 custom_match = any(

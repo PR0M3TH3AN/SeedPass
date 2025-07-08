@@ -45,6 +45,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas.
 - **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
+- **Nested Managed Account Seeds:** SeedPass can derive nested managed account seeds.
 - **Interactive TUI:** Navigate through menus to add, retrieve, and modify entries as well as configure Nostr settings.
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
 - **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
@@ -239,8 +240,16 @@ python src/main.py
     Enter your choice (1-7) or press Enter to exit:
     ```
 
-When choosing **Add Entry**, you can now select **Password**, **2FA (TOTP)**,
-   **SSH Key**, **Seed Phrase**, or **PGP Key**.
+When choosing **Add Entry**, you can now select from:
+
+- **Password**
+- **2FA (TOTP)**
+- **SSH Key**
+- **Seed Phrase**
+- **Nostr Key Pair**
+- **PGP Key**
+- **Key/Value**
+- **Managed Account**
 
 ### Adding a 2FA Entry
 
@@ -279,6 +288,7 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
   keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan
   it, while the `nsec` QR is shown only after a security warning.
 - **Key/Value** – store a simple key and value for miscellaneous secrets or configuration data.
+- **Managed Account** – derive a child seed under the current profile. Loading a managed account switches to a nested profile and the header shows `<parent_fp> > Managed Account > <child_fp>`. Press Enter on the main menu to return to the parent profile.
 
 The table below summarizes the extra fields stored for each entry type. Every
 entry includes a `label`, while only password entries track a `url`.
@@ -292,6 +302,7 @@ entry includes a `label`, while only password entries track a `url`.
 | PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes` |
 | Nostr Key Pair| `index`, `archived`, optional `notes` |
 | Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields` |
+| Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes` |
 
 
 ### Managing Multiple Seeds
