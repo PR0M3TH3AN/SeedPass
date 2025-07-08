@@ -58,7 +58,17 @@ def _v2_to_v3(data: dict) -> dict:
     return data
 
 
-LATEST_VERSION = 3
+@migration(3)
+def _v3_to_v4(data: dict) -> dict:
+    """Add tags defaults to each entry."""
+    entries = data.get("entries", {})
+    for entry in entries.values():
+        entry.setdefault("tags", [])
+    data["schema_version"] = 4
+    return data
+
+
+LATEST_VERSION = 4
 
 
 def apply_migrations(data: dict) -> dict:

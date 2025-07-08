@@ -31,7 +31,7 @@ def test_index_export_import_round_trip():
         vault = setup_vault(tmp)
 
         original = {
-            "schema_version": 3,
+            "schema_version": 4,
             "entries": {
                 "0": {
                     "label": "example",
@@ -39,6 +39,7 @@ def test_index_export_import_round_trip():
                     "notes": "",
                     "custom_fields": [],
                     "origin": "",
+                    "tags": [],
                 }
             },
         }
@@ -49,7 +50,7 @@ def test_index_export_import_round_trip():
 
         vault.save_index(
             {
-                "schema_version": 3,
+                "schema_version": 4,
                 "entries": {
                     "0": {
                         "label": "changed",
@@ -57,6 +58,7 @@ def test_index_export_import_round_trip():
                         "notes": "",
                         "custom_fields": [],
                         "origin": "",
+                        "tags": [],
                     }
                 },
             }
