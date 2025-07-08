@@ -37,6 +37,7 @@ def test_add_totp_and_get_code():
             "digits": 6,
             "archived": False,
             "notes": "",
+            "tags": [],
         }
 
         code = entry_mgr.get_totp_code(0, TEST_SEED, timestamp=0)
@@ -76,6 +77,7 @@ def test_add_totp_imported(tmp_path):
         "digits": 6,
         "archived": False,
         "notes": "",
+        "tags": [],
     }
     code = em.get_totp_code(0, timestamp=0)
     assert code == pyotp.TOTP(secret).at(0)

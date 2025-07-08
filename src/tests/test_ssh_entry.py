@@ -29,6 +29,7 @@ def test_add_and_retrieve_ssh_key_pair():
             "label": "ssh",
             "notes": "",
             "archived": False,
+            "tags": [],
         }
 
         priv1, pub1 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)

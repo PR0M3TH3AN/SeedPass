@@ -79,6 +79,7 @@ class EntryManager:
                     if "word_count" not in entry and "words" in entry:
                         entry["word_count"] = entry["words"]
                         entry.pop("words", None)
+                    entry.setdefault("tags", [])
                 logger.debug("Index loaded successfully.")
                 return data
             except Exception as e:
@@ -127,6 +128,7 @@ class EntryManager:
         archived: bool = False,
         notes: str = "",
         custom_fields: List[Dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
     ) -> int:
         """
         Adds a new entry to the encrypted JSON index file.
@@ -154,6 +156,7 @@ class EntryManager:
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
                 "custom_fields": custom_fields or [],
+                "tags": tags or [],
             }
 
             logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
@@ -197,6 +200,7 @@ class EntryManager:
         period: int = 30,
         digits: int = 6,
         notes: str = "",
+        tags: list[str] | None = None,
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
@@ -216,6 +220,7 @@ class EntryManager:
                 "digits": digits,
                 "archived": archived,
                 "notes": notes,
+                "tags": tags or [],
             }
         else:
             entry = {
@@ -227,6 +232,7 @@ class EntryManager:
                 "digits": digits,
                 "archived": archived,
                 "notes": notes,
+                "tags": tags or [],
             }
 
         data["entries"][str(entry_id)] = entry
@@ -248,6 +254,7 @@ class EntryManager:
         index: int | None = None,
         notes: str = "",
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new SSH key pair entry.
 
@@ -268,6 +275,7 @@ class EntryManager:
             "label": label,
             "notes": notes,
             "archived": archived,
+            "tags": tags or [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -297,6 +305,7 @@ class EntryManager:
         user_id: str = "",
         notes: str = "",
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new PGP key entry."""
 
@@ -314,6 +323,7 @@ class EntryManager:
             "user_id": user_id,
             "notes": notes,
             "archived": archived,
+            "tags": tags or [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -347,6 +357,7 @@ class EntryManager:
         index: int | None = None,
         notes: str = "",
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new Nostr key pair entry."""
 
@@ -362,6 +373,7 @@ class EntryManager:
             "label": label,
             "notes": notes,
             "archived": archived,
+            "tags": tags or [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -376,6 +388,7 @@ class EntryManager:
         notes: str = "",
         custom_fields=None,
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new generic key/value entry."""
 
@@ -391,6 +404,7 @@ class EntryManager:
             "notes": notes,
             "archived": archived,
             "custom_fields": custom_fields or [],
+            "tags": tags or [],
         }
 
         self._save_index(data)
@@ -431,6 +445,7 @@ class EntryManager:
         words_num: int = 24,
         notes: str = "",
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new derived seed phrase entry."""
 
@@ -447,6 +462,7 @@ class EntryManager:
             "word_count": words_num,
             "notes": notes,
             "archived": archived,
+            "tags": tags or [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -483,6 +499,7 @@ class EntryManager:
         index: int | None = None,
         notes: str = "",
         archived: bool = False,
+        tags: list[str] | None = None,
     ) -> int:
         """Add a new managed account seed entry.
 
@@ -518,6 +535,7 @@ class EntryManager:
             "notes": notes,
             "fingerprint": fingerprint,
             "archived": archived,
+            "tags": tags or [],
         }
 
         self._save_index(data)
@@ -642,6 +660,7 @@ class EntryManager:
         digits: Optional[int] = None,
         value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
         **legacy,
     ) -> None:
         """
@@ -726,6 +745,10 @@ class EntryManager:
                 logger.debug(
                     f"Updated custom fields for index {index}: {custom_fields}"
                 )
+
+            if tags is not None:
+                entry["tags"] = tags
+                logger.debug(f"Updated tags for index {index}: {tags}")
 
             data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
@@ -890,8 +913,10 @@ class EntryManager:
             etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
             label = entry.get("label", entry.get("website", ""))
             notes = entry.get("notes", "")
+            tags = entry.get("tags", [])
             label_match = query_lower in label.lower()
             notes_match = query_lower in notes.lower()
+            tags_match = any(query_lower in str(t).lower() for t in tags)
 
             if etype == EntryType.PASSWORD.value:
                 username = entry.get("username", "")
@@ -908,6 +933,7 @@ class EntryManager:
                     or query_lower in url.lower()
                     or notes_match
                     or custom_match
+                    or tags_match
                 ):
                     results.append(
                         (
@@ -931,6 +957,7 @@ class EntryManager:
                     or query_lower in value_field.lower()
                     or notes_match
                     or custom_match
+                    or tags_match
                 ):
                     results.append(
                         (
@@ -942,7 +969,7 @@ class EntryManager:
                         )
                     )
             else:
-                if label_match or notes_match:
+                if label_match or notes_match or tags_match:
                     results.append(
                         (
                             int(idx),

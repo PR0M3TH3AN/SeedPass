@@ -981,6 +981,12 @@ class PasswordManager:
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
             notes = input("Enter notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
 
             custom_fields: list[dict[str, object]] = []
             while True:
@@ -1021,6 +1027,7 @@ class PasswordManager:
                 archived=False,
                 notes=notes,
                 custom_fields=custom_fields,
+                tags=tags,
             )
 
             # Mark database as dirty for background sync
@@ -1084,6 +1091,14 @@ class PasswordManager:
                         )
                         continue
                     notes = input("Notes (optional): ").strip()
+                    tags_input = input(
+                        "Enter tags (comma-separated, optional): "
+                    ).strip()
+                    tags = (
+                        [t.strip() for t in tags_input.split(",") if t.strip()]
+                        if tags_input
+                        else []
+                    )
                     totp_index = self.entry_manager.get_next_totp_index()
                     entry_id = self.entry_manager.get_next_index()
                     uri = self.entry_manager.add_totp(
@@ -1093,6 +1108,7 @@ class PasswordManager:
                         period=int(period),
                         digits=int(digits),
                         notes=notes,
+                        tags=tags,
                     )
                     secret = TotpManager.derive_secret(self.parent_seed, totp_index)
                     self.is_dirty = True
@@ -1128,6 +1144,14 @@ class PasswordManager:
                             period = int(input("Period (default 30): ").strip() or 30)
                             digits = int(input("Digits (default 6): ").strip() or 6)
                         notes = input("Notes (optional): ").strip()
+                        tags_input = input(
+                            "Enter tags (comma-separated, optional): "
+                        ).strip()
+                        tags = (
+                            [t.strip() for t in tags_input.split(",") if t.strip()]
+                            if tags_input
+                            else []
+                        )
                         entry_id = self.entry_manager.get_next_index()
                         uri = self.entry_manager.add_totp(
                             label,
@@ -1136,6 +1160,7 @@ class PasswordManager:
                             period=period,
                             digits=digits,
                             notes=notes,
+                            tags=tags,
                         )
                         self.is_dirty = True
                         self.last_update = time.time()
@@ -1181,7 +1206,15 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_ssh_key(label, self.parent_seed, notes=notes)
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
+            index = self.entry_manager.add_ssh_key(
+                label, self.parent_seed, notes=notes, tags=tags
+            )
             priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                 index, self.parent_seed
             )
@@ -1230,12 +1263,18 @@ class PasswordManager:
                 return
             words_input = input("Word count (12 or 24, default 24): ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             if words_input and words_input not in {"12", "24"}:
                 print(colored("Invalid word count. Choose 12 or 24.", "red"))
                 return
             words = int(words_input) if words_input else 24
             index = self.entry_manager.add_seed(
-                label, self.parent_seed, words_num=words, notes=notes
+                label, self.parent_seed, words_num=words, notes=notes, tags=tags
             )
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
             self.is_dirty = True
@@ -1296,12 +1335,19 @@ class PasswordManager:
             )
             user_id = input("User ID (optional): ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             index = self.entry_manager.add_pgp_key(
                 label,
                 self.parent_seed,
                 key_type=key_type,
                 user_id=user_id,
                 notes=notes,
+                tags=tags,
             )
             priv_key, fingerprint = self.entry_manager.get_pgp_key(
                 index, self.parent_seed
@@ -1350,7 +1396,13 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_nostr_key(label, notes=notes)
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
+            index = self.entry_manager.add_nostr_key(label, notes=notes, tags=tags)
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()
@@ -1401,6 +1453,12 @@ class PasswordManager:
                 return
             value = input("Value: ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
 
             custom_fields: list[dict[str, object]] = []
             while True:
@@ -1419,7 +1477,11 @@ class PasswordManager:
                 )
 
             index = self.entry_manager.add_key_value(
-                label, value, notes=notes, custom_fields=custom_fields
+                label,
+                value,
+                notes=notes,
+                custom_fields=custom_fields,
+                tags=tags,
             )
             self.is_dirty = True
             self.last_update = time.time()
@@ -1465,8 +1527,14 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             index = self.entry_manager.add_managed_account(
-                label, self.parent_seed, notes=notes
+                label, self.parent_seed, notes=notes, tags=tags
             )
             seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
             self.is_dirty = True
@@ -2190,6 +2258,15 @@ class PasswordManager:
                             {"label": label, "value": value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     archived=new_blacklisted,
@@ -2198,6 +2275,7 @@ class PasswordManager:
                     period=new_period,
                     digits=new_digits,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
             elif entry_type in (
                 EntryType.KEY_VALUE.value,
@@ -2273,6 +2351,15 @@ class PasswordManager:
                             {"label": f_label, "value": f_value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     archived=new_blacklisted,
@@ -2280,6 +2367,7 @@ class PasswordManager:
                     label=new_label,
                     value=new_value,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
             else:
                 website_name = entry.get("label", entry.get("website"))
@@ -2366,6 +2454,15 @@ class PasswordManager:
                             {"label": label, "value": value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     new_username,
@@ -2374,6 +2471,7 @@ class PasswordManager:
                     notes=new_notes,
                     label=new_label,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
 
             # Mark database as dirty for background sync

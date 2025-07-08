@@ -42,6 +42,7 @@ def test_seed_phrase_determinism():
             "word_count": 12,
             "notes": "",
             "archived": False,
+            "tags": [],
         }
 
         assert entry24 == {
@@ -52,6 +53,7 @@ def test_seed_phrase_determinism():
             "word_count": 24,
             "notes": "",
             "archived": False,
+            "tags": [],
         }
 
         assert phrase12_a not in entry12.values()
