@@ -77,6 +77,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
   "notes": "",
   "custom_fields": [],
   "origin": "",
+  "tags": [],
   "index": 0
 }
 ```
@@ -97,6 +98,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
 - **word_count** (`integer`, managed_account only): Number of words in the child seed. Managed accounts always use `12`.
 - **fingerprint** (`string`, managed_account only): Identifier of the child profile, used for its directory name.
+- **tags** (`array`, optional): Category labels to aid in organization and search.
   Example:
 
   ```json
@@ -126,6 +128,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
   "custom_fields": [
     {"name": "department", "value": "finance"}
   ],
+  "tags": ["work"],
   "timestamp": "2024-04-27T12:34:56Z",
   "metadata": {
     "created_at": "2024-04-27T12:34:56Z",
@@ -250,6 +253,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
     "key": "api_key",
     "value": "<encrypted_value>"
   },
+  "tags": ["api"],
   "timestamp": "2024-04-27T12:40:56Z"
 }
 ```

@@ -107,11 +107,11 @@ Miscellaneous helper commands.
 
 ### `entry` Commands
 
-- **`seedpass entry add`** – Add a new entry. Use `--type` to specify `password`, `totp`, `ssh`, `pgp`, `nostr`, `key-value`, or `managed-account`.
+- **`seedpass entry add`** – Add a new entry. Use `--type` to specify `password`, `totp`, `ssh`, `pgp`, `nostr`, `key-value`, or `managed-account`. Include `--tags tag1,tag2` to categorize the entry.
 - **`seedpass entry get <query>`** – Retrieve the primary secret for one matching entry.
 - **`seedpass entry list`** – List entries in the vault, optionally sorted or filtered.
-- **`seedpass entry search <query>`** – Search across labels, usernames, URLs, and notes.
-- **`seedpass entry modify <query>`** – Update fields on an existing entry. Use `--archive` to hide or `--restore` to un‑archive.
+- **`seedpass entry search <query>`** – Search across labels, usernames, URLs, notes, and tags.
+- **`seedpass entry modify <query>`** – Update fields on an existing entry. Use `--archive` to hide or `--restore` to un‑archive. Specify `--tags tag1,tag2` to replace the entry's tags.
 - **`seedpass entry delete <query>`** – Permanently delete an entry after confirmation.
 
 ### `vault` Commands
