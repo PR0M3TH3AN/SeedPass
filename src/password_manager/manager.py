@@ -1891,7 +1891,7 @@ class PasswordManager:
                 pause()
                 return
 
-            website_name = entry.get("website")
+            website_name = entry.get("label", entry.get("website"))
             length = entry.get("length")
             username = entry.get("username")
             url = entry.get("url")
