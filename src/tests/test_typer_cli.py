@@ -111,6 +111,24 @@ def test_vault_change_password(monkeypatch):
     assert called.get("called") is True
 
 
+def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
+    called = {}
+
+    def reveal(path=None):
+        called["path"] = path
+
+    pm = SimpleNamespace(
+        handle_backup_reveal_parent_seed=reveal, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    out_path = tmp_path / "seed.enc"
+    result = runner.invoke(
+        app, ["vault", "reveal-parent-seed", "--file", str(out_path)]
+    )
+    assert result.exit_code == 0
+    assert called["path"] == out_path
+
+
 def test_nostr_get_pubkey(monkeypatch):
     pm = SimpleNamespace(
         nostr_client=SimpleNamespace(

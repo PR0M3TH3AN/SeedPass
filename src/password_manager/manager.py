@@ -3309,9 +3309,15 @@ class PasswordManager:
             print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
             return None
 
-    def handle_backup_reveal_parent_seed(self) -> None:
-        """
-        Handles the backup and reveal of the parent seed.
+    def handle_backup_reveal_parent_seed(self, file: Path | None = None) -> None:
+        """Reveal the parent seed and optionally save an encrypted backup.
+
+        Parameters
+        ----------
+        file:
+            Optional path where an encrypted backup should be written. When
+            provided, the confirmation and filename prompts are skipped and the
+            seed is saved directly to this location.
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
@@ -3360,24 +3366,26 @@ class PasswordManager:
                 )
             )
 
-            # Option to save to file with default filename
-            if confirm_action(
-                "Do you want to save this to an encrypted backup file? (Y/N): "
-            ):
-                filename = input(
-                    f"Enter filename to save (default: {DEFAULT_SEED_BACKUP_FILENAME}): "
-                ).strip()
-                filename = filename if filename else DEFAULT_SEED_BACKUP_FILENAME
-                backup_path = (
-                    self.fingerprint_dir / filename
-                )  # Save in fingerprint directory
+            backup_path: Path | None = None
+            if file is not None:
+                backup_path = file
+                save = True
+            else:
+                save = confirm_action(
+                    "Do you want to save this to an encrypted backup file? (Y/N): "
+                )
+                if save:
+                    filename = input(
+                        f"Enter filename to save (default: {DEFAULT_SEED_BACKUP_FILENAME}): "
+                    ).strip()
+                    filename = filename if filename else DEFAULT_SEED_BACKUP_FILENAME
+                    backup_path = self.fingerprint_dir / filename
 
-                # Validate filename
-                if not self.is_valid_filename(filename):
+            if save and backup_path is not None:
+                if not self.is_valid_filename(backup_path.name):
                     print(colored("Invalid filename. Operation aborted.", "red"))
                     return
 
-                # Encrypt and save the parent seed to the backup path
                 self.encryption_manager.encrypt_and_save_file(
                     self.parent_seed.encode("utf-8"), backup_path
                 )

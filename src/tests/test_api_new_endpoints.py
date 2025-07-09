@@ -138,6 +138,26 @@ def test_totp_codes_endpoint(client):
     }
 
 
+def test_parent_seed_endpoint(client, tmp_path):
+    cl, token = client
+    api._pm.parent_seed = "seed"
+    called = {}
+    api._pm.encryption_manager = SimpleNamespace(
+        encrypt_and_save_file=lambda data, path: called.setdefault("path", path)
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = cl.get("/api/v1/parent-seed", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"seed": "seed"}
+
+    out = tmp_path / "bk.enc"
+    res = cl.get("/api/v1/parent-seed", params={"file": str(out)}, headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "saved", "path": str(out)}
+    assert called["path"] == out
+
+
 def test_fingerprint_endpoints(client):
     cl, token = client
     calls = {}
