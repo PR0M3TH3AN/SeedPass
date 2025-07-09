@@ -48,3 +48,92 @@ def test_invalid_token(client):
         headers={"Authorization": "Bearer bad"},
     )
     assert res.status_code == 401
+
+
+def test_get_entry_by_id(client):
+    cl, token = client
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Origin": "http://example.com",
+    }
+    res = cl.get("/api/v1/entry/1", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"label": "Site"}
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_get_config_value(client):
+    cl, token = client
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Origin": "http://example.com",
+    }
+    res = cl.get("/api/v1/config/k", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"key": "k", "value": "v"}
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_list_fingerprint(client):
+    cl, token = client
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Origin": "http://example.com",
+    }
+    res = cl.get("/api/v1/fingerprint", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == ["fp"]
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_get_nostr_pubkey(client):
+    cl, token = client
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Origin": "http://example.com",
+    }
+    res = cl.get("/api/v1/nostr/pubkey", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"npub": "np"}
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_shutdown(client, monkeypatch):
+    cl, token = client
+
+    calls = {}
+
+    class Loop:
+        def call_soon(self, func, *args):
+            calls["func"] = func
+            calls["args"] = args
+
+    monkeypatch.setattr(api.asyncio, "get_event_loop", lambda: Loop())
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Origin": "http://example.com",
+    }
+    res = cl.post("/api/v1/shutdown", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "shutting down"}
+    assert calls["func"] is sys.exit
+    assert calls["args"] == (0,)
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("get", "/api/v1/entry/1"),
+        ("get", "/api/v1/config/k"),
+        ("get", "/api/v1/fingerprint"),
+        ("get", "/api/v1/nostr/pubkey"),
+        ("post", "/api/v1/shutdown"),
+    ],
+)
+def test_invalid_token_other_endpoints(client, method, path):
+    cl, _token = client
+    req = getattr(cl, method)
+    res = req(path, headers={"Authorization": "Bearer bad"})
+    assert res.status_code == 401
