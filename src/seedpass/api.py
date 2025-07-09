@@ -311,6 +311,15 @@ def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     return {"npub": _pm.nostr_client.key_manager.get_npub()}
 
 
+@app.post("/api/v1/change-password")
+def change_password(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Change the master password for the active profile."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.change_password()
+    return {"status": "ok"}
+
+
 @app.post("/api/v1/shutdown")
 async def shutdown_server(authorization: str | None = Header(None)) -> dict[str, str]:
     _check_token(authorization)

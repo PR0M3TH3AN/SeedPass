@@ -68,6 +68,7 @@ Manage the entire vault for a profile.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Export the vault | `vault export` | `seedpass vault export --file backup.json` |
+| Change the master password | `vault change-password` | `seedpass vault change-password` |
 
 ### Nostr Commands
 
@@ -147,6 +148,7 @@ Code: 123456
 ### `vault` Commands
 
 - **`seedpass vault export`** – Export the entire vault to an encrypted JSON file.
+- **`seedpass vault change-password`** – Change the master password used for encryption.
 
 ### `nostr` Commands
 
