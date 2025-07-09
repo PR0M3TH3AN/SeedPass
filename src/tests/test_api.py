@@ -22,7 +22,14 @@ def client(monkeypatch):
             restore_entry=lambda i: None,
         ),
         config_manager=SimpleNamespace(
-            load_config=lambda require_pin=False: {"k": "v"}
+            load_config=lambda require_pin=False: {"k": "v"},
+            set_pin=lambda v: None,
+            set_password_hash=lambda v: None,
+            set_relays=lambda v, require_pin=False: None,
+            set_inactivity_timeout=lambda v: None,
+            set_additional_backup_path=lambda v: None,
+            set_secret_mode_enabled=lambda v: None,
+            set_clipboard_clear_delay=lambda v: None,
         ),
         fingerprint_manager=SimpleNamespace(list_fingerprints=lambda: ["fp"]),
         nostr_client=SimpleNamespace(
@@ -131,6 +138,37 @@ def test_create_modify_archive_entry(client):
     assert res.json() == {"status": "active"}
 
 
+def test_update_config(client):
+    cl, token = client
+    called = {}
+
+    def set_timeout(val):
+        called["val"] = val
+
+    api._pm.config_manager.set_inactivity_timeout = set_timeout
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
+    res = cl.put(
+        "/api/v1/config/inactivity_timeout",
+        json={"value": 42},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called["val"] == 42
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_update_config_unknown_key(client):
+    cl, token = client
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
+    res = cl.put(
+        "/api/v1/config/bogus",
+        json={"value": 1},
+        headers=headers,
+    )
+    assert res.status_code == 400
+
+
 def test_shutdown(client, monkeypatch):
     cl, token = client
 
@@ -165,6 +203,7 @@ def test_shutdown(client, monkeypatch):
         ("post", "/api/v1/shutdown"),
         ("post", "/api/v1/entry"),
         ("put", "/api/v1/entry/1"),
+        ("put", "/api/v1/config/inactivity_timeout"),
         ("post", "/api/v1/entry/1/archive"),
         ("post", "/api/v1/entry/1/unarchive"),
     ],
