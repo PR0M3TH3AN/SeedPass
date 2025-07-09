@@ -315,6 +315,13 @@ def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
     typer.echo(str(entry_id))
 
 
+@entry_app.command("totp-codes")
+def entry_totp_codes(ctx: typer.Context) -> None:
+    """Display all current TOTP codes."""
+    pm = _get_pm(ctx)
+    pm.handle_display_totp_codes()
+
+
 @entry_app.command("export-totp")
 def entry_export_totp(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")
