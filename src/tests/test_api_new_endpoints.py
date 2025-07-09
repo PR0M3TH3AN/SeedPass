@@ -122,6 +122,22 @@ def test_totp_export_endpoint(client):
     assert res.json() == {"entries": ["x"]}
 
 
+def test_totp_codes_endpoint(client):
+    cl, token = client
+    api._pm.entry_manager.list_entries = lambda **kw: [(0, "Email", None, None, False)]
+    api._pm.entry_manager.get_totp_code = lambda i, s: "123456"
+    api._pm.entry_manager.get_totp_time_remaining = lambda i: 30
+    api._pm.parent_seed = "seed"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.get("/api/v1/totp", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {
+        "codes": [
+            {"id": 0, "label": "Email", "code": "123456", "seconds_remaining": 30}
+        ]
+    }
+
+
 def test_fingerprint_endpoints(client):
     cl, token = client
     calls = {}

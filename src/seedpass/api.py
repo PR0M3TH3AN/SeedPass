@@ -14,6 +14,7 @@ import sys
 from fastapi.middleware.cors import CORSMiddleware
 
 from password_manager.manager import PasswordManager
+from password_manager.entry_types import EntryType
 
 
 app = FastAPI()
@@ -312,6 +313,24 @@ def export_totp(authorization: str | None = Header(None)) -> dict:
     _check_token(authorization)
     assert _pm is not None
     return _pm.entry_manager.export_totp_entries(_pm.parent_seed)
+
+
+@app.get("/api/v1/totp")
+def get_totp_codes(authorization: str | None = Header(None)) -> dict:
+    """Return active TOTP codes with remaining seconds."""
+    _check_token(authorization)
+    assert _pm is not None
+    entries = _pm.entry_manager.list_entries(
+        filter_kind=EntryType.TOTP.value, include_archived=False
+    )
+    codes = []
+    for idx, label, _u, _url, _arch in entries:
+        code = _pm.entry_manager.get_totp_code(idx, _pm.parent_seed)
+        rem = _pm.entry_manager.get_totp_time_remaining(idx)
+        codes.append(
+            {"id": idx, "label": label, "code": code, "seconds_remaining": rem}
+        )
+    return {"codes": codes}
 
 
 @app.get("/api/v1/nostr/pubkey")

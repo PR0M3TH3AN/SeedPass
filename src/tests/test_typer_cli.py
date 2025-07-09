@@ -373,6 +373,19 @@ def test_entry_export_totp(monkeypatch, tmp_path):
     assert called.get("called") is True
 
 
+def test_entry_totp_codes(monkeypatch):
+    called = {}
+
+    pm = SimpleNamespace(
+        handle_display_totp_codes=lambda: called.setdefault("called", True),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "totp-codes"])
+    assert result.exit_code == 0
+    assert called.get("called") is True
+
+
 def test_verify_checksum_command(monkeypatch):
     called = {}
 
