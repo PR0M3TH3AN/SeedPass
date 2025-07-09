@@ -140,6 +140,136 @@ def entry_add(
     typer.echo(str(index))
 
 
+@entry_app.command("add-totp")
+def entry_add_totp(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    secret: Optional[str] = typer.Option(None, "--secret", help="Import secret"),
+    period: int = typer.Option(30, "--period", help="TOTP period in seconds"),
+    digits: int = typer.Option(6, "--digits", help="Number of TOTP digits"),
+) -> None:
+    """Add a TOTP entry and output the otpauth URI."""
+    pm = _get_pm(ctx)
+    uri = pm.entry_manager.add_totp(
+        label,
+        pm.parent_seed,
+        index=index,
+        secret=secret,
+        period=period,
+        digits=digits,
+    )
+    typer.echo(uri)
+
+
+@entry_app.command("add-ssh")
+def entry_add_ssh(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add an SSH key entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_ssh_key(
+        label,
+        pm.parent_seed,
+        index=index,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
+@entry_app.command("add-pgp")
+def entry_add_pgp(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    key_type: str = typer.Option("ed25519", "--key-type", help="Key type"),
+    user_id: str = typer.Option("", "--user-id", help="User ID"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a PGP key entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_pgp_key(
+        label,
+        pm.parent_seed,
+        index=index,
+        key_type=key_type,
+        user_id=user_id,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
+@entry_app.command("add-nostr")
+def entry_add_nostr(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a Nostr key entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_nostr_key(
+        label,
+        index=index,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
+@entry_app.command("add-seed")
+def entry_add_seed(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    words: int = typer.Option(24, "--words", help="Word count"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a derived seed phrase entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_seed(
+        label,
+        pm.parent_seed,
+        index=index,
+        words_num=words,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
+@entry_app.command("add-key-value")
+def entry_add_key_value(
+    ctx: typer.Context,
+    label: str,
+    value: str = typer.Option(..., "--value", help="Stored value"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a key/value entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_key_value(label, value, notes=notes)
+    typer.echo(str(idx))
+
+
+@entry_app.command("add-managed-account")
+def entry_add_managed_account(
+    ctx: typer.Context,
+    label: str,
+    index: Optional[int] = typer.Option(None, "--index", help="Derivation index"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a managed account seed entry and output its index."""
+    pm = _get_pm(ctx)
+    idx = pm.entry_manager.add_managed_account(
+        label,
+        pm.parent_seed,
+        index=index,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
 @entry_app.command("modify")
 def entry_modify(
     ctx: typer.Context,
@@ -148,11 +278,23 @@ def entry_modify(
     username: Optional[str] = typer.Option(None, "--username"),
     url: Optional[str] = typer.Option(None, "--url"),
     notes: Optional[str] = typer.Option(None, "--notes"),
+    period: Optional[int] = typer.Option(
+        None, "--period", help="TOTP period in seconds"
+    ),
+    digits: Optional[int] = typer.Option(None, "--digits", help="TOTP digits"),
+    value: Optional[str] = typer.Option(None, "--value", help="New value"),
 ) -> None:
     """Modify an existing entry."""
     pm = _get_pm(ctx)
     pm.entry_manager.modify_entry(
-        entry_id, username=username, url=url, notes=notes, label=label
+        entry_id,
+        username=username,
+        url=url,
+        notes=notes,
+        label=label,
+        period=period,
+        digits=digits,
+        value=value,
     )
 
 
