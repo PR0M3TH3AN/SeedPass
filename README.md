@@ -217,7 +217,7 @@ You can also use the new Typer-based CLI:
 ```bash
 seedpass --help
 ```
-For details see [docs/advanced_cli.md](docs/advanced_cli.md).
+For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
 
 ### Running the Application
 

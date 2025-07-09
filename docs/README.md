@@ -16,4 +16,4 @@ Code: 123456
 
 ## CLI and API Reference
 
-See [advanced_cli.md](advanced_cli.md) for a list of command examples and instructions on running the local API. When starting the API, set `SEEDPASS_CORS_ORIGINS` if you need to allow requests from specific web origins.
+See [advanced_cli.md](advanced_cli.md) for a list of command examples. Detailed information about the REST API is available in [api_reference.md](api_reference.md). When starting the API, set `SEEDPASS_CORS_ORIGINS` if you need to allow requests from specific web origins.
