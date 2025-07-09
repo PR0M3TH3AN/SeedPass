@@ -48,7 +48,7 @@ Manage individual entries within a vault.
 | :--- | :--- | :--- |
 | List entries | `entry list` | `seedpass entry list --sort label` |
 | Search for entries | `entry search` | `seedpass entry search "GitHub"` |
-| Retrieve an entry's secret | `entry get` | `seedpass entry get "GitHub"` |
+| Retrieve an entry's secret (password or TOTP code) | `entry get` | `seedpass entry get "GitHub"` |
 
 ### Vault Commands
 
@@ -108,7 +108,15 @@ Run or stop the local HTTP API.
 
 - **`seedpass entry list`** – List entries in the vault, optionally sorted or filtered.
 - **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes.
-- **`seedpass entry get <query>`** – Retrieve the primary secret for one matching entry.
+- **`seedpass entry get <query>`** – Retrieve the password or TOTP code for one matching entry, depending on the entry's type.
+
+Example retrieving a TOTP code:
+
+```bash
+$ seedpass entry get "email"
+[##########----------] 15s
+Code: 123456
+```
 
 ### `vault` Commands
 
