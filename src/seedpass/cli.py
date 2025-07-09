@@ -126,6 +126,52 @@ def entry_get(ctx: typer.Context, query: str) -> None:
         raise typer.Exit(code=1)
 
 
+@entry_app.command("add")
+def entry_add(
+    ctx: typer.Context,
+    label: str,
+    length: int = typer.Option(12, "--length"),
+    username: Optional[str] = typer.Option(None, "--username"),
+    url: Optional[str] = typer.Option(None, "--url"),
+) -> None:
+    """Add a new password entry and output its index."""
+    pm = _get_pm(ctx)
+    index = pm.entry_manager.add_entry(label, length, username, url)
+    typer.echo(str(index))
+
+
+@entry_app.command("modify")
+def entry_modify(
+    ctx: typer.Context,
+    entry_id: int,
+    label: Optional[str] = typer.Option(None, "--label"),
+    username: Optional[str] = typer.Option(None, "--username"),
+    url: Optional[str] = typer.Option(None, "--url"),
+    notes: Optional[str] = typer.Option(None, "--notes"),
+) -> None:
+    """Modify an existing entry."""
+    pm = _get_pm(ctx)
+    pm.entry_manager.modify_entry(
+        entry_id, username=username, url=url, notes=notes, label=label
+    )
+
+
+@entry_app.command("archive")
+def entry_archive(ctx: typer.Context, entry_id: int) -> None:
+    """Archive an entry."""
+    pm = _get_pm(ctx)
+    pm.entry_manager.archive_entry(entry_id)
+    typer.echo(str(entry_id))
+
+
+@entry_app.command("unarchive")
+def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
+    """Restore an archived entry."""
+    pm = _get_pm(ctx)
+    pm.entry_manager.restore_entry(entry_id)
+    typer.echo(str(entry_id))
+
+
 @vault_app.command("export")
 def vault_export(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")

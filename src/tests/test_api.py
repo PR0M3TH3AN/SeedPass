@@ -16,6 +16,10 @@ def client(monkeypatch):
         entry_manager=SimpleNamespace(
             search_entries=lambda q: [(1, "Site", "user", "url", False)],
             retrieve_entry=lambda i: {"label": "Site"},
+            add_entry=lambda *a, **k: 1,
+            modify_entry=lambda *a, **k: None,
+            archive_entry=lambda i: None,
+            restore_entry=lambda i: None,
         ),
         config_manager=SimpleNamespace(
             load_config=lambda require_pin=False: {"k": "v"}
@@ -98,6 +102,35 @@ def test_get_nostr_pubkey(client):
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
+def test_create_modify_archive_entry(client):
+    cl, token = client
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
+
+    res = cl.post(
+        "/api/v1/entry",
+        json={"label": "test", "length": 12},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"id": 1}
+
+    res = cl.put(
+        "/api/v1/entry/1",
+        json={"username": "bob"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+
+    res = cl.post("/api/v1/entry/1/archive", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "archived"}
+
+    res = cl.post("/api/v1/entry/1/unarchive", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "active"}
+
+
 def test_shutdown(client, monkeypatch):
     cl, token = client
 
@@ -130,10 +163,17 @@ def test_shutdown(client, monkeypatch):
         ("get", "/api/v1/fingerprint"),
         ("get", "/api/v1/nostr/pubkey"),
         ("post", "/api/v1/shutdown"),
+        ("post", "/api/v1/entry"),
+        ("put", "/api/v1/entry/1"),
+        ("post", "/api/v1/entry/1/archive"),
+        ("post", "/api/v1/entry/1/unarchive"),
     ],
 )
 def test_invalid_token_other_endpoints(client, method, path):
     cl, _token = client
     req = getattr(cl, method)
-    res = req(path, headers={"Authorization": "Bearer bad"})
+    kwargs = {"headers": {"Authorization": "Bearer bad"}}
+    if method in {"post", "put"}:
+        kwargs["json"] = {}
+    res = req(path, **kwargs)
     assert res.status_code == 401
