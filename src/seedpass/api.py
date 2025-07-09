@@ -85,17 +85,95 @@ def get_entry(entry_id: int, authorization: str | None = Header(None)) -> Any:
 def create_entry(
     entry: dict,
     authorization: str | None = Header(None),
-) -> dict[str, int]:
-    """Create a new password entry."""
+) -> dict[str, Any]:
+    """Create a new entry.
+
+    If ``entry['type']`` or ``entry['kind']`` specifies ``totp``, ``ssh`` and so
+    on, the corresponding entry type is created. When omitted or set to
+    ``password`` the behaviour matches the legacy password-entry API.
+    """
     _check_token(authorization)
     assert _pm is not None
-    index = _pm.entry_manager.add_entry(
-        entry.get("label"),
-        int(entry.get("length", 12)),
-        entry.get("username"),
-        entry.get("url"),
-    )
-    return {"id": index}
+
+    etype = (entry.get("type") or entry.get("kind") or "password").lower()
+
+    if etype == "password":
+        index = _pm.entry_manager.add_entry(
+            entry.get("label"),
+            int(entry.get("length", 12)),
+            entry.get("username"),
+            entry.get("url"),
+        )
+        return {"id": index}
+
+    if etype == "totp":
+        index = _pm.entry_manager.get_next_index()
+        uri = _pm.entry_manager.add_totp(
+            entry.get("label"),
+            _pm.parent_seed,
+            secret=entry.get("secret"),
+            index=entry.get("index"),
+            period=int(entry.get("period", 30)),
+            digits=int(entry.get("digits", 6)),
+            notes=entry.get("notes", ""),
+            archived=entry.get("archived", False),
+        )
+        return {"id": index, "uri": uri}
+
+    if etype == "ssh":
+        index = _pm.entry_manager.add_ssh_key(
+            entry.get("label"),
+            _pm.parent_seed,
+            index=entry.get("index"),
+            notes=entry.get("notes", ""),
+            archived=entry.get("archived", False),
+        )
+        return {"id": index}
+
+    if etype == "pgp":
+        index = _pm.entry_manager.add_pgp_key(
+            entry.get("label"),
+            _pm.parent_seed,
+            index=entry.get("index"),
+            key_type=entry.get("key_type", "ed25519"),
+            user_id=entry.get("user_id", ""),
+            notes=entry.get("notes", ""),
+            archived=entry.get("archived", False),
+        )
+        return {"id": index}
+
+    if etype == "nostr":
+        index = _pm.entry_manager.add_nostr_key(
+            entry.get("label"),
+            index=entry.get("index"),
+            notes=entry.get("notes", ""),
+            archived=entry.get("archived", False),
+        )
+        return {"id": index}
+
+    if etype == "key_value":
+        index = _pm.entry_manager.add_key_value(
+            entry.get("label"),
+            entry.get("value"),
+            notes=entry.get("notes", ""),
+        )
+        return {"id": index}
+
+    if etype in {"seed", "managed_account"}:
+        func = (
+            _pm.entry_manager.add_seed
+            if etype == "seed"
+            else _pm.entry_manager.add_managed_account
+        )
+        index = func(
+            entry.get("label"),
+            _pm.parent_seed,
+            index=entry.get("index"),
+            notes=entry.get("notes", ""),
+        )
+        return {"id": index}
+
+    raise HTTPException(status_code=400, detail="Unsupported entry type")
 
 
 @app.put("/api/v1/entry/{entry_id}")
@@ -104,7 +182,11 @@ def update_entry(
     entry: dict,
     authorization: str | None = Header(None),
 ) -> dict[str, str]:
-    """Update an existing entry."""
+    """Update an existing entry.
+
+    Additional fields like ``period``, ``digits`` and ``value`` are forwarded for
+    specialized entry types (e.g. TOTP or key/value entries).
+    """
     _check_token(authorization)
     assert _pm is not None
     _pm.entry_manager.modify_entry(
@@ -113,6 +195,9 @@ def update_entry(
         url=entry.get("url"),
         notes=entry.get("notes"),
         label=entry.get("label"),
+        period=entry.get("period"),
+        digits=entry.get("digits"),
+        value=entry.get("value"),
     )
     return {"status": "ok"}
 
