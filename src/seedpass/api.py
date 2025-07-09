@@ -25,10 +25,18 @@ def _check_token(auth: str | None) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def start_server() -> str:
-    """Initialize global state and return the API token."""
+def start_server(fingerprint: str | None = None) -> str:
+    """Initialize global state and return the API token.
+
+    Parameters
+    ----------
+    fingerprint:
+        Optional seed profile fingerprint to select before starting the server.
+    """
     global _pm, _token
     _pm = PasswordManager()
+    if fingerprint:
+        _pm.select_fingerprint(fingerprint)
     _token = secrets.token_urlsafe(16)
     print(f"API token: {_token}")
     origins = [

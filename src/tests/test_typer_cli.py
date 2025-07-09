@@ -149,3 +149,19 @@ def test_generate_password(monkeypatch):
     assert result.exit_code == 0
     assert called.get("length") == 12
     assert "secretpw" in result.stdout
+
+
+def test_api_start_passes_fingerprint(monkeypatch):
+    """Ensure the API start command forwards the selected fingerprint."""
+    called = {}
+
+    def fake_start(fp=None):
+        called["fp"] = fp
+        return "tok"
+
+    monkeypatch.setattr(cli.api_module, "start_server", fake_start)
+    monkeypatch.setattr(cli, "uvicorn", SimpleNamespace(run=lambda *a, **k: None))
+
+    result = runner.invoke(app, ["--fingerprint", "abc", "api", "start"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
