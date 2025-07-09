@@ -94,6 +94,9 @@ Manage seed profiles (fingerprints).
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | List all profiles | `fingerprint list` | `seedpass fingerprint list` |
+| Add a profile | `fingerprint add` | `seedpass fingerprint add` |
+| Remove a profile | `fingerprint remove` | `seedpass fingerprint remove <fp>` |
+| Switch profile | `fingerprint switch` | `seedpass fingerprint switch <fp>` |
 
 ### Utility Commands
 
@@ -158,6 +161,9 @@ Code: 123456
 ### `fingerprint` Commands
 
 - **`seedpass fingerprint list`** – List available profiles by fingerprint.
+- **`seedpass fingerprint add`** – Create a new seed profile.
+- **`seedpass fingerprint remove <fp>`** – Delete the specified profile.
+- **`seedpass fingerprint switch <fp>`** – Switch the active profile.
 
 ### `util` Commands
 

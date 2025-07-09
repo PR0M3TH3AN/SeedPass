@@ -105,6 +105,54 @@ def test_fingerprint_list(monkeypatch):
     assert "a" in result.stdout and "b" in result.stdout
 
 
+def test_fingerprint_add(monkeypatch):
+    called = {}
+
+    def add():
+        called["add"] = True
+
+    pm = SimpleNamespace(
+        add_new_fingerprint=add,
+        select_fingerprint=lambda fp: None,
+        fingerprint_manager=SimpleNamespace(),
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["fingerprint", "add"])
+    assert result.exit_code == 0
+    assert called.get("add") is True
+
+
+def test_fingerprint_remove(monkeypatch):
+    called = {}
+
+    def remove(fp):
+        called["fp"] = fp
+
+    pm = SimpleNamespace(
+        fingerprint_manager=SimpleNamespace(remove_fingerprint=remove),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["fingerprint", "remove", "abc"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+
+
+def test_fingerprint_switch(monkeypatch):
+    called = {}
+
+    def switch(fp):
+        called["fp"] = fp
+
+    pm = SimpleNamespace(
+        select_fingerprint=switch, fingerprint_manager=SimpleNamespace()
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["fingerprint", "switch", "def"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "def"
+
+
 def test_config_get(monkeypatch):
     pm = SimpleNamespace(
         config_manager=SimpleNamespace(
