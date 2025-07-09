@@ -1623,7 +1623,7 @@ class PasswordManager:
             print(colored("C. Add Custom Field", "cyan"))
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
-            print(colored("T. Add Tags", "cyan"))
+            print(colored("T. Edit Tags", "cyan"))
             print(colored("Q. Show QR codes", "cyan"))
 
             choice = (
@@ -1662,14 +1662,24 @@ class PasswordManager:
                     self.is_dirty = True
                     self.last_update = time.time()
             elif choice == "t":
-                tags_input = input("Enter tags (comma-separated): ").strip()
-                if tags_input:
-                    new_tags = [t.strip() for t in tags_input.split(",") if t.strip()]
-                    existing_tags = entry.get("tags", [])
-                    tags = list({*existing_tags, *new_tags})
-                    self.entry_manager.modify_entry(index, tags=tags)
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                current_tags = entry.get("tags", [])
+                print(
+                    colored(
+                        f"Current tags: {', '.join(current_tags) if current_tags else 'None'}",
+                        "cyan",
+                    )
+                )
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to remove all tags): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else []
+                )
+                self.entry_manager.modify_entry(index, tags=tags)
+                self.is_dirty = True
+                self.last_update = time.time()
             elif choice == "e":
                 self._entry_edit_menu(index, entry)
             elif choice == "q":
@@ -1836,6 +1846,9 @@ class PasswordManager:
                             print(color_text(f"Code: {code}", category))
                         if notes:
                             print(colored(f"Notes: {notes}", "cyan"))
+                        tags = entry.get("tags", [])
+                        if tags:
+                            print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                         remaining = self.entry_manager.get_totp_time_remaining(index)
                         exit_loop = False
                         while remaining > 0:
@@ -1885,6 +1898,9 @@ class PasswordManager:
                         print(colored(f"Label: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     print(colored("Public Key:", "cyan"))
                     print(color_text(pub_pem, "default"))
                     if self.secret_mode_enabled:
@@ -1920,6 +1936,9 @@ class PasswordManager:
                         print(colored(f"Label: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(phrase, self.clipboard_clear_delay)
                         print(
@@ -1969,6 +1988,9 @@ class PasswordManager:
                         print(colored(f"User ID: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_key, self.clipboard_clear_delay)
@@ -2009,6 +2031,9 @@ class PasswordManager:
                     # QR code display removed for npub and nsec
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
@@ -2024,6 +2049,9 @@ class PasswordManager:
                 print(colored(f"Retrieving value for '{label}'.", "cyan"))
                 if notes:
                     print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 print(
                     colored(
                         f"Archived Status: {'Archived' if archived else 'Active'}",
@@ -2082,6 +2110,9 @@ class PasswordManager:
                     print(colored(f"Notes: {notes}", "cyan"))
                 if fingerprint:
                     print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 print(
                     colored(
                         f"Archived Status: {'Archived' if archived else 'Active'}",
@@ -2172,6 +2203,9 @@ class PasswordManager:
                             "cyan",
                         )
                     )
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     custom_fields = entry.get("custom_fields", [])
                     if custom_fields:
                         print(colored("Additional Fields:", "cyan"))
@@ -2651,6 +2685,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.SEED.value:
             print(color_text("  Type: Seed Phrase", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2661,6 +2698,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.SSH.value:
             print(color_text("  Type: SSH Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2670,6 +2710,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.PGP.value:
             print(color_text("  Type: PGP Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2685,6 +2728,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.NOSTR.value:
             print(color_text("  Type: Nostr Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2694,6 +2740,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         else:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
