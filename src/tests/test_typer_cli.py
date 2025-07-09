@@ -118,6 +118,33 @@ def test_config_get(monkeypatch):
     assert "1" in result.stdout
 
 
+def test_config_set(monkeypatch):
+    called = {}
+
+    def set_timeout(val):
+        called["timeout"] = float(val)
+
+    pm = SimpleNamespace(
+        config_manager=SimpleNamespace(set_inactivity_timeout=set_timeout),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["config", "set", "inactivity_timeout", "5"])
+    assert result.exit_code == 0
+    assert called["timeout"] == 5.0
+    assert "Updated" in result.stdout
+
+
+def test_config_set_unknown_key(monkeypatch):
+    pm = SimpleNamespace(
+        config_manager=SimpleNamespace(), select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["config", "set", "bogus", "val"])
+    assert result.exit_code != 0
+    assert "Unknown key" in result.stdout
+
+
 def test_nostr_sync(monkeypatch):
     called = {}
 
