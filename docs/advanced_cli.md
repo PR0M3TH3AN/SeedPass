@@ -50,6 +50,13 @@ Manage individual entries within a vault.
 | Search for entries | `entry search` | `seedpass entry search "GitHub"` |
 | Retrieve an entry's secret (password or TOTP code) | `entry get` | `seedpass entry get "GitHub"` |
 | Add a password entry | `entry add` | `seedpass entry add Example --length 16` |
+| Add a TOTP entry | `entry add-totp` | `seedpass entry add-totp Email --secret JBSW...` |
+| Add an SSH key entry | `entry add-ssh` | `seedpass entry add-ssh Server --index 0` |
+| Add a PGP key entry | `entry add-pgp` | `seedpass entry add-pgp Personal --user-id me@example.com` |
+| Add a Nostr key entry | `entry add-nostr` | `seedpass entry add-nostr Chat` |
+| Add a seed phrase entry | `entry add-seed` | `seedpass entry add-seed Backup --words 24` |
+| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --value abc123` |
+| Add a managed account entry | `entry add-managed-account` | `seedpass entry add-managed-account Trading` |
 | Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
 | Archive an entry | `entry archive` | `seedpass entry archive 1` |
 | Unarchive an entry | `entry unarchive` | `seedpass entry unarchive 1` |
@@ -78,6 +85,7 @@ Manage profile‑specific settings.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Get a setting value | `config get` | `seedpass config get inactivity_timeout` |
+| Set a setting value | `config set` | `seedpass config set inactivity_timeout 300` |
 
 ### Fingerprint Commands
 
@@ -114,6 +122,13 @@ Run or stop the local HTTP API.
 - **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes.
 - **`seedpass entry get <query>`** – Retrieve the password or TOTP code for one matching entry, depending on the entry's type.
 - **`seedpass entry add <label>`** – Create a new password entry. Use `--length` to set the password length and optional `--username`/`--url` values.
+- **`seedpass entry add-totp <label>`** – Create a TOTP entry. Use `--secret` to import an existing secret or `--index` to derive from the seed.
+- **`seedpass entry add-ssh <label>`** – Create an SSH key entry derived from the seed.
+- **`seedpass entry add-pgp <label>`** – Create a PGP key entry. Provide `--user-id` and `--key-type` as needed.
+- **`seedpass entry add-nostr <label>`** – Create a Nostr key entry for decentralised chat.
+- **`seedpass entry add-seed <label>`** – Store a derived seed phrase. Use `--words` to set the word count.
+- **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--value`.
+- **`seedpass entry add-managed-account <label>`** – Store a BIP‑85 derived account seed.
 - **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
 - **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.
 - **`seedpass entry unarchive <id>`** – Restore an archived entry.
@@ -138,6 +153,7 @@ Code: 123456
 ### `config` Commands
 
 - **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode`, or `auto_sync`.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set inactivity_timeout 300`.
 
 ### `fingerprint` Commands
 

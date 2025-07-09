@@ -17,8 +17,9 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 
 - `GET /api/v1/entry?query=<text>` – Search entries matching a query.
 - `GET /api/v1/entry/{id}` – Retrieve a single entry by its index.
-- `POST /api/v1/entry` – Create a new password entry.
+- `POST /api/v1/entry` – Create a new entry of any supported type.
 - `PUT /api/v1/entry/{id}` – Modify an existing entry.
+- `PUT /api/v1/config/{key}` – Update a configuration value.
 - `POST /api/v1/entry/{id}/archive` – Archive an entry.
 - `POST /api/v1/entry/{id}/unarchive` – Unarchive an entry.
 - `GET /api/v1/config/{key}` – Return the value for a configuration key.
@@ -33,6 +34,51 @@ Send requests with the token in the header:
 ```bash
 curl -H "Authorization: Bearer <token>" \
      "http://127.0.0.1:8000/api/v1/entry?query=email"
+```
+
+### Creating an Entry
+
+`POST /api/v1/entry` accepts a JSON body with at least a `label` field. Set
+`type` (or `kind`) to choose the entry variant (`password`, `totp`, `ssh`, `pgp`,
+`nostr`, `seed`, `key_value`, or `managed_account`). Additional fields vary by
+type:
+
+- **password** – `length`, optional `username`, `url` and `notes`
+- **totp** – `secret` or `index`, optional `period`, `digits`, `notes`, `archived`
+- **ssh/nostr/seed/managed_account** – `index`, optional `notes`, `archived`
+- **pgp** – `index`, `key_type`, `user_id`, optional `notes`, `archived`
+- **key_value** – `value`, optional `notes`
+
+Example creating a TOTP entry:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/entry \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"type": "totp", "label": "Email", "secret": "JBSW..."}'
+```
+
+### Updating an Entry
+
+Use `PUT /api/v1/entry/{id}` to change fields such as `label`, `username`,
+`url`, `notes`, `period`, `digits` or `value` depending on the entry type.
+
+```bash
+curl -X PUT http://127.0.0.1:8000/api/v1/entry/1 \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "alice"}'
+```
+
+### Updating Configuration
+
+Send a JSON body containing a `value` field to `PUT /api/v1/config/{key}`:
+
+```bash
+curl -X PUT http://127.0.0.1:8000/api/v1/config/inactivity_timeout \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"value": 300}'
 ```
 
 ### Enabling CORS
