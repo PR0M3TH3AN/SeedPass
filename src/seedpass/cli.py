@@ -22,7 +22,7 @@ fingerprint_option = typer.Option(
 entry_app = typer.Typer(help="Manage individual entries")
 vault_app = typer.Typer(help="Manage the entire vault")
 nostr_app = typer.Typer(help="Interact with Nostr relays")
-config_app = typer.Typer(help="Manage configuration values")
+config_app = typer.Typer(help="Get or set configuration values")
 fingerprint_app = typer.Typer(help="Manage seed profiles")
 util_app = typer.Typer(help="Utility commands")
 api_app = typer.Typer(help="Run the API server")
@@ -352,6 +352,38 @@ def config_get(ctx: typer.Context, key: str) -> None:
         typer.echo("Key not found")
     else:
         typer.echo(str(value))
+
+
+@config_app.command("set")
+def config_set(ctx: typer.Context, key: str, value: str) -> None:
+    """Set a configuration value."""
+    pm = _get_pm(ctx)
+    cfg = pm.config_manager
+
+    mapping = {
+        "inactivity_timeout": lambda v: cfg.set_inactivity_timeout(float(v)),
+        "secret_mode_enabled": lambda v: cfg.set_secret_mode_enabled(
+            v.lower() in ("1", "true", "yes", "y", "on")
+        ),
+        "clipboard_clear_delay": lambda v: cfg.set_clipboard_clear_delay(int(v)),
+        "additional_backup_path": lambda v: cfg.set_additional_backup_path(v or None),
+        "relays": lambda v: cfg.set_relays(
+            [r.strip() for r in v.split(",") if r.strip()], require_pin=False
+        ),
+    }
+
+    action = mapping.get(key)
+    if action is None:
+        typer.echo("Unknown key")
+        raise typer.Exit(code=1)
+
+    try:
+        action(value)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo("Updated")
 
 
 @fingerprint_app.command("list")
