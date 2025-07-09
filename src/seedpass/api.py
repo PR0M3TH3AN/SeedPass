@@ -234,6 +234,35 @@ def get_config(key: str, authorization: str | None = Header(None)) -> Any:
     return {"key": key, "value": value}
 
 
+@app.put("/api/v1/config/{key}")
+def update_config(
+    key: str, data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Update a configuration setting."""
+    _check_token(authorization)
+    assert _pm is not None
+    cfg = _pm.config_manager
+    mapping = {
+        "relays": lambda v: cfg.set_relays(v, require_pin=False),
+        "pin": cfg.set_pin,
+        "password_hash": cfg.set_password_hash,
+        "inactivity_timeout": lambda v: cfg.set_inactivity_timeout(float(v)),
+        "additional_backup_path": cfg.set_additional_backup_path,
+        "secret_mode_enabled": cfg.set_secret_mode_enabled,
+        "clipboard_clear_delay": lambda v: cfg.set_clipboard_clear_delay(int(v)),
+    }
+
+    action = mapping.get(key)
+    if action is None:
+        raise HTTPException(status_code=400, detail="Unknown key")
+
+    if "value" not in data:
+        raise HTTPException(status_code=400, detail="Missing value")
+
+    action(data["value"])
+    return {"status": "ok"}
+
+
 @app.get("/api/v1/fingerprint")
 def list_fingerprints(authorization: str | None = Header(None)) -> List[str]:
     _check_token(authorization)
