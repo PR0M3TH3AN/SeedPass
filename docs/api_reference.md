@@ -31,6 +31,7 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
 - `POST /api/v1/checksum/update` – Update the stored script checksum.
 - `POST /api/v1/change-password` – Change the master password for the active profile.
+- `POST /api/v1/vault/import` – Import a vault backup from a file or path.
 - `POST /api/v1/shutdown` – Stop the server gracefully.
 
 ## Example Requests

@@ -324,6 +324,16 @@ def vault_export(
     typer.echo(str(file))
 
 
+@vault_app.command("import")
+def vault_import(
+    ctx: typer.Context, file: str = typer.Option(..., help="Input file")
+) -> None:
+    """Import a vault from an encrypted JSON file."""
+    pm = _get_pm(ctx)
+    pm.handle_import_database(Path(file))
+    typer.echo(str(file))
+
+
 @vault_app.command("change-password")
 def vault_change_password(ctx: typer.Context) -> None:
     """Change the master password used for encryption."""

@@ -81,6 +81,23 @@ def test_vault_export(monkeypatch, tmp_path):
     assert called["path"] == out_path
 
 
+def test_vault_import(monkeypatch, tmp_path):
+    called = {}
+
+    def import_db(path):
+        called["path"] = path
+
+    pm = SimpleNamespace(
+        handle_import_database=import_db, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    in_path = tmp_path / "in.json"
+    in_path.write_text("{}")
+    result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
+    assert result.exit_code == 0
+    assert called["path"] == in_path
+
+
 def test_vault_change_password(monkeypatch):
     called = {}
 
