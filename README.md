@@ -175,7 +175,8 @@ seedpass import --file "~/seedpass_backup.json"
 seedpass search "github"
 seedpass search --tags "work,personal"
 seedpass get "github"
-seedpass totp "email"
+# Retrieve a TOTP entry
+seedpass entry get "email"
 # The code is printed and copied to your clipboard
 
 # Sort or filter the list view
@@ -185,6 +186,9 @@ seedpass list --filter totp
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
 ```
+
+For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md).
+Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
 
 ### Vault JSON Layout
 
