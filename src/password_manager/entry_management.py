@@ -597,6 +597,35 @@ class EntryManager:
         period = int(entry.get("period", 30))
         return TotpManager.time_remaining(period)
 
+    def export_totp_entries(self, parent_seed: str) -> dict[str, list[dict[str, Any]]]:
+        """Return all TOTP secrets and metadata for external use."""
+        data = self.vault.load_index()
+        entries = data.get("entries", {})
+        exported: list[dict[str, Any]] = []
+        for entry in entries.values():
+            etype = entry.get("type", entry.get("kind"))
+            if etype != EntryType.TOTP.value:
+                continue
+            label = entry.get("label", "")
+            period = int(entry.get("period", 30))
+            digits = int(entry.get("digits", 6))
+            if "secret" in entry:
+                secret = entry["secret"]
+            else:
+                idx = int(entry.get("index", 0))
+                secret = TotpManager.derive_secret(parent_seed, idx)
+            uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
+            exported.append(
+                {
+                    "label": label,
+                    "secret": secret,
+                    "period": period,
+                    "digits": digits,
+                    "uri": uri,
+                }
+            )
+        return {"entries": exported}
+
     def get_encrypted_index(self) -> Optional[bytes]:
         """
         Retrieves the encrypted password index file's contents.

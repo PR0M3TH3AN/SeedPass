@@ -353,6 +353,26 @@ def test_entry_unarchive(monkeypatch):
     assert called["id"] == 4
 
 
+def test_entry_export_totp(monkeypatch, tmp_path):
+    called = {}
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(
+            export_totp_entries=lambda seed: called.setdefault("called", True)
+            or {"entries": []}
+        ),
+        parent_seed="seed",
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+
+    out = tmp_path / "t.json"
+    result = runner.invoke(app, ["entry", "export-totp", "--file", str(out)])
+    assert result.exit_code == 0
+    assert out.exists()
+    assert called.get("called") is True
+
+
 def test_verify_checksum_command(monkeypatch):
     called = {}
 

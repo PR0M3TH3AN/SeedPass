@@ -60,6 +60,7 @@ Manage individual entries within a vault.
 | Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
 | Archive an entry | `entry archive` | `seedpass entry archive 1` |
 | Unarchive an entry | `entry unarchive` | `seedpass entry unarchive 1` |
+| Export all TOTP secrets | `entry export-totp` | `seedpass entry export-totp --file totp.json` |
 
 ### Vault Commands
 
@@ -139,6 +140,7 @@ Run or stop the local HTTP API.
 - **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
 - **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.
 - **`seedpass entry unarchive <id>`** – Restore an archived entry.
+- **`seedpass entry export-totp --file <path>`** – Export all stored TOTP secrets to a JSON file.
 
 Example retrieving a TOTP code:
 

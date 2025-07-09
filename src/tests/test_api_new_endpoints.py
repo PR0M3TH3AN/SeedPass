@@ -112,6 +112,16 @@ def test_update_config_secret_mode(client):
     assert called["val"] is True
 
 
+def test_totp_export_endpoint(client):
+    cl, token = client
+    api._pm.entry_manager.export_totp_entries = lambda seed: {"entries": ["x"]}
+    api._pm.parent_seed = "seed"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.get("/api/v1/totp/export", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"entries": ["x"]}
+
+
 def test_fingerprint_endpoints(client):
     cl, token = client
     calls = {}
