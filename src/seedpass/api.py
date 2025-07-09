@@ -311,6 +311,24 @@ def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     return {"npub": _pm.nostr_client.key_manager.get_npub()}
 
 
+@app.post("/api/v1/checksum/verify")
+def verify_checksum(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Verify the SeedPass script checksum."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.handle_verify_checksum()
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/checksum/update")
+def update_checksum(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Regenerate the script checksum file."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.handle_update_script_checksum()
+    return {"status": "ok"}
+
+
 @app.post("/api/v1/change-password")
 def change_password(authorization: str | None = Header(None)) -> dict[str, str]:
     """Change the master password for the active profile."""

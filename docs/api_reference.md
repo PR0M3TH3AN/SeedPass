@@ -28,6 +28,8 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `DELETE /api/v1/fingerprint/{fp}` – Remove a fingerprint.
 - `POST /api/v1/fingerprint/select` – Switch the active fingerprint.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
+- `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
+- `POST /api/v1/checksum/update` – Update the stored script checksum.
 - `POST /api/v1/change-password` – Change the master password for the active profile.
 - `POST /api/v1/shutdown` – Stop the server gracefully.
 

@@ -141,3 +141,23 @@ def test_fingerprint_endpoints(client):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert calls.get("select") == "xyz"
+
+
+def test_checksum_endpoints(client):
+    cl, token = client
+    calls = {}
+
+    api._pm.handle_verify_checksum = lambda: calls.setdefault("verify", True)
+    api._pm.handle_update_script_checksum = lambda: calls.setdefault("update", True)
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = cl.post("/api/v1/checksum/verify", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert calls.get("verify") is True
+
+    res = cl.post("/api/v1/checksum/update", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert calls.get("update") is True

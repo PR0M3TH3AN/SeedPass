@@ -106,6 +106,8 @@ Miscellaneous helper commands.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Generate a password | `util generate-password` | `seedpass util generate-password --length 24` |
+| Verify script checksum | `util verify-checksum` | `seedpass util verify-checksum` |
+| Update script checksum | `util update-checksum` | `seedpass util update-checksum` |
 
 ### API Commands
 
@@ -170,6 +172,8 @@ Code: 123456
 ### `util` Commands
 
 - **`seedpass util generate-password`** – Generate a strong password of the requested length.
+- **`seedpass util verify-checksum`** – Verify the SeedPass script checksum.
+- **`seedpass util update-checksum`** – Regenerate the script checksum file.
 
 ---
 

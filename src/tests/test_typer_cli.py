@@ -334,3 +334,31 @@ def test_entry_unarchive(monkeypatch):
     assert result.exit_code == 0
     assert "4" in result.stdout
     assert called["id"] == 4
+
+
+def test_verify_checksum_command(monkeypatch):
+    called = {}
+
+    pm = SimpleNamespace(
+        handle_verify_checksum=lambda: called.setdefault("called", True),
+        handle_update_script_checksum=lambda: None,
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["util", "verify-checksum"])
+    assert result.exit_code == 0
+    assert called.get("called") is True
+
+
+def test_update_checksum_command(monkeypatch):
+    called = {}
+
+    pm = SimpleNamespace(
+        handle_verify_checksum=lambda: None,
+        handle_update_script_checksum=lambda: called.setdefault("called", True),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["util", "update-checksum"])
+    assert result.exit_code == 0
+    assert called.get("called") is True

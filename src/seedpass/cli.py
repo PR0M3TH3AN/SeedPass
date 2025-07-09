@@ -430,6 +430,20 @@ def generate_password(ctx: typer.Context, length: int = 24) -> None:
     typer.echo(password)
 
 
+@util_app.command("verify-checksum")
+def verify_checksum(ctx: typer.Context) -> None:
+    """Verify the SeedPass script checksum."""
+    pm = _get_pm(ctx)
+    pm.handle_verify_checksum()
+
+
+@util_app.command("update-checksum")
+def update_checksum(ctx: typer.Context) -> None:
+    """Regenerate the script checksum file."""
+    pm = _get_pm(ctx)
+    pm.handle_update_script_checksum()
+
+
 @api_app.command("start")
 def api_start(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> None:
     """Start the SeedPass API server."""
