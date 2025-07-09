@@ -5,6 +5,8 @@ import typer
 
 from password_manager.manager import PasswordManager
 from password_manager.entry_types import EntryType
+import uvicorn
+from . import api as api_module
 
 app = typer.Typer(help="SeedPass command line interface")
 
@@ -23,6 +25,7 @@ nostr_app = typer.Typer(help="Interact with Nostr relays")
 config_app = typer.Typer(help="Manage configuration values")
 fingerprint_app = typer.Typer(help="Manage seed profiles")
 util_app = typer.Typer(help="Utility commands")
+api_app = typer.Typer(help="Run the API server")
 
 app.add_typer(entry_app, name="entry")
 app.add_typer(vault_app, name="vault")
@@ -30,6 +33,7 @@ app.add_typer(nostr_app, name="nostr")
 app.add_typer(config_app, name="config")
 app.add_typer(fingerprint_app, name="fingerprint")
 app.add_typer(util_app, name="util")
+app.add_typer(api_app, name="api")
 
 
 def _get_pm(ctx: typer.Context) -> PasswordManager:
@@ -169,3 +173,26 @@ def fingerprint_list(ctx: typer.Context) -> None:
 def generate_password(ctx: typer.Context, length: int = 24) -> None:
     """Generate a strong password."""
     typer.echo(f"Generate password of length {length} for {ctx.obj.get('fingerprint')}")
+
+
+@api_app.command("start")
+def api_start(host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Start the SeedPass API server."""
+    token = api_module.start_server()
+    typer.echo(f"API token: {token}")
+    uvicorn.run(api_module.app, host=host, port=port)
+
+
+@api_app.command("stop")
+def api_stop(host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Stop the SeedPass API server."""
+    import requests
+
+    try:
+        requests.post(
+            f"http://{host}:{port}/api/v1/shutdown",
+            headers={"Authorization": f"Bearer {api_module._token}"},
+            timeout=2,
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        typer.echo(f"Failed to stop server: {exc}")
