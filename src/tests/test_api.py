@@ -158,6 +158,19 @@ def test_update_config(client):
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
+def test_change_password_route(client):
+    cl, token = client
+    called = {}
+
+    api._pm.change_password = lambda: called.setdefault("called", True)
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
+    res = cl.post("/api/v1/change-password", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called.get("called") is True
+    assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
 def test_update_config_unknown_key(client):
     cl, token = client
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
@@ -206,6 +219,7 @@ def test_shutdown(client, monkeypatch):
         ("put", "/api/v1/config/inactivity_timeout"),
         ("post", "/api/v1/entry/1/archive"),
         ("post", "/api/v1/entry/1/unarchive"),
+        ("post", "/api/v1/change-password"),
     ],
 )
 def test_invalid_token_other_endpoints(client, method, path):

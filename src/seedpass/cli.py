@@ -324,6 +324,13 @@ def vault_export(
     typer.echo(str(file))
 
 
+@vault_app.command("change-password")
+def vault_change_password(ctx: typer.Context) -> None:
+    """Change the master password used for encryption."""
+    pm = _get_pm(ctx)
+    pm.change_password()
+
+
 @nostr_app.command("sync")
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""

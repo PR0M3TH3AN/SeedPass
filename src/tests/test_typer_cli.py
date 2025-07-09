@@ -81,6 +81,19 @@ def test_vault_export(monkeypatch, tmp_path):
     assert called["path"] == out_path
 
 
+def test_vault_change_password(monkeypatch):
+    called = {}
+
+    def change_pw():
+        called["called"] = True
+
+    pm = SimpleNamespace(change_password=change_pw, select_fingerprint=lambda fp: None)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["vault", "change-password"])
+    assert result.exit_code == 0
+    assert called.get("called") is True
+
+
 def test_nostr_get_pubkey(monkeypatch):
     pm = SimpleNamespace(
         nostr_client=SimpleNamespace(
