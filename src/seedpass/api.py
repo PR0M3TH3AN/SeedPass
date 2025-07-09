@@ -306,6 +306,14 @@ def select_fingerprint(
     return {"status": "ok"}
 
 
+@app.get("/api/v1/totp/export")
+def export_totp(authorization: str | None = Header(None)) -> dict:
+    """Return all stored TOTP entries in JSON format."""
+    _check_token(authorization)
+    assert _pm is not None
+    return _pm.entry_manager.export_totp_entries(_pm.parent_seed)
+
+
 @app.get("/api/v1/nostr/pubkey")
 def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     _check_token(authorization)

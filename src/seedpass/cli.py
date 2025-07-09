@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional
+import json
 
 import typer
 
@@ -312,6 +313,17 @@ def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
     pm = _get_pm(ctx)
     pm.entry_manager.restore_entry(entry_id)
     typer.echo(str(entry_id))
+
+
+@entry_app.command("export-totp")
+def entry_export_totp(
+    ctx: typer.Context, file: str = typer.Option(..., help="Output file")
+) -> None:
+    """Export all TOTP secrets to a JSON file."""
+    pm = _get_pm(ctx)
+    data = pm.entry_manager.export_totp_entries(pm.parent_seed)
+    Path(file).write_text(json.dumps(data, indent=2))
+    typer.echo(str(file))
 
 
 @vault_app.command("export")
