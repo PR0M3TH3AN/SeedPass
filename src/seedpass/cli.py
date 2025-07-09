@@ -360,6 +360,18 @@ def vault_change_password(ctx: typer.Context) -> None:
     pm.change_password()
 
 
+@vault_app.command("reveal-parent-seed")
+def vault_reveal_parent_seed(
+    ctx: typer.Context,
+    file: Optional[str] = typer.Option(
+        None, "--file", help="Save encrypted seed to this path"
+    ),
+) -> None:
+    """Display the parent seed and optionally write an encrypted backup file."""
+    pm = _get_pm(ctx)
+    pm.handle_backup_reveal_parent_seed(Path(file) if file else None)
+
+
 @nostr_app.command("sync")
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""

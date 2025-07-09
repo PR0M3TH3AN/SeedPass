@@ -333,6 +333,22 @@ def get_totp_codes(authorization: str | None = Header(None)) -> dict:
     return {"codes": codes}
 
 
+@app.get("/api/v1/parent-seed")
+def get_parent_seed(
+    authorization: str | None = Header(None), file: str | None = None
+) -> dict:
+    """Return the parent seed or save it as an encrypted backup."""
+    _check_token(authorization)
+    assert _pm is not None
+    if file:
+        path = Path(file)
+        _pm.encryption_manager.encrypt_and_save_file(
+            _pm.parent_seed.encode("utf-8"), path
+        )
+        return {"status": "saved", "path": str(path)}
+    return {"seed": _pm.parent_seed}
+
+
 @app.get("/api/v1/nostr/pubkey")
 def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     _check_token(authorization)
