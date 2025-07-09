@@ -14,4 +14,6 @@ $ seedpass totp "email"
 Code: 123456
 ```
 
-See [advanced_cli.md](advanced_cli.md) (future feature set) for details on the upcoming advanced CLI.
+## CLI and API Reference
+
+See [advanced_cli.md](advanced_cli.md) for a list of command examples and instructions on running the local API. When starting the API, set `SEEDPASS_CORS_ORIGINS` if you need to allow requests from specific web origins.
