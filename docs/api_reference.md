@@ -17,6 +17,10 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 
 - `GET /api/v1/entry?query=<text>` – Search entries matching a query.
 - `GET /api/v1/entry/{id}` – Retrieve a single entry by its index.
+- `POST /api/v1/entry` – Create a new password entry.
+- `PUT /api/v1/entry/{id}` – Modify an existing entry.
+- `POST /api/v1/entry/{id}/archive` – Archive an entry.
+- `POST /api/v1/entry/{id}/unarchive` – Unarchive an entry.
 - `GET /api/v1/config/{key}` – Return the value for a configuration key.
 - `GET /api/v1/fingerprint` – List available seed fingerprints.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.

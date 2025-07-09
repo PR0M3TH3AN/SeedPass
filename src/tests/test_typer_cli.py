@@ -165,3 +165,84 @@ def test_api_start_passes_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc", "api", "start"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_entry_add(monkeypatch):
+    called = {}
+
+    def add_entry(label, length, username=None, url=None):
+        called["args"] = (label, length, username, url)
+        return 2
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(add_entry=add_entry),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(
+        app,
+        [
+            "entry",
+            "add",
+            "Example",
+            "--length",
+            "16",
+            "--username",
+            "bob",
+            "--url",
+            "ex.com",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "2" in result.stdout
+    assert called["args"] == ("Example", 16, "bob", "ex.com")
+
+
+def test_entry_modify(monkeypatch):
+    called = {}
+
+    def modify_entry(index, username=None, url=None, notes=None, label=None):
+        called["args"] = (index, username, url, notes, label)
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(modify_entry=modify_entry),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
+    assert result.exit_code == 0
+    assert called["args"] == (1, "alice", None, None, None)
+
+
+def test_entry_archive(monkeypatch):
+    called = {}
+
+    def archive_entry(i):
+        called["id"] = i
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(archive_entry=archive_entry),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "archive", "3"])
+    assert result.exit_code == 0
+    assert "3" in result.stdout
+    assert called["id"] == 3
+
+
+def test_entry_unarchive(monkeypatch):
+    called = {}
+
+    def restore_entry(i):
+        called["id"] = i
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(restore_entry=restore_entry),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "unarchive", "4"])
+    assert result.exit_code == 0
+    assert "4" in result.stdout
+    assert called["id"] == 4

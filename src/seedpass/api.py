@@ -81,6 +81,64 @@ def get_entry(entry_id: int, authorization: str | None = Header(None)) -> Any:
     return entry
 
 
+@app.post("/api/v1/entry")
+def create_entry(
+    entry: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, int]:
+    """Create a new password entry."""
+    _check_token(authorization)
+    assert _pm is not None
+    index = _pm.entry_manager.add_entry(
+        entry.get("label"),
+        int(entry.get("length", 12)),
+        entry.get("username"),
+        entry.get("url"),
+    )
+    return {"id": index}
+
+
+@app.put("/api/v1/entry/{entry_id}")
+def update_entry(
+    entry_id: int,
+    entry: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, str]:
+    """Update an existing entry."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.entry_manager.modify_entry(
+        entry_id,
+        username=entry.get("username"),
+        url=entry.get("url"),
+        notes=entry.get("notes"),
+        label=entry.get("label"),
+    )
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/entry/{entry_id}/archive")
+def archive_entry(
+    entry_id: int, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Archive an entry."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.entry_manager.archive_entry(entry_id)
+    return {"status": "archived"}
+
+
+@app.post("/api/v1/entry/{entry_id}/unarchive")
+def unarchive_entry(
+    entry_id: int, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Restore an archived entry."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.entry_manager.restore_entry(entry_id)
+    return {"status": "active"}
+
+
 @app.get("/api/v1/config/{key}")
 def get_config(key: str, authorization: str | None = Header(None)) -> Any:
     _check_token(authorization)
