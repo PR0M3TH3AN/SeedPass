@@ -981,6 +981,12 @@ class PasswordManager:
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
             notes = input("Enter notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
 
             custom_fields: list[dict[str, object]] = []
             while True:
@@ -1021,6 +1027,7 @@ class PasswordManager:
                 archived=False,
                 notes=notes,
                 custom_fields=custom_fields,
+                tags=tags,
             )
 
             # Mark database as dirty for background sync
@@ -1084,6 +1091,14 @@ class PasswordManager:
                         )
                         continue
                     notes = input("Notes (optional): ").strip()
+                    tags_input = input(
+                        "Enter tags (comma-separated, optional): "
+                    ).strip()
+                    tags = (
+                        [t.strip() for t in tags_input.split(",") if t.strip()]
+                        if tags_input
+                        else []
+                    )
                     totp_index = self.entry_manager.get_next_totp_index()
                     entry_id = self.entry_manager.get_next_index()
                     uri = self.entry_manager.add_totp(
@@ -1093,6 +1108,7 @@ class PasswordManager:
                         period=int(period),
                         digits=int(digits),
                         notes=notes,
+                        tags=tags,
                     )
                     secret = TotpManager.derive_secret(self.parent_seed, totp_index)
                     self.is_dirty = True
@@ -1128,6 +1144,14 @@ class PasswordManager:
                             period = int(input("Period (default 30): ").strip() or 30)
                             digits = int(input("Digits (default 6): ").strip() or 6)
                         notes = input("Notes (optional): ").strip()
+                        tags_input = input(
+                            "Enter tags (comma-separated, optional): "
+                        ).strip()
+                        tags = (
+                            [t.strip() for t in tags_input.split(",") if t.strip()]
+                            if tags_input
+                            else []
+                        )
                         entry_id = self.entry_manager.get_next_index()
                         uri = self.entry_manager.add_totp(
                             label,
@@ -1136,6 +1160,7 @@ class PasswordManager:
                             period=period,
                             digits=digits,
                             notes=notes,
+                            tags=tags,
                         )
                         self.is_dirty = True
                         self.last_update = time.time()
@@ -1181,7 +1206,15 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_ssh_key(label, self.parent_seed, notes=notes)
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
+            index = self.entry_manager.add_ssh_key(
+                label, self.parent_seed, notes=notes, tags=tags
+            )
             priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                 index, self.parent_seed
             )
@@ -1230,12 +1263,18 @@ class PasswordManager:
                 return
             words_input = input("Word count (12 or 24, default 24): ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             if words_input and words_input not in {"12", "24"}:
                 print(colored("Invalid word count. Choose 12 or 24.", "red"))
                 return
             words = int(words_input) if words_input else 24
             index = self.entry_manager.add_seed(
-                label, self.parent_seed, words_num=words, notes=notes
+                label, self.parent_seed, words_num=words, notes=notes, tags=tags
             )
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
             self.is_dirty = True
@@ -1296,12 +1335,19 @@ class PasswordManager:
             )
             user_id = input("User ID (optional): ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             index = self.entry_manager.add_pgp_key(
                 label,
                 self.parent_seed,
                 key_type=key_type,
                 user_id=user_id,
                 notes=notes,
+                tags=tags,
             )
             priv_key, fingerprint = self.entry_manager.get_pgp_key(
                 index, self.parent_seed
@@ -1350,7 +1396,13 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
-            index = self.entry_manager.add_nostr_key(label, notes=notes)
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
+            index = self.entry_manager.add_nostr_key(label, notes=notes, tags=tags)
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()
@@ -1401,6 +1453,12 @@ class PasswordManager:
                 return
             value = input("Value: ").strip()
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
 
             custom_fields: list[dict[str, object]] = []
             while True:
@@ -1419,7 +1477,11 @@ class PasswordManager:
                 )
 
             index = self.entry_manager.add_key_value(
-                label, value, notes=notes, custom_fields=custom_fields
+                label,
+                value,
+                notes=notes,
+                custom_fields=custom_fields,
+                tags=tags,
             )
             self.is_dirty = True
             self.last_update = time.time()
@@ -1465,8 +1527,14 @@ class PasswordManager:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
             notes = input("Notes (optional): ").strip()
+            tags_input = input("Enter tags (comma-separated, optional): ").strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
             index = self.entry_manager.add_managed_account(
-                label, self.parent_seed, notes=notes
+                label, self.parent_seed, notes=notes, tags=tags
             )
             seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
             self.is_dirty = True
@@ -1555,6 +1623,8 @@ class PasswordManager:
             print(colored("C. Add Custom Field", "cyan"))
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
+            print(colored("T. Edit Tags", "cyan"))
+            print(colored("Q. Show QR codes", "cyan"))
 
             choice = (
                 input("Select an action or press Enter to return: ").strip().lower()
@@ -1591,8 +1661,29 @@ class PasswordManager:
                     self.entry_manager.modify_entry(index, custom_fields=custom_fields)
                     self.is_dirty = True
                     self.last_update = time.time()
+            elif choice == "t":
+                current_tags = entry.get("tags", [])
+                print(
+                    colored(
+                        f"Current tags: {', '.join(current_tags) if current_tags else 'None'}",
+                        "cyan",
+                    )
+                )
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to remove all tags): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else []
+                )
+                self.entry_manager.modify_entry(index, tags=tags)
+                self.is_dirty = True
+                self.last_update = time.time()
             elif choice == "e":
                 self._entry_edit_menu(index, entry)
+            elif choice == "q":
+                self._entry_qr_menu(index, entry)
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
@@ -1606,6 +1697,9 @@ class PasswordManager:
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
+            elif entry_type == EntryType.TOTP.value:
+                print(colored("P. Edit Period", "cyan"))
+                print(colored("D. Edit Digits", "cyan"))
             choice = input("Select option or press Enter to go back: ").strip().lower()
             if not choice:
                 break
@@ -1625,9 +1719,78 @@ class PasswordManager:
                 self.entry_manager.modify_entry(index, url=new_url)
                 self.is_dirty = True
                 self.last_update = time.time()
+            elif entry_type == EntryType.TOTP.value and choice == "p":
+                period_str = input("New period (seconds): ").strip()
+                if period_str.isdigit():
+                    self.entry_manager.modify_entry(index, period=int(period_str))
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                else:
+                    print(colored("Invalid period value.", "red"))
+            elif entry_type == EntryType.TOTP.value and choice == "d":
+                digits_str = input("New digits: ").strip()
+                if digits_str.isdigit():
+                    self.entry_manager.modify_entry(index, digits=int(digits_str))
+                    self.is_dirty = True
+                    self.last_update = time.time()
+                else:
+                    print(colored("Invalid digits value.", "red"))
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
+
+    def _entry_qr_menu(self, index: int, entry: dict) -> None:
+        """Display QR codes for the given ``entry``."""
+
+        entry_type = entry.get("type")
+
+        try:
+            if entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
+                if entry_type == EntryType.SEED.value:
+                    seed = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                else:
+                    seed = self.entry_manager.get_managed_account_seed(
+                        index, self.parent_seed
+                    )
+
+                print(color_text(seed, "deterministic"))
+                from password_manager.seedqr import encode_seedqr
+
+                TotpManager.print_qr_code(encode_seedqr(seed))
+                return
+
+            if entry_type == EntryType.NOSTR.value:
+                while True:
+                    print(colored("\n[+] QR Codes:", "green"))
+                    print(colored("P. Public key", "cyan"))
+                    print(colored("K. Private key", "cyan"))
+                    choice = (
+                        input("Select option or press Enter to return: ")
+                        .strip()
+                        .lower()
+                    )
+                    if not choice:
+                        break
+
+                    npub, nsec = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
+
+                    if choice == "p":
+                        print(colored(f"npub: {npub}", "cyan"))
+                        TotpManager.print_qr_code(f"nostr:{npub}")
+                    elif choice == "k":
+                        print(color_text(f"nsec: {nsec}", "deterministic"))
+                        TotpManager.print_qr_code(nsec)
+                    else:
+                        print(colored("Invalid choice.", "red"))
+                    entry = self.entry_manager.retrieve_entry(index) or entry
+                return
+
+            print(colored("No QR codes available for this entry.", "yellow"))
+        except Exception as e:  # pragma: no cover - best effort
+            logging.error(f"Error displaying QR menu: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display QR codes: {e}", "red"))
 
     def handle_retrieve_entry(self) -> None:
         """
@@ -1683,6 +1846,9 @@ class PasswordManager:
                             print(color_text(f"Code: {code}", category))
                         if notes:
                             print(colored(f"Notes: {notes}", "cyan"))
+                        tags = entry.get("tags", [])
+                        if tags:
+                            print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                         remaining = self.entry_manager.get_totp_time_remaining(index)
                         exit_loop = False
                         while remaining > 0:
@@ -1732,6 +1898,9 @@ class PasswordManager:
                         print(colored(f"Label: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     print(colored("Public Key:", "cyan"))
                     print(color_text(pub_pem, "default"))
                     if self.secret_mode_enabled:
@@ -1767,6 +1936,9 @@ class PasswordManager:
                         print(colored(f"Label: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(phrase, self.clipboard_clear_delay)
                         print(
@@ -1777,10 +1949,7 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(phrase, "deterministic"))
-                    if confirm_action("Show Compact Seed QR? (Y/N): "):
-                        from password_manager.seedqr import encode_seedqr
-
-                        TotpManager.print_qr_code(encode_seedqr(phrase))
+                    # Removed QR code display prompt and output
                     if confirm_action("Show derived entropy as hex? (Y/N): "):
                         from local_bip85.bip85 import BIP85
                         from bip_utils import Bip39SeedGenerator
@@ -1819,6 +1988,9 @@ class PasswordManager:
                         print(colored(f"User ID: {label}", "cyan"))
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                     if self.secret_mode_enabled:
                         copy_to_clipboard(priv_key, self.clipboard_clear_delay)
@@ -1856,14 +2028,12 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(f"nsec: {nsec}", "deterministic"))
-                    if confirm_action("Show QR code for npub? (Y/N): "):
-                        TotpManager.print_qr_code(f"nostr:{npub}")
-                    if confirm_action(
-                        "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
-                    ):
-                        TotpManager.print_qr_code(nsec)
+                    # QR code display removed for npub and nsec
                     if notes:
                         print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
@@ -1879,6 +2049,9 @@ class PasswordManager:
                 print(colored(f"Retrieving value for '{label}'.", "cyan"))
                 if notes:
                     print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 print(
                     colored(
                         f"Archived Status: {'Archived' if archived else 'Active'}",
@@ -1937,6 +2110,9 @@ class PasswordManager:
                     print(colored(f"Notes: {notes}", "cyan"))
                 if fingerprint:
                     print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 print(
                     colored(
                         f"Archived Status: {'Archived' if archived else 'Active'}",
@@ -1964,10 +2140,7 @@ class PasswordManager:
                         )
                     else:
                         print(color_text(seed, "deterministic"))
-                    if confirm_action("Show Compact Seed QR? (Y/N): "):
-                        from password_manager.seedqr import encode_seedqr
-
-                        TotpManager.print_qr_code(encode_seedqr(seed))
+                    # QR code display removed for managed account seed
                     self._entry_actions_menu(index, entry)
                     pause()
                     return
@@ -2030,6 +2203,9 @@ class PasswordManager:
                             "cyan",
                         )
                     )
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                     custom_fields = entry.get("custom_fields", [])
                     if custom_fields:
                         print(colored("Additional Fields:", "cyan"))
@@ -2190,6 +2366,15 @@ class PasswordManager:
                             {"label": label, "value": value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     archived=new_blacklisted,
@@ -2198,6 +2383,7 @@ class PasswordManager:
                     period=new_period,
                     digits=new_digits,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
             elif entry_type in (
                 EntryType.KEY_VALUE.value,
@@ -2273,6 +2459,15 @@ class PasswordManager:
                             {"label": f_label, "value": f_value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     archived=new_blacklisted,
@@ -2280,6 +2475,7 @@ class PasswordManager:
                     label=new_label,
                     value=new_value,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
             else:
                 website_name = entry.get("label", entry.get("website"))
@@ -2366,6 +2562,15 @@ class PasswordManager:
                             {"label": label, "value": value, "is_hidden": hidden}
                         )
 
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
                 self.entry_manager.modify_entry(
                     index,
                     new_username,
@@ -2374,6 +2579,7 @@ class PasswordManager:
                     notes=new_notes,
                     label=new_label,
                     custom_fields=custom_fields,
+                    tags=tags,
                 )
 
             # Mark database as dirty for background sync
@@ -2479,6 +2685,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.SEED.value:
             print(color_text("  Type: Seed Phrase", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2489,6 +2698,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.SSH.value:
             print(color_text("  Type: SSH Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2498,6 +2710,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.PGP.value:
             print(color_text("  Type: PGP Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2513,6 +2728,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.NOSTR.value:
             print(color_text("  Type: Nostr Key", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2522,6 +2740,9 @@ class PasswordManager:
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         else:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")

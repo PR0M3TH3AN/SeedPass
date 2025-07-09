@@ -33,6 +33,7 @@ def test_add_and_modify_key_value():
             "notes": "token",
             "archived": False,
             "custom_fields": [],
+            "tags": [],
         }
 
         em.modify_entry(idx, value="def456")

@@ -31,7 +31,7 @@ def _setup_pm(tmp_path: Path):
 def test_cli_export_creates_file(monkeypatch, tmp_path):
     pm, vault = _setup_pm(tmp_path)
     data = {
-        "schema_version": 3,
+        "schema_version": 4,
         "entries": {
             "0": {
                 "label": "example",
@@ -39,6 +39,7 @@ def test_cli_export_creates_file(monkeypatch, tmp_path):
                 "notes": "",
                 "custom_fields": [],
                 "origin": "",
+                "tags": [],
             }
         },
     }
@@ -58,7 +59,7 @@ def test_cli_export_creates_file(monkeypatch, tmp_path):
 def test_cli_import_round_trip(monkeypatch, tmp_path):
     pm, vault = _setup_pm(tmp_path)
     original = {
-        "schema_version": 3,
+        "schema_version": 4,
         "entries": {
             "0": {
                 "label": "example",
@@ -66,6 +67,7 @@ def test_cli_import_round_trip(monkeypatch, tmp_path):
                 "notes": "",
                 "custom_fields": [],
                 "origin": "",
+                "tags": [],
             }
         },
     }
@@ -79,7 +81,7 @@ def test_cli_import_round_trip(monkeypatch, tmp_path):
         parent_seed=TEST_SEED,
     )
 
-    vault.save_index({"schema_version": 3, "entries": {}})
+    vault.save_index({"schema_version": 4, "entries": {}})
 
     monkeypatch.setattr(main, "PasswordManager", lambda: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)

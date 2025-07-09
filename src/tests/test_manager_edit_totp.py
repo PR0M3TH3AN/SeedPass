@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -22,7 +21,7 @@ class FakeNostrClient:
         return None, "abcd"
 
 
-def test_handle_add_totp(monkeypatch, capsys):
+def test_edit_totp_period_from_retrieve(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -40,33 +39,19 @@ def test_handle_add_totp(monkeypatch, capsys):
         pm.nostr_client = FakeNostrClient()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.secret_mode_enabled = False
 
-        inputs = iter(
-            [
-                "1",  # choose derive
-                "Example",  # label
-                "",  # period
-                "",  # digits
-                "",  # notes
-                "",  # tags
-            ]
+        entry_mgr.add_totp("Example", TEST_SEED)
+
+        inputs = iter(["0", "e", "p", "45", "", ""])
+        monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
+        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )
-        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
-        monkeypatch.setattr(pm, "sync_vault", lambda: None)
+        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
 
-        pm.handle_add_totp()
-        out = capsys.readouterr().out
-
+        pm.handle_retrieve_entry()
         entry = entry_mgr.retrieve_entry(0)
-        assert entry == {
-            "type": "totp",
-            "kind": "totp",
-            "label": "Example",
-            "index": 0,
-            "period": 30,
-            "digits": 6,
-            "archived": False,
-            "notes": "",
-            "tags": [],
-        }
-        assert "ID 0" in out
+        assert entry["period"] == 45

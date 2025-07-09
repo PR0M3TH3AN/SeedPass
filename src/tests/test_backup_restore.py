@@ -22,7 +22,7 @@ def test_backup_restore_workflow(monkeypatch):
         index_file = fp_dir / "seedpass_entries_db.json.enc"
 
         data1 = {
-            "schema_version": 3,
+            "schema_version": 4,
             "entries": {
                 "0": {
                     "label": "a",
@@ -32,6 +32,7 @@ def test_backup_restore_workflow(monkeypatch):
                     "notes": "",
                     "custom_fields": [],
                     "origin": "",
+                    "tags": [],
                 }
             },
         }
@@ -46,7 +47,7 @@ def test_backup_restore_workflow(monkeypatch):
             assert backup1.stat().st_mode & 0o777 == 0o600
 
         data2 = {
-            "schema_version": 3,
+            "schema_version": 4,
             "entries": {
                 "0": {
                     "label": "b",
@@ -56,6 +57,7 @@ def test_backup_restore_workflow(monkeypatch):
                     "notes": "",
                     "custom_fields": [],
                     "origin": "",
+                    "tags": [],
                 }
             },
         }
@@ -69,11 +71,11 @@ def test_backup_restore_workflow(monkeypatch):
         if os.name != "nt":
             assert backup2.stat().st_mode & 0o777 == 0o600
 
-        vault.save_index({"schema_version": 3, "entries": {"temp": {}}})
+        vault.save_index({"schema_version": 4, "entries": {"temp": {}}})
         backup_mgr.restore_latest_backup()
         assert vault.load_index()["entries"] == data2["entries"]
 
-        vault.save_index({"schema_version": 3, "entries": {}})
+        vault.save_index({"schema_version": 4, "entries": {}})
         backup_mgr.restore_backup_by_timestamp(1111)
         assert vault.load_index()["entries"] == data1["entries"]
 
@@ -91,7 +93,7 @@ def test_additional_backup_location(monkeypatch):
         cfg_mgr.set_additional_backup_path(extra)
         backup_mgr = BackupManager(fp_dir, cfg_mgr)
 
-        vault.save_index({"schema_version": 3, "entries": {"a": {}}})
+        vault.save_index({"schema_version": 4, "entries": {"a": {}}})
 
         monkeypatch.setattr(time, "time", lambda: 3333)
         backup_mgr.create_backup()
