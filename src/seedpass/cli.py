@@ -139,7 +139,12 @@ def vault_export(
 @nostr_app.command("sync")
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""
-    typer.echo(f"Syncing vault for fingerprint: {ctx.obj.get('fingerprint')}")
+    pm = _get_pm(ctx)
+    event_id = pm.sync_vault()
+    if event_id:
+        typer.echo(event_id)
+    else:
+        typer.echo("Error: Failed to sync vault")
 
 
 @nostr_app.command("get-pubkey")
@@ -172,7 +177,9 @@ def fingerprint_list(ctx: typer.Context) -> None:
 @util_app.command("generate-password")
 def generate_password(ctx: typer.Context, length: int = 24) -> None:
     """Generate a strong password."""
-    typer.echo(f"Generate password of length {length} for {ctx.obj.get('fingerprint')}")
+    pm = _get_pm(ctx)
+    password = pm.password_generator.generate_password(length)
+    typer.echo(password)
 
 
 @api_app.command("start")

@@ -1,5 +1,8 @@
+import sys
 from types import SimpleNamespace
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from typer.testing import CliRunner
 
@@ -113,3 +116,36 @@ def test_config_get(monkeypatch):
     result = runner.invoke(app, ["config", "get", "x"])
     assert result.exit_code == 0
     assert "1" in result.stdout
+
+
+def test_nostr_sync(monkeypatch):
+    called = {}
+
+    def sync_vault():
+        called["called"] = True
+        return "evt123"
+
+    pm = SimpleNamespace(sync_vault=sync_vault, select_fingerprint=lambda fp: None)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["nostr", "sync"])
+    assert result.exit_code == 0
+    assert called.get("called") is True
+    assert "evt123" in result.stdout
+
+
+def test_generate_password(monkeypatch):
+    called = {}
+
+    def gen_pw(length):
+        called["length"] = length
+        return "secretpw"
+
+    pm = SimpleNamespace(
+        password_generator=SimpleNamespace(generate_password=gen_pw),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["util", "generate-password", "--length", "12"])
+    assert result.exit_code == 0
+    assert called.get("length") == 12
+    assert "secretpw" in result.stdout
