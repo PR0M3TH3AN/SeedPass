@@ -24,6 +24,9 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `POST /api/v1/entry/{id}/unarchive` – Unarchive an entry.
 - `GET /api/v1/config/{key}` – Return the value for a configuration key.
 - `GET /api/v1/fingerprint` – List available seed fingerprints.
+- `POST /api/v1/fingerprint` – Add a new seed fingerprint.
+- `DELETE /api/v1/fingerprint/{fp}` – Remove a fingerprint.
+- `POST /api/v1/fingerprint/select` – Switch the active fingerprint.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/shutdown` – Stop the server gracefully.
 
@@ -79,6 +82,17 @@ curl -X PUT http://127.0.0.1:8000/api/v1/config/inactivity_timeout \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
      -d '{"value": 300}'
+```
+
+### Switching Fingerprints
+
+Change the active seed profile via `POST /api/v1/fingerprint/select`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/fingerprint/select \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"fingerprint": "abc123"}'
 ```
 
 ### Enabling CORS

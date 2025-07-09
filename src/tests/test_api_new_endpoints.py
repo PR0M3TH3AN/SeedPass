@@ -109,3 +109,35 @@ def test_update_config_secret_mode(client):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert called["val"] is True
+
+
+def test_fingerprint_endpoints(client):
+    cl, token = client
+    calls = {}
+
+    api._pm.add_new_fingerprint = lambda: calls.setdefault("add", True)
+    api._pm.fingerprint_manager.remove_fingerprint = lambda fp: calls.setdefault(
+        "remove", fp
+    )
+    api._pm.select_fingerprint = lambda fp: calls.setdefault("select", fp)
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = cl.post("/api/v1/fingerprint", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert calls.get("add") is True
+
+    res = cl.delete("/api/v1/fingerprint/abc", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "deleted"}
+    assert calls.get("remove") == "abc"
+
+    res = cl.post(
+        "/api/v1/fingerprint/select",
+        json={"fingerprint": "xyz"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert calls.get("select") == "xyz"

@@ -270,6 +270,40 @@ def list_fingerprints(authorization: str | None = Header(None)) -> List[str]:
     return _pm.fingerprint_manager.list_fingerprints()
 
 
+@app.post("/api/v1/fingerprint")
+def add_fingerprint(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Create a new seed profile."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.add_new_fingerprint()
+    return {"status": "ok"}
+
+
+@app.delete("/api/v1/fingerprint/{fingerprint}")
+def remove_fingerprint(
+    fingerprint: str, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Remove a seed profile."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.fingerprint_manager.remove_fingerprint(fingerprint)
+    return {"status": "deleted"}
+
+
+@app.post("/api/v1/fingerprint/select")
+def select_fingerprint(
+    data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Switch the active seed profile."""
+    _check_token(authorization)
+    assert _pm is not None
+    fp = data.get("fingerprint")
+    if not fp:
+        raise HTTPException(status_code=400, detail="Missing fingerprint")
+    _pm.select_fingerprint(fp)
+    return {"status": "ok"}
+
+
 @app.get("/api/v1/nostr/pubkey")
 def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     _check_token(authorization)

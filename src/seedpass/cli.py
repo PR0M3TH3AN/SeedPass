@@ -394,6 +394,27 @@ def fingerprint_list(ctx: typer.Context) -> None:
         typer.echo(fp)
 
 
+@fingerprint_app.command("add")
+def fingerprint_add(ctx: typer.Context) -> None:
+    """Create a new seed profile."""
+    pm = _get_pm(ctx)
+    pm.add_new_fingerprint()
+
+
+@fingerprint_app.command("remove")
+def fingerprint_remove(ctx: typer.Context, fingerprint: str) -> None:
+    """Remove a seed profile."""
+    pm = _get_pm(ctx)
+    pm.fingerprint_manager.remove_fingerprint(fingerprint)
+
+
+@fingerprint_app.command("switch")
+def fingerprint_switch(ctx: typer.Context, fingerprint: str) -> None:
+    """Switch to another seed profile."""
+    pm = _get_pm(ctx)
+    pm.select_fingerprint(fingerprint)
+
+
 @util_app.command("generate-password")
 def generate_password(ctx: typer.Context, length: int = 24) -> None:
     """Generate a strong password."""
