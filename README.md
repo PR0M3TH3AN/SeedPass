@@ -213,6 +213,12 @@ After successfully installing the dependencies, you can run SeedPass using the f
 python src/main.py
 ```
 
+You can also use the new Typer-based CLI:
+```bash
+seedpass --help
+```
+For details see [docs/advanced_cli.md](docs/advanced_cli.md).
+
 ### Running the Application
 
 1. **Start the Application:**
