@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from pathlib import Path
 import pytest
 
 from seedpass import api
@@ -161,3 +162,48 @@ def test_checksum_endpoints(client):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert calls.get("update") is True
+
+
+def test_vault_import_via_path(client, tmp_path):
+    cl, token = client
+    called = {}
+
+    def import_db(path):
+        called["path"] = path
+
+    api._pm.handle_import_database = import_db
+    file_path = tmp_path / "b.json"
+    file_path.write_text("{}")
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/vault/import",
+        json={"path": str(file_path)},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called["path"] == file_path
+
+
+def test_vault_import_via_upload(client, tmp_path):
+    cl, token = client
+    called = {}
+
+    def import_db(path):
+        called["path"] = path
+
+    api._pm.handle_import_database = import_db
+    file_path = tmp_path / "c.json"
+    file_path.write_text("{}")
+
+    headers = {"Authorization": f"Bearer {token}"}
+    with open(file_path, "rb") as fh:
+        res = cl.post(
+            "/api/v1/vault/import",
+            files={"file": ("c.json", fh.read())},
+            headers=headers,
+        )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert isinstance(called.get("path"), Path)

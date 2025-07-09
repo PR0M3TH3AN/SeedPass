@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+import tempfile
+from pathlib import Path
 import secrets
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
@@ -326,6 +328,37 @@ def update_checksum(authorization: str | None = Header(None)) -> dict[str, str]:
     _check_token(authorization)
     assert _pm is not None
     _pm.handle_update_script_checksum()
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/vault/import")
+async def import_vault(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Import a vault backup from a file upload or a server path."""
+    _check_token(authorization)
+    assert _pm is not None
+
+    ctype = request.headers.get("content-type", "")
+    if ctype.startswith("multipart/form-data"):
+        form = await request.form()
+        file = form.get("file")
+        if file is None:
+            raise HTTPException(status_code=400, detail="Missing file")
+        data = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(data)
+            tmp_path = Path(tmp.name)
+        try:
+            _pm.handle_import_database(tmp_path)
+        finally:
+            os.unlink(tmp_path)
+    else:
+        body = await request.json()
+        path = body.get("path")
+        if not path:
+            raise HTTPException(status_code=400, detail="Missing file or path")
+        _pm.handle_import_database(Path(path))
     return {"status": "ok"}
 
 
