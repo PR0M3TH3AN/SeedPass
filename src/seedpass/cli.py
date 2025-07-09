@@ -183,15 +183,15 @@ def generate_password(ctx: typer.Context, length: int = 24) -> None:
 
 
 @api_app.command("start")
-def api_start(host: str = "127.0.0.1", port: int = 8000) -> None:
+def api_start(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> None:
     """Start the SeedPass API server."""
-    token = api_module.start_server()
+    token = api_module.start_server(ctx.obj.get("fingerprint"))
     typer.echo(f"API token: {token}")
     uvicorn.run(api_module.app, host=host, port=port)
 
 
 @api_app.command("stop")
-def api_stop(host: str = "127.0.0.1", port: int = 8000) -> None:
+def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> None:
     """Stop the SeedPass API server."""
     import requests
 
