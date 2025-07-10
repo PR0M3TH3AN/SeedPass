@@ -37,7 +37,13 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `POST /api/v1/checksum/update` – Update the stored script checksum.
 - `POST /api/v1/change-password` – Change the master password for the active profile.
 - `POST /api/v1/vault/import` – Import a vault backup from a file or path.
+- `POST /api/v1/vault/export` – Export the vault and download the encrypted file.
+- `POST /api/v1/vault/backup-parent-seed` – Save an encrypted backup of the parent seed.
 - `POST /api/v1/vault/lock` – Lock the vault and clear sensitive data from memory.
+- `GET /api/v1/relays` – List configured Nostr relays.
+- `POST /api/v1/relays` – Add a relay URL.
+- `DELETE /api/v1/relays/{idx}` – Remove the relay at the given index (1‑based).
+- `POST /api/v1/relays/reset` – Reset the relay list to defaults.
 - `POST /api/v1/shutdown` – Stop the server gracefully.
 
 **Security Warning:** Accessing `/api/v1/parent-seed` exposes your master seed in plain text. Use it only from a trusted environment.

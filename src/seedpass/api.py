@@ -8,7 +8,7 @@ from pathlib import Path
 import secrets
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +26,20 @@ _token: str = ""
 def _check_token(auth: str | None) -> None:
     if auth != f"Bearer {_token}":
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def _reload_relays(relays: list[str]) -> None:
+    """Reload the Nostr client with a new relay list."""
+    assert _pm is not None
+    try:
+        _pm.nostr_client.close_client_pool()
+    except Exception:
+        pass
+    try:
+        _pm.nostr_client.relays = relays
+        _pm.nostr_client.initialize_client_pool()
+    except Exception:
+        pass
 
 
 def start_server(fingerprint: str | None = None) -> str:
@@ -383,6 +397,63 @@ def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     return {"npub": _pm.nostr_client.key_manager.get_npub()}
 
 
+@app.get("/api/v1/relays")
+def list_relays(authorization: str | None = Header(None)) -> dict:
+    """Return the configured Nostr relays."""
+    _check_token(authorization)
+    assert _pm is not None
+    cfg = _pm.config_manager.load_config(require_pin=False)
+    return {"relays": cfg.get("relays", [])}
+
+
+@app.post("/api/v1/relays")
+def add_relay(data: dict, authorization: str | None = Header(None)) -> dict[str, str]:
+    """Add a relay URL to the configuration."""
+    _check_token(authorization)
+    assert _pm is not None
+    url = data.get("url")
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing url")
+    cfg = _pm.config_manager.load_config(require_pin=False)
+    relays = cfg.get("relays", [])
+    if url in relays:
+        raise HTTPException(status_code=400, detail="Relay already present")
+    relays.append(url)
+    _pm.config_manager.set_relays(relays, require_pin=False)
+    _reload_relays(relays)
+    return {"status": "ok"}
+
+
+@app.delete("/api/v1/relays/{idx}")
+def remove_relay(idx: int, authorization: str | None = Header(None)) -> dict[str, str]:
+    """Remove a relay by its index (1-based)."""
+    _check_token(authorization)
+    assert _pm is not None
+    cfg = _pm.config_manager.load_config(require_pin=False)
+    relays = cfg.get("relays", [])
+    if not (1 <= idx <= len(relays)):
+        raise HTTPException(status_code=400, detail="Invalid index")
+    if len(relays) == 1:
+        raise HTTPException(status_code=400, detail="At least one relay required")
+    relays.pop(idx - 1)
+    _pm.config_manager.set_relays(relays, require_pin=False)
+    _reload_relays(relays)
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/relays/reset")
+def reset_relays(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Reset relay list to defaults."""
+    _check_token(authorization)
+    assert _pm is not None
+    from nostr.client import DEFAULT_RELAYS
+
+    relays = list(DEFAULT_RELAYS)
+    _pm.config_manager.set_relays(relays, require_pin=False)
+    _reload_relays(relays)
+    return {"status": "ok"}
+
+
 @app.post("/api/v1/checksum/verify")
 def verify_checksum(authorization: str | None = Header(None)) -> dict[str, str]:
     """Verify the SeedPass script checksum."""
@@ -399,6 +470,18 @@ def update_checksum(authorization: str | None = Header(None)) -> dict[str, str]:
     assert _pm is not None
     _pm.handle_update_script_checksum()
     return {"status": "ok"}
+
+
+@app.post("/api/v1/vault/export")
+def export_vault(authorization: str | None = Header(None)):
+    """Export the vault and return the encrypted file."""
+    _check_token(authorization)
+    assert _pm is not None
+    path = _pm.handle_export_database()
+    if path is None:
+        raise HTTPException(status_code=500, detail="Export failed")
+    data = Path(path).read_bytes()
+    return Response(content=data, media_type="application/octet-stream")
 
 
 @app.post("/api/v1/vault/import")
@@ -429,6 +512,22 @@ async def import_vault(
         if not path:
             raise HTTPException(status_code=400, detail="Missing file or path")
         _pm.handle_import_database(Path(path))
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/vault/backup-parent-seed")
+def backup_parent_seed(
+    data: dict | None = None, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Backup and reveal the parent seed."""
+    _check_token(authorization)
+    assert _pm is not None
+    path = None
+    if data is not None:
+        p = data.get("path")
+        if p:
+            path = Path(p)
+    _pm.handle_backup_reveal_parent_seed(path)
     return {"status": "ok"}
 
 
