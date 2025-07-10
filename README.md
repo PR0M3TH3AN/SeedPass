@@ -55,6 +55,13 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
+- **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
+- **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
+- **Manual Vault Locking:** Instantly clear keys from memory when needed.
+- **Vault Statistics:** View counts for entries and other profile metrics.
+- **Change Master Password:** Rotate your encryption password at any time.
+- **Checksum Verification Utilities:** Verify or regenerate the script checksum.
+- **Relay Management:** List, add, remove or reset configured Nostr relays.
 
 ## Prerequisites
 
