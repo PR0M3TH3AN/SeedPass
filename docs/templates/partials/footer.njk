@@ -1,0 +1,14 @@
+<footer class="footer">
+  {% if config.footer.links %}
+    <nav class="footer-links">
+      {% for link in config.footer.links %}
+        <a href="{{ link.url }}">{{ link.text }}</a>
+      {% endfor %}
+    </nav>
+  {% endif %}
+  <p>&copy; {{ config.site.title }}</p>
+  <div class="footer-permanent-links">
+    <a href="https://github.com/PR0M3TH3AN/Archivox">GitHub</a>
+    <a href="https://nostrtipjar.netlify.app/?n=npub15jnttpymeytm80hatjqcvhhqhzrhx6gxp8pq0wn93rhnu8s9h9dsha32lx">Tip Jar</a>
+  </div>
+</footer>

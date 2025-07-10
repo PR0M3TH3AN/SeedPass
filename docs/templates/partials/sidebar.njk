@@ -1,0 +1,29 @@
+{% macro renderNav(items, pageUrl) %}
+  <ul>
+  {% for item in items %}
+    <li>
+      {% if item.children and item.children.length %}
+        {% set sectionPath = item.path | replace('index.html', '') %}
+        <details class="nav-section" {% if pageUrl.startsWith(sectionPath) %}open{% endif %}>
+          <summary>
+            <a href="{{ item.path }}" class="nav-link{% if item.path === pageUrl %} active{% endif %}">
+              {{ item.displayName or item.page.title }}
+            </a>
+          </summary>
+          {{ renderNav(item.children, pageUrl) }}
+        </details>
+      {% else %}
+        <a href="{{ item.path }}" class="nav-link{% if item.path === pageUrl %} active{% endif %}">
+          {{ item.displayName or item.page.title }}
+        </a>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+{% endmacro %}
+
+<aside class="sidebar" id="sidebar">
+  <nav>
+    {{ renderNav(navigation, page.url) }}
+  </nav>
+</aside>

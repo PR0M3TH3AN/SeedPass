@@ -1,0 +1,13 @@
+site:
+  title: "Archivox Docs"
+  description: "Simple static docs."
+
+navigation:
+  search: true
+
+footer:
+  links:
+    - text: "Custom Link 1"
+      url: "https://example.com"
+    - text: "Custom Link 2"
+      url: "https://example.com/other"
