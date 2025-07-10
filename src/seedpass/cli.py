@@ -368,6 +368,14 @@ def vault_lock(ctx: typer.Context) -> None:
     typer.echo("locked")
 
 
+@vault_app.command("stats")
+def vault_stats(ctx: typer.Context) -> None:
+    """Display statistics about the current seed profile."""
+    pm = _get_pm(ctx)
+    stats = pm.get_profile_stats()
+    typer.echo(json.dumps(stats, indent=2))
+
+
 @vault_app.command("reveal-parent-seed")
 def vault_reveal_parent_seed(
     ctx: typer.Context,
