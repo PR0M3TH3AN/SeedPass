@@ -414,6 +414,15 @@ def change_password(authorization: str | None = Header(None)) -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/api/v1/vault/lock")
+def lock_vault(authorization: str | None = Header(None)) -> dict[str, str]:
+    """Lock the vault and clear sensitive data from memory."""
+    _check_token(authorization)
+    assert _pm is not None
+    _pm.lock_vault()
+    return {"status": "locked"}
+
+
 @app.post("/api/v1/shutdown")
 async def shutdown_server(authorization: str | None = Header(None)) -> dict[str, str]:
     _check_token(authorization)

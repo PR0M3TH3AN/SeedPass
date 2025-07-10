@@ -220,6 +220,7 @@ def test_shutdown(client, monkeypatch):
         ("post", "/api/v1/entry/1/archive"),
         ("post", "/api/v1/entry/1/unarchive"),
         ("post", "/api/v1/change-password"),
+        ("post", "/api/v1/vault/lock"),
     ],
 )
 def test_invalid_token_other_endpoints(client, method, path):

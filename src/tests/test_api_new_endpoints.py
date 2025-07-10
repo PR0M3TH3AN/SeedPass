@@ -253,3 +253,25 @@ def test_vault_import_via_upload(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert isinstance(called.get("path"), Path)
+
+
+def test_vault_lock_endpoint(client):
+    cl, token = client
+    called = {}
+
+    def lock():
+        called["locked"] = True
+        api._pm.locked = True
+
+    api._pm.lock_vault = lock
+    api._pm.locked = False
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post("/api/v1/vault/lock", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"status": "locked"}
+    assert called.get("locked") is True
+    assert api._pm.locked is True
+    api._pm.unlock_vault = lambda: setattr(api._pm, "locked", False)
+    api._pm.unlock_vault()
+    assert api._pm.locked is False
