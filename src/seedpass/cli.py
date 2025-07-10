@@ -450,6 +450,57 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
     typer.echo("Updated")
 
 
+@config_app.command("toggle-secret-mode")
+def config_toggle_secret_mode(ctx: typer.Context) -> None:
+    """Interactively enable or disable secret mode."""
+    pm = _get_pm(ctx)
+    cfg = pm.config_manager
+    try:
+        enabled = cfg.get_secret_mode_enabled()
+        delay = cfg.get_clipboard_clear_delay()
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error loading settings: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Secret mode is currently {'ON' if enabled else 'OFF'}")
+    choice = (
+        typer.prompt(
+            "Enable secret mode? (y/n, blank to keep)", default="", show_default=False
+        )
+        .strip()
+        .lower()
+    )
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+
+    inp = typer.prompt(
+        f"Clipboard clear delay in seconds [{delay}]", default="", show_default=False
+    ).strip()
+    if inp:
+        try:
+            delay = int(inp)
+            if delay <= 0:
+                typer.echo("Delay must be positive")
+                raise typer.Exit(code=1)
+        except ValueError:
+            typer.echo("Invalid number")
+            raise typer.Exit(code=1)
+
+    try:
+        cfg.set_secret_mode_enabled(enabled)
+        cfg.set_clipboard_clear_delay(delay)
+        pm.secret_mode_enabled = enabled
+        pm.clipboard_clear_delay = delay
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    status = "enabled" if enabled else "disabled"
+    typer.echo(f"Secret mode {status}.")
+
+
 @fingerprint_app.command("list")
 def fingerprint_list(ctx: typer.Context) -> None:
     """List available seed profiles."""

@@ -266,6 +266,25 @@ def update_config(
     return {"status": "ok"}
 
 
+@app.post("/api/v1/secret-mode")
+def set_secret_mode(
+    data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Enable/disable secret mode and set the clipboard delay."""
+    _check_token(authorization)
+    assert _pm is not None
+    enabled = data.get("enabled")
+    delay = data.get("delay")
+    if enabled is None or delay is None:
+        raise HTTPException(status_code=400, detail="Missing fields")
+    cfg = _pm.config_manager
+    cfg.set_secret_mode_enabled(bool(enabled))
+    cfg.set_clipboard_clear_delay(int(delay))
+    _pm.secret_mode_enabled = bool(enabled)
+    _pm.clipboard_clear_delay = int(delay)
+    return {"status": "ok"}
+
+
 @app.get("/api/v1/fingerprint")
 def list_fingerprints(authorization: str | None = Header(None)) -> List[str]:
     _check_token(authorization)

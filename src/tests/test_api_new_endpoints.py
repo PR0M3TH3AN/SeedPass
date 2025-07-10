@@ -275,3 +275,28 @@ def test_vault_lock_endpoint(client):
     api._pm.unlock_vault = lambda: setattr(api._pm, "locked", False)
     api._pm.unlock_vault()
     assert api._pm.locked is False
+
+
+def test_secret_mode_endpoint(client):
+    cl, token = client
+    called = {}
+
+    def set_secret(val):
+        called.setdefault("enabled", val)
+
+    def set_delay(val):
+        called.setdefault("delay", val)
+
+    api._pm.config_manager.set_secret_mode_enabled = set_secret
+    api._pm.config_manager.set_clipboard_clear_delay = set_delay
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/secret-mode",
+        json={"enabled": True, "delay": 12},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called["enabled"] is True
+    assert called["delay"] == 12
