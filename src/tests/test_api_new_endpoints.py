@@ -300,3 +300,77 @@ def test_secret_mode_endpoint(client):
     assert res.json() == {"status": "ok"}
     assert called["enabled"] is True
     assert called["delay"] == 12
+
+
+def test_vault_export_endpoint(client, tmp_path):
+    cl, token = client
+    out = tmp_path / "out.json"
+    out.write_text("data")
+
+    api._pm.handle_export_database = lambda: out
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 200
+    assert res.content == b"data"
+
+
+def test_backup_parent_seed_endpoint(client, tmp_path):
+    cl, token = client
+    called = {}
+
+    def backup(path=None):
+        called["path"] = path
+
+    api._pm.handle_backup_reveal_parent_seed = backup
+    path = tmp_path / "seed.enc"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": str(path)},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called["path"] == path
+
+
+def test_relay_management_endpoints(client):
+    cl, token = client
+    relays = ["wss://a", "wss://b"]
+
+    def load_config(require_pin=False):
+        return {"relays": relays.copy()}
+
+    called = {}
+
+    def set_relays(new, require_pin=False):
+        called["set"] = new
+
+    api._pm.config_manager.load_config = load_config
+    api._pm.config_manager.set_relays = set_relays
+    api._pm.nostr_client = SimpleNamespace(
+        close_client_pool=lambda: called.setdefault("close", True),
+        initialize_client_pool=lambda: called.setdefault("init", True),
+        relays=relays,
+    )
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = cl.get("/api/v1/relays", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"relays": relays}
+
+    res = cl.post("/api/v1/relays", json={"url": "wss://c"}, headers=headers)
+    assert res.status_code == 200
+    assert called["set"] == ["wss://a", "wss://b", "wss://c"]
+
+    api._pm.config_manager.load_config = lambda require_pin=False: {
+        "relays": ["wss://a", "wss://b", "wss://c"]
+    }
+    res = cl.delete("/api/v1/relays/2", headers=headers)
+    assert res.status_code == 200
+    assert called["set"] == ["wss://a", "wss://c"]
+
+    res = cl.post("/api/v1/relays/reset", headers=headers)
+    assert res.status_code == 200
