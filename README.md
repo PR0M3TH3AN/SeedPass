@@ -50,6 +50,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **SeedPass 2FA:** Generate TOTP codes with a real-time countdown progress bar.
 - **2FA Secret Issuance & Import:** Derive new TOTP secrets from your seed or import existing `otpauth://` URIs.
 - **Export 2FA Codes:** Save all stored TOTP entries to an encrypted JSON file for use with other apps.
+- **Display TOTP Codes:** Show all active 2FA codes with a countdown timer.
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto‑Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
@@ -175,7 +176,8 @@ seedpass import --file "~/seedpass_backup.json"
 seedpass search "github"
 seedpass search --tags "work,personal"
 seedpass get "github"
-seedpass totp "email"
+# Retrieve a TOTP entry
+seedpass entry get "email"
 # The code is printed and copied to your clipboard
 
 # Sort or filter the list view
@@ -185,6 +187,9 @@ seedpass list --filter totp
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
 ```
+
+For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md).
+Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
 
 ### Vault JSON Layout
 
@@ -212,6 +217,12 @@ After successfully installing the dependencies, you can run SeedPass using the f
 ```bash
 python src/main.py
 ```
+
+You can also use the new Typer-based CLI:
+```bash
+seedpass --help
+```
+For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
 
 ### Running the Application
 
@@ -373,7 +384,7 @@ Back in the Settings menu you can:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. After activating your virtual environment and installing dependencies, run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install -r src/requirements.txt` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 
 ```bash
@@ -441,6 +452,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
+- **Revealing the Parent Seed:** The `vault reveal-parent-seed` command and `/api/v1/parent-seed` endpoint print your seed in plain text. Run them only in a secure environment.
 - **No PBKDF2 Salt Needed:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.

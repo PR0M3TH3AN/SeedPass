@@ -6,7 +6,7 @@ Welcome to the **Advanced CLI and API Documentation** for **SeedPass**, a secure
 
 SeedPass uses a `noun-verb` command structure (e.g., `seedpass entry get <query>`) for a clear, scalable, and discoverable interface. You can explore the available actions for any command group with the `--help` flag (for example, `seedpass entry --help`).
 
-> **Note:** These commands describe planned functionality. The advanced CLI is not yet part of the stable release but will follow the current SeedPass design of fingerprint-based profiles and a local API for secure integrations.
+The commands in this document reflect the Typer-based CLI shipped with SeedPass. Each command accepts the optional `--fingerprint` flag to operate on a specific seed profile.
 
 ---
 
@@ -20,8 +20,9 @@ SeedPass uses a `noun-verb` command structure (e.g., `seedpass entry get <query>
    - [Config Commands](#config-commands)
    - [Fingerprint Commands](#fingerprint-commands)
    - [Utility Commands](#utility-commands)
+   - [API Commands](#api-commands)
 3. [Detailed Command Descriptions](#detailed-command-descriptions)
-4. [Planned API Integration](#planned-api-integration)
+4. [API Integration](#api-integration)
 5. [Usage Guidelines](#usage-guidelines)
 
 ---
@@ -45,12 +46,22 @@ Manage individual entries within a vault.
 
 | Action | Command | Examples |
 | :--- | :--- | :--- |
-| Add a new entry | `entry add` | `seedpass entry add --type password --label "GitHub" --username "user" --length 20` |
-| Retrieve an entry's secret | `entry get` | `seedpass entry get "GitHub"` |
 | List entries | `entry list` | `seedpass entry list --sort label` |
 | Search for entries | `entry search` | `seedpass entry search "GitHub"` |
-| Modify an entry | `entry modify` | `seedpass entry modify "GitHub" --notes "New note"` |
-| Delete an entry | `entry delete` | `seedpass entry delete "GitHub"` |
+| Retrieve an entry's secret (password or TOTP code) | `entry get` | `seedpass entry get "GitHub"` |
+| Add a password entry | `entry add` | `seedpass entry add Example --length 16` |
+| Add a TOTP entry | `entry add-totp` | `seedpass entry add-totp Email --secret JBSW...` |
+| Add an SSH key entry | `entry add-ssh` | `seedpass entry add-ssh Server --index 0` |
+| Add a PGP key entry | `entry add-pgp` | `seedpass entry add-pgp Personal --user-id me@example.com` |
+| Add a Nostr key entry | `entry add-nostr` | `seedpass entry add-nostr Chat` |
+| Add a seed phrase entry | `entry add-seed` | `seedpass entry add-seed Backup --words 24` |
+| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --value abc123` |
+| Add a managed account entry | `entry add-managed-account` | `seedpass entry add-managed-account Trading` |
+| Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
+| Archive an entry | `entry archive` | `seedpass entry archive 1` |
+| Unarchive an entry | `entry unarchive` | `seedpass entry unarchive 1` |
+| Export all TOTP secrets | `entry export-totp` | `seedpass entry export-totp --file totp.json` |
+| Show all TOTP codes | `entry totp-codes` | `seedpass entry totp-codes` |
 
 ### Vault Commands
 
@@ -60,7 +71,9 @@ Manage the entire vault for a profile.
 | :--- | :--- | :--- |
 | Export the vault | `vault export` | `seedpass vault export --file backup.json` |
 | Import a vault | `vault import` | `seedpass vault import --file backup.json` |
-| Change master password | `vault changepw` | `seedpass vault changepw` |
+| Change the master password | `vault change-password` | `seedpass vault change-password` |
+| Lock the vault | `vault lock` | `seedpass vault lock` |
+| Show profile statistics | `vault stats` | `seedpass vault stats` |
 
 ### Nostr Commands
 
@@ -70,7 +83,6 @@ Interact with the Nostr network for backup and synchronization.
 | :--- | :--- | :--- |
 | Sync with relays | `nostr sync` | `seedpass nostr sync` |
 | Get public key | `nostr get-pubkey` | `seedpass nostr get-pubkey` |
-| Manage relays | `nostr relays` | `seedpass nostr relays --add wss://relay.example.com` |
 
 ### Config Commands
 
@@ -79,7 +91,7 @@ Manage profile‑specific settings.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Get a setting value | `config get` | `seedpass config get inactivity_timeout` |
-| Set a setting value | `config set` | `seedpass config set secret_mode true` |
+| Set a setting value | `config set` | `seedpass config set inactivity_timeout 300` |
 
 ### Fingerprint Commands
 
@@ -87,10 +99,10 @@ Manage seed profiles (fingerprints).
 
 | Action | Command | Examples |
 | :--- | :--- | :--- |
-| Add a new profile | `fingerprint add` | `seedpass fingerprint add` |
 | List all profiles | `fingerprint list` | `seedpass fingerprint list` |
-| Remove a profile | `fingerprint remove` | `seedpass fingerprint remove <FP>` |
-| Set active profile | `fingerprint use` | `seedpass fingerprint use <FP>` |
+| Add a profile | `fingerprint add` | `seedpass fingerprint add` |
+| Remove a profile | `fingerprint remove` | `seedpass fingerprint remove <fp>` |
+| Switch profile | `fingerprint switch` | `seedpass fingerprint switch <fp>` |
 
 ### Utility Commands
 
@@ -100,6 +112,16 @@ Miscellaneous helper commands.
 | :--- | :--- | :--- |
 | Generate a password | `util generate-password` | `seedpass util generate-password --length 24` |
 | Verify script checksum | `util verify-checksum` | `seedpass util verify-checksum` |
+| Update script checksum | `util update-checksum` | `seedpass util update-checksum` |
+
+### API Commands
+
+Run or stop the local HTTP API.
+
+| Action | Command | Examples |
+| :--- | :--- | :--- |
+| Start the API | `api start` | `seedpass api start --host 0.0.0.0 --port 8000` |
+| Stop the API | `api stop` | `seedpass api stop` |
 
 ---
 
@@ -107,47 +129,76 @@ Miscellaneous helper commands.
 
 ### `entry` Commands
 
-- **`seedpass entry add`** – Add a new entry. Use `--type` to specify `password`, `totp`, `ssh`, `pgp`, `nostr`, `key-value`, or `managed-account`. Include `--tags tag1,tag2` to categorize the entry.
-- **`seedpass entry get <query>`** – Retrieve the primary secret for one matching entry.
 - **`seedpass entry list`** – List entries in the vault, optionally sorted or filtered.
-- **`seedpass entry search <query>`** – Search across labels, usernames, URLs, notes, and tags.
-- **`seedpass entry modify <query>`** – Update fields on an existing entry. Use `--archive` to hide or `--restore` to un‑archive. Specify `--tags tag1,tag2` to replace the entry's tags.
-- **`seedpass entry delete <query>`** – Permanently delete an entry after confirmation.
+- **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes.
+- **`seedpass entry get <query>`** – Retrieve the password or TOTP code for one matching entry, depending on the entry's type.
+- **`seedpass entry add <label>`** – Create a new password entry. Use `--length` to set the password length and optional `--username`/`--url` values.
+- **`seedpass entry add-totp <label>`** – Create a TOTP entry. Use `--secret` to import an existing secret or `--index` to derive from the seed.
+- **`seedpass entry add-ssh <label>`** – Create an SSH key entry derived from the seed.
+- **`seedpass entry add-pgp <label>`** – Create a PGP key entry. Provide `--user-id` and `--key-type` as needed.
+- **`seedpass entry add-nostr <label>`** – Create a Nostr key entry for decentralised chat.
+- **`seedpass entry add-seed <label>`** – Store a derived seed phrase. Use `--words` to set the word count.
+- **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--value`.
+- **`seedpass entry add-managed-account <label>`** – Store a BIP‑85 derived account seed.
+- **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
+- **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.
+- **`seedpass entry unarchive <id>`** – Restore an archived entry.
+- **`seedpass entry export-totp --file <path>`** – Export all stored TOTP secrets to a JSON file.
+- **`seedpass entry totp-codes`** – Display all current TOTP codes with remaining time.
+
+Example retrieving a TOTP code:
+
+```bash
+$ seedpass entry get "email"
+[##########----------] 15s
+Code: 123456
+```
 
 ### `vault` Commands
 
 - **`seedpass vault export`** – Export the entire vault to an encrypted JSON file.
-- **`seedpass vault import`** – Import entries from an exported file, replacing the current vault after creating a backup.
-- **`seedpass vault changepw`** – Interactively change the master password for the current profile.
+- **`seedpass vault import`** – Import a vault from an encrypted JSON file.
+- **`seedpass vault change-password`** – Change the master password used for encryption.
+- **`seedpass vault lock`** – Clear sensitive data from memory and require reauthentication.
+- **`seedpass vault stats`** – Display statistics about the active seed profile.
 
 ### `nostr` Commands
 
 - **`seedpass nostr sync`** – Perform a two‑way sync with configured Nostr relays.
 - **`seedpass nostr get-pubkey`** – Display the Nostr public key for the active profile.
-- **`seedpass nostr relays`** – Manage the relay list (`--list`, `--add`, `--remove`, `--reset`).
 
 ### `config` Commands
 
 - **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode`, or `auto_sync`.
-- **`seedpass config set <key> <value>`** – Set a configuration value for the active profile.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set inactivity_timeout 300`.
+- **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
 
 ### `fingerprint` Commands
 
-- **`seedpass fingerprint add`** – Add a new seed profile (interactive or via `--import-seed`).
 - **`seedpass fingerprint list`** – List available profiles by fingerprint.
-- **`seedpass fingerprint remove <FP>`** – Delete a profile and its data after confirmation.
-- **`seedpass fingerprint use <FP>`** – Make the given fingerprint active in the current shell session.
+- **`seedpass fingerprint add`** – Create a new seed profile.
+- **`seedpass fingerprint remove <fp>`** – Delete the specified profile.
+- **`seedpass fingerprint switch <fp>`** – Switch the active profile.
 
 ### `util` Commands
 
 - **`seedpass util generate-password`** – Generate a strong password of the requested length.
-- **`seedpass util verify-checksum`** – Verify the program checksum for integrity.
+- **`seedpass util verify-checksum`** – Verify the SeedPass script checksum.
+- **`seedpass util update-checksum`** – Regenerate the script checksum file.
 
 ---
 
-## Planned API Integration
+## API Integration
 
-The advanced CLI will act as a client for a locally hosted REST API. Starting the API loads the vault into memory after prompting for the master password and prints a temporary API key. Third‑party clients include this key in the `Authorization` header when calling endpoints such as `GET /api/v1/entry?query=GitHub`. The server automatically shuts down after a period of inactivity or when `seedpass api stop` is run.
+SeedPass provides a small REST API for automation. Run `seedpass api start` to launch the server. The command prints a one‑time token which clients must include in the `Authorization` header.
+
+Set the `SEEDPASS_CORS_ORIGINS` environment variable to a comma‑separated list of allowed origins when you need cross‑origin requests:
+
+```bash
+SEEDPASS_CORS_ORIGINS=http://localhost:3000 seedpass api start
+```
+
+Shut down the server with `seedpass api stop`.
 
 ---
 
