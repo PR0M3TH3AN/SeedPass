@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>migrations</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+<h1 id="index-migrations">Index Migrations</h1>
+<p>SeedPass stores its password index in an encrypted JSON file. Each
+index contains a <code>schema_version</code> field so the application
+knows how to upgrade older files.</p>
+<h2 id="how-migrations-work">How migrations work</h2>
+<p>When the vault loads the index, <code>Vault.load_index()</code>
+checks the version and applies migrations defined in
+<code>password_manager/migrations.py</code>. The
+<code>apply_migrations()</code> function iterates through registered
+migrations until the file reaches <code>LATEST_VERSION</code>.</p>
+<p>If an old file lacks <code>schema_version</code>, it is treated as
+version 0 and upgraded to the latest format. Attempting to load an index
+from a future version will raise an error.</p>
+<h2 id="upgrading-an-index">Upgrading an index</h2>
+<ol type="1">
+<li>The JSON is decrypted and parsed.</li>
+<li><code>apply_migrations()</code> applies any necessary steps, such as
+injecting the <code>schema_version</code> field on first upgrade.</li>
+<li>After migration, the updated index is saved back to disk.</li>
+</ol>
+<p>This process happens automatically; users only need to open their
+vault to upgrade older indices.</p>
+</body>
+</html>
