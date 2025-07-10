@@ -29,6 +29,7 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `POST /api/v1/fingerprint/select` – Switch the active fingerprint.
 - `GET /api/v1/totp/export` – Export all TOTP entries as JSON.
 - `GET /api/v1/totp` – Return current TOTP codes and remaining time.
+- `GET /api/v1/stats` – Return statistics about the active seed profile.
 - `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.

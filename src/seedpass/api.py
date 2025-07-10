@@ -333,6 +333,14 @@ def get_totp_codes(authorization: str | None = Header(None)) -> dict:
     return {"codes": codes}
 
 
+@app.get("/api/v1/stats")
+def get_profile_stats(authorization: str | None = Header(None)) -> dict:
+    """Return statistics about the active seed profile."""
+    _check_token(authorization)
+    assert _pm is not None
+    return _pm.get_profile_stats()
+
+
 @app.get("/api/v1/parent-seed")
 def get_parent_seed(
     authorization: str | None = Header(None), file: str | None = None
