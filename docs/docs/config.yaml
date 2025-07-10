@@ -1,13 +1,12 @@
 site:
-  title: "Archivox Docs"
-  description: "Simple static docs."
+  title: "SeedPass Docs"
+  description: "One seed to rule them all."
 
 navigation:
   search: true
 
 footer:
   links:
-    - text: "Custom Link 1"
-      url: "https://example.com"
-    - text: "Custom Link 2"
-      url: "https://example.com/other"
+    - text: "SeedPass"
+      url: "https://seedpass.me/"
+
