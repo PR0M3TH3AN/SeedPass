@@ -360,6 +360,14 @@ def vault_change_password(ctx: typer.Context) -> None:
     pm.change_password()
 
 
+@vault_app.command("lock")
+def vault_lock(ctx: typer.Context) -> None:
+    """Lock the vault and clear sensitive data from memory."""
+    pm = _get_pm(ctx)
+    pm.lock_vault()
+    typer.echo("locked")
+
+
 @vault_app.command("reveal-parent-seed")
 def vault_reveal_parent_seed(
     ctx: typer.Context,
