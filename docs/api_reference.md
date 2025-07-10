@@ -20,6 +20,7 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `POST /api/v1/entry` – Create a new entry of any supported type.
 - `PUT /api/v1/entry/{id}` – Modify an existing entry.
 - `PUT /api/v1/config/{key}` – Update a configuration value.
+- `POST /api/v1/secret-mode` – Enable or disable Secret Mode and set the clipboard delay.
 - `POST /api/v1/entry/{id}/archive` – Archive an entry.
 - `POST /api/v1/entry/{id}/unarchive` – Unarchive an entry.
 - `GET /api/v1/config/{key}` – Return the value for a configuration key.
@@ -93,6 +94,17 @@ curl -X PUT http://127.0.0.1:8000/api/v1/config/inactivity_timeout \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
      -d '{"value": 300}'
+```
+
+### Toggling Secret Mode
+
+Send both `enabled` and `delay` values to `/api/v1/secret-mode`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/secret-mode \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"enabled": true, "delay": 20}'
 ```
 
 ### Switching Fingerprints

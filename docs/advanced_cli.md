@@ -171,6 +171,7 @@ Code: 123456
 
 - **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode`, or `auto_sync`.
 - **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set inactivity_timeout 300`.
+- **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
 
 ### `fingerprint` Commands
 
