@@ -74,6 +74,7 @@ Manage the entire vault for a profile.
 | Change the master password | `vault change-password` | `seedpass vault change-password` |
 | Lock the vault | `vault lock` | `seedpass vault lock` |
 | Show profile statistics | `vault stats` | `seedpass vault stats` |
+| Reveal or back up the parent seed | `vault reveal-parent-seed` | `seedpass vault reveal-parent-seed --file backup.enc` |
 
 ### Nostr Commands
 
@@ -161,6 +162,7 @@ Code: 123456
 - **`seedpass vault change-password`** – Change the master password used for encryption.
 - **`seedpass vault lock`** – Clear sensitive data from memory and require reauthentication.
 - **`seedpass vault stats`** – Display statistics about the active seed profile.
+- **`seedpass vault reveal-parent-seed`** – Print the parent seed or write an encrypted backup with `--file`.
 
 ### `nostr` Commands
 

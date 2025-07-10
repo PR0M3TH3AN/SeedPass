@@ -121,7 +121,106 @@ Change the active seed profile via `POST /api/v1/fingerprint/select`:
 curl -X POST http://127.0.0.1:8000/api/v1/fingerprint/select \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
-     -d '{"fingerprint": "abc123"}'
+    -d '{"fingerprint": "abc123"}'
+```
+
+### Exporting the Vault
+
+Download an encrypted vault backup via `POST /api/v1/vault/export`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/vault/export \
+     -H "Authorization: Bearer <token>" \
+     -o backup.json
+```
+
+### Importing a Vault
+
+Restore a backup with `POST /api/v1/vault/import`. Use `-F` to upload a file:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/vault/import \
+     -H "Authorization: Bearer <token>" \
+     -F file=@backup.json
+```
+
+### Locking the Vault
+
+Clear sensitive data from memory using `/api/v1/vault/lock`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/vault/lock \
+     -H "Authorization: Bearer <token>"
+```
+
+### Backing Up the Parent Seed
+
+Trigger an encrypted seed backup with `/api/v1/vault/backup-parent-seed`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/vault/backup-parent-seed \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"path": "seed_backup.enc"}'
+```
+
+### Retrieving Vault Statistics
+
+Get profile stats such as entry counts with `GET /api/v1/stats`:
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+     http://127.0.0.1:8000/api/v1/stats
+```
+
+### Changing the Master Password
+
+Update the vault password via `POST /api/v1/change-password`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/change-password \
+     -H "Authorization: Bearer <token>"
+```
+
+### Verifying the Script Checksum
+
+Check that the running script matches the stored checksum:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/checksum/verify \
+     -H "Authorization: Bearer <token>"
+```
+
+### Updating the Script Checksum
+
+Regenerate the stored checksum using `/api/v1/checksum/update`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/checksum/update \
+     -H "Authorization: Bearer <token>"
+```
+
+### Managing Relays
+
+List, add, or remove Nostr relays:
+
+```bash
+# list
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/v1/relays
+
+# add
+curl -X POST http://127.0.0.1:8000/api/v1/relays \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"url": "wss://relay.example.com"}'
+
+# remove first relay
+curl -X DELETE http://127.0.0.1:8000/api/v1/relays/1 \
+     -H "Authorization: Bearer <token>"
+
+# reset to defaults
+curl -X POST http://127.0.0.1:8000/api/v1/relays/reset \
+     -H "Authorization: Bearer <token>"
 ```
 
 ### Enabling CORS
