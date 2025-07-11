@@ -919,8 +919,16 @@ def display_menu(
             print(colored("Invalid choice. Please select a valid option.", "red"))
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point for the SeedPass CLI."""
+def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> int:
+    """Entry point for the SeedPass CLI.
+
+    Parameters
+    ----------
+    argv:
+        Command line arguments.
+    fingerprint:
+        Optional seed profile fingerprint to select automatically.
+    """
     configure_logging()
     initialize_app()
     logger = logging.getLogger(__name__)
@@ -928,6 +936,7 @@ def main(argv: list[str] | None = None) -> int:
 
     load_global_config()
     parser = argparse.ArgumentParser()
+    parser.add_argument("--fingerprint")
     sub = parser.add_subparsers(dest="command")
 
     exp = sub.add_parser("export")
@@ -948,7 +957,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        password_manager = PasswordManager()
+        password_manager = PasswordManager(fingerprint=args.fingerprint or fingerprint)
         logger.info("PasswordManager initialized successfully.")
     except (PasswordPromptError, Bip85Error) as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
