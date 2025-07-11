@@ -44,11 +44,11 @@ app.add_typer(api_app, name="api")
 
 def _get_pm(ctx: typer.Context) -> PasswordManager:
     """Return a PasswordManager optionally selecting a fingerprint."""
-    pm = PasswordManager()
     fp = ctx.obj.get("fingerprint")
-    if fp:
-        # `select_fingerprint` will initialize managers
-        pm.select_fingerprint(fp)
+    if fp is None:
+        pm = PasswordManager()
+    else:
+        pm = PasswordManager(fingerprint=fp)
     return pm
 
 
