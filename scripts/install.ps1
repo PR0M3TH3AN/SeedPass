@@ -293,3 +293,4 @@ if (($UserPath -split ';') -notcontains $LauncherDir) {
 
 Write-Success "Installation/update complete!"
 Write-Info "To run the application, please open a NEW terminal window and type: seedpass"
+Write-Info "'seedpass' resolves to: $(Get-Command seedpass | Select-Object -ExpandProperty Source)"

@@ -141,6 +141,7 @@ EOF2
     # 8. Final instructions
     print_success "Installation/update complete!"
     print_info "You can now run the application by typing: seedpass"
+    print_info "'seedpass' resolves to: $(command -v seedpass)"
     if [[ ":$PATH:" != *":$LAUNCHER_DIR:"* ]]; then
         print_warning "Directory '$LAUNCHER_DIR' is not in your PATH."
         print_warning "Please add 'export PATH=\"$HOME/.local/bin:$PATH\"' to your shell's config file (e.g., ~/.bashrc, ~/.zshrc) and restart your terminal."
