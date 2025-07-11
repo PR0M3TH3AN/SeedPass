@@ -9,7 +9,12 @@ from password_manager.entry_types import EntryType
 import uvicorn
 from . import api as api_module
 
-app = typer.Typer(help="SeedPass command line interface")
+import importlib
+
+app = typer.Typer(
+    help="SeedPass command line interface",
+    invoke_without_command=True,
+)
 
 # Global option shared across all commands
 fingerprint_option = typer.Option(
@@ -47,10 +52,16 @@ def _get_pm(ctx: typer.Context) -> PasswordManager:
     return pm
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) -> None:
-    """SeedPass CLI entry point."""
+    """SeedPass CLI entry point.
+
+    When called without a subcommand this launches the interactive TUI.
+    """
     ctx.obj = {"fingerprint": fingerprint}
+    if ctx.invoked_subcommand is None:
+        tui = importlib.import_module("main")
+        raise typer.Exit(tui.main())
 
 
 @entry_app.command("list")
