@@ -92,7 +92,7 @@ Manage profile‑specific settings.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Get a setting value | `config get` | `seedpass config get inactivity_timeout` |
-| Set a setting value | `config set` | `seedpass config set inactivity_timeout 300` |
+| Set a setting value | `config set` | `seedpass config set secret_mode_enabled true` |
 
 ### Fingerprint Commands
 
@@ -171,8 +171,8 @@ Code: 123456
 
 ### `config` Commands
 
-- **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode`, or `auto_sync`.
-- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set inactivity_timeout 300`.
+- **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, or `relays`.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set secret_mode_enabled true`.
 - **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
 
 ### `fingerprint` Commands
@@ -208,5 +208,5 @@ Shut down the server with `seedpass api stop`.
 
 - Use the `--help` flag for details on any command.
 - Set a strong master password and regularly export encrypted backups.
-- Adjust configuration values like `inactivity_timeout` or `secret_mode` through the `config` commands.
+- Adjust configuration values like `inactivity_timeout` or `secret_mode_enabled` through the `config` commands.
 - `entry get` is script‑friendly and can be piped into other commands.
