@@ -273,6 +273,12 @@ endlocal
 "@
 Set-Content -Path $LauncherPath -Value $LauncherContent -Force
 
+$existingSeedpass = Get-Command seedpass -ErrorAction SilentlyContinue
+if ($existingSeedpass -and $existingSeedpass.Source -ne $LauncherPath) {
+    Write-Warning "Another 'seedpass' command was found at $($existingSeedpass.Source)."
+    Write-Warning "Ensure '$LauncherDir' comes first in your PATH or remove the old installation."
+}
+
 # 6. Add launcher directory to User's PATH if needed
 Write-Info "Checking if '$LauncherDir' is in your PATH..."
 $UserPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -287,3 +293,4 @@ if (($UserPath -split ';') -notcontains $LauncherDir) {
 
 Write-Success "Installation/update complete!"
 Write-Info "To run the application, please open a NEW terminal window and type: seedpass"
+Write-Info "'seedpass' resolves to: $(Get-Command seedpass | Select-Object -ExpandProperty Source)"
