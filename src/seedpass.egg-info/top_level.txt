@@ -1,8 +1,0 @@
-constants
-local_bip85
-main
-nostr
-password_manager
-seedpass
-tests
-utils
