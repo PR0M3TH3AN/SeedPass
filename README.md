@@ -152,6 +152,7 @@ When upgrading pip, use `python -m pip` inside the virtual environment so that p
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r src/requirements.txt
+python -m pip install -e .
 ```
 
 #### Linux Clipboard Support
@@ -166,8 +167,14 @@ sudo apt-get install xclip
 
 ## Quick Start
 
-After installing dependencies and activating your virtual environment, launch
-SeedPass and create a backup:
+After installing dependencies and activating your virtual environment, install
+the package in editable mode so the `seedpass` command is available:
+
+```bash
+python -m pip install -e .
+```
+
+You can then launch SeedPass and create a backup:
 
 ```bash
 # Start the application
@@ -219,7 +226,13 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
 
 ## Usage
 
-After successfully installing the dependencies, you can run SeedPass using the following command:
+After successfully installing the dependencies, install the package with:
+
+```bash
+python -m pip install -e .
+```
+
+Once installed, you can run SeedPass using the following command:
 
 ```bash
 python src/main.py

@@ -119,6 +119,7 @@ main() {
     print_info "Installing/updating Python dependencies from src/requirements.txt..."
     pip install --upgrade pip
     pip install -r src/requirements.txt
+    pip install -e .
     deactivate
 
     # 7. Create launcher script
@@ -127,7 +128,7 @@ main() {
     cat > "$LAUNCHER_PATH" << EOF2
 #!/bin/bash
 source "$VENV_DIR/bin/activate"
-exec python3 "$INSTALL_DIR/src/main.py" "\$@"
+exec "$VENV_DIR/bin/python" -m seedpass.cli "\$@"
 EOF2
     chmod +x "$LAUNCHER_PATH"
 
