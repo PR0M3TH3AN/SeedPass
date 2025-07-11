@@ -103,6 +103,7 @@ def test_entry_add_commands(
         entry_manager=SimpleNamespace(**{method: func}),
         parent_seed="seed",
         select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", command] + cli_args)

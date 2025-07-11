@@ -150,6 +150,7 @@ def entry_add(
     pm = _get_pm(ctx)
     index = pm.entry_manager.add_entry(label, length, username, url)
     typer.echo(str(index))
+    pm.sync_vault()
 
 
 @entry_app.command("add-totp")
@@ -172,6 +173,7 @@ def entry_add_totp(
         digits=digits,
     )
     typer.echo(uri)
+    pm.sync_vault()
 
 
 @entry_app.command("add-ssh")
@@ -190,6 +192,7 @@ def entry_add_ssh(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-pgp")
@@ -212,6 +215,7 @@ def entry_add_pgp(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-nostr")
@@ -229,6 +233,7 @@ def entry_add_nostr(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-seed")
@@ -249,6 +254,7 @@ def entry_add_seed(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-key-value")
@@ -262,6 +268,7 @@ def entry_add_key_value(
     pm = _get_pm(ctx)
     idx = pm.entry_manager.add_key_value(label, value, notes=notes)
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-managed-account")
@@ -280,6 +287,7 @@ def entry_add_managed_account(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("modify")
@@ -308,6 +316,7 @@ def entry_modify(
         digits=digits,
         value=value,
     )
+    pm.sync_vault()
 
 
 @entry_app.command("archive")
@@ -316,6 +325,7 @@ def entry_archive(ctx: typer.Context, entry_id: int) -> None:
     pm = _get_pm(ctx)
     pm.entry_manager.archive_entry(entry_id)
     typer.echo(str(entry_id))
+    pm.sync_vault()
 
 
 @entry_app.command("unarchive")
@@ -324,6 +334,7 @@ def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
     pm = _get_pm(ctx)
     pm.entry_manager.restore_entry(entry_id)
     typer.echo(str(entry_id))
+    pm.sync_vault()
 
 
 @entry_app.command("totp-codes")
