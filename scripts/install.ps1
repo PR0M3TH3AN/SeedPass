@@ -255,6 +255,11 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Dependency installation failed."
 }
 
+& "$VenvDir\Scripts\python.exe" -m pip install -e .
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to install SeedPass package"
+}
+
 # 5. Create launcher script
 Write-Info "Creating launcher script..."
 if (-not (Test-Path $LauncherDir)) { New-Item -ItemType Directory -Path $LauncherDir | Out-Null }
@@ -263,7 +268,7 @@ $LauncherContent = @"
 @echo off
 setlocal
 call "%~dp0..\venv\Scripts\activate.bat"
-python "%~dp0..\src\main.py" %*
+"%~dp0..\venv\Scripts\python.exe" -m seedpass.cli %*
 endlocal
 "@
 Set-Content -Path $LauncherPath -Value $LauncherContent -Force
