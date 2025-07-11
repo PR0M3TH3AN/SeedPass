@@ -265,8 +265,13 @@ class PasswordManager:
         Prompts the user to select an existing fingerprint or add a new one.
         """
         try:
-            print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
+            current = self.fingerprint_manager.current_fingerprint
+            if current and current in fingerprints:
+                self.select_fingerprint(current)
+                return
+
+            print(colored("\nAvailable Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
                 print(colored(f"{idx}. {fp}", "cyan"))
 
