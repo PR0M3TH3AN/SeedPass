@@ -573,3 +573,7 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
         )
     except Exception as exc:  # pragma: no cover - best effort
         typer.echo(f"Failed to stop server: {exc}")
+
+
+if __name__ == "__main__":
+    app()
