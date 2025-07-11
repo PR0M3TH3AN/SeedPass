@@ -160,11 +160,12 @@ After installing dependencies and activating your virtual environment, install t
 python -m pip install -e .
 ```
 
+
 You can then launch SeedPass and create a backup:
 
 ```bash
-# Start the application
-python src/main.py
+# Start the application (interactive TUI)
+seedpass
 
 # Export your index
 seedpass export --file "~/seedpass_backup.json"
@@ -216,13 +217,19 @@ After successfully installing the dependencies, install the package with:
 python -m pip install -e .
 ```
 
-Once installed, you can run SeedPass using the following command:
+Once installed, launch the interactive TUI with:
+
+```bash
+seedpass
+```
+
+You can also run directly from the repository with:
 
 ```bash
 python src/main.py
 ```
 
-You can also use the new Typer-based CLI:
+You can explore other CLI commands using:
 
 ```bash
 seedpass --help
@@ -247,8 +254,9 @@ For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). Th
 1. **Start the Application:**
 
    ```bash
-   python src/main.py
+   seedpass
    ```
+   *(or `python src/main.py` when running directly from the repository)*
 
 2. **Follow the Prompts:**
 
