@@ -102,8 +102,14 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self) -> None:
-        """Initialize the PasswordManager."""
+    def __init__(self, fingerprint: Optional[str] = None) -> None:
+        """Initialize the PasswordManager.
+
+        Parameters
+        ----------
+        fingerprint:
+            Optional seed profile fingerprint to select without prompting.
+        """
         initialize_app()
         self.ensure_script_checksum()
         self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
@@ -131,11 +137,16 @@ class PasswordManager:
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
 
-        # Ensure a parent seed is set up before accessing the fingerprint directory
-        self.setup_parent_seed()
-
-        # Set the current fingerprint directory
-        self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+        if fingerprint:
+            # Load the specified profile without prompting
+            self.select_fingerprint(fingerprint)
+        else:
+            # Ensure a parent seed is set up before accessing the fingerprint directory
+            self.setup_parent_seed()
+            # Set the current fingerprint directory after selection
+            self.fingerprint_dir = (
+                self.fingerprint_manager.get_current_fingerprint_dir()
+            )
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""

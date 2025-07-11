@@ -51,9 +51,10 @@ def start_server(fingerprint: str | None = None) -> str:
         Optional seed profile fingerprint to select before starting the server.
     """
     global _pm, _token
-    _pm = PasswordManager()
-    if fingerprint:
-        _pm.select_fingerprint(fingerprint)
+    if fingerprint is None:
+        _pm = PasswordManager()
+    else:
+        _pm = PasswordManager(fingerprint=fingerprint)
     _token = secrets.token_urlsafe(16)
     print(f"API token: {_token}")
     origins = [
