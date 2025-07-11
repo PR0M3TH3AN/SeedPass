@@ -1,0 +1,2 @@
+[console_scripts]
+seedpass = seedpass.cli:app
