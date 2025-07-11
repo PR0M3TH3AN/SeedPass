@@ -186,7 +186,7 @@ create a backup:
 
 ```bash
 # Start the application
-python src/main.py
+seedpass
 
 # Export your index
 seedpass export --file "~/seedpass_backup.json"
@@ -234,14 +234,19 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
 
 ## Usage
 
-After successfully installing the dependencies, you can run SeedPass using the following command:
+After successfully installing the dependencies, launch the interactive TUI with:
+
+```bash
+seedpass
+```
+
+You can also run directly from the repository using:
 
 ```bash
 python src/main.py
 ```
 
-You can also use the Typer-based command line interface once the
-package is installed:
+You can explore other CLI commands using:
 ```bash
 seedpass --help
 ```
@@ -252,8 +257,9 @@ For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). Th
 1. **Start the Application:**
 
     ```bash
-    python src/main.py
+    seedpass
     ```
+    *(or `python src/main.py` if running directly from the repository)*
 
 2. **Follow the Prompts:**
 

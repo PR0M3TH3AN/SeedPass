@@ -140,7 +140,7 @@ EOF2
 
     # 8. Final instructions
     print_success "Installation/update complete!"
-    print_info "You can now run the application by typing: seedpass"
+    print_info "You can now launch the interactive TUI by typing: seedpass"
     print_info "'seedpass' resolves to: $(command -v seedpass)"
     if [[ ":$PATH:" != *":$LAUNCHER_DIR:"* ]]; then
         print_warning "Directory '$LAUNCHER_DIR' is not in your PATH."
