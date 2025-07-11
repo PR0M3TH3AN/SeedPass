@@ -155,6 +155,11 @@ python -m pip install -r src/requirements.txt
 python -m pip install -e .
 ```
 
+If you previously installed an older version of SeedPass, the `seedpass`
+command might still point to the legacy `main.py` script. Run
+`pip uninstall seedpass` and then reinstall with the command above to
+register the new Typer-based CLI.
+
 #### Linux Clipboard Support
 
 On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`.
@@ -242,6 +247,10 @@ You can also use the new Typer-based CLI:
 ```bash
 seedpass --help
 ```
+If this command displays `usage: main.py` instead of the Typer help
+output, an old `seedpass` executable is still on your `PATH`. Remove it
+with `pip uninstall seedpass` or delete the stale launcher and rerun
+`python -m pip install -e .`.
 For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
 
 ### Running the Application
