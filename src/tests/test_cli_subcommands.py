@@ -28,7 +28,7 @@ def make_pm(search_results, entry=None, totp_code="123456"):
 
 def test_search_command(monkeypatch, capsys):
     pm = make_pm([(0, "Example", "user", "", False)])
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -41,7 +41,7 @@ def test_search_command(monkeypatch, capsys):
 def test_get_command(monkeypatch, capsys):
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
     pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -55,7 +55,7 @@ def test_totp_command(monkeypatch, capsys):
     entry = {"type": EntryType.TOTP.value, "period": 30, "index": 0}
     pm = make_pm([(0, "Example", None, None, False)], entry=entry)
     called = {}
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -72,7 +72,7 @@ def test_totp_command(monkeypatch, capsys):
 
 def test_search_command_no_results(monkeypatch, capsys):
     pm = make_pm([])
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -85,7 +85,7 @@ def test_search_command_no_results(monkeypatch, capsys):
 def test_get_command_multiple_matches(monkeypatch, capsys):
     matches = [(0, "Example", "user", "", False), (1, "Ex2", "bob", "", False)]
     pm = make_pm(matches)
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -98,7 +98,7 @@ def test_get_command_multiple_matches(monkeypatch, capsys):
 def test_get_command_wrong_type(monkeypatch, capsys):
     entry = {"type": EntryType.TOTP.value}
     pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -111,7 +111,7 @@ def test_get_command_wrong_type(monkeypatch, capsys):
 def test_totp_command_multiple_matches(monkeypatch, capsys):
     matches = [(0, "GH", None, None, False), (1, "Git", None, None, False)]
     pm = make_pm(matches)
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -124,7 +124,7 @@ def test_totp_command_multiple_matches(monkeypatch, capsys):
 def test_totp_command_wrong_type(monkeypatch, capsys):
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
     pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -132,3 +132,21 @@ def test_totp_command_wrong_type(monkeypatch, capsys):
     assert rc == 1
     out = capsys.readouterr().out
     assert "Entry is not a TOTP entry" in out
+
+
+def test_main_fingerprint_option(monkeypatch):
+    """Ensure the argparse CLI forwards the fingerprint to PasswordManager."""
+    called = {}
+
+    def fake_pm(fingerprint=None):
+        called["fp"] = fingerprint
+        return make_pm([])
+
+    monkeypatch.setattr(main, "PasswordManager", fake_pm)
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+
+    rc = main.main(["--fingerprint", "abc", "search", "q"])
+    assert rc == 0
+    assert called.get("fp") == "abc"

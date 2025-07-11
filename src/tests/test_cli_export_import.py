@@ -45,7 +45,7 @@ def test_cli_export_creates_file(monkeypatch, tmp_path):
     }
     vault.save_index(data)
 
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
@@ -83,7 +83,7 @@ def test_cli_import_round_trip(monkeypatch, tmp_path):
 
     vault.save_index({"schema_version": 4, "entries": {}})
 
-    monkeypatch.setattr(main, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)

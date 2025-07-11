@@ -61,7 +61,7 @@ def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) ->
     ctx.obj = {"fingerprint": fingerprint}
     if ctx.invoked_subcommand is None:
         tui = importlib.import_module("main")
-        raise typer.Exit(tui.main())
+        raise typer.Exit(tui.main(fingerprint=fingerprint))
 
 
 @entry_app.command("list")

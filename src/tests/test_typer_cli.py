@@ -307,6 +307,21 @@ def test_api_start_passes_fingerprint(monkeypatch):
     assert called.get("fp") == "abc"
 
 
+def test_entry_list_passes_fingerprint(monkeypatch):
+    """Ensure entry commands receive the fingerprint."""
+    called = {}
+
+    class PM:
+        def __init__(self, fingerprint=None):
+            called["fp"] = fingerprint
+            self.entry_manager = SimpleNamespace(list_entries=lambda *a, **k: [])
+
+    monkeypatch.setattr(cli, "PasswordManager", PM)
+    result = runner.invoke(app, ["--fingerprint", "abc", "entry", "list"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+
+
 def test_entry_add(monkeypatch):
     called = {}
 
@@ -447,3 +462,21 @@ def test_update_checksum_command(monkeypatch):
     result = runner.invoke(app, ["util", "update-checksum"])
     assert result.exit_code == 0
     assert called.get("called") is True
+
+
+def test_tui_forward_fingerprint(monkeypatch):
+    """Ensure --fingerprint is forwarded when launching the TUI."""
+    called = {}
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    fake_mod = SimpleNamespace(main=fake_main)
+    monkeypatch.setattr(
+        cli, "importlib", SimpleNamespace(import_module=lambda n: fake_mod)
+    )
+
+    result = runner.invoke(app, ["--fingerprint", "abc"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
