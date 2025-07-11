@@ -22,7 +22,14 @@ remove_stale_executables() {
         candidate="$dir/seedpass"
         if [ -f "$candidate" ] && [ "$candidate" != "$LAUNCHER_PATH" ]; then
             print_info "Removing old executable '$candidate'..."
-            rm -f "$candidate" || true
+            if rm -f "$candidate"; then
+                rm_status=0
+            else
+                rm_status=$?
+            fi
+            if [ $rm_status -ne 0 ] && [ -f "$candidate" ]; then
+                print_warning "Failed to remove $candidate – try deleting it manually"
+            fi
         fi
     done
 }
