@@ -125,10 +125,10 @@ main() {
     # 7. Create launcher script
     print_info "Creating launcher script at '$LAUNCHER_PATH'..."
     mkdir -p "$LAUNCHER_DIR"
-    cat > "$LAUNCHER_PATH" << EOF2
+cat > "$LAUNCHER_PATH" << EOF2
 #!/bin/bash
 source "$VENV_DIR/bin/activate"
-exec "$VENV_DIR/bin/python" -m seedpass.cli "\$@"
+exec "$VENV_DIR/bin/seedpass" "\$@"
 EOF2
     chmod +x "$LAUNCHER_PATH"
 
