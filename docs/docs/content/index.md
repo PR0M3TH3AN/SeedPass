@@ -102,6 +102,7 @@ Run the matching uninstaller if you need to remove a previous installation or cl
 ```bash
 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/uninstall.sh)"
 ```
+If the script warns that it couldn't remove an executable, delete that file manually.
 
 **Windows (PowerShell):**
 ```powershell
