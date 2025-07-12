@@ -70,7 +70,7 @@ Manage the entire vault for a profile.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Export the vault | `vault export` | `seedpass vault export --file backup.json` |
-| Import a vault | `vault import` | `seedpass vault import --file backup.json` |
+| Import a vault | `vault import` | `seedpass vault import --file backup.json` *(also syncs with Nostr)* |
 | Change the master password | `vault change-password` | `seedpass vault change-password` |
 | Lock the vault | `vault lock` | `seedpass vault lock` |
 | Show profile statistics | `vault stats` | `seedpass vault stats` |
@@ -158,7 +158,7 @@ Code: 123456
 ### `vault` Commands
 
 - **`seedpass vault export`** – Export the entire vault to an encrypted JSON file.
-- **`seedpass vault import`** – Import a vault from an encrypted JSON file.
+- **`seedpass vault import`** – Import a vault from an encrypted JSON file and automatically sync via Nostr.
 - **`seedpass vault change-password`** – Change the master password used for encryption.
 - **`seedpass vault lock`** – Clear sensitive data from memory and require reauthentication.
 - **`seedpass vault stats`** – Display statistics about the active seed profile.
