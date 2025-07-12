@@ -74,7 +74,7 @@ def export_backup(
         "created_at": int(time.time()),
         "fingerprint": vault.fingerprint_dir.name,
         "encryption_mode": PortableMode.SEED_ONLY.value,
-        "cipher": "fernet",
+        "cipher": "aes-gcm",
         "checksum": checksum,
         "payload": base64.b64encode(payload_bytes).decode("utf-8"),
     }
