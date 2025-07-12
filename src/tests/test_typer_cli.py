@@ -396,6 +396,21 @@ def test_entry_modify(monkeypatch):
     assert called["args"][:5] == (1, "alice", None, None, None)
 
 
+def test_entry_modify_invalid(monkeypatch):
+    def modify_entry(*a, **k):
+        raise ValueError("bad")
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(modify_entry=modify_entry),
+        select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
+    assert result.exit_code == 1
+    assert "bad" in result.stdout
+
+
 def test_entry_archive(monkeypatch):
     called = {}
 

@@ -93,6 +93,19 @@ def test_create_and_modify_ssh_entry(client):
     assert calls["modify"][1]["notes"] == "x"
 
 
+def test_update_entry_error(client):
+    cl, token = client
+
+    def modify(*a, **k):
+        raise ValueError("nope")
+
+    api._pm.entry_manager.modify_entry = modify
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
+    assert res.status_code == 400
+    assert res.json() == {"detail": "nope"}
+
+
 def test_update_config_secret_mode(client):
     cl, token = client
     called = {}
