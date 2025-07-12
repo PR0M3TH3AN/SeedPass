@@ -215,6 +215,8 @@ class PasswordManager:
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
+        if self.entry_manager is not None:
+            self.entry_manager.clear_cache()
         self.parent_seed = None
         self.encryption_manager = None
         self.entry_manager = None
