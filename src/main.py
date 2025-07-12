@@ -741,6 +741,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
+            password_manager.start_background_sync()
             pause()
         elif choice == "13":
             handle_display_stats(password_manager)
@@ -777,6 +778,7 @@ def display_menu(
     if callable(display_fn):
         display_fn()
         pause()
+    password_manager.start_background_sync()
     while True:
         fp, parent_fp, child_fp = getattr(
             password_manager,
@@ -793,6 +795,7 @@ def display_menu(
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
             password_manager.unlock_vault()
+            password_manager.start_background_sync()
             continue
         # Periodically push updates to Nostr
         if (
@@ -815,6 +818,7 @@ def display_menu(
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
             password_manager.unlock_vault()
+            password_manager.start_background_sync()
             continue
         password_manager.update_activity()
         if not choice:
