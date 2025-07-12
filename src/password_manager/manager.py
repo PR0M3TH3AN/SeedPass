@@ -377,51 +377,61 @@ class PasswordManager:
     ) -> bool:
         """Set up encryption for the current fingerprint and load the seed."""
 
-        try:
-            if password is None:
-                password = prompt_existing_password("Enter your master password: ")
-
-            iterations = (
-                self.config_manager.get_kdf_iterations()
-                if getattr(self, "config_manager", None)
-                else 100_000
-            )
-            print("Deriving key...")
-            seed_key = derive_key_from_password(password, iterations=iterations)
-            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-            print("Decrypting seed...")
+        attempts = 0
+        max_attempts = 5
+        while attempts < max_attempts:
             try:
-                self.parent_seed = seed_mgr.decrypt_parent_seed()
-            except Exception:
-                msg = "Invalid password for selected seed profile."
-                print(colored(msg, "red"))
+                if password is None:
+                    password = prompt_existing_password("Enter your master password: ")
+
+                iterations = (
+                    self.config_manager.get_kdf_iterations()
+                    if getattr(self, "config_manager", None)
+                    else 100_000
+                )
+                print("Deriving key...")
+                seed_key = derive_key_from_password(password, iterations=iterations)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                print("Decrypting seed...")
+                try:
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                except Exception:
+                    msg = (
+                        "Invalid password for selected seed profile. Please try again."
+                    )
+                    print(colored(msg, "red"))
+                    attempts += 1
+                    password = None
+                    continue
+
+                key = derive_index_key(self.parent_seed)
+
+                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+                self.config_manager = ConfigManager(
+                    vault=self.vault,
+                    fingerprint_dir=fingerprint_dir,
+                )
+
+                self.fingerprint_dir = fingerprint_dir
+                if not self.verify_password(password):
+                    print(colored("Invalid password. Please try again.", "red"))
+                    attempts += 1
+                    password = None
+                    continue
+                return True
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
+                print(colored(f"Error: Failed to set up encryption: {e}", "red"))
                 if exit_on_fail:
                     sys.exit(1)
                 return False
-
-            key = derive_index_key(self.parent_seed)
-
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            self.vault = Vault(self.encryption_manager, fingerprint_dir)
-
-            self.config_manager = ConfigManager(
-                vault=self.vault,
-                fingerprint_dir=fingerprint_dir,
-            )
-
-            self.fingerprint_dir = fingerprint_dir
-            if not self.verify_password(password):
-                print(colored("Invalid password.", "red"))
-                if exit_on_fail:
-                    sys.exit(1)
-                return False
-            return True
-        except Exception as e:
-            logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
-            print(colored(f"Error: Failed to set up encryption: {e}", "red"))
-            if exit_on_fail:
-                sys.exit(1)
-            return False
+        if exit_on_fail:
+            sys.exit(1)
+        return False
 
     def load_parent_seed(
         self, fingerprint_dir: Path, password: Optional[str] = None
