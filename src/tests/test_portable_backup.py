@@ -43,13 +43,15 @@ def test_round_trip(monkeypatch):
 
         path = export_backup(vault, backup, parent_seed=SEED)
         assert path.exists()
+        wrapper = json.loads(path.read_text())
+        assert wrapper.get("cipher") == "aes-gcm"
 
         vault.save_index({"pw": 0})
         import_backup(vault, backup, path, parent_seed=SEED)
         assert vault.load_index()["pw"] == data["pw"]
 
 
-from cryptography.fernet import InvalidToken
+from cryptography.exceptions import InvalidTag
 
 
 def test_corruption_detection(monkeypatch):
@@ -66,7 +68,7 @@ def test_corruption_detection(monkeypatch):
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
 
-        with pytest.raises(InvalidToken):
+        with pytest.raises(InvalidTag):
             import_backup(vault, backup, path, parent_seed=SEED)
 
 

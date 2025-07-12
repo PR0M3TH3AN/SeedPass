@@ -4,7 +4,7 @@
 Encryption Module
 
 This module provides the EncryptionManager class, which handles encryption and decryption
-of data and files using a provided Fernet-compatible encryption key. This class ensures
+of data and files using a provided AES-GCM encryption key. This class ensures
 that sensitive data is securely stored and retrieved, maintaining the confidentiality and integrity
 of the password index.
 
@@ -22,7 +22,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from cryptography.fernet import Fernet, InvalidToken
+import base64
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.exceptions import InvalidTag
 from termcolor import colored
 from utils.file_lock import (
     exclusive_lock,
@@ -36,7 +38,7 @@ class EncryptionManager:
     """
     EncryptionManager Class
 
-    Manages the encryption and decryption of data and files using a Fernet encryption key.
+    Manages the encryption and decryption of data and files using an AES-GCM encryption key.
     """
 
     def __init__(self, encryption_key: bytes, fingerprint_dir: Path):
@@ -44,19 +46,23 @@ class EncryptionManager:
         Initializes the EncryptionManager with the provided encryption key and fingerprint directory.
 
         Parameters:
-            encryption_key (bytes): The Fernet encryption key.
+            encryption_key (bytes): A base64-encoded AES-GCM key.
             fingerprint_dir (Path): The directory corresponding to the fingerprint.
         """
         self.fingerprint_dir = fingerprint_dir
         self.parent_seed_file = self.fingerprint_dir / "parent_seed.enc"
-        self.key = encryption_key
 
         try:
-            self.fernet = Fernet(self.key)
-            logger.debug(f"EncryptionManager initialized for {self.fingerprint_dir}")
+            if isinstance(encryption_key, str):
+                encryption_key = encryption_key.encode()
+            self.key = base64.urlsafe_b64decode(encryption_key)
+            self.cipher = AESGCM(self.key)
+            logger.debug(
+                f"EncryptionManager initialized for {self.fingerprint_dir} using AES-GCM"
+            )
         except Exception as e:
             logger.error(
-                f"Failed to initialize Fernet with provided encryption key: {e}"
+                f"Failed to initialize AESGCM with provided encryption key: {e}"
             )
             print(
                 colored(f"Error: Failed to initialize encryption manager: {e}", "red")
@@ -119,7 +125,7 @@ class EncryptionManager:
                 f"Parent seed decrypted successfully from '{parent_seed_path}'."
             )
             return parent_seed
-        except InvalidToken:
+        except InvalidTag:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting parent seed."
             )
@@ -130,15 +136,13 @@ class EncryptionManager:
             raise
 
     def encrypt_data(self, data: bytes) -> bytes:
-        """
-        Encrypts the given data using Fernet.
+        """Encrypt ``data`` with AES-GCM and prepend the nonce."""
 
-        :param data: Data to encrypt.
-        :return: Encrypted data.
-        """
         try:
-            encrypted_data = self.fernet.encrypt(data)
-            logger.debug("Data encrypted successfully.")
+            nonce = os.urandom(12)
+            ciphertext = self.cipher.encrypt(nonce, data, None)
+            encrypted_data = nonce + ciphertext
+            logger.debug("Data encrypted successfully with AES-GCM.")
             return encrypted_data
         except Exception as e:
             logger.error(f"Failed to encrypt data: {e}", exc_info=True)
@@ -146,17 +150,14 @@ class EncryptionManager:
             raise
 
     def decrypt_data(self, encrypted_data: bytes) -> bytes:
-        """
-        Decrypts the provided encrypted data using the derived key.
+        """Decrypt AES-GCM data that includes a prepended nonce."""
 
-        :param encrypted_data: The encrypted data to decrypt.
-        :return: The decrypted data as bytes.
-        """
         try:
-            decrypted_data = self.fernet.decrypt(encrypted_data)
-            logger.debug("Data decrypted successfully.")
+            nonce, ciphertext = encrypted_data[:12], encrypted_data[12:]
+            decrypted_data = self.cipher.decrypt(nonce, ciphertext, None)
+            logger.debug("Data decrypted successfully with AES-GCM.")
             return decrypted_data
-        except InvalidToken:
+        except InvalidTag:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting data."
             )
@@ -228,7 +229,7 @@ class EncryptionManager:
             decrypted_data = self.decrypt_data(encrypted_data)
             logger.debug(f"Data decrypted successfully from '{file_path}'.")
             return decrypted_data
-        except InvalidToken:
+        except InvalidTag:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting file."
             )
@@ -308,7 +309,7 @@ class EncryptionManager:
                 f"Failed to decode JSON data from '{file_path}': {e}", exc_info=True
             )
             raise
-        except InvalidToken:
+        except InvalidTag:
             logger.error(
                 "Invalid encryption key or corrupted data while decrypting JSON data."
             )
