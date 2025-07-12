@@ -133,6 +133,7 @@ class PasswordManager:
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
         self.profile_stack: list[tuple[str, Path, str]] = []
+        self.last_unlock_duration: float | None = None
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -225,6 +226,7 @@ class PasswordManager:
 
     def unlock_vault(self) -> None:
         """Prompt for password and reinitialize managers."""
+        start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
         self.setup_encryption_manager(self.fingerprint_dir)
@@ -233,6 +235,13 @@ class PasswordManager:
         self.locked = False
         self.update_activity()
         self.sync_index_from_nostr()
+        self.last_unlock_duration = time.perf_counter() - start
+        print(
+            colored(
+                f"Vault unlocked in {self.last_unlock_duration:.2f} seconds",
+                "yellow",
+            )
+        )
 
     def initialize_fingerprint_manager(self):
         """
