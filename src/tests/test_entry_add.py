@@ -103,7 +103,7 @@ def test_legacy_entry_defaults_to_password():
         data["entries"][str(index)].pop("type", None)
         enc_mgr.save_json_data(data, entry_mgr.index_file)
 
-        loaded = entry_mgr._load_index()
+        loaded = entry_mgr._load_index(force_reload=True)
         assert loaded["entries"][str(index)]["type"] == "password"
 
 
