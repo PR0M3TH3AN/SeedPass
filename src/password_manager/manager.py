@@ -386,8 +386,10 @@ class PasswordManager:
                 if getattr(self, "config_manager", None)
                 else 100_000
             )
+            print("Deriving key...")
             seed_key = derive_key_from_password(password, iterations=iterations)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            print("Decrypting seed...")
             try:
                 self.parent_seed = seed_mgr.decrypt_parent_seed()
             except Exception:
@@ -939,6 +941,7 @@ class PasswordManager:
             self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
             self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
 
+            print("Connecting to relays...")
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
