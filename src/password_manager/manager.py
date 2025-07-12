@@ -925,17 +925,6 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            if hasattr(self.nostr_client, "check_relay_health"):
-                healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
-                if healthy < MIN_HEALTHY_RELAYS:
-                    print(
-                        colored(
-                            f"Only {healthy} relay(s) responded with your latest event."
-                            " Consider adding more relays via Settings.",
-                            "yellow",
-                        )
-                    )
-
             logger.debug("Managers re-initialized for the new fingerprint.")
 
         except Exception as e:
@@ -983,6 +972,35 @@ class PasswordManager:
 
         self._sync_thread = threading.Thread(target=_worker, daemon=True)
         self._sync_thread.start()
+
+    def start_background_relay_check(self) -> None:
+        """Check relay health in a background thread."""
+        if (
+            hasattr(self, "_relay_thread")
+            and self._relay_thread
+            and self._relay_thread.is_alive()
+        ):
+            return
+
+        def _worker() -> None:
+            try:
+                if getattr(self, "nostr_client", None) and hasattr(
+                    self.nostr_client, "check_relay_health"
+                ):
+                    healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
+                    if healthy < MIN_HEALTHY_RELAYS:
+                        print(
+                            colored(
+                                f"Only {healthy} relay(s) responded with your latest event."
+                                " Consider adding more relays via Settings.",
+                                "yellow",
+                            )
+                        )
+            except Exception as exc:
+                logger.warning(f"Relay health check failed: {exc}")
+
+        self._relay_thread = threading.Thread(target=_worker, daemon=True)
+        self._relay_thread.start()
 
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally."""
