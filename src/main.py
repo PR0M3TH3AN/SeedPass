@@ -493,6 +493,39 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_kdf_iterations(password_manager: PasswordManager) -> None:
+    """Change the PBKDF2 iteration count."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        current = cfg_mgr.get_kdf_iterations()
+        print(colored(f"Current iterations: {current}", "cyan"))
+    except Exception as e:
+        logging.error(f"Error loading iterations: {e}")
+        print(colored(f"Error: {e}", "red"))
+        return
+    value = input("Enter new iteration count: ").strip()
+    if not value:
+        print(colored("No iteration count entered.", "yellow"))
+        return
+    try:
+        iterations = int(value)
+        if iterations <= 0:
+            print(colored("Iterations must be positive.", "red"))
+            return
+    except ValueError:
+        print(colored("Invalid number.", "red"))
+        return
+    try:
+        cfg_mgr.set_kdf_iterations(iterations)
+        print(colored("KDF iteration count updated.", "green"))
+    except Exception as e:
+        logging.error(f"Error saving iterations: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
 def handle_set_additional_backup_location(pm: PasswordManager) -> None:
     """Configure an optional second backup directory."""
     cfg_mgr = pm.config_manager
@@ -699,10 +732,11 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("8. Import database", "menu"))
         print(color_text("9. Export 2FA codes", "menu"))
         print(color_text("10. Set additional backup location", "menu"))
-        print(color_text("11. Set inactivity timeout", "menu"))
-        print(color_text("12. Lock Vault", "menu"))
-        print(color_text("13. Stats", "menu"))
-        print(color_text("14. Toggle Secret Mode", "menu"))
+        print(color_text("11. Set KDF iterations", "menu"))
+        print(color_text("12. Set inactivity timeout", "menu"))
+        print(color_text("13. Lock Vault", "menu"))
+        print(color_text("14. Stats", "menu"))
+        print(color_text("15. Toggle Secret Mode", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -735,19 +769,22 @@ def handle_settings(password_manager: PasswordManager) -> None:
             handle_set_additional_backup_location(password_manager)
             pause()
         elif choice == "11":
-            handle_set_inactivity_timeout(password_manager)
+            handle_set_kdf_iterations(password_manager)
             pause()
         elif choice == "12":
+            handle_set_inactivity_timeout(password_manager)
+            pause()
+        elif choice == "13":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
             password_manager.start_background_sync()
             getattr(password_manager, "start_background_relay_check", lambda: None)()
             pause()
-        elif choice == "13":
+        elif choice == "14":
             handle_display_stats(password_manager)
             pause()
-        elif choice == "14":
+        elif choice == "15":
             handle_toggle_secret_mode(password_manager)
             pause()
         elif not choice:
