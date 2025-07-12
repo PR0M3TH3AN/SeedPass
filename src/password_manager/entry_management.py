@@ -53,9 +53,18 @@ class EntryManager:
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         self.checksum_file = self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
 
+        self._index_cache: dict | None = None
+
         logger.debug(f"EntryManager initialized with index file at {self.index_file}")
 
-    def _load_index(self) -> Dict[str, Any]:
+    def clear_cache(self) -> None:
+        """Clear the cached index data."""
+        self._index_cache = None
+
+    def _load_index(self, force_reload: bool = False) -> Dict[str, Any]:
+        if not force_reload and self._index_cache is not None:
+            return self._index_cache
+
         if self.index_file.exists():
             try:
                 data = self.vault.load_index()
@@ -81,6 +90,7 @@ class EntryManager:
                         entry.pop("words", None)
                     entry.setdefault("tags", [])
                 logger.debug("Index loaded successfully.")
+                self._index_cache = data
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
@@ -89,11 +99,14 @@ class EntryManager:
             logger.info(
                 f"Index file '{self.index_file}' not found. Initializing new entries database."
             )
-            return {"schema_version": LATEST_VERSION, "entries": {}}
+            data = {"schema_version": LATEST_VERSION, "entries": {}}
+            self._index_cache = data
+            return data
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
             self.vault.save_index(data)
+            self._index_cache = data
             logger.debug("Index saved successfully.")
         except Exception as e:
             logger.error(f"Failed to save index: {e}")
