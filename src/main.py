@@ -742,6 +742,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
             password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             pause()
         elif choice == "13":
             handle_display_stats(password_manager)
@@ -779,6 +780,7 @@ def display_menu(
         display_fn()
         pause()
     password_manager.start_background_sync()
+    getattr(password_manager, "start_background_relay_check", lambda: None)()
     while True:
         fp, parent_fp, child_fp = getattr(
             password_manager,
@@ -796,6 +798,7 @@ def display_menu(
             password_manager.lock_vault()
             password_manager.unlock_vault()
             password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         # Periodically push updates to Nostr
         if (
@@ -819,6 +822,7 @@ def display_menu(
             password_manager.lock_vault()
             password_manager.unlock_vault()
             password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         password_manager.update_activity()
         if not choice:

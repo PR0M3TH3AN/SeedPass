@@ -25,6 +25,7 @@ def _make_pm(calls):
         lock_vault=lambda: None,
         unlock_vault=lambda: None,
         start_background_sync=lambda: None,
+        start_background_relay_check=lambda: None,
     )
 
 
