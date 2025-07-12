@@ -44,6 +44,7 @@ class ConfigManager:
                 "pin_hash": "",
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
+                "kdf_iterations": 100_000,
                 "additional_backup_path": "",
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
@@ -57,6 +58,7 @@ class ConfigManager:
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
+            data.setdefault("kdf_iterations", 100_000)
             data.setdefault("additional_backup_path", "")
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
@@ -136,6 +138,19 @@ class ConfigManager:
         """Retrieve the inactivity timeout setting in seconds."""
         config = self.load_config(require_pin=False)
         return float(config.get("inactivity_timeout", INACTIVITY_TIMEOUT))
+
+    def set_kdf_iterations(self, iterations: int) -> None:
+        """Persist the PBKDF2 iteration count in the config."""
+        if iterations <= 0:
+            raise ValueError("Iterations must be positive")
+        config = self.load_config(require_pin=False)
+        config["kdf_iterations"] = int(iterations)
+        self.save_config(config)
+
+    def get_kdf_iterations(self) -> int:
+        """Retrieve the PBKDF2 iteration count."""
+        config = self.load_config(require_pin=False)
+        return int(config.get("kdf_iterations", 100_000))
 
     def set_additional_backup_path(self, path: Optional[str]) -> None:
         """Persist an optional additional backup path in the config."""
