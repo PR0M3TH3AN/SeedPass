@@ -61,6 +61,7 @@ from utils.terminal_utils import (
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
+from password_manager.migrations import LATEST_VERSION
 
 from constants import (
     APP_DIR,
@@ -1037,10 +1038,15 @@ class PasswordManager:
         self._relay_thread.start()
 
     def sync_index_from_nostr_if_missing(self) -> None:
-        """Retrieve the password database from Nostr if it doesn't exist locally."""
+        """Retrieve the password database from Nostr if it doesn't exist locally.
+
+        If no valid data is found or decryption fails, initialize a fresh local
+        database and publish it to Nostr.
+        """
         index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
             return
+        have_data = False
         try:
             result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
             if result:
@@ -1056,10 +1062,23 @@ class PasswordManager:
                             encrypted = deltas[-1]
                     except ValueError:
                         pass
-                self.vault.decrypt_and_save_index_from_nostr(encrypted)
-                logger.info("Initialized local database from Nostr.")
+                try:
+                    self.vault.decrypt_and_save_index_from_nostr(encrypted)
+                    logger.info("Initialized local database from Nostr.")
+                    have_data = True
+                except Exception as err:
+                    logger.warning(
+                        f"Failed to decrypt Nostr data: {err}; treating as new account."
+                    )
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
+
+        if not have_data:
+            self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})
+            try:
+                self.sync_vault()
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.warning(f"Unable to publish fresh database: {exc}")
 
     def handle_add_password(self) -> None:
         try:
