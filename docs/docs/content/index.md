@@ -193,6 +193,7 @@ seedpass export --file "~/seedpass_backup.json"
 
 # Later you can restore it
 seedpass import --file "~/seedpass_backup.json"
+# Import also performs a Nostr sync to pull any changes
 
 # Quickly find or retrieve entries
 seedpass search "github"
@@ -398,7 +399,7 @@ Back in the Settings menu you can:
 * Select `5` to generate a new script checksum.
 * Choose `6` to back up the parent seed.
 * Select `7` to export the database to an encrypted file.
-* Choose `8` to import a database from a backup file.
+* Choose `8` to import a database from a backup file. This also performs a Nostr sync automatically.
 * Select `9` to export all 2FA codes.
 * Choose `10` to set an additional backup location. A backup is created
   immediately after the directory is configured.
