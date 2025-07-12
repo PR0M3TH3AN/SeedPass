@@ -513,6 +513,7 @@ async def import_vault(
         if not path:
             raise HTTPException(status_code=400, detail="Missing file or path")
         _pm.handle_import_database(Path(path))
+    _pm.sync_vault()
     return {"status": "ok"}
 
 

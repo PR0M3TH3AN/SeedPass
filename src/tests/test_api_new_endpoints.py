@@ -218,6 +218,7 @@ def test_vault_import_via_path(client, tmp_path):
         called["path"] = path
 
     api._pm.handle_import_database = import_db
+    api._pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "b.json"
     file_path.write_text("{}")
 
@@ -230,6 +231,7 @@ def test_vault_import_via_path(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert called["path"] == file_path
+    assert called.get("sync") is True
 
 
 def test_vault_import_via_upload(client, tmp_path):
@@ -240,6 +242,7 @@ def test_vault_import_via_upload(client, tmp_path):
         called["path"] = path
 
     api._pm.handle_import_database = import_db
+    api._pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "c.json"
     file_path.write_text("{}")
 
@@ -253,6 +256,7 @@ def test_vault_import_via_upload(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert isinstance(called.get("path"), Path)
+    assert called.get("sync") is True
 
 
 def test_vault_lock_endpoint(client):

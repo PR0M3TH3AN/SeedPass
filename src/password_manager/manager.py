@@ -3257,6 +3257,7 @@ class PasswordManager:
                 parent_seed=self.parent_seed,
             )
             print(colored("Database imported successfully.", "green"))
+            self.sync_vault()
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
             print(colored(f"Error: Failed to import database: {e}", "red"))

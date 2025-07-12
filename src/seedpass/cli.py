@@ -372,6 +372,7 @@ def vault_import(
     """Import a vault from an encrypted JSON file."""
     pm = _get_pm(ctx)
     pm.handle_import_database(Path(file))
+    pm.sync_vault()
     typer.echo(str(file))
 
 
