@@ -1730,6 +1730,7 @@ class PasswordManager:
         """Provide actions for a retrieved entry."""
         while True:
             archived = entry.get("archived", entry.get("blacklisted", False))
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
             print(colored("\n[+] Entry Actions:", "green"))
             if archived:
                 print(colored("U. Unarchive", "cyan"))
@@ -1740,7 +1741,12 @@ class PasswordManager:
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
             print(colored("T. Edit Tags", "cyan"))
-            print(colored("Q. Show QR codes", "cyan"))
+            if entry_type in {
+                EntryType.SEED.value,
+                EntryType.MANAGED_ACCOUNT.value,
+                EntryType.NOSTR.value,
+            }:
+                print(colored("Q. Show QR codes", "cyan"))
 
             choice = (
                 input("Select an action or press Enter to return: ").strip().lower()
