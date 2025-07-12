@@ -276,13 +276,16 @@ class PasswordManager:
         try:
             fingerprints = self.fingerprint_manager.list_fingerprints()
             current = self.fingerprint_manager.current_fingerprint
-            if current and current in fingerprints:
-                self.select_fingerprint(current)
+
+            # Auto-select when only one fingerprint exists
+            if len(fingerprints) == 1:
+                self.select_fingerprint(fingerprints[0])
                 return
 
             print(colored("\nAvailable Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                marker = " *" if fp == current else ""
+                print(colored(f"{idx}. {fp}{marker}", "cyan"))
 
             print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
 
