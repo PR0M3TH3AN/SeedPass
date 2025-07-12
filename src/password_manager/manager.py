@@ -19,6 +19,7 @@ from typing import Optional
 import shutil
 import time
 import builtins
+import threading
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -234,7 +235,6 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        self.sync_index_from_nostr()
         self.last_unlock_duration = time.perf_counter() - start
         print(
             colored(
@@ -358,7 +358,6 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr()
             print(
                 colored(
                     f"Seed profile {fingerprint} selected and managers initialized.",
@@ -966,6 +965,24 @@ class PasswordManager:
                 logger.info("Local database synchronized from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
+
+    def start_background_sync(self) -> None:
+        """Launch a thread to synchronize the vault without blocking the UI."""
+        if (
+            hasattr(self, "_sync_thread")
+            and self._sync_thread
+            and self._sync_thread.is_alive()
+        ):
+            return
+
+        def _worker() -> None:
+            try:
+                self.sync_index_from_nostr()
+            except Exception as exc:
+                logger.warning(f"Background sync failed: {exc}")
+
+        self._sync_thread = threading.Thread(target=_worker, daemon=True)
+        self._sync_thread.start()
 
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally."""
