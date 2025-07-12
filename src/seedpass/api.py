@@ -207,16 +207,19 @@ def update_entry(
     """
     _check_token(authorization)
     assert _pm is not None
-    _pm.entry_manager.modify_entry(
-        entry_id,
-        username=entry.get("username"),
-        url=entry.get("url"),
-        notes=entry.get("notes"),
-        label=entry.get("label"),
-        period=entry.get("period"),
-        digits=entry.get("digits"),
-        value=entry.get("value"),
-    )
+    try:
+        _pm.entry_manager.modify_entry(
+            entry_id,
+            username=entry.get("username"),
+            url=entry.get("url"),
+            notes=entry.get("notes"),
+            label=entry.get("label"),
+            period=entry.get("period"),
+            digits=entry.get("digits"),
+            value=entry.get("value"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
 

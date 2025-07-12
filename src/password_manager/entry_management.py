@@ -723,6 +723,93 @@ class EntryManager:
 
             entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
 
+            provided_fields = {
+                "username": username,
+                "url": url,
+                "archived": archived,
+                "notes": notes,
+                "label": label,
+                "period": period,
+                "digits": digits,
+                "value": value,
+                "custom_fields": custom_fields,
+                "tags": tags,
+            }
+
+            allowed = {
+                EntryType.PASSWORD.value: {
+                    "username",
+                    "url",
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.TOTP.value: {
+                    "label",
+                    "period",
+                    "digits",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.KEY_VALUE.value: {
+                    "label",
+                    "value",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.MANAGED_ACCOUNT.value: {
+                    "label",
+                    "value",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.SSH.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.PGP.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.NOSTR.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.SEED.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+            }
+
+            allowed_fields = allowed.get(entry_type, set())
+            invalid = {
+                k for k, v in provided_fields.items() if v is not None
+            } - allowed_fields
+            if invalid:
+                raise ValueError(
+                    f"Entry type '{entry_type}' does not support fields: {', '.join(sorted(invalid))}"
+                )
+
             if entry_type == EntryType.TOTP.value:
                 if label is not None:
                     entry["label"] = label
@@ -796,6 +883,7 @@ class EntryManager:
             print(
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
+            raise
 
     def archive_entry(self, index: int) -> None:
         """Mark the specified entry as archived."""

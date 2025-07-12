@@ -306,16 +306,20 @@ def entry_modify(
 ) -> None:
     """Modify an existing entry."""
     pm = _get_pm(ctx)
-    pm.entry_manager.modify_entry(
-        entry_id,
-        username=username,
-        url=url,
-        notes=notes,
-        label=label,
-        period=period,
-        digits=digits,
-        value=value,
-    )
+    try:
+        pm.entry_manager.modify_entry(
+            entry_id,
+            username=username,
+            url=url,
+            notes=notes,
+            label=label,
+            period=period,
+            digits=digits,
+            value=value,
+        )
+    except ValueError as e:
+        typer.echo(str(e))
+        raise typer.Exit(code=1)
     pm.sync_vault()
 
 
