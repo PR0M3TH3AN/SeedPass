@@ -88,7 +88,9 @@ def test_vault_import(monkeypatch, tmp_path):
         called["path"] = path
 
     pm = SimpleNamespace(
-        handle_import_database=import_db, select_fingerprint=lambda fp: None
+        handle_import_database=import_db,
+        select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     in_path = tmp_path / "in.json"
@@ -96,6 +98,29 @@ def test_vault_import(monkeypatch, tmp_path):
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
     assert called["path"] == in_path
+
+
+def test_vault_import_triggers_sync(monkeypatch, tmp_path):
+    called = {}
+
+    def import_db(path):
+        called["path"] = path
+
+    def sync():
+        called["sync"] = True
+
+    pm = SimpleNamespace(
+        handle_import_database=import_db,
+        sync_vault=sync,
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    in_path = tmp_path / "in.json"
+    in_path.write_text("{}")
+    result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
+    assert result.exit_code == 0
+    assert called["path"] == in_path
+    assert called.get("sync") is True
 
 
 def test_vault_change_password(monkeypatch):
