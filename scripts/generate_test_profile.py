@@ -98,6 +98,8 @@ def initialize_profile(
     # Store the default password hash so the profile can be opened
     hashed = bcrypt.hashpw(DEFAULT_PASSWORD.encode(), bcrypt.gensalt()).decode()
     cfg_mgr.set_password_hash(hashed)
+    # Ensure stored iterations match the PBKDF2 work factor used above
+    cfg_mgr.set_kdf_iterations(100_000)
     backup_mgr = BackupManager(profile_dir, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
     return seed_phrase, entry_mgr, profile_dir, fingerprint, cfg_mgr
@@ -146,7 +148,10 @@ def populate(entry_mgr: EntryManager, seed: str, count: int) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Create or extend a SeedPass test profile"
+        description=(
+            "Create or extend a SeedPass test profile (default PBKDF2 iterations:"
+            " 100,000)"
+        )
     )
     parser.add_argument(
         "--profile",
