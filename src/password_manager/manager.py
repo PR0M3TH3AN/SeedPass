@@ -544,6 +544,7 @@ class PasswordManager:
                 self.nostr_client = NostrClient(
                     encryption_manager=self.encryption_manager,
                     fingerprint=self.current_fingerprint,
+                    config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
                 logging.info(
@@ -1020,6 +1021,7 @@ class PasswordManager:
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
                 offline_mode=self.offline_mode,
+                config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
@@ -3718,6 +3720,7 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
 

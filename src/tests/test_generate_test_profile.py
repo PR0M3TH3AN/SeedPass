@@ -24,7 +24,8 @@ def test_initialize_profile_creates_directories(monkeypatch):
         assert spec.loader is not None
         spec.loader.exec_module(gtp)
 
-        seed, mgr, dir_path, fingerprint = gtp.initialize_profile("test")
+        seed, mgr, dir_path, fingerprint, cfg_mgr = gtp.initialize_profile("test")
+        assert cfg_mgr is not None
 
         assert constants.APP_DIR.exists()
         assert (constants.APP_DIR / "test_seed.txt").exists()

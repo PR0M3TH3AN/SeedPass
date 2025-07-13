@@ -90,7 +90,11 @@ def export_backup(
         enc_file.write_bytes(encrypted)
         os.chmod(enc_file, 0o600)
         try:
-            client = NostrClient(vault.encryption_manager, vault.fingerprint_dir.name)
+            client = NostrClient(
+                vault.encryption_manager,
+                vault.fingerprint_dir.name,
+                config_manager=backup_manager.config_manager,
+            )
             asyncio.run(client.publish_snapshot(encrypted))
         except Exception:
             logger.error("Failed to publish backup via Nostr", exc_info=True)
