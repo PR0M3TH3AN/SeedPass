@@ -30,6 +30,17 @@ class Vault:
     # ----- Password index helpers -----
     def load_index(self) -> dict:
         """Return decrypted password index data as a dict, applying migrations."""
+        legacy_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        if legacy_file.exists() and not self.index_file.exists():
+            legacy_checksum = (
+                self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+            )
+            legacy_file.rename(self.index_file)
+            if legacy_checksum.exists():
+                legacy_checksum.rename(
+                    self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
+                )
+
         data = self.encryption_manager.load_json_data(self.index_file)
         from .migrations import apply_migrations, LATEST_VERSION
 

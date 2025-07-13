@@ -25,6 +25,8 @@ from typing import Optional
 import base64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
 from utils.file_lock import (
     exclusive_lock,
@@ -32,6 +34,16 @@ from utils.file_lock import (
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+def decrypt_legacy_fernet(encryption_key: bytes | str, payload: bytes) -> bytes:
+    """Decrypt *payload* using legacy Fernet."""
+    if isinstance(encryption_key, str):
+        key = encryption_key.encode()
+    else:
+        key = encryption_key
+    f = Fernet(key)
+    return f.decrypt(payload)
 
 
 class EncryptionManager:
@@ -55,6 +67,7 @@ class EncryptionManager:
         try:
             if isinstance(encryption_key, str):
                 encryption_key = encryption_key.encode()
+            self.key_b64 = encryption_key
             self.key = base64.urlsafe_b64decode(encryption_key)
             self.cipher = AESGCM(self.key)
             logger.debug(
@@ -304,16 +317,31 @@ class EncryptionManager:
             data = json.loads(json_content)
             logger.debug(f"JSON data loaded and decrypted from '{file_path}': {data}")
             return data
-        except json.JSONDecodeError as e:
-            logger.error(
-                f"Failed to decode JSON data from '{file_path}': {e}", exc_info=True
+        except (InvalidTag, json.JSONDecodeError):
+            logger.info(
+                f"AES-GCM decryption failed for '{file_path}', attempting legacy format"
             )
-            raise
-        except InvalidTag:
-            logger.error(
-                "Invalid encryption key or corrupted data while decrypting JSON data."
-            )
-            raise
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                legacy_bytes = fh.read()
+            try:
+                legacy_plain = decrypt_legacy_fernet(self.key_b64, legacy_bytes)
+                data = json.loads(legacy_plain.decode("utf-8").strip())
+            except (InvalidToken, json.JSONDecodeError) as e:
+                logger.error(
+                    f"Legacy decryption failed for '{file_path}': {e}", exc_info=True
+                )
+                raise
+
+            legacy_path = file_path.with_suffix(file_path.suffix + ".fernet")
+            os.rename(file_path, legacy_path)
+            chk = file_path.parent / f"{file_path.stem}_checksum.txt"
+            if chk.exists():
+                chk.rename(chk.with_suffix(chk.suffix + ".fernet"))
+
+            self.save_json_data(data, relative_path)
+            self.update_checksum(relative_path)
+            return data
         except Exception as e:
             logger.error(
                 f"Failed to load JSON data from '{file_path}': {e}", exc_info=True
