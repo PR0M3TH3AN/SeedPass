@@ -462,6 +462,7 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
             [r.strip() for r in v.split(",") if r.strip()], require_pin=False
         ),
         "kdf_iterations": lambda v: cfg.set_kdf_iterations(int(v)),
+        "kdf_mode": lambda v: cfg.set_kdf_mode(v),
         "backup_interval": lambda v: cfg.set_backup_interval(float(v)),
     }
 

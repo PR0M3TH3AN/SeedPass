@@ -45,6 +45,7 @@ class ConfigManager:
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
                 "kdf_iterations": 100_000,
+                "kdf_mode": "pbkdf2",
                 "additional_backup_path": "",
                 "backup_interval": 0,
                 "secret_mode_enabled": False,
@@ -60,6 +61,7 @@ class ConfigManager:
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
             data.setdefault("kdf_iterations", 100_000)
+            data.setdefault("kdf_mode", "pbkdf2")
             data.setdefault("additional_backup_path", "")
             data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
@@ -154,6 +156,19 @@ class ConfigManager:
         """Retrieve the PBKDF2 iteration count."""
         config = self.load_config(require_pin=False)
         return int(config.get("kdf_iterations", 100_000))
+
+    def set_kdf_mode(self, mode: str) -> None:
+        """Persist the key derivation function mode."""
+        if mode not in ("pbkdf2", "argon2"):
+            raise ValueError("kdf_mode must be 'pbkdf2' or 'argon2'")
+        config = self.load_config(require_pin=False)
+        config["kdf_mode"] = mode
+        self.save_config(config)
+
+    def get_kdf_mode(self) -> str:
+        """Retrieve the configured key derivation function."""
+        config = self.load_config(require_pin=False)
+        return config.get("kdf_mode", "pbkdf2")
 
     def set_additional_backup_path(self, path: Optional[str]) -> None:
         """Persist an optional additional backup path in the config."""

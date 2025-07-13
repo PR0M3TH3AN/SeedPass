@@ -35,6 +35,7 @@ from password_manager.entry_types import EntryType
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
+    derive_key_from_password_argon2,
     derive_index_key,
     EncryptionMode,
 )
@@ -387,13 +388,21 @@ class PasswordManager:
                 if password is None:
                     password = prompt_existing_password("Enter your master password: ")
 
+                mode = (
+                    self.config_manager.get_kdf_mode()
+                    if getattr(self, "config_manager", None)
+                    else "pbkdf2"
+                )
                 iterations = (
                     self.config_manager.get_kdf_iterations()
                     if getattr(self, "config_manager", None)
                     else 100_000
                 )
                 print("Deriving key...")
-                seed_key = derive_key_from_password(password, iterations=iterations)
+                if mode == "argon2":
+                    seed_key = derive_key_from_password_argon2(password)
+                else:
+                    seed_key = derive_key_from_password(password, iterations=iterations)
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                 print("Decrypting seed...")
                 try:
@@ -448,12 +457,20 @@ class PasswordManager:
             password = prompt_existing_password("Enter your master password: ")
 
         try:
+            mode = (
+                self.config_manager.get_kdf_mode()
+                if getattr(self, "config_manager", None)
+                else "pbkdf2"
+            )
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
                 else 100_000
             )
-            seed_key = derive_key_from_password(password, iterations=iterations)
+            if mode == "argon2":
+                seed_key = derive_key_from_password_argon2(password)
+            else:
+                seed_key = derive_key_from_password(password, iterations=iterations)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
             self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
