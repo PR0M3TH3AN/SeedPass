@@ -14,6 +14,7 @@ runner = CliRunner()
         ("secret_mode_enabled", "true", "set_secret_mode_enabled", True),
         ("clipboard_clear_delay", "10", "set_clipboard_clear_delay", 10),
         ("additional_backup_path", "", "set_additional_backup_path", None),
+        ("backup_interval", "5", "set_backup_interval", 5.0),
         (
             "relays",
             "wss://a.com, wss://b.com",

@@ -461,6 +461,7 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
         "relays": lambda v: cfg.set_relays(
             [r.strip() for r in v.split(",") if r.strip()], require_pin=False
         ),
+        "backup_interval": lambda v: cfg.set_backup_interval(float(v)),
     }
 
     action = mapping.get(key)

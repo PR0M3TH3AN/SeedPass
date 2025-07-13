@@ -158,3 +158,14 @@ def test_kdf_iterations_round_trip():
 
         cfg_mgr.set_kdf_iterations(200_000)
         assert cfg_mgr.get_kdf_iterations() == 200_000
+
+
+def test_backup_interval_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        assert cfg_mgr.get_backup_interval() == 0
+
+        cfg_mgr.set_backup_interval(15)
+        assert cfg_mgr.get_backup_interval() == 15
