@@ -410,6 +410,8 @@ Back in the Settings menu you can:
 - Select `13` to lock the vault and require re-entry of your password.
 - Select `14` to view seed profile stats. The summary lists counts for passwords, TOTP codes, SSH keys, seed phrases, and PGP keys. It also shows whether both the encrypted database and the script itself pass checksum validation.
 - Choose `15` to toggle Secret Mode and set the clipboard clear delay.
+- Select `16` to toggle Offline Mode and disable Nostr synchronization.
+- Choose `17` to toggle Quick Unlock for skipping the password prompt after the first unlock.
 Press **Enter** at any time to return to the main menu.
 You can adjust these settings directly from the command line:
 
@@ -421,7 +423,7 @@ seedpass config set nostr_max_retries 2
 seedpass config set nostr_retry_delay 1
 ```
 
-The default configuration uses **50,000** PBKDF2 iterations. Lower iteration counts speed up vault decryption but make brute-force attacks easier. A long backup interval means fewer backups and increases the risk of data loss.
+The default configuration uses **50,000** PBKDF2 iterations. Increase this value for stronger password hashing or lower it for faster startup (not recommended). Offline Mode skips all Nostr communication, keeping your data local until you re-enable syncing. Quick Unlock stores a hashed copy of your password in the encrypted config so that after the initial unlock, subsequent operations won't prompt for the password until you exit the program. Avoid enabling Quick Unlock on shared machines.
 
 ## Running Tests
 
@@ -491,6 +493,8 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Adjust this with `seedpass config set kdf_iterations`.
 - **KDF Iteration Caution:** Lowering `kdf_iterations` makes password cracking easier, while a high `backup_interval` leaves fewer recent backups.
+- **Offline Mode:** When enabled, SeedPass skips all Nostr operations so your vault stays local until syncing is turned back on.
+- **Quick Unlock:** Stores a hashed copy of your password in the encrypted config so you only need to enter it once per session. Avoid this on shared computers.
 
 ## Contributing
 
