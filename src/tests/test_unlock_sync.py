@@ -6,6 +6,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.manager import PasswordManager
+from password_manager import manager as manager_module
 
 
 def test_unlock_triggers_sync(monkeypatch, tmp_path):
@@ -26,3 +27,30 @@ def test_unlock_triggers_sync(monkeypatch, tmp_path):
     time.sleep(0.05)
 
     assert called["sync"]
+
+
+def test_quick_unlock_background_sync(monkeypatch, tmp_path):
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.profile_stack = [("rootfp", tmp_path, "seed")]
+    pm.config_manager = SimpleNamespace(get_quick_unlock=lambda: True)
+
+    monkeypatch.setattr(manager_module, "derive_index_key", lambda s: b"k")
+    monkeypatch.setattr(
+        manager_module, "EncryptionManager", lambda *a, **k: SimpleNamespace()
+    )
+    monkeypatch.setattr(manager_module, "Vault", lambda *a, **k: SimpleNamespace())
+
+    pm.initialize_bip85 = lambda: None
+    pm.initialize_managers = lambda: None
+    pm.update_activity = lambda: None
+
+    called = {"bg": False}
+
+    def fake_bg():
+        called["bg"] = True
+
+    pm.start_background_sync = fake_bg
+
+    pm.exit_managed_account()
+
+    assert called["bg"]
