@@ -587,7 +587,7 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        self.sync_index_from_nostr_if_missing()
+        self.start_background_sync()
 
     def exit_managed_account(self) -> None:
         """Return to the parent seed profile if one is on the stack."""
@@ -1053,7 +1053,10 @@ class PasswordManager:
 
         def _worker() -> None:
             try:
-                self.sync_index_from_nostr()
+                if hasattr(self, "nostr_client") and hasattr(self, "vault"):
+                    self.sync_index_from_nostr_if_missing()
+                if hasattr(self, "sync_index_from_nostr"):
+                    self.sync_index_from_nostr()
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
 
@@ -3785,29 +3788,12 @@ class PasswordManager:
 
         # Nostr sync info
         manifest = getattr(self.nostr_client, "current_manifest", None)
-        if manifest is None:
-            try:
-                result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
-                if result:
-                    manifest, _ = result
-            except Exception:
-                manifest = None
-
         if manifest is not None:
             stats["chunk_count"] = len(manifest.chunks)
             stats["delta_since"] = manifest.delta_since
-            delta_count = 0
-            if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                except ValueError:
-                    version = 0
-                try:
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                    delta_count = len(deltas)
-                except Exception:
-                    delta_count = 0
-            stats["pending_deltas"] = delta_count
+            stats["pending_deltas"] = len(
+                getattr(self.nostr_client, "_delta_events", [])
+            )
         else:
             stats["chunk_count"] = 0
             stats["delta_since"] = None
