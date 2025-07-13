@@ -35,6 +35,7 @@ from password_manager.migrations import LATEST_VERSION
 from password_manager.entry_types import EntryType
 from password_manager.totp import TotpManager
 from utils.fingerprint import generate_fingerprint
+from utils.checksum import canonical_json_dumps
 
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
@@ -1162,11 +1163,8 @@ class EntryManager:
         """
         try:
             data = self._load_index()
-            if USE_ORJSON:
-                json_bytes = json_lib.dumps(data)
-            else:
-                json_bytes = json_lib.dumps(data, separators=(",", ":")).encode("utf-8")
-            checksum = hashlib.sha256(json_bytes).hexdigest()
+            canonical = canonical_json_dumps(data)
+            checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
             # The checksum file path already includes the fingerprint directory
             checksum_path = self.checksum_file
