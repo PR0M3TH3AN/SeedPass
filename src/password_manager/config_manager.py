@@ -58,6 +58,7 @@ class ConfigManager:
                 "min_lowercase": 2,
                 "min_digits": 2,
                 "min_special": 2,
+                "verbose_timing": False,
             }
         try:
             data = self.vault.load_config()
@@ -82,6 +83,7 @@ class ConfigManager:
             data.setdefault("min_lowercase", 2)
             data.setdefault("min_digits", 2)
             data.setdefault("min_special", 2)
+            data.setdefault("verbose_timing", False)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -315,3 +317,12 @@ class ConfigManager:
         """Retrieve the delay in seconds between Nostr retries."""
         cfg = self.load_config(require_pin=False)
         return float(cfg.get("nostr_retry_delay", 1.0))
+
+    def set_verbose_timing(self, enabled: bool) -> None:
+        cfg = self.load_config(require_pin=False)
+        cfg["verbose_timing"] = bool(enabled)
+        self.save_config(cfg)
+
+    def get_verbose_timing(self) -> bool:
+        cfg = self.load_config(require_pin=False)
+        return bool(cfg.get("verbose_timing", False))
