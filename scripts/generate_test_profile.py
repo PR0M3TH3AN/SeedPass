@@ -46,7 +46,9 @@ import gzip
 DEFAULT_PASSWORD = "testpassword"
 
 
-def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]:
+def initialize_profile(
+    profile_name: str,
+) -> tuple[str, EntryManager, Path, str, ConfigManager]:
     """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
     initialize_app()
     seed_txt = APP_DIR / f"{profile_name}_seed.txt"
@@ -98,7 +100,7 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]
     cfg_mgr.set_password_hash(hashed)
     backup_mgr = BackupManager(profile_dir, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
-    return seed_phrase, entry_mgr, profile_dir, fingerprint
+    return seed_phrase, entry_mgr, profile_dir, fingerprint, cfg_mgr
 
 
 def random_secret(length: int = 16) -> str:
@@ -159,7 +161,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    seed, entry_mgr, dir_path, fingerprint = initialize_profile(args.profile)
+    seed, entry_mgr, dir_path, fingerprint, cfg_mgr = initialize_profile(args.profile)
     print(f"Using profile directory: {dir_path}")
     print(f"Parent seed: {seed}")
     if fingerprint:
@@ -173,6 +175,7 @@ def main() -> None:
             entry_mgr.vault.encryption_manager,
             fingerprint or dir_path.name,
             parent_seed=seed,
+            config_manager=cfg_mgr,
         )
         asyncio.run(client.publish_snapshot(encrypted))
         print("[+] Data synchronized to Nostr.")

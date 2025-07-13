@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 import hashlib
 import asyncio
 import gzip
@@ -29,6 +29,9 @@ from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHU
 from password_manager.encryption import EncryptionManager
 from constants import MAX_RETRIES, RETRY_DELAY
 from utils.file_lock import exclusive_lock
+
+if TYPE_CHECKING:  # pragma: no cover - imported for type hints
+    from password_manager.config_manager import ConfigManager
 
 # Backwards compatibility for tests that patch these symbols
 KeyManager = SeedPassKeyManager
@@ -92,10 +95,12 @@ class NostrClient:
         relays: Optional[List[str]] = None,
         parent_seed: Optional[str] = None,
         offline_mode: bool = False,
+        config_manager: Optional["ConfigManager"] = None,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
         self.fingerprint_dir = self.encryption_manager.fingerprint_dir
+        self.config_manager = config_manager
 
         if parent_seed is None:
             parent_seed = self.encryption_manager.decrypt_parent_seed()
@@ -278,13 +283,16 @@ class NostrClient:
             return None
 
         if retries is None or delay is None:
-            from password_manager.config_manager import ConfigManager
-            from password_manager.vault import Vault
+            if self.config_manager is None:
+                from password_manager.config_manager import ConfigManager
+                from password_manager.vault import Vault
 
-            cfg_mgr = ConfigManager(
-                Vault(self.encryption_manager, self.fingerprint_dir),
-                self.fingerprint_dir,
-            )
+                cfg_mgr = ConfigManager(
+                    Vault(self.encryption_manager, self.fingerprint_dir),
+                    self.fingerprint_dir,
+                )
+            else:
+                cfg_mgr = self.config_manager
             cfg = cfg_mgr.load_config(require_pin=False)
             retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
             delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
