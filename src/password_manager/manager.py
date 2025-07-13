@@ -397,7 +397,7 @@ class PasswordManager:
                 iterations = (
                     self.config_manager.get_kdf_iterations()
                     if getattr(self, "config_manager", None)
-                    else 100_000
+                    else 50_000
                 )
                 print("Deriving key...")
                 if mode == "argon2":
@@ -466,7 +466,7 @@ class PasswordManager:
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
-                else 100_000
+                else 50_000
             )
             if mode == "argon2":
                 seed_key = derive_key_from_password_argon2(password)
@@ -618,7 +618,7 @@ class PasswordManager:
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
-                else 100_000
+                else 50_000
             )
             key = derive_key_from_password(password, iterations=iterations)
 
@@ -744,7 +744,7 @@ class PasswordManager:
                     iterations = (
                         self.config_manager.get_kdf_iterations()
                         if getattr(self, "config_manager", None)
-                        else 100_000
+                        else 50_000
                     )
                     seed_key = derive_key_from_password(password, iterations=iterations)
 
@@ -901,7 +901,7 @@ class PasswordManager:
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
-                else 100_000
+                else 50_000
             )
             seed_key = derive_key_from_password(password, iterations=iterations)
 

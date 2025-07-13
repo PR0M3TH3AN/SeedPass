@@ -45,7 +45,7 @@ class ConfigManager:
                 "pin_hash": "",
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
-                "kdf_iterations": 100_000,
+                "kdf_iterations": 50_000,
                 "kdf_mode": "pbkdf2",
                 "additional_backup_path": "",
                 "backup_interval": 0,
@@ -66,7 +66,7 @@ class ConfigManager:
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
-            data.setdefault("kdf_iterations", 100_000)
+            data.setdefault("kdf_iterations", 50_000)
             data.setdefault("kdf_mode", "pbkdf2")
             data.setdefault("additional_backup_path", "")
             data.setdefault("backup_interval", 0)
@@ -165,7 +165,7 @@ class ConfigManager:
     def get_kdf_iterations(self) -> int:
         """Retrieve the PBKDF2 iteration count."""
         config = self.load_config(require_pin=False)
-        return int(config.get("kdf_iterations", 100_000))
+        return int(config.get("kdf_iterations", 50_000))
 
     def set_kdf_mode(self, mode: str) -> None:
         """Persist the key derivation function mode."""
