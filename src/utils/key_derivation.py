@@ -97,6 +97,42 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
         raise
 
 
+def derive_key_from_password_argon2(
+    password: str,
+    *,
+    time_cost: int = 2,
+    memory_cost: int = 64 * 1024,
+    parallelism: int = 8,
+) -> bytes:
+    """Derive an encryption key from a password using Argon2id.
+
+    The defaults follow recommended parameters but omit a salt for deterministic
+    output. Smaller values may be supplied for testing.
+    """
+
+    if not password:
+        logger.error("Password cannot be empty.")
+        raise ValueError("Password cannot be empty.")
+
+    normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
+    try:
+        from argon2.low_level import hash_secret_raw, Type
+
+        key = hash_secret_raw(
+            secret=normalized,
+            salt=b"\x00" * 16,
+            time_cost=time_cost,
+            memory_cost=memory_cost,
+            parallelism=parallelism,
+            hash_len=32,
+            type=Type.ID,
+        )
+        return base64.urlsafe_b64encode(key)
+    except Exception as e:  # pragma: no cover - pass through errors
+        logger.error(f"Error deriving key with Argon2id: {e}", exc_info=True)
+        raise
+
+
 def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> bytes:
     """
     Derives a 32-byte cryptographic key from a BIP-39 parent seed using HKDF.

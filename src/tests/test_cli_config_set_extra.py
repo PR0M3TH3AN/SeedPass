@@ -16,6 +16,7 @@ runner = CliRunner()
         ("additional_backup_path", "", "set_additional_backup_path", None),
         ("backup_interval", "5", "set_backup_interval", 5.0),
         ("kdf_iterations", "123", "set_kdf_iterations", 123),
+        ("kdf_mode", "argon2", "set_kdf_mode", "argon2"),
         (
             "relays",
             "wss://a.com, wss://b.com",
