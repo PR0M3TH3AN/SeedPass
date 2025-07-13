@@ -27,6 +27,7 @@ from nostr_sdk import EventId, Timestamp
 from .key_manager import KeyManager as SeedPassKeyManager
 from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
 from password_manager.encryption import EncryptionManager
+from constants import MAX_RETRIES, RETRY_DELAY
 from utils.file_lock import exclusive_lock
 
 # Backwards compatibility for tests that patch these symbols
@@ -270,11 +271,24 @@ class NostrClient:
         self._connected = False
 
     def retrieve_json_from_nostr_sync(
-        self, retries: int = 0, delay: float = 2.0
+        self, retries: int | None = None, delay: float | None = None
     ) -> Optional[bytes]:
         """Retrieve the latest Kind 1 event from the author with optional retries."""
         if self.offline_mode or not self.relays:
             return None
+
+        if retries is None or delay is None:
+            from password_manager.config_manager import ConfigManager
+            from password_manager.vault import Vault
+
+            cfg_mgr = ConfigManager(
+                Vault(self.encryption_manager, self.fingerprint_dir),
+                self.fingerprint_dir,
+            )
+            cfg = cfg_mgr.load_config(require_pin=False)
+            retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
+            delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
+
         self.connect()
         self.last_error = None
         attempt = 0

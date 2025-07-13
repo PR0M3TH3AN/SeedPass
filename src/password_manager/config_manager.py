@@ -52,6 +52,8 @@ class ConfigManager:
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
                 "quick_unlock": False,
+                "nostr_max_retries": 2,
+                "nostr_retry_delay": 1.0,
                 "min_uppercase": 2,
                 "min_lowercase": 2,
                 "min_digits": 2,
@@ -74,6 +76,8 @@ class ConfigManager:
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
             data.setdefault("quick_unlock", False)
+            data.setdefault("nostr_max_retries", 2)
+            data.setdefault("nostr_retry_delay", 1.0)
             data.setdefault("min_uppercase", 2)
             data.setdefault("min_lowercase", 2)
             data.setdefault("min_digits", 2)
@@ -285,3 +289,29 @@ class ConfigManager:
         """Retrieve whether quick unlock is enabled."""
         cfg = self.load_config(require_pin=False)
         return bool(cfg.get("quick_unlock", False))
+
+    def set_nostr_max_retries(self, retries: int) -> None:
+        """Persist the maximum number of Nostr retry attempts."""
+        if retries < 0:
+            raise ValueError("retries cannot be negative")
+        cfg = self.load_config(require_pin=False)
+        cfg["nostr_max_retries"] = int(retries)
+        self.save_config(cfg)
+
+    def get_nostr_max_retries(self) -> int:
+        """Retrieve the configured Nostr retry count."""
+        cfg = self.load_config(require_pin=False)
+        return int(cfg.get("nostr_max_retries", 2))
+
+    def set_nostr_retry_delay(self, delay: float) -> None:
+        """Persist the delay between Nostr retry attempts."""
+        if delay < 0:
+            raise ValueError("delay cannot be negative")
+        cfg = self.load_config(require_pin=False)
+        cfg["nostr_retry_delay"] = float(delay)
+        self.save_config(cfg)
+
+    def get_nostr_retry_delay(self) -> float:
+        """Retrieve the delay in seconds between Nostr retries."""
+        cfg = self.load_config(require_pin=False)
+        return float(cfg.get("nostr_retry_delay", 1.0))

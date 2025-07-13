@@ -181,3 +181,18 @@ def test_quick_unlock_round_trip():
 
         cfg_mgr.set_quick_unlock(True)
         assert cfg_mgr.get_quick_unlock() is True
+
+
+def test_nostr_retry_settings_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["nostr_max_retries"] == 2
+        assert cfg["nostr_retry_delay"] == 1.0
+
+        cfg_mgr.set_nostr_max_retries(5)
+        cfg_mgr.set_nostr_retry_delay(3.5)
+        assert cfg_mgr.get_nostr_max_retries() == 5
+        assert cfg_mgr.get_nostr_retry_delay() == 3.5

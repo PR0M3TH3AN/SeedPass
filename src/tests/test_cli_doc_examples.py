@@ -63,6 +63,8 @@ class DummyPM:
             set_clipboard_clear_delay=lambda v: None,
             set_additional_backup_path=lambda v: None,
             set_relays=lambda v, require_pin=False: None,
+            set_nostr_max_retries=lambda v: None,
+            set_nostr_retry_delay=lambda v: None,
             set_offline_mode=lambda v: None,
             get_secret_mode_enabled=lambda: True,
             get_clipboard_clear_delay=lambda: 30,
