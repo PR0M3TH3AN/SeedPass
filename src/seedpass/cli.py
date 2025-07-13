@@ -535,6 +535,41 @@ def config_toggle_secret_mode(ctx: typer.Context) -> None:
     typer.echo(f"Secret mode {status}.")
 
 
+@config_app.command("toggle-offline")
+def config_toggle_offline(ctx: typer.Context) -> None:
+    """Enable or disable offline mode."""
+    pm = _get_pm(ctx)
+    cfg = pm.config_manager
+    try:
+        enabled = cfg.get_offline_mode()
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error loading settings: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Offline mode is currently {'ON' if enabled else 'OFF'}")
+    choice = (
+        typer.prompt(
+            "Enable offline mode? (y/n, blank to keep)", default="", show_default=False
+        )
+        .strip()
+        .lower()
+    )
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+
+    try:
+        cfg.set_offline_mode(enabled)
+        pm.offline_mode = enabled
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    status = "enabled" if enabled else "disabled"
+    typer.echo(f"Offline mode {status}.")
+
+
 @fingerprint_app.command("list")
 def fingerprint_list(ctx: typer.Context) -> None:
     """List available seed profiles."""

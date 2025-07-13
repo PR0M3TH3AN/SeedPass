@@ -135,6 +135,7 @@ class PasswordManager:
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
+        self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
 
@@ -982,17 +983,19 @@ class PasswordManager:
             # Load relay configuration and initialize NostrClient
             config = self.config_manager.load_config()
             relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            self.offline_mode = bool(config.get("offline_mode", False))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
             )
             self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
             self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
-
-            print("Connecting to relays...")
+            if not self.offline_mode:
+                print("Connecting to relays...")
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                offline_mode=self.offline_mode,
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
@@ -1028,6 +1031,8 @@ class PasswordManager:
 
     def start_background_sync(self) -> None:
         """Launch a thread to synchronize the vault without blocking the UI."""
+        if getattr(self, "offline_mode", False):
+            return
         if (
             hasattr(self, "_sync_thread")
             and self._sync_thread
@@ -3312,6 +3317,8 @@ class PasswordManager:
     def sync_vault(self, alt_summary: str | None = None) -> str | None:
         """Publish the current vault contents to Nostr."""
         try:
+            if getattr(self, "offline_mode", False):
+                return None
             encrypted = self.get_encrypted_data()
             if not encrypted:
                 return None

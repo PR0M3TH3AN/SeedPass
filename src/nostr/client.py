@@ -90,6 +90,7 @@ class NostrClient:
         fingerprint: str,
         relays: Optional[List[str]] = None,
         parent_seed: Optional[str] = None,
+        offline_mode: bool = False,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
@@ -110,7 +111,11 @@ class NostrClient:
         except Exception:
             self.keys = Keys.generate()
 
-        self.relays = relays if relays else DEFAULT_RELAYS
+        self.offline_mode = offline_mode
+        if relays is None:
+            self.relays = [] if offline_mode else DEFAULT_RELAYS
+        else:
+            self.relays = relays
 
         # store the last error encountered during network operations
         self.last_error: Optional[str] = None
@@ -127,19 +132,27 @@ class NostrClient:
 
     def connect(self) -> None:
         """Connect the client to all configured relays."""
+        if self.offline_mode or not self.relays:
+            return
         if not self._connected:
             self.initialize_client_pool()
 
     def initialize_client_pool(self) -> None:
         """Add relays to the client and connect."""
+        if self.offline_mode or not self.relays:
+            return
         asyncio.run(self._initialize_client_pool())
 
     async def _connect_async(self) -> None:
         """Ensure the client is connected within an async context."""
+        if self.offline_mode or not self.relays:
+            return
         if not self._connected:
             await self._initialize_client_pool()
 
     async def _initialize_client_pool(self) -> None:
+        if self.offline_mode or not self.relays:
+            return
         if hasattr(self.client, "add_relays"):
             await self.client.add_relays(self.relays)
         else:
@@ -181,6 +194,8 @@ class NostrClient:
 
     def check_relay_health(self, min_relays: int = 2, timeout: float = 5.0) -> int:
         """Ping relays and return the count of those providing data."""
+        if self.offline_mode or not self.relays:
+            return 0
         return asyncio.run(self._check_relay_health(min_relays, timeout))
 
     def publish_json_to_nostr(
@@ -201,6 +216,8 @@ class NostrClient:
             If provided, include an ``alt`` tag so uploads can be
             associated with a specific event like a password change.
         """
+        if self.offline_mode or not self.relays:
+            return None
         self.connect()
         self.last_error = None
         try:
@@ -233,10 +250,14 @@ class NostrClient:
 
     def publish_event(self, event):
         """Publish a prepared event to the configured relays."""
+        if self.offline_mode or not self.relays:
+            return None
         self.connect()
         return asyncio.run(self._publish_event(event))
 
     async def _publish_event(self, event):
+        if self.offline_mode or not self.relays:
+            return None
         await self._connect_async()
         return await self.client.send_event(event)
 
@@ -252,6 +273,8 @@ class NostrClient:
         self, retries: int = 0, delay: float = 2.0
     ) -> Optional[bytes]:
         """Retrieve the latest Kind 1 event from the author with optional retries."""
+        if self.offline_mode or not self.relays:
+            return None
         self.connect()
         self.last_error = None
         attempt = 0
@@ -270,6 +293,8 @@ class NostrClient:
         return None
 
     async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
+        if self.offline_mode or not self.relays:
+            return None
         await self._connect_async()
         # Filter for the latest text note (Kind 1) from our public key
         pubkey = self.keys.public_key()
@@ -304,6 +329,8 @@ class NostrClient:
             Maximum chunk size in bytes. Defaults to 50 kB.
         """
 
+        if self.offline_mode or not self.relays:
+            return Manifest(ver=1, algo="gzip", chunks=[]), ""
         await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
         for meta, chunk in zip(manifest.chunks, chunks):
@@ -336,7 +363,8 @@ class NostrClient:
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
         """Retrieve the latest manifest and all snapshot chunks."""
-
+        if self.offline_mode or not self.relays:
+            return None
         await self._connect_async()
 
         pubkey = self.keys.public_key()
@@ -376,7 +404,8 @@ class NostrClient:
 
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
         """Publish a delta event referencing a manifest."""
-
+        if self.offline_mode or not self.relays:
+            return ""
         await self._connect_async()
 
         content = base64.b64encode(delta_bytes).decode("utf-8")
@@ -392,7 +421,8 @@ class NostrClient:
 
     async def fetch_deltas_since(self, version: int) -> list[bytes]:
         """Retrieve delta events newer than the given version."""
-
+        if self.offline_mode or not self.relays:
+            return []
         await self._connect_async()
 
         pubkey = self.keys.public_key()

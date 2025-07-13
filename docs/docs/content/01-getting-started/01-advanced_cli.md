@@ -93,6 +93,7 @@ Manage profile‑specific settings.
 | :--- | :--- | :--- |
 | Get a setting value | `config get` | `seedpass config get kdf_iterations` |
 | Set a setting value | `config set` | `seedpass config set backup_interval 3600` |
+| Toggle offline mode | `config toggle-offline` | `seedpass config toggle-offline` |
 
 ### Fingerprint Commands
 
@@ -174,6 +175,7 @@ Code: 123456
 - **`seedpass config get <key>`** – Retrieve a configuration value such as `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, `relays`, or password policy fields like `min_uppercase`.
 - **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`. Use keys like `min_uppercase`, `min_lowercase`, `min_digits`, or `min_special` to adjust password complexity.
 - **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
+- **`seedpass config toggle-offline`** – Enable or disable offline mode to skip Nostr operations.
 
 ### `fingerprint` Commands
 
