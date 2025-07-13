@@ -533,13 +533,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            if (
-                getattr(self, "config_manager", None)
-                and self.config_manager.get_quick_unlock()
-            ):
-                self.start_background_sync()
-            else:
-                self.sync_index_from_nostr()
+            self.start_background_sync()
             print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
@@ -613,13 +607,7 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        if (
-            getattr(self, "config_manager", None)
-            and self.config_manager.get_quick_unlock()
-        ):
-            self.start_background_sync()
-        else:
-            self.sync_index_from_nostr()
+        self.start_background_sync()
 
     def handle_existing_seed(self) -> None:
         """
@@ -791,13 +779,7 @@ class PasswordManager:
 
                     self.initialize_bip85()
                     self.initialize_managers()
-                    if (
-                        getattr(self, "config_manager", None)
-                        and self.config_manager.get_quick_unlock()
-                    ):
-                        self.start_background_sync()
-                    else:
-                        self.sync_index_from_nostr()
+                    self.start_background_sync()
                     return fingerprint  # Return the generated or added fingerprint
                 except BaseException:
                     # Clean up partial profile on failure or interruption
@@ -952,13 +934,7 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
-            if (
-                getattr(self, "config_manager", None)
-                and self.config_manager.get_quick_unlock()
-            ):
-                self.start_background_sync()
-            else:
-                self.sync_index_from_nostr()
+            self.start_background_sync()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
