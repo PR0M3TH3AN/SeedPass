@@ -32,6 +32,7 @@ monero==1.1.1
 multidict==6.6.3
 mutmut==2.4.4
 nostr-sdk==0.42.1
+orjson==3.10.18
 packaging==25.0
 parso==0.8.4
 pgpy==0.6.0

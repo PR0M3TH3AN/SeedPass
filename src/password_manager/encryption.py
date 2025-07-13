@@ -2,7 +2,17 @@
 
 import logging
 import traceback
-import json
+
+try:
+    import orjson as json_lib  # type: ignore
+
+    JSONDecodeError = orjson.JSONDecodeError
+    USE_ORJSON = True
+except Exception:  # pragma: no cover - fallback for environments without orjson
+    import json as json_lib
+    from json import JSONDecodeError
+
+    USE_ORJSON = False
 import hashlib
 import os
 import base64
@@ -145,7 +155,10 @@ class EncryptionManager:
     def save_json_data(self, data: dict, relative_path: Optional[Path] = None) -> None:
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
-        json_data = json.dumps(data, indent=4).encode("utf-8")
+        if USE_ORJSON:
+            json_data = json_lib.dumps(data)
+        else:
+            json_data = json_lib.dumps(data, separators=(",", ":")).encode("utf-8")
         self.encrypt_and_save_file(json_data, relative_path)
         logger.debug(f"JSON data encrypted and saved to '{relative_path}'.")
 
@@ -169,7 +182,10 @@ class EncryptionManager:
 
         try:
             decrypted_data = self.decrypt_data(encrypted_data)
-            data = json.loads(decrypted_data.decode("utf-8"))
+            if USE_ORJSON:
+                data = json_lib.loads(decrypted_data)
+            else:
+                data = json_lib.loads(decrypted_data.decode("utf-8"))
 
             # If it was a legacy file, re-save it in the new format now
             if is_legacy:
@@ -178,7 +194,7 @@ class EncryptionManager:
                 self.update_checksum(relative_path)
 
             return data
-        except (InvalidToken, InvalidTag, json.JSONDecodeError) as e:
+        except (InvalidToken, InvalidTag, JSONDecodeError) as e:
             logger.error(
                 f"FATAL: Could not decrypt or parse data from {file_path}: {e}",
                 exc_info=True,
@@ -204,7 +220,10 @@ class EncryptionManager:
             decrypted_data = self.decrypt_data(
                 encrypted_data
             )  # This now handles both formats
-            data = json.loads(decrypted_data.decode("utf-8"))
+            if USE_ORJSON:
+                data = json_lib.loads(decrypted_data)
+            else:
+                data = json_lib.loads(decrypted_data.decode("utf-8"))
             self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")

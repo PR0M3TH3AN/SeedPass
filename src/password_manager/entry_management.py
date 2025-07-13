@@ -15,7 +15,14 @@ completely deterministic passwords from a BIP-85 seed, ensuring that passwords a
 the same way every time. Salts would break this functionality and are not suitable for this software.
 """
 
-import json
+try:
+    import orjson as json_lib  # type: ignore
+
+    USE_ORJSON = True
+except Exception:  # pragma: no cover - fallback when orjson is missing
+    import json as json_lib
+
+    USE_ORJSON = False
 import logging
 import hashlib
 import sys
@@ -1155,8 +1162,11 @@ class EntryManager:
         """
         try:
             data = self._load_index()
-            json_content = json.dumps(data, indent=4)
-            checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
+            if USE_ORJSON:
+                json_bytes = json_lib.dumps(data)
+            else:
+                json_bytes = json_lib.dumps(data, separators=(",", ":")).encode("utf-8")
+            checksum = hashlib.sha256(json_bytes).hexdigest()
 
             # The checksum file path already includes the fingerprint directory
             checksum_path = self.checksum_file
