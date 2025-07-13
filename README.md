@@ -215,6 +215,9 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
 > `seedpass_passwords_db.json.enc` (Fernet) to AES-GCM as
 > `seedpass_entries_db.json.enc`. The original file is kept with a `.fernet`
 > extension.
+> The same migration occurs for a legacy `parent_seed.enc` encrypted with
+> Fernet: it is transparently decrypted, re-encrypted with AES-GCM and the old
+> file saved as `parent_seed.enc.fernet`.
 
 ## Usage
 

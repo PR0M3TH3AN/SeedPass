@@ -36,3 +36,12 @@ is renamed to `seedpass_entries_db_checksum.txt.fernet`.
 
 No additional command is required – simply open your existing vault and the
 conversion happens transparently.
+
+### Parent seed backup migration
+
+If your vault contains a `parent_seed.enc` file that was encrypted with Fernet,
+SeedPass performs a similar upgrade. Upon loading the vault, the application
+decrypts the old file, re‑encrypts it with AES‑GCM, and writes the result back to
+`parent_seed.enc`. The legacy Fernet file is preserved as
+`parent_seed.enc.fernet` so you can revert if needed. No manual steps are
+required – simply unlock your vault and the conversion runs automatically.
