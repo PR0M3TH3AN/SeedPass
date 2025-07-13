@@ -23,6 +23,7 @@ def test_config_defaults_and_round_trip():
         assert cfg["pin_hash"] == ""
         assert cfg["password_hash"] == ""
         assert cfg["additional_backup_path"] == ""
+        assert cfg["quick_unlock"] is False
         assert cfg["kdf_iterations"] == 50_000
 
         cfg_mgr.set_pin("1234")
@@ -169,3 +170,14 @@ def test_backup_interval_round_trip():
 
         cfg_mgr.set_backup_interval(15)
         assert cfg_mgr.get_backup_interval() == 15
+
+
+def test_quick_unlock_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        assert cfg_mgr.get_quick_unlock() is False
+
+        cfg_mgr.set_quick_unlock(True)
+        assert cfg_mgr.get_quick_unlock() is True

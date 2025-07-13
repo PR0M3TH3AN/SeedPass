@@ -468,6 +468,9 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
         "min_lowercase": lambda v: cfg.set_min_lowercase(int(v)),
         "min_digits": lambda v: cfg.set_min_digits(int(v)),
         "min_special": lambda v: cfg.set_min_special(int(v)),
+        "quick_unlock": lambda v: cfg.set_quick_unlock(
+            v.lower() in ("1", "true", "yes", "y", "on")
+        ),
     }
 
     action = mapping.get(key)

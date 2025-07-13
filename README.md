@@ -53,6 +53,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Display TOTP Codes:** Show all active 2FA codes with a countdown timer.
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto-Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
+- **Quick Unlock:** Optionally skip the password prompt after verifying once.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
@@ -415,6 +416,7 @@ You can adjust these settings directly from the command line:
 ```bash
 seedpass config set kdf_iterations 200000
 seedpass config set backup_interval 3600
+seedpass config set quick_unlock true
 ```
 
 The default configuration uses **50,000** PBKDF2 iterations. Lower iteration counts speed up vault decryption but make brute-force attacks easier. A long backup interval means fewer backups and increases the risk of data loss.

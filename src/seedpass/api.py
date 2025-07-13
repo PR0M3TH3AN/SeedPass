@@ -271,6 +271,7 @@ def update_config(
         "additional_backup_path": cfg.set_additional_backup_path,
         "secret_mode_enabled": cfg.set_secret_mode_enabled,
         "clipboard_clear_delay": lambda v: cfg.set_clipboard_clear_delay(int(v)),
+        "quick_unlock": cfg.set_quick_unlock,
     }
 
     action = mapping.get(key)

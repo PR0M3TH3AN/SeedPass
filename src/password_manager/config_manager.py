@@ -51,6 +51,7 @@ class ConfigManager:
                 "backup_interval": 0,
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
+                "quick_unlock": False,
                 "min_uppercase": 2,
                 "min_lowercase": 2,
                 "min_digits": 2,
@@ -72,6 +73,7 @@ class ConfigManager:
             data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
+            data.setdefault("quick_unlock", False)
             data.setdefault("min_uppercase", 2)
             data.setdefault("min_lowercase", 2)
             data.setdefault("min_digits", 2)
@@ -272,3 +274,14 @@ class ConfigManager:
         cfg = self.load_config(require_pin=False)
         cfg["min_special"] = int(count)
         self.save_config(cfg)
+
+    def set_quick_unlock(self, enabled: bool) -> None:
+        """Persist the quick unlock toggle."""
+        cfg = self.load_config(require_pin=False)
+        cfg["quick_unlock"] = bool(enabled)
+        self.save_config(cfg)
+
+    def get_quick_unlock(self) -> bool:
+        """Retrieve whether quick unlock is enabled."""
+        cfg = self.load_config(require_pin=False)
+        return bool(cfg.get("quick_unlock", False))
