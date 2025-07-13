@@ -723,7 +723,11 @@ class PasswordManager:
                     # Initialize EncryptionManager with key and fingerprint_dir
                     password = prompt_for_password()
                     index_key = derive_index_key(parent_seed)
-                    iterations = self.config_manager.get_kdf_iterations()
+                    iterations = (
+                        self.config_manager.get_kdf_iterations()
+                        if getattr(self, "config_manager", None)
+                        else 100_000
+                    )
                     seed_key = derive_key_from_password(password, iterations=iterations)
 
                     self.encryption_manager = EncryptionManager(
