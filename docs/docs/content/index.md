@@ -60,6 +60,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Change Master Password:** Rotate your encryption password at any time.
 - **Checksum Verification Utilities:** Verify or regenerate the script checksum.
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
+- **Offline Mode:** Disable network sync to work entirely locally.
 
 ## Prerequisites
 
