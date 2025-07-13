@@ -423,6 +423,11 @@ pip install -r src/requirements.txt
 pytest -vv
 ```
 
+`test_fuzz_key_derivation.py` uses Hypothesis to generate random passwords,
+seeds and configuration data. It performs round-trip encryption tests with the
+`EncryptionManager` to catch edge cases automatically. These fuzz tests run in
+CI alongside the rest of the suite.
+
 ### Exploring Nostr Index Size Limits
 
 `test_nostr_index_size.py` demonstrates how SeedPass rotates snapshots after too many delta events.
