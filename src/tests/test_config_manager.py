@@ -23,7 +23,7 @@ def test_config_defaults_and_round_trip():
         assert cfg["pin_hash"] == ""
         assert cfg["password_hash"] == ""
         assert cfg["additional_backup_path"] == ""
-        assert cfg["kdf_iterations"] == 100_000
+        assert cfg["kdf_iterations"] == 50_000
 
         cfg_mgr.set_pin("1234")
         cfg_mgr.set_relays(["wss://example.com"], require_pin=False)
@@ -154,7 +154,7 @@ def test_kdf_iterations_round_trip():
         vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
         cfg_mgr = ConfigManager(vault, Path(tmpdir))
 
-        assert cfg_mgr.get_kdf_iterations() == 100_000
+        assert cfg_mgr.get_kdf_iterations() == 50_000
 
         cfg_mgr.set_kdf_iterations(200_000)
         assert cfg_mgr.get_kdf_iterations() == 200_000

@@ -494,6 +494,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
+- **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Use `seedpass config set kdf_iterations` to change this.
 
 ## Contributing
 
