@@ -102,6 +102,22 @@ curl -X PUT http://127.0.0.1:8000/api/v1/config/inactivity_timeout \
      -d '{"value": 300}'
 ```
 
+To raise the PBKDF2 work factor or change how often backups are written:
+
+```bash
+curl -X PUT http://127.0.0.1:8000/api/v1/config/kdf_iterations \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"value": 200000}'
+
+curl -X PUT http://127.0.0.1:8000/api/v1/config/backup_interval \
+     -H "Authorization: Bearer <token>" \
+     -H "Content-Type: application/json" \
+     -d '{"value": 3600}'
+```
+
+Using fewer iterations or a long interval reduces security, so adjust these values carefully.
+
 ### Toggling Secret Mode
 
 Send both `enabled` and `delay` values to `/api/v1/secret-mode`:
