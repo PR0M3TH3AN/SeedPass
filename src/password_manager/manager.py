@@ -835,6 +835,7 @@ class PasswordManager:
             # Now, save and encrypt the seed with the fingerprint_dir
             try:
                 self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+                self.start_background_sync()
             except BaseException:
                 # Clean up partial profile on failure or interruption
                 self.fingerprint_manager.remove_fingerprint(fingerprint)
