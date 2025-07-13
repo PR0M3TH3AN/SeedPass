@@ -209,6 +209,13 @@ The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_vers
 }
 ```
 
+> **Note**
+>
+> Opening a vault created by older versions automatically converts the legacy
+> `seedpass_passwords_db.json.enc` (Fernet) to AES-GCM as
+> `seedpass_entries_db.json.enc`. The original file is kept with a `.fernet`
+> extension.
+
 ## Usage
 
 After successfully installing the dependencies, install the package with:

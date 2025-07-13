@@ -23,3 +23,16 @@ raise an error.
 
 This process happens automatically; users only need to open their vault to
 upgrade older indices.
+
+### Legacy Fernet migration
+
+Older versions stored the vault index in a file named
+`seedpass_passwords_db.json.enc` encrypted with Fernet.  When opening such a
+vault, SeedPass now automatically decrypts the legacy file, re‑encrypts it using
+AES‑GCM, and saves it under the new name `seedpass_entries_db.json.enc`.
+The original Fernet file is preserved as
+`seedpass_entries_db.json.enc.fernet` and the legacy checksum file, if present,
+is renamed to `seedpass_entries_db_checksum.txt.fernet`.
+
+No additional command is required – simply open your existing vault and the
+conversion happens transparently.
