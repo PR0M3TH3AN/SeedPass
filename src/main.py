@@ -617,6 +617,61 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
         print(colored(f"Error: {exc}", "red"))
 
 
+def handle_toggle_quick_unlock(pm: PasswordManager) -> None:
+    """Enable or disable Quick Unlock."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_quick_unlock()
+    except Exception as exc:
+        logging.error(f"Error loading quick unlock setting: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Quick Unlock is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    choice = input("Enable Quick Unlock? (y/n, blank to keep): ").strip().lower()
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+    try:
+        cfg.set_quick_unlock(enabled)
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Quick Unlock {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving quick unlock: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
+def handle_toggle_offline_mode(pm: PasswordManager) -> None:
+    """Enable or disable offline mode."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_offline_mode()
+    except Exception as exc:
+        logging.error(f"Error loading offline mode setting: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Offline mode is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    choice = input("Enable offline mode? (y/n, blank to keep): ").strip().lower()
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+    try:
+        cfg.set_offline_mode(enabled)
+        pm.offline_mode = enabled
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Offline mode {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving offline mode: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -737,6 +792,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("13. Lock Vault", "menu"))
         print(color_text("14. Stats", "menu"))
         print(color_text("15. Toggle Secret Mode", "menu"))
+        print(color_text("16. Toggle Offline Mode", "menu"))
+        print(color_text("17. Toggle Quick Unlock", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -786,6 +843,12 @@ def handle_settings(password_manager: PasswordManager) -> None:
             pause()
         elif choice == "15":
             handle_toggle_secret_mode(password_manager)
+            pause()
+        elif choice == "16":
+            handle_toggle_offline_mode(password_manager)
+            pause()
+        elif choice == "17":
+            handle_toggle_quick_unlock(password_manager)
             pause()
         elif not choice:
             break
