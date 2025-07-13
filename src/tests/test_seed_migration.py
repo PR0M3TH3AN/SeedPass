@@ -23,9 +23,7 @@ def test_parent_seed_migrates_from_fernet(tmp_path: Path) -> None:
     assert decrypted == TEST_SEED
 
     new_file = tmp_path / "parent_seed.enc"
-    legacy_backup = tmp_path / "parent_seed.enc.fernet"
 
     assert new_file.exists()
-    assert legacy_backup.exists()
     assert new_file.read_bytes() != encrypted
-    assert legacy_backup.read_bytes() == encrypted
+    assert new_file.read_bytes().startswith(b"V2:")

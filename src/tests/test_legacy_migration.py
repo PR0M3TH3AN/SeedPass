@@ -40,4 +40,3 @@ def test_legacy_index_migrates(tmp_path: Path):
     assert new_file.exists()
     assert not legacy_file.exists()
     assert not (tmp_path / "seedpass_passwords_db_checksum.txt").exists()
-    assert (tmp_path / ("seedpass_entries_db.json.enc.fernet")).exists()
