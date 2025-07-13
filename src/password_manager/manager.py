@@ -719,39 +719,46 @@ class PasswordManager:
                 self.fingerprint_dir = fingerprint_dir
                 logging.info(f"Current seed profile set to {fingerprint}")
 
-                # Initialize EncryptionManager with key and fingerprint_dir
-                password = prompt_for_password()
-                index_key = derive_index_key(parent_seed)
-                iterations = self.config_manager.get_kdf_iterations()
-                seed_key = derive_key_from_password(password, iterations=iterations)
+                try:
+                    # Initialize EncryptionManager with key and fingerprint_dir
+                    password = prompt_for_password()
+                    index_key = derive_index_key(parent_seed)
+                    iterations = self.config_manager.get_kdf_iterations()
+                    seed_key = derive_key_from_password(password, iterations=iterations)
 
-                self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
-                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                self.vault = Vault(self.encryption_manager, fingerprint_dir)
+                    self.encryption_manager = EncryptionManager(
+                        index_key, fingerprint_dir
+                    )
+                    seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                    self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
-                # Ensure config manager is set for the new fingerprint
-                self.config_manager = ConfigManager(
-                    vault=self.vault,
-                    fingerprint_dir=fingerprint_dir,
-                )
+                    # Ensure config manager is set for the new fingerprint
+                    self.config_manager = ConfigManager(
+                        vault=self.vault,
+                        fingerprint_dir=fingerprint_dir,
+                    )
 
-                # Encrypt and save the parent seed
-                seed_mgr.encrypt_parent_seed(parent_seed)
-                logging.info("Parent seed encrypted and saved successfully.")
+                    # Encrypt and save the parent seed
+                    seed_mgr.encrypt_parent_seed(parent_seed)
+                    logging.info("Parent seed encrypted and saved successfully.")
 
-                # Store the hashed password
-                self.store_hashed_password(password)
-                logging.info("User password hashed and stored successfully.")
+                    # Store the hashed password
+                    self.store_hashed_password(password)
+                    logging.info("User password hashed and stored successfully.")
 
-                self.parent_seed = parent_seed  # Ensure this is a string
-                logger.debug(
-                    f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
-                )
+                    self.parent_seed = parent_seed  # Ensure this is a string
+                    logger.debug(
+                        f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
+                    )
 
-                self.initialize_bip85()
-                self.initialize_managers()
-                self.sync_index_from_nostr()
-                return fingerprint  # Return the generated or added fingerprint
+                    self.initialize_bip85()
+                    self.initialize_managers()
+                    self.sync_index_from_nostr()
+                    return fingerprint  # Return the generated or added fingerprint
+                except BaseException:
+                    # Clean up partial profile on failure or interruption
+                    self.fingerprint_manager.remove_fingerprint(fingerprint)
+                    raise
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
@@ -800,7 +807,12 @@ class PasswordManager:
             logging.info(f"Current seed profile set to {fingerprint}")
 
             # Now, save and encrypt the seed with the fingerprint_dir
-            self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+            try:
+                self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+            except BaseException:
+                # Clean up partial profile on failure or interruption
+                self.fingerprint_manager.remove_fingerprint(fingerprint)
+                raise
 
             return fingerprint  # Return the generated fingerprint
         else:
