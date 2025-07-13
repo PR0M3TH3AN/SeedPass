@@ -26,7 +26,6 @@ import base64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
 from utils.file_lock import (
     exclusive_lock,
