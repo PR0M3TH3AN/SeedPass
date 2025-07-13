@@ -101,6 +101,7 @@ class NostrClient:
         self.fingerprint = fingerprint
         self.fingerprint_dir = self.encryption_manager.fingerprint_dir
         self.config_manager = config_manager
+        self.verbose_timing = False
 
         if parent_seed is None:
             parent_seed = self.encryption_manager.decrypt_parent_seed()
@@ -122,6 +123,12 @@ class NostrClient:
             self.relays = [] if offline_mode else DEFAULT_RELAYS
         else:
             self.relays = relays
+
+        if self.config_manager is not None:
+            try:
+                self.verbose_timing = self.config_manager.get_verbose_timing()
+            except Exception:
+                self.verbose_timing = False
 
         # store the last error encountered during network operations
         self.last_error: Optional[str] = None
@@ -351,6 +358,7 @@ class NostrClient:
             Maximum chunk size in bytes. Defaults to 50 kB.
         """
 
+        start = time.perf_counter()
         if self.offline_mode or not self.relays:
             return Manifest(ver=1, algo="gzip", chunks=[]), ""
         await self._connect_async()
@@ -381,6 +389,9 @@ class NostrClient:
         manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
         self.current_manifest = manifest
         self._delta_events = []
+        if getattr(self, "verbose_timing", False):
+            duration = time.perf_counter() - start
+            logger.info("publish_snapshot completed in %.2f seconds", duration)
         return manifest, manifest_id
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:

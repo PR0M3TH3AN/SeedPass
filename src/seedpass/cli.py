@@ -473,6 +473,9 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
         "quick_unlock": lambda v: cfg.set_quick_unlock(
             v.lower() in ("1", "true", "yes", "y", "on")
         ),
+        "verbose_timing": lambda v: cfg.set_verbose_timing(
+            v.lower() in ("1", "true", "yes", "y", "on")
+        ),
     }
 
     action = mapping.get(key)

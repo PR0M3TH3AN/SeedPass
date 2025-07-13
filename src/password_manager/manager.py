@@ -138,6 +138,7 @@ class PasswordManager:
         self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
+        self.verbose_timing: bool = False
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -247,6 +248,8 @@ class PasswordManager:
                 "yellow",
             )
         )
+        if getattr(self, "verbose_timing", False):
+            logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
 
     def initialize_fingerprint_manager(self):
         """
@@ -1014,6 +1017,7 @@ class PasswordManager:
             )
             self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
             self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
+            self.verbose_timing = bool(config.get("verbose_timing", False))
             if not self.offline_mode:
                 print("Connecting to relays...")
             self.nostr_client = NostrClient(
@@ -1034,6 +1038,7 @@ class PasswordManager:
 
     def sync_index_from_nostr(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
+        start = time.perf_counter()
         try:
             result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
             if not result:
@@ -1054,6 +1059,10 @@ class PasswordManager:
                 logger.info("Local database synchronized from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
+        finally:
+            if getattr(self, "verbose_timing", False):
+                duration = time.perf_counter() - start
+                logger.info("sync_index_from_nostr completed in %.2f seconds", duration)
 
     def start_background_sync(self) -> None:
         """Launch a thread to synchronize the vault without blocking the UI."""
