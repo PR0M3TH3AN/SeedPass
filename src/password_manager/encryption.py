@@ -124,29 +124,45 @@ class EncryptionManager:
             raise
 
     def decrypt_parent_seed(self) -> str:
-        """
-        Decrypts and returns the parent seed from 'parent_seed.enc' within the fingerprint directory.
+        """Decrypt and return the stored parent seed."""
 
-        :return: The decrypted parent seed.
-        """
+        parent_seed_path = self.fingerprint_dir / "parent_seed.enc"
         try:
-            parent_seed_path = self.fingerprint_dir / "parent_seed.enc"
             with exclusive_lock(parent_seed_path) as fh:
                 fh.seek(0)
                 encrypted_data = fh.read()
 
-            decrypted_data = self.decrypt_data(encrypted_data)
-            parent_seed = decrypted_data.decode("utf-8").strip()
+            try:
+                decrypted = self.decrypt_data(encrypted_data)
+                parent_seed = decrypted.decode("utf-8").strip()
+                logger.debug(
+                    f"Parent seed decrypted successfully from '{parent_seed_path}'."
+                )
+                return parent_seed
+            except (InvalidTag, InvalidToken):
+                logger.info(
+                    "AES-GCM decryption failed for parent seed, attempting Fernet fallback"
+                )
+                try:
+                    decrypted = self.fernet.decrypt(encrypted_data)
+                except InvalidToken as e:
+                    logger.error(
+                        f"Fernet decryption failed for '{parent_seed_path}': {e}",
+                        exc_info=True,
+                    )
+                    raise
 
+                parent_seed = decrypted.decode("utf-8").strip()
+
+            legacy_path = parent_seed_path.with_suffix(
+                parent_seed_path.suffix + ".fernet"
+            )
+            os.rename(parent_seed_path, legacy_path)
+            self.encrypt_parent_seed(parent_seed)
             logger.debug(
-                f"Parent seed decrypted successfully from '{parent_seed_path}'."
+                f"Parent seed decrypted with Fernet and re-encrypted using AES-GCM at '{parent_seed_path}'."
             )
             return parent_seed
-        except InvalidTag:
-            logger.error(
-                "Invalid encryption key or corrupted data while decrypting parent seed."
-            )
-            raise
         except Exception as e:
             logger.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
