@@ -3,10 +3,11 @@
 """
 Encryption Module
 
-This module provides the EncryptionManager class, which handles encryption and decryption
-of data and files using a provided AES-GCM encryption key. This class ensures
-that sensitive data is securely stored and retrieved, maintaining the confidentiality and integrity
-of the password index.
+This module provides the ``EncryptionManager`` class which handles encryption and
+decryption of data and files using a provided AES-GCM encryption key. Legacy
+databases encrypted with Fernet are still supported for decryption. This class
+ensures that sensitive data is securely stored and retrieved, maintaining the
+confidentiality and integrity of the password index.
 
 Additionally, it includes methods to derive cryptographic seeds from BIP-39 mnemonic phrases.
 
@@ -46,19 +47,22 @@ def decrypt_legacy_fernet(encryption_key: bytes | str, payload: bytes) -> bytes:
 
 
 class EncryptionManager:
-    """
-    EncryptionManager Class
+    """EncryptionManager Class
 
-    Manages the encryption and decryption of data and files using an AES-GCM encryption key.
+    Manages the encryption and decryption of data and files using an AES-GCM
+    key. A :class:`cryptography.fernet.Fernet` instance is also kept for
+    decrypting legacy files that were encrypted using Fernet.
     """
 
     def __init__(self, encryption_key: bytes, fingerprint_dir: Path):
-        """
-        Initializes the EncryptionManager with the provided encryption key and fingerprint directory.
+        """Initialize the manager with a base64 encoded key and directory.
+
+        The provided key is used to create both an AES-GCM cipher for current
+        operations and a Fernet cipher for decrypting legacy files.
 
         Parameters:
-            encryption_key (bytes): A base64-encoded AES-GCM key.
-            fingerprint_dir (Path): The directory corresponding to the fingerprint.
+            encryption_key (bytes): Base64 encoded key material.
+            fingerprint_dir (Path): Directory corresponding to the fingerprint.
         """
         self.fingerprint_dir = fingerprint_dir
         self.parent_seed_file = self.fingerprint_dir / "parent_seed.enc"
@@ -68,9 +72,10 @@ class EncryptionManager:
                 encryption_key = encryption_key.encode()
             self.key_b64 = encryption_key
             self.key = base64.urlsafe_b64decode(encryption_key)
+            self.fernet = Fernet(self.key_b64)
             self.cipher = AESGCM(self.key)
             logger.debug(
-                f"EncryptionManager initialized for {self.fingerprint_dir} using AES-GCM"
+                f"EncryptionManager initialized for {self.fingerprint_dir} using AES-GCM with Fernet fallback"
             )
         except Exception as e:
             logger.error(
@@ -318,7 +323,7 @@ class EncryptionManager:
             return data
         except (InvalidTag, json.JSONDecodeError):
             logger.info(
-                f"AES-GCM decryption failed for '{file_path}', attempting legacy format"
+                f"AES-GCM decryption failed for '{file_path}', attempting Fernet fallback"
             )
             with exclusive_lock(file_path) as fh:
                 fh.seek(0)
