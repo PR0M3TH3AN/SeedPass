@@ -4,7 +4,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import json
 import asyncio
-from cryptography.fernet import Fernet
+import os
+import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -15,7 +16,7 @@ import nostr.client as nostr_client
 
 def test_nostr_client_uses_custom_relays():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
+        key = base64.urlsafe_b64encode(os.urandom(32))
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         custom_relays = ["wss://relay1", "wss://relay2"]
 
@@ -73,7 +74,7 @@ class FakeWebSocket:
 
 
 def _setup_client(tmpdir, fake_cls):
-    key = Fernet.generate_key()
+    key = base64.urlsafe_b64encode(os.urandom(32))
     enc_mgr = EncryptionManager(key, Path(tmpdir))
 
     with patch("nostr.client.Client", fake_cls), patch(

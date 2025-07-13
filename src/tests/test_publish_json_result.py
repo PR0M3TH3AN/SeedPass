@@ -4,7 +4,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import asyncio
 import pytest
-from cryptography.fernet import Fernet
+import os
+import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -13,7 +14,7 @@ from nostr.client import NostrClient, Manifest
 
 
 def setup_client(tmp_path):
-    key = Fernet.generate_key()
+    key = base64.urlsafe_b64encode(os.urandom(32))
     enc_mgr = EncryptionManager(key, tmp_path)
 
     with patch("nostr.client.ClientBuilder"), patch(

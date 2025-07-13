@@ -10,7 +10,8 @@ import uuid
 
 import pytest
 
-from cryptography.fernet import Fernet
+import base64
+import os
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -32,7 +33,7 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
     )
     results = []
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
+        key = base64.urlsafe_b64encode(os.urandom(32))
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         with patch.object(enc_mgr, "decrypt_parent_seed", return_value=seed):
             client = NostrClient(

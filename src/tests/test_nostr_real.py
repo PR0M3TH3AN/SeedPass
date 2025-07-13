@@ -9,7 +9,7 @@ import gzip
 import uuid
 
 import pytest
-from cryptography.fernet import Fernet
+import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -25,7 +25,9 @@ def test_nostr_publish_and_retrieve():
         "abandon abandon abandon abandon about"
     )
     with TemporaryDirectory() as tmpdir:
-        enc_mgr = EncryptionManager(Fernet.generate_key(), Path(tmpdir))
+        enc_mgr = EncryptionManager(
+            base64.urlsafe_b64encode(os.urandom(32)), Path(tmpdir)
+        )
         with patch.object(enc_mgr, "decrypt_parent_seed", return_value=seed):
             client = NostrClient(
                 enc_mgr,
