@@ -51,7 +51,7 @@ def test_round_trip(monkeypatch):
         assert vault.load_index()["pw"] == data["pw"]
 
 
-from cryptography.exceptions import InvalidTag
+from cryptography.fernet import InvalidToken
 
 
 def test_corruption_detection(monkeypatch):
@@ -68,7 +68,7 @@ def test_corruption_detection(monkeypatch):
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
 
-        with pytest.raises(InvalidTag):
+        with pytest.raises(InvalidToken):
             import_backup(vault, backup, path, parent_seed=SEED)
 
 

@@ -1,68 +1,38 @@
-# password_manager/encryption.py
-
-"""
-Encryption Module
-
-This module provides the ``EncryptionManager`` class which handles encryption and
-decryption of data and files using a provided AES-GCM encryption key. Legacy
-databases encrypted with Fernet are still supported for decryption. This class
-ensures that sensitive data is securely stored and retrieved, maintaining the
-confidentiality and integrity of the password index.
-
-Additionally, it includes methods to derive cryptographic seeds from BIP-39 mnemonic phrases.
-
-Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed.
-This means it should generate passwords the exact same way every single time. Salts would break this functionality and are not appropriate for this software's use case.
-"""
+# /src/password_manager/encryption.py
 
 import logging
 import traceback
 import json
 import hashlib
 import os
+import base64
 from pathlib import Path
 from typing import Optional
 
-import base64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
-from utils.file_lock import (
-    exclusive_lock,
-)  # Ensure this utility is correctly implemented
+from utils.file_lock import exclusive_lock
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 
 
-def decrypt_legacy_fernet(encryption_key: bytes | str, payload: bytes) -> bytes:
-    """Decrypt *payload* using legacy Fernet."""
-    if isinstance(encryption_key, str):
-        key = encryption_key.encode()
-    else:
-        key = encryption_key
-    f = Fernet(key)
-    return f.decrypt(payload)
-
-
 class EncryptionManager:
-    """EncryptionManager Class
-
-    Manages the encryption and decryption of data and files using an AES-GCM
-    key. A :class:`cryptography.fernet.Fernet` instance is also kept for
-    decrypting legacy files that were encrypted using Fernet.
+    """
+    Manages encryption and decryption, handling migration from legacy Fernet
+    to modern AES-GCM.
     """
 
     def __init__(self, encryption_key: bytes, fingerprint_dir: Path):
-        """Initialize the manager with a base64 encoded key and directory.
-
-        The provided key is used to create both an AES-GCM cipher for current
-        operations and a Fernet cipher for decrypting legacy files.
+        """
+        Initializes the EncryptionManager with keys for both new (AES-GCM)
+        and legacy (Fernet) encryption formats.
 
         Parameters:
-            encryption_key (bytes): Base64 encoded key material.
-            fingerprint_dir (Path): Directory corresponding to the fingerprint.
+            encryption_key (bytes): A base64-encoded key.
+            fingerprint_dir (Path): The directory corresponding to the fingerprint.
         """
         self.fingerprint_dir = fingerprint_dir
         self.parent_seed_file = self.fingerprint_dir / "parent_seed.enc"
@@ -70,409 +40,175 @@ class EncryptionManager:
         try:
             if isinstance(encryption_key, str):
                 encryption_key = encryption_key.encode()
+
+            # (1) Keep both the legacy Fernet instance and the new AES-GCM cipher ready.
             self.key_b64 = encryption_key
-            self.key = base64.urlsafe_b64decode(encryption_key)
             self.fernet = Fernet(self.key_b64)
+
+            self.key = base64.urlsafe_b64decode(self.key_b64)
             self.cipher = AESGCM(self.key)
-            logger.debug(
-                f"EncryptionManager initialized for {self.fingerprint_dir} using AES-GCM with Fernet fallback"
-            )
+
+            logger.debug(f"EncryptionManager initialized for {self.fingerprint_dir}")
         except Exception as e:
             logger.error(
-                f"Failed to initialize AESGCM with provided encryption key: {e}"
+                f"Failed to initialize ciphers with provided encryption key: {e}",
+                exc_info=True,
             )
-            print(
-                colored(f"Error: Failed to initialize encryption manager: {e}", "red")
-            )
-            raise
-
-    def encrypt_parent_seed(self, parent_seed: str) -> None:
-        """
-        Encrypts and saves the parent seed to 'parent_seed.enc' within the fingerprint directory.
-
-        :param parent_seed: The BIP39 parent seed phrase.
-        """
-        try:
-            # Convert seed to bytes
-            data = parent_seed.encode("utf-8")
-
-            # Encrypt the data
-            encrypted_data = self.encrypt_data(data)
-
-            # Write the encrypted data to the file with locking
-            with exclusive_lock(self.parent_seed_file) as fh:
-                fh.seek(0)
-                fh.truncate()
-                fh.write(encrypted_data)
-                fh.flush()
-
-            # Set file permissions to read/write for the user only
-            os.chmod(self.parent_seed_file, 0o600)
-
-            logger.info(
-                f"Parent seed encrypted and saved to '{self.parent_seed_file}'."
-            )
-            print(
-                colored(
-                    f"Parent seed encrypted and saved to '{self.parent_seed_file}'.",
-                    "green",
-                )
-            )
-        except Exception as e:
-            logger.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
-            print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
-            raise
-
-    def decrypt_parent_seed(self) -> str:
-        """Decrypt and return the stored parent seed."""
-
-        parent_seed_path = self.fingerprint_dir / "parent_seed.enc"
-        try:
-            with exclusive_lock(parent_seed_path) as fh:
-                fh.seek(0)
-                encrypted_data = fh.read()
-
-            is_legacy = not encrypted_data.startswith(b"V2:")
-            decrypted = self.decrypt_data(encrypted_data)
-            parent_seed = decrypted.decode("utf-8").strip()
-
-            if is_legacy:
-                legacy_path = parent_seed_path.with_suffix(
-                    parent_seed_path.suffix + ".fernet"
-                )
-                os.rename(parent_seed_path, legacy_path)
-                self.encrypt_parent_seed(parent_seed)
-                logger.debug(
-                    f"Parent seed migrated from Fernet and re-encrypted at '{parent_seed_path}'."
-                )
-
-            logger.debug(
-                f"Parent seed decrypted successfully from '{parent_seed_path}'."
-            )
-            return parent_seed
-        except Exception as e:
-            logger.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
-            print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
             raise
 
     def encrypt_data(self, data: bytes) -> bytes:
-        """Encrypt ``data`` with AES-GCM and prepend a version header."""
-
+        """
+        (2) Encrypts data using the NEW AES-GCM format, prepending a version
+            header and the nonce. All new data will be in this format.
+        """
         try:
-            nonce = os.urandom(12)
+            nonce = os.urandom(12)  # 96-bit nonce is recommended for AES-GCM
             ciphertext = self.cipher.encrypt(nonce, data, None)
-            encrypted_data = b"V2:" + nonce + ciphertext
-            logger.debug("Data encrypted successfully with AES-GCM.")
-            return encrypted_data
+            return b"V2:" + nonce + ciphertext
         except Exception as e:
             logger.error(f"Failed to encrypt data: {e}", exc_info=True)
-            print(colored(f"Error: Failed to encrypt data: {e}", "red"))
             raise
 
     def decrypt_data(self, encrypted_data: bytes) -> bytes:
-        """Decrypt data using AES-GCM or legacy Fernet."""
-
-        try:
-            # Attempt AES-GCM decryption first
-            if encrypted_data.startswith(b"V2:"):
+        """
+        (3) The core migration logic. Tries the new format first, then falls back
+            to the old one. This is the ONLY place decryption logic should live.
+        """
+        # Try the new V2 format first
+        if encrypted_data.startswith(b"V2:"):
+            try:
                 nonce = encrypted_data[3:15]
                 ciphertext = encrypted_data[15:]
-            else:
-                nonce = encrypted_data[:12]
-                ciphertext = encrypted_data[12:]
+                return self.cipher.decrypt(nonce, ciphertext, None)
+            except InvalidTag as e:
+                logger.error("AES-GCM decryption failed: Invalid authentication tag.")
+                raise InvalidToken("AES-GCM decryption failed.") from e
 
-            decrypted_data = self.cipher.decrypt(nonce, ciphertext, None)
-            logger.debug("Data decrypted successfully with AES-GCM.")
-            return decrypted_data
-        except InvalidTag:
-            if encrypted_data.startswith(b"V2:"):
-                logger.error("AES-GCM decryption failed: invalid tag", exc_info=True)
-                raise
+        # If it's not V2, it must be the legacy Fernet format
+        else:
+            logger.warning("Data is in legacy Fernet format. Attempting migration.")
             try:
-                decrypted_data = self.fernet.decrypt(encrypted_data)
-                logger.info("Legacy Fernet data decrypted successfully.")
-                return decrypted_data
-            except InvalidToken:
-                logger.error("Legacy Fernet decryption failed", exc_info=True)
-                raise InvalidTag("Data could not be decrypted")
+                return self.fernet.decrypt(encrypted_data)
+            except InvalidToken as e:
+                logger.error(
+                    "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
+                )
+                raise InvalidToken(
+                    "Could not decrypt data with any available method."
+                ) from e
+
+    # --- All functions below this point now use the smart `decrypt_data` method ---
+
+    def encrypt_parent_seed(self, parent_seed: str) -> None:
+        """Encrypts and saves the parent seed to 'parent_seed.enc'."""
+        data = parent_seed.encode("utf-8")
+        encrypted_data = self.encrypt_data(data)  # This now creates V2 format
+        with exclusive_lock(self.parent_seed_file) as fh:
+            fh.seek(0)
+            fh.truncate()
+            fh.write(encrypted_data)
+        os.chmod(self.parent_seed_file, 0o600)
+        logger.info(f"Parent seed encrypted and saved to '{self.parent_seed_file}'.")
+
+    def decrypt_parent_seed(self) -> str:
+        """Decrypts and returns the parent seed, handling migration."""
+        with exclusive_lock(self.parent_seed_file) as fh:
+            fh.seek(0)
+            encrypted_data = fh.read()
+
+        is_legacy = not encrypted_data.startswith(b"V2:")
+        decrypted_data = self.decrypt_data(encrypted_data)
+
+        if is_legacy:
+            logger.info("Parent seed was in legacy format. Re-encrypting to V2 format.")
+            self.encrypt_parent_seed(decrypted_data.decode("utf-8").strip())
+
+        return decrypted_data.decode("utf-8").strip()
 
     def encrypt_and_save_file(self, data: bytes, relative_path: Path) -> None:
-        """
-        Encrypts data and saves it to a specified relative path within the fingerprint directory.
-
-        :param data: Data to encrypt.
-        :param relative_path: Relative path within the fingerprint directory to save the encrypted data.
-        """
-        try:
-            # Define the full path
-            file_path = self.fingerprint_dir / relative_path
-
-            # Ensure the parent directories exist
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Encrypt the data
-            encrypted_data = self.encrypt_data(data)
-
-            # Write the encrypted data to the file with locking
-            with exclusive_lock(file_path) as fh:
-                fh.seek(0)
-                fh.truncate()
-                fh.write(encrypted_data)
-                fh.flush()
-
-            # Set file permissions to read/write for the user only
-            os.chmod(file_path, 0o600)
-
-            logger.info(f"Data encrypted and saved to '{file_path}'.")
-            print(colored(f"Data encrypted and saved to '{file_path}'.", "green"))
-        except Exception as e:
-            logger.error(
-                f"Failed to encrypt and save data to '{relative_path}': {e}",
-                exc_info=True,
-            )
-            print(
-                colored(
-                    f"Error: Failed to encrypt and save data to '{relative_path}': {e}",
-                    "red",
-                )
-            )
-            raise
+        file_path = self.fingerprint_dir / relative_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        encrypted_data = self.encrypt_data(data)
+        with exclusive_lock(file_path) as fh:
+            fh.seek(0)
+            fh.truncate()
+            fh.write(encrypted_data)
+        os.chmod(file_path, 0o600)
 
     def decrypt_file(self, relative_path: Path) -> bytes:
-        """
-        Decrypts data from a specified relative path within the fingerprint directory.
-
-        :param relative_path: Relative path within the fingerprint directory to decrypt the data from.
-        :return: Decrypted data as bytes.
-        """
-        try:
-            # Define the full path
-            file_path = self.fingerprint_dir / relative_path
-
-            # Read the encrypted data with locking
-            with exclusive_lock(file_path) as fh:
-                fh.seek(0)
-                encrypted_data = fh.read()
-
-            # Decrypt the data
-            decrypted_data = self.decrypt_data(encrypted_data)
-            logger.debug(f"Data decrypted successfully from '{file_path}'.")
-            return decrypted_data
-        except (InvalidTag, InvalidToken) as e:
-            logger.error(
-                "Invalid encryption key or corrupted data while decrypting file.",
-                exc_info=True,
-            )
-            raise
-        except Exception as e:
-            logger.error(
-                f"Failed to decrypt data from '{relative_path}': {e}", exc_info=True
-            )
-            print(
-                colored(
-                    f"Error: Failed to decrypt data from '{relative_path}': {e}", "red"
-                )
-            )
-            raise
+        file_path = self.fingerprint_dir / relative_path
+        with exclusive_lock(file_path) as fh:
+            fh.seek(0)
+            encrypted_data = fh.read()
+        return self.decrypt_data(encrypted_data)
 
     def save_json_data(self, data: dict, relative_path: Optional[Path] = None) -> None:
-        """
-        Encrypts and saves the provided JSON data to the specified relative path within the fingerprint directory.
-
-        :param data: The JSON data to save.
-        :param relative_path: The relative path within the fingerprint directory where data will be saved.
-                              Defaults to 'seedpass_entries_db.json.enc'.
-        """
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
-        try:
-            json_data = json.dumps(data, indent=4).encode("utf-8")
-            self.encrypt_and_save_file(json_data, relative_path)
-            logger.debug(f"JSON data encrypted and saved to '{relative_path}'.")
-            print(
-                colored(f"JSON data encrypted and saved to '{relative_path}'.", "green")
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to save JSON data to '{relative_path}': {e}", exc_info=True
-            )
-            print(
-                colored(
-                    f"Error: Failed to save JSON data to '{relative_path}': {e}", "red"
-                )
-            )
-            raise
+        json_data = json.dumps(data, indent=4).encode("utf-8")
+        self.encrypt_and_save_file(json_data, relative_path)
+        logger.debug(f"JSON data encrypted and saved to '{relative_path}'.")
 
     def load_json_data(self, relative_path: Optional[Path] = None) -> dict:
         """
-        Decrypts and loads JSON data from the specified relative path within the fingerprint directory.
-
-        :param relative_path: The relative path within the fingerprint directory from which data will be loaded.
-                              Defaults to 'seedpass_entries_db.json.enc'.
-        :return: The decrypted JSON data as a dictionary.
+        Loads and decrypts JSON data, automatically migrating and re-saving
+        if it's in the legacy format.
         """
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
 
         file_path = self.fingerprint_dir / relative_path
-
         if not file_path.exists():
-            logger.info(
-                f"Index file '{file_path}' does not exist. Initializing empty data."
-            )
-            print(
-                colored(
-                    f"Info: Index file '{file_path}' not found. Initializing new password database.",
-                    "yellow",
-                )
-            )
             return {"entries": {}}
 
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
-            encrypted_bytes = fh.read()
+            encrypted_data = fh.read()
 
-        is_legacy = not encrypted_bytes.startswith(b"V2:")
+        is_legacy = not encrypted_data.startswith(b"V2:")
 
         try:
-            decrypted_data = self.decrypt_data(encrypted_bytes)
+            decrypted_data = self.decrypt_data(encrypted_data)
             data = json.loads(decrypted_data.decode("utf-8"))
 
+            # If it was a legacy file, re-save it in the new format now
             if is_legacy:
-                legacy_path = file_path.with_suffix(file_path.suffix + ".fernet")
-                os.rename(file_path, legacy_path)
-                chk = file_path.parent / f"{file_path.stem}_checksum.txt"
-                if chk.exists():
-                    chk.rename(chk.with_suffix(chk.suffix + ".fernet"))
+                logger.info(f"Migrating and re-saving legacy vault file: {file_path}")
                 self.save_json_data(data, relative_path)
                 self.update_checksum(relative_path)
-                logger.info(f"Migrated legacy vault file: {file_path}")
 
-            logger.debug(f"JSON data loaded and decrypted from '{file_path}'")
             return data
-        except (InvalidTag, InvalidToken, json.JSONDecodeError) as e:
+        except (InvalidToken, InvalidTag, json.JSONDecodeError) as e:
             logger.error(
-                f"Could not load or migrate data from {file_path}: {e}", exc_info=True
-            )
-            raise
-        except Exception as e:
-            logger.error(
-                f"Failed to load JSON data from '{file_path}': {e}", exc_info=True
-            )
-            raise
-
-    def update_checksum(self, relative_path: Optional[Path] = None) -> None:
-        """
-        Updates the checksum file for the specified file within the fingerprint directory.
-
-        :param relative_path: The relative path within the fingerprint directory for which the checksum will be updated.
-                              Defaults to 'seedpass_entries_db.json.enc'.
-        """
-        if relative_path is None:
-            relative_path = Path("seedpass_entries_db.json.enc")
-        try:
-            file_path = self.fingerprint_dir / relative_path
-            logger.debug("Calculating checksum of the encrypted file bytes.")
-
-            with exclusive_lock(file_path) as fh:
-                fh.seek(0)
-                encrypted_bytes = fh.read()
-
-            checksum = hashlib.sha256(encrypted_bytes).hexdigest()
-            logger.debug(f"New checksum: {checksum}")
-
-            checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
-
-            # Write the checksum to the file with locking
-            with exclusive_lock(checksum_file) as fh:
-                fh.seek(0)
-                fh.truncate()
-                fh.write(checksum.encode("utf-8"))
-                fh.flush()
-
-            # Set file permissions to read/write for the user only
-            os.chmod(checksum_file, 0o600)
-
-            logger.debug(
-                f"Checksum for '{file_path}' updated and written to '{checksum_file}'."
-            )
-            print(colored(f"Checksum for '{file_path}' updated.", "green"))
-        except Exception as e:
-            logger.error(
-                f"Failed to update checksum for '{relative_path}': {e}", exc_info=True
-            )
-            print(
-                colored(
-                    f"Error: Failed to update checksum for '{relative_path}': {e}",
-                    "red",
-                )
+                f"FATAL: Could not decrypt or parse data from {file_path}: {e}",
+                exc_info=True,
             )
             raise
 
     def get_encrypted_index(self) -> Optional[bytes]:
-        """
-        Retrieves the encrypted password index file content.
-
-        :return: Encrypted data as bytes or None if the index file does not exist.
-        """
-        try:
-            relative_path = Path("seedpass_entries_db.json.enc")
-            if not (self.fingerprint_dir / relative_path).exists():
-                # Missing index is normal on first run
-                logger.info(
-                    f"Index file '{relative_path}' does not exist in '{self.fingerprint_dir}'."
-                )
-                return None
-
-            file_path = self.fingerprint_dir / relative_path
-            with exclusive_lock(file_path) as fh:
-                fh.seek(0)
-                encrypted_data = fh.read()
-
-            logger.debug(f"Encrypted index data read from '{relative_path}'.")
-            return encrypted_data
-        except Exception as e:
-            logger.error(
-                f"Failed to read encrypted index file '{relative_path}': {e}",
-                exc_info=True,
-            )
-            print(
-                colored(
-                    f"Error: Failed to read encrypted index file '{relative_path}': {e}",
-                    "red",
-                )
-            )
+        relative_path = Path("seedpass_entries_db.json.enc")
+        file_path = self.fingerprint_dir / relative_path
+        if not file_path.exists():
             return None
+        with exclusive_lock(file_path) as fh:
+            fh.seek(0)
+            return fh.read()
 
     def decrypt_and_save_index_from_nostr(
         self, encrypted_data: bytes, relative_path: Optional[Path] = None
     ) -> None:
-        """
-        Decrypts the encrypted data retrieved from Nostr and updates the local index file.
-
-        :param encrypted_data: The encrypted data retrieved from Nostr.
-        :param relative_path: The relative path within the fingerprint directory to update.
-                              Defaults to 'seedpass_entries_db.json.enc'.
-        """
+        """Decrypts data from Nostr and saves it, automatically using the new format."""
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
         try:
-            decrypted_data = self.decrypt_data(encrypted_data)
+            decrypted_data = self.decrypt_data(
+                encrypted_data
+            )  # This now handles both formats
             data = json.loads(decrypted_data.decode("utf-8"))
-            self.save_json_data(data, relative_path)
+            self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
-        except (InvalidToken, InvalidTag, json.JSONDecodeError) as e:
-            logger.error(
-                f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
-            )
-            print(
-                colored(
-                    f"Error: Failed to decrypt and save data from Nostr: {e}", "red"
-                )
-            )
-            raise
         except Exception as e:
             logger.error(
                 f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
@@ -484,13 +220,34 @@ class EncryptionManager:
             )
             raise
 
-    def validate_seed(self, seed_phrase: str) -> bool:
-        """
-        Validates the seed phrase format using BIP-39 standards.
+    def update_checksum(self, relative_path: Optional[Path] = None) -> None:
+        """Updates the checksum file for the specified file."""
+        if relative_path is None:
+            relative_path = Path("seedpass_entries_db.json.enc")
 
-        :param seed_phrase: The BIP39 seed phrase to validate.
-        :return: True if valid, False otherwise.
-        """
+        file_path = self.fingerprint_dir / relative_path
+        if not file_path.exists():
+            return
+
+        try:
+            with exclusive_lock(file_path) as fh:
+                fh.seek(0)
+                encrypted_bytes = fh.read()
+            checksum = hashlib.sha256(encrypted_bytes).hexdigest()
+            checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
+            with exclusive_lock(checksum_file) as fh:
+                fh.seek(0)
+                fh.truncate()
+                fh.write(checksum.encode("utf-8"))
+            os.chmod(checksum_file, 0o600)
+        except Exception as e:
+            logger.error(
+                f"Failed to update checksum for '{relative_path}': {e}", exc_info=True
+            )
+            raise
+
+    # ... validate_seed and derive_seed_from_mnemonic can remain the same ...
+    def validate_seed(self, seed_phrase: str) -> bool:
         try:
             words = seed_phrase.split()
             if len(words) != 12:
@@ -499,7 +256,6 @@ class EncryptionManager:
                     colored("Error: Seed phrase must contain exactly 12 words.", "red")
                 )
                 return False
-            # Additional validation can be added here (e.g., word list checks)
             logger.debug("Seed phrase validated successfully.")
             return True
         except Exception as e:
@@ -508,13 +264,6 @@ class EncryptionManager:
             return False
 
     def derive_seed_from_mnemonic(self, mnemonic: str, passphrase: str = "") -> bytes:
-        """
-        Derives a cryptographic seed from a BIP39 mnemonic (seed phrase).
-
-        :param mnemonic: The BIP39 mnemonic phrase.
-        :param passphrase: An optional passphrase for additional security.
-        :return: The derived seed as bytes.
-        """
         try:
             if not isinstance(mnemonic, str):
                 if isinstance(mnemonic, list):
