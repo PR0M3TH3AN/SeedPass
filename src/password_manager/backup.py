@@ -54,6 +54,7 @@ class BackupManager:
         self.backup_dir = self.fingerprint_dir / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
+        self._last_backup_time = 0.0
         logger.debug(
             f"BackupManager initialized with backup directory at {self.backup_dir}"
         )
@@ -71,7 +72,13 @@ class BackupManager:
                 )
                 return
 
-            timestamp = int(time.time())
+            now = time.time()
+            interval = self.config_manager.get_backup_interval()
+            if interval > 0 and now - self._last_backup_time < interval:
+                logger.info("Skipping backup due to interval throttle")
+                return
+
+            timestamp = int(now)
             backup_filename = self.BACKUP_FILENAME_TEMPLATE.format(timestamp=timestamp)
             backup_file = self.backup_dir / backup_filename
 
@@ -81,6 +88,7 @@ class BackupManager:
             print(colored(f"Backup created successfully at '{backup_file}'.", "green"))
 
             self._create_additional_backup(backup_file)
+            self._last_backup_time = now
         except Exception as e:
             logger.error(f"Failed to create backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to create backup: {e}", "red"))

@@ -46,6 +46,7 @@ class ConfigManager:
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
                 "kdf_iterations": 100_000,
                 "additional_backup_path": "",
+                "backup_interval": 0,
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
             }
@@ -60,6 +61,7 @@ class ConfigManager:
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
             data.setdefault("kdf_iterations", 100_000)
             data.setdefault("additional_backup_path", "")
+            data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
 
@@ -85,6 +87,7 @@ class ConfigManager:
     def save_config(self, config: dict) -> None:
         """Encrypt and save configuration."""
         try:
+            config.setdefault("backup_interval", 0)
             self.vault.save_config(config)
         except Exception as exc:
             logger.error(f"Failed to save config: {exc}")
@@ -187,3 +190,16 @@ class ConfigManager:
         """Retrieve clipboard clear delay in seconds."""
         config = self.load_config(require_pin=False)
         return int(config.get("clipboard_clear_delay", 45))
+
+    def set_backup_interval(self, interval: int | float) -> None:
+        """Persist the minimum interval in seconds between automatic backups."""
+        if interval < 0:
+            raise ValueError("Interval cannot be negative")
+        config = self.load_config(require_pin=False)
+        config["backup_interval"] = interval
+        self.save_config(config)
+
+    def get_backup_interval(self) -> float:
+        """Retrieve the backup interval in seconds."""
+        config = self.load_config(require_pin=False)
+        return float(config.get("backup_interval", 0))
