@@ -5,7 +5,7 @@ from hypothesis import given, strategies as st, settings
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.password_generation import PasswordGenerator
+from password_manager.password_generation import PasswordGenerator, PasswordPolicy
 from password_manager.entry_types import EntryType
 
 
@@ -23,6 +23,7 @@ def make_generator():
     pg = PasswordGenerator.__new__(PasswordGenerator)
     pg.encryption_manager = DummyEnc()
     pg.bip85 = DummyBIP85()
+    pg.policy = PasswordPolicy()
     return pg
 
 
