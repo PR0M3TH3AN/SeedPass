@@ -934,7 +934,6 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
-            self.start_background_sync()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
