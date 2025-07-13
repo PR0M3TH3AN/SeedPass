@@ -57,6 +57,8 @@ class DummyPM:
         self.config_manager = SimpleNamespace(
             load_config=lambda require_pin=False: {"inactivity_timeout": 30},
             set_inactivity_timeout=lambda v: None,
+            set_kdf_iterations=lambda v: None,
+            set_backup_interval=lambda v: None,
             set_secret_mode_enabled=lambda v: None,
             set_clipboard_clear_delay=lambda v: None,
             set_additional_backup_path=lambda v: None,

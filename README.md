@@ -403,11 +403,20 @@ Back in the Settings menu you can:
 - Choose `8` to import a database from a backup file.
 - Select `9` to export all 2FA codes.
 - Choose `10` to set an additional backup location. A backup is created immediately after the directory is configured.
-- Select `11` to change the inactivity timeout.
-- Choose `12` to lock the vault and require re-entry of your password.
-- Select `13` to view seed profile stats. The summary lists counts for passwords, TOTP codes, SSH keys, seed phrases, and PGP keys. It also shows whether both the encrypted database and the script itself pass checksum validation.
-- Choose `14` to toggle Secret Mode and set the clipboard clear delay.
-- Select `15` to return to the main menu.
+- Select `11` to set the PBKDF2 iteration count used for encryption.
+- Choose `12` to change the inactivity timeout.
+- Select `13` to lock the vault and require re-entry of your password.
+- Select `14` to view seed profile stats. The summary lists counts for passwords, TOTP codes, SSH keys, seed phrases, and PGP keys. It also shows whether both the encrypted database and the script itself pass checksum validation.
+- Choose `15` to toggle Secret Mode and set the clipboard clear delay.
+Press **Enter** at any time to return to the main menu.
+You can adjust these settings directly from the command line:
+
+```bash
+seedpass config set kdf_iterations 200000
+seedpass config set backup_interval 3600
+```
+
+Lower iteration counts speed up vault decryption but make brute-force attacks easier. A long backup interval means fewer backups and increases the risk of data loss.
 
 ## Running Tests
 
@@ -475,6 +484,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
+- **KDF Iteration Caution:** Lowering `kdf_iterations` makes password cracking easier, while a high `backup_interval` leaves fewer recent backups.
 
 ## Contributing
 
