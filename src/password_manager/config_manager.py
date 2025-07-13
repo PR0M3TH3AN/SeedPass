@@ -50,6 +50,10 @@ class ConfigManager:
                 "backup_interval": 0,
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
+                "min_uppercase": 2,
+                "min_lowercase": 2,
+                "min_digits": 2,
+                "min_special": 2,
             }
         try:
             data = self.vault.load_config()
@@ -66,6 +70,10 @@ class ConfigManager:
             data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
+            data.setdefault("min_uppercase", 2)
+            data.setdefault("min_lowercase", 2)
+            data.setdefault("min_digits", 2)
+            data.setdefault("min_special", 2)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -218,3 +226,36 @@ class ConfigManager:
         """Retrieve the backup interval in seconds."""
         config = self.load_config(require_pin=False)
         return float(config.get("backup_interval", 0))
+
+    # Password policy settings
+    def get_password_policy(self) -> "PasswordPolicy":
+        """Return the password complexity policy."""
+        from password_manager.password_generation import PasswordPolicy
+
+        cfg = self.load_config(require_pin=False)
+        return PasswordPolicy(
+            min_uppercase=int(cfg.get("min_uppercase", 2)),
+            min_lowercase=int(cfg.get("min_lowercase", 2)),
+            min_digits=int(cfg.get("min_digits", 2)),
+            min_special=int(cfg.get("min_special", 2)),
+        )
+
+    def set_min_uppercase(self, count: int) -> None:
+        cfg = self.load_config(require_pin=False)
+        cfg["min_uppercase"] = int(count)
+        self.save_config(cfg)
+
+    def set_min_lowercase(self, count: int) -> None:
+        cfg = self.load_config(require_pin=False)
+        cfg["min_lowercase"] = int(count)
+        self.save_config(cfg)
+
+    def set_min_digits(self, count: int) -> None:
+        cfg = self.load_config(require_pin=False)
+        cfg["min_digits"] = int(count)
+        self.save_config(cfg)
+
+    def set_min_special(self, count: int) -> None:
+        cfg = self.load_config(require_pin=False)
+        cfg["min_special"] = int(count)
+        self.save_config(cfg)

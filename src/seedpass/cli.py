@@ -464,6 +464,10 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
         "kdf_iterations": lambda v: cfg.set_kdf_iterations(int(v)),
         "kdf_mode": lambda v: cfg.set_kdf_mode(v),
         "backup_interval": lambda v: cfg.set_backup_interval(float(v)),
+        "min_uppercase": lambda v: cfg.set_min_uppercase(int(v)),
+        "min_lowercase": lambda v: cfg.set_min_lowercase(int(v)),
+        "min_digits": lambda v: cfg.set_min_digits(int(v)),
+        "min_special": lambda v: cfg.set_min_special(int(v)),
     }
 
     action = mapping.get(key)

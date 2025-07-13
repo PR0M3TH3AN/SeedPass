@@ -21,6 +21,7 @@ import random
 import traceback
 import base64
 from typing import Optional
+from dataclasses import dataclass
 from termcolor import colored
 from pathlib import Path
 import shutil
@@ -48,6 +49,16 @@ from password_manager.encryption import EncryptionManager
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class PasswordPolicy:
+    """Minimum complexity requirements for generated passwords."""
+
+    min_uppercase: int = 2
+    min_lowercase: int = 2
+    min_digits: int = 2
+    min_special: int = 2
+
+
 class PasswordGenerator:
     """
     PasswordGenerator Class
@@ -58,7 +69,11 @@ class PasswordGenerator:
     """
 
     def __init__(
-        self, encryption_manager: EncryptionManager, parent_seed: str, bip85: BIP85
+        self,
+        encryption_manager: EncryptionManager,
+        parent_seed: str,
+        bip85: BIP85,
+        policy: PasswordPolicy | None = None,
     ):
         """
         Initializes the PasswordGenerator with the encryption manager, parent seed, and BIP85 instance.
@@ -72,6 +87,7 @@ class PasswordGenerator:
             self.encryption_manager = encryption_manager
             self.parent_seed = parent_seed
             self.bip85 = bip85
+            self.policy = policy or PasswordPolicy()
 
             # Derive seed bytes from parent_seed using BIP39 (handled by EncryptionManager)
             self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(
@@ -224,11 +240,11 @@ class PasswordGenerator:
                 f"Current character counts - Upper: {current_upper}, Lower: {current_lower}, Digits: {current_digits}, Special: {current_special}"
             )
 
-            # Set minimum counts
-            min_upper = 2
-            min_lower = 2
-            min_digits = 2
-            min_special = 2
+            # Set minimum counts from policy
+            min_upper = self.policy.min_uppercase
+            min_lower = self.policy.min_lowercase
+            min_digits = self.policy.min_digits
+            min_special = self.policy.min_special
 
             # Initialize derived key index
             dk_index = 0

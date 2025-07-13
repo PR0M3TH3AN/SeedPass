@@ -171,8 +171,8 @@ Code: 123456
 
 ### `config` Commands
 
-- **`seedpass config get <key>`** – Retrieve a configuration value such as `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, or `relays`.
-- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`.
+- **`seedpass config get <key>`** – Retrieve a configuration value such as `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, `relays`, or password policy fields like `min_uppercase`.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`. Use keys like `min_uppercase`, `min_lowercase`, `min_digits`, or `min_special` to adjust password complexity.
 - **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
 
 ### `fingerprint` Commands
@@ -209,4 +209,5 @@ Shut down the server with `seedpass api stop`.
 - Use the `--help` flag for details on any command.
 - Set a strong master password and regularly export encrypted backups.
 - Adjust configuration values like `kdf_iterations`, `backup_interval`, `inactivity_timeout`, or `secret_mode_enabled` through the `config` commands.
+- Customize password complexity with `config set min_uppercase 3`, `config set min_digits 4`, and similar commands.
 - `entry get` is script‑friendly and can be piped into other commands.

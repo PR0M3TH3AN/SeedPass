@@ -976,6 +976,7 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 parent_seed=self.parent_seed,
                 bip85=self.bip85,
+                policy=self.config_manager.get_password_policy(),
             )
 
             # Load relay configuration and initialize NostrClient
