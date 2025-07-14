@@ -282,6 +282,7 @@ class NostrClient:
         signer = NostrSigner.keys(self.keys)
         self.client = Client(signer)
         self._connected = False
+        self.initialize_client_pool()
 
     def retrieve_json_from_nostr_sync(
         self, retries: int | None = None, delay: float | None = None
