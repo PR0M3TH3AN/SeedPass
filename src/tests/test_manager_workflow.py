@@ -71,6 +71,12 @@ def test_manager_workflow(monkeypatch):
         )
         monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
 
+        monkeypatch.setattr(
+            pm,
+            "start_background_vault_sync",
+            lambda *a, **k: pm.sync_vault(*a, **k),
+        )
+
         pm.handle_add_password()
         assert pm.is_dirty is False
         backups = list((tmp_path / "backups").glob("entries_db_backup_*.json.enc"))
