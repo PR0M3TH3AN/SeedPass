@@ -20,6 +20,9 @@ _COLOR_MAP = {
     "index": "yellow",
     "menu": "cyan",
     "stats": "green",
+    "info": "cyan",
+    "warning": "yellow",
+    "error": "red",
     "default": "white",
 }
 

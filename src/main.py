@@ -27,6 +27,7 @@ from utils import (
     pause,
     clear_and_print_fingerprint,
 )
+import queue
 from local_bip85.bip85 import Bip85Error
 
 
@@ -98,6 +99,22 @@ def confirm_action(prompt: str) -> bool:
             return False
         else:
             print(colored("Please enter 'Y' or 'N'.", "red"))
+
+
+def drain_notifications(pm: PasswordManager) -> None:
+    """Display all queued notifications."""
+    queue_obj = getattr(pm, "notifications", None)
+    if queue_obj is None:
+        return
+    while True:
+        try:
+            note = queue_obj.get_nowait()
+        except queue.Empty:
+            break
+        category = note.level.lower()
+        if category not in ("info", "warning", "error"):
+            category = "info"
+        print(color_text(note.message, category))
 
 
 def handle_switch_fingerprint(password_manager: PasswordManager):
@@ -932,6 +949,7 @@ def display_menu(
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(color_text(menu, "menu"))
+        drain_notifications(password_manager)
         try:
             choice = timed_input(
                 "Enter your choice (1-8) or press Enter to exit: ",
