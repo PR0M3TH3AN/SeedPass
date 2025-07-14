@@ -1840,7 +1840,7 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             archived = entry.get("archived", entry.get("blacklisted", False))
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
             print(colored("\n[+] Entry Actions:", "green"))
             if archived:
                 print(colored("U. Unarchive", "cyan"))
@@ -1922,7 +1922,7 @@ class PasswordManager:
 
     def _entry_edit_menu(self, index: int, entry: dict) -> None:
         """Sub-menu for editing common entry fields."""
-        entry_type = entry.get("type", EntryType.PASSWORD.value)
+        entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
         while True:
             fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_header_with_notification(
@@ -1982,7 +1982,7 @@ class PasswordManager:
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
         """Display QR codes for the given ``entry``."""
 
-        entry_type = entry.get("type")
+        entry_type = entry.get("type", entry.get("kind"))
 
         try:
             if entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
@@ -2068,7 +2068,7 @@ class PasswordManager:
                 pause()
                 return
 
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
 
             if entry_type == EntryType.TOTP.value:
                 label = entry.get("label", "")
@@ -2166,6 +2166,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+                pause()
                 self._entry_actions_menu(index, entry)
                 pause()
                 return
@@ -2217,6 +2218,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+                pause()
                 self._entry_actions_menu(index, entry)
                 pause()
                 return
@@ -2254,6 +2256,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving PGP key: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+                pause()
                 self._entry_actions_menu(index, entry)
                 pause()
                 return
@@ -2286,6 +2289,7 @@ class PasswordManager:
                 except Exception as e:
                     logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
                     print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+                pause()
                 self._entry_actions_menu(index, entry)
                 pause()
                 return
@@ -2519,7 +2523,7 @@ class PasswordManager:
             if not entry:
                 return
 
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
 
             if entry_type == EntryType.TOTP.value:
                 label = entry.get("label", "")
@@ -3810,7 +3814,7 @@ class PasswordManager:
         entries = data.get("entries", {})
         counts: dict[str, int] = {etype.value: 0 for etype in EntryType}
         for entry in entries.values():
-            etype = entry.get("type", EntryType.PASSWORD.value)
+            etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
             counts[etype] = counts.get(etype, 0) + 1
         stats["entries"] = counts
         stats["total_entries"] = len(entries)
