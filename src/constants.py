@@ -51,6 +51,9 @@ MAX_PASSWORD_LENGTH = 128  # Maximum allowed password length
 # Timeout in seconds before the vault locks due to inactivity
 INACTIVITY_TIMEOUT = 15 * 60  # 15 minutes
 
+# Duration in seconds that a notification remains active
+NOTIFICATION_DURATION = 10
+
 # -----------------------------------
 # Additional Constants (if any)
 # -----------------------------------
