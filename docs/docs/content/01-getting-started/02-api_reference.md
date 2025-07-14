@@ -31,6 +31,7 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `GET /api/v1/totp/export` – Export all TOTP entries as JSON.
 - `GET /api/v1/totp` – Return current TOTP codes and remaining time.
 - `GET /api/v1/stats` – Return statistics about the active seed profile.
+- `GET /api/v1/notifications` – Retrieve and clear queued notifications.
 - `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
@@ -186,7 +187,16 @@ Get profile stats such as entry counts with `GET /api/v1/stats`:
 
 ```bash
 curl -H "Authorization: Bearer <token>" \
-     http://127.0.0.1:8000/api/v1/stats
+    http://127.0.0.1:8000/api/v1/stats
+```
+
+### Checking Notifications
+
+Get queued messages with `GET /api/v1/notifications`:
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+     http://127.0.0.1:8000/api/v1/notifications
 ```
 
 ### Changing the Master Password
