@@ -75,6 +75,7 @@ from constants import (
     DEFAULT_PASSWORD_LENGTH,
     INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    NOTIFICATION_DURATION,
     initialize_app,
 )
 
@@ -137,6 +138,8 @@ class PasswordManager:
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
         self.notifications: queue.Queue[Notification] = queue.Queue()
+        self._current_notification: Optional[Notification] = None
+        self._notification_expiry: float = 0.0
 
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
@@ -228,8 +231,26 @@ class PasswordManager:
         self.last_activity = time.time()
 
     def notify(self, message: str, level: str = "INFO") -> None:
-        """Enqueue a notification for later retrieval."""
-        self.notifications.put(Notification(message, level))
+        """Enqueue a notification and set it as the active message."""
+        note = Notification(message, level)
+        self.notifications.put(note)
+        self._current_notification = note
+        self._notification_expiry = time.time() + NOTIFICATION_DURATION
+
+    def get_current_notification(self) -> Optional[Notification]:
+        """Return the active notification if it hasn't expired."""
+        if not self.notifications.empty():
+            latest = self.notifications.queue[-1]
+            if latest is not self._current_notification:
+                self._current_notification = latest
+                self._notification_expiry = time.time() + NOTIFICATION_DURATION
+
+        if (
+            self._current_notification is not None
+            and time.time() < self._notification_expiry
+        ):
+            return self._current_notification
+        return None
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
