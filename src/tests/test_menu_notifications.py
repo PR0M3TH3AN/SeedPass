@@ -17,6 +17,8 @@ def _make_pm(msg):
     return SimpleNamespace(
         notifications=q,
         get_current_notification=lambda: q.queue[-1] if not q.empty() else None,
+        _current_notification=None,
+        _notification_expiry=0.0,
         is_dirty=False,
         last_update=time.time(),
         last_activity=time.time(),
@@ -45,11 +47,7 @@ def test_display_menu_prints_notifications(monkeypatch, capsys):
         "clear_header_with_notification",
         lambda pm, *a, **k: (
             print("HEADER"),
-            print(
-                pm.get_current_notification().message
-                if pm.get_current_notification()
-                else ""
-            ),
+            print(main.get_notification_text(pm)),
         ),
     )
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: "")
