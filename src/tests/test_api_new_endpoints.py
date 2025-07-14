@@ -4,6 +4,8 @@ import pytest
 
 from seedpass import api
 from test_api import client
+from helpers import dummy_nostr_client
+from nostr.client import NostrClient, DEFAULT_RELAYS
 
 
 def test_create_and_modify_totp_entry(client):
@@ -352,8 +354,9 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
     assert called["path"] == path
 
 
-def test_relay_management_endpoints(client):
+def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     cl, token = client
+    nostr_client, _ = dummy_nostr_client
     relays = ["wss://a", "wss://b"]
 
     def load_config(require_pin=False):
@@ -366,11 +369,16 @@ def test_relay_management_endpoints(client):
 
     api._pm.config_manager.load_config = load_config
     api._pm.config_manager.set_relays = set_relays
-    api._pm.nostr_client = SimpleNamespace(
-        close_client_pool=lambda: called.setdefault("close", True),
-        initialize_client_pool=lambda: called.setdefault("init", True),
-        relays=relays,
+    monkeypatch.setattr(
+        NostrClient,
+        "initialize_client_pool",
+        lambda self: called.setdefault("init", True),
     )
+    monkeypatch.setattr(
+        nostr_client, "close_client_pool", lambda: called.setdefault("close", True)
+    )
+    api._pm.nostr_client = nostr_client
+    api._pm.nostr_client.relays = relays.copy()
 
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -391,3 +399,5 @@ def test_relay_management_endpoints(client):
 
     res = cl.post("/api/v1/relays/reset", headers=headers)
     assert res.status_code == 200
+    assert called.get("init") is True
+    assert api._pm.nostr_client.relays == list(DEFAULT_RELAYS)
