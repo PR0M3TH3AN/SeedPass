@@ -264,11 +264,24 @@ def _display_live_stats(
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
         display_fn()
+        note = drain_notifications(password_manager)
+        if note:
+            print(note)
+        print(colored("Press Enter to continue.", "cyan"))
+        pause()
         return
 
     while True:
         clear_screen()
         display_fn()
+        print()
+        note = drain_notifications(password_manager)
+        sys.stdout.write("\033[F\033[2K")
+        if note:
+            print(note)
+        else:
+            print()
+        print(colored("Press Enter to continue.", "cyan"))
         sys.stdout.flush()
         try:
             user_input = timed_input("", interval)
