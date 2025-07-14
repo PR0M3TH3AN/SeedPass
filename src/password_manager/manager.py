@@ -1022,13 +1022,10 @@ class PasswordManager:
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
             if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                    if deltas:
-                        encrypted = deltas[-1]
-                except ValueError:
-                    pass
+                version = int(manifest.delta_since)
+                deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                if deltas:
+                    encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
             if current != encrypted:
                 self.vault.decrypt_and_save_index_from_nostr(encrypted)
@@ -1108,15 +1105,10 @@ class PasswordManager:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
                 if manifest.delta_since:
-                    try:
-                        version = int(manifest.delta_since)
-                        deltas = asyncio.run(
-                            self.nostr_client.fetch_deltas_since(version)
-                        )
-                        if deltas:
-                            encrypted = deltas[-1]
-                    except ValueError:
-                        pass
+                    version = int(manifest.delta_since)
+                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                    if deltas:
+                        encrypted = deltas[-1]
                 try:
                     self.vault.decrypt_and_save_index_from_nostr(encrypted)
                     logger.info("Initialized local database from Nostr.")
@@ -3841,4 +3833,6 @@ class PasswordManager:
         print(color_text(f"Snapshot chunks: {stats['chunk_count']}", "stats"))
         print(color_text(f"Pending deltas: {stats['pending_deltas']}", "stats"))
         if stats.get("delta_since"):
-            print(color_text(f"Latest delta id: {stats['delta_since']}", "stats"))
+            print(
+                color_text(f"Latest delta timestamp: {stats['delta_since']}", "stats")
+            )

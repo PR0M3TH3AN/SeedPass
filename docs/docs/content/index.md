@@ -40,7 +40,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
 - **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
-- **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas.
+- **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas. The manifest's `delta_since` field stores the UNIX timestamp of the most recent delta.
 - **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
 - **Nested Managed Account Seeds:** SeedPass can derive nested managed account seeds.
