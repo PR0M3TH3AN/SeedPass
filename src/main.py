@@ -25,7 +25,7 @@ from utils import (
     copy_to_clipboard,
     clear_screen,
     pause,
-    clear_and_print_fingerprint,
+    clear_header_with_notification,
 )
 import queue
 from local_bip85.bip85 import Bip85Error
@@ -737,7 +737,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings > Profiles",
             parent_fingerprint=parent_fp,
@@ -783,7 +783,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings > Nostr",
             parent_fingerprint=parent_fp,
@@ -827,7 +827,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings",
             parent_fingerprint=parent_fp,
@@ -940,7 +940,7 @@ def display_menu(
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu",
             parent_fingerprint=parent_fp,
@@ -1004,7 +1004,7 @@ def display_menu(
                         None,
                     ),
                 )
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > Add Entry",
                     parent_fingerprint=parent_fp,
@@ -1059,7 +1059,7 @@ def display_menu(
                 "header_fingerprint_args",
                 (getattr(password_manager, "current_fingerprint", None), None, None),
             )
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu",
                 parent_fingerprint=parent_fp,

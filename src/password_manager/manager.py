@@ -59,8 +59,8 @@ from utils.clipboard import copy_to_clipboard
 from utils.terminal_utils import (
     clear_screen,
     pause,
-    clear_and_print_fingerprint,
     clear_and_print_profile_chain,
+    clear_header_with_notification,
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
@@ -1177,7 +1177,7 @@ class PasswordManager:
     def handle_add_password(self) -> None:
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > Password",
                 parent_fingerprint=parent_fp,
@@ -1277,7 +1277,7 @@ class PasswordManager:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > 2FA (TOTP)",
                 parent_fingerprint=parent_fp,
@@ -1405,7 +1405,7 @@ class PasswordManager:
         """Add an SSH key pair entry and display the derived keys."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > SSH Key",
                 parent_fingerprint=parent_fp,
@@ -1461,7 +1461,7 @@ class PasswordManager:
         """Add a derived BIP-39 seed phrase entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > Seed Phrase",
                 parent_fingerprint=parent_fp,
@@ -1529,7 +1529,7 @@ class PasswordManager:
         """Add a PGP key entry and display the generated key."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > PGP Key",
                 parent_fingerprint=parent_fp,
@@ -1595,7 +1595,7 @@ class PasswordManager:
         """Add a Nostr key entry and display the derived keys."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > Nostr Key Pair",
                 parent_fingerprint=parent_fp,
@@ -1651,7 +1651,7 @@ class PasswordManager:
         """Add a generic key/value entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > Key/Value",
                 parent_fingerprint=parent_fp,
@@ -1726,7 +1726,7 @@ class PasswordManager:
         """Add a managed account seed entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Add Entry > Managed Account",
                 parent_fingerprint=parent_fp,
@@ -2015,7 +2015,7 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Retrieve Entry",
                 parent_fingerprint=parent_fp,
@@ -2468,7 +2468,7 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Modify Entry",
                 parent_fingerprint=parent_fp,
@@ -2829,7 +2829,7 @@ class PasswordManager:
         """Prompt for a query, list matches and optionally show details."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Search Entries",
                 parent_fingerprint=parent_fp,
@@ -2849,7 +2849,7 @@ class PasswordManager:
 
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > Search Entries",
                     parent_fingerprint=parent_fp,
@@ -2980,7 +2980,7 @@ class PasswordManager:
         try:
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > List Entries",
                     parent_fingerprint=parent_fp,
@@ -3028,7 +3028,7 @@ class PasswordManager:
                     continue
                 while True:
                     fp, parent_fp, child_fp = self.header_fingerprint_args
-                    clear_and_print_fingerprint(
+                    clear_header_with_notification(
                         fp,
                         "Main Menu > List Entries",
                         parent_fingerprint=parent_fp,
@@ -3120,7 +3120,7 @@ class PasswordManager:
                 return
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > Archived Entries",
                     parent_fingerprint=parent_fp,
@@ -3177,7 +3177,7 @@ class PasswordManager:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > 2FA Codes",
                 parent_fingerprint=parent_fp,
@@ -3203,7 +3203,7 @@ class PasswordManager:
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > 2FA Codes",
                     parent_fingerprint=parent_fp,
@@ -3264,7 +3264,7 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Verify Script Checksum",
                 parent_fingerprint=parent_fp,
@@ -3305,7 +3305,7 @@ class PasswordManager:
             return
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Generate Script Checksum",
                 parent_fingerprint=parent_fp,
@@ -3423,7 +3423,7 @@ class PasswordManager:
         """Export the current database to an encrypted portable file."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Export database",
                 parent_fingerprint=parent_fp,
@@ -3446,7 +3446,7 @@ class PasswordManager:
         """Import a portable database file, replacing the current index."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Import database",
                 parent_fingerprint=parent_fp,
@@ -3468,7 +3468,7 @@ class PasswordManager:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Export 2FA codes",
                 parent_fingerprint=parent_fp,
@@ -3541,7 +3541,7 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu > Settings > Backup Parent Seed",
                 parent_fingerprint=parent_fp,

@@ -5,6 +5,8 @@ import sys
 
 from termcolor import colored
 
+from utils.color_scheme import color_text
+
 
 def clear_screen() -> None:
     """Clear the terminal screen using an ANSI escape code."""
@@ -47,6 +49,44 @@ def clear_and_print_profile_chain(
     if breadcrumb:
         header += f" > {breadcrumb}"
     print(colored(header, "green"))
+
+
+def clear_header_with_notification(
+    pm,
+    fingerprint: str | None = None,
+    breadcrumb: str | None = None,
+    parent_fingerprint: str | None = None,
+    child_fingerprint: str | None = None,
+) -> None:
+    """Clear the screen, print the header, then show the current notification."""
+
+    clear_screen()
+    header_fp = None
+    if parent_fingerprint and child_fingerprint:
+        header_fp = f"{parent_fingerprint} > Managed Account > {child_fingerprint}"
+    elif fingerprint:
+        header_fp = fingerprint
+    elif parent_fingerprint or child_fingerprint:
+        header_fp = parent_fingerprint or child_fingerprint
+    if header_fp:
+        header = f"Seed Profile: {header_fp}"
+        if breadcrumb:
+            header += f" > {breadcrumb}"
+        print(colored(header, "green"))
+
+    note = None
+    if hasattr(pm, "get_current_notification"):
+        try:
+            note = pm.get_current_notification()
+        except Exception:
+            note = None
+    if note:
+        category = getattr(note, "level", "info").lower()
+        if category not in ("info", "warning", "error"):
+            category = "info"
+        print(color_text(getattr(note, "message", ""), category))
+    else:
+        print()
 
 
 def pause(message: str = "Press Enter to continue...") -> None:
