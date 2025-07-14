@@ -1102,6 +1102,19 @@ class PasswordManager:
         self._relay_thread = threading.Thread(target=_worker, daemon=True)
         self._relay_thread.start()
 
+    def start_background_vault_sync(self, alt_summary: str | None = None) -> None:
+        """Publish the vault to Nostr in a background thread."""
+        if getattr(self, "offline_mode", False):
+            return
+
+        def _worker() -> None:
+            try:
+                self.sync_vault(alt_summary=alt_summary)
+            except Exception as exc:
+                logging.error(f"Background vault sync failed: {exc}", exc_info=True)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally.
 
@@ -1225,7 +1238,7 @@ class PasswordManager:
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info("Encrypted index posted to Nostr after entry addition.")
             except Exception as nostr_error:
                 logging.error(
@@ -1299,7 +1312,7 @@ class PasswordManager:
                     TotpManager.print_qr_code(uri)
                     print(color_text(f"Secret: {secret}\n", "deterministic"))
                     try:
-                        self.sync_vault()
+                        self.start_background_vault_sync()
                     except Exception as nostr_error:
                         logging.error(
                             f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1348,7 +1361,7 @@ class PasswordManager:
                         )
                         TotpManager.print_qr_code(uri)
                         try:
-                            self.sync_vault()
+                            self.start_background_vault_sync()
                         except Exception as nostr_error:
                             logging.error(
                                 f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1411,7 +1424,7 @@ class PasswordManager:
             print(colored("Private Key:", "cyan"))
             print(color_text(priv_pem, "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1479,7 +1492,7 @@ class PasswordManager:
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1545,7 +1558,7 @@ class PasswordManager:
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             print(color_text(priv_key, "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1601,7 +1614,7 @@ class PasswordManager:
             ):
                 TotpManager.print_qr_code(nsec)
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1676,7 +1689,7 @@ class PasswordManager:
             else:
                 print(color_text(f"Value: {value}", "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1737,7 +1750,7 @@ class PasswordManager:
 
                     TotpManager.print_qr_code(encode_seedqr(seed))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -2772,7 +2785,7 @@ class PasswordManager:
 
             # Push the updated index to Nostr so changes are backed up.
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info(
                     "Encrypted index posted to Nostr after entry modification."
                 )
@@ -3045,7 +3058,7 @@ class PasswordManager:
 
             # Push updated index to Nostr after deletion
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info("Encrypted index posted to Nostr after entry deletion.")
             except Exception as nostr_error:
                 logging.error(
