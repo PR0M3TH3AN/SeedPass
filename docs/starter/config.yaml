@@ -1,0 +1,6 @@
+site:
+  title: "Archivox Docs"
+  description: "Simple static docs."
+
+navigation:
+  search: true

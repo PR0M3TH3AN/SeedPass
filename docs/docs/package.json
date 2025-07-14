@@ -1,0 +1,11 @@
+{
+  "name": "docs",
+  "private": true,
+  "scripts": {
+    "dev": "eleventy --serve",
+    "build": "node node_modules/archivox/src/generator/index.js"
+  },
+  "dependencies": {
+    "archivox": "^1.0.0"
+  }
+}

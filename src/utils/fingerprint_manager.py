@@ -34,8 +34,7 @@ class FingerprintManager:
         self.app_dir = app_dir
         self.fingerprints_file = self.app_dir / "fingerprints.json"
         self._ensure_app_directory()
-        self.fingerprints = self._load_fingerprints()
-        self.current_fingerprint: Optional[str] = None
+        self.fingerprints, self.current_fingerprint = self._load_fingerprints()
 
     def get_current_fingerprint_dir(self) -> Optional[Path]:
         """
@@ -63,28 +62,25 @@ class FingerprintManager:
             )
             raise
 
-    def _load_fingerprints(self) -> List[str]:
-        """
-        Loads the list of fingerprints from the fingerprints.json file.
-
-        Returns:
-            List[str]: A list of fingerprint strings.
-        """
+    def _load_fingerprints(self) -> tuple[list[str], Optional[str]]:
+        """Return stored fingerprints and the last used fingerprint."""
         try:
             if self.fingerprints_file.exists():
                 with open(self.fingerprints_file, "r") as f:
                     data = json.load(f)
-                    fingerprints = data.get("fingerprints", [])
-                    logger.debug(f"Loaded fingerprints: {fingerprints}")
-                    return fingerprints
-            else:
+                fingerprints = data.get("fingerprints", [])
+                current = data.get("last_used")
                 logger.debug(
-                    "fingerprints.json not found. Initializing empty fingerprint list."
+                    f"Loaded fingerprints: {fingerprints} (last used: {current})"
                 )
-                return []
+                return fingerprints, current
+            logger.debug(
+                "fingerprints.json not found. Initializing empty fingerprint list."
+            )
+            return [], None
         except Exception as e:
             logger.error(f"Failed to load fingerprints: {e}", exc_info=True)
-            return []
+            return [], None
 
     def _save_fingerprints(self):
         """
@@ -92,8 +88,17 @@ class FingerprintManager:
         """
         try:
             with open(self.fingerprints_file, "w") as f:
-                json.dump({"fingerprints": self.fingerprints}, f, indent=4)
-            logger.debug(f"Fingerprints saved: {self.fingerprints}")
+                json.dump(
+                    {
+                        "fingerprints": self.fingerprints,
+                        "last_used": self.current_fingerprint,
+                    },
+                    f,
+                    indent=4,
+                )
+            logger.debug(
+                f"Fingerprints saved: {self.fingerprints} (last used: {self.current_fingerprint})"
+            )
         except Exception as e:
             logger.error(f"Failed to save fingerprints: {e}", exc_info=True)
             raise
@@ -111,6 +116,7 @@ class FingerprintManager:
         fingerprint = generate_fingerprint(seed_phrase)
         if fingerprint and fingerprint not in self.fingerprints:
             self.fingerprints.append(fingerprint)
+            self.current_fingerprint = fingerprint
             self._save_fingerprints()
             logger.info(f"Fingerprint {fingerprint} added successfully.")
             # Create fingerprint directory
@@ -138,6 +144,10 @@ class FingerprintManager:
         if fingerprint in self.fingerprints:
             try:
                 self.fingerprints.remove(fingerprint)
+                if self.current_fingerprint == fingerprint:
+                    self.current_fingerprint = (
+                        self.fingerprints[0] if self.fingerprints else None
+                    )
                 self._save_fingerprints()
                 # Remove fingerprint directory
                 fingerprint_dir = self.app_dir / fingerprint
@@ -181,6 +191,7 @@ class FingerprintManager:
         """
         if fingerprint in self.fingerprints:
             self.current_fingerprint = fingerprint
+            self._save_fingerprints()
             logger.info(f"Fingerprint {fingerprint} selected.")
             return True
         else:

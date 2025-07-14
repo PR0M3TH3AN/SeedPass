@@ -25,8 +25,9 @@ from utils import (
     copy_to_clipboard,
     clear_screen,
     pause,
-    clear_and_print_fingerprint,
+    clear_header_with_notification,
 )
+import queue
 from local_bip85.bip85 import Bip85Error
 
 
@@ -98,6 +99,37 @@ def confirm_action(prompt: str) -> bool:
             return False
         else:
             print(colored("Please enter 'Y' or 'N'.", "red"))
+
+
+def drain_notifications(pm: PasswordManager) -> str | None:
+    """Return the next queued notification message if available."""
+    queue_obj = getattr(pm, "notifications", None)
+    if queue_obj is None:
+        return None
+    try:
+        note = queue_obj.get_nowait()
+    except queue.Empty:
+        return None
+    category = getattr(note, "level", "info").lower()
+    if category not in ("info", "warning", "error"):
+        category = "info"
+    return color_text(getattr(note, "message", ""), category)
+
+
+def get_notification_text(pm: PasswordManager) -> str:
+    """Return the current notification from ``pm`` as a colored string."""
+    note = None
+    if hasattr(pm, "get_current_notification"):
+        try:
+            note = pm.get_current_notification()
+        except Exception:
+            note = None
+    if not note:
+        return ""
+    category = getattr(note, "level", "info").lower()
+    if category not in ("info", "warning", "error"):
+        category = "info"
+    return color_text(getattr(note, "message", ""), category)
 
 
 def handle_switch_fingerprint(password_manager: PasswordManager):
@@ -232,12 +264,48 @@ def handle_display_npub(password_manager: PasswordManager):
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
+def _display_live_stats(
+    password_manager: PasswordManager, interval: float = 1.0
+) -> None:
+    """Continuously refresh stats until the user presses Enter."""
+
+    display_fn = getattr(password_manager, "display_stats", None)
+    if not callable(display_fn):
+        return
+
+    if not sys.stdin or not sys.stdin.isatty():
+        clear_screen()
+        display_fn()
+        note = get_notification_text(password_manager)
+        if note:
+            print(note)
+        print(colored("Press Enter to continue.", "cyan"))
+        pause()
+        return
+
+    while True:
+        clear_screen()
+        display_fn()
+        note = get_notification_text(password_manager)
+        if note:
+            print(note)
+        print(colored("Press Enter to continue.", "cyan"))
+        sys.stdout.flush()
+        try:
+            user_input = timed_input("", interval)
+            if user_input.strip() == "" or user_input.strip().lower() == "b":
+                break
+        except TimeoutError:
+            pass
+        except KeyboardInterrupt:
+            print()
+            break
+
+
 def handle_display_stats(password_manager: PasswordManager) -> None:
-    """Print seed profile statistics."""
+    """Print seed profile statistics with live updates."""
     try:
-        display_fn = getattr(password_manager, "display_stats", None)
-        if callable(display_fn):
-            display_fn()
+        _display_live_stats(password_manager)
     except Exception as e:  # pragma: no cover - display best effort
         logging.error(f"Failed to display stats: {e}", exc_info=True)
         print(colored(f"Error: Failed to display stats: {e}", "red"))
@@ -318,15 +386,12 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
             if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                    deltas = asyncio.run(
-                        password_manager.nostr_client.fetch_deltas_since(version)
-                    )
-                    if deltas:
-                        encrypted = deltas[-1]
-                except ValueError:
-                    pass
+                version = int(manifest.delta_since)
+                deltas = asyncio.run(
+                    password_manager.nostr_client.fetch_deltas_since(version)
+                )
+                if deltas:
+                    encrypted = deltas[-1]
             password_manager.encryption_manager.decrypt_and_save_index_from_nostr(
                 encrypted
             )
@@ -493,6 +558,39 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_kdf_iterations(password_manager: PasswordManager) -> None:
+    """Change the PBKDF2 iteration count."""
+    cfg_mgr = password_manager.config_manager
+    if cfg_mgr is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        current = cfg_mgr.get_kdf_iterations()
+        print(colored(f"Current iterations: {current}", "cyan"))
+    except Exception as e:
+        logging.error(f"Error loading iterations: {e}")
+        print(colored(f"Error: {e}", "red"))
+        return
+    value = input("Enter new iteration count: ").strip()
+    if not value:
+        print(colored("No iteration count entered.", "yellow"))
+        return
+    try:
+        iterations = int(value)
+        if iterations <= 0:
+            print(colored("Iterations must be positive.", "red"))
+            return
+    except ValueError:
+        print(colored("Invalid number.", "red"))
+        return
+    try:
+        cfg_mgr.set_kdf_iterations(iterations)
+        print(colored("KDF iteration count updated.", "green"))
+    except Exception as e:
+        logging.error(f"Error saving iterations: {e}")
+        print(colored(f"Error: {e}", "red"))
+
+
 def handle_set_additional_backup_location(pm: PasswordManager) -> None:
     """Configure an optional second backup directory."""
     cfg_mgr = pm.config_manager
@@ -584,6 +682,61 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
         print(colored(f"Error: {exc}", "red"))
 
 
+def handle_toggle_quick_unlock(pm: PasswordManager) -> None:
+    """Enable or disable Quick Unlock."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_quick_unlock()
+    except Exception as exc:
+        logging.error(f"Error loading quick unlock setting: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Quick Unlock is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    choice = input("Enable Quick Unlock? (y/n, blank to keep): ").strip().lower()
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+    try:
+        cfg.set_quick_unlock(enabled)
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Quick Unlock {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving quick unlock: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
+def handle_toggle_offline_mode(pm: PasswordManager) -> None:
+    """Enable or disable offline mode."""
+    cfg = pm.config_manager
+    if cfg is None:
+        print(colored("Configuration manager unavailable.", "red"))
+        return
+    try:
+        enabled = cfg.get_offline_mode()
+    except Exception as exc:
+        logging.error(f"Error loading offline mode setting: {exc}")
+        print(colored(f"Error loading settings: {exc}", "red"))
+        return
+    print(colored(f"Offline mode is currently {'ON' if enabled else 'OFF'}", "cyan"))
+    choice = input("Enable offline mode? (y/n, blank to keep): ").strip().lower()
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+    try:
+        cfg.set_offline_mode(enabled)
+        pm.offline_mode = enabled
+        status = "enabled" if enabled else "disabled"
+        print(colored(f"Offline mode {status}.", "green"))
+    except Exception as exc:
+        logging.error(f"Error saving offline mode: {exc}")
+        print(colored(f"Error: {exc}", "red"))
+
+
 def handle_profiles_menu(password_manager: PasswordManager) -> None:
     """Submenu for managing seed profiles."""
     while True:
@@ -592,7 +745,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings > Profiles",
             parent_fingerprint=parent_fp,
@@ -638,7 +791,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings > Nostr",
             parent_fingerprint=parent_fp,
@@ -682,7 +835,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
             fp,
             "Main Menu > Settings",
             parent_fingerprint=parent_fp,
@@ -699,10 +852,13 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("8. Import database", "menu"))
         print(color_text("9. Export 2FA codes", "menu"))
         print(color_text("10. Set additional backup location", "menu"))
-        print(color_text("11. Set inactivity timeout", "menu"))
-        print(color_text("12. Lock Vault", "menu"))
-        print(color_text("13. Stats", "menu"))
-        print(color_text("14. Toggle Secret Mode", "menu"))
+        print(color_text("11. Set KDF iterations", "menu"))
+        print(color_text("12. Set inactivity timeout", "menu"))
+        print(color_text("13. Lock Vault", "menu"))
+        print(color_text("14. Stats", "menu"))
+        print(color_text("15. Toggle Secret Mode", "menu"))
+        print(color_text("16. Toggle Offline Mode", "menu"))
+        print(color_text("17. Toggle Quick Unlock", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
             handle_profiles_menu(password_manager)
@@ -735,18 +891,28 @@ def handle_settings(password_manager: PasswordManager) -> None:
             handle_set_additional_backup_location(password_manager)
             pause()
         elif choice == "11":
-            handle_set_inactivity_timeout(password_manager)
+            handle_set_kdf_iterations(password_manager)
             pause()
         elif choice == "12":
+            handle_set_inactivity_timeout(password_manager)
+            pause()
+        elif choice == "13":
             password_manager.lock_vault()
             print(colored("Vault locked. Please re-enter your password.", "yellow"))
             password_manager.unlock_vault()
-            pause()
-        elif choice == "13":
-            handle_display_stats(password_manager)
+            password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             pause()
         elif choice == "14":
+            handle_display_stats(password_manager)
+        elif choice == "15":
             handle_toggle_secret_mode(password_manager)
+            pause()
+        elif choice == "16":
+            handle_toggle_offline_mode(password_manager)
+            pause()
+        elif choice == "17":
+            handle_toggle_quick_unlock(password_manager)
             pause()
         elif not choice:
             break
@@ -773,17 +939,17 @@ def display_menu(
     7. Settings
     8. List Archived
     """
-    display_fn = getattr(password_manager, "display_stats", None)
-    if callable(display_fn):
-        display_fn()
-        pause()
+    password_manager.start_background_sync()
+    getattr(password_manager, "start_background_relay_check", lambda: None)()
+    _display_live_stats(password_manager)
     while True:
         fp, parent_fp, child_fp = getattr(
             password_manager,
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
+            password_manager,
             fp,
             "Main Menu",
             parent_fingerprint=parent_fp,
@@ -793,6 +959,8 @@ def display_menu(
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
             password_manager.unlock_vault()
+            password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         # Periodically push updates to Nostr
         if (
@@ -815,6 +983,8 @@ def display_menu(
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
             password_manager.unlock_vault()
+            password_manager.start_background_sync()
+            getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         password_manager.update_activity()
         if not choice:
@@ -836,7 +1006,7 @@ def display_menu(
                         None,
                     ),
                 )
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
                     fp,
                     "Main Menu > Add Entry",
                     parent_fingerprint=parent_fp,
@@ -891,7 +1061,7 @@ def display_menu(
                 "header_fingerprint_args",
                 (getattr(password_manager, "current_fingerprint", None), None, None),
             )
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
                 fp,
                 "Main Menu",
                 parent_fingerprint=parent_fp,
@@ -919,8 +1089,16 @@ def display_menu(
             print(colored("Invalid choice. Please select a valid option.", "red"))
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Entry point for the SeedPass CLI."""
+def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> int:
+    """Entry point for the SeedPass CLI.
+
+    Parameters
+    ----------
+    argv:
+        Command line arguments.
+    fingerprint:
+        Optional seed profile fingerprint to select automatically.
+    """
     configure_logging()
     initialize_app()
     logger = logging.getLogger(__name__)
@@ -928,6 +1106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     load_global_config()
     parser = argparse.ArgumentParser()
+    parser.add_argument("--fingerprint")
     sub = parser.add_subparsers(dest="command")
 
     exp = sub.add_parser("export")
@@ -948,7 +1127,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        password_manager = PasswordManager()
+        password_manager = PasswordManager(fingerprint=args.fingerprint or fingerprint)
         logger.info("PasswordManager initialized successfully.")
     except (PasswordPromptError, Bip85Error) as e:
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)

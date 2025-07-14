@@ -30,6 +30,7 @@ def client(monkeypatch):
             set_additional_backup_path=lambda v: None,
             set_secret_mode_enabled=lambda v: None,
             set_clipboard_clear_delay=lambda v: None,
+            set_quick_unlock=lambda v: None,
         ),
         fingerprint_manager=SimpleNamespace(list_fingerprints=lambda: ["fp"]),
         nostr_client=SimpleNamespace(
@@ -156,6 +157,22 @@ def test_update_config(client):
     assert res.json() == {"status": "ok"}
     assert called["val"] == 42
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
+
+
+def test_update_config_quick_unlock(client):
+    cl, token = client
+    called = {}
+
+    api._pm.config_manager.set_quick_unlock = lambda v: called.setdefault("val", v)
+    headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
+    res = cl.put(
+        "/api/v1/config/quick_unlock",
+        json={"value": True},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called.get("val") is True
 
 
 def test_change_password_route(client):

@@ -20,6 +20,9 @@ _COLOR_MAP = {
     "index": "yellow",
     "menu": "cyan",
     "stats": "green",
+    "info": "white",
+    "warning": "yellow",
+    "error": "red",
     "default": "white",
 }
 
@@ -29,4 +32,5 @@ def color_text(text: str, category: str = "default") -> str:
     color = _COLOR_MAP.get(category, "white")
     if color == "orange":
         return _apply_orange(text)
-    return colored(text, color)
+    attrs = ["bold"] if category in {"info", "warning", "error"} else None
+    return colored(text, color, attrs=attrs)

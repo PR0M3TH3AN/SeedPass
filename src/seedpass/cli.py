@@ -9,7 +9,12 @@ from password_manager.entry_types import EntryType
 import uvicorn
 from . import api as api_module
 
-app = typer.Typer(help="SeedPass command line interface")
+import importlib
+
+app = typer.Typer(
+    help="SeedPass command line interface",
+    invoke_without_command=True,
+)
 
 # Global option shared across all commands
 fingerprint_option = typer.Option(
@@ -39,18 +44,24 @@ app.add_typer(api_app, name="api")
 
 def _get_pm(ctx: typer.Context) -> PasswordManager:
     """Return a PasswordManager optionally selecting a fingerprint."""
-    pm = PasswordManager()
     fp = ctx.obj.get("fingerprint")
-    if fp:
-        # `select_fingerprint` will initialize managers
-        pm.select_fingerprint(fp)
+    if fp is None:
+        pm = PasswordManager()
+    else:
+        pm = PasswordManager(fingerprint=fp)
     return pm
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) -> None:
-    """SeedPass CLI entry point."""
+    """SeedPass CLI entry point.
+
+    When called without a subcommand this launches the interactive TUI.
+    """
     ctx.obj = {"fingerprint": fingerprint}
+    if ctx.invoked_subcommand is None:
+        tui = importlib.import_module("main")
+        raise typer.Exit(tui.main(fingerprint=fingerprint))
 
 
 @entry_app.command("list")
@@ -139,6 +150,7 @@ def entry_add(
     pm = _get_pm(ctx)
     index = pm.entry_manager.add_entry(label, length, username, url)
     typer.echo(str(index))
+    pm.sync_vault()
 
 
 @entry_app.command("add-totp")
@@ -161,6 +173,7 @@ def entry_add_totp(
         digits=digits,
     )
     typer.echo(uri)
+    pm.sync_vault()
 
 
 @entry_app.command("add-ssh")
@@ -179,6 +192,7 @@ def entry_add_ssh(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-pgp")
@@ -201,6 +215,7 @@ def entry_add_pgp(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-nostr")
@@ -218,6 +233,7 @@ def entry_add_nostr(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-seed")
@@ -238,6 +254,7 @@ def entry_add_seed(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-key-value")
@@ -251,6 +268,7 @@ def entry_add_key_value(
     pm = _get_pm(ctx)
     idx = pm.entry_manager.add_key_value(label, value, notes=notes)
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("add-managed-account")
@@ -269,6 +287,7 @@ def entry_add_managed_account(
         notes=notes,
     )
     typer.echo(str(idx))
+    pm.sync_vault()
 
 
 @entry_app.command("modify")
@@ -287,16 +306,21 @@ def entry_modify(
 ) -> None:
     """Modify an existing entry."""
     pm = _get_pm(ctx)
-    pm.entry_manager.modify_entry(
-        entry_id,
-        username=username,
-        url=url,
-        notes=notes,
-        label=label,
-        period=period,
-        digits=digits,
-        value=value,
-    )
+    try:
+        pm.entry_manager.modify_entry(
+            entry_id,
+            username=username,
+            url=url,
+            notes=notes,
+            label=label,
+            period=period,
+            digits=digits,
+            value=value,
+        )
+    except ValueError as e:
+        typer.echo(str(e))
+        raise typer.Exit(code=1)
+    pm.sync_vault()
 
 
 @entry_app.command("archive")
@@ -305,6 +329,7 @@ def entry_archive(ctx: typer.Context, entry_id: int) -> None:
     pm = _get_pm(ctx)
     pm.entry_manager.archive_entry(entry_id)
     typer.echo(str(entry_id))
+    pm.sync_vault()
 
 
 @entry_app.command("unarchive")
@@ -313,6 +338,7 @@ def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
     pm = _get_pm(ctx)
     pm.entry_manager.restore_entry(entry_id)
     typer.echo(str(entry_id))
+    pm.sync_vault()
 
 
 @entry_app.command("totp-codes")
@@ -350,6 +376,7 @@ def vault_import(
     """Import a vault from an encrypted JSON file."""
     pm = _get_pm(ctx)
     pm.handle_import_database(Path(file))
+    pm.sync_vault()
     typer.echo(str(file))
 
 
@@ -434,6 +461,21 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
         "relays": lambda v: cfg.set_relays(
             [r.strip() for r in v.split(",") if r.strip()], require_pin=False
         ),
+        "kdf_iterations": lambda v: cfg.set_kdf_iterations(int(v)),
+        "kdf_mode": lambda v: cfg.set_kdf_mode(v),
+        "backup_interval": lambda v: cfg.set_backup_interval(float(v)),
+        "nostr_max_retries": lambda v: cfg.set_nostr_max_retries(int(v)),
+        "nostr_retry_delay": lambda v: cfg.set_nostr_retry_delay(float(v)),
+        "min_uppercase": lambda v: cfg.set_min_uppercase(int(v)),
+        "min_lowercase": lambda v: cfg.set_min_lowercase(int(v)),
+        "min_digits": lambda v: cfg.set_min_digits(int(v)),
+        "min_special": lambda v: cfg.set_min_special(int(v)),
+        "quick_unlock": lambda v: cfg.set_quick_unlock(
+            v.lower() in ("1", "true", "yes", "y", "on")
+        ),
+        "verbose_timing": lambda v: cfg.set_verbose_timing(
+            v.lower() in ("1", "true", "yes", "y", "on")
+        ),
     }
 
     action = mapping.get(key)
@@ -499,6 +541,41 @@ def config_toggle_secret_mode(ctx: typer.Context) -> None:
 
     status = "enabled" if enabled else "disabled"
     typer.echo(f"Secret mode {status}.")
+
+
+@config_app.command("toggle-offline")
+def config_toggle_offline(ctx: typer.Context) -> None:
+    """Enable or disable offline mode."""
+    pm = _get_pm(ctx)
+    cfg = pm.config_manager
+    try:
+        enabled = cfg.get_offline_mode()
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error loading settings: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Offline mode is currently {'ON' if enabled else 'OFF'}")
+    choice = (
+        typer.prompt(
+            "Enable offline mode? (y/n, blank to keep)", default="", show_default=False
+        )
+        .strip()
+        .lower()
+    )
+    if choice in ("y", "yes"):
+        enabled = True
+    elif choice in ("n", "no"):
+        enabled = False
+
+    try:
+        cfg.set_offline_mode(enabled)
+        pm.offline_mode = enabled
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    status = "enabled" if enabled else "disabled"
+    typer.echo(f"Offline mode {status}.")
 
 
 @fingerprint_app.command("list")
@@ -573,3 +650,7 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
         )
     except Exception as exc:  # pragma: no cover - best effort
         typer.echo(f"Failed to stop server: {exc}")
+
+
+if __name__ == "__main__":
+    app()

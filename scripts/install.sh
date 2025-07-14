@@ -119,21 +119,29 @@ main() {
     print_info "Installing/updating Python dependencies from src/requirements.txt..."
     pip install --upgrade pip
     pip install -r src/requirements.txt
+    pip install -e .
     deactivate
 
     # 7. Create launcher script
     print_info "Creating launcher script at '$LAUNCHER_PATH'..."
     mkdir -p "$LAUNCHER_DIR"
-    cat > "$LAUNCHER_PATH" << EOF2
+cat > "$LAUNCHER_PATH" << EOF2
 #!/bin/bash
 source "$VENV_DIR/bin/activate"
-exec python3 "$INSTALL_DIR/src/main.py" "\$@"
+exec "$VENV_DIR/bin/seedpass" "\$@"
 EOF2
     chmod +x "$LAUNCHER_PATH"
 
+    existing_cmd=$(command -v seedpass 2>/dev/null || true)
+    if [ -n "$existing_cmd" ] && [ "$existing_cmd" != "$LAUNCHER_PATH" ]; then
+        print_warning "Another 'seedpass' command was found at $existing_cmd."
+        print_warning "Ensure '$LAUNCHER_DIR' comes first in your PATH or remove the old installation."
+    fi
+
     # 8. Final instructions
     print_success "Installation/update complete!"
-    print_info "You can now run the application by typing: seedpass"
+    print_info "You can now launch the interactive TUI by typing: seedpass"
+    print_info "'seedpass' resolves to: $(command -v seedpass)"
     if [[ ":$PATH:" != *":$LAUNCHER_DIR:"* ]]; then
         print_warning "Directory '$LAUNCHER_DIR' is not in your PATH."
         print_warning "Please add 'export PATH=\"$HOME/.local/bin:$PATH\"' to your shell's config file (e.g., ~/.bashrc, ~/.zshrc) and restart your terminal."

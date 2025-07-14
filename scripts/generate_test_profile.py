@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Generate a SeedPass test profile with realistic entries.
 
-This script populates a profile directory with a variety of entry types.
+This script populates a profile directory with a variety of entry types,
+including key/value pairs and managed accounts.
 If the profile does not exist, a new BIP-39 seed phrase is generated and
 stored encrypted. A clear text copy is written to ``seed_phrase.txt`` so
 it can be reused across devices.
+
+Profiles are saved under ``~/.seedpass/tests/`` by default. SeedPass
+only detects a profile automatically when it resides directly under
+``~/.seedpass/``. Copy the generated fingerprint directory from the
+``tests`` subfolder to ``~/.seedpass`` (or adjust ``APP_DIR`` in
+``constants.py``) to use the test seed with the main application.
 """
 
 from __future__ import annotations
@@ -46,7 +53,9 @@ import gzip
 DEFAULT_PASSWORD = "testpassword"
 
 
-def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]:
+def initialize_profile(
+    profile_name: str,
+) -> tuple[str, EntryManager, Path, str, ConfigManager]:
     """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
     initialize_app()
     seed_txt = APP_DIR / f"{profile_name}_seed.txt"
@@ -96,9 +105,11 @@ def initialize_profile(profile_name: str) -> tuple[str, EntryManager, Path, str]
     # Store the default password hash so the profile can be opened
     hashed = bcrypt.hashpw(DEFAULT_PASSWORD.encode(), bcrypt.gensalt()).decode()
     cfg_mgr.set_password_hash(hashed)
+    # Ensure stored iterations match the PBKDF2 work factor used above
+    cfg_mgr.set_kdf_iterations(100_000)
     backup_mgr = BackupManager(profile_dir, cfg_mgr)
     entry_mgr = EntryManager(vault, backup_mgr)
-    return seed_phrase, entry_mgr, profile_dir, fingerprint
+    return seed_phrase, entry_mgr, profile_dir, fingerprint, cfg_mgr
 
 
 def random_secret(length: int = 16) -> str:
@@ -111,7 +122,7 @@ def populate(entry_mgr: EntryManager, seed: str, count: int) -> None:
     start_index = entry_mgr.get_next_index()
     for i in range(count):
         idx = start_index + i
-        kind = idx % 7
+        kind = idx % 9
         if kind == 0:
             entry_mgr.add_entry(
                 label=f"site-{idx}.example.com",
@@ -133,18 +144,33 @@ def populate(entry_mgr: EntryManager, seed: str, count: int) -> None:
             )
         elif kind == 5:
             entry_mgr.add_nostr_key(f"nostr-{idx}", notes=f"Nostr key {idx}")
-        else:
+        elif kind == 6:
             entry_mgr.add_pgp_key(
                 f"pgp-{idx}",
                 seed,
                 user_id=f"user{idx}@example.com",
                 notes=f"PGP key {idx}",
             )
+        elif kind == 7:
+            entry_mgr.add_key_value(
+                f"kv-{idx}",
+                random_secret(20),
+                notes=f"Key/Value {idx}",
+            )
+        else:
+            entry_mgr.add_managed_account(
+                f"acct-{idx}",
+                seed,
+                notes=f"Managed account {idx}",
+            )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Create or extend a SeedPass test profile"
+        description=(
+            "Create or extend a SeedPass test profile (default PBKDF2 iterations:"
+            " 100,000)"
+        )
     )
     parser.add_argument(
         "--profile",
@@ -159,7 +185,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    seed, entry_mgr, dir_path, fingerprint = initialize_profile(args.profile)
+    seed, entry_mgr, dir_path, fingerprint, cfg_mgr = initialize_profile(args.profile)
     print(f"Using profile directory: {dir_path}")
     print(f"Parent seed: {seed}")
     if fingerprint:
@@ -173,6 +199,7 @@ def main() -> None:
             entry_mgr.vault.encryption_manager,
             fingerprint or dir_path.name,
             parent_seed=seed,
+            config_manager=cfg_mgr,
         )
         asyncio.run(client.publish_snapshot(encrypted))
         print("[+] Data synchronized to Nostr.")

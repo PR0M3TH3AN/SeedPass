@@ -19,6 +19,9 @@ from typing import Optional
 import shutil
 import time
 import builtins
+import threading
+import queue
+from dataclasses import dataclass
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -34,6 +37,7 @@ from password_manager.entry_types import EntryType
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
+    derive_key_from_password_argon2,
     derive_index_key,
     EncryptionMode,
 )
@@ -55,11 +59,12 @@ from utils.clipboard import copy_to_clipboard
 from utils.terminal_utils import (
     clear_screen,
     pause,
-    clear_and_print_fingerprint,
     clear_and_print_profile_chain,
+    clear_header_with_notification,
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
+from password_manager.migrations import LATEST_VERSION
 
 from constants import (
     APP_DIR,
@@ -70,6 +75,7 @@ from constants import (
     DEFAULT_PASSWORD_LENGTH,
     INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    NOTIFICATION_DURATION,
     initialize_app,
 )
 
@@ -93,6 +99,14 @@ from password_manager.config_manager import ConfigManager
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Notification:
+    """Simple message container for UI notifications."""
+
+    message: str
+    level: str = "INFO"
+
+
 class PasswordManager:
     """
     PasswordManager Class
@@ -102,8 +116,14 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self) -> None:
-        """Initialize the PasswordManager."""
+    def __init__(self, fingerprint: Optional[str] = None) -> None:
+        """Initialize the PasswordManager.
+
+        Parameters
+        ----------
+        fingerprint:
+            Optional seed profile fingerprint to select without prompting.
+        """
         initialize_app()
         self.ensure_script_checksum()
         self.encryption_mode: EncryptionMode = EncryptionMode.SEED_ONLY
@@ -117,6 +137,9 @@ class PasswordManager:
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+        self.notifications: queue.Queue[Notification] = queue.Queue()
+        self._current_notification: Optional[Notification] = None
+        self._notification_expiry: float = 0.0
 
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
@@ -126,16 +149,24 @@ class PasswordManager:
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
+        self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
+        self.last_unlock_duration: float | None = None
+        self.verbose_timing: bool = False
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
 
-        # Ensure a parent seed is set up before accessing the fingerprint directory
-        self.setup_parent_seed()
-
-        # Set the current fingerprint directory
-        self.fingerprint_dir = self.fingerprint_manager.get_current_fingerprint_dir()
+        if fingerprint:
+            # Load the specified profile without prompting
+            self.select_fingerprint(fingerprint)
+        else:
+            # Ensure a parent seed is set up before accessing the fingerprint directory
+            self.setup_parent_seed()
+            # Set the current fingerprint directory after selection
+            self.fingerprint_dir = (
+                self.fingerprint_manager.get_current_fingerprint_dir()
+            )
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""
@@ -199,8 +230,32 @@ class PasswordManager:
         """Record the current time as the last user activity."""
         self.last_activity = time.time()
 
+    def notify(self, message: str, level: str = "INFO") -> None:
+        """Enqueue a notification and set it as the active message."""
+        note = Notification(message, level)
+        self.notifications.put(note)
+        self._current_notification = note
+        self._notification_expiry = time.time() + NOTIFICATION_DURATION
+
+    def get_current_notification(self) -> Optional[Notification]:
+        """Return the active notification if it hasn't expired."""
+        if not self.notifications.empty():
+            latest = self.notifications.queue[-1]
+            if latest is not self._current_notification:
+                self._current_notification = latest
+                self._notification_expiry = time.time() + NOTIFICATION_DURATION
+
+        if (
+            self._current_notification is not None
+            and time.time() < self._notification_expiry
+        ):
+            return self._current_notification
+        return None
+
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
+        if self.entry_manager is not None:
+            self.entry_manager.clear_cache()
         self.parent_seed = None
         self.encryption_manager = None
         self.entry_manager = None
@@ -214,6 +269,7 @@ class PasswordManager:
 
     def unlock_vault(self) -> None:
         """Prompt for password and reinitialize managers."""
+        start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
         self.setup_encryption_manager(self.fingerprint_dir)
@@ -221,7 +277,15 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        self.sync_index_from_nostr()
+        self.last_unlock_duration = time.perf_counter() - start
+        print(
+            colored(
+                f"Vault unlocked in {self.last_unlock_duration:.2f} seconds",
+                "yellow",
+            )
+        )
+        if getattr(self, "verbose_timing", False):
+            logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
 
     def initialize_fingerprint_manager(self):
         """
@@ -254,10 +318,18 @@ class PasswordManager:
         Prompts the user to select an existing fingerprint or add a new one.
         """
         try:
-            print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
+            current = self.fingerprint_manager.current_fingerprint
+
+            # Auto-select when only one fingerprint exists
+            if len(fingerprints) == 1:
+                self.select_fingerprint(fingerprints[0])
+                return
+
+            print(colored("\nAvailable Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                marker = " *" if fp == current else ""
+                print(colored(f"{idx}. {fp}{marker}", "cyan"))
 
             print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
 
@@ -330,7 +402,6 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr()
             print(
                 colored(
                     f"Seed profile {fingerprint} selected and managers initialized.",
@@ -350,44 +421,69 @@ class PasswordManager:
     ) -> bool:
         """Set up encryption for the current fingerprint and load the seed."""
 
-        try:
-            if password is None:
-                password = prompt_existing_password("Enter your master password: ")
-
-            seed_key = derive_key_from_password(password)
-            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+        attempts = 0
+        max_attempts = 5
+        while attempts < max_attempts:
             try:
-                self.parent_seed = seed_mgr.decrypt_parent_seed()
-            except Exception:
-                msg = "Invalid password for selected seed profile."
-                print(colored(msg, "red"))
+                if password is None:
+                    password = prompt_existing_password("Enter your master password: ")
+
+                mode = (
+                    self.config_manager.get_kdf_mode()
+                    if getattr(self, "config_manager", None)
+                    else "pbkdf2"
+                )
+                iterations = (
+                    self.config_manager.get_kdf_iterations()
+                    if getattr(self, "config_manager", None)
+                    else 50_000
+                )
+                print("Deriving key...")
+                if mode == "argon2":
+                    seed_key = derive_key_from_password_argon2(password)
+                else:
+                    seed_key = derive_key_from_password(password, iterations=iterations)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                print("Decrypting seed...")
+                try:
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                except Exception:
+                    msg = (
+                        "Invalid password for selected seed profile. Please try again."
+                    )
+                    print(colored(msg, "red"))
+                    attempts += 1
+                    password = None
+                    continue
+
+                key = derive_index_key(self.parent_seed)
+
+                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+                self.config_manager = ConfigManager(
+                    vault=self.vault,
+                    fingerprint_dir=fingerprint_dir,
+                )
+
+                self.fingerprint_dir = fingerprint_dir
+                if not self.verify_password(password):
+                    print(colored("Invalid password. Please try again.", "red"))
+                    attempts += 1
+                    password = None
+                    continue
+                return True
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
+                print(colored(f"Error: Failed to set up encryption: {e}", "red"))
                 if exit_on_fail:
                     sys.exit(1)
                 return False
-
-            key = derive_index_key(self.parent_seed)
-
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
-            self.vault = Vault(self.encryption_manager, fingerprint_dir)
-
-            self.config_manager = ConfigManager(
-                vault=self.vault,
-                fingerprint_dir=fingerprint_dir,
-            )
-
-            self.fingerprint_dir = fingerprint_dir
-            if not self.verify_password(password):
-                print(colored("Invalid password.", "red"))
-                if exit_on_fail:
-                    sys.exit(1)
-                return False
-            return True
-        except Exception as e:
-            logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
-            print(colored(f"Error: Failed to set up encryption: {e}", "red"))
-            if exit_on_fail:
-                sys.exit(1)
-            return False
+        if exit_on_fail:
+            sys.exit(1)
+        return False
 
     def load_parent_seed(
         self, fingerprint_dir: Path, password: Optional[str] = None
@@ -401,7 +497,20 @@ class PasswordManager:
             password = prompt_existing_password("Enter your master password: ")
 
         try:
-            seed_key = derive_key_from_password(password)
+            mode = (
+                self.config_manager.get_kdf_mode()
+                if getattr(self, "config_manager", None)
+                else "pbkdf2"
+            )
+            iterations = (
+                self.config_manager.get_kdf_iterations()
+                if getattr(self, "config_manager", None)
+                else 50_000
+            )
+            if mode == "argon2":
+                seed_key = derive_key_from_password_argon2(password)
+            else:
+                seed_key = derive_key_from_password(password, iterations=iterations)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
             self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
@@ -460,7 +569,7 @@ class PasswordManager:
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr()
+            self.start_background_sync()
             print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
 
             # Re-initialize NostrClient with the new fingerprint
@@ -468,6 +577,7 @@ class PasswordManager:
                 self.nostr_client = NostrClient(
                     encryption_manager=self.encryption_manager,
                     fingerprint=self.current_fingerprint,
+                    config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
                 logging.info(
@@ -513,7 +623,7 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        self.sync_index_from_nostr_if_missing()
+        self.start_background_sync()
 
     def exit_managed_account(self) -> None:
         """Return to the parent seed profile if one is on the stack."""
@@ -533,7 +643,7 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
-        self.sync_index_from_nostr()
+        self.start_background_sync()
 
     def handle_existing_seed(self) -> None:
         """
@@ -545,7 +655,12 @@ class PasswordManager:
             password = getpass.getpass(prompt="Enter your login password: ").strip()
 
             # Derive encryption key from password
-            key = derive_key_from_password(password)
+            iterations = (
+                self.config_manager.get_kdf_iterations()
+                if getattr(self, "config_manager", None)
+                else 50_000
+            )
+            key = derive_key_from_password(password, iterations=iterations)
 
             # Initialize FingerprintManager if not already initialized
             if not self.fingerprint_manager:
@@ -608,7 +723,7 @@ class PasswordManager:
         Handles the setup process when no existing parent seed is found.
         Asks the user whether to enter an existing BIP-85 seed or generate a new one.
         """
-        print(colored("No existing seed found. Let's set up a new one!", "yellow"))
+        self.notify("No existing seed found. Let's set up a new one!", level="WARNING")
 
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
@@ -662,45 +777,57 @@ class PasswordManager:
                 self.fingerprint_dir = fingerprint_dir
                 logging.info(f"Current seed profile set to {fingerprint}")
 
-                # Initialize EncryptionManager with key and fingerprint_dir
-                password = prompt_for_password()
-                index_key = derive_index_key(parent_seed)
-                seed_key = derive_key_from_password(password)
+                try:
+                    # Initialize EncryptionManager with key and fingerprint_dir
+                    password = prompt_for_password()
+                    index_key = derive_index_key(parent_seed)
+                    iterations = (
+                        self.config_manager.get_kdf_iterations()
+                        if getattr(self, "config_manager", None)
+                        else 50_000
+                    )
+                    seed_key = derive_key_from_password(password, iterations=iterations)
 
-                self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
-                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                self.vault = Vault(self.encryption_manager, fingerprint_dir)
+                    self.encryption_manager = EncryptionManager(
+                        index_key, fingerprint_dir
+                    )
+                    seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                    self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
-                # Ensure config manager is set for the new fingerprint
-                self.config_manager = ConfigManager(
-                    vault=self.vault,
-                    fingerprint_dir=fingerprint_dir,
-                )
+                    # Ensure config manager is set for the new fingerprint
+                    self.config_manager = ConfigManager(
+                        vault=self.vault,
+                        fingerprint_dir=fingerprint_dir,
+                    )
 
-                # Encrypt and save the parent seed
-                seed_mgr.encrypt_parent_seed(parent_seed)
-                logging.info("Parent seed encrypted and saved successfully.")
+                    # Encrypt and save the parent seed
+                    seed_mgr.encrypt_parent_seed(parent_seed)
+                    logging.info("Parent seed encrypted and saved successfully.")
 
-                # Store the hashed password
-                self.store_hashed_password(password)
-                logging.info("User password hashed and stored successfully.")
+                    # Store the hashed password
+                    self.store_hashed_password(password)
+                    logging.info("User password hashed and stored successfully.")
 
-                self.parent_seed = parent_seed  # Ensure this is a string
-                logger.debug(
-                    f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
-                )
+                    self.parent_seed = parent_seed  # Ensure this is a string
+                    logger.debug(
+                        f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
+                    )
 
-                self.initialize_bip85()
-                self.initialize_managers()
-                self.sync_index_from_nostr()
-                return fingerprint  # Return the generated or added fingerprint
+                    self.initialize_bip85()
+                    self.initialize_managers()
+                    self.start_background_sync()
+                    return fingerprint  # Return the generated or added fingerprint
+                except BaseException:
+                    # Clean up partial profile on failure or interruption
+                    self.fingerprint_manager.remove_fingerprint(fingerprint)
+                    raise
             else:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
                 sys.exit(1)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
-            print(colored("\nOperation cancelled by user.", "yellow"))
+            self.notify("Operation cancelled by user.", level="WARNING")
             sys.exit(0)
 
     def generate_new_seed(self) -> Optional[str]:
@@ -742,11 +869,17 @@ class PasswordManager:
             logging.info(f"Current seed profile set to {fingerprint}")
 
             # Now, save and encrypt the seed with the fingerprint_dir
-            self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+            try:
+                self.save_and_encrypt_seed(new_seed, fingerprint_dir)
+                self.start_background_sync()
+            except BaseException:
+                # Clean up partial profile on failure or interruption
+                self.fingerprint_manager.remove_fingerprint(fingerprint)
+                raise
 
             return fingerprint  # Return the generated fingerprint
         else:
-            print(colored("Seed generation cancelled. Exiting.", "yellow"))
+            self.notify("Seed generation cancelled. Exiting.", level="WARNING")
             sys.exit(0)
 
     def validate_bip85_seed(self, seed: str) -> bool:
@@ -806,7 +939,12 @@ class PasswordManager:
             password = prompt_for_password()
 
             index_key = derive_index_key(seed)
-            seed_key = derive_key_from_password(password)
+            iterations = (
+                self.config_manager.get_kdf_iterations()
+                if getattr(self, "config_manager", None)
+                else 50_000
+            )
+            seed_key = derive_key_from_password(password, iterations=iterations)
 
             self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
@@ -833,7 +971,6 @@ class PasswordManager:
 
             self.initialize_bip85()
             self.initialize_managers()
-            self.sync_index_from_nostr()
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
@@ -880,34 +1017,29 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 parent_seed=self.parent_seed,
                 bip85=self.bip85,
+                policy=self.config_manager.get_password_policy(),
             )
 
             # Load relay configuration and initialize NostrClient
             config = self.config_manager.load_config()
             relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            self.offline_mode = bool(config.get("offline_mode", False))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
             )
             self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
             self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
-
+            self.verbose_timing = bool(config.get("verbose_timing", False))
+            if not self.offline_mode:
+                print("Connecting to relays...")
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                offline_mode=self.offline_mode,
+                config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
-
-            if hasattr(self.nostr_client, "check_relay_health"):
-                healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
-                if healthy < MIN_HEALTHY_RELAYS:
-                    print(
-                        colored(
-                            f"Only {healthy} relay(s) responded with your latest event."
-                            " Consider adding more relays via Settings.",
-                            "yellow",
-                        )
-                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
@@ -918,6 +1050,7 @@ class PasswordManager:
 
     def sync_index_from_nostr(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
+        start = time.perf_counter()
         try:
             result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
             if not result:
@@ -925,49 +1058,127 @@ class PasswordManager:
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
             if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                    if deltas:
-                        encrypted = deltas[-1]
-                except ValueError:
-                    pass
+                version = int(manifest.delta_since)
+                deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                if deltas:
+                    encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
             if current != encrypted:
                 self.vault.decrypt_and_save_index_from_nostr(encrypted)
                 logger.info("Local database synchronized from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
+        finally:
+            if getattr(self, "verbose_timing", False):
+                duration = time.perf_counter() - start
+                logger.info("sync_index_from_nostr completed in %.2f seconds", duration)
+
+    def start_background_sync(self) -> None:
+        """Launch a thread to synchronize the vault without blocking the UI."""
+        if getattr(self, "offline_mode", False):
+            return
+        if (
+            hasattr(self, "_sync_thread")
+            and self._sync_thread
+            and self._sync_thread.is_alive()
+        ):
+            return
+
+        def _worker() -> None:
+            try:
+                if hasattr(self, "nostr_client") and hasattr(self, "vault"):
+                    self.sync_index_from_nostr_if_missing()
+                if hasattr(self, "sync_index_from_nostr"):
+                    self.sync_index_from_nostr()
+            except Exception as exc:
+                logger.warning(f"Background sync failed: {exc}")
+
+        self._sync_thread = threading.Thread(target=_worker, daemon=True)
+        self._sync_thread.start()
+
+    def start_background_relay_check(self) -> None:
+        """Check relay health in a background thread."""
+        if (
+            hasattr(self, "_relay_thread")
+            and self._relay_thread
+            and self._relay_thread.is_alive()
+        ):
+            return
+
+        def _worker() -> None:
+            try:
+                if getattr(self, "nostr_client", None) and hasattr(
+                    self.nostr_client, "check_relay_health"
+                ):
+                    healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
+                    if healthy < MIN_HEALTHY_RELAYS:
+                        self.notify(
+                            f"Only {healthy} relay(s) responded with your latest event. "
+                            "Consider adding more relays via Settings.",
+                            level="WARNING",
+                        )
+            except Exception as exc:
+                logger.warning(f"Relay health check failed: {exc}")
+
+        self._relay_thread = threading.Thread(target=_worker, daemon=True)
+        self._relay_thread.start()
+
+    def start_background_vault_sync(self, alt_summary: str | None = None) -> None:
+        """Publish the vault to Nostr in a background thread."""
+        if getattr(self, "offline_mode", False):
+            return
+
+        def _worker() -> None:
+            try:
+                self.sync_vault(alt_summary=alt_summary)
+            except Exception as exc:
+                logging.error(f"Background vault sync failed: {exc}", exc_info=True)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def sync_index_from_nostr_if_missing(self) -> None:
-        """Retrieve the password database from Nostr if it doesn't exist locally."""
+        """Retrieve the password database from Nostr if it doesn't exist locally.
+
+        If no valid data is found or decryption fails, initialize a fresh local
+        database and publish it to Nostr.
+        """
         index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
             return
+        have_data = False
         try:
             result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
             if result:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
                 if manifest.delta_since:
-                    try:
-                        version = int(manifest.delta_since)
-                        deltas = asyncio.run(
-                            self.nostr_client.fetch_deltas_since(version)
-                        )
-                        if deltas:
-                            encrypted = deltas[-1]
-                    except ValueError:
-                        pass
-                self.vault.decrypt_and_save_index_from_nostr(encrypted)
-                logger.info("Initialized local database from Nostr.")
+                    version = int(manifest.delta_since)
+                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                    if deltas:
+                        encrypted = deltas[-1]
+                try:
+                    self.vault.decrypt_and_save_index_from_nostr(encrypted)
+                    logger.info("Initialized local database from Nostr.")
+                    have_data = True
+                except Exception as err:
+                    logger.warning(
+                        f"Failed to decrypt Nostr data: {err}; treating as new account."
+                    )
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
+
+        if not have_data:
+            self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})
+            try:
+                self.sync_vault()
+            except Exception as exc:  # pragma: no cover - best effort
+                logger.warning(f"Unable to publish fresh database: {exc}")
 
     def handle_add_password(self) -> None:
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > Password",
                 parent_fingerprint=parent_fp,
@@ -1049,7 +1260,7 @@ class PasswordManager:
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info("Encrypted index posted to Nostr after entry addition.")
             except Exception as nostr_error:
                 logging.error(
@@ -1067,13 +1278,14 @@ class PasswordManager:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
-                fp,
-                "Main Menu > Add Entry > 2FA (TOTP)",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
             while True:
+                clear_header_with_notification(
+                    self,
+                    fp,
+                    "Main Menu > Add Entry > 2FA (TOTP)",
+                    parent_fingerprint=parent_fp,
+                    child_fingerprint=child_fp,
+                )
                 print("\nAdd TOTP:")
                 print("1. Make 2FA (derive from seed)")
                 print("2. Import 2FA (paste otpauth URI or secret)")
@@ -1123,7 +1335,7 @@ class PasswordManager:
                     TotpManager.print_qr_code(uri)
                     print(color_text(f"Secret: {secret}\n", "deterministic"))
                     try:
-                        self.sync_vault()
+                        self.start_background_vault_sync()
                     except Exception as nostr_error:
                         logging.error(
                             f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1172,7 +1384,7 @@ class PasswordManager:
                         )
                         TotpManager.print_qr_code(uri)
                         try:
-                            self.sync_vault()
+                            self.start_background_vault_sync()
                         except Exception as nostr_error:
                             logging.error(
                                 f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1195,7 +1407,8 @@ class PasswordManager:
         """Add an SSH key pair entry and display the derived keys."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > SSH Key",
                 parent_fingerprint=parent_fp,
@@ -1224,7 +1437,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("SSH key display cancelled.", "yellow"))
+                self.notify("SSH key display cancelled.", level="WARNING")
                 return
 
             print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
@@ -1235,7 +1448,7 @@ class PasswordManager:
             print(colored("Private Key:", "cyan"))
             print(color_text(priv_pem, "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1251,7 +1464,8 @@ class PasswordManager:
         """Add a derived BIP-39 seed phrase entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > Seed Phrase",
                 parent_fingerprint=parent_fp,
@@ -1283,7 +1497,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("Seed phrase display cancelled.", "yellow"))
+                self.notify("Seed phrase display cancelled.", level="WARNING")
                 return
 
             print(
@@ -1303,7 +1517,7 @@ class PasswordManager:
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1319,7 +1533,8 @@ class PasswordManager:
         """Add a PGP key entry and display the generated key."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > PGP Key",
                 parent_fingerprint=parent_fp,
@@ -1358,7 +1573,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("PGP key display cancelled.", "yellow"))
+                self.notify("PGP key display cancelled.", level="WARNING")
                 return
 
             print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
@@ -1369,7 +1584,7 @@ class PasswordManager:
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             print(color_text(priv_key, "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1385,7 +1600,8 @@ class PasswordManager:
         """Add a Nostr key entry and display the derived keys."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > Nostr Key Pair",
                 parent_fingerprint=parent_fp,
@@ -1425,7 +1641,7 @@ class PasswordManager:
             ):
                 TotpManager.print_qr_code(nsec)
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1441,7 +1657,8 @@ class PasswordManager:
         """Add a generic key/value entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > Key/Value",
                 parent_fingerprint=parent_fp,
@@ -1500,7 +1717,7 @@ class PasswordManager:
             else:
                 print(color_text(f"Value: {value}", "deterministic"))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1516,7 +1733,8 @@ class PasswordManager:
         """Add a managed account seed entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Add Entry > Managed Account",
                 parent_fingerprint=parent_fp,
@@ -1561,7 +1779,7 @@ class PasswordManager:
 
                     TotpManager.print_qr_code(encode_seedqr(seed))
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
             except Exception as nostr_error:  # pragma: no cover - best effort
                 logging.error(
                     f"Failed to post updated index to Nostr: {nostr_error}",
@@ -1613,7 +1831,16 @@ class PasswordManager:
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
         while True:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
+            clear_header_with_notification(
+                self,
+                fp,
+                "Entry Actions",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
             archived = entry.get("archived", entry.get("blacklisted", False))
+            entry_type = entry.get("type", EntryType.PASSWORD.value)
             print(colored("\n[+] Entry Actions:", "green"))
             if archived:
                 print(colored("U. Unarchive", "cyan"))
@@ -1624,7 +1851,12 @@ class PasswordManager:
             print(colored("H. Add Hidden Field", "cyan"))
             print(colored("E. Edit", "cyan"))
             print(colored("T. Edit Tags", "cyan"))
-            print(colored("Q. Show QR codes", "cyan"))
+            if entry_type in {
+                EntryType.SEED.value,
+                EntryType.MANAGED_ACCOUNT.value,
+                EntryType.NOSTR.value,
+            }:
+                print(colored("Q. Show QR codes", "cyan"))
 
             choice = (
                 input("Select an action or press Enter to return: ").strip().lower()
@@ -1692,6 +1924,14 @@ class PasswordManager:
         """Sub-menu for editing common entry fields."""
         entry_type = entry.get("type", EntryType.PASSWORD.value)
         while True:
+            fp, parent_fp, child_fp = self.header_fingerprint_args
+            clear_header_with_notification(
+                self,
+                fp,
+                "Edit Entry",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
             print(colored("\n[+] Edit Menu:", "green"))
             print(colored("L. Edit Label", "cyan"))
             if entry_type == EntryType.PASSWORD.value:
@@ -1761,6 +2001,14 @@ class PasswordManager:
 
             if entry_type == EntryType.NOSTR.value:
                 while True:
+                    fp, parent_fp, child_fp = self.header_fingerprint_args
+                    clear_header_with_notification(
+                        self,
+                        fp,
+                        "QR Codes",
+                        parent_fingerprint=parent_fp,
+                        child_fingerprint=child_fp,
+                    )
                     print(colored("\n[+] QR Codes:", "green"))
                     print(colored("P. Public key", "cyan"))
                     print(colored("K. Private key", "cyan"))
@@ -1787,7 +2035,7 @@ class PasswordManager:
                     entry = self.entry_manager.retrieve_entry(index) or entry
                 return
 
-            print(colored("No QR codes available for this entry.", "yellow"))
+            self.notify("No QR codes available for this entry.", level="WARNING")
         except Exception as e:  # pragma: no cover - best effort
             logging.error(f"Error displaying QR menu: {e}", exc_info=True)
             print(colored(f"Error: Failed to display QR codes: {e}", "red"))
@@ -1799,7 +2047,8 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Retrieve Entry",
                 parent_fingerprint=parent_fp,
@@ -1887,7 +2136,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("SSH key display cancelled.", "yellow"))
+                    self.notify("SSH key display cancelled.", level="WARNING")
                     return
                 try:
                     priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
@@ -1926,7 +2175,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("Seed phrase display cancelled.", "yellow"))
+                    self.notify("Seed phrase display cancelled.", level="WARNING")
                     return
                 try:
                     phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
@@ -1977,7 +2226,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("PGP key display cancelled.", "yellow"))
+                    self.notify("PGP key display cancelled.", level="WARNING")
                     return
                 try:
                     priv_key, fingerprint = self.entry_manager.get_pgp_key(
@@ -2169,11 +2418,9 @@ class PasswordManager:
             if url:
                 print(colored(f"URL: {url}", "cyan"))
             if blacklisted:
-                print(
-                    colored(
-                        f"Warning: This password is archived and should not be used.",
-                        "yellow",
-                    )
+                self.notify(
+                    "Warning: This password is archived and should not be used.",
+                    level="WARNING",
                 )
 
             password = self.password_generator.generate_password(length, index)
@@ -2252,7 +2499,8 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Modify Entry",
                 parent_fingerprint=parent_fp,
@@ -2306,8 +2554,9 @@ class PasswordManager:
                     if period_input.isdigit():
                         new_period = int(period_input)
                     else:
-                        print(
-                            colored("Invalid period value. Keeping current.", "yellow")
+                        self.notify(
+                            "Invalid period value. Keeping current.",
+                            level="WARNING",
                         )
                 digits_input = input(
                     f"Enter new digit count (current: {digits}): "
@@ -2317,11 +2566,9 @@ class PasswordManager:
                     if digits_input.isdigit():
                         new_digits = int(digits_input)
                     else:
-                        print(
-                            colored(
-                                "Invalid digits value. Keeping current.",
-                                "yellow",
-                            )
+                        self.notify(
+                            "Invalid digits value. Keeping current.",
+                            level="WARNING",
                         )
                 blacklist_input = (
                     input(
@@ -2337,11 +2584,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2428,11 +2673,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2533,11 +2776,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2590,7 +2831,7 @@ class PasswordManager:
 
             # Push the updated index to Nostr so changes are backed up.
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info(
                     "Encrypted index posted to Nostr after entry modification."
                 )
@@ -2613,7 +2854,8 @@ class PasswordManager:
         """Prompt for a query, list matches and optionally show details."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Search Entries",
                 parent_fingerprint=parent_fp,
@@ -2621,19 +2863,20 @@ class PasswordManager:
             )
             query = input("Enter search string: ").strip()
             if not query:
-                print(colored("No search string provided.", "yellow"))
+                self.notify("No search string provided.", level="WARNING")
                 pause()
                 return
 
             results = self.entry_manager.search_entries(query)
             if not results:
-                print(colored("No matching entries found.", "yellow"))
+                self.notify("No matching entries found.", level="WARNING")
                 pause()
                 return
 
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
+                    self,
                     fp,
                     "Main Menu > Search Entries",
                     parent_fingerprint=parent_fp,
@@ -2764,7 +3007,8 @@ class PasswordManager:
         try:
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
+                    self,
                     fp,
                     "Main Menu > List Entries",
                     parent_fingerprint=parent_fp,
@@ -2812,7 +3056,8 @@ class PasswordManager:
                     continue
                 while True:
                     fp, parent_fp, child_fp = self.header_fingerprint_args
-                    clear_and_print_fingerprint(
+                    clear_header_with_notification(
+                        self,
                         fp,
                         "Main Menu > List Entries",
                         parent_fingerprint=parent_fp,
@@ -2852,7 +3097,7 @@ class PasswordManager:
             if not confirm_action(
                 f"Are you sure you want to delete entry {index_to_delete}? (Y/N): "
             ):
-                print(colored("Deletion cancelled.", "yellow"))
+                self.notify("Deletion cancelled.", level="WARNING")
                 return
 
             self.entry_manager.delete_entry(index_to_delete)
@@ -2863,7 +3108,7 @@ class PasswordManager:
 
             # Push updated index to Nostr after deletion
             try:
-                self.sync_vault()
+                self.start_background_vault_sync()
                 logging.info("Encrypted index posted to Nostr after entry deletion.")
             except Exception as nostr_error:
                 logging.error(
@@ -2899,12 +3144,13 @@ class PasswordManager:
             archived = self.entry_manager.list_entries(include_archived=True)
             archived = [e for e in archived if e[4]]
             if not archived:
-                print(colored("No archived entries found.", "yellow"))
+                self.notify("No archived entries found.", level="WARNING")
                 pause()
                 return
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
+                    self,
                     fp,
                     "Main Menu > Archived Entries",
                     parent_fingerprint=parent_fp,
@@ -2961,7 +3207,8 @@ class PasswordManager:
         """Display all stored TOTP codes with a countdown progress bar."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > 2FA Codes",
                 parent_fingerprint=parent_fp,
@@ -2980,14 +3227,15 @@ class PasswordManager:
                     totp_list.append((label, int(idx_str), period, imported))
 
             if not totp_list:
-                print(colored("No 2FA entries found.", "yellow"))
+                self.notify("No 2FA entries found.", level="WARNING")
                 return
 
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
                 fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_and_print_fingerprint(
+                clear_header_with_notification(
+                    self,
                     fp,
                     "Main Menu > 2FA Codes",
                     parent_fingerprint=parent_fp,
@@ -3048,7 +3296,8 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Verify Script Checksum",
                 parent_fingerprint=parent_fp,
@@ -3058,11 +3307,9 @@ class PasswordManager:
             try:
                 verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
             except FileNotFoundError:
-                print(
-                    colored(
-                        "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
-                        "yellow",
-                    )
+                self.notify(
+                    "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
+                    level="WARNING",
                 )
                 logging.warning("Checksum file missing during verification.")
                 return
@@ -3085,11 +3332,12 @@ class PasswordManager:
     def handle_update_script_checksum(self) -> None:
         """Generate a new checksum for the manager script."""
         if not confirm_action("Generate new script checksum? (Y/N): "):
-            print(colored("Operation cancelled.", "yellow"))
+            self.notify("Operation cancelled.", level="WARNING")
             return
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Generate Script Checksum",
                 parent_fingerprint=parent_fp,
@@ -3154,6 +3402,8 @@ class PasswordManager:
     def sync_vault(self, alt_summary: str | None = None) -> str | None:
         """Publish the current vault contents to Nostr."""
         try:
+            if getattr(self, "offline_mode", False):
+                return None
             encrypted = self.get_encrypted_data()
             if not encrypted:
                 return None
@@ -3205,7 +3455,8 @@ class PasswordManager:
         """Export the current database to an encrypted portable file."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Export database",
                 parent_fingerprint=parent_fp,
@@ -3228,7 +3479,8 @@ class PasswordManager:
         """Import a portable database file, replacing the current index."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Import database",
                 parent_fingerprint=parent_fp,
@@ -3241,6 +3493,7 @@ class PasswordManager:
                 parent_seed=self.parent_seed,
             )
             print(colored("Database imported successfully.", "green"))
+            self.sync_vault()
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
             print(colored(f"Error: Failed to import database: {e}", "red"))
@@ -3249,7 +3502,8 @@ class PasswordManager:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Export 2FA codes",
                 parent_fingerprint=parent_fp,
@@ -3281,7 +3535,7 @@ class PasswordManager:
                     )
 
             if not totp_entries:
-                print(colored("No 2FA codes to export.", "yellow"))
+                self.notify("No 2FA codes to export.", level="WARNING")
                 return None
 
             dest_str = input(
@@ -3293,7 +3547,8 @@ class PasswordManager:
 
             if confirm_action("Encrypt export with a password? (Y/N): "):
                 password = prompt_new_password()
-                key = derive_key_from_password(password)
+                iterations = self.config_manager.get_kdf_iterations()
+                key = derive_key_from_password(password, iterations=iterations)
                 enc_mgr = EncryptionManager(key, dest.parent)
                 data_bytes = enc_mgr.encrypt_data(json_data.encode("utf-8"))
                 dest = dest.with_suffix(dest.suffix + ".enc")
@@ -3321,24 +3576,21 @@ class PasswordManager:
         """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_and_print_fingerprint(
+            clear_header_with_notification(
+                self,
                 fp,
                 "Main Menu > Settings > Backup Parent Seed",
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
-            print(
-                colored(
-                    "Warning: Revealing your parent seed is a highly sensitive operation.",
-                    "yellow",
-                )
+            self.notify(
+                "Warning: Revealing your parent seed is a highly sensitive operation.",
+                level="WARNING",
             )
-            print(
-                colored(
-                    "Ensure you're in a secure, private environment and no one is watching your screen.",
-                    "yellow",
-                )
+            self.notify(
+                "Ensure you're in a secure, private environment and no one is watching your screen.",
+                level="WARNING",
             )
 
             # Verify user's identity with secure password verification
@@ -3353,7 +3605,7 @@ class PasswordManager:
             if not confirm_action(
                 "Are you absolutely sure you want to reveal your parent seed? (Y/N): "
             ):
-                print(colored("Operation cancelled by user.", "yellow"))
+                self.notify("Operation cancelled by user.", level="WARNING")
                 return
 
             # Reveal the parent seed
@@ -3505,7 +3757,8 @@ class PasswordManager:
             # Create a new encryption manager with the new password
             new_key = derive_index_key(self.parent_seed)
 
-            seed_key = derive_key_from_password(new_password)
+            iterations = self.config_manager.get_kdf_iterations()
+            seed_key = derive_key_from_password(new_password, iterations=iterations)
             seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
 
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
@@ -3526,6 +3779,7 @@ class PasswordManager:
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
                 relays=relay_list,
+                config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
@@ -3605,29 +3859,12 @@ class PasswordManager:
 
         # Nostr sync info
         manifest = getattr(self.nostr_client, "current_manifest", None)
-        if manifest is None:
-            try:
-                result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
-                if result:
-                    manifest, _ = result
-            except Exception:
-                manifest = None
-
         if manifest is not None:
             stats["chunk_count"] = len(manifest.chunks)
             stats["delta_since"] = manifest.delta_since
-            delta_count = 0
-            if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                except ValueError:
-                    version = 0
-                try:
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                    delta_count = len(deltas)
-                except Exception:
-                    delta_count = 0
-            stats["pending_deltas"] = delta_count
+            stats["pending_deltas"] = len(
+                getattr(self.nostr_client, "_delta_events", [])
+            )
         else:
             stats["chunk_count"] = 0
             stats["delta_since"] = None
@@ -3675,4 +3912,6 @@ class PasswordManager:
         print(color_text(f"Snapshot chunks: {stats['chunk_count']}", "stats"))
         print(color_text(f"Pending deltas: {stats['pending_deltas']}", "stats"))
         if stats.get("delta_since"):
-            print(color_text(f"Latest delta id: {stats['delta_since']}", "stats"))
+            print(
+                color_text(f"Latest delta timestamp: {stats['delta_since']}", "stats")
+            )

@@ -4,6 +4,8 @@ import pytest
 
 from seedpass import api
 from test_api import client
+from helpers import dummy_nostr_client
+from nostr.client import NostrClient, DEFAULT_RELAYS
 
 
 def test_create_and_modify_totp_entry(client):
@@ -91,6 +93,19 @@ def test_create_and_modify_ssh_entry(client):
     assert res.status_code == 200
     assert calls["modify"][0] == 2
     assert calls["modify"][1]["notes"] == "x"
+
+
+def test_update_entry_error(client):
+    cl, token = client
+
+    def modify(*a, **k):
+        raise ValueError("nope")
+
+    api._pm.entry_manager.modify_entry = modify
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
+    assert res.status_code == 400
+    assert res.json() == {"detail": "nope"}
 
 
 def test_update_config_secret_mode(client):
@@ -218,6 +233,7 @@ def test_vault_import_via_path(client, tmp_path):
         called["path"] = path
 
     api._pm.handle_import_database = import_db
+    api._pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "b.json"
     file_path.write_text("{}")
 
@@ -230,6 +246,7 @@ def test_vault_import_via_path(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert called["path"] == file_path
+    assert called.get("sync") is True
 
 
 def test_vault_import_via_upload(client, tmp_path):
@@ -240,6 +257,7 @@ def test_vault_import_via_upload(client, tmp_path):
         called["path"] = path
 
     api._pm.handle_import_database = import_db
+    api._pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "c.json"
     file_path.write_text("{}")
 
@@ -253,6 +271,7 @@ def test_vault_import_via_upload(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert isinstance(called.get("path"), Path)
+    assert called.get("sync") is True
 
 
 def test_vault_lock_endpoint(client):
@@ -300,3 +319,85 @@ def test_secret_mode_endpoint(client):
     assert res.json() == {"status": "ok"}
     assert called["enabled"] is True
     assert called["delay"] == 12
+
+
+def test_vault_export_endpoint(client, tmp_path):
+    cl, token = client
+    out = tmp_path / "out.json"
+    out.write_text("data")
+
+    api._pm.handle_export_database = lambda: out
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 200
+    assert res.content == b"data"
+
+
+def test_backup_parent_seed_endpoint(client, tmp_path):
+    cl, token = client
+    called = {}
+
+    def backup(path=None):
+        called["path"] = path
+
+    api._pm.handle_backup_reveal_parent_seed = backup
+    path = tmp_path / "seed.enc"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": str(path)},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    assert called["path"] == path
+
+
+def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
+    cl, token = client
+    nostr_client, _ = dummy_nostr_client
+    relays = ["wss://a", "wss://b"]
+
+    def load_config(require_pin=False):
+        return {"relays": relays.copy()}
+
+    called = {}
+
+    def set_relays(new, require_pin=False):
+        called["set"] = new
+
+    api._pm.config_manager.load_config = load_config
+    api._pm.config_manager.set_relays = set_relays
+    monkeypatch.setattr(
+        NostrClient,
+        "initialize_client_pool",
+        lambda self: called.setdefault("init", True),
+    )
+    monkeypatch.setattr(
+        nostr_client, "close_client_pool", lambda: called.setdefault("close", True)
+    )
+    api._pm.nostr_client = nostr_client
+    api._pm.nostr_client.relays = relays.copy()
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = cl.get("/api/v1/relays", headers=headers)
+    assert res.status_code == 200
+    assert res.json() == {"relays": relays}
+
+    res = cl.post("/api/v1/relays", json={"url": "wss://c"}, headers=headers)
+    assert res.status_code == 200
+    assert called["set"] == ["wss://a", "wss://b", "wss://c"]
+
+    api._pm.config_manager.load_config = lambda require_pin=False: {
+        "relays": ["wss://a", "wss://b", "wss://c"]
+    }
+    res = cl.delete("/api/v1/relays/2", headers=headers)
+    assert res.status_code == 200
+    assert called["set"] == ["wss://a", "wss://c"]
+
+    res = cl.post("/api/v1/relays/reset", headers=headers)
+    assert res.status_code == 200
+    assert called.get("init") is True
+    assert api._pm.nostr_client.relays == list(DEFAULT_RELAYS)

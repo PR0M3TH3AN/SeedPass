@@ -74,6 +74,11 @@ def test_add_and_delete_entry(monkeypatch):
 
         inputs = iter([str(index)])
         monkeypatch.setattr("builtins.input", lambda *_a, **_k: next(inputs))
+        monkeypatch.setattr(
+            pm,
+            "start_background_vault_sync",
+            lambda *a, **k: pm.sync_vault(*a, **k),
+        )
 
         pm.delete_entry()
 

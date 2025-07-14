@@ -70,10 +70,11 @@ Manage the entire vault for a profile.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Export the vault | `vault export` | `seedpass vault export --file backup.json` |
-| Import a vault | `vault import` | `seedpass vault import --file backup.json` |
+| Import a vault | `vault import` | `seedpass vault import --file backup.json` *(also syncs with Nostr)* |
 | Change the master password | `vault change-password` | `seedpass vault change-password` |
 | Lock the vault | `vault lock` | `seedpass vault lock` |
 | Show profile statistics | `vault stats` | `seedpass vault stats` |
+| Reveal or back up the parent seed | `vault reveal-parent-seed` | `seedpass vault reveal-parent-seed --file backup.enc` |
 
 ### Nostr Commands
 
@@ -90,8 +91,9 @@ Manage profile‑specific settings.
 
 | Action | Command | Examples |
 | :--- | :--- | :--- |
-| Get a setting value | `config get` | `seedpass config get inactivity_timeout` |
-| Set a setting value | `config set` | `seedpass config set inactivity_timeout 300` |
+| Get a setting value | `config get` | `seedpass config get kdf_iterations` |
+| Set a setting value | `config set` | `seedpass config set backup_interval 3600` |
+| Toggle offline mode | `config toggle-offline` | `seedpass config toggle-offline` |
 
 ### Fingerprint Commands
 
@@ -157,10 +159,11 @@ Code: 123456
 ### `vault` Commands
 
 - **`seedpass vault export`** – Export the entire vault to an encrypted JSON file.
-- **`seedpass vault import`** – Import a vault from an encrypted JSON file.
+- **`seedpass vault import`** – Import a vault from an encrypted JSON file and automatically sync via Nostr.
 - **`seedpass vault change-password`** – Change the master password used for encryption.
 - **`seedpass vault lock`** – Clear sensitive data from memory and require reauthentication.
 - **`seedpass vault stats`** – Display statistics about the active seed profile.
+- **`seedpass vault reveal-parent-seed`** – Print the parent seed or write an encrypted backup with `--file`.
 
 ### `nostr` Commands
 
@@ -169,9 +172,10 @@ Code: 123456
 
 ### `config` Commands
 
-- **`seedpass config get <key>`** – Retrieve a configuration value such as `inactivity_timeout`, `secret_mode`, or `auto_sync`.
-- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set inactivity_timeout 300`.
+- **`seedpass config get <key>`** – Retrieve a configuration value such as `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, `relays`, `quick_unlock`, `nostr_max_retries`, `nostr_retry_delay`, or password policy fields like `min_uppercase`.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`. Use keys like `min_uppercase`, `min_lowercase`, `min_digits`, `min_special`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` to adjust settings.
 - **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
+- **`seedpass config toggle-offline`** – Enable or disable offline mode to skip Nostr operations.
 
 ### `fingerprint` Commands
 
@@ -206,5 +210,6 @@ Shut down the server with `seedpass api stop`.
 
 - Use the `--help` flag for details on any command.
 - Set a strong master password and regularly export encrypted backups.
-- Adjust configuration values like `inactivity_timeout` or `secret_mode` through the `config` commands.
+- Adjust configuration values like `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` through the `config` commands.
+- Customize password complexity with `config set min_uppercase 3`, `config set min_digits 4`, and similar commands.
 - `entry get` is script‑friendly and can be piped into other commands.

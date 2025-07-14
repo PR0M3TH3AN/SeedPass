@@ -14,6 +14,12 @@ runner = CliRunner()
         ("secret_mode_enabled", "true", "set_secret_mode_enabled", True),
         ("clipboard_clear_delay", "10", "set_clipboard_clear_delay", 10),
         ("additional_backup_path", "", "set_additional_backup_path", None),
+        ("backup_interval", "5", "set_backup_interval", 5.0),
+        ("kdf_iterations", "123", "set_kdf_iterations", 123),
+        ("kdf_mode", "argon2", "set_kdf_mode", "argon2"),
+        ("quick_unlock", "true", "set_quick_unlock", True),
+        ("nostr_max_retries", "3", "set_nostr_max_retries", 3),
+        ("nostr_retry_delay", "1.5", "set_nostr_retry_delay", 1.5),
         (
             "relays",
             "wss://a.com, wss://b.com",

@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+import queue
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -37,6 +38,7 @@ def test_archive_entry_from_retrieve(monkeypatch):
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.secret_mode_enabled = False
+        pm.notifications = queue.Queue()
 
         index = entry_mgr.add_entry("example.com", 8)
 
@@ -68,6 +70,7 @@ def test_restore_entry_from_retrieve(monkeypatch):
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.secret_mode_enabled = False
+        pm.notifications = queue.Queue()
 
         index = entry_mgr.add_entry("example.com", 8)
         entry_mgr.archive_entry(index)

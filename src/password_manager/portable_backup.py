@@ -74,7 +74,7 @@ def export_backup(
         "created_at": int(time.time()),
         "fingerprint": vault.fingerprint_dir.name,
         "encryption_mode": PortableMode.SEED_ONLY.value,
-        "cipher": "fernet",
+        "cipher": "aes-gcm",
         "checksum": checksum,
         "payload": base64.b64encode(payload_bytes).decode("utf-8"),
     }
@@ -90,7 +90,11 @@ def export_backup(
         enc_file.write_bytes(encrypted)
         os.chmod(enc_file, 0o600)
         try:
-            client = NostrClient(vault.encryption_manager, vault.fingerprint_dir.name)
+            client = NostrClient(
+                vault.encryption_manager,
+                vault.fingerprint_dir.name,
+                config_manager=backup_manager.config_manager,
+            )
             asyncio.run(client.publish_snapshot(encrypted))
         except Exception:
             logger.error("Failed to publish backup via Nostr", exc_info=True)

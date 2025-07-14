@@ -1,0 +1,12 @@
+site:
+  title: "SeedPass Docs"
+  description: "One seed to rule them all."
+
+navigation:
+  search: true
+
+footer:
+  links:
+    - text: "SeedPass"
+      url: "https://seedpass.me/"
+

@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cryptography.fernet import Fernet
+import os
+import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -24,7 +25,7 @@ def test_generate_fingerprint_deterministic():
 
 def test_encryption_round_trip():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
+        key = base64.urlsafe_b64encode(os.urandom(32))
         manager = EncryptionManager(key, Path(tmpdir))
         data = b"secret data"
         rel_path = Path("testfile.enc")

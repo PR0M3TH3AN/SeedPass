@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{% if config.theme.darkMode %}dark{% else %}light{% endif %}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title | default(config.site.title) }}</title>
+  <link rel="stylesheet" href="/assets/theme.css" />
+</head>
+<body>
+  {% include "partials/header.njk" %}
+  <div id="sidebar-overlay" class="sidebar-overlay"></div>
+  <div class="container">
+    {% include "partials/sidebar.njk" %}
+    <main id="content">
+      <nav id="breadcrumbs" class="breadcrumbs"></nav>
+      {{ content | safe }}
+    </main>
+  </div>
+  {% include "partials/footer.njk" %}
+  <script src="/assets/lunr.js"></script>
+  <script src="/assets/theme.js"></script>
+</body>
+</html>

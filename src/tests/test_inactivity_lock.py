@@ -34,6 +34,8 @@ def test_inactivity_triggers_lock(monkeypatch):
         update_activity=update_activity,
         lock_vault=lock_vault,
         unlock_vault=unlock_vault,
+        start_background_sync=lambda: None,
+        start_background_relay_check=lambda: None,
     )
 
     monkeypatch.setattr(main, "timed_input", lambda *_: "")
@@ -70,6 +72,8 @@ def test_input_timeout_triggers_lock(monkeypatch):
         update_activity=update_activity,
         lock_vault=lock_vault,
         unlock_vault=unlock_vault,
+        start_background_sync=lambda: None,
+        start_background_relay_check=lambda: None,
     )
 
     responses = iter([TimeoutError(), ""])

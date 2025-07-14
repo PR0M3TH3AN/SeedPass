@@ -3,8 +3,8 @@ import json
 import gzip
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from cryptography.fernet import Fernet
 import base64
+import os
 import asyncio
 from unittest.mock import patch
 
@@ -82,7 +82,9 @@ def test_fetch_latest_snapshot():
 
     client = DummyClient(events)
     with TemporaryDirectory() as tmpdir:
-        enc_mgr = EncryptionManager(Fernet.generate_key(), Path(tmpdir))
+        enc_mgr = EncryptionManager(
+            base64.urlsafe_b64encode(os.urandom(32)), Path(tmpdir)
+        )
         with patch("nostr.client.Client", lambda signer: client), patch(
             "nostr.client.KeyManager"
         ) as MockKM, patch.object(NostrClient, "initialize_client_pool"), patch.object(

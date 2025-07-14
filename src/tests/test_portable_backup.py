@@ -43,6 +43,8 @@ def test_round_trip(monkeypatch):
 
         path = export_backup(vault, backup, parent_seed=SEED)
         assert path.exists()
+        wrapper = json.loads(path.read_text())
+        assert wrapper.get("cipher") == "aes-gcm"
 
         vault.save_index({"pw": 0})
         import_backup(vault, backup, path, parent_seed=SEED)

@@ -12,6 +12,22 @@ runner = CliRunner()
     "command,method,cli_args,expected_args,expected_kwargs,stdout",
     [
         (
+            "add",
+            "add_entry",
+            [
+                "Label",
+                "--length",
+                "16",
+                "--username",
+                "user",
+                "--url",
+                "https://example.com",
+            ],
+            ("Label", 16, "user", "https://example.com"),
+            {},
+            "1",
+        ),
+        (
             "add-totp",
             "add_totp",
             [
@@ -99,10 +115,14 @@ def test_entry_add_commands(
         called["kwargs"] = kwargs
         return stdout
 
+    def sync_vault():
+        called["sync"] = True
+
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(**{method: func}),
         parent_seed="seed",
         select_fingerprint=lambda fp: None,
+        sync_vault=sync_vault,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", command] + cli_args)
@@ -110,3 +130,4 @@ def test_entry_add_commands(
     assert stdout in result.stdout
     assert called["args"] == expected_args
     assert called["kwargs"] == expected_kwargs
+    assert called.get("sync") is True

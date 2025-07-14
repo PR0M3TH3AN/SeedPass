@@ -88,7 +88,9 @@ def test_vault_import(monkeypatch, tmp_path):
         called["path"] = path
 
     pm = SimpleNamespace(
-        handle_import_database=import_db, select_fingerprint=lambda fp: None
+        handle_import_database=import_db,
+        select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     in_path = tmp_path / "in.json"
@@ -96,6 +98,29 @@ def test_vault_import(monkeypatch, tmp_path):
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
     assert called["path"] == in_path
+
+
+def test_vault_import_triggers_sync(monkeypatch, tmp_path):
+    called = {}
+
+    def import_db(path):
+        called["path"] = path
+
+    def sync():
+        called["sync"] = True
+
+    pm = SimpleNamespace(
+        handle_import_database=import_db,
+        sync_vault=sync,
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    in_path = tmp_path / "in.json"
+    in_path.write_text("{}")
+    result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
+    assert result.exit_code == 0
+    assert called["path"] == in_path
+    assert called.get("sync") is True
 
 
 def test_vault_change_password(monkeypatch):
@@ -307,6 +332,21 @@ def test_api_start_passes_fingerprint(monkeypatch):
     assert called.get("fp") == "abc"
 
 
+def test_entry_list_passes_fingerprint(monkeypatch):
+    """Ensure entry commands receive the fingerprint."""
+    called = {}
+
+    class PM:
+        def __init__(self, fingerprint=None):
+            called["fp"] = fingerprint
+            self.entry_manager = SimpleNamespace(list_entries=lambda *a, **k: [])
+
+    monkeypatch.setattr(cli, "PasswordManager", PM)
+    result = runner.invoke(app, ["--fingerprint", "abc", "entry", "list"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+
+
 def test_entry_add(monkeypatch):
     called = {}
 
@@ -317,6 +357,7 @@ def test_entry_add(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(add_entry=add_entry),
         select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(
@@ -347,11 +388,27 @@ def test_entry_modify(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
         select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
     assert result.exit_code == 0
     assert called["args"][:5] == (1, "alice", None, None, None)
+
+
+def test_entry_modify_invalid(monkeypatch):
+    def modify_entry(*a, **k):
+        raise ValueError("bad")
+
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(modify_entry=modify_entry),
+        select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
+    assert result.exit_code == 1
+    assert "bad" in result.stdout
 
 
 def test_entry_archive(monkeypatch):
@@ -363,6 +420,7 @@ def test_entry_archive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(archive_entry=archive_entry),
         select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "archive", "3"])
@@ -380,6 +438,7 @@ def test_entry_unarchive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(restore_entry=restore_entry),
         select_fingerprint=lambda fp: None,
+        sync_vault=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "unarchive", "4"])
@@ -447,3 +506,21 @@ def test_update_checksum_command(monkeypatch):
     result = runner.invoke(app, ["util", "update-checksum"])
     assert result.exit_code == 0
     assert called.get("called") is True
+
+
+def test_tui_forward_fingerprint(monkeypatch):
+    """Ensure --fingerprint is forwarded when launching the TUI."""
+    called = {}
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    fake_mod = SimpleNamespace(main=fake_main)
+    monkeypatch.setattr(
+        cli, "importlib", SimpleNamespace(import_module=lambda n: fake_mod)
+    )
+
+    result = runner.invoke(app, ["--fingerprint", "abc"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"

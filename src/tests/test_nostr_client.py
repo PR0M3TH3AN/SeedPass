@@ -4,7 +4,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 import json
 import asyncio
-from cryptography.fernet import Fernet
+import os
+import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -15,7 +16,7 @@ import nostr.client as nostr_client
 
 def test_nostr_client_uses_custom_relays():
     with TemporaryDirectory() as tmpdir:
-        key = Fernet.generate_key()
+        key = base64.urlsafe_b64encode(os.urandom(32))
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         custom_relays = ["wss://relay1", "wss://relay2"]
 
@@ -73,7 +74,7 @@ class FakeWebSocket:
 
 
 def _setup_client(tmpdir, fake_cls):
-    key = Fernet.generate_key()
+    key = base64.urlsafe_b64encode(os.urandom(32))
     enc_mgr = EncryptionManager(key, Path(tmpdir))
 
     with patch("nostr.client.Client", fake_cls), patch(
@@ -88,6 +89,7 @@ def _setup_client(tmpdir, fake_cls):
 def test_initialize_client_pool_add_relays_used(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelaysClient)
     fc = client.client
+    client.connect()
     assert fc.added == [client.relays]
     assert fc.connected is True
 
@@ -95,6 +97,7 @@ def test_initialize_client_pool_add_relays_used(tmp_path):
 def test_initialize_client_pool_add_relay_fallback(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelayClient)
     fc = client.client
+    client.connect()
     assert fc.added == client.relays
     assert fc.connected is True
 
@@ -128,3 +131,23 @@ def test_ping_relay_accepts_eose(tmp_path, monkeypatch):
     result = asyncio.run(client._ping_relay("wss://relay", timeout=0.1))
 
     assert result is True
+
+
+def test_update_relays_reinitializes_pool(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    monkeypatch.setattr(nostr_client, "Client", FakeAddRelaysClient)
+
+    called = {"ran": False}
+
+    def fake_init(self):
+        called["ran"] = True
+
+    monkeypatch.setattr(NostrClient, "initialize_client_pool", fake_init)
+
+    new_relays = ["wss://relay1"]
+    client.update_relays(new_relays)
+
+    assert called["ran"] is True
+    assert isinstance(client.client, FakeAddRelaysClient)
+    assert client.relays == new_relays

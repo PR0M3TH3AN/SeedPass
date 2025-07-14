@@ -23,6 +23,8 @@ def test_config_defaults_and_round_trip():
         assert cfg["pin_hash"] == ""
         assert cfg["password_hash"] == ""
         assert cfg["additional_backup_path"] == ""
+        assert cfg["quick_unlock"] is False
+        assert cfg["kdf_iterations"] == 50_000
 
         cfg_mgr.set_pin("1234")
         cfg_mgr.set_relays(["wss://example.com"], require_pin=False)
@@ -146,3 +148,51 @@ def test_secret_mode_round_trip():
         cfg2 = cfg_mgr.load_config(require_pin=False)
         assert cfg2["secret_mode_enabled"] is True
         assert cfg2["clipboard_clear_delay"] == 99
+
+
+def test_kdf_iterations_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        assert cfg_mgr.get_kdf_iterations() == 50_000
+
+        cfg_mgr.set_kdf_iterations(200_000)
+        assert cfg_mgr.get_kdf_iterations() == 200_000
+
+
+def test_backup_interval_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        assert cfg_mgr.get_backup_interval() == 0
+
+        cfg_mgr.set_backup_interval(15)
+        assert cfg_mgr.get_backup_interval() == 15
+
+
+def test_quick_unlock_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        assert cfg_mgr.get_quick_unlock() is False
+
+        cfg_mgr.set_quick_unlock(True)
+        assert cfg_mgr.get_quick_unlock() is True
+
+
+def test_nostr_retry_settings_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["nostr_max_retries"] == 2
+        assert cfg["nostr_retry_delay"] == 1.0
+
+        cfg_mgr.set_nostr_max_retries(5)
+        cfg_mgr.set_nostr_retry_delay(3.5)
+        assert cfg_mgr.get_nostr_max_retries() == 5
+        assert cfg_mgr.get_nostr_retry_delay() == 3.5

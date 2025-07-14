@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 import hashlib
 import asyncio
 import gzip
@@ -27,7 +27,11 @@ from nostr_sdk import EventId, Timestamp
 from .key_manager import KeyManager as SeedPassKeyManager
 from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
 from password_manager.encryption import EncryptionManager
+from constants import MAX_RETRIES, RETRY_DELAY
 from utils.file_lock import exclusive_lock
+
+if TYPE_CHECKING:  # pragma: no cover - imported for type hints
+    from password_manager.config_manager import ConfigManager
 
 # Backwards compatibility for tests that patch these symbols
 KeyManager = SeedPassKeyManager
@@ -90,10 +94,14 @@ class NostrClient:
         fingerprint: str,
         relays: Optional[List[str]] = None,
         parent_seed: Optional[str] = None,
+        offline_mode: bool = False,
+        config_manager: Optional["ConfigManager"] = None,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
         self.fingerprint_dir = self.encryption_manager.fingerprint_dir
+        self.config_manager = config_manager
+        self.verbose_timing = False
 
         if parent_seed is None:
             parent_seed = self.encryption_manager.decrypt_parent_seed()
@@ -110,32 +118,62 @@ class NostrClient:
         except Exception:
             self.keys = Keys.generate()
 
-        self.relays = relays if relays else DEFAULT_RELAYS
+        self.offline_mode = offline_mode
+        if relays is None:
+            self.relays = [] if offline_mode else DEFAULT_RELAYS
+        else:
+            self.relays = relays
+
+        if self.config_manager is not None:
+            try:
+                self.verbose_timing = self.config_manager.get_verbose_timing()
+            except Exception:
+                self.verbose_timing = False
 
         # store the last error encountered during network operations
         self.last_error: Optional[str] = None
 
         self.delta_threshold = 100
         self.current_manifest: Manifest | None = None
+        self.current_manifest_id: str | None = None
         self._delta_events: list[str] = []
 
         # Configure and initialize the nostr-sdk Client
         signer = NostrSigner.keys(self.keys)
         self.client = Client(signer)
 
-        self.initialize_client_pool()
+        self._connected = False
+
+    def connect(self) -> None:
+        """Connect the client to all configured relays."""
+        if self.offline_mode or not self.relays:
+            return
+        if not self._connected:
+            self.initialize_client_pool()
 
     def initialize_client_pool(self) -> None:
         """Add relays to the client and connect."""
+        if self.offline_mode or not self.relays:
+            return
         asyncio.run(self._initialize_client_pool())
 
+    async def _connect_async(self) -> None:
+        """Ensure the client is connected within an async context."""
+        if self.offline_mode or not self.relays:
+            return
+        if not self._connected:
+            await self._initialize_client_pool()
+
     async def _initialize_client_pool(self) -> None:
+        if self.offline_mode or not self.relays:
+            return
         if hasattr(self.client, "add_relays"):
             await self.client.add_relays(self.relays)
         else:
             for relay in self.relays:
                 await self.client.add_relay(relay)
         await self.client.connect()
+        self._connected = True
         logger.info(f"NostrClient connected to relays: {self.relays}")
 
     async def _ping_relay(self, relay: str, timeout: float) -> bool:
@@ -170,6 +208,8 @@ class NostrClient:
 
     def check_relay_health(self, min_relays: int = 2, timeout: float = 5.0) -> int:
         """Ping relays and return the count of those providing data."""
+        if self.offline_mode or not self.relays:
+            return 0
         return asyncio.run(self._check_relay_health(min_relays, timeout))
 
     def publish_json_to_nostr(
@@ -190,6 +230,9 @@ class NostrClient:
             If provided, include an ``alt`` tag so uploads can be
             associated with a specific event like a password change.
         """
+        if self.offline_mode or not self.relays:
+            return None
+        self.connect()
         self.last_error = None
         try:
             content = base64.b64encode(encrypted_json).decode("utf-8")
@@ -221,9 +264,15 @@ class NostrClient:
 
     def publish_event(self, event):
         """Publish a prepared event to the configured relays."""
+        if self.offline_mode or not self.relays:
+            return None
+        self.connect()
         return asyncio.run(self._publish_event(event))
 
     async def _publish_event(self, event):
+        if self.offline_mode or not self.relays:
+            return None
+        await self._connect_async()
         return await self.client.send_event(event)
 
     def update_relays(self, new_relays: List[str]) -> None:
@@ -232,12 +281,33 @@ class NostrClient:
         self.relays = new_relays
         signer = NostrSigner.keys(self.keys)
         self.client = Client(signer)
+        self._connected = False
+        # Immediately reconnect using the updated relay list
         self.initialize_client_pool()
 
     def retrieve_json_from_nostr_sync(
-        self, retries: int = 0, delay: float = 2.0
+        self, retries: int | None = None, delay: float | None = None
     ) -> Optional[bytes]:
         """Retrieve the latest Kind 1 event from the author with optional retries."""
+        if self.offline_mode or not self.relays:
+            return None
+
+        if retries is None or delay is None:
+            if self.config_manager is None:
+                from password_manager.config_manager import ConfigManager
+                from password_manager.vault import Vault
+
+                cfg_mgr = ConfigManager(
+                    Vault(self.encryption_manager, self.fingerprint_dir),
+                    self.fingerprint_dir,
+                )
+            else:
+                cfg_mgr = self.config_manager
+            cfg = cfg_mgr.load_config(require_pin=False)
+            retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
+            delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
+
+        self.connect()
         self.last_error = None
         attempt = 0
         while True:
@@ -255,6 +325,9 @@ class NostrClient:
         return None
 
     async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
+        if self.offline_mode or not self.relays:
+            return None
+        await self._connect_async()
         # Filter for the latest text note (Kind 1) from our public key
         pubkey = self.keys.public_key()
         f = Filter().author(pubkey).kind(Kind.from_std(KindStandard.TEXT_NOTE)).limit(1)
@@ -288,6 +361,10 @@ class NostrClient:
             Maximum chunk size in bytes. Defaults to 50 kB.
         """
 
+        start = time.perf_counter()
+        if self.offline_mode or not self.relays:
+            return Manifest(ver=1, algo="gzip", chunks=[]), ""
+        await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
         for meta, chunk in zip(manifest.chunks, chunks):
             content = base64.b64encode(chunk).decode("utf-8")
@@ -314,11 +391,20 @@ class NostrClient:
         result = await self.client.send_event(manifest_event)
         manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
         self.current_manifest = manifest
+        self.current_manifest_id = manifest_id
+        # Record when this snapshot was published for future delta events
+        self.current_manifest.delta_since = int(time.time())
         self._delta_events = []
+        if getattr(self, "verbose_timing", False):
+            duration = time.perf_counter() - start
+            logger.info("publish_snapshot completed in %.2f seconds", duration)
         return manifest, manifest_id
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
         """Retrieve the latest manifest and all snapshot chunks."""
+        if self.offline_mode or not self.relays:
+            return None
+        await self._connect_async()
 
         pubkey = self.keys.public_key()
         f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).limit(1)
@@ -326,13 +412,18 @@ class NostrClient:
         events = (await self.client.fetch_events(f, timeout)).to_vec()
         if not events:
             return None
-        manifest_raw = events[0].content()
+        manifest_event = events[0]
+        manifest_raw = manifest_event.content()
         data = json.loads(manifest_raw)
         manifest = Manifest(
             ver=data["ver"],
             algo=data["algo"],
             chunks=[ChunkMeta(**c) for c in data["chunks"]],
-            delta_since=data.get("delta_since"),
+            delta_since=(
+                int(data["delta_since"])
+                if data.get("delta_since") is not None
+                else None
+            ),
         )
 
         chunks: list[bytes] = []
@@ -353,10 +444,17 @@ class NostrClient:
             chunks.append(chunk_bytes)
 
         self.current_manifest = manifest
+        man_id = getattr(manifest_event, "id", None)
+        if hasattr(man_id, "to_hex"):
+            man_id = man_id.to_hex()
+        self.current_manifest_id = man_id
         return manifest, chunks
 
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
         """Publish a delta event referencing a manifest."""
+        if self.offline_mode or not self.relays:
+            return ""
+        await self._connect_async()
 
         content = base64.b64encode(delta_bytes).decode("utf-8")
         tag = Tag.event(EventId.parse(manifest_id))
@@ -364,13 +462,36 @@ class NostrClient:
         event = builder.build(self.keys.public_key()).sign_with_keys(self.keys)
         result = await self.client.send_event(event)
         delta_id = result.id.to_hex() if hasattr(result, "id") else str(result)
+        created_at = getattr(
+            event, "created_at", getattr(event, "timestamp", int(time.time()))
+        )
+        if hasattr(created_at, "secs"):
+            created_at = created_at.secs
         if self.current_manifest is not None:
-            self.current_manifest.delta_since = delta_id
+            self.current_manifest.delta_since = int(created_at)
+            manifest_json = json.dumps(
+                {
+                    "ver": self.current_manifest.ver,
+                    "algo": self.current_manifest.algo,
+                    "chunks": [meta.__dict__ for meta in self.current_manifest.chunks],
+                    "delta_since": self.current_manifest.delta_since,
+                }
+            )
+            manifest_event = (
+                EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+                .tags([Tag.identifier(self.current_manifest_id)])
+                .build(self.keys.public_key())
+                .sign_with_keys(self.keys)
+            )
+            await self.client.send_event(manifest_event)
         self._delta_events.append(delta_id)
         return delta_id
 
     async def fetch_deltas_since(self, version: int) -> list[bytes]:
         """Retrieve delta events newer than the given version."""
+        if self.offline_mode or not self.relays:
+            return []
+        await self._connect_async()
 
         pubkey = self.keys.public_key()
         f = (
@@ -409,6 +530,7 @@ class NostrClient:
         """Disconnects the client from all relays."""
         try:
             asyncio.run(self.client.disconnect())
+            self._connected = False
             logger.info("NostrClient disconnected from relays.")
         except Exception as e:
             logger.error("Error during NostrClient shutdown: %s", e)

@@ -1,4 +1,6 @@
 import sys
+import time
+import json
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -161,6 +163,7 @@ class DummySendResult:
 class DummyRelayClient:
     def __init__(self):
         self.counter = 0
+        self.ts_counter = 0
         self.manifests: list[DummyEvent] = []
         self.chunks: dict[str, DummyEvent] = {}
         self.deltas: list[DummyEvent] = []
@@ -183,11 +186,19 @@ class DummyRelayClient:
         if isinstance(event, DummyEvent):
             event.id = eid
         if event.kind == KIND_MANIFEST:
+            try:
+                data = json.loads(event.content())
+                event.delta_since = data.get("delta_since")
+            except Exception:
+                event.delta_since = None
             self.manifests.append(event)
         elif event.kind == KIND_SNAPSHOT_CHUNK:
             ident = event.tags[0] if event.tags else str(self.counter)
             self.chunks[ident] = event
         elif event.kind == KIND_DELTA:
+            if not hasattr(event, "created_at"):
+                self.ts_counter += 1
+                event.created_at = self.ts_counter
             self.deltas.append(event)
         return DummySendResult(eid)
 

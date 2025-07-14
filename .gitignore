@@ -33,3 +33,11 @@ coverage.xml
 # Other
 .hypothesis
 totp_export.json.enc
+
+# src
+
+src/seedpass.egg-info/PKG-INFO
+src/seedpass.egg-info/SOURCES.txt
+src/seedpass.egg-info/dependency_links.txt
+src/seedpass.egg-info/entry_points.txt
+src/seedpass.egg-info/top_level.txt

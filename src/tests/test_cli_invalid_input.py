@@ -46,6 +46,8 @@ def _make_pm(called, locked=None):
         update_activity=update,
         lock_vault=lock,
         unlock_vault=unlock,
+        start_background_sync=lambda: None,
+        start_background_relay_check=lambda: None,
     )
     return pm, locked
 

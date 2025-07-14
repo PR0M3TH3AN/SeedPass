@@ -15,7 +15,14 @@ completely deterministic passwords from a BIP-85 seed, ensuring that passwords a
 the same way every time. Salts would break this functionality and are not suitable for this software.
 """
 
-import json
+try:
+    import orjson as json_lib  # type: ignore
+
+    USE_ORJSON = True
+except Exception:  # pragma: no cover - fallback when orjson is missing
+    import json as json_lib
+
+    USE_ORJSON = False
 import logging
 import hashlib
 import sys
@@ -28,6 +35,7 @@ from password_manager.migrations import LATEST_VERSION
 from password_manager.entry_types import EntryType
 from password_manager.totp import TotpManager
 from utils.fingerprint import generate_fingerprint
+from utils.checksum import canonical_json_dumps
 
 from password_manager.vault import Vault
 from password_manager.backup import BackupManager
@@ -53,9 +61,18 @@ class EntryManager:
         self.index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         self.checksum_file = self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
 
+        self._index_cache: dict | None = None
+
         logger.debug(f"EntryManager initialized with index file at {self.index_file}")
 
-    def _load_index(self) -> Dict[str, Any]:
+    def clear_cache(self) -> None:
+        """Clear the cached index data."""
+        self._index_cache = None
+
+    def _load_index(self, force_reload: bool = False) -> Dict[str, Any]:
+        if not force_reload and self._index_cache is not None:
+            return self._index_cache
+
         if self.index_file.exists():
             try:
                 data = self.vault.load_index()
@@ -81,6 +98,7 @@ class EntryManager:
                         entry.pop("words", None)
                     entry.setdefault("tags", [])
                 logger.debug("Index loaded successfully.")
+                self._index_cache = data
                 return data
             except Exception as e:
                 logger.error(f"Failed to load index: {e}")
@@ -89,11 +107,14 @@ class EntryManager:
             logger.info(
                 f"Index file '{self.index_file}' not found. Initializing new entries database."
             )
-            return {"schema_version": LATEST_VERSION, "entries": {}}
+            data = {"schema_version": LATEST_VERSION, "entries": {}}
+            self._index_cache = data
+            return data
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
             self.vault.save_index(data)
+            self._index_cache = data
             logger.debug("Index saved successfully.")
         except Exception as e:
             logger.error(f"Failed to save index: {e}")
@@ -106,7 +127,7 @@ class EntryManager:
         :return: The next index number as an integer.
         """
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             if "entries" in data and isinstance(data["entries"], dict):
                 indices = [int(idx) for idx in data["entries"].keys()]
                 next_index = max(indices) + 1 if indices else 0
@@ -143,7 +164,7 @@ class EntryManager:
         """
         try:
             index = self.get_next_index()
-            data = self.vault.load_index()
+            data = self._load_index()
 
             data.setdefault("entries", {})
             data["entries"][str(index)] = {
@@ -177,7 +198,7 @@ class EntryManager:
 
     def get_next_totp_index(self) -> int:
         """Return the next available derivation index for TOTP secrets."""
-        data = self.vault.load_index()
+        data = self._load_index()
         entries = data.get("entries", {})
         indices = [
             int(v.get("index", 0))
@@ -204,7 +225,7 @@ class EntryManager:
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
 
         if secret is None:
@@ -266,7 +287,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.SSH.value,
@@ -312,7 +333,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.PGP.value,
@@ -364,7 +385,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.NOSTR.value,
@@ -394,7 +415,7 @@ class EntryManager:
 
         index = self.get_next_index()
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.KEY_VALUE.value,
@@ -452,7 +473,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.SEED.value,
@@ -524,7 +545,7 @@ class EntryManager:
         account_dir = self.fingerprint_dir / "accounts" / fingerprint
         account_dir.mkdir(parents=True, exist_ok=True)
 
-        data = self.vault.load_index()
+        data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
             "type": EntryType.MANAGED_ACCOUNT.value,
@@ -599,7 +620,7 @@ class EntryManager:
 
     def export_totp_entries(self, parent_seed: str) -> dict[str, list[dict[str, Any]]]:
         """Return all TOTP secrets and metadata for external use."""
-        data = self.vault.load_index()
+        data = self._load_index()
         entries = data.get("entries", {})
         exported: list[dict[str, Any]] = []
         for entry in entries.values():
@@ -649,7 +670,7 @@ class EntryManager:
         :return: A dictionary containing the entry details or None if not found.
         """
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             entry = data.get("entries", {}).get(str(index))
 
             if entry:
@@ -706,7 +727,7 @@ class EntryManager:
         :param value: (Optional) New value for key/value entries.
         """
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             entry = data.get("entries", {}).get(str(index))
 
             if not entry:
@@ -722,6 +743,93 @@ class EntryManager:
                 return
 
             entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+
+            provided_fields = {
+                "username": username,
+                "url": url,
+                "archived": archived,
+                "notes": notes,
+                "label": label,
+                "period": period,
+                "digits": digits,
+                "value": value,
+                "custom_fields": custom_fields,
+                "tags": tags,
+            }
+
+            allowed = {
+                EntryType.PASSWORD.value: {
+                    "username",
+                    "url",
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.TOTP.value: {
+                    "label",
+                    "period",
+                    "digits",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.KEY_VALUE.value: {
+                    "label",
+                    "value",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.MANAGED_ACCOUNT.value: {
+                    "label",
+                    "value",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.SSH.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.PGP.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.NOSTR.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+                EntryType.SEED.value: {
+                    "label",
+                    "archived",
+                    "notes",
+                    "custom_fields",
+                    "tags",
+                },
+            }
+
+            allowed_fields = allowed.get(entry_type, set())
+            invalid = {
+                k for k, v in provided_fields.items() if v is not None
+            } - allowed_fields
+            if invalid:
+                raise ValueError(
+                    f"Entry type '{entry_type}' does not support fields: {', '.join(sorted(invalid))}"
+                )
 
             if entry_type == EntryType.TOTP.value:
                 if label is not None:
@@ -796,6 +904,7 @@ class EntryManager:
             print(
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
+            raise
 
     def archive_entry(self, index: int) -> None:
         """Mark the specified entry as archived."""
@@ -818,7 +927,7 @@ class EntryManager:
         ``True``.
         """
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             entries_data = data.get("entries", {})
 
             if not entries_data:
@@ -929,7 +1038,7 @@ class EntryManager:
         self, query: str
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
         """Return entries matching the query across common fields."""
-        data = self.vault.load_index()
+        data = self._load_index()
         entries_data = data.get("entries", {})
 
         if not entries_data:
@@ -1018,11 +1127,11 @@ class EntryManager:
         :param index: The index number of the entry to delete.
         """
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             if "entries" in data and str(index) in data["entries"]:
                 del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
-                self.vault.save_index(data)
+                self._save_index(data)
                 self.update_checksum()
                 self.backup_manager.create_backup()
                 logger.info(f"Entry at index {index} deleted successfully.")
@@ -1053,9 +1162,9 @@ class EntryManager:
         Updates the checksum file for the password database to ensure data integrity.
         """
         try:
-            data = self.vault.load_index()
-            json_content = json.dumps(data, indent=4)
-            checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
+            data = self._load_index()
+            canonical = canonical_json_dumps(data)
+            checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
             # The checksum file path already includes the fingerprint directory
             checksum_path = self.checksum_file
@@ -1099,6 +1208,7 @@ class EntryManager:
                 )
             )
 
+            self.clear_cache()
             self.update_checksum()
 
         except Exception as e:
@@ -1152,7 +1262,7 @@ class EntryManager:
     ) -> list[tuple[int, str, str]]:
         """Return a list of entry index, type, and display labels."""
         try:
-            data = self.vault.load_index()
+            data = self._load_index()
             entries_data = data.get("entries", {})
 
             summaries: list[tuple[int, str, str]] = []
