@@ -12,7 +12,8 @@ import main
 
 def _make_pm(msg):
     q = queue.Queue()
-    q.put(SimpleNamespace(message=msg, level="INFO"))
+    if msg is not None:
+        q.put(SimpleNamespace(message=msg, level="INFO"))
     return SimpleNamespace(
         notifications=q,
         is_dirty=False,
@@ -43,4 +44,21 @@ def test_display_menu_prints_notifications(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
     out = capsys.readouterr().out
-    assert "hello" in out
+    assert "\x1b[F\x1b[2K" in out
+    assert out.count("hello") == 1
+
+
+def test_display_menu_reuses_notification_line(monkeypatch, capsys):
+    pm = _make_pm(None)
+    msgs = iter(["first", "second"])
+    monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
+    monkeypatch.setattr(main, "clear_and_print_fingerprint", lambda *a, **k: None)
+    inputs = iter(["9", ""])
+    monkeypatch.setattr(main, "timed_input", lambda *a, **k: next(inputs))
+    monkeypatch.setattr(main, "drain_notifications", lambda _pm: next(msgs, None))
+    with pytest.raises(SystemExit):
+        main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
+    out = capsys.readouterr().out
+    assert out.count("first") == 1
+    assert out.count("second") == 1
+    assert out.count("Select an option:") == 2
