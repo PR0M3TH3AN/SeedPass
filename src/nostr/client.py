@@ -391,6 +391,7 @@ class NostrClient:
         manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
         self.current_manifest = manifest
         self.current_manifest_id = manifest_id
+        # Record when this snapshot was published for future delta events
         self.current_manifest.delta_since = int(time.time())
         self._delta_events = []
         if getattr(self, "verbose_timing", False):
@@ -442,7 +443,10 @@ class NostrClient:
             chunks.append(chunk_bytes)
 
         self.current_manifest = manifest
-        self.current_manifest_id = getattr(manifest_event, "id", None)
+        man_id = getattr(manifest_event, "id", None)
+        if hasattr(man_id, "to_hex"):
+            man_id = man_id.to_hex()
+        self.current_manifest_id = man_id
         return manifest, chunks
 
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
