@@ -67,5 +67,6 @@ def test_generate_test_profile_sync(monkeypatch, dummy_nostr_client):
 
         assert result is not None
         _manifest, chunks = result
+        assert _manifest.delta_since is None
         retrieved = gzip.decompress(b"".join(chunks))
         assert retrieved == encrypted
