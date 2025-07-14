@@ -1092,8 +1092,8 @@ class PasswordManager:
                     healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
                     if healthy < MIN_HEALTHY_RELAYS:
                         self.notify(
-                            f"Only {healthy} relay(s) responded with your latest event."
-                            " Consider adding more relays via Settings.",
+                            f"Only {healthy} relay(s) responded with your latest event. "
+                            "Consider adding more relays via Settings.",
                             level="WARNING",
                         )
             except Exception as exc:
