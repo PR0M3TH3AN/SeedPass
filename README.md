@@ -65,6 +65,9 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
 - **Offline Mode:** Disable all Nostr communication for local-only operation.
 
+A small on-screen notification area now shows queued messages for 10 seconds
+before fading.
+
 ## Prerequisites
 
 - **Python 3.8+** (3.11 or 3.12 recommended): Install Python from [python.org](https://www.python.org/downloads/) and be sure to check **"Add Python to PATH"** during setup. Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.  

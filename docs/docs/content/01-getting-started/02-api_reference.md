@@ -31,7 +31,7 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `GET /api/v1/totp/export` – Export all TOTP entries as JSON.
 - `GET /api/v1/totp` – Return current TOTP codes and remaining time.
 - `GET /api/v1/stats` – Return statistics about the active seed profile.
-- `GET /api/v1/notifications` – Retrieve and clear queued notifications.
+- `GET /api/v1/notifications` – Retrieve and clear queued notifications. Messages appear in the persistent notification box but remain queued until fetched.
 - `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
@@ -198,6 +198,10 @@ Get queued messages with `GET /api/v1/notifications`:
 curl -H "Authorization: Bearer <token>" \
      http://127.0.0.1:8000/api/v1/notifications
 ```
+
+The TUI displays these alerts in a persistent notification box for 10 seconds,
+but the endpoint returns all queued messages even if they have already
+disappeared from the screen.
 
 ### Changing the Master Password
 
