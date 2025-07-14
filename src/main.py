@@ -26,6 +26,7 @@ from utils import (
     clear_screen,
     pause,
     clear_header_with_notification,
+    clear_and_print_fingerprint,
 )
 import queue
 from local_bip85.bip85 import Bip85Error
@@ -102,22 +103,34 @@ def confirm_action(prompt: str) -> bool:
 
 
 def drain_notifications(pm: PasswordManager) -> str | None:
-    """Return the most recent queued notification message, clearing the queue."""
+    """Return the next queued notification message if available."""
     queue_obj = getattr(pm, "notifications", None)
     if queue_obj is None:
         return None
-    last_note = None
-    while True:
-        try:
-            last_note = queue_obj.get_nowait()
-        except queue.Empty:
-            break
-    if not last_note:
+    try:
+        note = queue_obj.get_nowait()
+    except queue.Empty:
         return None
-    category = getattr(last_note, "level", "info").lower()
+    category = getattr(note, "level", "info").lower()
     if category not in ("info", "warning", "error"):
         category = "info"
-    return color_text(getattr(last_note, "message", ""), category)
+    return color_text(getattr(note, "message", ""), category)
+
+
+def get_notification_text(pm: PasswordManager) -> str:
+    """Return the current notification from ``pm`` as a colored string."""
+    note = None
+    if hasattr(pm, "get_current_notification"):
+        try:
+            note = pm.get_current_notification()
+        except Exception:
+            note = None
+    if not note:
+        return ""
+    category = getattr(note, "level", "info").lower()
+    if category not in ("info", "warning", "error"):
+        category = "info"
+    return color_text(getattr(note, "message", ""), category)
 
 
 def handle_switch_fingerprint(password_manager: PasswordManager):
@@ -264,7 +277,7 @@ def _display_live_stats(
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
         display_fn()
-        note = drain_notifications(password_manager)
+        note = get_notification_text(password_manager)
         if note:
             print(note)
         print(colored("Press Enter to continue.", "cyan"))
@@ -274,13 +287,9 @@ def _display_live_stats(
     while True:
         clear_screen()
         display_fn()
-        print()
-        note = drain_notifications(password_manager)
-        sys.stdout.write("\033[F\033[2K")
+        note = get_notification_text(password_manager)
         if note:
             print(note)
-        else:
-            print()
         print(colored("Press Enter to continue.", "cyan"))
         sys.stdout.flush()
         try:
@@ -940,12 +949,15 @@ def display_menu(
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_header_with_notification(
+        clear_and_print_fingerprint(
             fp,
             "Main Menu",
             parent_fingerprint=parent_fp,
             child_fingerprint=child_fp,
         )
+        note_line = get_notification_text(password_manager)
+        if note_line:
+            print(note_line)
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
@@ -965,13 +977,6 @@ def display_menu(
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(color_text(menu, "menu"))
-        print()
-        last_note = drain_notifications(password_manager)
-        sys.stdout.write("\033[F\033[2K")
-        if last_note:
-            print(last_note)
-        else:
-            print()
         try:
             choice = timed_input(
                 "Enter your choice (1-8) or press Enter to exit: ",

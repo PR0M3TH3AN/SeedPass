@@ -39,26 +39,33 @@ def _make_pm(msg):
 def test_display_menu_prints_notifications(monkeypatch, capsys):
     pm = _make_pm("hello")
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
-    monkeypatch.setattr(main, "clear_header_with_notification", lambda *a, **k: None)
+    monkeypatch.setattr(
+        main, "clear_and_print_fingerprint", lambda *a, **k: print("HEADER")
+    )
+    monkeypatch.setattr(main, "get_notification_text", lambda *_: "hello")
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: "")
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
     out = capsys.readouterr().out
-    assert "\x1b[F\x1b[2K" in out
-    assert out.count("hello") == 1
+    assert out.splitlines()[0] == "HEADER"
+    assert out.splitlines()[1] == "hello"
 
 
 def test_display_menu_reuses_notification_line(monkeypatch, capsys):
     pm = _make_pm(None)
     msgs = iter(["first", "second"])
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
-    monkeypatch.setattr(main, "clear_header_with_notification", lambda *a, **k: None)
+    monkeypatch.setattr(
+        main, "clear_and_print_fingerprint", lambda *a, **k: print("HEADER")
+    )
     inputs = iter(["9", ""])
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: next(inputs))
-    monkeypatch.setattr(main, "drain_notifications", lambda _pm: next(msgs, None))
+    monkeypatch.setattr(main, "get_notification_text", lambda _pm: next(msgs, ""))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
     out = capsys.readouterr().out
+    lines = out.splitlines()
+    assert lines[0] == "HEADER"
     assert out.count("first") == 1
     assert out.count("second") == 1
     assert out.count("Select an option:") == 2

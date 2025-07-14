@@ -14,7 +14,7 @@ def _make_pm():
 
 def test_live_stats_shows_message(monkeypatch, capsys):
     pm = _make_pm()
-    monkeypatch.setattr(main, "drain_notifications", lambda *_: None)
+    monkeypatch.setattr(main, "get_notification_text", lambda *_: "")
     monkeypatch.setattr(
         main,
         "timed_input",
@@ -27,7 +27,7 @@ def test_live_stats_shows_message(monkeypatch, capsys):
 
 def test_live_stats_shows_notification(monkeypatch, capsys):
     pm = _make_pm()
-    monkeypatch.setattr(main, "drain_notifications", lambda *_: "note")
+    monkeypatch.setattr(main, "get_notification_text", lambda *_: "note")
     monkeypatch.setattr(
         main,
         "timed_input",
