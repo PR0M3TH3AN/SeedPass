@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate a SeedPass test profile with realistic entries.
 
-This script populates a profile directory with a variety of entry types.
+This script populates a profile directory with a variety of entry types,
+including key/value pairs and managed accounts.
 If the profile does not exist, a new BIP-39 seed phrase is generated and
 stored encrypted. A clear text copy is written to ``seed_phrase.txt`` so
 it can be reused across devices.
@@ -121,7 +122,7 @@ def populate(entry_mgr: EntryManager, seed: str, count: int) -> None:
     start_index = entry_mgr.get_next_index()
     for i in range(count):
         idx = start_index + i
-        kind = idx % 7
+        kind = idx % 9
         if kind == 0:
             entry_mgr.add_entry(
                 label=f"site-{idx}.example.com",
@@ -143,12 +144,24 @@ def populate(entry_mgr: EntryManager, seed: str, count: int) -> None:
             )
         elif kind == 5:
             entry_mgr.add_nostr_key(f"nostr-{idx}", notes=f"Nostr key {idx}")
-        else:
+        elif kind == 6:
             entry_mgr.add_pgp_key(
                 f"pgp-{idx}",
                 seed,
                 user_id=f"user{idx}@example.com",
                 notes=f"PGP key {idx}",
+            )
+        elif kind == 7:
+            entry_mgr.add_key_value(
+                f"kv-{idx}",
+                random_secret(20),
+                notes=f"Key/Value {idx}",
+            )
+        else:
+            entry_mgr.add_managed_account(
+                f"acct-{idx}",
+                seed,
+                notes=f"Managed account {idx}",
             )
 
 
