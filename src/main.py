@@ -101,20 +101,23 @@ def confirm_action(prompt: str) -> bool:
             print(colored("Please enter 'Y' or 'N'.", "red"))
 
 
-def drain_notifications(pm: PasswordManager) -> None:
-    """Display all queued notifications."""
+def drain_notifications(pm: PasswordManager) -> str | None:
+    """Return the most recent queued notification message, clearing the queue."""
     queue_obj = getattr(pm, "notifications", None)
     if queue_obj is None:
-        return
+        return None
+    last_note = None
     while True:
         try:
-            note = queue_obj.get_nowait()
+            last_note = queue_obj.get_nowait()
         except queue.Empty:
             break
-        category = note.level.lower()
-        if category not in ("info", "warning", "error"):
-            category = "info"
-        print(color_text(note.message, category))
+    if not last_note:
+        return None
+    category = getattr(last_note, "level", "info").lower()
+    if category not in ("info", "warning", "error"):
+        category = "info"
+    return color_text(getattr(last_note, "message", ""), category)
 
 
 def handle_switch_fingerprint(password_manager: PasswordManager):
@@ -949,7 +952,13 @@ def display_menu(
         for handler in logging.getLogger().handlers:
             handler.flush()
         print(color_text(menu, "menu"))
-        drain_notifications(password_manager)
+        print()
+        last_note = drain_notifications(password_manager)
+        sys.stdout.write("\033[F\033[2K")
+        if last_note:
+            print(last_note)
+        else:
+            print()
         try:
             choice = timed_input(
                 "Enter your choice (1-8) or press Enter to exit: ",
