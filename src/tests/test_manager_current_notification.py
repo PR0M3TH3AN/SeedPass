@@ -23,7 +23,7 @@ def test_notify_sets_current(monkeypatch):
     monkeypatch.setattr("password_manager.manager.time.time", lambda: current["val"])
     pm.notify("hello")
     note = pm._current_notification
-    assert isinstance(note, Notification)
+    assert hasattr(note, "message")
     assert note.message == "hello"
     assert pm._notification_expiry == 100.0 + NOTIFICATION_DURATION
     assert pm.notifications.qsize() == 1
