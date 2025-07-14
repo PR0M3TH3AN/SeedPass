@@ -282,6 +282,7 @@ class NostrClient:
         signer = NostrSigner.keys(self.keys)
         self.client = Client(signer)
         self._connected = False
+        # Immediately reconnect using the updated relay list
         self.initialize_client_pool()
 
     def retrieve_json_from_nostr_sync(
