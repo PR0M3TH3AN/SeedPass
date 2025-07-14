@@ -49,6 +49,10 @@ def test_publish_and_fetch_deltas(dummy_nostr_client):
     d1 = b"d1"
     d2 = b"d2"
     asyncio.run(client.publish_delta(d1, manifest_id))
+    first_ts = relay.deltas[-1].created_at
     asyncio.run(client.publish_delta(d2, manifest_id))
+    second_ts = relay.deltas[-1].created_at
+    assert second_ts > first_ts
+    assert relay.manifests[-1].delta_since == second_ts
     deltas = asyncio.run(client.fetch_deltas_since(0))
     assert deltas == [d1, d2]

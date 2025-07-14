@@ -163,6 +163,7 @@ class DummySendResult:
 class DummyRelayClient:
     def __init__(self):
         self.counter = 0
+        self.ts_counter = 0
         self.manifests: list[DummyEvent] = []
         self.chunks: dict[str, DummyEvent] = {}
         self.deltas: list[DummyEvent] = []
@@ -196,7 +197,8 @@ class DummyRelayClient:
             self.chunks[ident] = event
         elif event.kind == KIND_DELTA:
             if not hasattr(event, "created_at"):
-                event.created_at = int(time.time())
+                self.ts_counter += 1
+                event.created_at = self.ts_counter
             self.deltas.append(event)
         return DummySendResult(eid)
 

@@ -29,7 +29,7 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_full_sync_roundtrip(dummy_nostr_client, monkeypatch):
+def test_full_sync_roundtrip(dummy_nostr_client):
     client, relay = dummy_nostr_client
     with TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
@@ -54,8 +54,9 @@ def test_full_sync_roundtrip(dummy_nostr_client, monkeypatch):
         # Manager A publishes delta with second entry
         pm_a.entry_manager.add_entry("site2", 12)
         delta_bytes = pm_a.vault.get_encrypted_index() or b""
-        monkeypatch.setattr("nostr.client.time.time", lambda: 1)
         asyncio.run(client.publish_delta(delta_bytes, manifest_id))
+        delta_ts = relay.deltas[-1].created_at
+        assert relay.manifests[-1].delta_since == delta_ts
 
         # Manager B fetches delta and updates
         pm_b.sync_index_from_nostr()
