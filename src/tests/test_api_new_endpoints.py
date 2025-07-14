@@ -369,11 +369,12 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
 
     api._pm.config_manager.load_config = load_config
     api._pm.config_manager.set_relays = set_relays
-    monkeypatch.setattr(
-        NostrClient,
-        "initialize_client_pool",
-        lambda self: called.setdefault("init", True),
-    )
+    init_calls = []
+
+    def record_init(self):
+        init_calls.append(self.relays.copy())
+
+    monkeypatch.setattr(NostrClient, "initialize_client_pool", record_init)
     monkeypatch.setattr(
         nostr_client, "close_client_pool", lambda: called.setdefault("close", True)
     )
@@ -389,6 +390,8 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     res = cl.post("/api/v1/relays", json={"url": "wss://c"}, headers=headers)
     assert res.status_code == 200
     assert called["set"] == ["wss://a", "wss://b", "wss://c"]
+    assert init_calls == [["wss://a", "wss://b", "wss://c"]]
+    assert api._pm.nostr_client.relays == ["wss://a", "wss://b", "wss://c"]
 
     api._pm.config_manager.load_config = lambda require_pin=False: {
         "relays": ["wss://a", "wss://b", "wss://c"]
@@ -396,8 +399,11 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     res = cl.delete("/api/v1/relays/2", headers=headers)
     assert res.status_code == 200
     assert called["set"] == ["wss://a", "wss://c"]
+    assert init_calls[-1] == ["wss://a", "wss://c"]
+    assert len(init_calls) == 2
 
     res = cl.post("/api/v1/relays/reset", headers=headers)
     assert res.status_code == 200
-    assert called.get("init") is True
+    assert init_calls[-1] == list(DEFAULT_RELAYS)
+    assert len(init_calls) == 3
     assert api._pm.nostr_client.relays == list(DEFAULT_RELAYS)
