@@ -39,7 +39,7 @@ def _make_pm(msg):
 def test_display_menu_prints_notifications(monkeypatch, capsys):
     pm = _make_pm("hello")
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
-    monkeypatch.setattr(main, "clear_and_print_fingerprint", lambda *a, **k: None)
+    monkeypatch.setattr(main, "clear_header_with_notification", lambda *a, **k: None)
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: "")
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -52,7 +52,7 @@ def test_display_menu_reuses_notification_line(monkeypatch, capsys):
     pm = _make_pm(None)
     msgs = iter(["first", "second"])
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
-    monkeypatch.setattr(main, "clear_and_print_fingerprint", lambda *a, **k: None)
+    monkeypatch.setattr(main, "clear_header_with_notification", lambda *a, **k: None)
     inputs = iter(["9", ""])
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: next(inputs))
     monkeypatch.setattr(main, "drain_notifications", lambda _pm: next(msgs, None))
