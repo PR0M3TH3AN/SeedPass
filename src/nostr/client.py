@@ -135,6 +135,7 @@ class NostrClient:
 
         self.delta_threshold = 100
         self.current_manifest: Manifest | None = None
+        self.current_manifest_id: str | None = None
         self._delta_events: list[str] = []
 
         # Configure and initialize the nostr-sdk Client
@@ -388,6 +389,8 @@ class NostrClient:
         result = await self.client.send_event(manifest_event)
         manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
         self.current_manifest = manifest
+        self.current_manifest_id = manifest_id
+        self.current_manifest.delta_since = int(time.time())
         self._delta_events = []
         if getattr(self, "verbose_timing", False):
             duration = time.perf_counter() - start
@@ -406,13 +409,18 @@ class NostrClient:
         events = (await self.client.fetch_events(f, timeout)).to_vec()
         if not events:
             return None
-        manifest_raw = events[0].content()
+        manifest_event = events[0]
+        manifest_raw = manifest_event.content()
         data = json.loads(manifest_raw)
         manifest = Manifest(
             ver=data["ver"],
             algo=data["algo"],
             chunks=[ChunkMeta(**c) for c in data["chunks"]],
-            delta_since=data.get("delta_since"),
+            delta_since=(
+                int(data["delta_since"])
+                if data.get("delta_since") is not None
+                else None
+            ),
         )
 
         chunks: list[bytes] = []
@@ -433,6 +441,7 @@ class NostrClient:
             chunks.append(chunk_bytes)
 
         self.current_manifest = manifest
+        self.current_manifest_id = getattr(manifest_event, "id", None)
         return manifest, chunks
 
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
@@ -447,8 +456,28 @@ class NostrClient:
         event = builder.build(self.keys.public_key()).sign_with_keys(self.keys)
         result = await self.client.send_event(event)
         delta_id = result.id.to_hex() if hasattr(result, "id") else str(result)
+        created_at = getattr(
+            event, "created_at", getattr(event, "timestamp", int(time.time()))
+        )
+        if hasattr(created_at, "secs"):
+            created_at = created_at.secs
         if self.current_manifest is not None:
-            self.current_manifest.delta_since = delta_id
+            self.current_manifest.delta_since = int(created_at)
+            manifest_json = json.dumps(
+                {
+                    "ver": self.current_manifest.ver,
+                    "algo": self.current_manifest.algo,
+                    "chunks": [meta.__dict__ for meta in self.current_manifest.chunks],
+                    "delta_since": self.current_manifest.delta_since,
+                }
+            )
+            manifest_event = (
+                EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+                .tags([Tag.identifier(self.current_manifest_id)])
+                .build(self.keys.public_key())
+                .sign_with_keys(self.keys)
+            )
+            await self.client.send_event(manifest_event)
         self._delta_events.append(delta_id)
         return delta_id
 

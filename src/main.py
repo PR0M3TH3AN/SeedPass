@@ -318,15 +318,12 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
             if manifest.delta_since:
-                try:
-                    version = int(manifest.delta_since)
-                    deltas = asyncio.run(
-                        password_manager.nostr_client.fetch_deltas_since(version)
-                    )
-                    if deltas:
-                        encrypted = deltas[-1]
-                except ValueError:
-                    pass
+                version = int(manifest.delta_since)
+                deltas = asyncio.run(
+                    password_manager.nostr_client.fetch_deltas_since(version)
+                )
+                if deltas:
+                    encrypted = deltas[-1]
             password_manager.encryption_manager.decrypt_and_save_index_from_nostr(
                 encrypted
             )
