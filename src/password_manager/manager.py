@@ -20,6 +20,8 @@ import shutil
 import time
 import builtins
 import threading
+import queue
+from dataclasses import dataclass
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -96,6 +98,14 @@ from password_manager.config_manager import ConfigManager
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class Notification:
+    """Simple message container for UI notifications."""
+
+    message: str
+    level: str = "INFO"
+
+
 class PasswordManager:
     """
     PasswordManager Class
@@ -126,6 +136,7 @@ class PasswordManager:
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+        self.notifications: queue.Queue[Notification] = queue.Queue()
 
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
@@ -215,6 +226,10 @@ class PasswordManager:
     def update_activity(self) -> None:
         """Record the current time as the last user activity."""
         self.last_activity = time.time()
+
+    def notify(self, message: str, level: str = "INFO") -> None:
+        """Enqueue a notification for later retrieval."""
+        self.notifications.put(Notification(message, level))
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
@@ -1076,12 +1091,10 @@ class PasswordManager:
                 ):
                     healthy = self.nostr_client.check_relay_health(MIN_HEALTHY_RELAYS)
                     if healthy < MIN_HEALTHY_RELAYS:
-                        print(
-                            colored(
-                                f"Only {healthy} relay(s) responded with your latest event."
-                                " Consider adding more relays via Settings.",
-                                "yellow",
-                            )
+                        self.notify(
+                            f"Only {healthy} relay(s) responded with your latest event."
+                            " Consider adding more relays via Settings.",
+                            level="WARNING",
                         )
             except Exception as exc:
                 logger.warning(f"Relay health check failed: {exc}")
