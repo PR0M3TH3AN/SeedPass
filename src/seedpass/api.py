@@ -6,6 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 import secrets
+import queue
 from typing import Any, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
@@ -377,6 +378,21 @@ def get_profile_stats(authorization: str | None = Header(None)) -> dict:
     _check_token(authorization)
     assert _pm is not None
     return _pm.get_profile_stats()
+
+
+@app.get("/api/v1/notifications")
+def get_notifications(authorization: str | None = Header(None)) -> List[dict]:
+    """Return and clear queued notifications."""
+    _check_token(authorization)
+    assert _pm is not None
+    notes = []
+    while True:
+        try:
+            note = _pm.notifications.get_nowait()
+        except queue.Empty:
+            break
+        notes.append({"level": note.level, "message": note.message})
+    return notes
 
 
 @app.get("/api/v1/parent-seed")
