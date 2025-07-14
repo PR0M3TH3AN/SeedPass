@@ -26,7 +26,6 @@ from utils import (
     clear_screen,
     pause,
     clear_header_with_notification,
-    clear_and_print_fingerprint,
 )
 import queue
 from local_bip85.bip85 import Bip85Error
@@ -949,15 +948,13 @@ def display_menu(
             "header_fingerprint_args",
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
-        clear_and_print_fingerprint(
+        clear_header_with_notification(
+            password_manager,
             fp,
             "Main Menu",
             parent_fingerprint=parent_fp,
             child_fingerprint=child_fp,
         )
-        note_line = get_notification_text(password_manager)
-        if note_line:
-            print(note_line)
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()

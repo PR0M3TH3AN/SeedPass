@@ -16,6 +16,7 @@ def _make_pm(msg):
         q.put(SimpleNamespace(message=msg, level="INFO"))
     return SimpleNamespace(
         notifications=q,
+        get_current_notification=lambda: q.queue[-1] if not q.empty() else None,
         is_dirty=False,
         last_update=time.time(),
         last_activity=time.time(),
@@ -40,9 +41,17 @@ def test_display_menu_prints_notifications(monkeypatch, capsys):
     pm = _make_pm("hello")
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
     monkeypatch.setattr(
-        main, "clear_and_print_fingerprint", lambda *a, **k: print("HEADER")
+        main,
+        "clear_header_with_notification",
+        lambda pm, *a, **k: (
+            print("HEADER"),
+            print(
+                pm.get_current_notification().message
+                if pm.get_current_notification()
+                else ""
+            ),
+        ),
     )
-    monkeypatch.setattr(main, "get_notification_text", lambda *_: "hello")
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: "")
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
@@ -56,11 +65,12 @@ def test_display_menu_reuses_notification_line(monkeypatch, capsys):
     msgs = iter(["first", "second"])
     monkeypatch.setattr(main, "_display_live_stats", lambda *_: None)
     monkeypatch.setattr(
-        main, "clear_and_print_fingerprint", lambda *a, **k: print("HEADER")
+        main,
+        "clear_header_with_notification",
+        lambda _pm, *a, **k: (print("HEADER"), print(next(msgs, ""))),
     )
     inputs = iter(["9", ""])
     monkeypatch.setattr(main, "timed_input", lambda *a, **k: next(inputs))
-    monkeypatch.setattr(main, "get_notification_text", lambda _pm: next(msgs, ""))
     with pytest.raises(SystemExit):
         main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
     out = capsys.readouterr().out
