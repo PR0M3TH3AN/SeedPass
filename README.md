@@ -1,4 +1,3 @@
-````markdown
 # SeedPass
 
 ![SeedPass Logo](https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/refs/heads/main/logo/png/SeedPass-Logo-03.png)
@@ -536,4 +535,3 @@ For any questions, suggestions, or support, please open an issue on the [GitHub 
 ---
 
 *Stay secure and keep your passwords safe with SeedPass!*
-````
