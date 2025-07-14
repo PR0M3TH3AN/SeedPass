@@ -89,6 +89,9 @@ class EncryptionManager:
             try:
                 nonce = encrypted_data[3:15]
                 ciphertext = encrypted_data[15:]
+                if len(ciphertext) < 16:
+                    logger.error("AES-GCM payload too short")
+                    raise InvalidToken("AES-GCM payload too short")
                 return self.cipher.decrypt(nonce, ciphertext, None)
             except InvalidTag as e:
                 logger.error("AES-GCM decryption failed: Invalid authentication tag.")
