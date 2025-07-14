@@ -80,13 +80,15 @@ def clear_header_with_notification(
             note = pm.get_current_notification()
         except Exception:
             note = None
+
+    line = ""
     if note:
         category = getattr(note, "level", "info").lower()
         if category not in ("info", "warning", "error"):
             category = "info"
-        print(color_text(getattr(note, "message", ""), category))
-    else:
-        print()
+        line = color_text(getattr(note, "message", ""), category)
+
+    print(line)
 
 
 def pause(message: str = "Press Enter to continue...") -> None:
