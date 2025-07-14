@@ -5,6 +5,12 @@ This script populates a profile directory with a variety of entry types.
 If the profile does not exist, a new BIP-39 seed phrase is generated and
 stored encrypted. A clear text copy is written to ``seed_phrase.txt`` so
 it can be reused across devices.
+
+Profiles are saved under ``~/.seedpass/tests/`` by default. SeedPass
+only detects a profile automatically when it resides directly under
+``~/.seedpass/``. Copy the generated fingerprint directory from the
+``tests`` subfolder to ``~/.seedpass`` (or adjust ``APP_DIR`` in
+``constants.py``) to use the test seed with the main application.
 """
 
 from __future__ import annotations

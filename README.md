@@ -450,7 +450,14 @@ Use the helper script below to populate a profile with sample entries for testin
 python scripts/generate_test_profile.py --profile demo_profile --count 100
 ```
 
-The script now determines the fingerprint from the generated seed and stores the vault under `~/.seedpass/<fingerprint>`. It also prints the fingerprint after creation and publishes the encrypted index to Nostr. Use that same seed phrase to load SeedPass. The app checks Nostr on startup and pulls any newer snapshot so your vault stays in sync across machines.
+The script determines the fingerprint from the generated seed and stores the
+vault under `~/.seedpass/tests/<fingerprint>`. SeedPass only looks for profiles
+in `~/.seedpass/`, so move or copy the fingerprint directory out of the `tests`
+subfolder (or adjust `APP_DIR` in `constants.py`) if you want to load it with
+the main application. The fingerprint is printed after creation and the
+encrypted index is published to Nostr. Use that same seed phrase to load
+SeedPass. The app checks Nostr on startup and pulls any newer snapshot so your
+vault stays in sync across machines.
 
 ### Automatically Updating the Script Checksum
 
