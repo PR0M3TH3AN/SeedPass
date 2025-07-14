@@ -131,3 +131,23 @@ def test_ping_relay_accepts_eose(tmp_path, monkeypatch):
     result = asyncio.run(client._ping_relay("wss://relay", timeout=0.1))
 
     assert result is True
+
+
+def test_update_relays_reinitializes_pool(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    monkeypatch.setattr(nostr_client, "Client", FakeAddRelaysClient)
+
+    called = {"ran": False}
+
+    def fake_init(self):
+        called["ran"] = True
+
+    monkeypatch.setattr(NostrClient, "initialize_client_pool", fake_init)
+
+    new_relays = ["wss://relay1"]
+    client.update_relays(new_relays)
+
+    assert called["ran"] is True
+    assert isinstance(client.client, FakeAddRelaysClient)
+    assert client.relays == new_relays
