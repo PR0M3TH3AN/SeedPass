@@ -232,12 +232,39 @@ def handle_display_npub(password_manager: PasswordManager):
         print(colored(f"Error: Failed to display npub: {e}", "red"))
 
 
+def _display_live_stats(
+    password_manager: PasswordManager, interval: float = 1.0
+) -> None:
+    """Continuously refresh stats until the user presses Enter."""
+
+    display_fn = getattr(password_manager, "display_stats", None)
+    if not callable(display_fn):
+        return
+
+    if not sys.stdin or not sys.stdin.isatty():
+        clear_screen()
+        display_fn()
+        return
+
+    while True:
+        clear_screen()
+        display_fn()
+        sys.stdout.flush()
+        try:
+            user_input = timed_input("", interval)
+            if user_input.strip() == "" or user_input.strip().lower() == "b":
+                break
+        except TimeoutError:
+            pass
+        except KeyboardInterrupt:
+            print()
+            break
+
+
 def handle_display_stats(password_manager: PasswordManager) -> None:
-    """Print seed profile statistics."""
+    """Print seed profile statistics with live updates."""
     try:
-        display_fn = getattr(password_manager, "display_stats", None)
-        if callable(display_fn):
-            display_fn()
+        _display_live_stats(password_manager)
     except Exception as e:  # pragma: no cover - display best effort
         logging.error(f"Failed to display stats: {e}", exc_info=True)
         print(colored(f"Error: Failed to display stats: {e}", "red"))
@@ -837,7 +864,6 @@ def handle_settings(password_manager: PasswordManager) -> None:
             pause()
         elif choice == "14":
             handle_display_stats(password_manager)
-            pause()
         elif choice == "15":
             handle_toggle_secret_mode(password_manager)
             pause()
@@ -872,12 +898,9 @@ def display_menu(
     7. Settings
     8. List Archived
     """
-    display_fn = getattr(password_manager, "display_stats", None)
-    if callable(display_fn):
-        display_fn()
-        pause()
     password_manager.start_background_sync()
     getattr(password_manager, "start_background_relay_check", lambda: None)()
+    _display_live_stats(password_manager)
     while True:
         fp, parent_fp, child_fp = getattr(
             password_manager,
