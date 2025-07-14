@@ -723,7 +723,7 @@ class PasswordManager:
         Handles the setup process when no existing parent seed is found.
         Asks the user whether to enter an existing BIP-85 seed or generate a new one.
         """
-        print(colored("No existing seed found. Let's set up a new one!", "yellow"))
+        self.notify("No existing seed found. Let's set up a new one!", level="WARNING")
 
         choice = input(
             "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
@@ -827,7 +827,7 @@ class PasswordManager:
                 sys.exit(1)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
-            print(colored("\nOperation cancelled by user.", "yellow"))
+            self.notify("Operation cancelled by user.", level="WARNING")
             sys.exit(0)
 
     def generate_new_seed(self) -> Optional[str]:
@@ -879,7 +879,7 @@ class PasswordManager:
 
             return fingerprint  # Return the generated fingerprint
         else:
-            print(colored("Seed generation cancelled. Exiting.", "yellow"))
+            self.notify("Seed generation cancelled. Exiting.", level="WARNING")
             sys.exit(0)
 
     def validate_bip85_seed(self, seed: str) -> bool:
@@ -1434,7 +1434,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("SSH key display cancelled.", "yellow"))
+                self.notify("SSH key display cancelled.", level="WARNING")
                 return
 
             print(colored(f"\n[+] SSH key entry added with ID {index}.\n", "green"))
@@ -1493,7 +1493,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("Seed phrase display cancelled.", "yellow"))
+                self.notify("Seed phrase display cancelled.", level="WARNING")
                 return
 
             print(
@@ -1568,7 +1568,7 @@ class PasswordManager:
             if not confirm_action(
                 "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
             ):
-                print(colored("PGP key display cancelled.", "yellow"))
+                self.notify("PGP key display cancelled.", level="WARNING")
                 return
 
             print(colored(f"\n[+] PGP key entry added with ID {index}.\n", "green"))
@@ -2003,7 +2003,7 @@ class PasswordManager:
                     entry = self.entry_manager.retrieve_entry(index) or entry
                 return
 
-            print(colored("No QR codes available for this entry.", "yellow"))
+            self.notify("No QR codes available for this entry.", level="WARNING")
         except Exception as e:  # pragma: no cover - best effort
             logging.error(f"Error displaying QR menu: {e}", exc_info=True)
             print(colored(f"Error: Failed to display QR codes: {e}", "red"))
@@ -2103,7 +2103,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("SSH key display cancelled.", "yellow"))
+                    self.notify("SSH key display cancelled.", level="WARNING")
                     return
                 try:
                     priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
@@ -2142,7 +2142,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("Seed phrase display cancelled.", "yellow"))
+                    self.notify("Seed phrase display cancelled.", level="WARNING")
                     return
                 try:
                     phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
@@ -2193,7 +2193,7 @@ class PasswordManager:
                 if not confirm_action(
                     "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
                 ):
-                    print(colored("PGP key display cancelled.", "yellow"))
+                    self.notify("PGP key display cancelled.", level="WARNING")
                     return
                 try:
                     priv_key, fingerprint = self.entry_manager.get_pgp_key(
@@ -2385,11 +2385,9 @@ class PasswordManager:
             if url:
                 print(colored(f"URL: {url}", "cyan"))
             if blacklisted:
-                print(
-                    colored(
-                        f"Warning: This password is archived and should not be used.",
-                        "yellow",
-                    )
+                self.notify(
+                    "Warning: This password is archived and should not be used.",
+                    level="WARNING",
                 )
 
             password = self.password_generator.generate_password(length, index)
@@ -2522,8 +2520,9 @@ class PasswordManager:
                     if period_input.isdigit():
                         new_period = int(period_input)
                     else:
-                        print(
-                            colored("Invalid period value. Keeping current.", "yellow")
+                        self.notify(
+                            "Invalid period value. Keeping current.",
+                            level="WARNING",
                         )
                 digits_input = input(
                     f"Enter new digit count (current: {digits}): "
@@ -2533,11 +2532,9 @@ class PasswordManager:
                     if digits_input.isdigit():
                         new_digits = int(digits_input)
                     else:
-                        print(
-                            colored(
-                                "Invalid digits value. Keeping current.",
-                                "yellow",
-                            )
+                        self.notify(
+                            "Invalid digits value. Keeping current.",
+                            level="WARNING",
                         )
                 blacklist_input = (
                     input(
@@ -2553,11 +2550,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2644,11 +2639,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2749,11 +2742,9 @@ class PasswordManager:
                 elif blacklist_input == "n":
                     new_blacklisted = False
                 else:
-                    print(
-                        colored(
-                            "Invalid input for archived status. Keeping the current status.",
-                            "yellow",
-                        )
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
                     )
                     new_blacklisted = blacklisted
 
@@ -2837,13 +2828,13 @@ class PasswordManager:
             )
             query = input("Enter search string: ").strip()
             if not query:
-                print(colored("No search string provided.", "yellow"))
+                self.notify("No search string provided.", level="WARNING")
                 pause()
                 return
 
             results = self.entry_manager.search_entries(query)
             if not results:
-                print(colored("No matching entries found.", "yellow"))
+                self.notify("No matching entries found.", level="WARNING")
                 pause()
                 return
 
@@ -3068,7 +3059,7 @@ class PasswordManager:
             if not confirm_action(
                 f"Are you sure you want to delete entry {index_to_delete}? (Y/N): "
             ):
-                print(colored("Deletion cancelled.", "yellow"))
+                self.notify("Deletion cancelled.", level="WARNING")
                 return
 
             self.entry_manager.delete_entry(index_to_delete)
@@ -3115,7 +3106,7 @@ class PasswordManager:
             archived = self.entry_manager.list_entries(include_archived=True)
             archived = [e for e in archived if e[4]]
             if not archived:
-                print(colored("No archived entries found.", "yellow"))
+                self.notify("No archived entries found.", level="WARNING")
                 pause()
                 return
             while True:
@@ -3196,7 +3187,7 @@ class PasswordManager:
                     totp_list.append((label, int(idx_str), period, imported))
 
             if not totp_list:
-                print(colored("No 2FA entries found.", "yellow"))
+                self.notify("No 2FA entries found.", level="WARNING")
                 return
 
             totp_list.sort(key=lambda t: t[0].lower())
@@ -3274,11 +3265,9 @@ class PasswordManager:
             try:
                 verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
             except FileNotFoundError:
-                print(
-                    colored(
-                        "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
-                        "yellow",
-                    )
+                self.notify(
+                    "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
+                    level="WARNING",
                 )
                 logging.warning("Checksum file missing during verification.")
                 return
@@ -3301,7 +3290,7 @@ class PasswordManager:
     def handle_update_script_checksum(self) -> None:
         """Generate a new checksum for the manager script."""
         if not confirm_action("Generate new script checksum? (Y/N): "):
-            print(colored("Operation cancelled.", "yellow"))
+            self.notify("Operation cancelled.", level="WARNING")
             return
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
@@ -3500,7 +3489,7 @@ class PasswordManager:
                     )
 
             if not totp_entries:
-                print(colored("No 2FA codes to export.", "yellow"))
+                self.notify("No 2FA codes to export.", level="WARNING")
                 return None
 
             dest_str = input(
@@ -3548,17 +3537,13 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             print(colored("\n=== Backup Parent Seed ===", "yellow"))
-            print(
-                colored(
-                    "Warning: Revealing your parent seed is a highly sensitive operation.",
-                    "yellow",
-                )
+            self.notify(
+                "Warning: Revealing your parent seed is a highly sensitive operation.",
+                level="WARNING",
             )
-            print(
-                colored(
-                    "Ensure you're in a secure, private environment and no one is watching your screen.",
-                    "yellow",
-                )
+            self.notify(
+                "Ensure you're in a secure, private environment and no one is watching your screen.",
+                level="WARNING",
             )
 
             # Verify user's identity with secure password verification
@@ -3573,7 +3558,7 @@ class PasswordManager:
             if not confirm_action(
                 "Are you absolutely sure you want to reveal your parent seed? (Y/N): "
             ):
-                print(colored("Operation cancelled by user.", "yellow"))
+                self.notify("Operation cancelled by user.", level="WARNING")
                 return
 
             # Reveal the parent seed

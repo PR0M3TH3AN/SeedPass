@@ -2,6 +2,7 @@ import builtins
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+import queue
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -16,6 +17,7 @@ def _make_pm(tmp_path: Path) -> PasswordManager:
     pm.fingerprint_dir = tmp_path
     pm.encryption_manager = SimpleNamespace(encrypt_and_save_file=lambda *a, **k: None)
     pm.verify_password = lambda pw: True
+    pm.notifications = queue.Queue()
     return pm
 
 

@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+import queue
 
 import pytest
 
@@ -67,6 +68,7 @@ def test_view_archived_entries_cli(monkeypatch):
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.notifications = queue.Queue()
 
         idx = entry_mgr.add_entry("example.com", 8)
 
@@ -98,6 +100,7 @@ def test_view_archived_entries_view_only(monkeypatch, capsys):
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.notifications = queue.Queue()
 
         idx = entry_mgr.add_entry("example.com", 8)
 
@@ -131,6 +134,7 @@ def test_view_archived_entries_removed_after_restore(monkeypatch, capsys):
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.is_dirty = False
+        pm.notifications = queue.Queue()
 
         idx = entry_mgr.add_entry("example.com", 8)
 
@@ -145,5 +149,6 @@ def test_view_archived_entries_removed_after_restore(monkeypatch, capsys):
 
         monkeypatch.setattr("builtins.input", lambda *_: "")
         pm.handle_view_archived_entries()
-        out = capsys.readouterr().out
-        assert "No archived entries found." in out
+        note = pm.notifications.get_nowait()
+        assert note.level == "WARNING"
+        assert note.message == "No archived entries found."

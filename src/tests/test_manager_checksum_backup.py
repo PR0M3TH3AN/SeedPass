@@ -4,6 +4,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from password_manager.manager import PasswordManager, EncryptionMode
+import queue
 
 
 class FakeBackupManager:
@@ -20,6 +21,7 @@ class FakeBackupManager:
 def _make_pm():
     pm = PasswordManager.__new__(PasswordManager)
     pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.notifications = queue.Queue()
     return pm
 
 
@@ -56,8 +58,9 @@ def test_handle_verify_checksum_missing(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr("password_manager.manager.verify_checksum", raise_missing)
     pm.handle_verify_checksum()
-    out = capsys.readouterr().out.lower()
-    assert "generate script checksum" in out
+    note = pm.notifications.get_nowait()
+    assert note.level == "WARNING"
+    assert "generate script checksum" in note.message.lower()
 
 
 def test_backup_and_restore_database(monkeypatch, capsys):
