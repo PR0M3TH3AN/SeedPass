@@ -80,12 +80,12 @@ def test_list_entries_show_details(monkeypatch, capsys):
             lambda *a, **k: "b",
         )
 
-        inputs = iter(["1", "0", "n"])
+        inputs = iter(["1", "0"])
         monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
 
         pm.handle_list_entries()
         out = capsys.readouterr().out
-        assert "Retrieved 2FA Code" in out
-        assert "123456" in out
+        assert "Label: Example" in out
+        assert "Period: 30s" in out
         assert "API" in out
         assert "acct" in out
