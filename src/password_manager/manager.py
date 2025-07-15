@@ -1810,8 +1810,7 @@ class PasswordManager:
 
             self.display_entry_details(index)
 
-            if confirm_action("Show sensitive information? (y/N): "):
-                self.display_sensitive_entry_info(entry, index)
+            self.display_sensitive_entry_info(entry, index)
 
             pause()
             self._entry_actions_menu(index, entry)
