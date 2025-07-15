@@ -2973,6 +2973,12 @@ class PasswordManager:
             print(
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
+            pub_label = entry.get("public_key_label", "")
+            if pub_label:
+                print(color_text(f"  Public Key Label: {pub_label}", "index"))
+            ssh_fingerprint = entry.get("fingerprint", "")
+            if ssh_fingerprint:
+                print(color_text(f"  Fingerprint: {ssh_fingerprint}", "index"))
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
@@ -2991,6 +2997,14 @@ class PasswordManager:
             print(
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
+            try:
+                _priv, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
+                if pgp_fp:
+                    print(color_text(f"  Fingerprint: {pgp_fp}", "index"))
+            except Exception as pgp_err:  # pragma: no cover - best effort logging
+                logging.error(
+                    f"Failed to derive PGP fingerprint: {pgp_err}", exc_info=True
+                )
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))

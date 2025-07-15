@@ -194,6 +194,10 @@ def test_show_ssh_entry_details(monkeypatch, capsys):
         tmp_path = Path(tmpdir)
         pm, entry_mgr = _setup_manager(tmp_path)
         idx = entry_mgr.add_ssh_key("ssh", TEST_SEED)
+        data = entry_mgr._load_index(force_reload=True)
+        data["entries"][str(idx)]["public_key_label"] = "server"
+        data["entries"][str(idx)]["fingerprint"] = "abc123"
+        entry_mgr._save_index(data)
 
         called = _detail_common(monkeypatch, pm)
 
@@ -202,6 +206,8 @@ def test_show_ssh_entry_details(monkeypatch, capsys):
         assert "Type: SSH Key" in out
         assert "Label: ssh" in out
         assert f"Derivation Index: {idx}" in out
+        assert "server" in out
+        assert "abc123" in out
         assert called == [True]
 
 
@@ -210,6 +216,7 @@ def test_show_pgp_entry_details(monkeypatch, capsys):
         tmp_path = Path(tmpdir)
         pm, entry_mgr = _setup_manager(tmp_path)
         idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, user_id="test")
+        _k, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
 
         called = _detail_common(monkeypatch, pm)
 
@@ -220,6 +227,7 @@ def test_show_pgp_entry_details(monkeypatch, capsys):
         assert "Key Type: ed25519" in out
         assert "User ID: test" in out
         assert f"Derivation Index: {idx}" in out
+        assert fp in out
         assert called == [True]
 
 
