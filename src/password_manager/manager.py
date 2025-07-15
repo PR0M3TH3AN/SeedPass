@@ -1795,6 +1795,7 @@ class PasswordManager:
         """Display entry details for ``index`` without prompting."""
 
         self.display_entry_details(index)
+        pause()
 
     def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
         """Prompt the user to archive or restore ``entry`` based on its status."""
