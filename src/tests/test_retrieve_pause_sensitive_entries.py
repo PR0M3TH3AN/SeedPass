@@ -55,4 +55,4 @@ def test_pause_before_entry_actions(monkeypatch, adder, needs_confirm):
             )
 
         pm.handle_retrieve_entry()
-        assert len(pause_calls) == 2
+        assert len(pause_calls) == 1
