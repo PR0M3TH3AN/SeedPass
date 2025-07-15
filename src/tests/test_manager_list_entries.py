@@ -129,6 +129,9 @@ def test_show_entry_details_by_index(monkeypatch):
             lambda *a, **k: call_order.append("actions"),
         )
         monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+        monkeypatch.setattr(
+            "password_manager.manager.confirm_action", lambda *a, **k: False
+        )
 
         pm.show_entry_details_by_index(index)
 
@@ -161,6 +164,9 @@ def _detail_common(monkeypatch, pm):
         lambda *a, **k: None,
     )
     monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "password_manager.manager.confirm_action", lambda *a, **k: False
+    )
     called = []
     monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: called.append(True))
     return called
