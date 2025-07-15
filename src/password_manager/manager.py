@@ -2934,8 +2934,9 @@ class PasswordManager:
             return
 
         etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-        if isinstance(etype, str):
-            etype = etype.lower()
+        if isinstance(etype, EntryType):
+            etype = etype.value
+        etype = str(etype).lower()
         print(color_text(f"Index: {index}", "index"))
         if etype == EntryType.TOTP.value:
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2957,9 +2958,13 @@ class PasswordManager:
         elif etype == EntryType.SEED.value:
             print(color_text("  Type: Seed Phrase", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
-            print(color_text(f"  Words: {entry.get('words', 24)}", "index"))
+            words = entry.get("word_count", entry.get("words", 24))
+            print(color_text(f"  Words: {words}", "index"))
             print(
-                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+                color_text(
+                    f"  Derivation Index: {entry.get('index', index)}",
+                    "index",
+                )
             )
             notes = entry.get("notes", "")
             if notes:
@@ -3009,6 +3014,37 @@ class PasswordManager:
             tags = entry.get("tags", [])
             if tags:
                 print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+        elif etype == EntryType.KEY_VALUE.value:
+            print(color_text("  Type: Key/Value", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(color_text(f"  Value: {entry.get('value', '')}", "index"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
+        elif etype == EntryType.MANAGED_ACCOUNT.value:
+            print(color_text("  Type: Managed Account", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            words = entry.get("word_count", entry.get("words", 24))
+            print(color_text(f"  Words: {words}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
+            fingerprint = entry.get("fingerprint", "")
+            if fingerprint:
+                print(color_text(f"  Fingerprint: {fingerprint}", "index"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
         else:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
