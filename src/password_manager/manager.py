@@ -1792,24 +1792,9 @@ class PasswordManager:
             pause()
 
     def show_entry_details_by_index(self, index: int) -> None:
-        """Display entry details using :meth:`handle_retrieve_entry` for the
-        given index without prompting for it again."""
+        """Display entry details for ``index`` without prompting."""
 
-        original_input = builtins.input
-        first_call = True
-
-        def patched_input(prompt: str = "") -> str:
-            nonlocal first_call
-            if first_call:
-                first_call = False
-                return str(index)
-            return original_input(prompt)
-
-        try:
-            builtins.input = patched_input
-            self.handle_retrieve_entry()
-        finally:
-            builtins.input = original_input
+        self.display_entry_details(index)
 
     def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
         """Prompt the user to archive or restore ``entry`` based on its status."""

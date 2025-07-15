@@ -41,11 +41,11 @@ def test_search_entries_prompt_for_details(monkeypatch, capsys):
         monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
         monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
 
-        inputs = iter(["Example", "0", "n", ""])
+        inputs = iter(["Example", "0"])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
 
         pm.handle_search_entries()
         out = capsys.readouterr().out
         assert "0. Example" in out
-        assert "Retrieved 2FA Code" in out
-        assert "123456" in out
+        assert "Label: Example" in out
+        assert "Period: 30s" in out
