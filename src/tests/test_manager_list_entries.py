@@ -2,6 +2,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
+import pytest
+
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 import sys
@@ -263,4 +265,94 @@ def test_show_managed_account_entry_details(monkeypatch, capsys):
         assert f"Derivation Index: {idx}" in out
         assert "Words: 12" in out
         assert fp in out
+        assert called == [True]
+
+
+@pytest.mark.parametrize(
+    "entry_type",
+    [
+        "password",
+        "seed",
+        "ssh",
+        "pgp",
+        "nostr",
+        "totp",
+        "key_value",
+        "managed_account",
+    ],
+)
+def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
+    """Ensure sensitive details are displayed for each entry type."""
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
+
+        monkeypatch.setattr(
+            "password_manager.manager.confirm_action", lambda *a, **k: True
+        )
+        monkeypatch.setattr(
+            "password_manager.manager.copy_to_clipboard", lambda *a, **k: None
+        )
+        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
+        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr(
+            "password_manager.manager.TotpManager.print_qr_code", lambda *a, **k: None
+        )
+        monkeypatch.setattr(
+            "password_manager.manager.clear_header_with_notification",
+            lambda *a, **k: None,
+        )
+        monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+
+        input_val = "r" if entry_type == "managed_account" else ""
+        monkeypatch.setattr("builtins.input", lambda *a, **k: input_val)
+
+        called = []
+        monkeypatch.setattr(
+            pm, "_entry_actions_menu", lambda *a, **k: called.append(True)
+        )
+
+        if entry_type == "password":
+            idx = entry_mgr.add_entry("example", 8)
+            expected = "pw123"
+        elif entry_type == "seed":
+            idx = entry_mgr.add_seed("seed", TEST_SEED, words_num=12)
+            expected = entry_mgr.get_seed_phrase(idx, TEST_SEED)
+        elif entry_type == "ssh":
+            idx = entry_mgr.add_ssh_key("ssh", TEST_SEED)
+            priv, pub = entry_mgr.get_ssh_key_pair(idx, TEST_SEED)
+            expected = priv
+            extra = pub
+        elif entry_type == "pgp":
+            idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, user_id="test")
+            priv, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
+            expected = priv
+            extra = fp
+        elif entry_type == "nostr":
+            idx = entry_mgr.add_nostr_key("nostr")
+            _npub, nsec = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
+            expected = nsec
+        elif entry_type == "totp":
+            entry_mgr.add_totp("Example", TEST_SEED)
+            idx = 0
+            monkeypatch.setattr(
+                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+            )
+            monkeypatch.setattr(
+                pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
+            )
+            expected = "123456"
+        elif entry_type == "key_value":
+            idx = entry_mgr.add_key_value("API", "abc")
+            expected = "abc"
+        else:  # managed_account
+            idx = entry_mgr.add_managed_account("acct", TEST_SEED)
+            expected = entry_mgr.get_managed_account_seed(idx, TEST_SEED)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert expected in out
+        if entry_type in {"ssh", "pgp"}:
+            assert extra in out
         assert called == [True]
