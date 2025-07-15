@@ -1792,7 +1792,7 @@ class PasswordManager:
             pause()
 
     def show_entry_details_by_index(self, index: int) -> None:
-        """Display entry details for ``index`` without prompting."""
+        """Display details for entry ``index`` and offer actions."""
         try:
             entry = self.entry_manager.retrieve_entry(index)
             if not entry:
@@ -1808,6 +1808,7 @@ class PasswordManager:
             )
 
             self.display_entry_details(index)
+            pause()
             self._entry_actions_menu(index, entry)
         except Exception as e:
             logging.error(f"Failed to display entry details: {e}", exc_info=True)
