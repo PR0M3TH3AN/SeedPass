@@ -1793,8 +1793,25 @@ class PasswordManager:
 
     def show_entry_details_by_index(self, index: int) -> None:
         """Display entry details for ``index`` without prompting."""
+        try:
+            entry = self.entry_manager.retrieve_entry(index)
+            if not entry:
+                return
 
-        self.display_entry_details(index)
+            fp, parent_fp, child_fp = self.header_fingerprint_args
+            clear_header_with_notification(
+                self,
+                fp,
+                "Entry Details",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
+
+            self.display_entry_details(index)
+            self._entry_actions_menu(index, entry)
+        except Exception as e:
+            logging.error(f"Failed to display entry details: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display entry details: {e}", "red"))
         pause()
 
     def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
