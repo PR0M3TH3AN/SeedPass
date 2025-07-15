@@ -153,6 +153,7 @@ class PasswordManager:
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
+        self._suppress_entry_actions_menu: bool = False
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -1792,24 +1793,32 @@ class PasswordManager:
             pause()
 
     def show_entry_details_by_index(self, index: int) -> None:
-        """Display entry details using :meth:`handle_retrieve_entry` for the
-        given index without prompting for it again."""
-
-        original_input = builtins.input
-        first_call = True
-
-        def patched_input(prompt: str = "") -> str:
-            nonlocal first_call
-            if first_call:
-                first_call = False
-                return str(index)
-            return original_input(prompt)
-
+        """Display details for entry ``index`` and offer actions."""
         try:
-            builtins.input = patched_input
-            self.handle_retrieve_entry()
-        finally:
-            builtins.input = original_input
+            entry = self.entry_manager.retrieve_entry(index)
+            if not entry:
+                return
+
+            fp, parent_fp, child_fp = self.header_fingerprint_args
+            clear_header_with_notification(
+                self,
+                fp,
+                "Entry Details",
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
+
+            self.display_entry_details(index)
+
+            if confirm_action("Show sensitive information? (y/N): "):
+                self.display_sensitive_entry_info(entry, index)
+
+            pause()
+            self._entry_actions_menu(index, entry)
+        except Exception as e:
+            logging.error(f"Failed to display entry details: {e}", exc_info=True)
+            print(colored(f"Error: Failed to display entry details: {e}", "red"))
+        pause()
 
     def _prompt_toggle_archive(self, entry: dict, index: int) -> None:
         """Prompt the user to archive or restore ``entry`` based on its status."""
@@ -1828,6 +1837,13 @@ class PasswordManager:
             self.is_dirty = True
             self.last_update = time.time()
 
+    def _entry_type_str(self, entry: dict) -> str:
+        """Return the entry type as a lowercase string."""
+        entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+        if isinstance(entry_type, EntryType):
+            entry_type = entry_type.value
+        return str(entry_type).lower()
+
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
         while True:
@@ -1840,7 +1856,7 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             archived = entry.get("archived", entry.get("blacklisted", False))
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = self._entry_type_str(entry)
             print(colored("\n[+] Entry Actions:", "green"))
             if archived:
                 print(colored("U. Unarchive", "cyan"))
@@ -1916,13 +1932,14 @@ class PasswordManager:
                 self._entry_edit_menu(index, entry)
             elif choice == "q":
                 self._entry_qr_menu(index, entry)
+                pause()
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
 
     def _entry_edit_menu(self, index: int, entry: dict) -> None:
         """Sub-menu for editing common entry fields."""
-        entry_type = entry.get("type", EntryType.PASSWORD.value)
+        entry_type = self._entry_type_str(entry)
         while True:
             fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_header_with_notification(
@@ -1982,7 +1999,7 @@ class PasswordManager:
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
         """Display QR codes for the given ``entry``."""
 
-        entry_type = entry.get("type")
+        entry_type = self._entry_type_str(entry)
 
         try:
             if entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
@@ -1997,6 +2014,7 @@ class PasswordManager:
                 from password_manager.seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(seed))
+                pause()
                 return
 
             if entry_type == EntryType.NOSTR.value:
@@ -2032,6 +2050,7 @@ class PasswordManager:
                         TotpManager.print_qr_code(nsec)
                     else:
                         print(colored("Invalid choice.", "red"))
+                    pause()
                     entry = self.entry_manager.retrieve_entry(index) or entry
                 return
 
@@ -2040,11 +2059,420 @@ class PasswordManager:
             logging.error(f"Error displaying QR menu: {e}", exc_info=True)
             print(colored(f"Error: Failed to display QR codes: {e}", "red"))
 
+    def display_sensitive_entry_info(self, entry: dict, index: int) -> None:
+        """Display information for a sensitive entry.
+
+        Parameters
+        ----------
+        entry: dict
+            Entry data retrieved from the vault.
+        index: int
+            Index of the entry being displayed.
+        """
+
+        self._suppress_entry_actions_menu = False
+
+        entry_type = self._entry_type_str(entry)
+
+        if entry_type == EntryType.TOTP.value:
+            label = entry.get("label", "")
+            period = int(entry.get("period", 30))
+            notes = entry.get("notes", "")
+            print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
+            print(colored("Press Enter to return to the menu.", "cyan"))
+            try:
+                while True:
+                    code = self.entry_manager.get_totp_code(index, self.parent_seed)
+                    if self.secret_mode_enabled:
+                        copy_to_clipboard(code, self.clipboard_clear_delay)
+                        print(
+                            colored(
+                                f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
+                        print(colored(f"Label: {label}", "cyan"))
+                        imported = "secret" in entry
+                        category = "imported" if imported else "deterministic"
+                        print(color_text(f"Code: {code}", category))
+                    if notes:
+                        print(colored(f"Notes: {notes}", "cyan"))
+                    tags = entry.get("tags", [])
+                    if tags:
+                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+                    remaining = self.entry_manager.get_totp_time_remaining(index)
+                    exit_loop = False
+                    while remaining > 0:
+                        filled = int(20 * (period - remaining) / period)
+                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
+                        sys.stdout.write(f"\r{bar} {remaining:2d}s")
+                        sys.stdout.flush()
+                        try:
+                            user_input = timed_input("", 1)
+                            if (
+                                user_input.strip() == ""
+                                or user_input.strip().lower() == "b"
+                            ):
+                                exit_loop = True
+                                break
+                        except TimeoutError:
+                            pass
+                        except KeyboardInterrupt:
+                            exit_loop = True
+                            print()
+                            break
+                        remaining -= 1
+                    sys.stdout.write("\n")
+                    sys.stdout.flush()
+                    if exit_loop:
+                        break
+            except Exception as e:  # pragma: no cover - best effort
+                logging.error(f"Error generating TOTP code: {e}", exc_info=True)
+                print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
+            return
+
+        if entry_type == EntryType.SSH.value:
+            notes = entry.get("notes", "")
+            label = entry.get("label", "")
+            if not confirm_action(
+                "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
+            ):
+                self.notify("SSH key display cancelled.", level="WARNING")
+                return
+            try:
+                priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
+                    index, self.parent_seed
+                )
+                print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
+                if label:
+                    print(colored(f"Label: {label}", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+                print(colored("Public Key:", "cyan"))
+                print(color_text(pub_pem, "default"))
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(colored("Private Key:", "cyan"))
+                    print(color_text(priv_pem, "deterministic"))
+            except Exception as e:  # pragma: no cover - best effort
+                logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
+                print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
+            return
+
+        if entry_type == EntryType.SEED.value:
+            notes = entry.get("notes", "")
+            label = entry.get("label", "")
+            if not confirm_action(
+                "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
+            ):
+                self.notify("Seed phrase display cancelled.", level="WARNING")
+                return
+            try:
+                phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+                print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
+                print(colored(f"Index: {index}", "cyan"))
+                if label:
+                    print(colored(f"Label: {label}", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(phrase, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(phrase, "deterministic"))
+                if confirm_action("Show derived entropy as hex? (Y/N): "):
+                    from local_bip85.bip85 import BIP85
+                    from bip_utils import Bip39SeedGenerator
+
+                    words = int(entry.get("word_count", entry.get("words", 24)))
+                    bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
+                    seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+                    bip85 = BIP85(seed_bytes)
+                    entropy = bip85.derive_entropy(
+                        index=int(entry.get("index", index)),
+                        bytes_len=bytes_len,
+                        app_no=39,
+                        words_len=words,
+                    )
+                    print(color_text(f"Entropy: {entropy.hex()}", "deterministic"))
+            except Exception as e:  # pragma: no cover - best effort
+                logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
+                print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
+            return
+
+        if entry_type == EntryType.PGP.value:
+            notes = entry.get("notes", "")
+            label = entry.get("user_id", "")
+            if not confirm_action(
+                "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
+            ):
+                self.notify("PGP key display cancelled.", level="WARNING")
+                return
+            try:
+                priv_key, fingerprint = self.entry_manager.get_pgp_key(
+                    index, self.parent_seed
+                )
+                print(colored("\n[+] Retrieved PGP Key:\n", "green"))
+                if label:
+                    print(colored(f"User ID: {label}", "cyan"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+                print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(priv_key, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(priv_key, "deterministic"))
+            except Exception as e:  # pragma: no cover - best effort
+                logging.error(f"Error deriving PGP key: {e}", exc_info=True)
+                print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
+            return
+
+        if entry_type == EntryType.NOSTR.value:
+            label = entry.get("label", "")
+            notes = entry.get("notes", "")
+            try:
+                npub, nsec = self.entry_manager.get_nostr_key_pair(
+                    index, self.parent_seed
+                )
+                print(colored("\n[+] Retrieved Nostr Keys:\n", "green"))
+                print(colored(f"Label: {label}", "cyan"))
+                print(colored(f"npub: {npub}", "cyan"))
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(nsec, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(f"nsec: {nsec}", "deterministic"))
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+            except Exception as e:  # pragma: no cover - best effort
+                logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
+                print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
+            return
+
+        if entry_type == EntryType.KEY_VALUE.value:
+            label = entry.get("label", "")
+            value = entry.get("value", "")
+            notes = entry.get("notes", "")
+            archived = entry.get("archived", False)
+            print(colored(f"Retrieving value for '{label}'.", "cyan"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+            print(
+                colored(
+                    f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
+                )
+            )
+            if self.secret_mode_enabled:
+                copy_to_clipboard(value, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(color_text(f"Value: {value}", "deterministic"))
+
+            custom_fields = entry.get("custom_fields", [])
+            if custom_fields:
+                print(colored("Additional Fields:", "cyan"))
+                hidden_fields = []
+                for field in custom_fields:
+                    f_label = field.get("label", "")
+                    f_value = field.get("value", "")
+                    if field.get("is_hidden"):
+                        hidden_fields.append((f_label, f_value))
+                        print(colored(f"  {f_label}: [hidden]", "cyan"))
+                    else:
+                        print(colored(f"  {f_label}: {f_value}", "cyan"))
+                if hidden_fields:
+                    show = input("Reveal hidden fields? (y/N): ").strip().lower()
+                    if show == "y":
+                        for f_label, f_value in hidden_fields:
+                            if self.secret_mode_enabled:
+                                copy_to_clipboard(f_value, self.clipboard_clear_delay)
+                                print(
+                                    colored(
+                                        f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                        "green",
+                                    )
+                                )
+                            else:
+                                print(colored(f"  {f_label}: {f_value}", "cyan"))
+            return
+
+        if entry_type == EntryType.MANAGED_ACCOUNT.value:
+            label = entry.get("label", "")
+            notes = entry.get("notes", "")
+            archived = entry.get("archived", False)
+            fingerprint = entry.get("fingerprint", "")
+            print(colored(f"Managed account '{label}'.", "cyan"))
+            if notes:
+                print(colored(f"Notes: {notes}", "cyan"))
+            if fingerprint:
+                print(colored(f"Fingerprint: {fingerprint}", "cyan"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+            print(
+                colored(
+                    f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
+                )
+            )
+            action = (
+                input(
+                    "Enter 'r' to reveal seed, 'l' to load account, or press Enter to go back: "
+                )
+                .strip()
+                .lower()
+            )
+            if action == "r":
+                seed = self.entry_manager.get_managed_account_seed(
+                    index, self.parent_seed
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(seed, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(color_text(seed, "deterministic"))
+                return
+            if action == "l":
+                self._suppress_entry_actions_menu = True
+                self.load_managed_account(index)
+                return
+            return
+
+        # Default: PASSWORD
+        website_name = entry.get("label", entry.get("website"))
+        length = entry.get("length")
+        username = entry.get("username")
+        url = entry.get("url")
+        blacklisted = entry.get("archived", entry.get("blacklisted"))
+        notes = entry.get("notes", "")
+
+        print(
+            colored(
+                f"Retrieving password for '{website_name}' with length {length}.",
+                "cyan",
+            )
+        )
+        if username:
+            print(colored(f"Username: {username}", "cyan"))
+        if url:
+            print(colored(f"URL: {url}", "cyan"))
+        if blacklisted:
+            self.notify(
+                "Warning: This password is archived and should not be used.",
+                level="WARNING",
+            )
+
+        password = self.password_generator.generate_password(length, index)
+
+        if password:
+            if self.secret_mode_enabled:
+                copy_to_clipboard(password, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(
+                    colored(
+                        f"\n[+] Retrieved Password for {website_name}:\n",
+                        "green",
+                    )
+                )
+                print(color_text(f"Password: {password}", "deterministic"))
+                print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
+                print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
+                print(
+                    colored(
+                        f"Archived Status: {'Archived' if blacklisted else 'Active'}",
+                        "cyan",
+                    )
+                )
+                tags = entry.get("tags", [])
+                if tags:
+                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+                custom_fields = entry.get("custom_fields", [])
+                if custom_fields:
+                    print(colored("Additional Fields:", "cyan"))
+                    hidden_fields = []
+                    for field in custom_fields:
+                        label = field.get("label", "")
+                        value = field.get("value", "")
+                        if field.get("is_hidden"):
+                            hidden_fields.append((label, value))
+                            print(colored(f"  {label}: [hidden]", "cyan"))
+                        else:
+                            print(colored(f"  {label}: {value}", "cyan"))
+                    if hidden_fields:
+                        show = input("Reveal hidden fields? (y/N): ").strip().lower()
+                        if show == "y":
+                            for label, value in hidden_fields:
+                                if self.secret_mode_enabled:
+                                    copy_to_clipboard(value, self.clipboard_clear_delay)
+                                    print(
+                                        colored(
+                                            f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                            "green",
+                                        )
+                                    )
+                                else:
+                                    print(colored(f"  {label}: {value}", "cyan"))
+        else:
+            print(colored("Error: Failed to retrieve the password.", "red"))
+        return
+
     def handle_retrieve_entry(self) -> None:
-        """
-        Handles retrieving a password from the index by prompting the user for the index number
-        and displaying the corresponding password and associated details.
-        """
+        """Prompt for an index and display the corresponding entry."""
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_header_with_notification(
@@ -2068,425 +2496,10 @@ class PasswordManager:
                 pause()
                 return
 
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
-
-            if entry_type == EntryType.TOTP.value:
-                label = entry.get("label", "")
-                period = int(entry.get("period", 30))
-                notes = entry.get("notes", "")
-                print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
-                print(colored("Press Enter to return to the menu.", "cyan"))
-                try:
-                    while True:
-                        code = self.entry_manager.get_totp_code(index, self.parent_seed)
-                        if self.secret_mode_enabled:
-                            copy_to_clipboard(code, self.clipboard_clear_delay)
-                            print(
-                                colored(
-                                    f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                    "green",
-                                )
-                            )
-                        else:
-                            print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
-                            print(colored(f"Label: {label}", "cyan"))
-                            imported = "secret" in entry
-                            category = "imported" if imported else "deterministic"
-                            print(color_text(f"Code: {code}", category))
-                        if notes:
-                            print(colored(f"Notes: {notes}", "cyan"))
-                        tags = entry.get("tags", [])
-                        if tags:
-                            print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                        remaining = self.entry_manager.get_totp_time_remaining(index)
-                        exit_loop = False
-                        while remaining > 0:
-                            filled = int(20 * (period - remaining) / period)
-                            bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                            sys.stdout.write(f"\r{bar} {remaining:2d}s")
-                            sys.stdout.flush()
-                            try:
-                                user_input = timed_input("", 1)
-                                if (
-                                    user_input.strip() == ""
-                                    or user_input.strip().lower() == "b"
-                                ):
-                                    exit_loop = True
-                                    break
-                            except TimeoutError:
-                                pass
-                            except KeyboardInterrupt:
-                                exit_loop = True
-                                print()
-                                break
-                            remaining -= 1
-                        sys.stdout.write("\n")
-                        sys.stdout.flush()
-                        if exit_loop:
-                            break
-                except Exception as e:
-                    logging.error(f"Error generating TOTP code: {e}", exc_info=True)
-                    print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-            if entry_type == EntryType.SSH.value:
-                notes = entry.get("notes", "")
-                label = entry.get("label", "")
-                if not confirm_action(
-                    "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
-                ):
-                    self.notify("SSH key display cancelled.", level="WARNING")
-                    return
-                try:
-                    priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
-                        index, self.parent_seed
-                    )
-                    print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
-                    if label:
-                        print(colored(f"Label: {label}", "cyan"))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                    print(colored("Public Key:", "cyan"))
-                    print(color_text(pub_pem, "default"))
-                    if self.secret_mode_enabled:
-                        copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(colored("Private Key:", "cyan"))
-                        print(color_text(priv_pem, "deterministic"))
-                except Exception as e:
-                    logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
-                    print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-            if entry_type == EntryType.SEED.value:
-                notes = entry.get("notes", "")
-                label = entry.get("label", "")
-                if not confirm_action(
-                    "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
-                ):
-                    self.notify("Seed phrase display cancelled.", level="WARNING")
-                    return
-                try:
-                    phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
-                    print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
-                    print(colored(f"Index: {index}", "cyan"))
-                    if label:
-                        print(colored(f"Label: {label}", "cyan"))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                    if self.secret_mode_enabled:
-                        copy_to_clipboard(phrase, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(color_text(phrase, "deterministic"))
-                    # Removed QR code display prompt and output
-                    if confirm_action("Show derived entropy as hex? (Y/N): "):
-                        from local_bip85.bip85 import BIP85
-                        from bip_utils import Bip39SeedGenerator
-
-                        words = int(entry.get("word_count", entry.get("words", 24)))
-                        bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
-                        seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
-                        bip85 = BIP85(seed_bytes)
-                        entropy = bip85.derive_entropy(
-                            index=int(entry.get("index", index)),
-                            bytes_len=bytes_len,
-                            app_no=39,
-                            words_len=words,
-                        )
-                        print(color_text(f"Entropy: {entropy.hex()}", "deterministic"))
-                except Exception as e:
-                    logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
-                    print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-            if entry_type == EntryType.PGP.value:
-                notes = entry.get("notes", "")
-                label = entry.get("user_id", "")
-                if not confirm_action(
-                    "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
-                ):
-                    self.notify("PGP key display cancelled.", level="WARNING")
-                    return
-                try:
-                    priv_key, fingerprint = self.entry_manager.get_pgp_key(
-                        index, self.parent_seed
-                    )
-                    print(colored("\n[+] Retrieved PGP Key:\n", "green"))
-                    if label:
-                        print(colored(f"User ID: {label}", "cyan"))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
-                    if self.secret_mode_enabled:
-                        copy_to_clipboard(priv_key, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(color_text(priv_key, "deterministic"))
-                except Exception as e:
-                    logging.error(f"Error deriving PGP key: {e}", exc_info=True)
-                    print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-            if entry_type == EntryType.NOSTR.value:
-                label = entry.get("label", "")
-                notes = entry.get("notes", "")
-                try:
-                    npub, nsec = self.entry_manager.get_nostr_key_pair(
-                        index, self.parent_seed
-                    )
-                    print(colored("\n[+] Retrieved Nostr Keys:\n", "green"))
-                    print(colored(f"Label: {label}", "cyan"))
-                    print(colored(f"npub: {npub}", "cyan"))
-                    if self.secret_mode_enabled:
-                        copy_to_clipboard(nsec, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(color_text(f"nsec: {nsec}", "deterministic"))
-                    # QR code display removed for npub and nsec
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                except Exception as e:
-                    logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
-                    print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-
-            if entry_type == EntryType.KEY_VALUE.value:
-                label = entry.get("label", "")
-                value = entry.get("value", "")
-                notes = entry.get("notes", "")
-                archived = entry.get("archived", False)
-                print(colored(f"Retrieving value for '{label}'.", "cyan"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                print(
-                    colored(
-                        f"Archived Status: {'Archived' if archived else 'Active'}",
-                        "cyan",
-                    )
-                )
-                if self.secret_mode_enabled:
-                    copy_to_clipboard(value, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
-                        )
-                    )
-                else:
-                    print(color_text(f"Value: {value}", "deterministic"))
-
-                custom_fields = entry.get("custom_fields", [])
-                if custom_fields:
-                    print(colored("Additional Fields:", "cyan"))
-                    hidden_fields = []
-                    for field in custom_fields:
-                        f_label = field.get("label", "")
-                        f_value = field.get("value", "")
-                        if field.get("is_hidden"):
-                            hidden_fields.append((f_label, f_value))
-                            print(colored(f"  {f_label}: [hidden]", "cyan"))
-                        else:
-                            print(colored(f"  {f_label}: {f_value}", "cyan"))
-                    if hidden_fields:
-                        show = input("Reveal hidden fields? (y/N): ").strip().lower()
-                        if show == "y":
-                            for f_label, f_value in hidden_fields:
-                                if self.secret_mode_enabled:
-                                    copy_to_clipboard(
-                                        f_value, self.clipboard_clear_delay
-                                    )
-                                    print(
-                                        colored(
-                                            f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                            "green",
-                                        )
-                                    )
-                                else:
-                                    print(colored(f"  {f_label}: {f_value}", "cyan"))
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-            if entry_type == EntryType.MANAGED_ACCOUNT.value:
-                label = entry.get("label", "")
-                notes = entry.get("notes", "")
-                archived = entry.get("archived", False)
-                fingerprint = entry.get("fingerprint", "")
-                print(colored(f"Managed account '{label}'.", "cyan"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                if fingerprint:
-                    print(colored(f"Fingerprint: {fingerprint}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                print(
-                    colored(
-                        f"Archived Status: {'Archived' if archived else 'Active'}",
-                        "cyan",
-                    )
-                )
-                action = (
-                    input(
-                        "Enter 'r' to reveal seed, 'l' to load account, or press Enter to go back: "
-                    )
-                    .strip()
-                    .lower()
-                )
-                if action == "r":
-                    seed = self.entry_manager.get_managed_account_seed(
-                        index, self.parent_seed
-                    )
-                    if self.secret_mode_enabled:
-                        copy_to_clipboard(seed, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(color_text(seed, "deterministic"))
-                    # QR code display removed for managed account seed
-                    self._entry_actions_menu(index, entry)
-                    pause()
-                    return
-                if action == "l":
-                    self.load_managed_account(index)
-                    return
-                self._entry_actions_menu(index, entry)
-                pause()
-                return
-
-            website_name = entry.get("label", entry.get("website"))
-            length = entry.get("length")
-            username = entry.get("username")
-            url = entry.get("url")
-            blacklisted = entry.get("archived", entry.get("blacklisted"))
-            notes = entry.get("notes", "")
-
-            print(
-                colored(
-                    f"Retrieving password for '{website_name}' with length {length}.",
-                    "cyan",
-                )
-            )
-            if username:
-                print(colored(f"Username: {username}", "cyan"))
-            if url:
-                print(colored(f"URL: {url}", "cyan"))
-            if blacklisted:
-                self.notify(
-                    "Warning: This password is archived and should not be used.",
-                    level="WARNING",
-                )
-
-            password = self.password_generator.generate_password(length, index)
-
-            if password:
-                if self.secret_mode_enabled:
-                    copy_to_clipboard(password, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
-                        )
-                    )
-                else:
-                    print(
-                        colored(
-                            f"\n[+] Retrieved Password for {website_name}:\n",
-                            "green",
-                        )
-                    )
-                    print(color_text(f"Password: {password}", "deterministic"))
-                    print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
-                    print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
-                    print(
-                        colored(
-                            f"Archived Status: {'Archived' if blacklisted else 'Active'}",
-                            "cyan",
-                        )
-                    )
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                    custom_fields = entry.get("custom_fields", [])
-                    if custom_fields:
-                        print(colored("Additional Fields:", "cyan"))
-                        hidden_fields = []
-                        for field in custom_fields:
-                            label = field.get("label", "")
-                            value = field.get("value", "")
-                            if field.get("is_hidden"):
-                                hidden_fields.append((label, value))
-                                print(colored(f"  {label}: [hidden]", "cyan"))
-                            else:
-                                print(colored(f"  {label}: {value}", "cyan"))
-                        if hidden_fields:
-                            show = (
-                                input("Reveal hidden fields? (y/N): ").strip().lower()
-                            )
-                            if show == "y":
-                                for label, value in hidden_fields:
-                                    if self.secret_mode_enabled:
-                                        copy_to_clipboard(
-                                            value, self.clipboard_clear_delay
-                                        )
-                                        print(
-                                            colored(
-                                                f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                                "green",
-                                            )
-                                        )
-                                    else:
-                                        print(colored(f"  {label}: {value}", "cyan"))
-            else:
-                print(colored("Error: Failed to retrieve the password.", "red"))
+            self.display_sensitive_entry_info(entry, index)
             self._entry_actions_menu(index, entry)
             pause()
+            return
         except Exception as e:
             logging.error(f"Error during password retrieval: {e}", exc_info=True)
             print(colored(f"Error: Failed to retrieve password: {e}", "red"))
@@ -2519,7 +2532,7 @@ class PasswordManager:
             if not entry:
                 return
 
-            entry_type = entry.get("type", EntryType.PASSWORD.value)
+            entry_type = self._entry_type_str(entry)
 
             if entry_type == EntryType.TOTP.value:
                 label = entry.get("label", "")
@@ -2912,7 +2925,7 @@ class PasswordManager:
         if not entry:
             return
 
-        etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+        etype = self._entry_type_str(entry)
         print(color_text(f"Index: {index}", "index"))
         if etype == EntryType.TOTP.value:
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -2934,9 +2947,13 @@ class PasswordManager:
         elif etype == EntryType.SEED.value:
             print(color_text("  Type: Seed Phrase", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
-            print(color_text(f"  Words: {entry.get('words', 24)}", "index"))
+            words = entry.get("word_count", entry.get("words", 24))
+            print(color_text(f"  Words: {words}", "index"))
             print(
-                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+                color_text(
+                    f"  Derivation Index: {entry.get('index', index)}",
+                    "index",
+                )
             )
             notes = entry.get("notes", "")
             if notes:
@@ -2950,6 +2967,12 @@ class PasswordManager:
             print(
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
+            pub_label = entry.get("public_key_label", "")
+            if pub_label:
+                print(color_text(f"  Public Key Label: {pub_label}", "index"))
+            ssh_fingerprint = entry.get("fingerprint", "")
+            if ssh_fingerprint:
+                print(color_text(f"  Fingerprint: {ssh_fingerprint}", "index"))
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
@@ -2968,6 +2991,14 @@ class PasswordManager:
             print(
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
+            try:
+                _priv, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
+                if pgp_fp:
+                    print(color_text(f"  Fingerprint: {pgp_fp}", "index"))
+            except Exception as pgp_err:  # pragma: no cover - best effort logging
+                logging.error(
+                    f"Failed to derive PGP fingerprint: {pgp_err}", exc_info=True
+                )
             notes = entry.get("notes", "")
             if notes:
                 print(color_text(f"  Notes: {notes}", "index"))
@@ -2986,6 +3017,37 @@ class PasswordManager:
             tags = entry.get("tags", [])
             if tags:
                 print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+        elif etype == EntryType.KEY_VALUE.value:
+            print(color_text("  Type: Key/Value", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(color_text(f"  Value: {entry.get('value', '')}", "index"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
+        elif etype == EntryType.MANAGED_ACCOUNT.value:
+            print(color_text("  Type: Managed Account", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            words = entry.get("word_count", entry.get("words", 24))
+            print(color_text(f"  Words: {words}", "index"))
+            print(
+                color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
+            )
+            fingerprint = entry.get("fingerprint", "")
+            if fingerprint:
+                print(color_text(f"  Fingerprint: {fingerprint}", "index"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
         else:
             website = entry.get("label", entry.get("website", ""))
             username = entry.get("username", "")
@@ -3218,7 +3280,9 @@ class PasswordManager:
             entries = data.get("entries", {})
             totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
-                if entry.get("type") == EntryType.TOTP.value and not entry.get(
+                if self._entry_type_str(
+                    entry
+                ) == EntryType.TOTP.value and not entry.get(
                     "archived", entry.get("blacklisted", False)
                 ):
                     label = entry.get("label", "")
@@ -3514,7 +3578,7 @@ class PasswordManager:
 
             totp_entries = []
             for entry in entries.values():
-                if entry.get("type") == EntryType.TOTP.value:
+                if self._entry_type_str(entry) == EntryType.TOTP.value:
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
                     digits = int(entry.get("digits", 6))
@@ -3810,7 +3874,7 @@ class PasswordManager:
         entries = data.get("entries", {})
         counts: dict[str, int] = {etype.value: 0 for etype in EntryType}
         for entry in entries.values():
-            etype = entry.get("type", EntryType.PASSWORD.value)
+            etype = self._entry_type_str(entry)
             counts[etype] = counts.get(etype, 0) + 1
         stats["entries"] = counts
         stats["total_entries"] = len(entries)

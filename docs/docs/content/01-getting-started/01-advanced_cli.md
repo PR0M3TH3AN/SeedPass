@@ -156,6 +156,14 @@ $ seedpass entry get "email"
 Code: 123456
 ```
 
+### Viewing Entry Details
+
+Picking an entry from `entry list` or `entry search` displays its metadata first
+so you can review the label, username and notes. Sensitive fields are hidden
+until you confirm you want to reveal them. After showing the secret, the details
+view offers the same actions as `entry get`—edit the entry, archive it or show
+QR codes for supported types.
+
 ### `vault` Commands
 
 - **`seedpass vault export`** – Export the entire vault to an encrypted JSON file.

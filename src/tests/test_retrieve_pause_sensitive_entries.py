@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -12,8 +11,19 @@ from password_manager.backup import BackupManager
 from password_manager.manager import PasswordManager, EncryptionMode
 from password_manager.config_manager import ConfigManager
 
+import pytest
 
-def test_search_entries_prompt_for_details(monkeypatch, capsys):
+
+@pytest.mark.parametrize(
+    "adder,needs_confirm",
+    [
+        (lambda mgr: mgr.add_seed("seed", TEST_SEED), True),
+        (lambda mgr: mgr.add_pgp_key("pgp", TEST_SEED, user_id="test"), True),
+        (lambda mgr: mgr.add_ssh_key("ssh", TEST_SEED), True),
+        (lambda mgr: mgr.add_nostr_key("nostr"), False),
+    ],
+)
+def test_pause_before_entry_actions(monkeypatch, adder, needs_confirm):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -28,24 +38,21 @@ def test_search_entries_prompt_for_details(monkeypatch, capsys):
         pm.entry_manager = entry_mgr
         pm.backup_manager = backup_mgr
         pm.parent_seed = TEST_SEED
-        pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.secret_mode_enabled = False
 
-        entry_mgr.add_totp("Example", TEST_SEED)
+        index = adder(entry_mgr)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        pause_calls = []
         monkeypatch.setattr(
-            pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
+            "password_manager.manager.pause", lambda *a, **k: pause_calls.append(True)
         )
-        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
-        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
+        monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: None)
+        monkeypatch.setattr("builtins.input", lambda *a, **k: str(index))
+        if needs_confirm:
+            monkeypatch.setattr(
+                "password_manager.manager.confirm_action", lambda *a, **k: True
+            )
 
-        inputs = iter(["Example", "0"])
-        monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
-
-        pm.handle_search_entries()
-        out = capsys.readouterr().out
-        assert "0. Example" in out
-        assert "Label: Example" in out
-        assert "Period: 30s" in out
+        pm.handle_retrieve_entry()
+        assert len(pause_calls) == 1

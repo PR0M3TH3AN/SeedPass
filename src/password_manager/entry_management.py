@@ -437,8 +437,8 @@ class EntryManager:
         """Return the npub and nsec for the specified entry."""
 
         entry = self.retrieve_entry(index)
-        etype = entry.get("type") if entry else None
-        kind = entry.get("kind") if entry else None
+        etype = entry.get("type", "").lower() if entry else ""
+        kind = entry.get("kind", "").lower() if entry else ""
         if not entry or (
             etype != EntryType.NOSTR.value and kind != EntryType.NOSTR.value
         ):
