@@ -331,6 +331,15 @@ When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to
 2. Choose how many seconds to keep passwords on the clipboard.
 3. Retrieve an entry and SeedPass will confirm the password was copied.
 
+### Viewing Entry Details
+
+Selecting an item from **List Entries** or **Search Entries** first displays the
+entry's metadata such as the label, username, tags and notes. Passwords, seed
+phrases and other sensitive fields remain hidden until you choose to reveal
+them. When you opt to show the secret, the details view presents the same action
+menu as **Retrieve Entry** so you can edit, archive or display QR codes for the
+entry.
+
 ### Additional Entry Types
 
 SeedPass supports storing more than just passwords and 2FA secrets. You can also create entries for:
