@@ -1837,6 +1837,13 @@ class PasswordManager:
             self.is_dirty = True
             self.last_update = time.time()
 
+    def _entry_type_str(self, entry: dict) -> str:
+        """Return the entry type as a lowercase string."""
+        entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+        if isinstance(entry_type, EntryType):
+            entry_type = entry_type.value
+        return str(entry_type).lower()
+
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
         while True:
@@ -1849,9 +1856,7 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             archived = entry.get("archived", entry.get("blacklisted", False))
-            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-            if isinstance(entry_type, str):
-                entry_type = entry_type.lower()
+            entry_type = self._entry_type_str(entry)
             print(colored("\n[+] Entry Actions:", "green"))
             if archived:
                 print(colored("U. Unarchive", "cyan"))
@@ -1934,9 +1939,7 @@ class PasswordManager:
 
     def _entry_edit_menu(self, index: int, entry: dict) -> None:
         """Sub-menu for editing common entry fields."""
-        entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-        if isinstance(entry_type, str):
-            entry_type = entry_type.lower()
+        entry_type = self._entry_type_str(entry)
         while True:
             fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_header_with_notification(
@@ -1996,9 +1999,7 @@ class PasswordManager:
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
         """Display QR codes for the given ``entry``."""
 
-        entry_type = entry.get("type", entry.get("kind"))
-        if isinstance(entry_type, str):
-            entry_type = entry_type.lower()
+        entry_type = self._entry_type_str(entry)
 
         try:
             if entry_type in {EntryType.SEED.value, EntryType.MANAGED_ACCOUNT.value}:
@@ -2071,9 +2072,7 @@ class PasswordManager:
 
         self._suppress_entry_actions_menu = False
 
-        entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-        if isinstance(entry_type, str):
-            entry_type = entry_type.lower()
+        entry_type = self._entry_type_str(entry)
 
         if entry_type == EntryType.TOTP.value:
             label = entry.get("label", "")
@@ -2533,9 +2532,7 @@ class PasswordManager:
             if not entry:
                 return
 
-            entry_type = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-            if isinstance(entry_type, str):
-                entry_type = entry_type.lower()
+            entry_type = self._entry_type_str(entry)
 
             if entry_type == EntryType.TOTP.value:
                 label = entry.get("label", "")
@@ -2928,10 +2925,7 @@ class PasswordManager:
         if not entry:
             return
 
-        etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-        if isinstance(etype, EntryType):
-            etype = etype.value
-        etype = str(etype).lower()
+        etype = self._entry_type_str(entry)
         print(color_text(f"Index: {index}", "index"))
         if etype == EntryType.TOTP.value:
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -3286,7 +3280,9 @@ class PasswordManager:
             entries = data.get("entries", {})
             totp_list: list[tuple[str, int, int, bool]] = []
             for idx_str, entry in entries.items():
-                if entry.get("type") == EntryType.TOTP.value and not entry.get(
+                if self._entry_type_str(
+                    entry
+                ) == EntryType.TOTP.value and not entry.get(
                     "archived", entry.get("blacklisted", False)
                 ):
                     label = entry.get("label", "")
@@ -3582,7 +3578,7 @@ class PasswordManager:
 
             totp_entries = []
             for entry in entries.values():
-                if entry.get("type") == EntryType.TOTP.value:
+                if self._entry_type_str(entry) == EntryType.TOTP.value:
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
                     digits = int(entry.get("digits", 6))
@@ -3878,9 +3874,7 @@ class PasswordManager:
         entries = data.get("entries", {})
         counts: dict[str, int] = {etype.value: 0 for etype in EntryType}
         for entry in entries.values():
-            etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-            if isinstance(etype, str):
-                etype = etype.lower()
+            etype = self._entry_type_str(entry)
             counts[etype] = counts.get(etype, 0) + 1
         stats["entries"] = counts
         stats["total_entries"] = len(entries)

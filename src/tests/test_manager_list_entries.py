@@ -13,6 +13,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
 from password_manager.manager import PasswordManager, EncryptionMode
+from password_manager.entry_types import EntryType
 from password_manager.config_manager import ConfigManager
 
 
@@ -355,4 +356,41 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
         assert expected in out
         if entry_type in {"ssh", "pgp"}:
             assert extra in out
+        assert called == [True]
+
+
+@pytest.mark.parametrize(
+    "entry_type", [EntryType.PASSWORD, EntryType.TOTP, EntryType.KEY_VALUE]
+)
+def test_show_entry_details_with_enum_type(monkeypatch, capsys, entry_type):
+    """Entries storing an EntryType enum should display correctly."""
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+
+        if entry_type == EntryType.PASSWORD:
+            idx = entry_mgr.add_entry("example.com", 8)
+            expect = "example.com"
+        elif entry_type == EntryType.TOTP:
+            entry_mgr.add_totp("Example", TEST_SEED)
+            idx = 0
+            monkeypatch.setattr(
+                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+            )
+            monkeypatch.setattr(
+                pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
+            )
+            expect = "Label: Example"
+        else:  # KEY_VALUE
+            idx = entry_mgr.add_key_value("API", "abc")
+            expect = "API"
+
+        data = entry_mgr._load_index(force_reload=True)
+        data["entries"][str(idx)]["type"] = entry_type
+        entry_mgr._save_index(data)
+
+        called = _detail_common(monkeypatch, pm)
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert expect in out
         assert called == [True]
