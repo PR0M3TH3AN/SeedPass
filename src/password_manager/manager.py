@@ -2494,11 +2494,6 @@ class PasswordManager:
                 return
 
             self.display_sensitive_entry_info(entry, index)
-            pause()
-
-            if getattr(self, "_suppress_entry_actions_menu", False):
-                return
-
             self._entry_actions_menu(index, entry)
             pause()
             return
@@ -3910,9 +3905,9 @@ class PasswordManager:
         )
         stats["backup_count"] = len(backups)
         stats["backup_dir"] = str(self.backup_manager.backup_dir)
-        stats[
-            "additional_backup_path"
-        ] = self.config_manager.get_additional_backup_path()
+        stats["additional_backup_path"] = (
+            self.config_manager.get_additional_backup_path()
+        )
 
         # Nostr sync info
         manifest = getattr(self.nostr_client, "current_manifest", None)
