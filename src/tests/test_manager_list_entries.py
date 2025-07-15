@@ -116,15 +116,21 @@ def test_show_entry_details_by_index(monkeypatch):
             "password_manager.manager.clear_header_with_notification",
             lambda *a, **k: header_calls.append(True),
         )
-        action_calls = []
+
+        call_order = []
+        monkeypatch.setattr(
+            pm,
+            "display_entry_details",
+            lambda *a, **k: call_order.append("display"),
+        )
         monkeypatch.setattr(
             pm,
             "_entry_actions_menu",
-            lambda *a, **k: action_calls.append(True),
+            lambda *a, **k: call_order.append("actions"),
         )
         monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
 
         pm.show_entry_details_by_index(index)
 
         assert len(header_calls) == 1
-        assert len(action_calls) == 1
+        assert call_order == ["display", "actions"]
