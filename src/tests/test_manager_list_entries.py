@@ -134,3 +134,119 @@ def test_show_entry_details_by_index(monkeypatch):
 
         assert len(header_calls) == 1
         assert call_order == ["display", "actions"]
+
+
+def _setup_manager(tmp_path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    cfg_mgr = ConfigManager(vault, tmp_path)
+    backup_mgr = BackupManager(tmp_path, cfg_mgr)
+    entry_mgr = EntryManager(vault, backup_mgr)
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = vault
+    pm.entry_manager = entry_mgr
+    pm.backup_manager = backup_mgr
+    pm.parent_seed = TEST_SEED
+    pm.nostr_client = SimpleNamespace()
+    pm.fingerprint_dir = tmp_path
+    pm.secret_mode_enabled = False
+    return pm, entry_mgr
+
+
+def _detail_common(monkeypatch, pm):
+    monkeypatch.setattr(
+        "password_manager.manager.clear_header_with_notification",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+    called = []
+    monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: called.append(True))
+    return called
+
+
+def test_show_seed_entry_details(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        idx = entry_mgr.add_seed("seed", TEST_SEED, words_num=12)
+
+        called = _detail_common(monkeypatch, pm)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert "Type: Seed Phrase" in out
+        assert "Label: seed" in out
+        assert "Words: 12" in out
+        assert f"Derivation Index: {idx}" in out
+        assert called == [True]
+
+
+def test_show_ssh_entry_details(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        idx = entry_mgr.add_ssh_key("ssh", TEST_SEED)
+
+        called = _detail_common(monkeypatch, pm)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert "Type: SSH Key" in out
+        assert "Label: ssh" in out
+        assert f"Derivation Index: {idx}" in out
+        assert called == [True]
+
+
+def test_show_pgp_entry_details(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, user_id="test")
+
+        called = _detail_common(monkeypatch, pm)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert "Type: PGP Key" in out
+        assert "Label: pgp" in out
+        assert "Key Type: ed25519" in out
+        assert "User ID: test" in out
+        assert f"Derivation Index: {idx}" in out
+        assert called == [True]
+
+
+def test_show_nostr_entry_details(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        idx = entry_mgr.add_nostr_key("nostr")
+
+        called = _detail_common(monkeypatch, pm)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert "Type: Nostr Key" in out
+        assert "Label: nostr" in out
+        assert f"Derivation Index: {idx}" in out
+        assert called == [True]
+
+
+def test_show_managed_account_entry_details(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, entry_mgr = _setup_manager(tmp_path)
+        idx = entry_mgr.add_managed_account("acct", TEST_SEED)
+        fp = entry_mgr.retrieve_entry(idx).get("fingerprint")
+
+        called = _detail_common(monkeypatch, pm)
+
+        pm.show_entry_details_by_index(idx)
+        out = capsys.readouterr().out
+        assert "Type: Managed Account" in out
+        assert "Label: acct" in out
+        assert f"Derivation Index: {idx}" in out
+        assert "Words: 12" in out
+        assert fp in out
+        assert called == [True]
