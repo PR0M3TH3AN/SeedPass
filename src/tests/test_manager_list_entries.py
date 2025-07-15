@@ -33,6 +33,8 @@ def test_handle_list_entries(monkeypatch, capsys):
         pm.backup_manager = backup_mgr
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
+        pm.secret_mode_enabled = False
+        pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
         entry_mgr.add_entry("example.com", 12)
@@ -111,6 +113,7 @@ def test_show_entry_details_by_index(monkeypatch):
         pm.backup_manager = backup_mgr
         pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
+        pm.secret_mode_enabled = False
 
         index = entry_mgr.add_entry("example.com", 12)
 
@@ -135,6 +138,8 @@ def test_show_entry_details_by_index(monkeypatch):
         monkeypatch.setattr(
             "password_manager.manager.confirm_action", lambda *a, **k: False
         )
+        pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
+        monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
 
         pm.show_entry_details_by_index(index)
 
@@ -167,9 +172,12 @@ def _detail_common(monkeypatch, pm):
         lambda *a, **k: None,
     )
     monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "")
     monkeypatch.setattr(
         "password_manager.manager.confirm_action", lambda *a, **k: False
     )
+    monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
+    pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
     called = []
     monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: called.append(True))
     return called
