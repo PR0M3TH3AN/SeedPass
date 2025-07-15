@@ -1918,6 +1918,7 @@ class PasswordManager:
                 self._entry_edit_menu(index, entry)
             elif choice == "q":
                 self._entry_qr_menu(index, entry)
+                pause()
             else:
                 print(colored("Invalid choice.", "red"))
             entry = self.entry_manager.retrieve_entry(index) or entry
@@ -2003,6 +2004,7 @@ class PasswordManager:
                 from password_manager.seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(seed))
+                pause()
                 return
 
             if entry_type == EntryType.NOSTR.value:
@@ -2038,6 +2040,7 @@ class PasswordManager:
                         TotpManager.print_qr_code(nsec)
                     else:
                         print(colored("Invalid choice.", "red"))
+                    pause()
                     entry = self.entry_manager.retrieve_entry(index) or entry
                 return
 
