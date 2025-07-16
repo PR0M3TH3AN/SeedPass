@@ -13,6 +13,8 @@ except ImportError:  # pragma: no cover - POSIX only
     termios = None  # type: ignore
     tty = None  # type: ignore
 
+from utils.terminal_utils import clear_screen
+
 
 def _masked_input_windows(prompt: str) -> str:
     """Windows implementation using ``msvcrt``."""
@@ -105,9 +107,10 @@ def prompt_seed_words(count: int = 12) -> str:
 
     idx = 0
     while idx < count:
+        clear_screen()
         progress = [f"{i+1}: {'*' if w else '_'}" for i, w in enumerate(words)]
         print("\n".join(progress))
-        entered = input(f"Enter word number {idx+1}: ").strip().lower()
+        entered = masked_input(f"Enter word number {idx+1}: ").strip().lower()
         if entered not in m.wordlist:
             print("Invalid word, try again.")
             continue
@@ -116,6 +119,9 @@ def prompt_seed_words(count: int = 12) -> str:
 
     for i in range(count):
         while True:
+            clear_screen()
+            progress = [f"{j+1}: {'*' if j < i else '_'}" for j in range(count)]
+            print("\n".join(progress))
             response = (
                 input(f"Is this the correct word for number {i+1}? {words[i]} (Y/N): ")
                 .strip()
@@ -125,7 +131,12 @@ def prompt_seed_words(count: int = 12) -> str:
                 break
             if response in ("n", "no"):
                 while True:
-                    new_word = input(f"Re-enter word number {i+1}: ").strip().lower()
+                    clear_screen()
+                    progress = [f"{j+1}: {'*' if j < i else '_'}" for j in range(count)]
+                    print("\n".join(progress))
+                    new_word = (
+                        masked_input(f"Re-enter word number {i+1}: ").strip().lower()
+                    )
                     if new_word in m.wordlist:
                         words[i] = new_word
                         break
