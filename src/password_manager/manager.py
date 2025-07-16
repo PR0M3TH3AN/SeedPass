@@ -3240,7 +3240,9 @@ class PasswordManager:
     def handle_view_archived_entries(self) -> None:
         """Display archived entries and optionally view or restore them."""
         try:
-            archived = self.entry_manager.list_entries(include_archived=True)
+            archived = self.entry_manager.list_entries(
+                include_archived=True, verbose=False
+            )
             archived = [e for e in archived if e[4]]
             if not archived:
                 self.notify("No archived entries found.", level="WARNING")
@@ -3286,7 +3288,7 @@ class PasswordManager:
                         self.last_update = time.time()
                         pause()
                         archived = self.entry_manager.list_entries(
-                            include_archived=True
+                            include_archived=True, verbose=False
                         )
                         archived = [e for e in archived if e[4]]
                         if not archived:

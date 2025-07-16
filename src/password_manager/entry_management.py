@@ -920,6 +920,7 @@ class EntryManager:
         filter_kind: str | None = None,
         *,
         include_archived: bool = False,
+        verbose: bool = True,
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
         """List entries in the index with optional sorting and filtering.
 
@@ -932,7 +933,8 @@ class EntryManager:
 
             if not entries_data:
                 logger.info("No entries found.")
-                print(colored("No entries found.", "yellow"))
+                if verbose:
+                    print(colored("No entries found.", "yellow"))
                 return []
 
             def sort_key(item: Tuple[str, Dict[str, Any]]):
@@ -987,51 +989,59 @@ class EntryManager:
                     )
 
             logger.debug(f"Total entries found: {len(entries)}")
-            for idx, entry in filtered_items:
-                etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                print(colored(f"Index: {idx}", "cyan"))
-                if etype == EntryType.TOTP.value:
-                    print(colored("  Type: TOTP", "cyan"))
-                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-                    print(colored(f"  Derivation Index: {entry.get('index')}", "cyan"))
-                    print(
-                        colored(
-                            f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
-                            "cyan",
+            if verbose:
+                for idx, entry in filtered_items:
+                    etype = entry.get(
+                        "type", entry.get("kind", EntryType.PASSWORD.value)
+                    )
+                    print(colored(f"Index: {idx}", "cyan"))
+                    if etype == EntryType.TOTP.value:
+                        print(colored("  Type: TOTP", "cyan"))
+                        print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                        print(
+                            colored(f"  Derivation Index: {entry.get('index')}", "cyan")
                         )
-                    )
-                elif etype == EntryType.PASSWORD.value:
-                    print(
-                        colored(
-                            f"  Label: {entry.get('label', entry.get('website', ''))}",
-                            "cyan",
+                        print(
+                            colored(
+                                f"  Period: {entry.get('period', 30)}s  Digits: {entry.get('digits', 6)}",
+                                "cyan",
+                            )
                         )
-                    )
-                    print(
-                        colored(f"  Username: {entry.get('username') or 'N/A'}", "cyan")
-                    )
-                    print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
-                    print(
-                        colored(
-                            f"  Archived: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
-                            "cyan",
+                    elif etype == EntryType.PASSWORD.value:
+                        print(
+                            colored(
+                                f"  Label: {entry.get('label', entry.get('website', ''))}",
+                                "cyan",
+                            )
                         )
-                    )
-                else:
-                    print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
-                    print(
-                        colored(
-                            f"  Derivation Index: {entry.get('index', idx)}",
-                            "cyan",
+                        print(
+                            colored(
+                                f"  Username: {entry.get('username') or 'N/A'}", "cyan"
+                            )
                         )
-                    )
-                print("-" * 40)
+                        print(colored(f"  URL: {entry.get('url') or 'N/A'}", "cyan"))
+                        print(
+                            colored(
+                                f"  Archived: {'Yes' if entry.get('archived', entry.get('blacklisted', False)) else 'No'}",
+                                "cyan",
+                            )
+                        )
+                    else:
+                        print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                        print(
+                            colored(
+                                f"  Derivation Index: {entry.get('index', idx)}",
+                                "cyan",
+                            )
+                        )
+                    print("-" * 40)
 
             return entries
 
         except Exception as e:
             logger.error(f"Failed to list entries: {e}", exc_info=True)
-            print(colored(f"Error: Failed to list entries: {e}", "red"))
+            if verbose:
+                print(colored(f"Error: Failed to list entries: {e}", "red"))
             return []
 
     def search_entries(
