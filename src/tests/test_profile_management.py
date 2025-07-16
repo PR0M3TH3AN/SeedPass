@@ -41,7 +41,7 @@ def test_add_and_delete_entry(monkeypatch):
             manager_module.PasswordManager, "generate_bip85_seed", lambda self: seed
         )
         monkeypatch.setattr(manager_module, "confirm_action", lambda *_a, **_k: True)
-        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "2")
+        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "3")
 
         pm.add_new_fingerprint()
 
