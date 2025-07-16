@@ -38,6 +38,7 @@ def test_prompt_seed_words_valid(monkeypatch):
     words = phrase.split()
 
     inputs = iter(words + ["y"] * len(words))
+    monkeypatch.setattr(seed_prompt, "masked_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
 
     result = seed_prompt.prompt_seed_words(len(words))
@@ -52,6 +53,7 @@ def test_prompt_seed_words_invalid_word(monkeypatch):
     words = phrase.split()
     # Insert an invalid word for the first entry then the correct one
     inputs = iter(["invalid"] + [words[0]] + words[1:] + ["y"] * len(words))
+    monkeypatch.setattr(seed_prompt, "masked_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
 
     result = seed_prompt.prompt_seed_words(len(words))

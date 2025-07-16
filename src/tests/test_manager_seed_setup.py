@@ -1,6 +1,7 @@
 import builtins
 from mnemonic import Mnemonic
 from password_manager.manager import PasswordManager
+from utils import seed_prompt
 
 
 def test_validate_bip85_seed_invalid_word():
@@ -24,6 +25,7 @@ def test_setup_existing_seed_words(monkeypatch):
     phrase = m.generate(strength=128)
     words = phrase.split()
     inputs = iter(words + ["y"] * len(words))
+    monkeypatch.setattr(seed_prompt, "masked_input", lambda *_: next(inputs))
     monkeypatch.setattr(builtins, "input", lambda *_: next(inputs))
 
     pm = PasswordManager.__new__(PasswordManager)
