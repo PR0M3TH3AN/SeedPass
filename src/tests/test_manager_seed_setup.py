@@ -24,9 +24,14 @@ def test_setup_existing_seed_words(monkeypatch):
     m = Mnemonic("english")
     phrase = m.generate(strength=128)
     words = phrase.split()
-    inputs = iter(words + ["y"] * len(words))
-    monkeypatch.setattr(seed_prompt, "masked_input", lambda *_: next(inputs))
-    monkeypatch.setattr(builtins, "input", lambda *_: next(inputs))
+    word_iter = iter(words)
+    monkeypatch.setattr(
+        "password_manager.manager.masked_input",
+        lambda *_: next(word_iter),
+    )
+    # Ensure prompt_seed_words uses the patched function
+    monkeypatch.setattr(seed_prompt, "masked_input", lambda *_: next(word_iter))
+    monkeypatch.setattr(builtins, "input", lambda *_: "y")
 
     pm = PasswordManager.__new__(PasswordManager)
     monkeypatch.setattr(pm, "_finalize_existing_seed", lambda seed: seed)
