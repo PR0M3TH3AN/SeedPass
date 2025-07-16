@@ -329,8 +329,13 @@ class PasswordManager:
 
             print(colored("\nAvailable Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
+                label = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
                 marker = " *" if fp == current else ""
-                print(colored(f"{idx}. {fp}{marker}", "cyan"))
+                print(colored(f"{idx}. {label}{marker}", "cyan"))
 
             print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
 
@@ -532,7 +537,12 @@ class PasswordManager:
             print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                display = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
+                print(colored(f"{idx}. {display}", "cyan"))
 
             choice = input("Select a seed profile by number to switch: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
@@ -680,7 +690,12 @@ class PasswordManager:
 
             print(colored("Available Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                label = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
+                print(colored(f"{idx}. {label}", "cyan"))
 
             choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):

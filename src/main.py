@@ -151,7 +151,8 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
 
         print(colored("Available Seed Profiles:", "cyan"))
         for idx, fp in enumerate(fingerprints, start=1):
-            print(colored(f"{idx}. {fp}", "cyan"))
+            label = password_manager.fingerprint_manager.display_name(fp)
+            print(colored(f"{idx}. {label}", "cyan"))
 
         choice = input("Select a seed profile by number to switch: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
@@ -195,7 +196,8 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
 
         print(colored("Available Seed Profiles:", "cyan"))
         for idx, fp in enumerate(fingerprints, start=1):
-            print(colored(f"{idx}. {fp}", "cyan"))
+            label = password_manager.fingerprint_manager.display_name(fp)
+            print(colored(f"{idx}. {label}", "cyan"))
 
         choice = input("Select a seed profile by number to remove: ").strip()
         if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
@@ -239,7 +241,8 @@ def handle_list_fingerprints(password_manager: PasswordManager):
 
         print(colored("Available Seed Profiles:", "cyan"))
         for fp in fingerprints:
-            print(colored(f"- {fp}", "cyan"))
+            label = password_manager.fingerprint_manager.display_name(fp)
+            print(colored(f"- {label}", "cyan"))
         pause()
     except Exception as e:
         logging.error(f"Error listing seed profiles: {e}", exc_info=True)
@@ -641,6 +644,25 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def handle_set_profile_name(pm: PasswordManager) -> None:
+    """Set or clear the custom name for the current seed profile."""
+    fp = getattr(pm.fingerprint_manager, "current_fingerprint", None)
+    if not fp:
+        print(colored("No seed profile selected.", "red"))
+        return
+    current = pm.fingerprint_manager.get_name(fp)
+    if current:
+        print(colored(f"Current name: {current}", "cyan"))
+    else:
+        print(colored("No custom name set.", "cyan"))
+    value = input("Enter new name (leave blank to remove): ").strip()
+    if pm.fingerprint_manager.set_name(fp, value or None):
+        if value:
+            print(colored("Name updated.", "green"))
+        else:
+            print(colored("Name removed.", "green"))
+
+
 def handle_toggle_secret_mode(pm: PasswordManager) -> None:
     """Toggle secret mode and adjust clipboard delay."""
     cfg = pm.config_manager
@@ -756,6 +778,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
         print(color_text("2. Add a New Seed Profile", "menu"))
         print(color_text("3. Remove an Existing Seed Profile", "menu"))
         print(color_text("4. List All Seed Profiles", "menu"))
+        print(color_text("5. Set Seed Profile Name", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         if choice == "1":
@@ -767,6 +790,8 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             handle_remove_fingerprint(password_manager)
         elif choice == "4":
             handle_list_fingerprints(password_manager)
+        elif choice == "5":
+            handle_set_profile_name(password_manager)
         elif not choice:
             break
         else:
