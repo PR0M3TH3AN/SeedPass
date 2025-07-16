@@ -357,7 +357,8 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 - **Add a New Seed Profile:**
   - From the main menu, select **Settings** then **Profiles** and choose "Add a New Seed Profile".
-  - Choose to enter an existing seed or generate a new one.
+  - Choose to paste in a full seed, enter one word at a time, or generate a new seed.
+  - When entering a seed word by word, each word is hidden with `*` and the screen refreshes after every entry for clarity. You'll review the completed phrase after the last word and can correct mistakes before it is saved.
   - If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
 
 - **Switch Between Seed Profiles:**
@@ -368,6 +369,8 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 - **List All Seed Profiles:**
   - In the **Profiles** menu, choose "List All Seed Profiles" to view all existing profiles.
+- **Set Seed Profile Name:**
+  - In the **Profiles** menu, choose "Set Seed Profile Name" to assign a label to the current profile. The name is stored locally and shown next to the fingerprint.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 

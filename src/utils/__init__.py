@@ -25,6 +25,7 @@ try:
         update_checksum_file,
     )
     from .password_prompt import prompt_for_password
+    from .seed_prompt import masked_input, prompt_seed_words
     from .input_utils import timed_input
     from .memory_protection import InMemorySecret
     from .clipboard import copy_to_clipboard
@@ -58,6 +59,8 @@ __all__ = [
     "exclusive_lock",
     "shared_lock",
     "prompt_for_password",
+    "masked_input",
+    "prompt_seed_words",
     "timed_input",
     "InMemorySecret",
     "copy_to_clipboard",

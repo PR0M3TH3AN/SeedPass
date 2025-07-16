@@ -15,7 +15,7 @@ import logging
 import getpass
 import os
 import hashlib
-from typing import Optional
+from typing import Optional, Literal
 import shutil
 import time
 import builtins
@@ -54,6 +54,7 @@ from utils.password_prompt import (
     prompt_new_password,
     confirm_action,
 )
+from utils import masked_input, prompt_seed_words
 from utils.memory_protection import InMemorySecret
 from utils.clipboard import copy_to_clipboard
 from utils.terminal_utils import (
@@ -87,6 +88,7 @@ from pathlib import Path
 
 from local_bip85.bip85 import BIP85, Bip85Error
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+from mnemonic import Mnemonic
 from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
@@ -329,8 +331,13 @@ class PasswordManager:
 
             print(colored("\nAvailable Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
+                label = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
                 marker = " *" if fp == current else ""
-                print(colored(f"{idx}. {fp}{marker}", "cyan"))
+                print(colored(f"{idx}. {label}{marker}", "cyan"))
 
             print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
 
@@ -360,11 +367,15 @@ class PasswordManager:
         """
         try:
             choice = input(
-                "Do you want to (1) Enter an existing seed or (2) Generate a new seed? (1/2): "
+                "Do you want to (1) Paste in an existing seed in full "
+                "(2) Enter an existing seed one word at a time or "
+                "(3) Generate a new seed? (1/2/3): "
             ).strip()
             if choice == "1":
-                fingerprint = self.setup_existing_seed()
+                fingerprint = self.setup_existing_seed(method="paste")
             elif choice == "2":
+                fingerprint = self.setup_existing_seed(method="words")
+            elif choice == "3":
                 fingerprint = self.generate_new_seed()
             else:
                 print(colored("Invalid choice. Exiting.", "red"))
@@ -532,7 +543,12 @@ class PasswordManager:
             print(colored("\nAvailable Seed Profiles:", "cyan"))
             fingerprints = self.fingerprint_manager.list_fingerprints()
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                display = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
+                print(colored(f"{idx}. {display}", "cyan"))
 
             choice = input("Select a seed profile by number to switch: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
@@ -680,7 +696,12 @@ class PasswordManager:
 
             print(colored("Available Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
-                print(colored(f"{idx}. {fp}", "cyan"))
+                label = (
+                    self.fingerprint_manager.display_name(fp)
+                    if hasattr(self.fingerprint_manager, "display_name")
+                    else fp
+                )
+                print(colored(f"{idx}. {label}", "cyan"))
 
             choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
@@ -727,109 +748,126 @@ class PasswordManager:
         self.notify("No existing seed found. Let's set up a new one!", level="WARNING")
 
         choice = input(
-            "Do you want to (1) Enter an existing BIP-85 seed or (2) Generate a new BIP-85 seed? (1/2): "
+            "Do you want to (1) Paste in an existing seed in full "
+            "(2) Enter an existing seed one word at a time or "
+            "(3) Generate a new seed? (1/2/3): "
         ).strip()
 
         if choice == "1":
-            self.setup_existing_seed()
+            self.setup_existing_seed(method="paste")
         elif choice == "2":
+            self.setup_existing_seed(method="words")
+        elif choice == "3":
             self.generate_new_seed()
         else:
             print(colored("Invalid choice. Exiting.", "red"))
             sys.exit(1)
 
-    def setup_existing_seed(self) -> Optional[str]:
-        """
-        Prompts the user to enter an existing BIP-85 seed and validates it.
+    def setup_existing_seed(
+        self, method: Literal["paste", "words"] = "paste"
+    ) -> Optional[str]:
+        """Prompt for an existing BIP-85 seed and set it up.
 
-        Returns:
-            Optional[str]: The fingerprint if setup is successful, None otherwise.
+        Parameters
+        ----------
+        method:
+            ``"paste"`` to enter the entire phrase at once or ``"words"`` to
+            be prompted one word at a time.
+
+        Returns
+        -------
+        Optional[str]
+            The fingerprint if setup is successful, ``None`` otherwise.
         """
         try:
-            parent_seed = getpass.getpass(
-                prompt="Enter your 12-word BIP-85 seed: "
-            ).strip()
-            if self.validate_bip85_seed(parent_seed):
-                # Add a fingerprint using the existing seed
-                fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
-                if not fingerprint:
-                    print(
-                        colored(
-                            "Error: Failed to generate seed profile for the provided seed.",
-                            "red",
-                        )
-                    )
-                    sys.exit(1)
-
-                fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
-                    fingerprint
-                )
-                if not fingerprint_dir:
-                    print(
-                        colored(
-                            "Error: Failed to retrieve seed profile directory.", "red"
-                        )
-                    )
-                    sys.exit(1)
-
-                # Set the current fingerprint in both PasswordManager and FingerprintManager
-                self.current_fingerprint = fingerprint
-                self.fingerprint_manager.current_fingerprint = fingerprint
-                self.fingerprint_dir = fingerprint_dir
-                logging.info(f"Current seed profile set to {fingerprint}")
-
-                try:
-                    # Initialize EncryptionManager with key and fingerprint_dir
-                    password = prompt_for_password()
-                    index_key = derive_index_key(parent_seed)
-                    iterations = (
-                        self.config_manager.get_kdf_iterations()
-                        if getattr(self, "config_manager", None)
-                        else 50_000
-                    )
-                    seed_key = derive_key_from_password(password, iterations=iterations)
-
-                    self.encryption_manager = EncryptionManager(
-                        index_key, fingerprint_dir
-                    )
-                    seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                    self.vault = Vault(self.encryption_manager, fingerprint_dir)
-
-                    # Ensure config manager is set for the new fingerprint
-                    self.config_manager = ConfigManager(
-                        vault=self.vault,
-                        fingerprint_dir=fingerprint_dir,
-                    )
-
-                    # Encrypt and save the parent seed
-                    seed_mgr.encrypt_parent_seed(parent_seed)
-                    logging.info("Parent seed encrypted and saved successfully.")
-
-                    # Store the hashed password
-                    self.store_hashed_password(password)
-                    logging.info("User password hashed and stored successfully.")
-
-                    self.parent_seed = parent_seed  # Ensure this is a string
-                    logger.debug(
-                        f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
-                    )
-
-                    self.initialize_bip85()
-                    self.initialize_managers()
-                    self.start_background_sync()
-                    return fingerprint  # Return the generated or added fingerprint
-                except BaseException:
-                    # Clean up partial profile on failure or interruption
-                    self.fingerprint_manager.remove_fingerprint(fingerprint)
-                    raise
+            if method == "words":
+                parent_seed = prompt_seed_words()
             else:
+                parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+
+            if not self.validate_bip85_seed(parent_seed):
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
                 sys.exit(1)
+
+            return self._finalize_existing_seed(parent_seed)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             self.notify("Operation cancelled by user.", level="WARNING")
             sys.exit(0)
+
+    def setup_existing_seed_word_by_word(self) -> Optional[str]:
+        """Prompt for an existing seed one word at a time and set it up."""
+        return self.setup_existing_seed(method="words")
+
+    def _finalize_existing_seed(self, parent_seed: str) -> Optional[str]:
+        """Common logic for initializing an existing seed."""
+        if self.validate_bip85_seed(parent_seed):
+            fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
+            if not fingerprint:
+                print(
+                    colored(
+                        "Error: Failed to generate seed profile for the provided seed.",
+                        "red",
+                    )
+                )
+                sys.exit(1)
+
+            fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
+                fingerprint
+            )
+            if not fingerprint_dir:
+                print(
+                    colored("Error: Failed to retrieve seed profile directory.", "red")
+                )
+                sys.exit(1)
+
+            self.current_fingerprint = fingerprint
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            self.fingerprint_dir = fingerprint_dir
+            logging.info(f"Current seed profile set to {fingerprint}")
+
+            try:
+                password = prompt_for_password()
+                index_key = derive_index_key(parent_seed)
+                iterations = (
+                    self.config_manager.get_kdf_iterations()
+                    if getattr(self, "config_manager", None)
+                    else 50_000
+                )
+                seed_key = derive_key_from_password(password, iterations=iterations)
+
+                self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                self.vault = Vault(self.encryption_manager, fingerprint_dir)
+
+                self.config_manager = ConfigManager(
+                    vault=self.vault,
+                    fingerprint_dir=fingerprint_dir,
+                )
+
+                seed_mgr.encrypt_parent_seed(parent_seed)
+                logging.info("Parent seed encrypted and saved successfully.")
+
+                self.store_hashed_password(password)
+                logging.info("User password hashed and stored successfully.")
+
+                self.parent_seed = parent_seed
+                logger.debug(
+                    f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
+                )
+
+                self.initialize_bip85()
+                self.initialize_managers()
+                self.start_background_sync()
+                return fingerprint
+            except BaseException:
+                self.fingerprint_manager.remove_fingerprint(fingerprint)
+                raise
+        else:
+            logging.error("Invalid BIP-85 seed phrase. Exiting.")
+            print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
+            sys.exit(1)
 
     def generate_new_seed(self) -> Optional[str]:
         """
@@ -894,11 +932,11 @@ class PasswordManager:
             bool: True if valid, False otherwise.
         """
         try:
-            words = seed.split()
-            if len(words) != 12:
-                return False
-            # Additional validation can be added here if needed (e.g., word list checks)
-            return True
+            checker = Mnemonic("english")
+            if checker.check(seed):
+                return True
+            logging.error("Invalid BIP-85 seed provided")
+            return False
         except Exception as e:
             logging.error(f"Error validating BIP-85 seed: {e}")
             return False
