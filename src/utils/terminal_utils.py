@@ -8,6 +8,20 @@ from termcolor import colored
 from utils.color_scheme import color_text
 
 
+def format_profile(fingerprint: str | None, pm=None) -> str | None:
+    """Return display string for a fingerprint with optional custom name."""
+    if not fingerprint:
+        return None
+    if pm and getattr(pm, "fingerprint_manager", None):
+        try:
+            name = pm.fingerprint_manager.get_name(fingerprint)
+            if name:
+                return f"{name} ({fingerprint})"
+        except Exception:
+            pass
+    return fingerprint
+
+
 def clear_screen() -> None:
     """Clear the terminal screen using an ANSI escape code."""
     print("\033c", end="")
@@ -18,16 +32,17 @@ def clear_and_print_fingerprint(
     breadcrumb: str | None = None,
     parent_fingerprint: str | None = None,
     child_fingerprint: str | None = None,
+    pm=None,
 ) -> None:
     """Clear the screen and optionally display the current fingerprint and path."""
     clear_screen()
     header_fp = None
     if parent_fingerprint and child_fingerprint:
-        header_fp = f"{parent_fingerprint} > Managed Account > {child_fingerprint}"
+        header_fp = f"{format_profile(parent_fingerprint, pm)} > Managed Account > {format_profile(child_fingerprint, pm)}"
     elif fingerprint:
-        header_fp = fingerprint
+        header_fp = format_profile(fingerprint, pm)
     elif parent_fingerprint or child_fingerprint:
-        header_fp = parent_fingerprint or child_fingerprint
+        header_fp = format_profile(parent_fingerprint or child_fingerprint, pm)
     if header_fp:
         header = f"Seed Profile: {header_fp}"
         if breadcrumb:
@@ -36,15 +51,15 @@ def clear_and_print_fingerprint(
 
 
 def clear_and_print_profile_chain(
-    fingerprints: list[str] | None, breadcrumb: str | None = None
+    fingerprints: list[str] | None, breadcrumb: str | None = None, pm=None
 ) -> None:
     """Clear the screen and display a chain of fingerprints."""
     clear_screen()
     if not fingerprints:
         return
-    chain = fingerprints[0]
+    chain = format_profile(fingerprints[0], pm)
     for fp in fingerprints[1:]:
-        chain += f" > Managed Account > {fp}"
+        chain += f" > Managed Account > {format_profile(fp, pm)}"
     header = f"Seed Profile: {chain}"
     if breadcrumb:
         header += f" > {breadcrumb}"
@@ -63,11 +78,11 @@ def clear_header_with_notification(
     clear_screen()
     header_fp = None
     if parent_fingerprint and child_fingerprint:
-        header_fp = f"{parent_fingerprint} > Managed Account > {child_fingerprint}"
+        header_fp = f"{format_profile(parent_fingerprint, pm)} > Managed Account > {format_profile(child_fingerprint, pm)}"
     elif fingerprint:
-        header_fp = fingerprint
+        header_fp = format_profile(fingerprint, pm)
     elif parent_fingerprint or child_fingerprint:
-        header_fp = parent_fingerprint or child_fingerprint
+        header_fp = format_profile(parent_fingerprint or child_fingerprint, pm)
     if header_fp:
         header = f"Seed Profile: {header_fp}"
         if breadcrumb:

@@ -34,7 +34,11 @@ class FingerprintManager:
         self.app_dir = app_dir
         self.fingerprints_file = self.app_dir / "fingerprints.json"
         self._ensure_app_directory()
-        self.fingerprints, self.current_fingerprint = self._load_fingerprints()
+        (
+            self.fingerprints,
+            self.current_fingerprint,
+            self.names,
+        ) = self._load_fingerprints()
 
     def get_current_fingerprint_dir(self) -> Optional[Path]:
         """
@@ -62,25 +66,26 @@ class FingerprintManager:
             )
             raise
 
-    def _load_fingerprints(self) -> tuple[list[str], Optional[str]]:
-        """Return stored fingerprints and the last used fingerprint."""
+    def _load_fingerprints(self) -> tuple[list[str], Optional[str], dict[str, str]]:
+        """Return stored fingerprints, the last used fingerprint, and name mapping."""
         try:
             if self.fingerprints_file.exists():
                 with open(self.fingerprints_file, "r") as f:
                     data = json.load(f)
                 fingerprints = data.get("fingerprints", [])
                 current = data.get("last_used")
+                names = data.get("names", {})
                 logger.debug(
                     f"Loaded fingerprints: {fingerprints} (last used: {current})"
                 )
-                return fingerprints, current
+                return fingerprints, current, names
             logger.debug(
                 "fingerprints.json not found. Initializing empty fingerprint list."
             )
-            return [], None
+            return [], None, {}
         except Exception as e:
             logger.error(f"Failed to load fingerprints: {e}", exc_info=True)
-            return [], None
+            return [], None, {}
 
     def _save_fingerprints(self):
         """
@@ -92,6 +97,7 @@ class FingerprintManager:
                     {
                         "fingerprints": self.fingerprints,
                         "last_used": self.current_fingerprint,
+                        "names": self.names,
                     },
                     f,
                     indent=4,
@@ -116,6 +122,7 @@ class FingerprintManager:
         fingerprint = generate_fingerprint(seed_phrase)
         if fingerprint and fingerprint not in self.fingerprints:
             self.fingerprints.append(fingerprint)
+            self.names.setdefault(fingerprint, "")
             self.current_fingerprint = fingerprint
             self._save_fingerprints()
             logger.info(f"Fingerprint {fingerprint} added successfully.")
@@ -144,6 +151,7 @@ class FingerprintManager:
         if fingerprint in self.fingerprints:
             try:
                 self.fingerprints.remove(fingerprint)
+                self.names.pop(fingerprint, None)
                 if self.current_fingerprint == fingerprint:
                     self.current_fingerprint = (
                         self.fingerprints[0] if self.fingerprints else None
@@ -197,6 +205,26 @@ class FingerprintManager:
         else:
             logger.error(f"Fingerprint {fingerprint} not found.")
             return False
+
+    def set_name(self, fingerprint: str, name: str | None) -> bool:
+        """Set a custom name for a fingerprint."""
+        if fingerprint not in self.fingerprints:
+            return False
+        if name:
+            self.names[fingerprint] = name
+        else:
+            self.names.pop(fingerprint, None)
+        self._save_fingerprints()
+        return True
+
+    def get_name(self, fingerprint: str) -> Optional[str]:
+        """Return the custom name for ``fingerprint`` if set."""
+        return self.names.get(fingerprint) or None
+
+    def display_name(self, fingerprint: str) -> str:
+        """Return name and fingerprint for display."""
+        name = self.get_name(fingerprint)
+        return f"{name} ({fingerprint})" if name else fingerprint
 
     def get_fingerprint_directory(self, fingerprint: str) -> Optional[Path]:
         """

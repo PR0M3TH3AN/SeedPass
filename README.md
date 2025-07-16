@@ -378,8 +378,12 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
   3. Enter the number corresponding to the seed profile you wish to switch to.
   4. Enter the master password associated with that seed profile.
 
-- **List All Seed Profiles:**  
+- **List All Seed Profiles:**
   In the **Profiles** menu, choose "List All Seed Profiles" to view all existing profiles.
+- **Set Seed Profile Name:**
+  In the **Profiles** menu, choose "Set Seed Profile Name" to assign an optional
+  label to the currently selected profile. The name is stored locally and shown
+  alongside the fingerprint in menus.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 

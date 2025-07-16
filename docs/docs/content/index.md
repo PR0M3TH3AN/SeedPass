@@ -368,6 +368,8 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 - **List All Seed Profiles:**
   - In the **Profiles** menu, choose "List All Seed Profiles" to view all existing profiles.
+- **Set Seed Profile Name:**
+  - In the **Profiles** menu, choose "Set Seed Profile Name" to assign a label to the current profile. The name is stored locally and shown next to the fingerprint.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
