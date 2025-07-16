@@ -369,8 +369,9 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 - **Add a New Seed Profile:**
   1. From the main menu, select **Settings** then **Profiles** and choose "Add a New Seed Profile".
-  2. Choose to enter an existing seed or generate a new one.
-  3. If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
+  2. Choose to paste in a full seed, enter one word at a time, or generate a new seed.
+  3. If you enter the seed word by word, SeedPass shows the completed phrase for confirmation so you can fix any mistakes before it is stored.
+  4. If generating a new seed, you'll be provided with a 12-word BIP-85 seed phrase. **Ensure you write this down and store it securely.**
 
 - **Switch Between Seed Profiles:**
   1. From the **Profiles** menu, select "Switch Seed Profile".
