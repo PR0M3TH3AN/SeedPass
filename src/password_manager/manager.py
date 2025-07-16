@@ -15,7 +15,7 @@ import logging
 import getpass
 import os
 import hashlib
-from typing import Optional
+from typing import Optional, Literal
 import shutil
 import time
 import builtins
@@ -750,24 +750,42 @@ class PasswordManager:
         ).strip()
 
         if choice == "1":
-            self.setup_existing_seed()
+            self.setup_existing_seed(method="paste")
         elif choice == "2":
-            self.setup_existing_seed_word_by_word()
+            self.setup_existing_seed(method="words")
         elif choice == "3":
             self.generate_new_seed()
         else:
             print(colored("Invalid choice. Exiting.", "red"))
             sys.exit(1)
 
-    def setup_existing_seed(self) -> Optional[str]:
-        """
-        Prompts the user to enter an existing BIP-85 seed and validates it.
+    def setup_existing_seed(
+        self, method: Literal["paste", "words"] = "paste"
+    ) -> Optional[str]:
+        """Prompt for an existing BIP-85 seed and set it up.
 
-        Returns:
-            Optional[str]: The fingerprint if setup is successful, None otherwise.
+        Parameters
+        ----------
+        method:
+            ``"paste"`` to enter the entire phrase at once or ``"words"`` to
+            be prompted one word at a time.
+
+        Returns
+        -------
+        Optional[str]
+            The fingerprint if setup is successful, ``None`` otherwise.
         """
         try:
-            parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+            if method == "words":
+                parent_seed = prompt_seed_words()
+            else:
+                parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+
+            if not self.validate_bip85_seed(parent_seed):
+                logging.error("Invalid BIP-85 seed phrase. Exiting.")
+                print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
+                sys.exit(1)
+
             return self._finalize_existing_seed(parent_seed)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
@@ -776,13 +794,7 @@ class PasswordManager:
 
     def setup_existing_seed_word_by_word(self) -> Optional[str]:
         """Prompt for an existing seed one word at a time and set it up."""
-        try:
-            parent_seed = prompt_seed_words()
-            return self._finalize_existing_seed(parent_seed)
-        except KeyboardInterrupt:
-            logging.info("Operation cancelled by user.")
-            self.notify("Operation cancelled by user.", level="WARNING")
-            sys.exit(0)
+        return self.setup_existing_seed(method="words")
 
     def _finalize_existing_seed(self, parent_seed: str) -> Optional[str]:
         """Common logic for initializing an existing seed."""
