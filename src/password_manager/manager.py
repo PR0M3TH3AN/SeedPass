@@ -87,6 +87,7 @@ from pathlib import Path
 
 from local_bip85.bip85 import BIP85, Bip85Error
 from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+from mnemonic import Mnemonic
 from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
@@ -909,11 +910,11 @@ class PasswordManager:
             bool: True if valid, False otherwise.
         """
         try:
-            words = seed.split()
-            if len(words) != 12:
-                return False
-            # Additional validation can be added here if needed (e.g., word list checks)
-            return True
+            checker = Mnemonic("english")
+            if checker.check(seed):
+                return True
+            logging.error("Invalid BIP-85 seed provided")
+            return False
         except Exception as e:
             logging.error(f"Error validating BIP-85 seed: {e}")
             return False
