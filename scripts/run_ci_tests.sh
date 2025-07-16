@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-pytest_cmd=(pytest -vv ${STRESS_ARGS} \
-    --cov=src --cov-report=xml --cov-report=term-missing \
-    --cov-fail-under=20 src/tests)
+pytest_args=(-vv)
+if [[ -n "${STRESS_ARGS:-}" ]]; then
+    pytest_args+=(${STRESS_ARGS})
+fi
+if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
+    pytest_args+=(-n 1)
+fi
+pytest_args+=(--cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=20 src/tests)
 
 timeout_bin="timeout"
 if ! command -v "$timeout_bin" >/dev/null 2>&1; then
@@ -15,11 +20,11 @@ if ! command -v "$timeout_bin" >/dev/null 2>&1; then
 fi
 
 if [[ -n "$timeout_bin" ]]; then
-    $timeout_bin 15m "${pytest_cmd[@]}" 2>&1 | tee pytest.log
+    $timeout_bin 15m pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
     status=${PIPESTATUS[0]}
 else
     echo "timeout command not found; running tests without timeout" >&2
-    "${pytest_cmd[@]}" 2>&1 | tee pytest.log
+    pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
     status=${PIPESTATUS[0]}
 fi
 
