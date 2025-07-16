@@ -63,7 +63,7 @@ def test_index_export_import_round_trip():
                 },
             }
         )
-        vault.decrypt_and_save_index_from_nostr(encrypted)
+        assert vault.decrypt_and_save_index_from_nostr(encrypted)
 
         loaded = vault.load_index()
         assert loaded["entries"] == original["entries"]

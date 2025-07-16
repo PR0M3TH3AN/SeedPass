@@ -81,10 +81,15 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
         run: echo "NOSTR_E2E=1" >> $GITHUB_ENV
       - name: Run tests with coverage
+        timeout-minutes: 16
         shell: bash
-        run: |
-          pytest ${STRESS_ARGS} --cov=src --cov-report=xml --cov-report=term-missing \
-            --cov-fail-under=20 src/tests
+        run: scripts/run_ci_tests.sh
+      - name: Upload pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log-${{ matrix.os }}
+          path: pytest.log
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:

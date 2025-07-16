@@ -1103,8 +1103,10 @@ class PasswordManager:
                     encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
             if current != encrypted:
-                self.vault.decrypt_and_save_index_from_nostr(encrypted)
-                logger.info("Local database synchronized from Nostr.")
+                if self.vault.decrypt_and_save_index_from_nostr(
+                    encrypted, strict=False
+                ):
+                    logger.info("Local database synchronized from Nostr.")
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
         finally:
@@ -1195,14 +1197,12 @@ class PasswordManager:
                     deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
                     if deltas:
                         encrypted = deltas[-1]
-                try:
-                    self.vault.decrypt_and_save_index_from_nostr(encrypted)
+                success = self.vault.decrypt_and_save_index_from_nostr(
+                    encrypted, strict=False
+                )
+                if success:
                     logger.info("Initialized local database from Nostr.")
                     have_data = True
-                except Exception as err:
-                    logger.warning(
-                        f"Failed to decrypt Nostr data: {err}; treating as new account."
-                    )
         except Exception as e:
             logger.warning(f"Unable to sync index from Nostr: {e}")
 
@@ -3240,7 +3240,9 @@ class PasswordManager:
     def handle_view_archived_entries(self) -> None:
         """Display archived entries and optionally view or restore them."""
         try:
-            archived = self.entry_manager.list_entries(include_archived=True)
+            archived = self.entry_manager.list_entries(
+                include_archived=True, verbose=False
+            )
             archived = [e for e in archived if e[4]]
             if not archived:
                 self.notify("No archived entries found.", level="WARNING")
@@ -3286,7 +3288,7 @@ class PasswordManager:
                         self.last_update = time.time()
                         pause()
                         archived = self.entry_manager.list_entries(
-                            include_archived=True
+                            include_archived=True, verbose=False
                         )
                         archived = [e for e in archived if e[4]]
                         if not archived:

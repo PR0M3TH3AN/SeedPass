@@ -60,9 +60,13 @@ class Vault:
         """Return the encrypted index bytes if present."""
         return self.encryption_manager.get_encrypted_index()
 
-    def decrypt_and_save_index_from_nostr(self, encrypted_data: bytes) -> None:
+    def decrypt_and_save_index_from_nostr(
+        self, encrypted_data: bytes, *, strict: bool = True
+    ) -> bool:
         """Decrypt Nostr payload and overwrite the local index."""
-        self.encryption_manager.decrypt_and_save_index_from_nostr(encrypted_data)
+        return self.encryption_manager.decrypt_and_save_index_from_nostr(
+            encrypted_data, strict=strict
+        )
 
     # ----- Config helpers -----
     def load_config(self) -> dict:
