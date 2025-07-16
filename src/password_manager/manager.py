@@ -367,11 +367,15 @@ class PasswordManager:
         """
         try:
             choice = input(
-                "Do you want to (1) Enter an existing seed or (2) Generate a new seed? (1/2): "
+                "Do you want to (1) Paste in an existing seed in full "
+                "(2) Enter an existing seed one word at a time or "
+                "(3) Generate a new seed? (1/2/3): "
             ).strip()
             if choice == "1":
-                fingerprint = self.setup_existing_seed()
+                fingerprint = self.setup_existing_seed(method="paste")
             elif choice == "2":
+                fingerprint = self.setup_existing_seed(method="words")
+            elif choice == "3":
                 fingerprint = self.generate_new_seed()
             else:
                 print(colored("Invalid choice. Exiting.", "red"))
