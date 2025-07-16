@@ -28,3 +28,31 @@ def test_masked_input_windows_space(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("Password: ")
     assert out.count("*") == 4
+
+
+def test_prompt_seed_words_valid(monkeypatch):
+    from mnemonic import Mnemonic
+
+    m = Mnemonic("english")
+    phrase = m.generate(strength=128)
+    words = phrase.split()
+
+    inputs = iter(words + ["y"] * len(words))
+    monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
+
+    result = seed_prompt.prompt_seed_words(len(words))
+    assert result == phrase
+
+
+def test_prompt_seed_words_invalid_word(monkeypatch):
+    from mnemonic import Mnemonic
+
+    m = Mnemonic("english")
+    phrase = m.generate(strength=128)
+    words = phrase.split()
+    # Insert an invalid word for the first entry then the correct one
+    inputs = iter(["invalid"] + [words[0]] + words[1:] + ["y"] * len(words))
+    monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
+
+    result = seed_prompt.prompt_seed_words(len(words))
+    assert result == phrase
