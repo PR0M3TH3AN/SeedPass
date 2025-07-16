@@ -6,6 +6,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager
 from password_manager.manager import PasswordManager, EncryptionMode
+from helpers import create_vault, dummy_nostr_client
+import gzip
+from nostr.backup_models import Manifest, ChunkMeta
 
 
 VALID_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -51,3 +54,33 @@ def test_add_and_switch_fingerprint(monkeypatch):
         assert pm.current_fingerprint == fingerprint
         assert fm.current_fingerprint == fingerprint
         assert pm.fingerprint_dir == expected_dir
+
+
+def test_sync_index_missing_bad_data(monkeypatch, dummy_nostr_client):
+    client, _relay = dummy_nostr_client
+    with TemporaryDirectory() as tmpdir:
+        dir_path = Path(tmpdir)
+        vault, _enc = create_vault(dir_path)
+
+        pm = PasswordManager.__new__(PasswordManager)
+        pm.fingerprint_dir = dir_path
+        pm.vault = vault
+        pm.nostr_client = client
+        pm.sync_vault = lambda *a, **k: None
+
+        manifest = Manifest(
+            ver=1,
+            algo="aes-gcm",
+            chunks=[ChunkMeta(id="c0", size=1, hash="00")],
+            delta_since=None,
+        )
+        monkeypatch.setattr(
+            client,
+            "fetch_latest_snapshot",
+            lambda: (manifest, [gzip.compress(b"garbage")]),
+        )
+        monkeypatch.setattr(client, "fetch_deltas_since", lambda *_a, **_k: [])
+
+        pm.sync_index_from_nostr_if_missing()
+        data = pm.vault.load_index()
+        assert data["entries"] == {}

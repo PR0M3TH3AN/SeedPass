@@ -223,15 +223,28 @@ class EncryptionManager:
             return fh.read()
 
     def decrypt_and_save_index_from_nostr(
-        self, encrypted_data: bytes, relative_path: Optional[Path] = None
-    ) -> None:
-        """Decrypts data from Nostr and saves it, automatically using the new format."""
+        self,
+        encrypted_data: bytes,
+        relative_path: Optional[Path] = None,
+        *,
+        strict: bool = True,
+    ) -> bool:
+        """Decrypts data from Nostr and saves it.
+
+        Parameters
+        ----------
+        encrypted_data:
+            The payload downloaded from Nostr.
+        relative_path:
+            Destination filename under the profile directory.
+        strict:
+            When ``True`` (default) re-raise any decryption error. When ``False``
+            return ``False`` if decryption fails.
+        """
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
         try:
-            decrypted_data = self.decrypt_data(
-                encrypted_data
-            )  # This now handles both formats
+            decrypted_data = self.decrypt_data(encrypted_data)
             if USE_ORJSON:
                 data = json_lib.loads(decrypted_data)
             else:
@@ -240,18 +253,22 @@ class EncryptionManager:
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
-        except Exception as e:
-            logger.error(
-                f"Failed to decrypt and save data from Nostr: {e}",
-                exc_info=True,
-            )
-            print(
-                colored(
-                    f"Error: Failed to decrypt and save data from Nostr: {e}",
-                    "red",
+            return True
+        except Exception as e:  # pragma: no cover - error handling
+            if strict:
+                logger.error(
+                    f"Failed to decrypt and save data from Nostr: {e}",
+                    exc_info=True,
                 )
-            )
-            raise
+                print(
+                    colored(
+                        f"Error: Failed to decrypt and save data from Nostr: {e}",
+                        "red",
+                    )
+                )
+                raise
+            logger.warning(f"Failed to decrypt index from Nostr: {e}")
+            return False
 
     def update_checksum(self, relative_path: Optional[Path] = None) -> None:
         """Updates the checksum file for the specified file."""

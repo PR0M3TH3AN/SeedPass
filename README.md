@@ -473,7 +473,9 @@ subfolder (or adjust `APP_DIR` in `constants.py`) if you want to load it with
 the main application. The fingerprint is printed after creation and the
 encrypted index is published to Nostr. Use that same seed phrase to load
 SeedPass. The app checks Nostr on startup and pulls any newer snapshot so your
-vault stays in sync across machines.
+vault stays in sync across machines. If no snapshot exists or the download
+cannot be decrypted (for example when using a brand-new seed), SeedPass
+automatically initializes an empty index instead of exiting.
 
 ### Automatically Updating the Script Checksum
 
