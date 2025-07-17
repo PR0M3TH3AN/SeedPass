@@ -1,7 +1,13 @@
 # main.py
-import os
 from pathlib import Path
 import sys
+
+# Add bundled vendor directory to sys.path so bundled dependencies can be imported
+vendor_dir = Path(__file__).parent / "vendor"
+if vendor_dir.exists():
+    sys.path.insert(0, str(vendor_dir))
+
+import os
 import logging
 import signal
 import getpass
