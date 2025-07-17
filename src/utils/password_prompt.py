@@ -11,11 +11,10 @@ this module enhances code reuse, security, and maintainability across the applic
 Ensure that all dependencies are installed and properly configured in your environment.
 """
 
-import getpass
+from utils.seed_prompt import masked_input
 import logging
 import sys
 import unicodedata
-import traceback
 
 from termcolor import colored
 from colorama import init as colorama_init
@@ -53,8 +52,8 @@ def prompt_new_password() -> str:
 
     while attempts < max_retries:
         try:
-            password = getpass.getpass(prompt="Enter a new password: ").strip()
-            confirm_password = getpass.getpass(prompt="Confirm your password: ").strip()
+            password = masked_input("Enter a new password: ").strip()
+            confirm_password = masked_input("Confirm your password: ").strip()
 
             if not password:
                 print(
@@ -128,7 +127,7 @@ def prompt_existing_password(
     attempts = 0
     while attempts < max_retries:
         try:
-            password = getpass.getpass(prompt=prompt_message).strip()
+            password = masked_input(prompt_message).strip()
 
             if not password:
                 print(

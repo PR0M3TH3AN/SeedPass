@@ -9,16 +9,14 @@ from utils import password_prompt
 
 def test_prompt_new_password(monkeypatch):
     responses = cycle(["goodpass", "goodpass"])
-    monkeypatch.setattr(
-        password_prompt.getpass, "getpass", lambda prompt: next(responses)
-    )
+    monkeypatch.setattr(password_prompt, "masked_input", lambda prompt: next(responses))
     result = password_prompt.prompt_new_password()
     assert result == "goodpass"
 
 
 def test_prompt_new_password_retry(monkeypatch, caplog):
     seq = iter(["pass1", "pass2", "passgood", "passgood"])
-    monkeypatch.setattr(password_prompt.getpass, "getpass", lambda prompt: next(seq))
+    monkeypatch.setattr(password_prompt, "masked_input", lambda prompt: next(seq))
     caplog.set_level(logging.WARNING)
     result = password_prompt.prompt_new_password()
     assert "User entered a password shorter" in caplog.text
@@ -26,7 +24,7 @@ def test_prompt_new_password_retry(monkeypatch, caplog):
 
 
 def test_prompt_existing_password(monkeypatch):
-    monkeypatch.setattr(password_prompt.getpass, "getpass", lambda prompt: "mypassword")
+    monkeypatch.setattr(password_prompt, "masked_input", lambda prompt: "mypassword")
     assert password_prompt.prompt_existing_password() == "mypassword"
 
 

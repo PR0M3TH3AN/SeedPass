@@ -31,6 +31,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
+- [Building a standalone executable](#building-a-standalone-executable)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -502,6 +503,41 @@ python -m mutmut results
 ```
 
 Mutation testing is disabled in the GitHub workflow due to reliability issues and should be run on a desktop environment instead.
+## Development Workflow
+
+1. Install all development dependencies:
+```bash
+pip install -r src/requirements.txt
+```
+
+2. When `src/runtime_requirements.txt` changes, rerun:
+```bash
+scripts/vendor_dependencies.sh
+```
+Commit the updated `src/vendor/` directory. The application automatically adds this folder to `sys.path` so the bundled packages are found.
+
+3. Before committing, format and test the code:
+```bash
+black .
+pytest
+```
+
+
+## Building a standalone executable
+
+1. Run the vendoring script to bundle runtime dependencies:
+
+```bash
+scripts/vendor_dependencies.sh
+```
+
+2. Build the binary with PyInstaller:
+
+```bash
+pyinstaller SeedPass.spec
+```
+
+The standalone executable will appear in the `dist/` directory. This process works on Windows, macOS and Linux but you must build on each platform for a native binary.
 
 ## Security Considerations
 
