@@ -3517,8 +3517,10 @@ class PasswordManager:
             # Re-raise the exception to inform the calling function of the failure
             raise
 
-    def sync_vault(self, alt_summary: str | None = None) -> str | None:
-        """Publish the current vault contents to Nostr."""
+    def sync_vault(
+        self, alt_summary: str | None = None
+    ) -> dict[str, list[str] | str] | None:
+        """Publish the current vault contents to Nostr and return event IDs."""
         try:
             if getattr(self, "offline_mode", False):
                 return None
@@ -3526,16 +3528,28 @@ class PasswordManager:
             if not encrypted:
                 return None
             pub_snap = getattr(self.nostr_client, "publish_snapshot", None)
+            manifest = None
+            event_id = None
             if callable(pub_snap):
                 if asyncio.iscoroutinefunction(pub_snap):
-                    _, event_id = asyncio.run(pub_snap(encrypted))
+                    manifest, event_id = asyncio.run(pub_snap(encrypted))
                 else:
-                    _, event_id = pub_snap(encrypted)
+                    manifest, event_id = pub_snap(encrypted)
             else:
                 # Fallback for tests using simplified stubs
                 event_id = self.nostr_client.publish_json_to_nostr(encrypted)
             self.is_dirty = False
-            return event_id
+            if event_id is None:
+                return None
+            chunk_ids: list[str] = []
+            if manifest is not None:
+                chunk_ids = [c.event_id for c in manifest.chunks if c.event_id]
+            delta_ids = getattr(self.nostr_client, "_delta_events", [])
+            return {
+                "manifest_id": event_id,
+                "chunk_ids": chunk_ids,
+                "delta_ids": list(delta_ids),
+            }
         except Exception as e:
             logging.error(f"Failed to sync vault: {e}", exc_info=True)
             return None
