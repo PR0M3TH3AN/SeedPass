@@ -6,6 +6,18 @@ import typer
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
+from seedpass.core.api import (
+    VaultService,
+    ProfileService,
+    SyncService,
+    VaultExportRequest,
+    VaultImportRequest,
+    ChangePasswordRequest,
+    UnlockRequest,
+    BackupParentSeedRequest,
+    ProfileSwitchRequest,
+    ProfileRemoveRequest,
+)
 import uvicorn
 from . import api as api_module
 
@@ -50,6 +62,15 @@ def _get_pm(ctx: typer.Context) -> PasswordManager:
     else:
         pm = PasswordManager(fingerprint=fp)
     return pm
+
+
+def _get_services(
+    ctx: typer.Context,
+) -> tuple[VaultService, ProfileService, SyncService]:
+    """Return service layer instances for the current context."""
+
+    pm = _get_pm(ctx)
+    return VaultService(pm), ProfileService(pm), SyncService(pm)
 
 
 @app.callback(invoke_without_command=True)
@@ -364,8 +385,8 @@ def vault_export(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")
 ) -> None:
     """Export the vault."""
-    pm = _get_pm(ctx)
-    pm.handle_export_database(Path(file))
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.export_vault(VaultExportRequest(path=Path(file)))
     typer.echo(str(file))
 
 
@@ -374,20 +395,21 @@ def vault_import(
     ctx: typer.Context, file: str = typer.Option(..., help="Input file")
 ) -> None:
     """Import a vault from an encrypted JSON file."""
-    pm = _get_pm(ctx)
-    pm.handle_import_database(Path(file))
-    pm.sync_vault()
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.import_vault(VaultImportRequest(path=Path(file)))
     typer.echo(str(file))
 
 
 @vault_app.command("change-password")
 def vault_change_password(ctx: typer.Context) -> None:
     """Change the master password used for encryption."""
-    pm = _get_pm(ctx)
+    vault_service, _profile, _sync = _get_services(ctx)
     old_pw = typer.prompt("Current password", hide_input=True)
     new_pw = typer.prompt("New password", hide_input=True, confirmation_prompt=True)
     try:
-        pm.change_password(old_pw, new_pw)
+        vault_service.change_password(
+            ChangePasswordRequest(old_password=old_pw, new_password=new_pw)
+        )
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
@@ -397,29 +419,29 @@ def vault_change_password(ctx: typer.Context) -> None:
 @vault_app.command("unlock")
 def vault_unlock(ctx: typer.Context) -> None:
     """Unlock the vault for the active profile."""
-    pm = _get_pm(ctx)
+    vault_service, _profile, _sync = _get_services(ctx)
     password = typer.prompt("Master password", hide_input=True)
     try:
-        duration = pm.unlock_vault(password)
+        resp = vault_service.unlock(UnlockRequest(password=password))
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
-    typer.echo(f"Unlocked in {duration:.2f}s")
+    typer.echo(f"Unlocked in {resp.duration:.2f}s")
 
 
 @vault_app.command("lock")
 def vault_lock(ctx: typer.Context) -> None:
     """Lock the vault and clear sensitive data from memory."""
-    pm = _get_pm(ctx)
-    pm.lock_vault()
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.lock()
     typer.echo("locked")
 
 
 @vault_app.command("stats")
 def vault_stats(ctx: typer.Context) -> None:
     """Display statistics about the current seed profile."""
-    pm = _get_pm(ctx)
-    stats = pm.get_profile_stats()
+    vault_service, _profile, _sync = _get_services(ctx)
+    stats = vault_service.stats()
     typer.echo(json.dumps(stats, indent=2))
 
 
@@ -431,21 +453,23 @@ def vault_reveal_parent_seed(
     ),
 ) -> None:
     """Display the parent seed and optionally write an encrypted backup file."""
-    pm = _get_pm(ctx)
-    pm.handle_backup_reveal_parent_seed(Path(file) if file else None)
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.backup_parent_seed(
+        BackupParentSeedRequest(path=Path(file) if file else None)
+    )
 
 
 @nostr_app.command("sync")
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""
-    pm = _get_pm(ctx)
-    result = pm.sync_vault()
-    if result:
+    _vault, _profile, sync_service = _get_services(ctx)
+    model = sync_service.sync()
+    if model:
         typer.echo("Event IDs:")
-        typer.echo(f"- manifest: {result['manifest_id']}")
-        for cid in result["chunk_ids"]:
+        typer.echo(f"- manifest: {model.manifest_id}")
+        for cid in model.chunk_ids:
             typer.echo(f"- chunk: {cid}")
-        for did in result["delta_ids"]:
+        for did in model.delta_ids:
             typer.echo(f"- delta: {did}")
     else:
         typer.echo("Error: Failed to sync vault")
@@ -606,30 +630,30 @@ def config_toggle_offline(ctx: typer.Context) -> None:
 @fingerprint_app.command("list")
 def fingerprint_list(ctx: typer.Context) -> None:
     """List available seed profiles."""
-    pm = _get_pm(ctx)
-    for fp in pm.fingerprint_manager.list_fingerprints():
+    _vault, profile_service, _sync = _get_services(ctx)
+    for fp in profile_service.list_profiles():
         typer.echo(fp)
 
 
 @fingerprint_app.command("add")
 def fingerprint_add(ctx: typer.Context) -> None:
     """Create a new seed profile."""
-    pm = _get_pm(ctx)
-    pm.add_new_fingerprint()
+    _vault, profile_service, _sync = _get_services(ctx)
+    profile_service.add_profile()
 
 
 @fingerprint_app.command("remove")
 def fingerprint_remove(ctx: typer.Context, fingerprint: str) -> None:
     """Remove a seed profile."""
-    pm = _get_pm(ctx)
-    pm.fingerprint_manager.remove_fingerprint(fingerprint)
+    _vault, profile_service, _sync = _get_services(ctx)
+    profile_service.remove_profile(ProfileRemoveRequest(fingerprint=fingerprint))
 
 
 @fingerprint_app.command("switch")
 def fingerprint_switch(ctx: typer.Context, fingerprint: str) -> None:
     """Switch to another seed profile."""
-    pm = _get_pm(ctx)
-    pm.select_fingerprint(fingerprint)
+    _vault, profile_service, _sync = _get_services(ctx)
+    profile_service.switch_profile(ProfileSwitchRequest(fingerprint=fingerprint))
 
 
 @util_app.command("generate-password")
