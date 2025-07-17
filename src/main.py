@@ -20,9 +20,9 @@ from termcolor import colored
 from utils.color_scheme import color_text
 import traceback
 
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 from nostr.client import NostrClient
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import PasswordPromptError
 from utils import (

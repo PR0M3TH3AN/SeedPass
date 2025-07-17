@@ -1,4 +1,4 @@
-# password_manager/entry_management.py
+# seedpass.core/entry_management.py
 
 """
 Entry Management Module
@@ -31,14 +31,14 @@ from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
 from termcolor import colored
-from password_manager.migrations import LATEST_VERSION
-from password_manager.entry_types import EntryType
-from password_manager.totp import TotpManager
+from .migrations import LATEST_VERSION
+from .entry_types import EntryType
+from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
 
-from password_manager.vault import Vault
-from password_manager.backup import BackupManager
+from .vault import Vault
+from .backup import BackupManager
 
 
 # Instantiate the logger
@@ -312,7 +312,7 @@ class EntryManager:
         if not entry or (etype != EntryType.SSH.value and kind != EntryType.SSH.value):
             raise ValueError("Entry is not an SSH key entry")
 
-        from password_manager.password_generation import derive_ssh_key_pair
+        from .password_generation import derive_ssh_key_pair
 
         key_index = int(entry.get("index", index))
         return derive_ssh_key_pair(parent_seed, key_index)
@@ -360,7 +360,7 @@ class EntryManager:
         if not entry or (etype != EntryType.PGP.value and kind != EntryType.PGP.value):
             raise ValueError("Entry is not a PGP key entry")
 
-        from password_manager.password_generation import derive_pgp_key
+        from .password_generation import derive_pgp_key
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -501,7 +501,7 @@ class EntryManager:
         ):
             raise ValueError("Entry is not a seed entry")
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -530,7 +530,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -576,7 +576,7 @@ class EntryManager:
         ):
             raise ValueError("Entry is not a managed account entry")
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 

@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from typer.testing import CliRunner
 from seedpass import cli
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 
 
 class DummyPM:

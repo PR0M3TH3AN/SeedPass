@@ -1,4 +1,4 @@
-# password_manager/password_generation.py
+# seedpass.core/password_generation.py
 
 """
 Password Generation Module
@@ -43,7 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for removed module
 from local_bip85.bip85 import BIP85
 
 from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH
-from password_manager.encryption import EncryptionManager
+from .encryption import EncryptionManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)

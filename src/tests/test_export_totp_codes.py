@@ -8,11 +8,11 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.config_manager import ConfigManager
-from password_manager.totp import TotpManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.totp import TotpManager
 
 
 class FakeNostrClient:
@@ -42,9 +42,7 @@ def test_handle_export_totp_codes(monkeypatch, tmp_path):
 
     export_path = tmp_path / "out.json"
     monkeypatch.setattr("builtins.input", lambda *a, **k: str(export_path))
-    monkeypatch.setattr(
-        "password_manager.manager.confirm_action", lambda *_a, **_k: False
-    )
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: False)
 
     pm.handle_export_totp_codes()
 

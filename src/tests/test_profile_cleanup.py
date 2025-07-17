@@ -11,7 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 def setup_pm(tmp_path):
     import constants
-    import password_manager.manager as manager_module
+    import seedpass.core.manager as manager_module
 
     importlib.reload(constants)
     importlib.reload(manager_module)
@@ -30,7 +30,7 @@ def test_generate_seed_cleanup_on_failure(monkeypatch):
 
         pm, const, mgr = setup_pm(tmp_path)
 
-        with patch("password_manager.manager.confirm_action", return_value=True):
+        with patch("seedpass.core.manager.confirm_action", return_value=True):
             monkeypatch.setattr(
                 pm,
                 "save_and_encrypt_seed",

@@ -7,8 +7,8 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.vault import Vault
 from utils.key_derivation import derive_index_key, derive_key_from_password
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"

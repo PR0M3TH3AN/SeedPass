@@ -5,11 +5,11 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
-from password_manager.config_manager import ConfigManager
+from seedpass.core.config_manager import ConfigManager
 
 
 def _make_pm(tmp_path: Path) -> PasswordManager:
@@ -34,9 +34,9 @@ def _make_pm(tmp_path: Path) -> PasswordManager:
 def test_handle_search_entries_no_query(monkeypatch, tmp_path):
     pm = _make_pm(tmp_path)
     monkeypatch.setattr(
-        "password_manager.manager.clear_header_with_notification", lambda *a, **k: None
+        "seedpass.core.manager.clear_header_with_notification", lambda *a, **k: None
     )
-    monkeypatch.setattr("password_manager.manager.pause", lambda: None)
+    monkeypatch.setattr("seedpass.core.manager.pause", lambda: None)
     monkeypatch.setattr("builtins.input", lambda *_: "")
 
     pm.handle_search_entries()

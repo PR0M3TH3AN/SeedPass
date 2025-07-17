@@ -1,4 +1,4 @@
-# password_manager/manager.py
+# seedpass.core/manager.py
 
 """
 Password Manager Module
@@ -25,14 +25,14 @@ from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
 
-from password_manager.encryption import EncryptionManager
-from password_manager.entry_management import EntryManager
-from password_manager.password_generation import PasswordGenerator
-from password_manager.backup import BackupManager
-from password_manager.vault import Vault
-from password_manager.portable_backup import export_backup, import_backup
-from password_manager.totp import TotpManager
-from password_manager.entry_types import EntryType
+from .encryption import EncryptionManager
+from .entry_management import EntryManager
+from .password_generation import PasswordGenerator
+from .backup import BackupManager
+from .vault import Vault
+from .portable_backup import export_backup, import_backup
+from .totp import TotpManager
+from .entry_types import EntryType
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -64,7 +64,7 @@ from utils.terminal_utils import (
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
-from password_manager.migrations import LATEST_VERSION
+from .migrations import LATEST_VERSION
 
 from constants import (
     APP_DIR,
@@ -94,7 +94,7 @@ from utils.fingerprint_manager import FingerprintManager
 
 # Import NostrClient
 from nostr.client import NostrClient, DEFAULT_RELAYS
-from password_manager.config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -1579,7 +1579,7 @@ class PasswordManager:
             print(colored("Seed Phrase:", "cyan"))
             print(color_text(phrase, "deterministic"))
             if confirm_action("Show Compact Seed QR? (Y/N): "):
-                from password_manager.seedqr import encode_seedqr
+                from .seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
@@ -1841,7 +1841,7 @@ class PasswordManager:
                 else:
                     print(color_text(seed, "deterministic"))
                 if confirm_action("Show Compact Seed QR? (Y/N): "):
-                    from password_manager.seedqr import encode_seedqr
+                    from .seedqr import encode_seedqr
 
                     TotpManager.print_qr_code(encode_seedqr(seed))
             try:
@@ -2075,7 +2075,7 @@ class PasswordManager:
                     )
 
                 print(color_text(seed, "deterministic"))
-                from password_manager.seedqr import encode_seedqr
+                from .seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(seed))
                 pause()

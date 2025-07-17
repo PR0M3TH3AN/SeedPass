@@ -15,11 +15,11 @@ import os
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.vault import Vault
-from password_manager.config_manager import ConfigManager
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.vault import Vault
+from seedpass.core.config_manager import ConfigManager
 from nostr.client import NostrClient, Kind, KindStandard
 
 

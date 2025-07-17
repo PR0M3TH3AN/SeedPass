@@ -1,7 +1,7 @@
 import time
 from types import SimpleNamespace
 
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 
 
 def test_sync_vault_skips_network(monkeypatch):

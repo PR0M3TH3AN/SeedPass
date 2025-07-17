@@ -11,8 +11,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
 from nostr.client import DEFAULT_RELAYS
-from password_manager.config_manager import ConfigManager
-from password_manager.vault import Vault
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.vault import Vault
 from utils.fingerprint_manager import FingerprintManager
 
 

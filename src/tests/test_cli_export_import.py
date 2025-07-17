@@ -6,9 +6,9 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
-from password_manager.portable_backup import export_backup, import_backup
-from password_manager.config_manager import ConfigManager
-from password_manager.backup import BackupManager
+from seedpass.core.portable_backup import export_backup, import_backup
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.backup import BackupManager
 from helpers import create_vault, TEST_SEED
 
 

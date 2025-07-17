@@ -38,11 +38,11 @@ consts.SCRIPT_CHECKSUM_FILE = consts.APP_DIR / "seedpass_script_checksum.txt"
 
 from constants import APP_DIR, initialize_app
 from utils.key_derivation import derive_key_from_password, derive_index_key
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
-from password_manager.config_manager import ConfigManager
-from password_manager.backup import BackupManager
-from password_manager.entry_management import EntryManager
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.vault import Vault
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.entry_management import EntryManager
 from nostr.client import NostrClient
 from utils.fingerprint import generate_fingerprint
 from utils.fingerprint_manager import FingerprintManager

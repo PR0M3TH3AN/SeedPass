@@ -1,6 +1,6 @@
 import builtins
 from mnemonic import Mnemonic
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 from utils import seed_prompt
 
 
@@ -28,7 +28,7 @@ def test_setup_existing_seed_words(monkeypatch):
     words = phrase.split()
     word_iter = iter(words)
     monkeypatch.setattr(
-        "password_manager.manager.masked_input",
+        "seedpass.core.manager.masked_input",
         lambda *_: next(word_iter),
     )
     # Ensure prompt_seed_words uses the patched function
@@ -52,7 +52,7 @@ def test_setup_existing_seed_paste(monkeypatch):
         called["prompt"] = prompt
         return phrase
 
-    monkeypatch.setattr("password_manager.manager.masked_input", fake_masked_input)
+    monkeypatch.setattr("seedpass.core.manager.masked_input", fake_masked_input)
     monkeypatch.setattr(
         builtins,
         "input",

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from seedpass.cli import app, PasswordManager
 from seedpass import cli
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 
 runner = CliRunner()
 

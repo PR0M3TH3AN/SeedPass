@@ -4,8 +4,8 @@ import json
 
 import typer
 
-from password_manager.manager import PasswordManager
-from password_manager.entry_types import EntryType
+from seedpass.core.manager import PasswordManager
+from seedpass.core.entry_types import EntryType
 import uvicorn
 from . import api as api_module
 

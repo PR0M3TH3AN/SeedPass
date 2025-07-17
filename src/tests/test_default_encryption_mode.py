@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from types import SimpleNamespace
 from pathlib import Path
 
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 from utils.key_derivation import EncryptionMode
 
 

@@ -8,10 +8,10 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.config_manager import ConfigManager
 
 
 def setup_pm(tmp_path):
@@ -45,7 +45,7 @@ def test_password_retrieve_secret_mode(monkeypatch, capsys):
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         called = []
         monkeypatch.setattr(
-            "password_manager.manager.copy_to_clipboard",
+            "seedpass.core.manager.copy_to_clipboard",
             lambda text, t: called.append((text, t)),
         )
 
@@ -67,12 +67,12 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
         monkeypatch.setattr(
-            "password_manager.manager.timed_input",
+            "seedpass.core.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
         called = []
         monkeypatch.setattr(
-            "password_manager.manager.copy_to_clipboard",
+            "seedpass.core.manager.copy_to_clipboard",
             lambda text, t: called.append((text, t)),
         )
 
@@ -94,7 +94,7 @@ def test_password_retrieve_no_secret_mode(monkeypatch, capsys):
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         called = []
         monkeypatch.setattr(
-            "password_manager.manager.copy_to_clipboard",
+            "seedpass.core.manager.copy_to_clipboard",
             lambda *a, **k: called.append((a, k)),
         )
 
@@ -117,12 +117,12 @@ def test_totp_display_no_secret_mode(monkeypatch, capsys):
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
         monkeypatch.setattr(
-            "password_manager.manager.timed_input",
+            "seedpass.core.manager.timed_input",
             lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt()),
         )
         called = []
         monkeypatch.setattr(
-            "password_manager.manager.copy_to_clipboard",
+            "seedpass.core.manager.copy_to_clipboard",
             lambda *a, **k: called.append((a, k)),
         )
 

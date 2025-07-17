@@ -5,7 +5,7 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.migrations import LATEST_VERSION
+from seedpass.core.migrations import LATEST_VERSION
 
 
 def setup(tmp_path: Path):
