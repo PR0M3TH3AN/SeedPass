@@ -81,6 +81,7 @@ def test_sync_index_missing_bad_data(monkeypatch, dummy_nostr_client):
         )
         monkeypatch.setattr(client, "fetch_deltas_since", lambda *_a, **_k: [])
 
-        pm.sync_index_from_nostr_if_missing()
-        data = pm.vault.load_index()
-        assert data["entries"] == {}
+        result = pm.attempt_initial_sync()
+        assert result is False
+        index_path = dir_path / "seedpass_entries_db.json.enc"
+        assert not index_path.exists()

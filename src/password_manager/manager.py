@@ -1127,7 +1127,7 @@ class PasswordManager:
         def _worker() -> None:
             try:
                 if hasattr(self, "nostr_client") and hasattr(self, "vault"):
-                    self.sync_index_from_nostr_if_missing()
+                    self.attempt_initial_sync()
                 if hasattr(self, "sync_index_from_nostr"):
                     self.sync_index_from_nostr()
             except Exception as exc:
@@ -1176,16 +1176,19 @@ class PasswordManager:
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    def sync_index_from_nostr_if_missing(self) -> None:
-        """Retrieve the password database from Nostr if it doesn't exist locally.
+    def attempt_initial_sync(self) -> bool:
+        """Attempt to download the initial vault snapshot from Nostr.
 
-        If no valid data is found or decryption fails, initialize a fresh local
-        database and publish it to Nostr.
+        Returns ``True`` if the snapshot was successfully downloaded and the
+        local index file was written. Returns ``False`` otherwise. The local
+        index file is not created on failure.
         """
         index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
-            return
+            return True
+
         have_data = False
+        start = time.perf_counter()
         try:
             result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
             if result:
@@ -1202,10 +1205,23 @@ class PasswordManager:
                 if success:
                     logger.info("Initialized local database from Nostr.")
                     have_data = True
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - network errors
             logger.warning(f"Unable to sync index from Nostr: {e}")
+        finally:
+            if getattr(self, "verbose_timing", False):
+                duration = time.perf_counter() - start
+                logger.info("attempt_initial_sync completed in %.2f seconds", duration)
 
-        if not have_data:
+        return have_data
+
+    def sync_index_from_nostr_if_missing(self) -> None:
+        """Retrieve the password database from Nostr if it doesn't exist locally.
+
+        If no valid data is found or decryption fails, initialize a fresh local
+        database and publish it to Nostr.
+        """
+        success = self.attempt_initial_sync()
+        if not success:
             self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})
             try:
                 self.sync_vault()
