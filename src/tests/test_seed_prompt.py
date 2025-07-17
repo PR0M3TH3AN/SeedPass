@@ -6,9 +6,25 @@ def test_masked_input_posix_backspace(monkeypatch, capsys):
     seq = iter(["a", "b", "\x7f", "c", "\n"])
     monkeypatch.setattr(seed_prompt.sys.stdin, "read", lambda n=1: next(seq))
     monkeypatch.setattr(seed_prompt.sys.stdin, "fileno", lambda: 0)
-    monkeypatch.setattr(seed_prompt.termios, "tcgetattr", lambda fd: None)
-    monkeypatch.setattr(seed_prompt.termios, "tcsetattr", lambda fd, *_: None)
-    monkeypatch.setattr(seed_prompt.tty, "setraw", lambda fd: None)
+
+    if seed_prompt.termios is None:
+        fake_termios = types.SimpleNamespace(
+            tcgetattr=lambda fd: None,
+            tcsetattr=lambda fd, *_: None,
+            TCSADRAIN=1,
+        )
+        monkeypatch.setattr(seed_prompt, "termios", fake_termios)
+    else:
+        monkeypatch.setattr(seed_prompt.termios, "tcgetattr", lambda fd: None)
+        monkeypatch.setattr(seed_prompt.termios, "tcsetattr", lambda fd, *_: None)
+
+    if seed_prompt.tty is None:
+        fake_tty = types.SimpleNamespace(setraw=lambda fd: None)
+        monkeypatch.setattr(seed_prompt, "tty", fake_tty)
+    else:
+        monkeypatch.setattr(seed_prompt.tty, "setraw", lambda fd: None)
+
+    monkeypatch.setattr(seed_prompt.sys, "platform", "linux", raising=False)
 
     result = seed_prompt.masked_input("Enter: ")
     assert result == "ac"

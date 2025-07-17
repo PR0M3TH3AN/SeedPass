@@ -176,6 +176,8 @@ def _detail_common(monkeypatch, pm):
     monkeypatch.setattr(
         "password_manager.manager.confirm_action", lambda *a, **k: False
     )
+    monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
+    monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
     monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
     pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
     called = []
