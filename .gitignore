@@ -41,3 +41,6 @@ src/seedpass.egg-info/SOURCES.txt
 src/seedpass.egg-info/dependency_links.txt
 src/seedpass.egg-info/entry_points.txt
 src/seedpass.egg-info/top_level.txt
+
+# Allow vendored dependencies to be committed
+!src/vendor/
