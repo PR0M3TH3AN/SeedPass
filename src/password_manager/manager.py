@@ -117,7 +117,9 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self, fingerprint: Optional[str] = None) -> None:
+    def __init__(
+        self, fingerprint: Optional[str] = None, *, password: Optional[str] = None
+    ) -> None:
         """Initialize the PasswordManager.
 
         Parameters
@@ -161,7 +163,7 @@ class PasswordManager:
 
         if fingerprint:
             # Load the specified profile without prompting
-            self.select_fingerprint(fingerprint)
+            self.select_fingerprint(fingerprint, password=password)
         else:
             # Ensure a parent seed is set up before accessing the fingerprint directory
             self.setup_parent_seed()
@@ -186,6 +188,11 @@ class PasswordManager:
                     "yellow",
                 )
             )
+
+    @staticmethod
+    def get_password_prompt() -> str:
+        """Return the standard prompt for requesting a master password."""
+        return "Enter your master password: "
 
     @property
     def parent_seed(self) -> Optional[str]:
@@ -269,12 +276,15 @@ class PasswordManager:
         self.config_manager = None
         self.locked = True
 
-    def unlock_vault(self) -> None:
-        """Prompt for password and reinitialize managers."""
+    def unlock_vault(self, password: Optional[str] = None) -> None:
+        """Unlock the vault using ``password`` without prompting if provided."""
         start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
-        self.setup_encryption_manager(self.fingerprint_dir)
+        if password is None:
+            self.setup_encryption_manager(self.fingerprint_dir)
+        else:
+            self.setup_encryption_manager(self.fingerprint_dir, password)
         self.initialize_bip85()
         self.initialize_managers()
         self.locked = False
@@ -394,7 +404,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
             sys.exit(1)
 
-    def select_fingerprint(self, fingerprint: str) -> None:
+    def select_fingerprint(
+        self, fingerprint: str, *, password: Optional[str] = None
+    ) -> None:
         if self.fingerprint_manager.select_fingerprint(fingerprint):
             self.current_fingerprint = fingerprint  # Add this line
             self.fingerprint_dir = (
@@ -409,7 +421,7 @@ class PasswordManager:
                 )
                 sys.exit(1)
             # Setup the encryption manager and load parent seed
-            self.setup_encryption_manager(self.fingerprint_dir)
+            self.setup_encryption_manager(self.fingerprint_dir, password)
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
