@@ -419,9 +419,14 @@ def vault_reveal_parent_seed(
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""
     pm = _get_pm(ctx)
-    event_id = pm.sync_vault()
-    if event_id:
-        typer.echo(event_id)
+    result = pm.sync_vault()
+    if result:
+        typer.echo("Event IDs:")
+        typer.echo(f"- manifest: {result['manifest_id']}")
+        for cid in result["chunk_ids"]:
+            typer.echo(f"- chunk: {cid}")
+        for did in result["delta_ids"]:
+            typer.echo(f"- delta: {did}")
     else:
         typer.echo("Error: Failed to sync vault")
 

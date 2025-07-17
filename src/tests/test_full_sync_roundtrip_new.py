@@ -47,7 +47,8 @@ def test_full_sync_roundtrip(dummy_nostr_client):
         manifest_id = relay.manifests[-1].id
 
         # Manager B retrieves snapshot
-        pm_b.sync_index_from_nostr_if_missing()
+        result = pm_b.attempt_initial_sync()
+        assert result is True
         entries = pm_b.entry_manager.list_entries()
         assert [e[1] for e in entries] == ["site1"]
 

@@ -365,14 +365,15 @@ def handle_post_to_nostr(
     Handles the action of posting the encrypted password index to Nostr.
     """
     try:
-        event_id = password_manager.sync_vault(alt_summary=alt_summary)
-        if event_id:
-            print(
-                colored(
-                    f"\N{WHITE HEAVY CHECK MARK} Sync complete. Event ID: {event_id}",
-                    "green",
-                )
-            )
+        result = password_manager.sync_vault(alt_summary=alt_summary)
+        if result:
+            print(colored("\N{WHITE HEAVY CHECK MARK} Sync complete.", "green"))
+            print("Event IDs:")
+            print(f"  manifest: {result['manifest_id']}")
+            for cid in result["chunk_ids"]:
+                print(f"  chunk: {cid}")
+            for did in result["delta_ids"]:
+                print(f"  delta: {did}")
             logging.info("Encrypted index posted to Nostr successfully.")
         else:
             print(colored("\N{CROSS MARK} Sync failed…", "red"))

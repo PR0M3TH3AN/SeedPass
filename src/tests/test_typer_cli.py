@@ -288,7 +288,11 @@ def test_nostr_sync(monkeypatch):
 
     def sync_vault():
         called["called"] = True
-        return "evt123"
+        return {
+            "manifest_id": "evt123",
+            "chunk_ids": ["c1"],
+            "delta_ids": ["d1"],
+        }
 
     pm = SimpleNamespace(sync_vault=sync_vault, select_fingerprint=lambda fp: None)
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
@@ -296,6 +300,8 @@ def test_nostr_sync(monkeypatch):
     assert result.exit_code == 0
     assert called.get("called") is True
     assert "evt123" in result.stdout
+    assert "c1" in result.stdout
+    assert "d1" in result.stdout
 
 
 def test_generate_password(monkeypatch):

@@ -53,7 +53,11 @@ class DummyPM:
         self.nostr_client = SimpleNamespace(
             key_manager=SimpleNamespace(get_npub=lambda: "npub")
         )
-        self.sync_vault = lambda: "event"
+        self.sync_vault = lambda: {
+            "manifest_id": "event",
+            "chunk_ids": ["c1"],
+            "delta_ids": [],
+        }
         self.config_manager = SimpleNamespace(
             load_config=lambda require_pin=False: {"inactivity_timeout": 30},
             set_inactivity_timeout=lambda v: None,
