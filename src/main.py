@@ -10,7 +10,6 @@ if vendor_dir.exists():
 import os
 import logging
 import signal
-import getpass
 import time
 import argparse
 import asyncio

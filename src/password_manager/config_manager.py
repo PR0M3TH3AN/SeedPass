@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-import getpass
+from utils.seed_prompt import masked_input
 
 import bcrypt
 
@@ -93,7 +93,7 @@ class ConfigManager:
                 self.save_config(data)
             if require_pin and data.get("pin_hash"):
                 for _ in range(3):
-                    pin = getpass.getpass("Enter settings PIN: ").strip()
+                    pin = masked_input("Enter settings PIN: ").strip()
                     if bcrypt.checkpw(pin.encode(), data["pin_hash"].encode()):
                         break
                     print("Invalid PIN")
