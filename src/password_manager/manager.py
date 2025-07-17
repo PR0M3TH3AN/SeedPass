@@ -12,7 +12,6 @@ with the password manager functionalities.
 import sys
 import json
 import logging
-import getpass
 import os
 import hashlib
 from typing import Optional, Literal
@@ -668,8 +667,8 @@ class PasswordManager:
         Prompts the user for the master password to decrypt the seed.
         """
         try:
-            # Prompt for password
-            password = getpass.getpass(prompt="Enter your login password: ").strip()
+            # Prompt for password using masked input
+            password = prompt_existing_password("Enter your login password: ")
 
             # Derive encryption key from password
             iterations = (
