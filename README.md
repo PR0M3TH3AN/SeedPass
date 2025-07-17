@@ -503,6 +503,25 @@ python -m mutmut results
 ```
 
 Mutation testing is disabled in the GitHub workflow due to reliability issues and should be run on a desktop environment instead.
+## Development Workflow
+
+1. Install all development dependencies:
+```bash
+pip install -r src/requirements.txt
+```
+
+2. When `src/runtime_requirements.txt` changes, rerun:
+```bash
+scripts/vendor_dependencies.sh
+```
+Commit the updated `src/vendor/` directory. The application automatically adds this folder to `sys.path` so the bundled packages are found.
+
+3. Before committing, format and test the code:
+```bash
+black .
+pytest
+```
+
 
 ## Building a standalone executable
 
