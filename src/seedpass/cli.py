@@ -384,7 +384,27 @@ def vault_import(
 def vault_change_password(ctx: typer.Context) -> None:
     """Change the master password used for encryption."""
     pm = _get_pm(ctx)
-    pm.change_password()
+    old_pw = typer.prompt("Current password", hide_input=True)
+    new_pw = typer.prompt("New password", hide_input=True, confirmation_prompt=True)
+    try:
+        pm.change_password(old_pw, new_pw)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Password updated")
+
+
+@vault_app.command("unlock")
+def vault_unlock(ctx: typer.Context) -> None:
+    """Unlock the vault for the active profile."""
+    pm = _get_pm(ctx)
+    password = typer.prompt("Master password", hide_input=True)
+    try:
+        duration = pm.unlock_vault(password)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo(f"Unlocked in {duration:.2f}s")
 
 
 @vault_app.command("lock")

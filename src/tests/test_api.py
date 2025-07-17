@@ -179,12 +179,16 @@ def test_change_password_route(client):
     cl, token = client
     called = {}
 
-    api._pm.change_password = lambda: called.setdefault("called", True)
+    api._pm.change_password = lambda o, n: called.setdefault("called", (o, n))
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.post("/api/v1/change-password", headers=headers)
+    res = cl.post(
+        "/api/v1/change-password",
+        headers=headers,
+        json={"old": "old", "new": "new"},
+    )
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
-    assert called.get("called") is True
+    assert called.get("called") == ("old", "new")
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
