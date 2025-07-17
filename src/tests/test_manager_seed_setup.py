@@ -12,10 +12,12 @@ def test_validate_bip85_seed_invalid_word():
 
 def test_validate_bip85_seed_checksum_failure():
     pm = PasswordManager.__new__(PasswordManager)
-    m = Mnemonic("english")
-    phrase = m.generate(strength=128)
+    # Use a known valid phrase to avoid randomness causing a valid checksum
+    phrase = (
+        "legal winner thank year wave sausage worth useful legal winner thank yellow"
+    )
     words = phrase.split()
-    words[-1] = "abandon" if words[-1] != "abandon" else "about"
+    words[-1] = "abandon"
     bad_phrase = " ".join(words)
     assert not pm.validate_bip85_seed(bad_phrase)
 
