@@ -7,6 +7,7 @@ from password_manager.entry_management import EntryManager
 from password_manager.backup import BackupManager
 from password_manager.config_manager import ConfigManager
 from nostr.client import prepare_snapshot
+from nostr.backup_models import KIND_SNAPSHOT_CHUNK
 
 
 def test_manifest_generation(tmp_path):
@@ -35,10 +36,18 @@ def test_retrieve_multi_chunk_snapshot(dummy_nostr_client):
     data = os.urandom(120000)
     manifest, _ = asyncio.run(client.publish_snapshot(data, limit=50000))
     assert len(manifest.chunks) > 1
+    for meta in manifest.chunks:
+        assert meta.event_id
     fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
     assert len(chunk_bytes) == len(manifest.chunks)
+    assert [c.event_id for c in fetched_manifest.chunks] == [
+        c.event_id for c in manifest.chunks
+    ]
     joined = b"".join(chunk_bytes)
     assert gzip.decompress(joined) == data
+    for f in relay.filters:
+        if getattr(f, "kind_val", None) == KIND_SNAPSHOT_CHUNK:
+            assert f.id_called
 
 
 def test_publish_and_fetch_deltas(dummy_nostr_client):

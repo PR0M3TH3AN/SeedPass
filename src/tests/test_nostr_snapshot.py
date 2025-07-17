@@ -68,6 +68,8 @@ class DummyClient:
 def test_fetch_latest_snapshot():
     data = b"seedpass" * 1000
     manifest, chunks = prepare_snapshot(data, 50000)
+    for i, m in enumerate(manifest.chunks):
+        m.event_id = f"{i:064x}"
     manifest_json = json.dumps(
         {
             "ver": manifest.ver,
@@ -98,3 +100,6 @@ def test_fetch_latest_snapshot():
 
     assert manifest == result_manifest
     assert result_chunks == chunks
+    assert [c.event_id for c in manifest.chunks] == [
+        c.event_id for c in result_manifest.chunks
+    ]

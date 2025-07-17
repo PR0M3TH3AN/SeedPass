@@ -78,6 +78,7 @@ def prepare_snapshot(
                 id=f"seedpass-chunk-{i:04d}",
                 size=len(chunk),
                 hash=hashlib.sha256(chunk).hexdigest(),
+                event_id=None,
             )
         )
 
@@ -372,7 +373,13 @@ class NostrClient:
                 [Tag.identifier(meta.id)]
             )
             event = builder.build(self.keys.public_key()).sign_with_keys(self.keys)
-            await self.client.send_event(event)
+            result = await self.client.send_event(event)
+            try:
+                meta.event_id = (
+                    result.id.to_hex() if hasattr(result, "id") else str(result)
+                )
+            except Exception:
+                meta.event_id = None
 
         manifest_json = json.dumps(
             {
@@ -428,13 +435,12 @@ class NostrClient:
 
         chunks: list[bytes] = []
         for meta in manifest.chunks:
-            cf = (
-                Filter()
-                .author(pubkey)
-                .kind(Kind(KIND_SNAPSHOT_CHUNK))
-                .identifier(meta.id)
-                .limit(1)
-            )
+            cf = Filter().author(pubkey).kind(Kind(KIND_SNAPSHOT_CHUNK))
+            if meta.event_id:
+                cf = cf.id(EventId.parse(meta.event_id))
+            else:
+                cf = cf.identifier(meta.id)
+            cf = cf.limit(1)
             cev = (await self.client.fetch_events(cf, timeout)).to_vec()
             if not cev:
                 raise ValueError(f"Missing chunk {meta.id}")

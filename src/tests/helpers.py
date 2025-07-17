@@ -108,6 +108,7 @@ class DummyFilter:
         self.ids: list[str] = []
         self.limit_val: int | None = None
         self.since_val: int | None = None
+        self.id_called: bool = False
 
     def author(self, _pk):
         return self
@@ -122,6 +123,11 @@ class DummyFilter:
         return self
 
     def identifier(self, ident: str):
+        self.ids.append(ident)
+        return self
+
+    def id(self, ident: str):
+        self.id_called = True
         self.ids.append(ident)
         return self
 
@@ -167,6 +173,7 @@ class DummyRelayClient:
         self.manifests: list[DummyEvent] = []
         self.chunks: dict[str, DummyEvent] = {}
         self.deltas: list[DummyEvent] = []
+        self.filters: list[DummyFilter] = []
 
     async def add_relays(self, _relays):
         pass
@@ -195,6 +202,7 @@ class DummyRelayClient:
         elif event.kind == KIND_SNAPSHOT_CHUNK:
             ident = event.tags[0] if event.tags else str(self.counter)
             self.chunks[ident] = event
+            self.chunks[eid] = event
         elif event.kind == KIND_DELTA:
             if not hasattr(event, "created_at"):
                 self.ts_counter += 1
@@ -203,6 +211,7 @@ class DummyRelayClient:
         return DummySendResult(eid)
 
     async def fetch_events(self, f, _timeout):
+        self.filters.append(f)
         kind = getattr(f, "kind_val", None)
         limit = getattr(f, "limit_val", None)
         identifier = f.ids[0] if getattr(f, "ids", None) else None

@@ -39,7 +39,7 @@ class MockClient:
 
         class FakeId:
             def to_hex(self_inner):
-                return "abcd"
+                return "a" * 64
 
         class FakeOutput:
             def __init__(self):
