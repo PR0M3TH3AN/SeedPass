@@ -65,3 +65,43 @@ def test_publish_and_fetch_deltas(dummy_nostr_client):
     assert relay.manifests[-1].delta_since == second_ts
     deltas = asyncio.run(client.fetch_deltas_since(0))
     assert deltas == [d1, d2]
+
+
+def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatch):
+    import os
+    import gzip
+
+    client, relay = dummy_nostr_client
+    monkeypatch.setattr("nostr.client.MAX_RETRIES", 3)
+    monkeypatch.setattr("nostr.client.RETRY_DELAY", 0)
+
+    data1 = os.urandom(60000)
+    manifest1, _ = asyncio.run(client.publish_snapshot(data1))
+
+    data2 = os.urandom(60000)
+    manifest2, _ = asyncio.run(client.publish_snapshot(data2))
+
+    missing = manifest2.chunks[0]
+    if missing.event_id:
+        relay.chunks.pop(missing.event_id, None)
+    relay.chunks.pop(missing.id, None)
+
+    relay.filters.clear()
+
+    fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
+
+    assert gzip.decompress(b"".join(chunk_bytes)) == data1
+    assert [c.event_id for c in fetched_manifest.chunks] == [
+        c.event_id for c in manifest1.chunks
+    ]
+
+    attempts = sum(
+        1
+        for f in relay.filters
+        if getattr(f, "kind_val", None) == KIND_SNAPSHOT_CHUNK
+        and (
+            missing.id in getattr(f, "ids", [])
+            or (missing.event_id and missing.event_id in getattr(f, "ids", []))
+        )
+    )
+    assert attempts == 3
