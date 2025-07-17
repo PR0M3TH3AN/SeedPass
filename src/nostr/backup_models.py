@@ -14,6 +14,7 @@ class ChunkMeta:
     id: str
     size: int
     hash: str
+    event_id: Optional[str] = None
 
 
 @dataclass
