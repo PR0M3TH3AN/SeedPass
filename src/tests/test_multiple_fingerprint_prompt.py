@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import constants
-import password_manager.manager as manager_module
+import seedpass.core.manager as manager_module
 from utils.fingerprint_manager import FingerprintManager
 
 from helpers import TEST_SEED

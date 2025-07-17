@@ -5,7 +5,7 @@ import pytest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from local_bip85.bip85 import BIP85, Bip85Error
-from password_manager.password_generation import (
+from seedpass.core.password_generation import (
     derive_ssh_key,
     derive_seed_phrase,
 )

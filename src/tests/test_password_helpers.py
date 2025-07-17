@@ -1,5 +1,5 @@
 import string
-from password_manager.password_generation import PasswordGenerator, PasswordPolicy
+from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 
 
 class DummyEnc:

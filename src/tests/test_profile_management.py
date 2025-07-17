@@ -11,12 +11,12 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager
 import constants
-import password_manager.manager as manager_module
-from password_manager.vault import Vault
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.manager import EncryptionMode
-from password_manager.config_manager import ConfigManager
+import seedpass.core.manager as manager_module
+from seedpass.core.vault import Vault
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.manager import EncryptionMode
+from seedpass.core.config_manager import ConfigManager
 
 
 def test_add_and_delete_entry(monkeypatch):

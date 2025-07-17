@@ -10,11 +10,11 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.entry_types import EntryType
-from password_manager.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_types import EntryType
+from seedpass.core.config_manager import ConfigManager
 
 
 def test_handle_list_entries(monkeypatch, capsys):
@@ -79,9 +79,9 @@ def test_list_entries_show_details(monkeypatch, capsys):
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )
-        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)
         monkeypatch.setattr(
-            "password_manager.manager.timed_input",
+            "seedpass.core.manager.timed_input",
             lambda *a, **k: "b",
         )
 
@@ -119,7 +119,7 @@ def test_show_entry_details_by_index(monkeypatch):
 
         header_calls = []
         monkeypatch.setattr(
-            "password_manager.manager.clear_header_with_notification",
+            "seedpass.core.manager.clear_header_with_notification",
             lambda *a, **k: header_calls.append(True),
         )
 
@@ -134,9 +134,9 @@ def test_show_entry_details_by_index(monkeypatch):
             "_entry_actions_menu",
             lambda *a, **k: call_order.append("actions"),
         )
-        monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+        monkeypatch.setattr("seedpass.core.manager.pause", lambda *a, **k: None)
         monkeypatch.setattr(
-            "password_manager.manager.confirm_action", lambda *a, **k: False
+            "seedpass.core.manager.confirm_action", lambda *a, **k: False
         )
         pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
         monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
@@ -168,16 +168,14 @@ def _setup_manager(tmp_path):
 
 def _detail_common(monkeypatch, pm):
     monkeypatch.setattr(
-        "password_manager.manager.clear_header_with_notification",
+        "seedpass.core.manager.clear_header_with_notification",
         lambda *a, **k: None,
     )
-    monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+    monkeypatch.setattr("seedpass.core.manager.pause", lambda *a, **k: None)
     monkeypatch.setattr("builtins.input", lambda *a, **k: "")
-    monkeypatch.setattr(
-        "password_manager.manager.confirm_action", lambda *a, **k: False
-    )
-    monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
-    monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *a, **k: False)
+    monkeypatch.setattr("seedpass.core.manager.timed_input", lambda *a, **k: "b")
+    monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)
     monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
     pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
     called = []
@@ -300,21 +298,21 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
         pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw123")
 
         monkeypatch.setattr(
-            "password_manager.manager.confirm_action", lambda *a, **k: True
+            "seedpass.core.manager.confirm_action", lambda *a, **k: True
         )
         monkeypatch.setattr(
-            "password_manager.manager.copy_to_clipboard", lambda *a, **k: None
+            "seedpass.core.manager.copy_to_clipboard", lambda *a, **k: None
         )
-        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
-        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr("seedpass.core.manager.timed_input", lambda *a, **k: "b")
+        monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)
         monkeypatch.setattr(
-            "password_manager.manager.TotpManager.print_qr_code", lambda *a, **k: None
+            "seedpass.core.manager.TotpManager.print_qr_code", lambda *a, **k: None
         )
         monkeypatch.setattr(
-            "password_manager.manager.clear_header_with_notification",
+            "seedpass.core.manager.clear_header_with_notification",
             lambda *a, **k: None,
         )
-        monkeypatch.setattr("password_manager.manager.pause", lambda *a, **k: None)
+        monkeypatch.setattr("seedpass.core.manager.pause", lambda *a, **k: None)
 
         input_val = "r" if entry_type == "managed_account" else ""
         monkeypatch.setattr("builtins.input", lambda *a, **k: input_val)

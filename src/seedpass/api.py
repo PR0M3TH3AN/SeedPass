@@ -14,8 +14,8 @@ import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
 
-from password_manager.manager import PasswordManager
-from password_manager.entry_types import EntryType
+from seedpass.core.manager import PasswordManager
+from seedpass.core.entry_types import EntryType
 
 
 app = FastAPI()

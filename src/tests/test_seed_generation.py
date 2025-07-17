@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 def setup_password_manager():
     """Instantiate PasswordManager using a temporary APP_DIR without running __init__."""
     import constants
-    import password_manager.manager as manager_module
+    import seedpass.core.manager as manager_module
 
     # Reload modules so constants use the mocked home directory
     importlib.reload(constants)
@@ -34,7 +34,7 @@ def test_generate_bip85_and_new_seed(monkeypatch):
         mnemonic = pm.generate_bip85_seed()
         assert len(mnemonic.split()) == 12
 
-        with patch("password_manager.manager.confirm_action", return_value=True):
+        with patch("seedpass.core.manager.confirm_action", return_value=True):
             fingerprint = pm.generate_new_seed()
 
         expected_dir = const.APP_DIR / fingerprint

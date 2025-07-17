@@ -26,12 +26,12 @@ from nostr_sdk import EventId, Timestamp
 
 from .key_manager import KeyManager as SeedPassKeyManager
 from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 from constants import MAX_RETRIES, RETRY_DELAY
 from utils.file_lock import exclusive_lock
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type hints
-    from password_manager.config_manager import ConfigManager
+    from seedpass.core.config_manager import ConfigManager
 
 # Backwards compatibility for tests that patch these symbols
 KeyManager = SeedPassKeyManager
@@ -295,8 +295,8 @@ class NostrClient:
 
         if retries is None or delay is None:
             if self.config_manager is None:
-                from password_manager.config_manager import ConfigManager
-                from password_manager.vault import Vault
+                from seedpass.core.config_manager import ConfigManager
+                from seedpass.core.vault import Vault
 
                 cfg_mgr = ConfigManager(
                     Vault(self.encryption_manager, self.fingerprint_dir),

@@ -1,4 +1,4 @@
-# password_manager/backup.py
+# seedpass.core/backup.py
 
 """
 Backup Manager Module
@@ -19,7 +19,7 @@ import traceback
 from pathlib import Path
 from termcolor import colored
 
-from password_manager.config_manager import ConfigManager
+from .config_manager import ConfigManager
 
 from utils.file_lock import exclusive_lock
 from constants import APP_DIR

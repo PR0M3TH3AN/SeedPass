@@ -4,15 +4,15 @@ from tempfile import TemporaryDirectory
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from utils.fingerprint import generate_fingerprint
-import password_manager.manager as manager_module
-from password_manager.manager import EncryptionMode
+import seedpass.core.manager as manager_module
+from seedpass.core.manager import EncryptionMode
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
-from password_manager.password_generation import derive_seed_phrase
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.password_generation import derive_seed_phrase
 from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator
 

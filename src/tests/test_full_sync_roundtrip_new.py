@@ -4,10 +4,10 @@ from tempfile import TemporaryDirectory
 
 from helpers import create_vault, dummy_nostr_client
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
 def _init_pm(dir_path: Path, client) -> PasswordManager:

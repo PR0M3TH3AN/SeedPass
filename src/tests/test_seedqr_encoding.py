@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.seedqr import encode_seedqr
+from seedpass.core.seedqr import encode_seedqr
 
 
 def test_seedqr_standard_example():

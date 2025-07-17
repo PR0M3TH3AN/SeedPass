@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.manager import PasswordManager, EncryptionMode
 import queue
 
 
@@ -29,8 +29,8 @@ def test_handle_verify_checksum_success(monkeypatch, tmp_path, capsys):
     pm = _make_pm()
     chk_file = tmp_path / "chk.txt"
     chk_file.write_text("abc")
-    monkeypatch.setattr("password_manager.manager.SCRIPT_CHECKSUM_FILE", chk_file)
-    monkeypatch.setattr("password_manager.manager.calculate_checksum", lambda _: "abc")
+    monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
+    monkeypatch.setattr("seedpass.core.manager.calculate_checksum", lambda _: "abc")
     pm.handle_verify_checksum()
     out = capsys.readouterr().out
     assert "Checksum verification passed." in out
@@ -40,8 +40,8 @@ def test_handle_verify_checksum_failure(monkeypatch, tmp_path, capsys):
     pm = _make_pm()
     chk_file = tmp_path / "chk.txt"
     chk_file.write_text("xyz")
-    monkeypatch.setattr("password_manager.manager.SCRIPT_CHECKSUM_FILE", chk_file)
-    monkeypatch.setattr("password_manager.manager.calculate_checksum", lambda _: "abc")
+    monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
+    monkeypatch.setattr("seedpass.core.manager.calculate_checksum", lambda _: "abc")
     pm.handle_verify_checksum()
     out = capsys.readouterr().out
     assert "Checksum verification failed" in out
@@ -50,13 +50,13 @@ def test_handle_verify_checksum_failure(monkeypatch, tmp_path, capsys):
 def test_handle_verify_checksum_missing(monkeypatch, tmp_path, capsys):
     pm = _make_pm()
     chk_file = tmp_path / "chk.txt"
-    monkeypatch.setattr("password_manager.manager.SCRIPT_CHECKSUM_FILE", chk_file)
-    monkeypatch.setattr("password_manager.manager.calculate_checksum", lambda _: "abc")
+    monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
+    monkeypatch.setattr("seedpass.core.manager.calculate_checksum", lambda _: "abc")
 
     def raise_missing(*_args, **_kwargs):
         raise FileNotFoundError
 
-    monkeypatch.setattr("password_manager.manager.verify_checksum", raise_missing)
+    monkeypatch.setattr("seedpass.core.manager.verify_checksum", raise_missing)
     pm.handle_verify_checksum()
     note = pm.notifications.get_nowait()
     assert note.level == "WARNING"

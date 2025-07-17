@@ -10,7 +10,7 @@ from utils.seed_prompt import masked_input
 
 import bcrypt
 
-from password_manager.vault import Vault
+from .vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
 from constants import INACTIVITY_TIMEOUT
@@ -251,7 +251,7 @@ class ConfigManager:
     # Password policy settings
     def get_password_policy(self) -> "PasswordPolicy":
         """Return the password complexity policy."""
-        from password_manager.password_generation import PasswordPolicy
+        from .password_generation import PasswordPolicy
 
         cfg = self.load_config(require_pin=False)
         return PasswordPolicy(

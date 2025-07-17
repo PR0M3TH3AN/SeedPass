@@ -4,7 +4,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.password_generation import PasswordGenerator, PasswordPolicy
+from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 from constants import MIN_PASSWORD_LENGTH
 
 

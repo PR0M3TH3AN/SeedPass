@@ -7,12 +7,12 @@ import bcrypt
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.vault import Vault
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -61,13 +61,11 @@ def test_password_change_and_unlock(monkeypatch):
         )
 
         monkeypatch.setattr(
-            "password_manager.manager.prompt_existing_password", lambda *_: old_pw
+            "seedpass.core.manager.prompt_existing_password", lambda *_: old_pw
         )
+        monkeypatch.setattr("seedpass.core.manager.prompt_for_password", lambda: new_pw)
         monkeypatch.setattr(
-            "password_manager.manager.prompt_for_password", lambda: new_pw
-        )
-        monkeypatch.setattr(
-            "password_manager.manager.NostrClient",
+            "seedpass.core.manager.NostrClient",
             lambda *a, **kw: SimpleNamespace(
                 publish_snapshot=lambda *a, **k: (None, "abcd")
             ),
@@ -77,7 +75,7 @@ def test_password_change_and_unlock(monkeypatch):
         pm.lock_vault()
 
         monkeypatch.setattr(
-            "password_manager.manager.prompt_existing_password", lambda *_: new_pw
+            "seedpass.core.manager.prompt_existing_password", lambda *_: new_pw
         )
         monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
         monkeypatch.setattr(PasswordManager, "initialize_managers", lambda self: None)

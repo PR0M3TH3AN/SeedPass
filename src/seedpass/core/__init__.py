@@ -1,4 +1,4 @@
-# password_manager/__init__.py
+# seedpass.core/__init__.py
 
 """Expose password manager components with lazy imports."""
 

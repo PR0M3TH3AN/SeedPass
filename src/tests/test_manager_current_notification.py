@@ -5,7 +5,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager, Notification
+from seedpass.core.manager import PasswordManager, Notification
 from constants import NOTIFICATION_DURATION
 
 
@@ -20,7 +20,7 @@ def _make_pm():
 def test_notify_sets_current(monkeypatch):
     pm = _make_pm()
     current = {"val": 100.0}
-    monkeypatch.setattr("password_manager.manager.time.time", lambda: current["val"])
+    monkeypatch.setattr("seedpass.core.manager.time.time", lambda: current["val"])
     pm.notify("hello")
     note = pm._current_notification
     assert hasattr(note, "message")
@@ -32,7 +32,7 @@ def test_notify_sets_current(monkeypatch):
 def test_get_current_notification_ttl(monkeypatch):
     pm = _make_pm()
     now = {"val": 0.0}
-    monkeypatch.setattr("password_manager.manager.time.time", lambda: now["val"])
+    monkeypatch.setattr("seedpass.core.manager.time.time", lambda: now["val"])
     pm.notify("note1")
 
     assert pm.get_current_notification().message == "note1"

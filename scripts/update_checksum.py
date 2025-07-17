@@ -14,7 +14,7 @@ from constants import SCRIPT_CHECKSUM_FILE, initialize_app
 def main() -> None:
     """Calculate checksum for the main script and write it to SCRIPT_CHECKSUM_FILE."""
     initialize_app()
-    script_path = SRC_DIR / "password_manager" / "manager.py"
+    script_path = SRC_DIR / "seedpass/core" / "manager.py"
     if not update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
         raise SystemExit(f"Failed to update checksum for {script_path}")
     print(f"Updated checksum written to {SCRIPT_CHECKSUM_FILE}")

@@ -8,7 +8,7 @@ import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 
 
 def test_json_save_and_load_round_trip():

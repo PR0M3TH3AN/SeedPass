@@ -1,4 +1,4 @@
-# /src/password_manager/encryption.py
+# /src/seedpass.core/encryption.py
 
 import logging
 import traceback

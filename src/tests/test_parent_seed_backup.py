@@ -6,7 +6,7 @@ import queue
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.manager import PasswordManager, EncryptionMode
 from constants import DEFAULT_SEED_BACKUP_FILENAME
 
 
@@ -25,11 +25,11 @@ def test_handle_backup_reveal_parent_seed_confirm(monkeypatch, tmp_path, capsys)
     pm = _make_pm(tmp_path)
 
     monkeypatch.setattr(
-        "password_manager.manager.prompt_existing_password", lambda *_: "pw"
+        "seedpass.core.manager.prompt_existing_password", lambda *_: "pw"
     )
     confirms = iter([True, True])
     monkeypatch.setattr(
-        "password_manager.manager.confirm_action", lambda *_a, **_k: next(confirms)
+        "seedpass.core.manager.confirm_action", lambda *_a, **_k: next(confirms)
     )
     saved = []
 
@@ -51,11 +51,9 @@ def test_handle_backup_reveal_parent_seed_cancel(monkeypatch, tmp_path, capsys):
     pm = _make_pm(tmp_path)
 
     monkeypatch.setattr(
-        "password_manager.manager.prompt_existing_password", lambda *_: "pw"
+        "seedpass.core.manager.prompt_existing_password", lambda *_: "pw"
     )
-    monkeypatch.setattr(
-        "password_manager.manager.confirm_action", lambda *_a, **_k: False
-    )
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: False)
     saved = []
     pm.encryption_manager = SimpleNamespace(
         encrypt_and_save_file=lambda data, path: saved.append((data, path))

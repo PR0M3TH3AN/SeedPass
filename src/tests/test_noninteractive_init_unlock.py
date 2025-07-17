@@ -4,9 +4,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import constants
-import password_manager.manager as manager_module
+import seedpass.core.manager as manager_module
 from utils.fingerprint_manager import FingerprintManager
-from password_manager.config_manager import ConfigManager
+from seedpass.core.config_manager import ConfigManager
 from tests.helpers import TEST_SEED, TEST_PASSWORD, create_vault
 
 

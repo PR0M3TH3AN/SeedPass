@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.manager import PasswordManager, EncryptionMode
 from helpers import create_vault, dummy_nostr_client
 import gzip
 from nostr.backup_models import Manifest, ChunkMeta
@@ -32,7 +32,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
 
         monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "1")
         monkeypatch.setattr(
-            "password_manager.manager.prompt_existing_password",
+            "seedpass.core.manager.prompt_existing_password",
             lambda *_a, **_k: "pass",
         )
         monkeypatch.setattr(
@@ -47,7 +47,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
             PasswordManager, "sync_index_from_nostr_if_missing", lambda self: None
         )
         monkeypatch.setattr(
-            "password_manager.manager.NostrClient", lambda *a, **kw: object()
+            "seedpass.core.manager.NostrClient", lambda *a, **kw: object()
         )
 
         assert pm.handle_switch_fingerprint()
