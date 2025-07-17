@@ -71,7 +71,7 @@ def test_password_change_and_unlock(monkeypatch):
             ),
         )
 
-        pm.change_password()
+        pm.change_password(old_pw, new_pw)
         pm.lock_vault()
 
         monkeypatch.setattr(
@@ -81,7 +81,7 @@ def test_password_change_and_unlock(monkeypatch):
         monkeypatch.setattr(PasswordManager, "initialize_managers", lambda self: None)
         monkeypatch.setattr(PasswordManager, "sync_index_from_nostr", lambda self: None)
 
-        pm.unlock_vault()
+        pm.unlock_vault(new_pw)
 
         assert pm.parent_seed == SEED
         assert pm.verify_password(new_pw)

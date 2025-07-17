@@ -40,7 +40,7 @@ class DummyPM:
         self.handle_display_totp_codes = lambda: None
         self.handle_export_database = lambda path: None
         self.handle_import_database = lambda path: None
-        self.change_password = lambda: None
+        self.change_password = lambda *a, **kw: None
         self.lock_vault = lambda: None
         self.get_profile_stats = lambda: {"n": 1}
         self.handle_backup_reveal_parent_seed = lambda path=None: None

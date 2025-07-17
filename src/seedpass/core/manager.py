@@ -276,28 +276,31 @@ class PasswordManager:
         self.config_manager = None
         self.locked = True
 
-    def unlock_vault(self, password: Optional[str] = None) -> None:
-        """Unlock the vault using ``password`` without prompting if provided."""
+    def unlock_vault(self, password: str) -> float:
+        """Unlock the vault using the provided ``password``.
+
+        Parameters
+        ----------
+        password:
+            Master password for the active profile.
+
+        Returns
+        -------
+        float
+            Duration of the unlock process in seconds.
+        """
         start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
-        if password is None:
-            self.setup_encryption_manager(self.fingerprint_dir)
-        else:
-            self.setup_encryption_manager(self.fingerprint_dir, password)
+        self.setup_encryption_manager(self.fingerprint_dir, password)
         self.initialize_bip85()
         self.initialize_managers()
         self.locked = False
         self.update_activity()
         self.last_unlock_duration = time.perf_counter() - start
-        print(
-            colored(
-                f"Vault unlocked in {self.last_unlock_duration:.2f} seconds",
-                "yellow",
-            )
-        )
         if getattr(self, "verbose_timing", False):
             logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
+        return self.last_unlock_duration
 
     def initialize_fingerprint_manager(self):
         """
@@ -3884,15 +3887,11 @@ class PasswordManager:
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
 
-    def change_password(self) -> None:
+    def change_password(self, old_password: str, new_password: str) -> None:
         """Change the master password used for encryption."""
         try:
-            current = prompt_existing_password("Enter your current master password: ")
-            if not self.verify_password(current):
-                print(colored("Incorrect password.", "red"))
-                return
-
-            new_password = prompt_for_password()
+            if not self.verify_password(old_password):
+                raise ValueError("Incorrect password")
 
             # Load data with existing encryption manager
             index_data = self.vault.load_index()
@@ -3927,8 +3926,6 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            print(colored("Master password changed successfully.", "green"))
-
             # Push a fresh backup to Nostr so the newly encrypted index is
             # stored remotely. Include a tag to mark the password change.
             try:
@@ -3940,7 +3937,7 @@ class PasswordManager:
                 )
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
-            print(colored(f"Error: Failed to change password: {e}", "red"))
+            raise
 
     def get_profile_stats(self) -> dict:
         """Return various statistics about the current seed profile."""

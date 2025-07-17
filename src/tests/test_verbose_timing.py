@@ -8,7 +8,7 @@ from helpers import dummy_nostr_client
 def test_unlock_vault_logs_time(monkeypatch, caplog, tmp_path):
     pm = PasswordManager.__new__(PasswordManager)
     pm.fingerprint_dir = tmp_path
-    pm.setup_encryption_manager = lambda path: None
+    pm.setup_encryption_manager = lambda path, pw=None: None
     pm.initialize_bip85 = lambda: None
     pm.initialize_managers = lambda: None
     pm.update_activity = lambda: None
@@ -16,7 +16,7 @@ def test_unlock_vault_logs_time(monkeypatch, caplog, tmp_path):
     caplog.set_level(logging.INFO, logger="seedpass.core.manager")
     times = iter([0.0, 1.0])
     monkeypatch.setattr("seedpass.core.manager.time.perf_counter", lambda: next(times))
-    pm.unlock_vault()
+    pm.unlock_vault("pw")
     assert "Vault unlocked in 1.00 seconds" in caplog.text
 
 

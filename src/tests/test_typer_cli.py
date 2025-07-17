@@ -126,14 +126,14 @@ def test_vault_import_triggers_sync(monkeypatch, tmp_path):
 def test_vault_change_password(monkeypatch):
     called = {}
 
-    def change_pw():
-        called["called"] = True
+    def change_pw(old, new):
+        called["args"] = (old, new)
 
     pm = SimpleNamespace(change_password=change_pw, select_fingerprint=lambda fp: None)
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["vault", "change-password"])
+    result = runner.invoke(app, ["vault", "change-password"], input="old\nnew\nnew\n")
     assert result.exit_code == 0
-    assert called.get("called") is True
+    assert called.get("args") == ("old", "new")
 
 
 def test_vault_lock(monkeypatch):

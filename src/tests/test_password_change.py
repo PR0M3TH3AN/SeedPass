@@ -36,14 +36,9 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
         pm.store_hashed_password = lambda pw: None
         pm.verify_password = lambda pw: True
 
-        monkeypatch.setattr(
-            "seedpass.core.manager.prompt_existing_password", lambda *_: "old"
-        )
-        monkeypatch.setattr("seedpass.core.manager.prompt_for_password", lambda: "new")
-
         with patch("seedpass.core.manager.NostrClient") as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.publish_snapshot = AsyncMock(return_value=(None, "abcd"))
             pm.nostr_client = mock_instance
-            pm.change_password()
+            pm.change_password("old", "new")
             mock_instance.publish_snapshot.assert_called_once()

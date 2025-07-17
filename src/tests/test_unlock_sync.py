@@ -22,7 +22,7 @@ def test_unlock_triggers_sync(monkeypatch, tmp_path):
 
     monkeypatch.setattr(PasswordManager, "sync_index_from_nostr", fake_sync)
 
-    pm.unlock_vault()
+    pm.unlock_vault("pw")
     pm.start_background_sync()
     time.sleep(0.05)
 
