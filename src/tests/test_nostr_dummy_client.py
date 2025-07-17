@@ -105,3 +105,30 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
         )
     )
     assert attempts == 3
+
+
+def test_fetch_snapshot_uses_event_ids(dummy_nostr_client):
+    import os
+    import gzip
+
+    client, relay = dummy_nostr_client
+
+    data = os.urandom(60000)
+    manifest, _ = asyncio.run(client.publish_snapshot(data))
+
+    # Remove identifier keys so chunks can only be fetched via event_id
+    for meta in manifest.chunks:
+        relay.chunks.pop(meta.id, None)
+
+    relay.filters.clear()
+
+    fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
+
+    assert gzip.decompress(b"".join(chunk_bytes)) == data
+
+    id_filters = [
+        f.id_called
+        for f in relay.filters
+        if getattr(f, "kind_val", None) == KIND_SNAPSHOT_CHUNK
+    ]
+    assert id_filters and all(id_filters)
