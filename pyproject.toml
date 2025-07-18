@@ -2,6 +2,10 @@
 name = "seedpass"
 version = "0.1.0"
 
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project.scripts]
 seedpass = "seedpass.cli:app"
 seedpass-gui = "seedpass_gui.app:main"
