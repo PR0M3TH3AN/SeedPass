@@ -33,6 +33,7 @@ from .vault import Vault
 from .portable_backup import export_backup, import_backup
 from .totp import TotpManager
 from .entry_types import EntryType
+from .pubsub import bus
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -1243,7 +1244,9 @@ class PasswordManager:
 
         def _worker() -> None:
             try:
-                asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
+                bus.publish("sync_started")
+                result = asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
+                bus.publish("sync_finished", result)
             except Exception as exc:
                 logging.error(f"Background vault sync failed: {exc}", exc_info=True)
 
@@ -1252,7 +1255,13 @@ class PasswordManager:
         except RuntimeError:
             threading.Thread(target=_worker, daemon=True).start()
         else:
-            asyncio.create_task(self.sync_vault_async(alt_summary=alt_summary))
+
+            async def _async_worker() -> None:
+                bus.publish("sync_started")
+                result = await self.sync_vault_async(alt_summary=alt_summary)
+                bus.publish("sync_finished", result)
+
+            asyncio.create_task(_async_worker())
 
     async def attempt_initial_sync_async(self) -> bool:
         """Attempt to download the initial vault snapshot from Nostr.
