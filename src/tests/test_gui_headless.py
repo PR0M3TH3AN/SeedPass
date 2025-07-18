@@ -40,18 +40,29 @@ def setup_module(module):
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 
+class FakeNostr:
+    def list_relays(self):
+        return []
+
+    def add_relay(self, url):
+        pass
+
+    def remove_relay(self, idx):
+        pass
+
+
 def test_unlock_creates_main_window():
     app = toga.App("Test", "org.example")
-    controller = SimpleNamespace(main_window=None)
+    controller = SimpleNamespace(main_window=None, nostr_service=FakeNostr())
     vault = FakeVault()
     entries = FakeEntries()
-
     win = LockScreenWindow(controller, vault, entries)
     win.password_input.value = "pw"
     win.handle_unlock(None)
 
     assert vault.called
     assert isinstance(controller.main_window, MainWindow)
+    controller.main_window.cleanup()
 
 
 def test_entrydialog_add_calls_service():
