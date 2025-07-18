@@ -32,3 +32,4 @@ requests>=2.32
 python-multipart
 orjson
 argon2-cffi
+toga-core>=0.5.2
