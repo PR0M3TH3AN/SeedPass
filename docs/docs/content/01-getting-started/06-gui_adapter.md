@@ -4,19 +4,18 @@ SeedPass ships with a proof-of-concept graphical interface built using [BeeWare]
 
 ## Getting Started with the GUI
 
-After installing the project dependencies, launch the desktop interface with:
+After installing the project dependencies, launch the desktop interface with one
+of the following commands:
 
 ```bash
+seedpass gui
 python -m seedpass_gui
-```
-
-If you installed the package globally, you can use the provided entry point:
-
-```bash
 seedpass-gui
 ```
 
 The GUI shares the same encrypted vault and configuration as the command line tool.
+
+To generate a packaged binary, run `briefcase build` (after the initial `briefcase create`).
 
 ```mermaid
 graph TD
