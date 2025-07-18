@@ -15,6 +15,7 @@ import json
 from pydantic import BaseModel
 
 from .manager import PasswordManager
+from .pubsub import bus
 
 
 class VaultExportRequest(BaseModel):
@@ -202,7 +203,9 @@ class SyncService:
         """Publish the vault to Nostr and return event info."""
 
         with self._lock:
+            bus.publish("sync_started")
             result = self._manager.sync_vault()
+            bus.publish("sync_finished", result)
         if not result:
             return None
         return SyncResponse(**result)
