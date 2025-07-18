@@ -276,7 +276,7 @@ class PasswordManager:
         self.config_manager = None
         self.locked = True
 
-    def unlock_vault(self, password: str) -> float:
+    def unlock_vault(self, password: Optional[str] = None) -> float:
         """Unlock the vault using the provided ``password``.
 
         Parameters
@@ -292,6 +292,8 @@ class PasswordManager:
         start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
+        if password is None:
+            password = prompt_existing_password(self.get_password_prompt())
         self.setup_encryption_manager(self.fingerprint_dir, password)
         self.initialize_bip85()
         self.initialize_managers()
