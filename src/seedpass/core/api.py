@@ -10,6 +10,7 @@ allow easy validation and documentation.
 from pathlib import Path
 from threading import Lock
 from typing import List, Optional, Dict
+import json
 
 from pydantic import BaseModel
 
@@ -100,6 +101,25 @@ class VaultService:
 
         with self._lock:
             self._manager.handle_import_database(req.path)
+            self._manager.sync_vault()
+
+    def export_profile(self) -> bytes:
+        """Return encrypted profile data for backup."""
+
+        with self._lock:
+            data = self._manager.vault.load_index()
+            payload = json.dumps(data, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+            return self._manager.vault.encryption_manager.encrypt_data(payload)
+
+    def import_profile(self, data: bytes) -> None:
+        """Restore a profile from ``data`` and sync."""
+
+        with self._lock:
+            decrypted = self._manager.vault.encryption_manager.decrypt_data(data)
+            index = json.loads(decrypted.decode("utf-8"))
+            self._manager.vault.save_index(index)
             self._manager.sync_vault()
 
     def change_password(self, req: ChangePasswordRequest) -> None:

@@ -68,58 +68,53 @@ def test_entry_get_password(monkeypatch):
 def test_vault_export(monkeypatch, tmp_path):
     called = {}
 
-    def export_db(path):
-        called["path"] = path
+    def export_profile(self):
+        called["export"] = True
+        return b"data"
 
-    pm = SimpleNamespace(
-        handle_export_database=export_db, select_fingerprint=lambda fp: None
-    )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli.VaultService, "export_profile", export_profile)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: SimpleNamespace())
     out_path = tmp_path / "out.json"
     result = runner.invoke(app, ["vault", "export", "--file", str(out_path)])
     assert result.exit_code == 0
-    assert called["path"] == out_path
+    assert called.get("export") is True
+    assert out_path.read_bytes() == b"data"
 
 
 def test_vault_import(monkeypatch, tmp_path):
     called = {}
 
-    def import_db(path):
-        called["path"] = path
+    def import_profile(self, data):
+        called["data"] = data
 
-    pm = SimpleNamespace(
-        handle_import_database=import_db,
-        select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
-    )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli.VaultService, "import_profile", import_profile)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: SimpleNamespace())
     in_path = tmp_path / "in.json"
-    in_path.write_text("{}")
+    in_path.write_bytes(b"inp")
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
-    assert called["path"] == in_path
+    assert called["data"] == b"inp"
 
 
 def test_vault_import_triggers_sync(monkeypatch, tmp_path):
     called = {}
 
-    def import_db(path):
-        called["path"] = path
+    def import_profile(self, data):
+        called["data"] = data
+        self._manager.sync_vault()
 
-    def sync():
+    def sync_vault():
         called["sync"] = True
 
-    pm = SimpleNamespace(
-        handle_import_database=import_db,
-        sync_vault=sync,
-        select_fingerprint=lambda fp: None,
+    monkeypatch.setattr(cli.VaultService, "import_profile", import_profile)
+    monkeypatch.setattr(
+        cli, "PasswordManager", lambda: SimpleNamespace(sync_vault=sync_vault)
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     in_path = tmp_path / "in.json"
-    in_path.write_text("{}")
+    in_path.write_bytes(b"inp")
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
-    assert called["path"] == in_path
+    assert called.get("data") == b"inp"
     assert called.get("sync") is True
 
 

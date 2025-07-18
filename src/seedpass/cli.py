@@ -14,8 +14,6 @@ from seedpass.core.api import (
     ConfigService,
     UtilityService,
     NostrService,
-    VaultExportRequest,
-    VaultImportRequest,
     ChangePasswordRequest,
     UnlockRequest,
     BackupParentSeedRequest,
@@ -402,9 +400,10 @@ def entry_export_totp(
 def vault_export(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")
 ) -> None:
-    """Export the vault."""
+    """Export the vault profile to an encrypted file."""
     vault_service, _profile, _sync = _get_services(ctx)
-    vault_service.export_vault(VaultExportRequest(path=Path(file)))
+    data = vault_service.export_profile()
+    Path(file).write_bytes(data)
     typer.echo(str(file))
 
 
@@ -412,9 +411,10 @@ def vault_export(
 def vault_import(
     ctx: typer.Context, file: str = typer.Option(..., help="Input file")
 ) -> None:
-    """Import a vault from an encrypted JSON file."""
+    """Import a vault profile from an encrypted file."""
     vault_service, _profile, _sync = _get_services(ctx)
-    vault_service.import_vault(VaultImportRequest(path=Path(file)))
+    data = Path(file).read_bytes()
+    vault_service.import_profile(data)
     typer.echo(str(file))
 
 
