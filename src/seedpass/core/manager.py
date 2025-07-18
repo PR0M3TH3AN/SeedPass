@@ -109,6 +109,24 @@ class Notification:
     level: str = "INFO"
 
 
+class AuthGuard:
+    """Helper to enforce inactivity timeouts."""
+
+    def __init__(
+        self, manager: "PasswordManager", time_fn: callable = time.time
+    ) -> None:
+        self.manager = manager
+        self._time_fn = time_fn
+
+    def check_timeout(self) -> None:
+        """Lock the vault if the inactivity timeout has been exceeded."""
+        timeout = getattr(self.manager, "inactivity_timeout", 0)
+        if self.manager.locked or timeout <= 0:
+            return
+        if self._time_fn() - self.manager.last_activity > timeout:
+            self.manager.lock_vault()
+
+
 class PasswordManager:
     """
     PasswordManager Class
@@ -161,6 +179,7 @@ class PasswordManager:
         self._suppress_entry_actions_menu: bool = False
         self.last_bip85_idx: int = 0
         self.last_sync_ts: int = 0
+        self.auth_guard = AuthGuard(self)
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -240,7 +259,12 @@ class PasswordManager:
         return (None, parent_fp, self.current_fingerprint)
 
     def update_activity(self) -> None:
-        """Record the current time as the last user activity."""
+        """Record activity and enforce inactivity timeout."""
+        guard = getattr(self, "auth_guard", None)
+        if guard is None:
+            guard = AuthGuard(self)
+            self.auth_guard = guard
+        guard.check_timeout()
         self.last_activity = time.time()
 
     def notify(self, message: str, level: str = "INFO") -> None:

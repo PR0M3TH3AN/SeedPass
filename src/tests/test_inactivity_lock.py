@@ -91,3 +91,32 @@ def test_input_timeout_triggers_lock(monkeypatch):
 
     assert locked["locked"] == 1
     assert locked["unlocked"] == 1
+
+
+def test_update_activity_checks_timeout(monkeypatch):
+    """AuthGuard in update_activity locks the vault after inactivity."""
+    import seedpass.core.manager as manager
+
+    now = {"val": 0.0}
+    monkeypatch.setattr(manager.time, "time", lambda: now["val"])
+
+    pm = manager.PasswordManager.__new__(manager.PasswordManager)
+    pm.inactivity_timeout = 0.5
+    pm.last_activity = 0.0
+    pm.locked = False
+    called = {}
+
+    def lock():
+        called["locked"] = True
+        pm.locked = True
+
+    pm.lock_vault = lock
+    pm.auth_guard = manager.AuthGuard(pm, time_fn=lambda: now["val"])
+
+    now["val"] = 0.4
+    pm.update_activity()
+    assert not called
+
+    now["val"] = 1.1
+    pm.update_activity()
+    assert called["locked"] is True
