@@ -197,3 +197,8 @@ class SeedPassApp(toga.App):
         )
         self.main_window = None
         self.lock_window.show()
+
+
+def main() -> None:  # pragma: no cover - GUI bootstrap
+    """Run the BeeWare application."""
+    SeedPassApp().main_loop()

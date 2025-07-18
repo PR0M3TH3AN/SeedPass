@@ -4,6 +4,7 @@ version = "0.1.0"
 
 [project.scripts]
 seedpass = "seedpass.cli:app"
+seedpass-gui = "seedpass_gui.app:main"
 
 [tool.mypy]
 python_version = "3.11"
