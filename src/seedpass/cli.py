@@ -527,7 +527,11 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
 
 @config_app.command("toggle-secret-mode")
 def config_toggle_secret_mode(ctx: typer.Context) -> None:
-    """Interactively enable or disable secret mode."""
+    """Interactively enable or disable secret mode.
+
+    When enabled, newly generated and retrieved passwords are copied to the
+    clipboard instead of printed to the screen.
+    """
     service = _get_config_service(ctx)
     try:
         enabled = service.get_secret_mode_enabled()

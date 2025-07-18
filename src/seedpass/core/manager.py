@@ -1356,7 +1356,16 @@ class PasswordManager:
                     "green",
                 )
             )
-            print(colored(f"Password for {website_name}: {password}\n", "yellow"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(password, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"Password for {website_name}: {password}\n", "yellow"))
 
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
