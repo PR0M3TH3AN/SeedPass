@@ -546,7 +546,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             sys.exit(1)
 
-    def handle_switch_fingerprint(self) -> bool:
+    def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
         """
         Handles switching to a different seed profile.
 
@@ -587,9 +587,10 @@ class PasswordManager:
                 return False  # Return False to indicate failure
 
             # Prompt for master password for the selected seed profile
-            password = prompt_existing_password(
-                "Enter the master password for the selected seed profile: "
-            )
+            if password is None:
+                password = prompt_existing_password(
+                    "Enter the master password for the selected seed profile: "
+                )
 
             # Set up the encryption manager with the new password and seed profile directory
             if not self.setup_encryption_manager(
@@ -676,14 +677,14 @@ class PasswordManager:
         self.update_activity()
         self.start_background_sync()
 
-    def handle_existing_seed(self) -> None:
+    def handle_existing_seed(self, *, password: Optional[str] = None) -> None:
         """
         Handles the scenario where an existing parent seed file is found.
         Prompts the user for the master password to decrypt the seed.
         """
         try:
-            # Prompt for password using masked input
-            password = prompt_existing_password("Enter your login password: ")
+            if password is None:
+                password = prompt_existing_password("Enter your login password: ")
 
             # Derive encryption key from password
             iterations = (
@@ -778,7 +779,11 @@ class PasswordManager:
             sys.exit(1)
 
     def setup_existing_seed(
-        self, method: Literal["paste", "words"] = "paste"
+        self,
+        method: Literal["paste", "words"] = "paste",
+        *,
+        seed: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> Optional[str]:
         """Prompt for an existing BIP-85 seed and set it up.
 
@@ -794,7 +799,9 @@ class PasswordManager:
             The fingerprint if setup is successful, ``None`` otherwise.
         """
         try:
-            if method == "words":
+            if seed is not None:
+                parent_seed = seed
+            elif method == "words":
                 parent_seed = prompt_seed_words()
             else:
                 parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
@@ -804,17 +811,21 @@ class PasswordManager:
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
                 sys.exit(1)
 
-            return self._finalize_existing_seed(parent_seed)
+            return self._finalize_existing_seed(parent_seed, password=password)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             self.notify("Operation cancelled by user.", level="WARNING")
             sys.exit(0)
 
-    def setup_existing_seed_word_by_word(self) -> Optional[str]:
+    def setup_existing_seed_word_by_word(
+        self, *, seed: Optional[str] = None, password: Optional[str] = None
+    ) -> Optional[str]:
         """Prompt for an existing seed one word at a time and set it up."""
-        return self.setup_existing_seed(method="words")
+        return self.setup_existing_seed(method="words", seed=seed, password=password)
 
-    def _finalize_existing_seed(self, parent_seed: str) -> Optional[str]:
+    def _finalize_existing_seed(
+        self, parent_seed: str, *, password: Optional[str] = None
+    ) -> Optional[str]:
         """Common logic for initializing an existing seed."""
         if self.validate_bip85_seed(parent_seed):
             fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
@@ -842,7 +853,8 @@ class PasswordManager:
             logging.info(f"Current seed profile set to {fingerprint}")
 
             try:
-                password = prompt_for_password()
+                if password is None:
+                    password = prompt_for_password()
                 index_key = derive_index_key(parent_seed)
                 iterations = (
                     self.config_manager.get_kdf_iterations()
@@ -976,7 +988,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             sys.exit(1)
 
-    def save_and_encrypt_seed(self, seed: str, fingerprint_dir: Path) -> None:
+    def save_and_encrypt_seed(
+        self, seed: str, fingerprint_dir: Path, *, password: Optional[str] = None
+    ) -> None:
         """
         Saves and encrypts the parent seed.
 
@@ -988,8 +1002,8 @@ class PasswordManager:
             # Set self.fingerprint_dir
             self.fingerprint_dir = fingerprint_dir
 
-            # Prompt for password
-            password = prompt_for_password()
+            if password is None:
+                password = prompt_for_password()
 
             index_key = derive_index_key(seed)
             iterations = (
@@ -3732,7 +3746,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
             return None
 
-    def handle_backup_reveal_parent_seed(self, file: Path | None = None) -> None:
+    def handle_backup_reveal_parent_seed(
+        self, file: Path | None = None, *, password: Optional[str] = None
+    ) -> None:
         """Reveal the parent seed and optionally save an encrypted backup.
 
         Parameters
@@ -3762,9 +3778,10 @@ class PasswordManager:
             )
 
             # Verify user's identity with secure password verification
-            password = prompt_existing_password(
-                "Enter your master password to continue: "
-            )
+            if password is None:
+                password = prompt_existing_password(
+                    "Enter your master password to continue: "
+                )
             if not self.verify_password(password):
                 print(colored("Incorrect password. Operation aborted.", "red"))
                 return

@@ -462,8 +462,9 @@ def vault_reveal_parent_seed(
 ) -> None:
     """Display the parent seed and optionally write an encrypted backup file."""
     vault_service, _profile, _sync = _get_services(ctx)
+    password = typer.prompt("Master password", hide_input=True)
     vault_service.backup_parent_seed(
-        BackupParentSeedRequest(path=Path(file) if file else None)
+        BackupParentSeedRequest(path=Path(file) if file else None, password=password)
     )
 
 
@@ -630,7 +631,10 @@ def fingerprint_remove(ctx: typer.Context, fingerprint: str) -> None:
 def fingerprint_switch(ctx: typer.Context, fingerprint: str) -> None:
     """Switch to another seed profile."""
     _vault, profile_service, _sync = _get_services(ctx)
-    profile_service.switch_profile(ProfileSwitchRequest(fingerprint=fingerprint))
+    password = typer.prompt("Master password", hide_input=True)
+    profile_service.switch_profile(
+        ProfileSwitchRequest(fingerprint=fingerprint, password=password)
+    )
 
 
 @util_app.command("generate-password")

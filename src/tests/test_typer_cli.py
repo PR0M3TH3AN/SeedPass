@@ -156,7 +156,7 @@ def test_vault_lock(monkeypatch):
 def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     called = {}
 
-    def reveal(path=None):
+    def reveal(path=None, **_):
         called["path"] = path
 
     pm = SimpleNamespace(
@@ -165,7 +165,9 @@ def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     out_path = tmp_path / "seed.enc"
     result = runner.invoke(
-        app, ["vault", "reveal-parent-seed", "--file", str(out_path)]
+        app,
+        ["vault", "reveal-parent-seed", "--file", str(out_path)],
+        input="pw\n",
     )
     assert result.exit_code == 0
     assert called["path"] == out_path
@@ -231,14 +233,14 @@ def test_fingerprint_remove(monkeypatch):
 def test_fingerprint_switch(monkeypatch):
     called = {}
 
-    def switch(fp):
+    def switch(fp, **_):
         called["fp"] = fp
 
     pm = SimpleNamespace(
         select_fingerprint=switch, fingerprint_manager=SimpleNamespace()
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["fingerprint", "switch", "def"])
+    result = runner.invoke(app, ["fingerprint", "switch", "def"], input="pw\n")
     assert result.exit_code == 0
     assert called.get("fp") == "def"
 
