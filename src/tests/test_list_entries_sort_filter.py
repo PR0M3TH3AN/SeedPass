@@ -19,29 +19,35 @@ def setup_entry_manager(tmp_path: Path) -> EntryManager:
     return EntryManager(vault, backup_mgr)
 
 
-def test_sort_by_website():
+def test_sort_by_label():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         em = setup_entry_manager(tmp_path)
         idx0 = em.add_entry("b.com", 8, "user1")
         idx1 = em.add_entry("A.com", 8, "user2")
-        result = em.list_entries(sort_by="website")
+        result = em.list_entries(sort_by="label")
         assert result == [
             (idx1, "A.com", "user2", "", False),
             (idx0, "b.com", "user1", "", False),
         ]
 
 
-def test_sort_by_username():
+def test_sort_by_updated():
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         em = setup_entry_manager(tmp_path)
-        idx0 = em.add_entry("alpha.com", 8, "Charlie")
-        idx1 = em.add_entry("beta.com", 8, "alice")
-        result = em.list_entries(sort_by="username")
+        idx0 = em.add_entry("alpha.com", 8, "u0")
+        idx1 = em.add_entry("beta.com", 8, "u1")
+
+        data = em._load_index(force_reload=True)
+        data["entries"][str(idx0)]["updated"] = 1
+        data["entries"][str(idx1)]["updated"] = 2
+        em._save_index(data)
+
+        result = em.list_entries(sort_by="updated")
         assert result == [
-            (idx1, "beta.com", "alice", "", False),
-            (idx0, "alpha.com", "Charlie", "", False),
+            (idx1, "beta.com", "u1", "", False),
+            (idx0, "alpha.com", "u0", "", False),
         ]
 
 

@@ -113,7 +113,7 @@ def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) ->
 def entry_list(
     ctx: typer.Context,
     sort: str = typer.Option(
-        "index", "--sort", help="Sort by 'index', 'label', or 'username'"
+        "index", "--sort", help="Sort by 'index', 'label', or 'updated'"
     ),
     kind: Optional[str] = typer.Option(None, "--kind", help="Filter by entry type"),
     archived: bool = typer.Option(False, "--archived", help="Include archived"),
