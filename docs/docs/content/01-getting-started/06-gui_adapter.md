@@ -2,6 +2,36 @@
 
 SeedPass ships with a proof-of-concept graphical interface built using [BeeWare](https://beeware.org). The GUI interacts with the same core services as the CLI by instantiating wrappers around `PasswordManager`.
 
+## Getting Started with the GUI
+
+After installing the project dependencies, launch the desktop interface with:
+
+```bash
+python -m seedpass_gui
+```
+
+If you installed the package globally, you can use the provided entry point:
+
+```bash
+seedpass-gui
+```
+
+The GUI shares the same encrypted vault and configuration as the command line tool.
+
+```mermaid
+graph TD
+    core["seedpass.core"]
+    cli["CLI"]
+    api["FastAPI server"]
+    gui["BeeWare GUI"]
+    ext["Browser Extension"]
+
+    cli --> core
+    gui --> core
+    api --> core
+    ext --> api
+```
+
 ## VaultService and EntryService
 
 `VaultService` provides thread-safe access to vault operations like exporting, importing, unlocking and locking the vault. `EntryService` exposes methods for listing, searching and modifying entries. Both classes live in `seedpass.core.api` and hold a `PasswordManager` instance protected by a `threading.Lock` to ensure safe concurrent access.
