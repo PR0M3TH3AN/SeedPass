@@ -16,6 +16,22 @@ This software was not developed by an experienced security expert and should be 
 ✔ Windows 10/11 • macOS 12+ • Any modern Linux  
 SeedPass now uses the `portalocker` library for cross-platform file locking. No WSL or Cygwin required.
 
+```mermaid
+graph TD
+    core(seedpass.core)
+    cli(CLI/TUI)
+    gui(BeeWare GUI)
+    ext(Browser extension)
+    cli --> core
+    gui --> core
+    ext --> core
+```
+
+SeedPass uses a modular design with a single core library that handles all
+security-critical logic. The current CLI/TUI adapter communicates with
+`seedpass.core`, and future interfaces like a BeeWare GUI and a browser
+extension can hook into the same layer. This architecture keeps the codebase
+maintainable while enabling a consistent experience on multiple platforms.
 
 ## Table of Contents
 
