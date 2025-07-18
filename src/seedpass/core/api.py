@@ -194,3 +194,330 @@ class SyncService:
 
         with self._lock:
             self._manager.start_background_vault_sync(summary)
+
+
+class EntryService:
+    """Thread-safe wrapper around entry operations."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def list_entries(
+        self,
+        sort_by: str = "index",
+        filter_kind: str | None = None,
+        include_archived: bool = False,
+    ):
+        with self._lock:
+            return self._manager.entry_manager.list_entries(
+                sort_by=sort_by,
+                filter_kind=filter_kind,
+                include_archived=include_archived,
+            )
+
+    def search_entries(self, query: str):
+        with self._lock:
+            return self._manager.entry_manager.search_entries(query)
+
+    def retrieve_entry(self, entry_id: int):
+        with self._lock:
+            return self._manager.entry_manager.retrieve_entry(entry_id)
+
+    def generate_password(self, length: int, index: int) -> str:
+        with self._lock:
+            return self._manager.password_generator.generate_password(length, index)
+
+    def get_totp_code(self, entry_id: int) -> str:
+        with self._lock:
+            return self._manager.entry_manager.get_totp_code(
+                entry_id, self._manager.parent_seed
+            )
+
+    def add_entry(
+        self,
+        label: str,
+        length: int,
+        username: str | None = None,
+        url: str | None = None,
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_entry(label, length, username, url)
+            self._manager.sync_vault()
+            return idx
+
+    def add_totp(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        secret: str | None = None,
+        period: int = 30,
+        digits: int = 6,
+    ) -> str:
+        with self._lock:
+            uri = self._manager.entry_manager.add_totp(
+                label,
+                self._manager.parent_seed,
+                index=index,
+                secret=secret,
+                period=period,
+                digits=digits,
+            )
+            self._manager.sync_vault()
+            return uri
+
+    def add_ssh_key(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        notes: str = "",
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_ssh_key(
+                label,
+                self._manager.parent_seed,
+                index=index,
+                notes=notes,
+            )
+            self._manager.sync_vault()
+            return idx
+
+    def add_pgp_key(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        key_type: str = "ed25519",
+        user_id: str = "",
+        notes: str = "",
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_pgp_key(
+                label,
+                self._manager.parent_seed,
+                index=index,
+                key_type=key_type,
+                user_id=user_id,
+                notes=notes,
+            )
+            self._manager.sync_vault()
+            return idx
+
+    def add_nostr_key(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        notes: str = "",
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_nostr_key(
+                label,
+                index=index,
+                notes=notes,
+            )
+            self._manager.sync_vault()
+            return idx
+
+    def add_seed(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        words: int = 24,
+        notes: str = "",
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_seed(
+                label,
+                self._manager.parent_seed,
+                index=index,
+                words_num=words,
+                notes=notes,
+            )
+            self._manager.sync_vault()
+            return idx
+
+    def add_key_value(self, label: str, value: str, *, notes: str = "") -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_key_value(label, value, notes=notes)
+            self._manager.sync_vault()
+            return idx
+
+    def add_managed_account(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        notes: str = "",
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_managed_account(
+                label,
+                self._manager.parent_seed,
+                index=index,
+                notes=notes,
+            )
+            self._manager.sync_vault()
+            return idx
+
+    def modify_entry(
+        self,
+        entry_id: int,
+        *,
+        username: str | None = None,
+        url: str | None = None,
+        notes: str | None = None,
+        label: str | None = None,
+        period: int | None = None,
+        digits: int | None = None,
+        value: str | None = None,
+    ) -> None:
+        with self._lock:
+            self._manager.entry_manager.modify_entry(
+                entry_id,
+                username=username,
+                url=url,
+                notes=notes,
+                label=label,
+                period=period,
+                digits=digits,
+                value=value,
+            )
+            self._manager.sync_vault()
+
+    def archive_entry(self, entry_id: int) -> None:
+        with self._lock:
+            self._manager.entry_manager.archive_entry(entry_id)
+            self._manager.sync_vault()
+
+    def restore_entry(self, entry_id: int) -> None:
+        with self._lock:
+            self._manager.entry_manager.restore_entry(entry_id)
+            self._manager.sync_vault()
+
+    def export_totp_entries(self) -> dict:
+        with self._lock:
+            return self._manager.entry_manager.export_totp_entries(
+                self._manager.parent_seed
+            )
+
+    def display_totp_codes(self) -> None:
+        with self._lock:
+            self._manager.handle_display_totp_codes()
+
+
+class ConfigService:
+    """Thread-safe wrapper around configuration access."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def get(self, key: str):
+        with self._lock:
+            return self._manager.config_manager.load_config(require_pin=False).get(key)
+
+    def set(self, key: str, value: str) -> None:
+        cfg = self._manager.config_manager
+        mapping = {
+            "inactivity_timeout": ("set_inactivity_timeout", float),
+            "secret_mode_enabled": (
+                "set_secret_mode_enabled",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
+            "clipboard_clear_delay": ("set_clipboard_clear_delay", int),
+            "additional_backup_path": (
+                "set_additional_backup_path",
+                lambda v: v or None,
+            ),
+            "relays": ("set_relays", lambda v: (v, {"require_pin": False})),
+            "kdf_iterations": ("set_kdf_iterations", int),
+            "kdf_mode": ("set_kdf_mode", lambda v: v),
+            "backup_interval": ("set_backup_interval", float),
+            "nostr_max_retries": ("set_nostr_max_retries", int),
+            "nostr_retry_delay": ("set_nostr_retry_delay", float),
+            "min_uppercase": ("set_min_uppercase", int),
+            "min_lowercase": ("set_min_lowercase", int),
+            "min_digits": ("set_min_digits", int),
+            "min_special": ("set_min_special", int),
+            "quick_unlock": (
+                "set_quick_unlock",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
+        }
+        entry = mapping.get(key)
+        if entry is None:
+            raise KeyError(key)
+        method_name, conv = entry
+        with self._lock:
+            result = conv(value)
+            if (
+                isinstance(result, tuple)
+                and len(result) == 2
+                and isinstance(result[1], dict)
+            ):
+                arg, kwargs = result
+                getattr(cfg, method_name)(arg, **kwargs)
+            else:
+                getattr(cfg, method_name)(result)
+
+    def get_secret_mode_enabled(self) -> bool:
+        with self._lock:
+            return self._manager.config_manager.get_secret_mode_enabled()
+
+    def get_clipboard_clear_delay(self) -> int:
+        with self._lock:
+            return self._manager.config_manager.get_clipboard_clear_delay()
+
+    def set_secret_mode(self, enabled: bool, delay: int) -> None:
+        with self._lock:
+            cfg = self._manager.config_manager
+            cfg.set_secret_mode_enabled(enabled)
+            cfg.set_clipboard_clear_delay(delay)
+            self._manager.secret_mode_enabled = enabled
+            self._manager.clipboard_clear_delay = delay
+
+    def get_offline_mode(self) -> bool:
+        with self._lock:
+            return self._manager.config_manager.get_offline_mode()
+
+    def set_offline_mode(self, enabled: bool) -> None:
+        with self._lock:
+            cfg = self._manager.config_manager
+            cfg.set_offline_mode(enabled)
+            self._manager.offline_mode = enabled
+
+
+class UtilityService:
+    """Miscellaneous helper operations."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def generate_password(self, length: int) -> str:
+        with self._lock:
+            return self._manager.password_generator.generate_password(length)
+
+    def verify_checksum(self) -> None:
+        with self._lock:
+            self._manager.handle_verify_checksum()
+
+    def update_checksum(self) -> None:
+        with self._lock:
+            self._manager.handle_update_script_checksum()
+
+
+class NostrService:
+    """Nostr related helper methods."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def get_pubkey(self) -> str:
+        with self._lock:
+            return self._manager.nostr_client.key_manager.get_npub()
