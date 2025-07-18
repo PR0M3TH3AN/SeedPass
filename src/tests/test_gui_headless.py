@@ -22,7 +22,7 @@ class FakeEntries:
     def list_entries(self):
         return []
 
-    def search_entries(self, query):
+    def search_entries(self, query, kinds=None):
         return []
 
     def add_entry(self, label, length, username=None, url=None):

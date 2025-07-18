@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import json
 
 import typer
@@ -135,10 +135,20 @@ def entry_list(
 
 
 @entry_app.command("search")
-def entry_search(ctx: typer.Context, query: str) -> None:
+def entry_search(
+    ctx: typer.Context,
+    query: str,
+    kind: List[str] = typer.Option(
+        None,
+        "--kind",
+        "-k",
+        help="Filter by entry kinds (can be repeated)",
+    ),
+) -> None:
     """Search entries."""
     service = _get_entry_service(ctx)
-    results = service.search_entries(query)
+    kinds = list(kind) if kind else None
+    results = service.search_entries(query, kinds=kinds)
     if not results:
         typer.echo("No matching entries found")
         return

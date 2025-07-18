@@ -25,8 +25,8 @@ def test_entry_service_add_entry_and_search():
         called["add"] = (label, length, username, url)
         return 5
 
-    def search_entries(q):
-        called["search"] = q
+    def search_entries(q, kinds=None):
+        called["search"] = (q, kinds)
         return [(5, "Example", username, url, False)]
 
     def sync_vault():
@@ -46,9 +46,9 @@ def test_entry_service_add_entry_and_search():
     assert called["add"] == ("Example", 12, username, url)
     assert called.get("sync") is True
 
-    results = service.search_entries("ex")
+    results = service.search_entries("ex", kinds=["password"])
     assert results == [(5, "Example", username, url, False)]
-    assert called["search"] == "ex"
+    assert called["search"] == ("ex", ["password"])
 
 
 def test_sync_service_sync():

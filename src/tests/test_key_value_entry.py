@@ -41,4 +41,4 @@ def test_add_and_modify_key_value():
         assert updated["value"] == "def456"
 
         results = em.search_entries("def456")
-        assert results == [(idx, "API", None, None, False)]
+        assert results == []

@@ -32,8 +32,8 @@ def test_cli_entry_add_search_sync(monkeypatch):
         calls["add"] = (label, length, username, url)
         return 1
 
-    def search_entries(q):
-        calls["search"] = q
+    def search_entries(q, kinds=None):
+        calls["search"] = (q, kinds)
         return [(1, "Label", None, None, False)]
 
     def sync_vault():
@@ -57,10 +57,12 @@ def test_cli_entry_add_search_sync(monkeypatch):
     assert calls.get("sync") is True
 
     # entry search
-    result = runner.invoke(app, ["entry", "search", "lab"])
+    result = runner.invoke(
+        app, ["entry", "search", "lab", "--kind", "password", "--kind", "totp"]
+    )
     assert result.exit_code == 0
     assert "Label" in result.stdout
-    assert calls["search"] == "lab"
+    assert calls["search"] == ("lab", ["password", "totp"])
 
     # nostr sync
     result = runner.invoke(app, ["nostr", "sync"])
