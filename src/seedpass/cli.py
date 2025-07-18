@@ -492,6 +492,39 @@ def nostr_get_pubkey(ctx: typer.Context) -> None:
     typer.echo(npub)
 
 
+@nostr_app.command("list-relays")
+def nostr_list_relays(ctx: typer.Context) -> None:
+    """Display configured Nostr relays."""
+    service = _get_nostr_service(ctx)
+    relays = service.list_relays()
+    for i, r in enumerate(relays, 1):
+        typer.echo(f"{i}: {r}")
+
+
+@nostr_app.command("add-relay")
+def nostr_add_relay(ctx: typer.Context, url: str) -> None:
+    """Add a relay URL."""
+    service = _get_nostr_service(ctx)
+    try:
+        service.add_relay(url)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Added")
+
+
+@nostr_app.command("remove-relay")
+def nostr_remove_relay(ctx: typer.Context, idx: int) -> None:
+    """Remove a relay by index (1-based)."""
+    service = _get_nostr_service(ctx)
+    try:
+        service.remove_relay(idx)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Removed")
+
+
 @config_app.command("get")
 def config_get(ctx: typer.Context, key: str) -> None:
     """Get a configuration value."""
