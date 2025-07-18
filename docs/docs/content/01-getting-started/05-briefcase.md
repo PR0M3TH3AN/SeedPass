@@ -15,6 +15,15 @@ briefcase build
 briefcase run
 ```
 
-`briefcase create` only needs to be executed once per platform. After the
-initial creation step you can repeatedly run `briefcase build` followed by
-`briefcase run` to test your packaged application on Windows, macOS or Linux.
+## Command Overview
+
+- **`briefcase create`** — generates the project scaffold for your
+  operating system. Run this once per platform.
+- **`briefcase build`** — compiles dependencies and produces the
+  distributable bundle.
+- **`briefcase run`** — launches the packaged application so you can test
+  it locally.
+
+After the initial creation step you can repeatedly run `briefcase build`
+followed by `briefcase run` to test your packaged application on Windows,
+macOS or Linux.
