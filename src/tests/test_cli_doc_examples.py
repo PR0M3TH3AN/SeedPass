@@ -43,7 +43,7 @@ class DummyPM:
         self.change_password = lambda *a, **kw: None
         self.lock_vault = lambda: None
         self.get_profile_stats = lambda: {"n": 1}
-        self.handle_backup_reveal_parent_seed = lambda path=None: None
+        self.handle_backup_reveal_parent_seed = lambda path=None, **_: None
         self.handle_verify_checksum = lambda: None
         self.handle_update_script_checksum = lambda: None
         self.add_new_fingerprint = lambda: None
@@ -76,7 +76,7 @@ class DummyPM:
         )
         self.secret_mode_enabled = True
         self.clipboard_clear_delay = 30
-        self.select_fingerprint = lambda fp: None
+        self.select_fingerprint = lambda fp, **_: None
 
 
 def load_doc_commands() -> list[str]:

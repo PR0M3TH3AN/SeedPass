@@ -24,9 +24,6 @@ def _make_pm(tmp_path: Path) -> PasswordManager:
 def test_handle_backup_reveal_parent_seed_confirm(monkeypatch, tmp_path, capsys):
     pm = _make_pm(tmp_path)
 
-    monkeypatch.setattr(
-        "seedpass.core.manager.prompt_existing_password", lambda *_: "pw"
-    )
     confirms = iter([True, True])
     monkeypatch.setattr(
         "seedpass.core.manager.confirm_action", lambda *_a, **_k: next(confirms)
@@ -39,7 +36,7 @@ def test_handle_backup_reveal_parent_seed_confirm(monkeypatch, tmp_path, capsys)
     pm.encryption_manager = SimpleNamespace(encrypt_and_save_file=fake_save)
     monkeypatch.setattr(builtins, "input", lambda *_: "mybackup.enc")
 
-    pm.handle_backup_reveal_parent_seed()
+    pm.handle_backup_reveal_parent_seed(password="pw")
     out = capsys.readouterr().out
 
     assert "seed phrase" in out
@@ -50,16 +47,13 @@ def test_handle_backup_reveal_parent_seed_confirm(monkeypatch, tmp_path, capsys)
 def test_handle_backup_reveal_parent_seed_cancel(monkeypatch, tmp_path, capsys):
     pm = _make_pm(tmp_path)
 
-    monkeypatch.setattr(
-        "seedpass.core.manager.prompt_existing_password", lambda *_: "pw"
-    )
     monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: False)
     saved = []
     pm.encryption_manager = SimpleNamespace(
         encrypt_and_save_file=lambda data, path: saved.append((data, path))
     )
 
-    pm.handle_backup_reveal_parent_seed()
+    pm.handle_backup_reveal_parent_seed(password="pw")
     out = capsys.readouterr().out
 
     assert "seed phrase" not in out

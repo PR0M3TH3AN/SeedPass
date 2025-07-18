@@ -32,10 +32,6 @@ def test_add_and_switch_fingerprint(monkeypatch):
 
         monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "1")
         monkeypatch.setattr(
-            "seedpass.core.manager.prompt_existing_password",
-            lambda *_a, **_k: "pass",
-        )
-        monkeypatch.setattr(
             PasswordManager,
             "setup_encryption_manager",
             lambda self, d, password=None, exit_on_fail=True: True,
@@ -50,7 +46,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
             "seedpass.core.manager.NostrClient", lambda *a, **kw: object()
         )
 
-        assert pm.handle_switch_fingerprint()
+        assert pm.handle_switch_fingerprint(password="pass")
         assert pm.current_fingerprint == fingerprint
         assert fm.current_fingerprint == fingerprint
         assert pm.fingerprint_dir == expected_dir

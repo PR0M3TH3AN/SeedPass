@@ -23,9 +23,6 @@ def test_switch_fingerprint_triggers_bg_sync(monkeypatch, tmp_path):
 
     monkeypatch.setattr("builtins.input", lambda *_a, **_k: "1")
     monkeypatch.setattr(
-        "seedpass.core.manager.prompt_existing_password", lambda *_a, **_k: "pw"
-    )
-    monkeypatch.setattr(
         PasswordManager, "setup_encryption_manager", lambda *a, **k: True
     )
     monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda *a, **k: None)
@@ -39,7 +36,7 @@ def test_switch_fingerprint_triggers_bg_sync(monkeypatch, tmp_path):
 
     monkeypatch.setattr(PasswordManager, "start_background_sync", fake_bg)
 
-    assert pm.handle_switch_fingerprint()
+    assert pm.handle_switch_fingerprint(password="pw")
     assert calls["count"] == 1
 
 

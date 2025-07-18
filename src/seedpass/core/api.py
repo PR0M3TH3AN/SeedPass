@@ -57,12 +57,14 @@ class BackupParentSeedRequest(BaseModel):
     """Optional path to write the encrypted seed backup."""
 
     path: Optional[Path] = None
+    password: Optional[str] = None
 
 
 class ProfileSwitchRequest(BaseModel):
     """Select a different seed profile."""
 
     fingerprint: str
+    password: Optional[str] = None
 
 
 class ProfileRemoveRequest(BaseModel):
@@ -123,7 +125,9 @@ class VaultService:
         """Backup and reveal the parent seed."""
 
         with self._lock:
-            self._manager.handle_backup_reveal_parent_seed(req.path)
+            self._manager.handle_backup_reveal_parent_seed(
+                req.path, password=req.password
+            )
 
     def stats(self) -> Dict:
         """Return statistics about the current profile."""
@@ -164,7 +168,7 @@ class ProfileService:
         """Switch to ``req.fingerprint``."""
 
         with self._lock:
-            self._manager.select_fingerprint(req.fingerprint)
+            self._manager.select_fingerprint(req.fingerprint, password=req.password)
 
 
 class SyncService:
