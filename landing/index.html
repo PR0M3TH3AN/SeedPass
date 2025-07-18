@@ -90,6 +90,26 @@ config:
   themeVariables:
     primaryColor: '#e94a39'
     primaryBorderColor: '#e94a39'
+    lineColor: '#e94a39'
+  look: classic
+---
+graph TD
+    core(seedpass.core)
+    cli(CLI/TUI)
+    gui(BeeWare GUI)
+    ext(Browser extension)
+    cli --> core
+    gui --> core
+    ext --> core
+                </pre>
+                <pre class="mermaid">
+---
+config:
+  layout: fixed
+  theme: base
+  themeVariables:
+    primaryColor: '#e94a39'
+    primaryBorderColor: '#e94a39'
     primaryTextColor: '#ffffff'
     lineColor: '#e94a39'
   look: classic
