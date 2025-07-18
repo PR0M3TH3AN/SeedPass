@@ -84,7 +84,9 @@ def load_doc_commands() -> list[str]:
     cmds = set(re.findall(r"`seedpass ([^`<>]+)`", text))
     cmds = {c for c in cmds if "<" not in c and ">" not in c}
     cmds.discard("vault export")
+    cmds.discard("vault export --file backup.json")
     cmds.discard("vault import")
+    cmds.discard("vault import --file backup.json")
     return sorted(cmds)
 
 
