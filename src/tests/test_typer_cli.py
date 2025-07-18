@@ -532,3 +532,19 @@ def test_tui_forward_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_gui_command(monkeypatch):
+    called = {}
+
+    def fake_main():
+        called["called"] = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "seedpass_gui.app",
+        SimpleNamespace(main=fake_main),
+    )
+    result = runner.invoke(app, ["gui"])
+    assert result.exit_code == 0
+    assert called.get("called") is True

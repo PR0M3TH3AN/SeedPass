@@ -682,5 +682,13 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
         typer.echo(f"Failed to stop server: {exc}")
 
 
+@app.command()
+def gui() -> None:
+    """Launch the BeeWare GUI."""
+    from seedpass_gui.app import main
+
+    main()
+
+
 if __name__ == "__main__":
     app()
