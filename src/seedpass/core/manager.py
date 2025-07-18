@@ -1101,18 +1101,18 @@ class PasswordManager:
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
 
-    def sync_index_from_nostr(self) -> None:
+    async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
         start = time.perf_counter()
         try:
-            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            result = await self.nostr_client.fetch_latest_snapshot()
             if not result:
                 return
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
             if manifest.delta_since:
                 version = int(manifest.delta_since)
-                deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                deltas = await self.nostr_client.fetch_deltas_since(version)
                 if deltas:
                     encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
@@ -1128,18 +1128,19 @@ class PasswordManager:
                 duration = time.perf_counter() - start
                 logger.info("sync_index_from_nostr completed in %.2f seconds", duration)
 
+    def sync_index_from_nostr(self) -> None:
+        asyncio.run(self.sync_index_from_nostr_async())
+
     def start_background_sync(self) -> None:
         """Launch a thread to synchronize the vault without blocking the UI."""
         if getattr(self, "offline_mode", False):
             return
-        if (
-            hasattr(self, "_sync_thread")
-            and self._sync_thread
-            and self._sync_thread.is_alive()
+        if getattr(self, "_sync_task", None) and not getattr(
+            self._sync_task, "done", True
         ):
             return
 
-        def _worker() -> None:
+        async def _worker() -> None:
             try:
                 if hasattr(self, "nostr_client") and hasattr(self, "vault"):
                     self.attempt_initial_sync()
@@ -1148,8 +1149,12 @@ class PasswordManager:
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
 
-        self._sync_thread = threading.Thread(target=_worker, daemon=True)
-        self._sync_thread.start()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(target=lambda: asyncio.run(_worker()), daemon=True).start()
+        else:
+            self._sync_task = asyncio.create_task(_worker())
 
     def start_background_relay_check(self) -> None:
         """Check relay health in a background thread."""
@@ -1185,13 +1190,18 @@ class PasswordManager:
 
         def _worker() -> None:
             try:
-                self.sync_vault(alt_summary=alt_summary)
+                asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
             except Exception as exc:
                 logging.error(f"Background vault sync failed: {exc}", exc_info=True)
 
-        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(target=_worker, daemon=True).start()
+        else:
+            asyncio.create_task(self.sync_vault_async(alt_summary=alt_summary))
 
-    def attempt_initial_sync(self) -> bool:
+    async def attempt_initial_sync_async(self) -> bool:
         """Attempt to download the initial vault snapshot from Nostr.
 
         Returns ``True`` if the snapshot was successfully downloaded and the
@@ -1205,13 +1215,13 @@ class PasswordManager:
         have_data = False
         start = time.perf_counter()
         try:
-            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            result = await self.nostr_client.fetch_latest_snapshot()
             if result:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
                 if manifest.delta_since:
                     version = int(manifest.delta_since)
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
+                    deltas = await self.nostr_client.fetch_deltas_since(version)
                     if deltas:
                         encrypted = deltas[-1]
                 success = self.vault.decrypt_and_save_index_from_nostr(
@@ -1229,17 +1239,23 @@ class PasswordManager:
 
         return have_data
 
+    def attempt_initial_sync(self) -> bool:
+        return asyncio.run(self.attempt_initial_sync_async())
+
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally.
 
         If no valid data is found or decryption fails, initialize a fresh local
         database and publish it to Nostr.
         """
-        success = self.attempt_initial_sync()
+        asyncio.run(self.sync_index_from_nostr_if_missing_async())
+
+    async def sync_index_from_nostr_if_missing_async(self) -> None:
+        success = await self.attempt_initial_sync_async()
         if not success:
             self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})
             try:
-                self.sync_vault()
+                await self.sync_vault_async()
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning(f"Unable to publish fresh database: {exc}")
 
@@ -3532,7 +3548,7 @@ class PasswordManager:
             # Re-raise the exception to inform the calling function of the failure
             raise
 
-    def sync_vault(
+    async def sync_vault_async(
         self, alt_summary: str | None = None
     ) -> dict[str, list[str] | str] | None:
         """Publish the current vault contents to Nostr and return event IDs."""
@@ -3547,7 +3563,7 @@ class PasswordManager:
             event_id = None
             if callable(pub_snap):
                 if asyncio.iscoroutinefunction(pub_snap):
-                    manifest, event_id = asyncio.run(pub_snap(encrypted))
+                    manifest, event_id = await pub_snap(encrypted)
                 else:
                     manifest, event_id = pub_snap(encrypted)
             else:
@@ -3568,6 +3584,11 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to sync vault: {e}", exc_info=True)
             return None
+
+    def sync_vault(
+        self, alt_summary: str | None = None
+    ) -> dict[str, list[str] | str] | None:
+        return asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
 
     def backup_database(self) -> None:
         """
