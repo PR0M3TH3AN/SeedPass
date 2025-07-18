@@ -1,11 +1,11 @@
 """Graphical user interface for SeedPass."""
 
-from .app import SeedPassApp
+from .app import SeedPassApp, build
 
 
 def main() -> None:
     """Launch the GUI application."""
-    SeedPassApp().main_loop()
+    build().main_loop()
 
 
 __all__ = ["SeedPassApp", "main"]

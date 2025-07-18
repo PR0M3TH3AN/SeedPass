@@ -16,10 +16,12 @@ class LockScreenWindow(toga.Window):
     """Window prompting for the master password."""
 
     def __init__(
-        self, app: SeedPassApp, vault: VaultService, entries: EntryService
+        self, controller: SeedPassApp, vault: VaultService, entries: EntryService
     ) -> None:
         super().__init__("Unlock Vault")
-        self.app = app
+        # Store a reference to the SeedPass application instance separately from
+        # the ``toga`` ``Window.app`` attribute to avoid conflicts.
+        self.controller = controller
         self.vault = vault
         self.entries = entries
 
@@ -43,8 +45,8 @@ class LockScreenWindow(toga.Window):
         except Exception as exc:  # pragma: no cover - GUI error handling
             self.message.text = str(exc)
             return
-        main = MainWindow(self.app, self.vault, self.entries)
-        self.app.main_window = main
+        main = MainWindow(self.controller, self.vault, self.entries)
+        self.controller.main_window = main
         main.show()
         self.close()
 
@@ -53,10 +55,12 @@ class MainWindow(toga.Window):
     """Main application window showing vault entries."""
 
     def __init__(
-        self, app: SeedPassApp, vault: VaultService, entries: EntryService
+        self, controller: SeedPassApp, vault: VaultService, entries: EntryService
     ) -> None:
         super().__init__("SeedPass")
-        self.app = app
+        # ``Window.app`` is reserved for the Toga ``App`` instance. Store the
+        # SeedPass application reference separately.
+        self.controller = controller
         self.vault = vault
         self.entries = entries
 
@@ -115,7 +119,7 @@ class EntryDialog(toga.Window):
         self.username_input = toga.TextInput(style=Pack(flex=1))
         self.url_input = toga.TextInput(style=Pack(flex=1))
         self.length_input = toga.NumberInput(
-            min_value=8, max_value=128, style=Pack(width=80), value=16
+            min=8, max=128, style=Pack(width=80), value=16
         )
 
         save_button = toga.Button(
@@ -184,7 +188,8 @@ class SearchDialog(toga.Window):
 
 
 def build() -> SeedPassApp:
-    return SeedPassApp()
+    """Return a configured :class:`SeedPassApp` instance."""
+    return SeedPassApp(formal_name="SeedPass", app_id="org.seedpass.gui")
 
 
 class SeedPassApp(toga.App):
@@ -201,4 +206,4 @@ class SeedPassApp(toga.App):
 
 def main() -> None:  # pragma: no cover - GUI bootstrap
     """Run the BeeWare application."""
-    SeedPassApp().main_loop()
+    build().main_loop()
