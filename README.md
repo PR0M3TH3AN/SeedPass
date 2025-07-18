@@ -99,6 +99,8 @@ graph TD
     ext --> api
 ```
 
+See `docs/ARCHITECTURE.md` for details.
+
 ## Prerequisites
 
 - **Python 3.8+** (3.11 or 3.12 recommended): Install Python from [python.org](https://www.python.org/downloads/) and be sure to check **"Add Python to PATH"** during setup. Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.  
