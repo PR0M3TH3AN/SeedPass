@@ -232,15 +232,11 @@ For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md
 ### Getting Started with the GUI
 
 SeedPass also ships with a simple BeeWare desktop interface. Launch it from
-your virtual environment using:
+your virtual environment using any of the following commands:
 
 ```bash
+seedpass gui
 python -m seedpass_gui
-```
-
-If installed globally, you can run the `seedpass-gui` entry point instead:
-
-```bash
 seedpass-gui
 ```
 
@@ -599,6 +595,12 @@ scripts/vendor_dependencies.sh
 
 ```bash
 pyinstaller SeedPass.spec
+```
+
+You can also produce packaged installers for the GUI with BeeWare's Briefcase:
+
+```bash
+briefcase build
 ```
 
 The standalone executable will appear in the `dist/` directory. This process works on Windows, macOS and Linux but you must build on each platform for a native binary.
