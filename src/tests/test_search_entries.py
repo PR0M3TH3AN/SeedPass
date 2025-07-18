@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
+from seedpass.core.entry_types import EntryType
 
 
 def setup_entry_manager(tmp_path: Path) -> EntryManager:
@@ -64,11 +65,12 @@ def test_search_by_notes_and_totp():
         idx_totp = entry_mgr.search_entries("GH")[0][0]
         entry_mgr.modify_entry(idx_totp, notes="otp note")
 
+        # notes are no longer searchable
         res_notes = entry_mgr.search_entries("secret")
-        assert res_notes == [(idx_pw, "Site", "", "", False)]
+        assert res_notes == []
 
         res_totp = entry_mgr.search_entries("otp")
-        assert res_totp == [(idx_totp, "GH", None, None, False)]
+        assert res_totp == []
 
 
 def test_search_by_custom_field():
@@ -83,7 +85,7 @@ def test_search_by_custom_field():
         idx = entry_mgr.add_entry("Example", 8, custom_fields=custom)
 
         result = entry_mgr.search_entries("secret123")
-        assert result == [(idx, "Example", "", "", False)]
+        assert result == []
 
 
 def test_search_key_value_value():
@@ -94,7 +96,7 @@ def test_search_key_value_value():
         idx = entry_mgr.add_key_value("API", "token123")
 
         result = entry_mgr.search_entries("token123")
-        assert result == [(idx, "API", None, None, False)]
+        assert result == []
 
 
 def test_search_no_results():
@@ -128,3 +130,21 @@ def test_search_by_tag_totp():
 
         result = entry_mgr.search_entries("mfa")
         assert result == [(idx, "OTPAccount", None, None, False)]
+
+
+def test_search_with_kind_filter():
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        entry_mgr = setup_entry_manager(tmp_path)
+
+        idx_pw = entry_mgr.add_entry("Site", 8)
+        entry_mgr.add_totp("OTP", TEST_SEED)
+        idx_totp = entry_mgr.search_entries("OTP")[0][0]
+
+        all_results = entry_mgr.search_entries(
+            "", kinds=[EntryType.PASSWORD.value, EntryType.TOTP.value]
+        )
+        assert {r[0] for r in all_results} == {idx_pw, idx_totp}
+
+        only_pw = entry_mgr.search_entries("", kinds=[EntryType.PASSWORD.value])
+        assert only_pw == [(idx_pw, "Site", "", "", False)]

@@ -34,7 +34,7 @@ def test_entry_list(monkeypatch):
 def test_entry_search(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(
-            search_entries=lambda q: [(1, "L", None, None, False)]
+            search_entries=lambda q, kinds=None: [(1, "L", None, None, False)]
         ),
         select_fingerprint=lambda fp: None,
     )
@@ -45,7 +45,7 @@ def test_entry_search(monkeypatch):
 
 
 def test_entry_get_password(monkeypatch):
-    def search(q):
+    def search(q, kinds=None):
         return [(2, "Example", "", "", False)]
 
     entry = {"type": EntryType.PASSWORD.value, "length": 8}

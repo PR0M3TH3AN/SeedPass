@@ -1045,9 +1045,10 @@ class EntryManager:
             return []
 
     def search_entries(
-        self, query: str
+        self, query: str, kinds: List[str] | None = None
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """Return entries matching the query across common fields."""
+        """Return entries matching ``query`` across whitelisted metadata fields."""
+
         data = self._load_index()
         entries_data = data.get("entries", {})
 
@@ -1059,74 +1060,33 @@ class EntryManager:
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
             etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+
+            if kinds is not None and etype not in kinds:
+                continue
+
             label = entry.get("label", entry.get("website", ""))
-            notes = entry.get("notes", "")
+            username = (
+                entry.get("username", "") if etype == EntryType.PASSWORD.value else None
+            )
+            url = entry.get("url", "") if etype == EntryType.PASSWORD.value else None
             tags = entry.get("tags", [])
+            archived = entry.get("archived", entry.get("blacklisted", False))
+
             label_match = query_lower in label.lower()
-            notes_match = query_lower in notes.lower()
+            username_match = bool(username) and query_lower in username.lower()
+            url_match = bool(url) and query_lower in url.lower()
             tags_match = any(query_lower in str(t).lower() for t in tags)
 
-            if etype == EntryType.PASSWORD.value:
-                username = entry.get("username", "")
-                url = entry.get("url", "")
-                custom_fields = entry.get("custom_fields", [])
-                custom_match = any(
-                    query_lower in str(cf.get("label", "")).lower()
-                    or query_lower in str(cf.get("value", "")).lower()
-                    for cf in custom_fields
+            if label_match or username_match or url_match or tags_match:
+                results.append(
+                    (
+                        int(idx),
+                        label,
+                        username if username is not None else None,
+                        url if url is not None else None,
+                        archived,
+                    )
                 )
-                if (
-                    label_match
-                    or query_lower in username.lower()
-                    or query_lower in url.lower()
-                    or notes_match
-                    or custom_match
-                    or tags_match
-                ):
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            username,
-                            url,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
-            elif etype in (EntryType.KEY_VALUE.value, EntryType.MANAGED_ACCOUNT.value):
-                value_field = str(entry.get("value", ""))
-                custom_fields = entry.get("custom_fields", [])
-                custom_match = any(
-                    query_lower in str(cf.get("label", "")).lower()
-                    or query_lower in str(cf.get("value", "")).lower()
-                    for cf in custom_fields
-                )
-                if (
-                    label_match
-                    or query_lower in value_field.lower()
-                    or notes_match
-                    or custom_match
-                    or tags_match
-                ):
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            None,
-                            None,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
-            else:
-                if label_match or notes_match or tags_match:
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            None,
-                            None,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
 
         return results
 
