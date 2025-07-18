@@ -55,7 +55,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto-Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Quick Unlock:** Optionally skip the password prompt after verifying once.
-- **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
+- **Secret Mode:** When enabled, newly generated and retrieved passwords are copied to your clipboard and automatically cleared after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
@@ -386,11 +386,11 @@ When choosing **Add Entry**, you can now select from:
 
 ### Using Secret Mode
 
-When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to your clipboard instead of displaying them on screen. The clipboard clears automatically after the delay you choose.
+When **Secret Mode** is enabled, SeedPass copies newly generated and retrieved passwords directly to your clipboard instead of displaying them on screen. The clipboard clears automatically after the delay you choose.
 
 1. From the main menu open **Settings** and select **Toggle Secret Mode**.
 2. Choose how many seconds to keep passwords on the clipboard.
-3. Retrieve an entry and SeedPass will confirm the password was copied.
+3. Generate or retrieve an entry and SeedPass will confirm the password was copied.
 
 ### Viewing Entry Details
 
