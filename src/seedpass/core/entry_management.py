@@ -922,10 +922,17 @@ class EntryManager:
         include_archived: bool = False,
         verbose: bool = True,
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """List entries in the index with optional sorting and filtering.
+        """List entries sorted and filtered according to the provided options.
 
-        By default archived entries are omitted unless ``include_archived`` is
-        ``True``.
+        Parameters
+        ----------
+        sort_by:
+            Field to sort by. Supported values are ``"index"``, ``"label"`` and
+            ``"updated"``.
+        filter_kind:
+            Optional entry kind to restrict the results.
+
+        Archived entries are omitted unless ``include_archived`` is ``True``.
         """
         try:
             data = self._load_index()
@@ -941,11 +948,14 @@ class EntryManager:
                 idx_str, entry = item
                 if sort_by == "index":
                     return int(idx_str)
-                if sort_by in {"website", "label"}:
+                if sort_by == "label":
+                    # labels are stored in the index so no additional
+                    # decryption is required when sorting
                     return entry.get("label", entry.get("website", "")).lower()
-                if sort_by == "username":
-                    return entry.get("username", "").lower()
-                raise ValueError("sort_by must be 'index', 'label', or 'username'")
+                if sort_by == "updated":
+                    # sort newest first
+                    return -int(entry.get("updated", 0))
+                raise ValueError("sort_by must be 'index', 'label', or 'updated'")
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
 
