@@ -10,3 +10,38 @@ seedpass-gui = "seedpass_gui.app:main"
 python_version = "3.11"
 strict = true
 mypy_path = "src"
+
+[tool.briefcase.app.seedpass-gui]
+formal-name = "SeedPass"
+description = "Deterministic password manager with a BeeWare GUI"
+sources = ["src"]
+requires = [
+    "toga-core>=0.5.2",
+    "colorama>=0.4.6",
+    "termcolor>=1.1.0",
+    "cryptography>=40.0.2",
+    "bip-utils>=2.5.0",
+    "bech32==1.2.0",
+    "coincurve>=18.0.0",
+    "mnemonic",
+    "aiohttp>=3.12.14",
+    "bcrypt",
+    "portalocker>=2.8",
+    "nostr-sdk>=0.42.1",
+    "websocket-client==1.7.0",
+    "websockets>=15.0.0",
+    "tomli",
+    "pgpy==0.6.0",
+    "pyotp>=2.8.0",
+    "pyperclip",
+    "qrcode>=8.2",
+    "typer>=0.12.3",
+    "fastapi>=0.116.0",
+    "uvicorn>=0.35.0",
+    "httpx>=0.28.1",
+    "requests>=2.32",
+    "python-multipart",
+    "orjson",
+    "argon2-cffi",
+]
+icon = "logo/png/SeedPass-Logo-24.png"
