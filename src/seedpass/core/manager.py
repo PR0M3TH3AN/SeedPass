@@ -304,6 +304,7 @@ class PasswordManager:
         self.nostr_client = None
         self.config_manager = None
         self.locked = True
+        bus.publish("vault_locked")
 
     def unlock_vault(self, password: Optional[str] = None) -> float:
         """Unlock the vault using the provided ``password``.

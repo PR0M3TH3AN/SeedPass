@@ -2,6 +2,7 @@
 
 SeedPass ships with a proof-of-concept graphical interface built using [BeeWare](https://beeware.org). The GUI interacts with the same core services as the CLI by instantiating wrappers around `PasswordManager`.
 
+
 ## Getting Started with the GUI
 
 After installing the project dependencies, launch the desktop interface with one
@@ -104,3 +105,14 @@ def start_background_vault_sync(self, alt_summary: str | None = None) -> None:
 ```
 
 This approach ensures synchronization happens asynchronously whether the GUI is running inside or outside an existing event loop.
+
+## Relay Manager and Status Bar
+
+The *Relays* button opens a dialog for adding or removing Nostr relay URLs. The
+status bar at the bottom of the main window shows when the last synchronization
+completed. It updates automatically when `sync_started` and `sync_finished`
+events are published on the internal pubsub bus.
+
+When a ``vault_locked`` event is emitted, the GUI automatically returns to the
+lock screen so the session can be reopened with the master password.
+

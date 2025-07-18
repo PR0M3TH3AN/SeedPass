@@ -5,18 +5,25 @@ from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
 from seedpass.core.manager import PasswordManager
+import time
+
 from seedpass.core.api import (
     VaultService,
     EntryService,
+    NostrService,
     UnlockRequest,
 )
+from seedpass.core.pubsub import bus
 
 
 class LockScreenWindow(toga.Window):
     """Window prompting for the master password."""
 
     def __init__(
-        self, controller: SeedPassApp, vault: VaultService, entries: EntryService
+        self,
+        controller: SeedPassApp,
+        vault: VaultService,
+        entries: EntryService,
     ) -> None:
         super().__init__("Unlock Vault")
         # Store a reference to the SeedPass application instance separately from
@@ -45,7 +52,12 @@ class LockScreenWindow(toga.Window):
         except Exception as exc:  # pragma: no cover - GUI error handling
             self.message.text = str(exc)
             return
-        main = MainWindow(self.controller, self.vault, self.entries)
+        main = MainWindow(
+            self.controller,
+            self.vault,
+            self.entries,
+            self.controller.nostr_service,
+        )
         self.controller.main_window = main
         main.show()
         self.close()
@@ -55,14 +67,23 @@ class MainWindow(toga.Window):
     """Main application window showing vault entries."""
 
     def __init__(
-        self, controller: SeedPassApp, vault: VaultService, entries: EntryService
+        self,
+        controller: SeedPassApp,
+        vault: VaultService,
+        entries: EntryService,
+        nostr: NostrService,
     ) -> None:
-        super().__init__("SeedPass")
+        super().__init__("SeedPass", on_close=self.cleanup)
         # ``Window.app`` is reserved for the Toga ``App`` instance. Store the
         # SeedPass application reference separately.
         self.controller = controller
         self.vault = vault
         self.entries = entries
+        self.nostr = nostr
+        bus.subscribe("sync_started", self.sync_started)
+        bus.subscribe("sync_finished", self.sync_finished)
+        bus.subscribe("vault_locked", self.vault_locked)
+        self.last_sync = None
 
         self.table = toga.Table(
             headings=["ID", "Label", "Username", "URL"], style=Pack(flex=1)
@@ -71,15 +92,20 @@ class MainWindow(toga.Window):
         add_button = toga.Button("Add", on_press=self.add_entry)
         edit_button = toga.Button("Edit", on_press=self.edit_entry)
         search_button = toga.Button("Search", on_press=self.search_entries)
+        relay_button = toga.Button("Relays", on_press=self.manage_relays)
 
         button_box = toga.Box(style=Pack(direction=ROW, padding_top=5))
         button_box.add(add_button)
         button_box.add(edit_button)
         button_box.add(search_button)
+        button_box.add(relay_button)
+
+        self.status = toga.Label("Last sync: never", style=Pack(padding_top=5))
 
         box = toga.Box(style=Pack(direction=COLUMN, padding=10))
         box.add(self.table)
         box.add(button_box)
+        box.add(self.status)
         self.content = box
 
         self.refresh_entries()
@@ -104,6 +130,28 @@ class MainWindow(toga.Window):
     def search_entries(self, widget: toga.Widget) -> None:
         dlg = SearchDialog(self)
         dlg.show()
+
+    def manage_relays(self, widget: toga.Widget) -> None:
+        dlg = RelayManagerDialog(self, self.nostr)
+        dlg.show()
+
+    # --- PubSub callbacks -------------------------------------------------
+    def sync_started(self, *args: object, **kwargs: object) -> None:
+        self.status.text = "Syncing..."
+
+    def sync_finished(self, *args: object, **kwargs: object) -> None:
+        self.last_sync = time.strftime("%H:%M:%S")
+        self.status.text = f"Last sync: {self.last_sync}"
+
+    def vault_locked(self, *args: object, **kwargs: object) -> None:
+        self.close()
+        self.controller.main_window = None
+        self.controller.lock_window.show()
+
+    def cleanup(self, *args: object, **kwargs: object) -> None:
+        bus.unsubscribe("sync_started", self.sync_started)
+        bus.unsubscribe("sync_finished", self.sync_finished)
+        bus.unsubscribe("vault_locked", self.vault_locked)
 
 
 class EntryDialog(toga.Window):
@@ -187,6 +235,62 @@ class SearchDialog(toga.Window):
         self.close()
 
 
+class RelayManagerDialog(toga.Window):
+    """Dialog for managing relay URLs."""
+
+    def __init__(self, main: MainWindow, nostr: NostrService) -> None:
+        super().__init__("Relays")
+        self.main = main
+        self.nostr = nostr
+
+        self.table = toga.Table(headings=["Index", "URL"], style=Pack(flex=1))
+        self.new_input = toga.TextInput(style=Pack(flex=1))
+        add_btn = toga.Button("Add", on_press=self.add_relay)
+        remove_btn = toga.Button("Remove", on_press=self.remove_relay)
+        self.message = toga.Label("", style=Pack(color="red"))
+
+        box = toga.Box(style=Pack(direction=COLUMN, padding=20))
+        box.add(self.table)
+        form = toga.Box(style=Pack(direction=ROW, padding_top=5))
+        form.add(self.new_input)
+        form.add(add_btn)
+        form.add(remove_btn)
+        box.add(form)
+        box.add(self.message)
+        self.content = box
+
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.table.data = []
+        for i, url in enumerate(self.nostr.list_relays(), start=1):
+            self.table.data.append((i, url))
+
+    def add_relay(self, widget: toga.Widget) -> None:
+        url = self.new_input.value or ""
+        if not url:
+            return
+        try:
+            self.nostr.add_relay(url)
+        except Exception as exc:  # pragma: no cover - pass errors
+            self.message.text = str(exc)
+            return
+        self.new_input.value = ""
+        self.refresh()
+
+    def remove_relay(self, widget: toga.Widget, *, index: int | None = None) -> None:
+        if index is None:
+            if self.table.selection is None:
+                return
+            index = int(self.table.selection[0])
+        try:
+            self.nostr.remove_relay(index)
+        except Exception as exc:  # pragma: no cover - pass errors
+            self.message.text = str(exc)
+            return
+        self.refresh()
+
+
 def build() -> SeedPassApp:
     """Return a configured :class:`SeedPassApp` instance."""
     return SeedPassApp(formal_name="SeedPass", app_id="org.seedpass.gui")
@@ -197,8 +301,11 @@ class SeedPassApp(toga.App):
         pm = PasswordManager()
         self.vault_service = VaultService(pm)
         self.entry_service = EntryService(pm)
+        self.nostr_service = NostrService(pm)
         self.lock_window = LockScreenWindow(
-            self, self.vault_service, self.entry_service
+            self,
+            self.vault_service,
+            self.entry_service,
         )
         self.main_window = None
         self.lock_window.show()
