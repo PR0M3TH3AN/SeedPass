@@ -455,6 +455,14 @@ def vault_lock(ctx: typer.Context) -> None:
     typer.echo("locked")
 
 
+@app.command("lock")
+def root_lock(ctx: typer.Context) -> None:
+    """Lock the vault for the active profile."""
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.lock()
+    typer.echo("locked")
+
+
 @vault_app.command("stats")
 def vault_stats(ctx: typer.Context) -> None:
     """Display statistics about the current seed profile."""

@@ -153,6 +153,23 @@ def test_vault_lock(monkeypatch):
     assert pm.locked is True
 
 
+def test_root_lock(monkeypatch):
+    called = {}
+
+    def lock():
+        called["locked"] = True
+        pm.locked = True
+
+    pm = SimpleNamespace(
+        lock_vault=lock, locked=False, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["lock"])
+    assert result.exit_code == 0
+    assert called.get("locked") is True
+    assert pm.locked is True
+
+
 def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     called = {}
 
