@@ -229,6 +229,37 @@ seedpass list --filter totp
 
 For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md). Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
 
+### Getting Started with the GUI
+
+SeedPass also ships with a simple BeeWare desktop interface. Launch it from
+your virtual environment using:
+
+```bash
+python -m seedpass_gui
+```
+
+If installed globally, you can run the `seedpass-gui` entry point instead:
+
+```bash
+seedpass-gui
+```
+
+The GUI works with the same vault and configuration files as the CLI.
+
+```mermaid
+graph TD
+    core["seedpass.core"]
+    cli["CLI"]
+    api["FastAPI server"]
+    gui["BeeWare GUI"]
+    ext["Browser Extension"]
+
+    cli --> core
+    gui --> core
+    api --> core
+    ext --> api
+```
+
 ### Vault JSON Layout
 
 The encrypted index file `seedpass_entries_db.json.enc` begins with `schema_version` `2` and stores an `entries` map keyed by entry numbers.
