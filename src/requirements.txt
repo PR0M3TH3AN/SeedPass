@@ -33,3 +33,5 @@ python-multipart
 orjson
 argon2-cffi
 toga-core>=0.5.2
+pillow
+toga-dummy>=0.5.2  # for headless GUI tests
