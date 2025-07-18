@@ -95,6 +95,7 @@ from utils.fingerprint_manager import FingerprintManager
 # Import NostrClient
 from nostr.client import NostrClient, DEFAULT_RELAYS
 from .config_manager import ConfigManager
+from .state_manager import StateManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ class PasswordManager:
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+        self.state_manager: Optional[StateManager] = None
         self.notifications: queue.Queue[Notification] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
@@ -157,6 +159,8 @@ class PasswordManager:
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
         self._suppress_entry_actions_menu: bool = False
+        self.last_bip85_idx: int = 0
+        self.last_sync_ts: int = 0
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -1073,6 +1077,7 @@ class PasswordManager:
                 vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
+            self.state_manager = StateManager(self.fingerprint_dir)
             self.backup_manager = BackupManager(
                 fingerprint_dir=self.fingerprint_dir,
                 config_manager=self.config_manager,
@@ -1091,7 +1096,15 @@ class PasswordManager:
 
             # Load relay configuration and initialize NostrClient
             config = self.config_manager.load_config()
-            relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            if getattr(self, "state_manager", None) is not None:
+                state = self.state_manager.state
+                relay_list = state.get("relays", list(DEFAULT_RELAYS))
+                self.last_bip85_idx = state.get("last_bip85_idx", 0)
+                self.last_sync_ts = state.get("last_sync_ts", 0)
+            else:
+                relay_list = list(DEFAULT_RELAYS)
+                self.last_bip85_idx = 0
+                self.last_sync_ts = 0
             self.offline_mode = bool(config.get("offline_mode", False))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
@@ -3966,7 +3979,11 @@ class PasswordManager:
             self.password_generator.encryption_manager = new_enc_mgr
             self.store_hashed_password(new_password)
 
-            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
+            if getattr(self, "state_manager", None) is not None:
+                state = self.state_manager.state
+                relay_list = state.get("relays", list(DEFAULT_RELAYS))
+            else:
+                relay_list = list(DEFAULT_RELAYS)
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,

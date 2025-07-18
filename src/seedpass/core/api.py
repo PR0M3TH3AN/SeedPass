@@ -525,3 +525,21 @@ class NostrService:
     def get_pubkey(self) -> str:
         with self._lock:
             return self._manager.nostr_client.key_manager.get_npub()
+
+    def list_relays(self) -> list[str]:
+        with self._lock:
+            return self._manager.state_manager.list_relays()
+
+    def add_relay(self, url: str) -> None:
+        with self._lock:
+            self._manager.state_manager.add_relay(url)
+            self._manager.nostr_client.relays = (
+                self._manager.state_manager.list_relays()
+            )
+
+    def remove_relay(self, idx: int) -> None:
+        with self._lock:
+            self._manager.state_manager.remove_relay(idx)
+            self._manager.nostr_client.relays = (
+                self._manager.state_manager.list_relays()
+            )
