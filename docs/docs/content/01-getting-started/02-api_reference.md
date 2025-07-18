@@ -2,6 +2,9 @@
 
 This guide covers how to start the SeedPass API, authenticate requests, and interact with the available endpoints.
 
+**Note:** All UI layers, including the CLI, BeeWare GUI, and future adapters, consume this REST API through service classes in `seedpass.core`. See [docs/gui_adapter.md](docs/gui_adapter.md) for more details on the GUI integration.
+
+
 ## Starting the API
 
 Run `seedpass api start` from your terminal. The command prints a one‑time token used for authentication:
