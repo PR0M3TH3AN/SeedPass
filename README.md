@@ -21,6 +21,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 ## Table of Contents
 
 - [Features](#features)
+- [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [1. Clone the Repository](#1-clone-the-repository)
@@ -65,8 +66,38 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
 - **Offline Mode:** Disable all Nostr communication for local-only operation.
 
+
 A small on-screen notification area now shows queued messages for 10 seconds
 before fading.
+
+## Architecture Overview
+
+SeedPass follows a layered design. The **`seedpass.core`** package exposes the
+`PasswordManager` along with service classes (e.g. `VaultService` and
+`EntryService`) that implement the main API used across interfaces.
+The command line tool in **`seedpass.cli`** is a thin adapter built with Typer
+that delegates operations to this API layer.
+
+The BeeWare desktop interface lives in **`seedpass_gui.app`** and can be
+started with either `seedpass-gui` or `python -m seedpass_gui`. It reuses the
+same service objects to unlock the vault, list entries and search through them.
+
+An optional browser extension can communicate with the FastAPI server exposed by
+`seedpass.api` to manage entries from within the browser.
+
+```mermaid
+graph TD
+    core["seedpass.core"]
+    cli["CLI"]
+    api["FastAPI server"]
+    gui["BeeWare GUI"]
+    ext["Browser Extension"]
+
+    cli --> core
+    gui --> core
+    api --> core
+    ext --> api
+```
 
 ## Prerequisites
 
