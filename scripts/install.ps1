@@ -260,6 +260,10 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to install SeedPass package"
 }
 
+Write-Info "Installing BeeWare GUI backend..."
+& "$VenvDir\Scripts\python.exe" -m pip install toga-winforms
+if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to install GUI backend" }
+
 # 5. Create launcher script
 Write-Info "Creating launcher script..."
 if (-not (Test-Path $LauncherDir)) { New-Item -ItemType Directory -Path $LauncherDir | Out-Null }
