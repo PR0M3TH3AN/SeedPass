@@ -8,6 +8,7 @@ pytestmark = pytest.mark.desktop
 
 from seedpass.core.pubsub import bus
 from seedpass_gui.app import MainWindow, RelayManagerDialog
+import seedpass_gui.app
 
 
 class DummyNostr:
@@ -25,11 +26,23 @@ class DummyNostr:
 
 
 class DummyEntries:
-    def list_entries(self):
-        return []
+    def __init__(self):
+        self.data = [(1, "Example", None, None, False)]
+        self.code = "111111"
+
+    def list_entries(self, sort_by="index", filter_kind=None, include_archived=False):
+        if filter_kind:
+            return [(idx, label, None, None, False) for idx, label, *_ in self.data]
+        return self.data
 
     def search_entries(self, q):
         return []
+
+    def retrieve_entry(self, idx):
+        return {"period": 30}
+
+    def get_totp_code(self, idx):
+        return self.code
 
 
 class DummyController:
@@ -76,3 +89,26 @@ def test_status_bar_updates_and_lock():
     bus.publish("vault_locked")
     assert getattr(ctrl, "locked", False)
     assert ctrl.main_window is None
+
+
+def test_totp_viewer_refresh_on_sync(monkeypatch):
+    toga.App("T3", "o3")
+    ctrl = DummyController()
+    nostr = DummyNostr()
+    entries = DummyEntries()
+    win = MainWindow(ctrl, None, entries, nostr)
+    ctrl.main_window = win
+    ctrl.loop = types.SimpleNamespace(create_task=lambda c: None)
+
+    # prevent background loop from running
+    monkeypatch.setattr(
+        seedpass_gui.app.TotpViewerWindow, "_update_loop", lambda self: None
+    )
+
+    viewer = seedpass_gui.app.TotpViewerWindow(ctrl, entries)
+    bus.subscribe("sync_finished", viewer.refresh_codes)
+
+    assert viewer.table.data[0][1] == "111111"
+    entries.code = "222222"
+    bus.publish("sync_finished")
+    assert viewer.table.data[0][1] == "222222"
