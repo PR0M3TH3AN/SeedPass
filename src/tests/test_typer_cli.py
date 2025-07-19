@@ -564,7 +564,35 @@ def test_gui_command(monkeypatch):
 
 
 def test_gui_command_no_backend(monkeypatch):
-    monkeypatch.setattr(cli.importlib.util, "find_spec", lambda n: None)
+    """Install backend if missing and launch GUI."""
+
+    call_count = {"n": 0}
+
+    def backend_available() -> bool:
+        call_count["n"] += 1
+        return call_count["n"] > 1
+
+    monkeypatch.setattr(cli, "_gui_backend_available", backend_available)
+
+    installed = {}
+
+    def fake_check_call(cmd):
+        installed["cmd"] = cmd
+
+    monkeypatch.setattr(cli.subprocess, "check_call", fake_check_call)
+
+    called = {}
+
+    def fake_main():
+        called["gui"] = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "seedpass_gui.app",
+        SimpleNamespace(main=fake_main),
+    )
+
     result = runner.invoke(app, ["gui"])
-    assert result.exit_code == 1
-    assert "BeeWare GUI backend" in result.stderr
+    assert result.exit_code == 0
+    assert installed.get("cmd") is not None
+    assert called.get("gui") is True
