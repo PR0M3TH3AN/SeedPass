@@ -90,7 +90,8 @@ main() {
             sudo apt-get update && sudo apt-get install -y \
                 build-essential pkg-config xclip \
                 libcairo2 libcairo2-dev \
-                libgirepository-1.0-dev gobject-introspection \
+                libgirepository-2.0-dev gir1.2-girepository-2.0 \
+                gobject-introspection \
                 gir1.2-gtk-3.0 python3-dev
         elif command -v dnf &> /dev/null; then
             sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
