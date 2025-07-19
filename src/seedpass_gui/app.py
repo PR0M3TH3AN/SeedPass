@@ -5,6 +5,7 @@ import time
 
 import toga
 from toga.style import Pack
+from toga.sources import ListSource
 from toga.style.pack import COLUMN, ROW
 
 from seedpass.core.entry_types import EntryType
@@ -89,8 +90,10 @@ class MainWindow(toga.Window):
         bus.subscribe("vault_locked", self.vault_locked)
         self.last_sync = None
 
+        self.entry_source = ListSource(["id", "label", "kind", "info1", "info2"])
         self.table = toga.Table(
             headings=["ID", "Label", "Kind", "Info 1", "Info 2"],
+            data=self.entry_source,
             style=Pack(flex=1),
         )
 
@@ -118,7 +121,7 @@ class MainWindow(toga.Window):
         self.refresh_entries()
 
     def refresh_entries(self) -> None:
-        self.table.data = []
+        self.entry_source.clear()
         for idx, label, username, url, _arch in self.entries.list_entries():
             entry = self.entries.retrieve_entry(idx)
             kind = (entry or {}).get("kind", (entry or {}).get("type", ""))
@@ -131,7 +134,15 @@ class MainWindow(toga.Window):
                 info1 = entry.get("value", "") if entry else ""
             else:
                 info1 = str(entry.get("index", "")) if entry else ""
-            self.table.data.append((idx, label, kind, info1, info2))
+            self.entry_source.append(
+                {
+                    "id": idx,
+                    "label": label,
+                    "kind": kind,
+                    "info1": info1,
+                    "info2": info2,
+                }
+            )
 
     # --- Button handlers -------------------------------------------------
     def add_entry(self, widget: toga.Widget) -> None:
@@ -285,9 +296,17 @@ class SearchDialog(toga.Window):
     def do_search(self, widget: toga.Widget) -> None:
         query = self.query_input.value or ""
         results = self.main.entries.search_entries(query)
-        self.main.table.data = []
+        self.main.entry_source.clear()
         for idx, label, username, url, _arch in results:
-            self.main.table.data.append((idx, label, username or "", url or ""))
+            self.main.entry_source.append(
+                {
+                    "id": idx,
+                    "label": label,
+                    "kind": "",
+                    "info1": username or "",
+                    "info2": url or "",
+                }
+            )
         self.close()
 
 

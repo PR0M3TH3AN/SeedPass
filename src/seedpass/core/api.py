@@ -282,7 +282,7 @@ class EntryService:
     ) -> int:
         with self._lock:
             idx = self._manager.entry_manager.add_entry(label, length, username, url)
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_totp(
@@ -303,7 +303,7 @@ class EntryService:
                 period=period,
                 digits=digits,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return uri
 
     def add_ssh_key(
@@ -320,7 +320,7 @@ class EntryService:
                 index=index,
                 notes=notes,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_pgp_key(
@@ -341,7 +341,7 @@ class EntryService:
                 user_id=user_id,
                 notes=notes,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_nostr_key(
@@ -357,7 +357,7 @@ class EntryService:
                 index=index,
                 notes=notes,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_seed(
@@ -376,13 +376,13 @@ class EntryService:
                 words_num=words,
                 notes=notes,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_key_value(self, label: str, value: str, *, notes: str = "") -> int:
         with self._lock:
             idx = self._manager.entry_manager.add_key_value(label, value, notes=notes)
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def add_managed_account(
@@ -399,7 +399,7 @@ class EntryService:
                 index=index,
                 notes=notes,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
             return idx
 
     def modify_entry(
@@ -425,17 +425,17 @@ class EntryService:
                 digits=digits,
                 value=value,
             )
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
 
     def archive_entry(self, entry_id: int) -> None:
         with self._lock:
             self._manager.entry_manager.archive_entry(entry_id)
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
 
     def restore_entry(self, entry_id: int) -> None:
         with self._lock:
             self._manager.entry_manager.restore_entry(entry_id)
-            self._manager.sync_vault()
+            self._manager.start_background_vault_sync()
 
     def export_totp_entries(self) -> dict:
         with self._lock:

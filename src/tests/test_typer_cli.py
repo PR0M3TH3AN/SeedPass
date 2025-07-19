@@ -377,7 +377,7 @@ def test_entry_add(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(add_entry=add_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(
@@ -408,7 +408,7 @@ def test_entry_modify(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
@@ -423,7 +423,7 @@ def test_entry_modify_invalid(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
@@ -440,7 +440,7 @@ def test_entry_archive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(archive_entry=archive_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "archive", "3"])
@@ -458,7 +458,7 @@ def test_entry_unarchive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(restore_entry=restore_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "unarchive", "4"])

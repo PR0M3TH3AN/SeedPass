@@ -58,6 +58,7 @@ class DummyPM:
             "chunk_ids": ["c1"],
             "delta_ids": [],
         }
+        self.start_background_vault_sync = lambda *a, **k: self.sync_vault()
         self.config_manager = SimpleNamespace(
             load_config=lambda require_pin=False: {"inactivity_timeout": 30},
             set_inactivity_timeout=lambda v: None,
