@@ -87,11 +87,18 @@ main() {
     print_info "Checking for build dependencies..."
     if [ "$OS_NAME" = "Linux" ]; then
         if command -v apt-get &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y build-essential pkg-config xclip libcairo2 libcairo2-dev
+            sudo apt-get update && sudo apt-get install -y \
+                build-essential pkg-config xclip \
+                libcairo2 libcairo2-dev \
+                libgirepository-1.0-dev gobject-introspection \
+                gir1.2-gtk-3.0 python3-dev
         elif command -v dnf &> /dev/null; then
-            sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y pkg-config cairo cairo-devel xclip
+            sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
+                pkg-config cairo cairo-devel xclip \
+                gobject-introspection-devel cairo-devel gtk3-devel python3-devel
         elif command -v pacman &> /dev/null; then
-            sudo pacman -Syu --noconfirm base-devel pkg-config cairo xclip
+            sudo pacman -Syu --noconfirm base-devel pkg-config cairo xclip \
+                gobject-introspection cairo gtk3 python
         else
             print_warning "Could not detect package manager. Ensure build tools, cairo, and pkg-config are installed."
         fi
