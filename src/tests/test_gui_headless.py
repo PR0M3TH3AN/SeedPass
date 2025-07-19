@@ -1,5 +1,6 @@
 import os
 from types import SimpleNamespace
+from toga.sources import ListSource
 
 import toga
 import pytest
@@ -112,7 +113,9 @@ def test_unlock_creates_main_window():
 def test_entrydialog_add_calls_service(kind, expect):
     toga.App("Test2", "org.example2")
     entries = FakeEntries()
-    main = SimpleNamespace(entries=entries, refresh_entries=lambda: None)
+    entries.retrieve_entry = lambda _id: {"kind": kind}
+    source = ListSource(["id", "label", "kind", "info1", "info2"])
+    main = SimpleNamespace(entries=entries, entry_source=source)
 
     dlg = EntryDialog(main, None)
     dlg.label_input.value = "L"
@@ -124,6 +127,10 @@ def test_entrydialog_add_calls_service(kind, expect):
     dlg.save(None)
 
     assert entries.added[-1] == expect
+    assert len(main.entry_source) == 1
+    row = main.entry_source[0]
+    assert row.label == "L"
+    assert row.kind == kind
 
 
 @pytest.mark.parametrize(
@@ -142,8 +149,9 @@ def test_entrydialog_edit_calls_service(kind, expected):
         return {"kind": kind}
 
     entries.retrieve_entry = retrieve
-
-    main = SimpleNamespace(entries=entries, refresh_entries=lambda: None)
+    source = ListSource(["id", "label", "kind", "info1", "info2"])
+    source.append({"id": 1, "label": "Old", "kind": kind, "info1": "", "info2": ""})
+    main = SimpleNamespace(entries=entries, entry_source=source)
     dlg = EntryDialog(main, 1)
     dlg.label_input.value = "New"
     dlg.kind_input.value = kind
@@ -153,3 +161,4 @@ def test_entrydialog_edit_calls_service(kind, expected):
     dlg.save(None)
 
     assert entries.modified[-1] == expected
+    assert source[0].label == "New"
