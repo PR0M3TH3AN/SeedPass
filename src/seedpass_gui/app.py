@@ -5,6 +5,7 @@ from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
 from seedpass.core.manager import PasswordManager
+from seedpass.core.entry_types import EntryType
 import time
 
 from seedpass.core.api import (
@@ -86,7 +87,8 @@ class MainWindow(toga.Window):
         self.last_sync = None
 
         self.table = toga.Table(
-            headings=["ID", "Label", "Username", "URL"], style=Pack(flex=1)
+            headings=["ID", "Label", "Kind", "Info 1", "Info 2"],
+            style=Pack(flex=1),
         )
 
         add_button = toga.Button("Add", on_press=self.add_entry)
@@ -113,7 +115,18 @@ class MainWindow(toga.Window):
     def refresh_entries(self) -> None:
         self.table.data = []
         for idx, label, username, url, _arch in self.entries.list_entries():
-            self.table.data.append((idx, label, username or "", url or ""))
+            entry = self.entries.retrieve_entry(idx)
+            kind = (entry or {}).get("kind", (entry or {}).get("type", ""))
+            info1 = ""
+            info2 = ""
+            if kind == EntryType.PASSWORD.value:
+                info1 = username or ""
+                info2 = url or ""
+            elif kind == EntryType.KEY_VALUE.value:
+                info1 = entry.get("value", "") if entry else ""
+            else:
+                info1 = str(entry.get("index", "")) if entry else ""
+            self.table.data.append((idx, label, kind, info1, info2))
 
     # --- Button handlers -------------------------------------------------
     def add_entry(self, widget: toga.Widget) -> None:
@@ -164,11 +177,17 @@ class EntryDialog(toga.Window):
         self.entry_id = entry_id
 
         self.label_input = toga.TextInput(style=Pack(flex=1))
+        self.kind_input = toga.Selection(
+            items=[e.value for e in EntryType],
+            style=Pack(flex=1),
+        )
+        self.kind_input.value = EntryType.PASSWORD.value
         self.username_input = toga.TextInput(style=Pack(flex=1))
         self.url_input = toga.TextInput(style=Pack(flex=1))
         self.length_input = toga.NumberInput(
             min=8, max=128, style=Pack(width=80), value=16
         )
+        self.value_input = toga.TextInput(style=Pack(flex=1))
 
         save_button = toga.Button(
             "Save", on_press=self.save, style=Pack(padding_top=10)
@@ -177,12 +196,16 @@ class EntryDialog(toga.Window):
         box = toga.Box(style=Pack(direction=COLUMN, padding=20))
         box.add(toga.Label("Label"))
         box.add(self.label_input)
+        box.add(toga.Label("Kind"))
+        box.add(self.kind_input)
         box.add(toga.Label("Username"))
         box.add(self.username_input)
         box.add(toga.Label("URL"))
         box.add(self.url_input)
         box.add(toga.Label("Length"))
         box.add(self.length_input)
+        box.add(toga.Label("Value"))
+        box.add(self.value_input)
         box.add(save_button)
         self.content = box
 
@@ -190,22 +213,46 @@ class EntryDialog(toga.Window):
             entry = self.main.entries.retrieve_entry(entry_id)
             if entry:
                 self.label_input.value = entry.get("label", "")
+                kind = entry.get("kind", entry.get("type", EntryType.PASSWORD.value))
+                self.kind_input.value = kind
+                self.kind_input.enabled = False
                 self.username_input.value = entry.get("username", "") or ""
                 self.url_input.value = entry.get("url", "") or ""
                 self.length_input.value = entry.get("length", 16)
+                self.value_input.value = entry.get("value", "")
 
     def save(self, widget: toga.Widget) -> None:
         label = self.label_input.value or ""
         username = self.username_input.value or None
         url = self.url_input.value or None
         length = int(self.length_input.value or 16)
+        kind = self.kind_input.value
+        value = self.value_input.value or None
 
         if self.entry_id is None:
-            self.main.entries.add_entry(label, length, username=username, url=url)
+            if kind == EntryType.PASSWORD.value:
+                self.main.entries.add_entry(label, length, username=username, url=url)
+            elif kind == EntryType.TOTP.value:
+                self.main.entries.add_totp(label)
+            elif kind == EntryType.SSH.value:
+                self.main.entries.add_ssh_key(label)
+            elif kind == EntryType.SEED.value:
+                self.main.entries.add_seed(label)
+            elif kind == EntryType.PGP.value:
+                self.main.entries.add_pgp_key(label)
+            elif kind == EntryType.NOSTR.value:
+                self.main.entries.add_nostr_key(label)
+            elif kind == EntryType.KEY_VALUE.value:
+                self.main.entries.add_key_value(label, value or "")
+            elif kind == EntryType.MANAGED_ACCOUNT.value:
+                self.main.entries.add_managed_account(label)
         else:
-            self.main.entries.modify_entry(
-                self.entry_id, username=username, url=url, label=label
-            )
+            kwargs = {"label": label}
+            if kind == EntryType.PASSWORD.value:
+                kwargs.update({"username": username, "url": url})
+            elif kind == EntryType.KEY_VALUE.value:
+                kwargs.update({"value": value})
+            self.main.entries.modify_entry(self.entry_id, **kwargs)
         self.main.refresh_entries()
         self.close()
 
