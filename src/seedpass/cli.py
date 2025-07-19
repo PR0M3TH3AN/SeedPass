@@ -24,6 +24,7 @@ import uvicorn
 from . import api as api_module
 
 import importlib
+import importlib.util
 
 app = typer.Typer(
     help="SeedPass command line interface",
@@ -93,6 +94,14 @@ def _get_util_service(ctx: typer.Context) -> UtilityService:
 def _get_nostr_service(ctx: typer.Context) -> NostrService:
     pm = _get_pm(ctx)
     return NostrService(pm)
+
+
+def _gui_backend_available() -> bool:
+    """Return True if a platform-specific BeeWare backend is installed."""
+    for pkg in ("toga_gtk", "toga_winforms", "toga_cocoa"):
+        if importlib.util.find_spec(pkg) is not None:
+            return True
+    return False
 
 
 @app.callback(invoke_without_command=True)
@@ -740,6 +749,14 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
 @app.command()
 def gui() -> None:
     """Launch the BeeWare GUI."""
+    if not _gui_backend_available():
+        typer.echo(
+            "No BeeWare GUI backend found. Install 'toga-gtk' (Linux), "
+            "'toga-winforms' (Windows) or 'toga-cocoa' (macOS) to run the GUI.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     from seedpass_gui.app import main
 
     main()

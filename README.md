@@ -571,6 +571,10 @@ If the checksum file is missing, generate it manually:
 python scripts/update_checksum.py
 ```
 
+If SeedPass prints a "script checksum mismatch" warning on startup, regenerate
+the checksum with `seedpass util update-checksum` or select "Generate Script
+Checksum" from the Settings menu.
+
 To run mutation tests locally, generate coverage data first and then execute `mutmut`:
 
 ```bash
