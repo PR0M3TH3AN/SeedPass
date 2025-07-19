@@ -283,6 +283,18 @@ if ($existingSeedpass -and $existingSeedpass.Source -ne $LauncherPath) {
     Write-Warning "Ensure '$LauncherDir' comes first in your PATH or remove the old installation."
 }
 
+# Detect additional seedpass executables on PATH that are not our launcher
+$allSeedpass = Get-Command seedpass -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+$stale = @()
+foreach ($cmd in $allSeedpass) {
+    if ($cmd -ne $LauncherPath) { $stale += $cmd }
+}
+if ($stale.Count -gt 0) {
+    Write-Warning "Stale 'seedpass' executables detected:" 
+    foreach ($cmd in $stale) { Write-Warning "  - $cmd" }
+    Write-Warning "Remove or rename these to avoid launching outdated code."
+}
+
 # 6. Add launcher directory to User's PATH if needed
 Write-Info "Checking if '$LauncherDir' is in your PATH..."
 $UserPath = [System.Environment]::GetEnvironmentVariable("Path", "User")

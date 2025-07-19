@@ -159,6 +159,23 @@ EOF2
         print_warning "Ensure '$LAUNCHER_DIR' comes first in your PATH or remove the old installation."
     fi
 
+    # Detect any additional seedpass executables on PATH that are not our launcher
+    IFS=':' read -ra _sp_paths <<< "$PATH"
+    stale_cmds=()
+    for _dir in "${_sp_paths[@]}"; do
+        _candidate="$_dir/seedpass"
+        if [ -x "$_candidate" ] && [ "$_candidate" != "$LAUNCHER_PATH" ]; then
+            stale_cmds+=("$_candidate")
+        fi
+    done
+    if [ ${#stale_cmds[@]} -gt 0 ]; then
+        print_warning "Stale 'seedpass' executables detected:"
+        for cmd in "${stale_cmds[@]}"; do
+            print_warning "  - $cmd"
+        done
+        print_warning "Remove or rename these to avoid launching outdated code."
+    fi
+
     # 8. Final instructions
     print_success "Installation/update complete!"
     print_info "You can now launch the interactive TUI by typing: seedpass"
