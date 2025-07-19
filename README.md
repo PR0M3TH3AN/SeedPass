@@ -241,6 +241,11 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
+Install a platform-specific BeeWare backend before running these commands. Only
+the headless `toga-dummy` backend is bundled for tests. Linux users should
+install `toga-gtk`, Windows users need `toga-winforms`, and macOS users require
+`toga-cocoa`.
+
 The GUI works with the same vault and configuration files as the CLI.
 
 ```mermaid
@@ -554,6 +559,10 @@ If the checksum file is missing, generate it manually:
 ```bash
 python scripts/update_checksum.py
 ```
+
+If SeedPass prints a "script checksum mismatch" warning on startup, regenerate
+the checksum with `seedpass util update-checksum` or select "Generate Script
+Checksum" from the Settings menu.
 
 To run mutation tests locally, generate coverage data first and then execute `mutmut`:
 

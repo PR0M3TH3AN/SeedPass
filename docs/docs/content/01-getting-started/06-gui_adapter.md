@@ -14,6 +14,11 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
+Install a platform-specific BeeWare backend before launching the GUI. The
+distribution only bundles the headless `toga-dummy` backend for automated
+tests. Linux users should install `toga-gtk`, Windows users need
+`toga-winforms`, and macOS users require `toga-cocoa`.
+
 The GUI shares the same encrypted vault and configuration as the command line tool.
 
 To generate a packaged binary, run `briefcase build` (after the initial `briefcase create`).

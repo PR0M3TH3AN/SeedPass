@@ -557,6 +557,14 @@ def test_gui_command(monkeypatch):
         "seedpass_gui.app",
         SimpleNamespace(main=fake_main),
     )
+    monkeypatch.setattr(cli.importlib.util, "find_spec", lambda n: True)
     result = runner.invoke(app, ["gui"])
     assert result.exit_code == 0
     assert called.get("called") is True
+
+
+def test_gui_command_no_backend(monkeypatch):
+    monkeypatch.setattr(cli.importlib.util, "find_spec", lambda n: None)
+    result = runner.invoke(app, ["gui"])
+    assert result.exit_code == 1
+    assert "BeeWare GUI backend" in result.stderr
