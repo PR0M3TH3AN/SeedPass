@@ -112,6 +112,7 @@ See `docs/ARCHITECTURE.md` for details.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
+The scripts also install the correct BeeWare backend for your platform automatically.
 
 **Linux and macOS:**
 ```bash
@@ -241,10 +242,10 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
-To display the interface, you must also install the Toga backend for your
-platform. Only `toga-core` and the headless `toga-dummy` backend are included
-in the requirements file. Depending on your operating system install one of the
-following packages:
+Only `toga-core` and the headless `toga-dummy` backend are included by default.
+The quick installer automatically installs the correct BeeWare backend so the
+GUI works out of the box. If you set up SeedPass manually, install the backend
+for your platform:
 
 ```bash
 # Linux

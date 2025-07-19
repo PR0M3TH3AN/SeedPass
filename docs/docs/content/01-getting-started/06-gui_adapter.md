@@ -14,9 +14,10 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
-Only the headless `toga-dummy` backend ships with the project for automated
-tests. To actually display windows you need a platform-specific backend such as
-`toga-gtk`, `toga-winforms`, or `toga-cocoa`.
+Only `toga-core` and the headless `toga-dummy` backend ship with the project.
+The installation scripts automatically install the correct BeeWare backend so
+the GUI works out of the box. If you set up SeedPass manually, install the
+backend for your platform:
 
 ```bash
 # Linux
