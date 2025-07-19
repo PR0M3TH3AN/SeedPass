@@ -251,29 +251,61 @@ class EntryDialog(toga.Window):
 
         if self.entry_id is None:
             if kind == EntryType.PASSWORD.value:
-                self.main.entries.add_entry(label, length, username=username, url=url)
+                entry_id = self.main.entries.add_entry(
+                    label, length, username=username, url=url
+                )
             elif kind == EntryType.TOTP.value:
-                self.main.entries.add_totp(label)
+                entry_id = self.main.entries.add_totp(label)
             elif kind == EntryType.SSH.value:
-                self.main.entries.add_ssh_key(label)
+                entry_id = self.main.entries.add_ssh_key(label)
             elif kind == EntryType.SEED.value:
-                self.main.entries.add_seed(label)
+                entry_id = self.main.entries.add_seed(label)
             elif kind == EntryType.PGP.value:
-                self.main.entries.add_pgp_key(label)
+                entry_id = self.main.entries.add_pgp_key(label)
             elif kind == EntryType.NOSTR.value:
-                self.main.entries.add_nostr_key(label)
+                entry_id = self.main.entries.add_nostr_key(label)
             elif kind == EntryType.KEY_VALUE.value:
-                self.main.entries.add_key_value(label, value or "")
+                entry_id = self.main.entries.add_key_value(label, value or "")
             elif kind == EntryType.MANAGED_ACCOUNT.value:
-                self.main.entries.add_managed_account(label)
+                entry_id = self.main.entries.add_managed_account(label)
         else:
+            entry_id = self.entry_id
             kwargs = {"label": label}
             if kind == EntryType.PASSWORD.value:
                 kwargs.update({"username": username, "url": url})
             elif kind == EntryType.KEY_VALUE.value:
                 kwargs.update({"value": value})
-            self.main.entries.modify_entry(self.entry_id, **kwargs)
-        self.main.refresh_entries()
+            self.main.entries.modify_entry(entry_id, **kwargs)
+
+        entry = self.main.entries.retrieve_entry(entry_id) or {}
+        kind = entry.get("kind", entry.get("type", kind))
+        info1 = ""
+        info2 = ""
+        if kind == EntryType.PASSWORD.value:
+            info1 = username or ""
+            info2 = url or ""
+        elif kind == EntryType.KEY_VALUE.value:
+            info1 = entry.get("value", value or "")
+        else:
+            info1 = str(entry.get("index", ""))
+
+        row = {
+            "id": entry_id,
+            "label": label,
+            "kind": kind,
+            "info1": info1,
+            "info2": info2,
+        }
+
+        if self.entry_id is None:
+            self.main.entry_source.append(row)
+        else:
+            for existing in self.main.entry_source:
+                if getattr(existing, "id", None) == entry_id:
+                    for key, value in row.items():
+                        setattr(existing, key, value)
+                    break
+
         self.close()
 
 
