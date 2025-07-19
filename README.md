@@ -603,6 +603,10 @@ You can also produce packaged installers for the GUI with BeeWare's Briefcase:
 briefcase build
 ```
 
+Pre-built installers are published for each `seedpass-gui` tag. Visit the
+project's **Actions** or **Releases** page on GitHub to download the latest
+package for your platform.
+
 The standalone executable will appear in the `dist/` directory. This process works on Windows, macOS and Linux but you must build on each platform for a native binary.
 
 ## Security Considerations
