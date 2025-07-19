@@ -3,6 +3,7 @@ from typing import Optional, List
 import json
 
 import typer
+import sys
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
@@ -368,6 +369,7 @@ def entry_modify(
         )
     except ValueError as e:
         typer.echo(str(e))
+        sys.stdout.flush()
         raise typer.Exit(code=1)
 
 
