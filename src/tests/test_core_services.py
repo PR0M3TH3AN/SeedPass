@@ -29,7 +29,7 @@ def test_entry_service_add_entry_and_search():
         called["search"] = (q, kinds)
         return [(5, "Example", username, url, False)]
 
-    def sync_vault():
+    def start_background_vault_sync():
         called["sync"] = True
 
     username = "user"
@@ -38,7 +38,7 @@ def test_entry_service_add_entry_and_search():
         entry_manager=SimpleNamespace(
             add_entry=add_entry, search_entries=search_entries
         ),
-        sync_vault=sync_vault,
+        start_background_vault_sync=start_background_vault_sync,
     )
     service = EntryService(pm)
     idx = service.add_entry("Example", 12, username, url)

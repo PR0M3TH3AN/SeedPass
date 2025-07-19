@@ -36,7 +36,7 @@ def test_cli_entry_add_search_sync(monkeypatch):
         calls["search"] = (q, kinds)
         return [(1, "Label", None, None, False)]
 
-    def sync_vault():
+    def start_background_vault_sync():
         calls["sync"] = True
         return {"manifest_id": "m", "chunk_ids": [], "delta_ids": []}
 
@@ -44,7 +44,8 @@ def test_cli_entry_add_search_sync(monkeypatch):
         entry_manager=SimpleNamespace(
             add_entry=add_entry, search_entries=search_entries
         ),
-        sync_vault=sync_vault,
+        start_background_vault_sync=start_background_vault_sync,
+        sync_vault=lambda: {"manifest_id": "m", "chunk_ids": [], "delta_ids": []},
         select_fingerprint=lambda fp: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
