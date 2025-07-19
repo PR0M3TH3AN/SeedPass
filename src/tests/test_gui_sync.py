@@ -60,6 +60,7 @@ def test_start_vault_sync_schedules_task():
     assert tasks
     asyncio.get_event_loop().run_until_complete(tasks[0])
     assert nostr.called
+    win.cleanup()
 
 
 def test_status_updates_on_bus_events():
@@ -73,3 +74,4 @@ def test_status_updates_on_bus_events():
     assert win.status.text == "Syncing..."
     bus.publish("sync_finished")
     assert "Last sync:" in win.status.text
+    win.cleanup()
