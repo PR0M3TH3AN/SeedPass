@@ -23,6 +23,9 @@ backend for your platform:
 # Linux
 pip install toga-gtk
 
+# If installation fails with cairo errors, install libcairo2-dev or the
+# cairo development package using your distro's package manager.
+
 # Windows
 pip install toga-winforms
 

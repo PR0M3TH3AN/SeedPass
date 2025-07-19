@@ -251,6 +251,10 @@ for your platform:
 # Linux
 pip install toga-gtk
 
+# If you see build errors about "cairo" on Linux, install the cairo
+# development headers using your package manager, e.g.:
+sudo apt-get install libcairo2 libcairo2-dev
+
 # Windows
 pip install toga-winforms
 
