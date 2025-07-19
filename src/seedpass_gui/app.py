@@ -102,6 +102,7 @@ class MainWindow(toga.Window):
         search_button = toga.Button("Search", on_press=self.search_entries)
         relay_button = toga.Button("Relays", on_press=self.manage_relays)
         totp_button = toga.Button("TOTP", on_press=self.show_totp_codes)
+        sync_button = toga.Button("Sync", on_press=self.start_vault_sync)
 
         button_box = toga.Box(style=Pack(direction=ROW, padding_top=5))
         button_box.add(add_button)
@@ -109,6 +110,7 @@ class MainWindow(toga.Window):
         button_box.add(search_button)
         button_box.add(relay_button)
         button_box.add(totp_button)
+        button_box.add(sync_button)
 
         self.status = toga.Label("Last sync: never", style=Pack(padding_top=5))
 
@@ -167,6 +169,14 @@ class MainWindow(toga.Window):
     def show_totp_codes(self, widget: toga.Widget) -> None:
         win = TotpViewerWindow(self.controller, self.entries)
         win.show()
+
+    def start_vault_sync(self, widget: toga.Widget | None = None) -> None:
+        """Schedule a background vault synchronization."""
+
+        async def _runner() -> None:
+            self.nostr.start_background_vault_sync()
+
+        self.controller.loop.create_task(_runner())
 
     # --- PubSub callbacks -------------------------------------------------
     def sync_started(self, *args: object, **kwargs: object) -> None:
@@ -307,6 +317,8 @@ class EntryDialog(toga.Window):
                     break
 
         self.close()
+        # schedule vault sync after saving
+        getattr(self.main, "start_vault_sync", lambda *_: None)()
 
 
 class SearchDialog(toga.Window):
