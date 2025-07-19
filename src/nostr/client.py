@@ -467,17 +467,39 @@ class NostrClient:
             return None
         await self._connect_async()
 
+        self.last_error = None
         pubkey = self.keys.public_key()
         f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).limit(3)
         timeout = timedelta(seconds=10)
-        events = (await self.client.fetch_events(f, timeout)).to_vec()
+        try:
+            events = (await self.client.fetch_events(f, timeout)).to_vec()
+        except Exception as e:  # pragma: no cover - network errors
+            self.last_error = str(e)
+            logger.error(
+                "Failed to fetch manifest from relays %s: %s",
+                self.relays,
+                e,
+            )
+            return None
+
         if not events:
             return None
 
         for manifest_event in events:
-            result = await self._fetch_chunks_with_retry(manifest_event)
-            if result is not None:
-                return result
+            try:
+                result = await self._fetch_chunks_with_retry(manifest_event)
+                if result is not None:
+                    return result
+            except Exception as e:  # pragma: no cover - network errors
+                self.last_error = str(e)
+                logger.error(
+                    "Error retrieving snapshot from relays %s: %s",
+                    self.relays,
+                    e,
+                )
+
+        if self.last_error is None:
+            self.last_error = "Snapshot not found on relays"
 
         return None
 

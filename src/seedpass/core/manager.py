@@ -1162,6 +1162,16 @@ class PasswordManager:
         try:
             result = await self.nostr_client.fetch_latest_snapshot()
             if not result:
+                if self.nostr_client.last_error:
+                    logger.warning(
+                        "Unable to fetch latest snapshot from Nostr relays %s: %s",
+                        self.nostr_client.relays,
+                        self.nostr_client.last_error,
+                    )
+                    self.notify(
+                        f"Sync failed: {self.nostr_client.last_error}",
+                        level="WARNING",
+                    )
                 return
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
@@ -1177,7 +1187,19 @@ class PasswordManager:
                 ):
                     logger.info("Local database synchronized from Nostr.")
         except Exception as e:
-            logger.warning(f"Unable to sync index from Nostr: {e}")
+            logger.warning(
+                "Unable to sync index from Nostr relays %s: %s",
+                self.nostr_client.relays,
+                e,
+            )
+            if self.nostr_client.last_error:
+                logger.warning(
+                    "NostrClient last error: %s", self.nostr_client.last_error
+                )
+            self.notify(
+                f"Sync failed: {self.nostr_client.last_error or e}",
+                level="WARNING",
+            )
         finally:
             if getattr(self, "verbose_timing", False):
                 duration = time.perf_counter() - start
