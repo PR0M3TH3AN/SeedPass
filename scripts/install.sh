@@ -120,6 +120,14 @@ main() {
     pip install --upgrade pip
     pip install -r src/requirements.txt
     pip install -e .
+    print_info "Installing platform-specific Toga backend..."
+    if [ "$OS_NAME" = "Linux" ]; then
+        print_info "Installing toga-gtk for Linux..."
+        pip install toga-gtk
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        print_info "Installing toga-cocoa for macOS..."
+        pip install toga-cocoa
+    fi
     deactivate
 
     # 7. Create launcher script
