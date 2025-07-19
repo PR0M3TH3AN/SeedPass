@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import time
+
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
-from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
-import time
+from seedpass.core.manager import PasswordManager
+from seedpass.core.totp import TotpManager
 
 from seedpass.core.api import (
     VaultService,
@@ -95,12 +98,14 @@ class MainWindow(toga.Window):
         edit_button = toga.Button("Edit", on_press=self.edit_entry)
         search_button = toga.Button("Search", on_press=self.search_entries)
         relay_button = toga.Button("Relays", on_press=self.manage_relays)
+        totp_button = toga.Button("TOTP", on_press=self.show_totp_codes)
 
         button_box = toga.Box(style=Pack(direction=ROW, padding_top=5))
         button_box.add(add_button)
         button_box.add(edit_button)
         button_box.add(search_button)
         button_box.add(relay_button)
+        button_box.add(totp_button)
 
         self.status = toga.Label("Last sync: never", style=Pack(padding_top=5))
 
@@ -147,6 +152,10 @@ class MainWindow(toga.Window):
     def manage_relays(self, widget: toga.Widget) -> None:
         dlg = RelayManagerDialog(self, self.nostr)
         dlg.show()
+
+    def show_totp_codes(self, widget: toga.Widget) -> None:
+        win = TotpViewerWindow(self.controller, self.entries)
+        win.show()
 
     # --- PubSub callbacks -------------------------------------------------
     def sync_started(self, *args: object, **kwargs: object) -> None:
@@ -280,6 +289,47 @@ class SearchDialog(toga.Window):
         for idx, label, username, url, _arch in results:
             self.main.table.data.append((idx, label, username or "", url or ""))
         self.close()
+
+
+class TotpViewerWindow(toga.Window):
+    """Window displaying active TOTP codes."""
+
+    def __init__(self, controller: SeedPassApp, entries: EntryService) -> None:
+        super().__init__("TOTP Codes", on_close=self.cleanup)
+        self.controller = controller
+        self.entries = entries
+
+        self.table = toga.Table(
+            headings=["Label", "Code", "Seconds"],
+            style=Pack(flex=1),
+        )
+
+        box = toga.Box(style=Pack(direction=COLUMN, padding=20))
+        box.add(self.table)
+        self.content = box
+
+        self._running = True
+        self.controller.loop.create_task(self._update_loop())
+        self.refresh_codes()
+
+    async def _update_loop(self) -> None:
+        while self._running:
+            self.refresh_codes()
+            await asyncio.sleep(1)
+
+    def refresh_codes(self) -> None:
+        self.table.data = []
+        for idx, label, *_rest in self.entries.list_entries(
+            filter_kind=EntryType.TOTP.value
+        ):
+            entry = self.entries.retrieve_entry(idx)
+            code = self.entries.get_totp_code(idx)
+            period = int(entry.get("period", 30)) if entry else 30
+            remaining = TotpManager.time_remaining(period)
+            self.table.data.append((label, code, remaining))
+
+    def cleanup(self, *args: object, **kwargs: object) -> None:
+        self._running = False
 
 
 class RelayManagerDialog(toga.Window):
