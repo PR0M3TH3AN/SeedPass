@@ -241,6 +241,22 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
+To display the interface, you must also install the Toga backend for your
+platform. Only `toga-core` and the headless `toga-dummy` backend are included
+in the requirements file. Depending on your operating system install one of the
+following packages:
+
+```bash
+# Linux
+pip install toga-gtk
+
+# Windows
+pip install toga-winforms
+
+# macOS
+pip install toga-cocoa
+```
+
 The GUI works with the same vault and configuration files as the CLI.
 
 ```mermaid
