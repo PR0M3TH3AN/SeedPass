@@ -14,6 +14,21 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
+Only the headless `toga-dummy` backend ships with the project for automated
+tests. To actually display windows you need a platform-specific backend such as
+`toga-gtk`, `toga-winforms`, or `toga-cocoa`.
+
+```bash
+# Linux
+pip install toga-gtk
+
+# Windows
+pip install toga-winforms
+
+# macOS
+pip install toga-cocoa
+```
+
 The GUI shares the same encrypted vault and configuration as the command line tool.
 
 To generate a packaged binary, run `briefcase build` (after the initial `briefcase create`).
