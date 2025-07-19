@@ -33,6 +33,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
 - [Building a standalone executable](#building-a-standalone-executable)
+- [Packaging with Briefcase](#packaging-with-briefcase)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -608,6 +609,27 @@ project's **Actions** or **Releases** page on GitHub to download the latest
 package for your platform.
 
 The standalone executable will appear in the `dist/` directory. This process works on Windows, macOS and Linux but you must build on each platform for a native binary.
+
+## Packaging with Briefcase
+
+For step-by-step instructions see [docs/docs/content/01-getting-started/05-briefcase.md](docs/docs/content/01-getting-started/05-briefcase.md).
+
+Install Briefcase and create a platform-specific scaffold:
+
+```bash
+python -m pip install briefcase
+briefcase create
+```
+
+Build and run the packaged GUI:
+
+```bash
+briefcase build
+briefcase run
+```
+
+You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
+
 
 ## Security Considerations
 
