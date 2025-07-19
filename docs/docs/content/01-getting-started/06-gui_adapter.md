@@ -116,3 +116,24 @@ events are published on the internal pubsub bus.
 When a ``vault_locked`` event is emitted, the GUI automatically returns to the
 lock screen so the session can be reopened with the master password.
 
+
+## Event Handling
+
+The GUI subscribes to a few core events so the interface reacts automatically when the vault changes state. When `MainWindow` is created it registers callbacks for `sync_started`, `sync_finished` and `vault_locked` on the global pubsub `bus`:
+
+```python
+bus.subscribe("sync_started", self.sync_started)
+bus.subscribe("sync_finished", self.sync_finished)
+bus.subscribe("vault_locked", self.vault_locked)
+```
+
+Each handler updates the status bar or returns to the lock screen. The `cleanup` method removes these hooks when the window closes:
+
+```python
+def cleanup(self, *args: object, **kwargs: object) -> None:
+    bus.unsubscribe("sync_started", self.sync_started)
+    bus.unsubscribe("sync_finished", self.sync_finished)
+    bus.unsubscribe("vault_locked", self.vault_locked)
+```
+
+The [TOTP window](../../02-api_reference.md#totp) demonstrates how such events keep the UI fresh: it shows live two-factor codes that reflect the latest vault data after synchronization.
