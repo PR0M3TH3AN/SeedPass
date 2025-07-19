@@ -86,13 +86,18 @@ main() {
     # 3. Install OS-specific dependencies
     print_info "Checking for build dependencies..."
     if [ "$OS_NAME" = "Linux" ]; then
-        if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y build-essential pkg-config xclip;
-        elif command -v dnf &> /dev/null; then sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y pkg-config xclip;
-        elif command -v pacman &> /dev/null; then sudo pacman -Syu --noconfirm base-devel pkg-config xclip;
-        else print_warning "Could not detect package manager. Ensure build tools and pkg-config are installed."; fi
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y build-essential pkg-config xclip libcairo2 libcairo2-dev
+        elif command -v dnf &> /dev/null; then
+            sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y pkg-config cairo cairo-devel xclip
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -Syu --noconfirm base-devel pkg-config cairo xclip
+        else
+            print_warning "Could not detect package manager. Ensure build tools, cairo, and pkg-config are installed."
+        fi
     elif [ "$OS_NAME" = "Darwin" ]; then
         if ! command -v brew &> /dev/null; then print_error "Homebrew not installed. See https://brew.sh/"; fi
-        brew install pkg-config
+        brew install pkg-config cairo
     fi
 
     # 4. Clone or update the repository
