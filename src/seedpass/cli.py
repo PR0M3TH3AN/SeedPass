@@ -26,6 +26,7 @@ from . import api as api_module
 
 import importlib
 import importlib.util
+import subprocess
 
 app = typer.Typer(
     help="SeedPass command line interface",
@@ -750,11 +751,36 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
 
 @app.command()
 def gui() -> None:
-    """Launch the BeeWare GUI."""
+    """Launch the BeeWare GUI.
+
+    If the platform specific backend is missing, attempt to install it and
+    retry launching the GUI.
+    """
+    if not _gui_backend_available():
+        if sys.platform.startswith("linux"):
+            pkg = "toga-gtk"
+        elif sys.platform == "win32":
+            pkg = "toga-winforms"
+        elif sys.platform == "darwin":
+            pkg = "toga-cocoa"
+        else:
+            typer.echo(
+                f"Unsupported platform '{sys.platform}' for BeeWare GUI.",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        typer.echo(f"Attempting to install {pkg} for GUI support...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+            typer.echo(f"Successfully installed {pkg}.")
+        except subprocess.CalledProcessError as exc:
+            typer.echo(f"Failed to install {pkg}: {exc}", err=True)
+            raise typer.Exit(1)
+
     if not _gui_backend_available():
         typer.echo(
-            "No BeeWare GUI backend found. Install 'toga-gtk' (Linux), "
-            "'toga-winforms' (Windows) or 'toga-cocoa' (macOS) to run the GUI.",
+            "BeeWare GUI backend still unavailable after installation attempt.",
             err=True,
         )
         raise typer.Exit(1)
