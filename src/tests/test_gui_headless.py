@@ -2,6 +2,9 @@ import os
 from types import SimpleNamespace
 
 import toga
+import pytest
+
+from seedpass.core.entry_types import EntryType
 
 from seedpass_gui.app import LockScreenWindow, MainWindow, EntryDialog
 
@@ -26,11 +29,39 @@ class FakeEntries:
         return []
 
     def add_entry(self, label, length, username=None, url=None):
-        self.added.append((label, length, username, url))
+        self.added.append(("password", label, length, username, url))
         return 1
 
-    def modify_entry(self, entry_id, username=None, url=None, label=None):
-        self.modified.append((entry_id, username, url, label))
+    def add_totp(self, label):
+        self.added.append(("totp", label))
+        return 1
+
+    def add_ssh_key(self, label):
+        self.added.append(("ssh", label))
+        return 1
+
+    def add_seed(self, label):
+        self.added.append(("seed", label))
+        return 1
+
+    def add_pgp_key(self, label):
+        self.added.append(("pgp", label))
+        return 1
+
+    def add_nostr_key(self, label):
+        self.added.append(("nostr", label))
+        return 1
+
+    def add_key_value(self, label, value):
+        self.added.append(("key_value", label, value))
+        return 1
+
+    def add_managed_account(self, label):
+        self.added.append(("managed_account", label))
+        return 1
+
+    def modify_entry(self, entry_id, username=None, url=None, label=None, value=None):
+        self.modified.append((entry_id, username, url, label, value))
 
 
 def setup_module(module):
@@ -65,16 +96,60 @@ def test_unlock_creates_main_window():
     controller.main_window.cleanup()
 
 
-def test_entrydialog_add_calls_service():
+@pytest.mark.parametrize(
+    "kind,expect",
+    [
+        (EntryType.PASSWORD.value, ("password", "L", 12, "u", "x")),
+        (EntryType.TOTP.value, ("totp", "L")),
+        (EntryType.SSH.value, ("ssh", "L")),
+        (EntryType.SEED.value, ("seed", "L")),
+        (EntryType.PGP.value, ("pgp", "L")),
+        (EntryType.NOSTR.value, ("nostr", "L")),
+        (EntryType.KEY_VALUE.value, ("key_value", "L", "val")),
+        (EntryType.MANAGED_ACCOUNT.value, ("managed_account", "L")),
+    ],
+)
+def test_entrydialog_add_calls_service(kind, expect):
     toga.App("Test2", "org.example2")
     entries = FakeEntries()
     main = SimpleNamespace(entries=entries, refresh_entries=lambda: None)
 
     dlg = EntryDialog(main, None)
     dlg.label_input.value = "L"
+    dlg.kind_input.value = kind
     dlg.username_input.value = "u"
     dlg.url_input.value = "x"
     dlg.length_input.value = 12
+    dlg.value_input.value = "val"
     dlg.save(None)
 
-    assert entries.added == [("L", 12, "u", "x")]
+    assert entries.added[-1] == expect
+
+
+@pytest.mark.parametrize(
+    "kind,expected",
+    [
+        (EntryType.PASSWORD.value, (1, "newu", "newx", "New", None)),
+        (EntryType.KEY_VALUE.value, (1, None, None, "New", "val2")),
+        (EntryType.TOTP.value, (1, None, None, "New", None)),
+    ],
+)
+def test_entrydialog_edit_calls_service(kind, expected):
+    toga.App("Edit", "org.edit")
+    entries = FakeEntries()
+
+    def retrieve(_id):
+        return {"kind": kind}
+
+    entries.retrieve_entry = retrieve
+
+    main = SimpleNamespace(entries=entries, refresh_entries=lambda: None)
+    dlg = EntryDialog(main, 1)
+    dlg.label_input.value = "New"
+    dlg.kind_input.value = kind
+    dlg.username_input.value = "newu"
+    dlg.url_input.value = "newx"
+    dlg.value_input.value = "val2"
+    dlg.save(None)
+
+    assert entries.modified[-1] == expected
