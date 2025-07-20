@@ -131,6 +131,20 @@ Before running the script, install **Python 3.11** or **3.12** from [python.org]
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python` isn't on your PATH. If these tools are unavailable you'll see a link to download Python directly from <https://www.python.org/downloads/windows/>. When Python 3.13 or newer is detected without the Microsoft C++ build tools, the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
+
+#### Windows Nostr Sync Troubleshooting
+
+When backing up or restoring from Nostr on Windows, a few issues are common:
+
+* **Event loop errors** – Messages like `RuntimeError: Event loop is closed` usually mean the async runtime failed to initialize. Running SeedPass with `--verbose` provides more detail about which coroutine failed.
+* **Permission problems** – If you see `Access is denied` when writing to `~/.seedpass`, launch your terminal with "Run as administrator" so the app can create files in your profile directory.
+* **Missing dependencies** – Ensure `websockets` and other requirements are installed inside your virtual environment:
+
+  ```bash
+  pip install websockets
+  ```
+
+Using increased log verbosity helps diagnose sync issues and confirm that the WebSocket connections to your configured relays succeed.
 ### Uninstall
 
 Run the matching uninstaller if you need to remove a previous installation or clean up an old `seedpass` command:
