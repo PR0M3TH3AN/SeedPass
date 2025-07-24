@@ -3669,7 +3669,7 @@ class PasswordManager:
             chunk_ids: list[str] = []
             if manifest is not None:
                 chunk_ids = [c.event_id for c in manifest.chunks if c.event_id]
-            delta_ids = getattr(self.nostr_client, "_delta_events", [])
+            delta_ids = self.nostr_client.get_delta_events()
             return {
                 "manifest_id": event_id,
                 "chunk_ids": chunk_ids,
@@ -4121,13 +4121,11 @@ class PasswordManager:
         )
 
         # Nostr sync info
-        manifest = getattr(self.nostr_client, "current_manifest", None)
+        manifest = self.nostr_client.get_current_manifest()
         if manifest is not None:
             stats["chunk_count"] = len(manifest.chunks)
             stats["delta_since"] = manifest.delta_since
-            stats["pending_deltas"] = len(
-                getattr(self.nostr_client, "_delta_events", [])
-            )
+            stats["pending_deltas"] = len(self.nostr_client.get_delta_events())
         else:
             stats["chunk_count"] = 0
             stats["delta_since"] = None
