@@ -44,7 +44,7 @@ def test_full_sync_roundtrip(dummy_nostr_client):
         # Manager A publishes initial snapshot
         pm_a.entry_manager.add_entry("site1", 12)
         pm_a.sync_vault()
-        manifest_id = relay.manifests[-1].id
+        manifest_id = relay.manifests[-1].tags[0]
 
         # Manager B retrieves snapshot
         result = pm_b.attempt_initial_sync()

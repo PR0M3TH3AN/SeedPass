@@ -84,7 +84,7 @@ def test_publish_snapshot_success():
         ) as mock_send:
             manifest, event_id = asyncio.run(client.publish_snapshot(b"data"))
             assert isinstance(manifest, Manifest)
-            assert event_id == "abcd"
+            assert event_id == "seedpass-manifest-fp"
             assert mock_send.await_count >= 1
 
 
