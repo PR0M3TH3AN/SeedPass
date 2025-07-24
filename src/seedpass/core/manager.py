@@ -1175,17 +1175,26 @@ class PasswordManager:
                 return
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
-            if manifest.delta_since:
-                version = int(manifest.delta_since)
-                deltas = await self.nostr_client.fetch_deltas_since(version)
-                if deltas:
-                    encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
+            updated = False
             if current != encrypted:
                 if self.vault.decrypt_and_save_index_from_nostr(
                     encrypted, strict=False
                 ):
-                    logger.info("Local database synchronized from Nostr.")
+                    updated = True
+                    current = encrypted
+            if manifest.delta_since:
+                version = int(manifest.delta_since)
+                deltas = await self.nostr_client.fetch_deltas_since(version)
+                for delta in deltas:
+                    if current != delta:
+                        if self.vault.decrypt_and_save_index_from_nostr(
+                            delta, strict=False
+                        ):
+                            updated = True
+                            current = delta
+            if updated:
+                logger.info("Local database synchronized from Nostr.")
         except Exception as e:
             logger.warning(
                 "Unable to sync index from Nostr relays %s: %s",
@@ -1304,17 +1313,22 @@ class PasswordManager:
             if result:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
-                if manifest.delta_since:
-                    version = int(manifest.delta_since)
-                    deltas = await self.nostr_client.fetch_deltas_since(version)
-                    if deltas:
-                        encrypted = deltas[-1]
                 success = self.vault.decrypt_and_save_index_from_nostr(
                     encrypted, strict=False
                 )
                 if success:
-                    logger.info("Initialized local database from Nostr.")
                     have_data = True
+                    current = encrypted
+                    if manifest.delta_since:
+                        version = int(manifest.delta_since)
+                        deltas = await self.nostr_client.fetch_deltas_since(version)
+                        for delta in deltas:
+                            if current != delta:
+                                if self.vault.decrypt_and_save_index_from_nostr(
+                                    delta, strict=False
+                                ):
+                                    current = delta
+                    logger.info("Initialized local database from Nostr.")
         except Exception as e:  # pragma: no cover - network errors
             logger.warning(f"Unable to sync index from Nostr: {e}")
         finally:
