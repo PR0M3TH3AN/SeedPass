@@ -54,7 +54,7 @@ def test_publish_and_fetch_deltas(dummy_nostr_client):
     client, relay = dummy_nostr_client
     base = b"base"
     manifest, _ = asyncio.run(client.publish_snapshot(base))
-    manifest_id = relay.manifests[-1].id
+    manifest_id = relay.manifests[-1].tags[0]
     d1 = b"d1"
     d2 = b"d2"
     asyncio.run(client.publish_delta(d1, manifest_id))
@@ -88,12 +88,9 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
 
     relay.filters.clear()
 
-    fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
+    result = asyncio.run(client.fetch_latest_snapshot())
 
-    assert gzip.decompress(b"".join(chunk_bytes)) == data1
-    assert [c.event_id for c in fetched_manifest.chunks] == [
-        c.event_id for c in manifest1.chunks
-    ]
+    assert result is None
 
     attempts = sum(
         1

@@ -46,6 +46,9 @@ DEFAULT_RELAYS = [
     "wss://relay.primal.net",
 ]
 
+# Identifier prefix for replaceable manifest events
+MANIFEST_ID_PREFIX = "seedpass-manifest-"
+
 
 def prepare_snapshot(
     encrypted_bytes: bytes, limit: int
@@ -390,22 +393,23 @@ class NostrClient:
             }
         )
 
+        manifest_identifier = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
         manifest_event = (
             EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+            .tags([Tag.identifier(manifest_identifier)])
             .build(self.keys.public_key())
             .sign_with_keys(self.keys)
         )
-        result = await self.client.send_event(manifest_event)
-        manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
+        await self.client.send_event(manifest_event)
         self.current_manifest = manifest
-        self.current_manifest_id = manifest_id
+        self.current_manifest_id = manifest_identifier
         # Record when this snapshot was published for future delta events
         self.current_manifest.delta_since = int(time.time())
         self._delta_events = []
         if getattr(self, "verbose_timing", False):
             duration = time.perf_counter() - start
             logger.info("publish_snapshot completed in %.2f seconds", duration)
-        return manifest, manifest_id
+        return manifest, manifest_identifier
 
     async def _fetch_chunks_with_retry(
         self, manifest_event
@@ -454,11 +458,26 @@ class NostrClient:
                 return None
             chunks.append(chunk_bytes)
 
-        man_id = getattr(manifest_event, "id", None)
-        if hasattr(man_id, "to_hex"):
-            man_id = man_id.to_hex()
+        ident = None
+        try:
+            tags_obj = manifest_event.tags()
+            ident = tags_obj.identifier()
+        except Exception:
+            tags = getattr(manifest_event, "tags", None)
+            if callable(tags):
+                tags = tags()
+            if tags:
+                tag = tags[0]
+                if hasattr(tag, "as_vec"):
+                    vec = tag.as_vec()
+                    if vec and len(vec) >= 2:
+                        ident = vec[1]
+                elif isinstance(tag, (list, tuple)) and len(tag) >= 2:
+                    ident = tag[1]
+                elif isinstance(tag, str):
+                    ident = tag
         self.current_manifest = manifest
-        self.current_manifest_id = man_id
+        self.current_manifest_id = ident
         return manifest, chunks
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
@@ -469,7 +488,8 @@ class NostrClient:
 
         self.last_error = None
         pubkey = self.keys.public_key()
-        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).limit(3)
+        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
         timeout = timedelta(seconds=10)
         try:
             events = (await self.client.fetch_events(f, timeout)).to_vec()
