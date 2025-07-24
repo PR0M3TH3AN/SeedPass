@@ -554,8 +554,9 @@ class NostrClient:
         )
         if hasattr(created_at, "secs"):
             created_at = created_at.secs
-        if self.current_manifest is not None:
-            with self._state_lock:
+        manifest_event = None
+        with self._state_lock:
+            if self.current_manifest is not None:
                 self.current_manifest.delta_since = int(created_at)
                 manifest_json = json.dumps(
                     {
@@ -573,9 +574,9 @@ class NostrClient:
                     .build(self.keys.public_key())
                     .sign_with_keys(self.keys)
                 )
-            await self.client.send_event(manifest_event)
-        with self._state_lock:
             self._delta_events.append(delta_id)
+        if manifest_event is not None:
+            await self.client.send_event(manifest_event)
         return delta_id
 
     async def fetch_deltas_since(self, version: int) -> list[bytes]:
@@ -597,8 +598,9 @@ class NostrClient:
         for ev in events:
             deltas.append(base64.b64decode(ev.content().encode("utf-8")))
 
-        if self.current_manifest is not None:
-            snap_size = sum(c.size for c in self.current_manifest.chunks)
+        manifest = self.get_current_manifest()
+        if manifest is not None:
+            snap_size = sum(c.size for c in manifest.chunks)
             if (
                 len(deltas) >= self.delta_threshold
                 or sum(len(d) for d in deltas) > snap_size
