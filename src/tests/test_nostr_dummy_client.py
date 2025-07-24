@@ -8,6 +8,7 @@ from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from nostr.client import prepare_snapshot
 from nostr.backup_models import KIND_SNAPSHOT_CHUNK
+import constants
 
 
 def test_manifest_generation(tmp_path):
@@ -73,7 +74,17 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
 
     client, relay = dummy_nostr_client
     monkeypatch.setattr("nostr.client.MAX_RETRIES", 3)
-    monkeypatch.setattr("nostr.client.RETRY_DELAY", 0)
+    monkeypatch.setattr("nostr.client.RETRY_DELAY", 1)
+    monkeypatch.setattr("constants.MAX_RETRIES", 3)
+    monkeypatch.setattr("constants.RETRY_DELAY", 1)
+    monkeypatch.setattr("seedpass.core.config_manager.MAX_RETRIES", 3)
+    monkeypatch.setattr("seedpass.core.config_manager.RETRY_DELAY", 1)
+    delays: list[float] = []
+
+    async def fake_sleep(d):
+        delays.append(d)
+
+    monkeypatch.setattr("nostr.client.asyncio.sleep", fake_sleep)
 
     data1 = os.urandom(60000)
     manifest1, _ = asyncio.run(client.publish_snapshot(data1))
@@ -102,6 +113,7 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
         )
     )
     assert attempts == 3
+    assert delays == [1, 2]
 
 
 def test_fetch_snapshot_uses_event_ids(dummy_nostr_client):

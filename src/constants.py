@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 # -----------------------------------
 # Nostr Relay Connection Settings
 # -----------------------------------
-# Retry fewer times with a shorter wait by default
-MAX_RETRIES = 2  # Maximum number of retries for relay connections
-RETRY_DELAY = 1  # Seconds to wait before retrying a failed connection
+# Retry fewer times with a shorter wait by default. These values
+# act as defaults that can be overridden via ``ConfigManager``
+# entries ``nostr_max_retries`` and ``nostr_retry_delay``.
+MAX_RETRIES = 2  # Default maximum number of retry attempts
+RETRY_DELAY = 1  # Default seconds to wait before retrying
 MIN_HEALTHY_RELAYS = 2  # Minimum relays that should return data on startup
 
 # -----------------------------------

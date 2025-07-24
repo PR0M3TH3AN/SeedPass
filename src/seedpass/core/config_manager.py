@@ -13,7 +13,7 @@ import bcrypt
 from .vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
-from constants import INACTIVITY_TIMEOUT
+from constants import INACTIVITY_TIMEOUT, MAX_RETRIES, RETRY_DELAY
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,8 @@ class ConfigManager:
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
                 "quick_unlock": False,
-                "nostr_max_retries": 2,
-                "nostr_retry_delay": 1.0,
+                "nostr_max_retries": MAX_RETRIES,
+                "nostr_retry_delay": float(RETRY_DELAY),
                 "min_uppercase": 2,
                 "min_lowercase": 2,
                 "min_digits": 2,
@@ -77,8 +77,8 @@ class ConfigManager:
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
             data.setdefault("quick_unlock", False)
-            data.setdefault("nostr_max_retries", 2)
-            data.setdefault("nostr_retry_delay", 1.0)
+            data.setdefault("nostr_max_retries", MAX_RETRIES)
+            data.setdefault("nostr_retry_delay", float(RETRY_DELAY))
             data.setdefault("min_uppercase", 2)
             data.setdefault("min_lowercase", 2)
             data.setdefault("min_digits", 2)
@@ -303,7 +303,7 @@ class ConfigManager:
     def get_nostr_max_retries(self) -> int:
         """Retrieve the configured Nostr retry count."""
         cfg = self.load_config(require_pin=False)
-        return int(cfg.get("nostr_max_retries", 2))
+        return int(cfg.get("nostr_max_retries", MAX_RETRIES))
 
     def set_nostr_retry_delay(self, delay: float) -> None:
         """Persist the delay between Nostr retry attempts."""
@@ -316,7 +316,7 @@ class ConfigManager:
     def get_nostr_retry_delay(self) -> float:
         """Retrieve the delay in seconds between Nostr retries."""
         cfg = self.load_config(require_pin=False)
-        return float(cfg.get("nostr_retry_delay", 1.0))
+        return float(cfg.get("nostr_retry_delay", float(RETRY_DELAY)))
 
     def set_verbose_timing(self, enabled: bool) -> None:
         cfg = self.load_config(require_pin=False)

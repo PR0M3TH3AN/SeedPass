@@ -313,8 +313,7 @@ class NostrClient:
 
         self.connect()
         self.last_error = None
-        attempt = 0
-        while True:
+        for attempt in range(retries):
             try:
                 result = asyncio.run(self._retrieve_json_from_nostr())
                 if result is not None:
@@ -322,10 +321,9 @@ class NostrClient:
             except Exception as e:
                 self.last_error = str(e)
                 logger.error("Failed to retrieve events from Nostr: %s", e)
-            if attempt >= retries:
-                break
-            attempt += 1
-            time.sleep(delay)
+            if attempt < retries - 1:
+                sleep_time = delay * (2**attempt)
+                time.sleep(sleep_time)
         return None
 
     async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
@@ -434,11 +432,24 @@ class NostrClient:
         except Exception:
             return None
 
+        if self.config_manager is None:
+            from seedpass.core.config_manager import ConfigManager
+            from seedpass.core.vault import Vault
+
+            cfg_mgr = ConfigManager(
+                Vault(self.encryption_manager, self.fingerprint_dir),
+                self.fingerprint_dir,
+            )
+        else:
+            cfg_mgr = self.config_manager
+        cfg = cfg_mgr.load_config(require_pin=False)
+        max_retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
+        delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
+
         chunks: list[bytes] = []
         for meta in manifest.chunks:
-            attempt = 0
             chunk_bytes: bytes | None = None
-            while attempt < MAX_RETRIES:
+            for attempt in range(max_retries):
                 cf = Filter().author(pubkey).kind(Kind(KIND_SNAPSHOT_CHUNK))
                 if meta.event_id:
                     cf = cf.id(EventId.parse(meta.event_id))
@@ -451,9 +462,8 @@ class NostrClient:
                     if hashlib.sha256(candidate).hexdigest() == meta.hash:
                         chunk_bytes = candidate
                         break
-                attempt += 1
-                if attempt < MAX_RETRIES:
-                    await asyncio.sleep(RETRY_DELAY)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(delay * (2**attempt))
             if chunk_bytes is None:
                 return None
             chunks.append(chunk_bytes)
