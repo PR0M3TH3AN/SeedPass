@@ -594,6 +594,9 @@ class NostrClient:
         )
         timeout = timedelta(seconds=10)
         events = (await self.client.fetch_events(f, timeout)).to_vec()
+        events.sort(
+            key=lambda ev: getattr(ev, "created_at", getattr(ev, "timestamp", 0))
+        )
         deltas: list[bytes] = []
         for ev in events:
             deltas.append(base64.b64decode(ev.content().encode("utf-8")))
