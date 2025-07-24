@@ -25,7 +25,7 @@ freezegun
 pyperclip
 qrcode>=8.2
 typer>=0.12.3
-fastapi>=0.116.0
+fastapi>=0.116.1
 uvicorn>=0.35.0
 starlette>=0.47.2
 httpx>=0.28.1
