@@ -644,6 +644,17 @@ class PasswordManager:
                     config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
+                if getattr(self, "manifest_id", None):
+                    from nostr.backup_models import Manifest
+
+                    with self.nostr_client._state_lock:
+                        self.nostr_client.current_manifest_id = self.manifest_id
+                        self.nostr_client.current_manifest = Manifest(
+                            ver=1,
+                            algo="gzip",
+                            chunks=[],
+                            delta_since=self.delta_since or None,
+                        )
                 logging.info(
                     f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
                 )
@@ -1127,10 +1138,14 @@ class PasswordManager:
                 relay_list = state.get("relays", list(DEFAULT_RELAYS))
                 self.last_bip85_idx = state.get("last_bip85_idx", 0)
                 self.last_sync_ts = state.get("last_sync_ts", 0)
+                self.manifest_id = state.get("manifest_id")
+                self.delta_since = state.get("delta_since", 0)
             else:
                 relay_list = list(DEFAULT_RELAYS)
                 self.last_bip85_idx = 0
                 self.last_sync_ts = 0
+                self.manifest_id = None
+                self.delta_since = 0
             self.offline_mode = bool(config.get("offline_mode", False))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
@@ -1148,6 +1163,18 @@ class PasswordManager:
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
+
+            if getattr(self, "manifest_id", None):
+                from nostr.backup_models import Manifest
+
+                with self.nostr_client._state_lock:
+                    self.nostr_client.current_manifest_id = self.manifest_id
+                    self.nostr_client.current_manifest = Manifest(
+                        ver=1,
+                        algo="gzip",
+                        chunks=[],
+                        delta_since=self.delta_since or None,
+                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
@@ -3684,6 +3711,14 @@ class PasswordManager:
             if manifest is not None:
                 chunk_ids = [c.event_id for c in manifest.chunks if c.event_id]
             delta_ids = self.nostr_client.get_delta_events()
+            if manifest is not None and self.state_manager is not None:
+                ts = manifest.delta_since or int(time.time())
+                self.state_manager.update_state(
+                    manifest_id=event_id,
+                    delta_since=ts,
+                    last_sync_ts=ts,
+                )
+                self.last_sync_ts = ts
             return {
                 "manifest_id": event_id,
                 "chunk_ids": chunk_ids,
@@ -4061,6 +4096,18 @@ class PasswordManager:
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
             )
+
+            if getattr(self, "manifest_id", None):
+                from nostr.backup_models import Manifest
+
+                with self.nostr_client._state_lock:
+                    self.nostr_client.current_manifest_id = self.manifest_id
+                    self.nostr_client.current_manifest = Manifest(
+                        ver=1,
+                        algo="gzip",
+                        chunks=[],
+                        delta_since=self.delta_since or None,
+                    )
 
             # Push a fresh backup to Nostr so the newly encrypted index is
             # stored remotely. Include a tag to mark the password change.

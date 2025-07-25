@@ -23,6 +23,8 @@ class StateManager:
             return {
                 "last_bip85_idx": 0,
                 "last_sync_ts": 0,
+                "manifest_id": None,
+                "delta_since": 0,
                 "relays": list(DEFAULT_RELAYS),
             }
         with shared_lock(self.state_path) as fh:
@@ -32,6 +34,8 @@ class StateManager:
             return {
                 "last_bip85_idx": 0,
                 "last_sync_ts": 0,
+                "manifest_id": None,
+                "delta_since": 0,
                 "relays": list(DEFAULT_RELAYS),
             }
         try:
@@ -40,6 +44,8 @@ class StateManager:
             obj = {}
         obj.setdefault("last_bip85_idx", 0)
         obj.setdefault("last_sync_ts", 0)
+        obj.setdefault("manifest_id", None)
+        obj.setdefault("delta_since", 0)
         obj.setdefault("relays", list(DEFAULT_RELAYS))
         return obj
 
