@@ -1,8 +1,9 @@
 import asyncio
 import gzip
 import math
+import pytest
 
-from helpers import create_vault, dummy_nostr_client
+from helpers import create_vault, dummy_nostr_client, TEST_SEED
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
@@ -141,3 +142,44 @@ def test_fetch_snapshot_uses_event_ids(dummy_nostr_client):
         if getattr(f, "kind_val", None) == KIND_SNAPSHOT_CHUNK
     ]
     assert id_filters and all(id_filters)
+
+
+def test_publish_delta_aborts_if_outdated(tmp_path, monkeypatch, dummy_nostr_client):
+    client1, relay = dummy_nostr_client
+
+    from cryptography.fernet import Fernet
+    from nostr.client import NostrClient
+    from seedpass.core.encryption import EncryptionManager
+
+    enc_mgr = EncryptionManager(Fernet.generate_key(), tmp_path)
+
+    class DummyKeys:
+        def private_key_hex(self):
+            return "1" * 64
+
+        def public_key_hex(self):
+            return "2" * 64
+
+    class DummyKeyManager:
+        def __init__(self, *a, **k):
+            self.keys = DummyKeys()
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr("nostr.client.KeyManager", DummyKeyManager)
+        mp.setattr(enc_mgr, "decrypt_parent_seed", lambda: TEST_SEED)
+        client2 = NostrClient(enc_mgr, "fp")
+
+    base = b"base"
+    manifest, _ = asyncio.run(client1.publish_snapshot(base))
+    with client1._state_lock:
+        client1.current_manifest.delta_since = 0
+    import copy
+
+    with client2._state_lock:
+        client2.current_manifest = copy.deepcopy(manifest)
+        client2.current_manifest_id = manifest_id = relay.manifests[-1].tags[0]
+
+    asyncio.run(client2.publish_delta(b"d1", manifest_id))
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(client1.publish_delta(b"d2", manifest_id))

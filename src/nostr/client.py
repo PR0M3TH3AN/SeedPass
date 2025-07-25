@@ -368,6 +368,7 @@ class NostrClient:
         start = time.perf_counter()
         if self.offline_mode or not self.relays:
             return Manifest(ver=1, algo="gzip", chunks=[]), ""
+        await self.ensure_manifest_is_current()
         await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
         for meta, chunk in zip(manifest.chunks, chunks):
@@ -537,10 +538,39 @@ class NostrClient:
 
         return None
 
+    async def ensure_manifest_is_current(self) -> None:
+        """Verify the local manifest is up to date before publishing."""
+        if self.offline_mode or not self.relays:
+            return
+        await self._connect_async()
+        pubkey = self.keys.public_key()
+        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
+        timeout = timedelta(seconds=10)
+        try:
+            events = (await self.client.fetch_events(f, timeout)).to_vec()
+        except Exception:
+            return
+        if not events:
+            return
+        try:
+            data = json.loads(events[0].content())
+            remote = data.get("delta_since")
+            if remote is not None:
+                remote = int(remote)
+        except Exception:
+            return
+        with self._state_lock:
+            local = self.current_manifest.delta_since if self.current_manifest else None
+        if remote is not None and (local is None or remote > local):
+            self.last_error = "Manifest out of date"
+            raise RuntimeError("Manifest out of date")
+
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
         """Publish a delta event referencing a manifest."""
         if self.offline_mode or not self.relays:
             return ""
+        await self.ensure_manifest_is_current()
         await self._connect_async()
 
         content = base64.b64encode(delta_bytes).decode("utf-8")
