@@ -122,6 +122,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 ```bash
 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
 ```
+Make sure the command ends right after `-b beta` with **no trailing parenthesis**.
 
 **Windows (PowerShell):**
 ```powershell
