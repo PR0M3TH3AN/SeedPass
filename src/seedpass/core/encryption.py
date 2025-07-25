@@ -228,6 +228,7 @@ class EncryptionManager:
         relative_path: Optional[Path] = None,
         *,
         strict: bool = True,
+        merge: bool = False,
     ) -> bool:
         """Decrypts data from Nostr and saves it.
 
@@ -249,6 +250,20 @@ class EncryptionManager:
                 data = json_lib.loads(decrypted_data)
             else:
                 data = json_lib.loads(decrypted_data.decode("utf-8"))
+            if merge and (self.fingerprint_dir / relative_path).exists():
+                current = self.load_json_data(relative_path)
+                current_entries = current.get("entries", {})
+                for idx, entry in data.get("entries", {}).items():
+                    cur_ts = current_entries.get(idx, {}).get("modified_ts", 0)
+                    new_ts = entry.get("modified_ts", 0)
+                    if idx not in current_entries or new_ts >= cur_ts:
+                        current_entries[idx] = entry
+                current["entries"] = current_entries
+                if "schema_version" in data:
+                    current["schema_version"] = max(
+                        current.get("schema_version", 0), data.get("schema_version", 0)
+                    )
+                data = current
             self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")

@@ -61,11 +61,11 @@ class Vault:
         return self.encryption_manager.get_encrypted_index()
 
     def decrypt_and_save_index_from_nostr(
-        self, encrypted_data: bytes, *, strict: bool = True
+        self, encrypted_data: bytes, *, strict: bool = True, merge: bool = False
     ) -> bool:
-        """Decrypt Nostr payload and overwrite the local index."""
+        """Decrypt Nostr payload and update the local index."""
         return self.encryption_manager.decrypt_and_save_index_from_nostr(
-            encrypted_data, strict=strict
+            encrypted_data, strict=strict, merge=merge
         )
 
     # ----- Config helpers -----

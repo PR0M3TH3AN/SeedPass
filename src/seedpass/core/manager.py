@@ -1179,7 +1179,7 @@ class PasswordManager:
             updated = False
             if current != encrypted:
                 if self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False
+                    encrypted, strict=False, merge=False
                 ):
                     updated = True
                     current = encrypted
@@ -1189,7 +1189,7 @@ class PasswordManager:
                 for delta in deltas:
                     if current != delta:
                         if self.vault.decrypt_and_save_index_from_nostr(
-                            delta, strict=False
+                            delta, strict=False, merge=True
                         ):
                             updated = True
                             current = delta
@@ -1314,7 +1314,7 @@ class PasswordManager:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
                 success = self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False
+                    encrypted, strict=False, merge=False
                 )
                 if success:
                     have_data = True
@@ -1325,7 +1325,7 @@ class PasswordManager:
                         for delta in deltas:
                             if current != delta:
                                 if self.vault.decrypt_and_save_index_from_nostr(
-                                    delta, strict=False
+                                    delta, strict=False, merge=True
                                 ):
                                     current = delta
                     logger.info("Initialized local database from Nostr.")
@@ -3641,7 +3641,7 @@ class PasswordManager:
         :param encrypted_data: The encrypted data retrieved from Nostr.
         """
         try:
-            self.vault.decrypt_and_save_index_from_nostr(encrypted_data)
+            self.vault.decrypt_and_save_index_from_nostr(encrypted_data, merge=True)
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
