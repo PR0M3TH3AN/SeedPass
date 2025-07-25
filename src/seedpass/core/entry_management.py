@@ -27,6 +27,7 @@ import logging
 import hashlib
 import sys
 import shutil
+import time
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
@@ -97,6 +98,7 @@ class EntryManager:
                         entry["word_count"] = entry["words"]
                         entry.pop("words", None)
                     entry.setdefault("tags", [])
+                    entry.setdefault("modified_ts", entry.get("updated", 0))
                 logger.debug("Index loaded successfully.")
                 self._index_cache = data
                 return data
@@ -176,6 +178,7 @@ class EntryManager:
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
+                "modified_ts": int(time.time()),
                 "custom_fields": custom_fields or [],
                 "tags": tags or [],
             }
@@ -236,6 +239,7 @@ class EntryManager:
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
                 "label": label,
+                "modified_ts": int(time.time()),
                 "index": index,
                 "period": period,
                 "digits": digits,
@@ -249,6 +253,7 @@ class EntryManager:
                 "kind": EntryType.TOTP.value,
                 "label": label,
                 "secret": secret,
+                "modified_ts": int(time.time()),
                 "period": period,
                 "digits": digits,
                 "archived": archived,
@@ -294,6 +299,7 @@ class EntryManager:
             "kind": EntryType.SSH.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
@@ -340,6 +346,7 @@ class EntryManager:
             "kind": EntryType.PGP.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
@@ -392,6 +399,7 @@ class EntryManager:
             "kind": EntryType.NOSTR.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
@@ -421,6 +429,7 @@ class EntryManager:
             "type": EntryType.KEY_VALUE.value,
             "kind": EntryType.KEY_VALUE.value,
             "label": label,
+            "modified_ts": int(time.time()),
             "value": value,
             "notes": notes,
             "archived": archived,
@@ -480,6 +489,7 @@ class EntryManager:
             "kind": EntryType.SEED.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "word_count": words_num,
             "notes": notes,
             "archived": archived,
@@ -552,6 +562,7 @@ class EntryManager:
             "kind": EntryType.MANAGED_ACCOUNT.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "word_count": word_count,
             "notes": notes,
             "fingerprint": fingerprint,
@@ -682,7 +693,8 @@ class EntryManager:
                 ):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
-                return entry
+                clean = {k: v for k, v in entry.items() if k != "modified_ts"}
+                return clean
             else:
                 logger.warning(f"No entry found at index {index}.")
                 print(colored(f"Warning: No entry found at index {index}.", "yellow"))
@@ -886,6 +898,8 @@ class EntryManager:
             if tags is not None:
                 entry["tags"] = tags
                 logger.debug(f"Updated tags for index {index}: {tags}")
+
+            entry["modified_ts"] = int(time.time())
 
             data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
