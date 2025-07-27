@@ -12,14 +12,14 @@ import asyncio
 from enum import Enum
 from pathlib import Path
 
-from password_manager.vault import Vault
-from password_manager.backup import BackupManager
+from .vault import Vault
+from .backup import BackupManager
 from nostr.client import NostrClient
 from utils.key_derivation import (
     derive_index_key,
     EncryptionMode,
 )
-from password_manager.encryption import EncryptionManager
+from .encryption import EncryptionManager
 from utils.checksum import json_checksum, canonical_json_dumps
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from seedpass.cli import app, PasswordManager
 from seedpass import cli
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 
 runner = CliRunner()
 
@@ -34,7 +34,7 @@ def test_entry_list(monkeypatch):
 def test_entry_search(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(
-            search_entries=lambda q: [(1, "L", None, None, False)]
+            search_entries=lambda q, kinds=None: [(1, "L", None, None, False)]
         ),
         select_fingerprint=lambda fp: None,
     )
@@ -45,7 +45,7 @@ def test_entry_search(monkeypatch):
 
 
 def test_entry_get_password(monkeypatch):
-    def search(q):
+    def search(q, kinds=None):
         return [(2, "Example", "", "", False)]
 
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
@@ -68,72 +68,67 @@ def test_entry_get_password(monkeypatch):
 def test_vault_export(monkeypatch, tmp_path):
     called = {}
 
-    def export_db(path):
-        called["path"] = path
+    def export_profile(self):
+        called["export"] = True
+        return b"data"
 
-    pm = SimpleNamespace(
-        handle_export_database=export_db, select_fingerprint=lambda fp: None
-    )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli.VaultService, "export_profile", export_profile)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: SimpleNamespace())
     out_path = tmp_path / "out.json"
     result = runner.invoke(app, ["vault", "export", "--file", str(out_path)])
     assert result.exit_code == 0
-    assert called["path"] == out_path
+    assert called.get("export") is True
+    assert out_path.read_bytes() == b"data"
 
 
 def test_vault_import(monkeypatch, tmp_path):
     called = {}
 
-    def import_db(path):
-        called["path"] = path
+    def import_profile(self, data):
+        called["data"] = data
 
-    pm = SimpleNamespace(
-        handle_import_database=import_db,
-        select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
-    )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli.VaultService, "import_profile", import_profile)
+    monkeypatch.setattr(cli, "PasswordManager", lambda: SimpleNamespace())
     in_path = tmp_path / "in.json"
-    in_path.write_text("{}")
+    in_path.write_bytes(b"inp")
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
-    assert called["path"] == in_path
+    assert called["data"] == b"inp"
 
 
 def test_vault_import_triggers_sync(monkeypatch, tmp_path):
     called = {}
 
-    def import_db(path):
-        called["path"] = path
+    def import_profile(self, data):
+        called["data"] = data
+        self._manager.sync_vault()
 
-    def sync():
+    def sync_vault():
         called["sync"] = True
 
-    pm = SimpleNamespace(
-        handle_import_database=import_db,
-        sync_vault=sync,
-        select_fingerprint=lambda fp: None,
+    monkeypatch.setattr(cli.VaultService, "import_profile", import_profile)
+    monkeypatch.setattr(
+        cli, "PasswordManager", lambda: SimpleNamespace(sync_vault=sync_vault)
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     in_path = tmp_path / "in.json"
-    in_path.write_text("{}")
+    in_path.write_bytes(b"inp")
     result = runner.invoke(app, ["vault", "import", "--file", str(in_path)])
     assert result.exit_code == 0
-    assert called["path"] == in_path
+    assert called.get("data") == b"inp"
     assert called.get("sync") is True
 
 
 def test_vault_change_password(monkeypatch):
     called = {}
 
-    def change_pw():
-        called["called"] = True
+    def change_pw(old, new):
+        called["args"] = (old, new)
 
     pm = SimpleNamespace(change_password=change_pw, select_fingerprint=lambda fp: None)
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["vault", "change-password"])
+    result = runner.invoke(app, ["vault", "change-password"], input="old\nnew\nnew\n")
     assert result.exit_code == 0
-    assert called.get("called") is True
+    assert called.get("args") == ("old", "new")
 
 
 def test_vault_lock(monkeypatch):
@@ -153,10 +148,27 @@ def test_vault_lock(monkeypatch):
     assert pm.locked is True
 
 
+def test_root_lock(monkeypatch):
+    called = {}
+
+    def lock():
+        called["locked"] = True
+        pm.locked = True
+
+    pm = SimpleNamespace(
+        lock_vault=lock, locked=False, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    result = runner.invoke(app, ["lock"])
+    assert result.exit_code == 0
+    assert called.get("locked") is True
+    assert pm.locked is True
+
+
 def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     called = {}
 
-    def reveal(path=None):
+    def reveal(path=None, **_):
         called["path"] = path
 
     pm = SimpleNamespace(
@@ -165,7 +177,9 @@ def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     out_path = tmp_path / "seed.enc"
     result = runner.invoke(
-        app, ["vault", "reveal-parent-seed", "--file", str(out_path)]
+        app,
+        ["vault", "reveal-parent-seed", "--file", str(out_path)],
+        input="pw\n",
     )
     assert result.exit_code == 0
     assert called["path"] == out_path
@@ -231,14 +245,14 @@ def test_fingerprint_remove(monkeypatch):
 def test_fingerprint_switch(monkeypatch):
     called = {}
 
-    def switch(fp):
+    def switch(fp, **_):
         called["fp"] = fp
 
     pm = SimpleNamespace(
         select_fingerprint=switch, fingerprint_manager=SimpleNamespace()
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["fingerprint", "switch", "def"])
+    result = runner.invoke(app, ["fingerprint", "switch", "def"], input="pw\n")
     assert result.exit_code == 0
     assert called.get("fp") == "def"
 
@@ -363,7 +377,7 @@ def test_entry_add(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(add_entry=add_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(
@@ -394,7 +408,7 @@ def test_entry_modify(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
@@ -409,7 +423,7 @@ def test_entry_modify_invalid(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
@@ -426,7 +440,7 @@ def test_entry_archive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(archive_entry=archive_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "archive", "3"])
@@ -444,7 +458,7 @@ def test_entry_unarchive(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(restore_entry=restore_entry),
         select_fingerprint=lambda fp: None,
-        sync_vault=lambda: None,
+        start_background_vault_sync=lambda: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "unarchive", "4"])
@@ -530,3 +544,55 @@ def test_tui_forward_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_gui_command(monkeypatch):
+    called = {}
+
+    def fake_main():
+        called["called"] = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "seedpass_gui.app",
+        SimpleNamespace(main=fake_main),
+    )
+    monkeypatch.setattr(cli.importlib.util, "find_spec", lambda n: True)
+    result = runner.invoke(app, ["gui"])
+    assert result.exit_code == 0
+    assert called.get("called") is True
+
+
+def test_gui_command_no_backend(monkeypatch):
+    """Install backend if missing and launch GUI."""
+
+    call_count = {"n": 0}
+
+    def backend_available() -> bool:
+        call_count["n"] += 1
+        return call_count["n"] > 1
+
+    monkeypatch.setattr(cli, "_gui_backend_available", backend_available)
+
+    installed = {}
+
+    def fake_check_call(cmd):
+        installed["cmd"] = cmd
+
+    monkeypatch.setattr(cli.subprocess, "check_call", fake_check_call)
+
+    called = {}
+
+    def fake_main():
+        called["gui"] = True
+
+    monkeypatch.setitem(
+        sys.modules,
+        "seedpass_gui.app",
+        SimpleNamespace(main=fake_main),
+    )
+
+    result = runner.invoke(app, ["gui"])
+    assert result.exit_code == 0
+    assert installed.get("cmd") is not None
+    assert called.get("gui") is True

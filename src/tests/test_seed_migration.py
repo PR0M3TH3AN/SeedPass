@@ -7,7 +7,7 @@ from utils.key_derivation import derive_key_from_password
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 
 
 def test_parent_seed_migrates_from_fernet(tmp_path: Path) -> None:

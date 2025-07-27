@@ -115,14 +115,14 @@ def test_entry_add_commands(
         called["kwargs"] = kwargs
         return stdout
 
-    def sync_vault():
+    def start_background_vault_sync():
         called["sync"] = True
 
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(**{method: func}),
         parent_seed="seed",
         select_fingerprint=lambda fp: None,
-        sync_vault=sync_vault,
+        start_background_vault_sync=start_background_vault_sync,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", command] + cli_args)

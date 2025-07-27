@@ -5,8 +5,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.vault import Vault
-from password_manager.encryption import EncryptionManager
+from seedpass.core.vault import Vault
+from seedpass.core.encryption import EncryptionManager
 from utils.key_derivation import (
     derive_index_key,
     derive_key_from_password,

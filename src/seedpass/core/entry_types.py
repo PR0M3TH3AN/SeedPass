@@ -1,4 +1,4 @@
-# password_manager/entry_types.py
+# seedpass.core/entry_types.py
 """Enumerations for entry types used by SeedPass."""
 
 from enum import Enum

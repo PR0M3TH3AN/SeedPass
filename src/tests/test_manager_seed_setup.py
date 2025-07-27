@@ -1,6 +1,6 @@
 import builtins
 from mnemonic import Mnemonic
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 from utils import seed_prompt
 
 
@@ -28,7 +28,7 @@ def test_setup_existing_seed_words(monkeypatch):
     words = phrase.split()
     word_iter = iter(words)
     monkeypatch.setattr(
-        "password_manager.manager.masked_input",
+        "seedpass.core.manager.masked_input",
         lambda *_: next(word_iter),
     )
     # Ensure prompt_seed_words uses the patched function
@@ -36,7 +36,7 @@ def test_setup_existing_seed_words(monkeypatch):
     monkeypatch.setattr(builtins, "input", lambda *_: "y")
 
     pm = PasswordManager.__new__(PasswordManager)
-    monkeypatch.setattr(pm, "_finalize_existing_seed", lambda seed: seed)
+    monkeypatch.setattr(pm, "_finalize_existing_seed", lambda seed, **_: seed)
 
     result = pm.setup_existing_seed(method="words")
     assert result == phrase
@@ -52,7 +52,7 @@ def test_setup_existing_seed_paste(monkeypatch):
         called["prompt"] = prompt
         return phrase
 
-    monkeypatch.setattr("password_manager.manager.masked_input", fake_masked_input)
+    monkeypatch.setattr("seedpass.core.manager.masked_input", fake_masked_input)
     monkeypatch.setattr(
         builtins,
         "input",
@@ -60,8 +60,32 @@ def test_setup_existing_seed_paste(monkeypatch):
     )
 
     pm = PasswordManager.__new__(PasswordManager)
-    monkeypatch.setattr(pm, "_finalize_existing_seed", lambda seed: seed)
+    monkeypatch.setattr(pm, "_finalize_existing_seed", lambda seed, **_: seed)
 
     result = pm.setup_existing_seed(method="paste")
     assert result == phrase
     assert called["prompt"].startswith("Enter your 12-word BIP-85 seed")
+
+
+def test_setup_existing_seed_with_args(monkeypatch):
+    m = Mnemonic("english")
+    phrase = m.generate(strength=128)
+
+    called = {}
+
+    monkeypatch.setattr(
+        "seedpass.core.manager.masked_input",
+        lambda *_: (_ for _ in ()).throw(RuntimeError("prompt")),
+    )
+
+    def finalize(seed, *, password=None):
+        called["seed"] = seed
+        called["pw"] = password
+        return "fp"
+
+    pm = PasswordManager.__new__(PasswordManager)
+    monkeypatch.setattr(pm, "_finalize_existing_seed", finalize)
+    result = pm.setup_existing_seed(method="paste", seed=phrase, password="pw")
+    assert result == "fp"
+    assert called["seed"] == phrase
+    assert called["pw"] == "pw"

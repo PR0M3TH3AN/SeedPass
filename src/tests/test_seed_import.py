@@ -7,8 +7,8 @@ from mnemonic import Mnemonic
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
 def test_seed_encryption_round_trip():

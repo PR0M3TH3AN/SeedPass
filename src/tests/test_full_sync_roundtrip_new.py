@@ -4,10 +4,10 @@ from tempfile import TemporaryDirectory
 
 from helpers import create_vault, dummy_nostr_client
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
 def _init_pm(dir_path: Path, client) -> PasswordManager:
@@ -44,7 +44,7 @@ def test_full_sync_roundtrip(dummy_nostr_client):
         # Manager A publishes initial snapshot
         pm_a.entry_manager.add_entry("site1", 12)
         pm_a.sync_vault()
-        manifest_id = relay.manifests[-1].id
+        manifest_id = relay.manifests[-1].tags[0]
 
         # Manager B retrieves snapshot
         result = pm_b.attempt_initial_sync()

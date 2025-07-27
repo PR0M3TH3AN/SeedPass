@@ -8,11 +8,11 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.config_manager import ConfigManager
-from password_manager.backup import BackupManager
-from password_manager.vault import Vault
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.vault import Vault
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
 def test_change_password_triggers_nostr_backup(monkeypatch):
@@ -36,16 +36,9 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
         pm.store_hashed_password = lambda pw: None
         pm.verify_password = lambda pw: True
 
-        monkeypatch.setattr(
-            "password_manager.manager.prompt_existing_password", lambda *_: "old"
-        )
-        monkeypatch.setattr(
-            "password_manager.manager.prompt_for_password", lambda: "new"
-        )
-
-        with patch("password_manager.manager.NostrClient") as MockClient:
+        with patch("seedpass.core.manager.NostrClient") as MockClient:
             mock_instance = MockClient.return_value
             mock_instance.publish_snapshot = AsyncMock(return_value=(None, "abcd"))
             pm.nostr_client = mock_instance
-            pm.change_password()
+            pm.change_password("old", "new")
             mock_instance.publish_snapshot.assert_called_once()

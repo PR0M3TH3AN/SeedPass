@@ -9,7 +9,7 @@ import base64
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint import generate_fingerprint
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 
 
 def test_generate_fingerprint_deterministic():

@@ -21,6 +21,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 ## Table of Contents
 
 - [Features](#features)
+- [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [1. Clone the Repository](#1-clone-the-repository)
@@ -32,6 +33,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
 - [Building a standalone executable](#building-a-standalone-executable)
+- [Packaging with Briefcase](#packaging-with-briefcase)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -54,7 +56,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Optional External Backup Location:** Configure a second directory where backups are automatically copied.
 - **Auto-Lock on Inactivity:** Vault locks after a configurable timeout for additional security.
 - **Quick Unlock:** Optionally skip the password prompt after verifying once.
-- **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
+- **Secret Mode:** When enabled, newly generated and retrieved passwords are copied to your clipboard and automatically cleared after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
@@ -65,8 +67,40 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
 - **Offline Mode:** Disable all Nostr communication for local-only operation.
 
+
 A small on-screen notification area now shows queued messages for 10 seconds
 before fading.
+
+## Architecture Overview
+
+SeedPass follows a layered design. The **`seedpass.core`** package exposes the
+`PasswordManager` along with service classes (e.g. `VaultService` and
+`EntryService`) that implement the main API used across interfaces.
+The command line tool in **`seedpass.cli`** is a thin adapter built with Typer
+that delegates operations to this API layer.
+
+The BeeWare desktop interface lives in **`seedpass_gui.app`** and can be
+started with either `seedpass-gui` or `python -m seedpass_gui`. It reuses the
+same service objects to unlock the vault, list entries and search through them.
+
+An optional browser extension can communicate with the FastAPI server exposed by
+`seedpass.api` to manage entries from within the browser.
+
+```mermaid
+graph TD
+    core["seedpass.core"]
+    cli["CLI"]
+    api["FastAPI server"]
+    gui["BeeWare GUI"]
+    ext["Browser Extension"]
+
+    cli --> core
+    gui --> core
+    api --> core
+    ext --> api
+```
+
+See `docs/ARCHITECTURE.md` for details.
 
 ## Prerequisites
 
@@ -78,6 +112,7 @@ before fading.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
+The scripts also install the correct BeeWare backend for your platform automatically.
 
 **Linux and macOS:**
 ```bash
@@ -87,6 +122,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 ```bash
 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
 ```
+Make sure the command ends right after `-b beta` with **no trailing parenthesis**.
 
 **Windows (PowerShell):**
 ```powershell
@@ -96,6 +132,20 @@ Before running the script, install **Python 3.11** or **3.12** from [python.org]
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python` isn't on your PATH. If these tools are unavailable you'll see a link to download Python directly from <https://www.python.org/downloads/windows/>. When Python 3.13 or newer is detected without the Microsoft C++ build tools, the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
+
+#### Windows Nostr Sync Troubleshooting
+
+When backing up or restoring from Nostr on Windows, a few issues are common:
+
+* **Event loop errors** – Messages like `RuntimeError: Event loop is closed` usually mean the async runtime failed to initialize. Running SeedPass with `--verbose` provides more detail about which coroutine failed.
+* **Permission problems** – If you see `Access is denied` when writing to `~/.seedpass`, launch your terminal with "Run as administrator" so the app can create files in your profile directory.
+* **Missing dependencies** – Ensure `websockets` and other requirements are installed inside your virtual environment:
+
+  ```bash
+  pip install websockets
+  ```
+
+Using increased log verbosity helps diagnose sync issues and confirm that the WebSocket connections to your configured relays succeed.
 ### Uninstall
 
 Run the matching uninstaller if you need to remove a previous installation or clean up an old `seedpass` command:
@@ -195,6 +245,53 @@ seedpass list --filter totp
 ```
 
 For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md). Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
+
+### Getting Started with the GUI
+
+SeedPass also ships with a simple BeeWare desktop interface. Launch it from
+your virtual environment using any of the following commands:
+
+```bash
+seedpass gui
+python -m seedpass_gui
+seedpass-gui
+```
+
+Only `toga-core` and the headless `toga-dummy` backend are included by default.
+The quick installer automatically installs the correct BeeWare backend so the
+GUI works out of the box. If you set up SeedPass manually, install the backend
+for your platform:
+
+```bash
+# Linux
+pip install toga-gtk
+
+# If you see build errors about "cairo" on Linux, install the cairo
+# development headers using your package manager, e.g.:
+sudo apt-get install libcairo2 libcairo2-dev
+
+# Windows
+pip install toga-winforms
+
+# macOS
+pip install toga-cocoa
+```
+
+The GUI works with the same vault and configuration files as the CLI.
+
+```mermaid
+graph TD
+    core["seedpass.core"]
+    cli["CLI"]
+    api["FastAPI server"]
+    gui["BeeWare GUI"]
+    ext["Browser Extension"]
+
+    cli --> core
+    gui --> core
+    api --> core
+    ext --> api
+```
 
 ### Vault JSON Layout
 
@@ -326,11 +423,11 @@ When choosing **Add Entry**, you can now select from:
 
 ### Using Secret Mode
 
-When **Secret Mode** is enabled, SeedPass copies retrieved passwords directly to your clipboard instead of displaying them on screen. The clipboard clears automatically after the delay you choose.
+When **Secret Mode** is enabled, SeedPass copies newly generated and retrieved passwords directly to your clipboard instead of displaying them on screen. The clipboard clears automatically after the delay you choose.
 
 1. From the main menu open **Settings** and select **Toggle Secret Mode**.
 2. Choose how many seconds to keep passwords on the clipboard.
-3. Retrieve an entry and SeedPass will confirm the password was copied.
+3. Generate or retrieve an entry and SeedPass will confirm the password was copied.
 
 ### Viewing Entry Details
 
@@ -494,6 +591,10 @@ If the checksum file is missing, generate it manually:
 python scripts/update_checksum.py
 ```
 
+If SeedPass prints a "script checksum mismatch" warning on startup, regenerate
+the checksum with `seedpass util update-checksum` or select "Generate Script
+Checksum" from the Settings menu.
+
 To run mutation tests locally, generate coverage data first and then execute `mutmut`:
 
 ```bash
@@ -537,7 +638,38 @@ scripts/vendor_dependencies.sh
 pyinstaller SeedPass.spec
 ```
 
+You can also produce packaged installers for the GUI with BeeWare's Briefcase:
+
+```bash
+briefcase build
+```
+
+Pre-built installers are published for each `seedpass-gui` tag. Visit the
+project's **Actions** or **Releases** page on GitHub to download the latest
+package for your platform.
+
 The standalone executable will appear in the `dist/` directory. This process works on Windows, macOS and Linux but you must build on each platform for a native binary.
+
+## Packaging with Briefcase
+
+For step-by-step instructions see [docs/docs/content/01-getting-started/05-briefcase.md](docs/docs/content/01-getting-started/05-briefcase.md).
+
+Install Briefcase and create a platform-specific scaffold:
+
+```bash
+python -m pip install briefcase
+briefcase create
+```
+
+Build and run the packaged GUI:
+
+```bash
+briefcase build
+briefcase run
+```
+
+You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
+
 
 ## Security Considerations
 

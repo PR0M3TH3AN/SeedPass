@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple, TYPE_CHECKING
 import hashlib
 import asyncio
 import gzip
+import threading
 import websockets
 
 # Imports from the nostr-sdk library
@@ -26,12 +27,12 @@ from nostr_sdk import EventId, Timestamp
 
 from .key_manager import KeyManager as SeedPassKeyManager
 from .backup_models import Manifest, ChunkMeta, KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 from constants import MAX_RETRIES, RETRY_DELAY
 from utils.file_lock import exclusive_lock
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type hints
-    from password_manager.config_manager import ConfigManager
+    from seedpass.core.config_manager import ConfigManager
 
 # Backwards compatibility for tests that patch these symbols
 KeyManager = SeedPassKeyManager
@@ -45,6 +46,9 @@ DEFAULT_RELAYS = [
     "wss://nostr.oxtr.dev",
     "wss://relay.primal.net",
 ]
+
+# Identifier prefix for replaceable manifest events
+MANIFEST_ID_PREFIX = "seedpass-manifest-"
 
 
 def prepare_snapshot(
@@ -135,6 +139,7 @@ class NostrClient:
         self.last_error: Optional[str] = None
 
         self.delta_threshold = 100
+        self._state_lock = threading.Lock()
         self.current_manifest: Manifest | None = None
         self.current_manifest_id: str | None = None
         self._delta_events: list[str] = []
@@ -295,8 +300,8 @@ class NostrClient:
 
         if retries is None or delay is None:
             if self.config_manager is None:
-                from password_manager.config_manager import ConfigManager
-                from password_manager.vault import Vault
+                from seedpass.core.config_manager import ConfigManager
+                from seedpass.core.vault import Vault
 
                 cfg_mgr = ConfigManager(
                     Vault(self.encryption_manager, self.fingerprint_dir),
@@ -310,8 +315,7 @@ class NostrClient:
 
         self.connect()
         self.last_error = None
-        attempt = 0
-        while True:
+        for attempt in range(retries):
             try:
                 result = asyncio.run(self._retrieve_json_from_nostr())
                 if result is not None:
@@ -319,10 +323,9 @@ class NostrClient:
             except Exception as e:
                 self.last_error = str(e)
                 logger.error("Failed to retrieve events from Nostr: %s", e)
-            if attempt >= retries:
-                break
-            attempt += 1
-            time.sleep(delay)
+            if attempt < retries - 1:
+                sleep_time = delay * (2**attempt)
+                time.sleep(sleep_time)
         return None
 
     async def _retrieve_json_from_nostr(self) -> Optional[bytes]:
@@ -365,6 +368,7 @@ class NostrClient:
         start = time.perf_counter()
         if self.offline_mode or not self.relays:
             return Manifest(ver=1, algo="gzip", chunks=[]), ""
+        await self.ensure_manifest_is_current()
         await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
         for meta, chunk in zip(manifest.chunks, chunks):
@@ -390,22 +394,24 @@ class NostrClient:
             }
         )
 
+        manifest_identifier = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
         manifest_event = (
             EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+            .tags([Tag.identifier(manifest_identifier)])
             .build(self.keys.public_key())
             .sign_with_keys(self.keys)
         )
-        result = await self.client.send_event(manifest_event)
-        manifest_id = result.id.to_hex() if hasattr(result, "id") else str(result)
-        self.current_manifest = manifest
-        self.current_manifest_id = manifest_id
-        # Record when this snapshot was published for future delta events
-        self.current_manifest.delta_since = int(time.time())
-        self._delta_events = []
+        await self.client.send_event(manifest_event)
+        with self._state_lock:
+            self.current_manifest = manifest
+            self.current_manifest_id = manifest_identifier
+            # Record when this snapshot was published for future delta events
+            self.current_manifest.delta_since = int(time.time())
+            self._delta_events = []
         if getattr(self, "verbose_timing", False):
             duration = time.perf_counter() - start
             logger.info("publish_snapshot completed in %.2f seconds", duration)
-        return manifest, manifest_id
+        return manifest, manifest_identifier
 
     async def _fetch_chunks_with_retry(
         self, manifest_event
@@ -430,11 +436,24 @@ class NostrClient:
         except Exception:
             return None
 
+        if self.config_manager is None:
+            from seedpass.core.config_manager import ConfigManager
+            from seedpass.core.vault import Vault
+
+            cfg_mgr = ConfigManager(
+                Vault(self.encryption_manager, self.fingerprint_dir),
+                self.fingerprint_dir,
+            )
+        else:
+            cfg_mgr = self.config_manager
+        cfg = cfg_mgr.load_config(require_pin=False)
+        max_retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
+        delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
+
         chunks: list[bytes] = []
         for meta in manifest.chunks:
-            attempt = 0
             chunk_bytes: bytes | None = None
-            while attempt < MAX_RETRIES:
+            for attempt in range(max_retries):
                 cf = Filter().author(pubkey).kind(Kind(KIND_SNAPSHOT_CHUNK))
                 if meta.event_id:
                     cf = cf.id(EventId.parse(meta.event_id))
@@ -447,18 +466,33 @@ class NostrClient:
                     if hashlib.sha256(candidate).hexdigest() == meta.hash:
                         chunk_bytes = candidate
                         break
-                attempt += 1
-                if attempt < MAX_RETRIES:
-                    await asyncio.sleep(RETRY_DELAY)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(delay * (2**attempt))
             if chunk_bytes is None:
                 return None
             chunks.append(chunk_bytes)
 
-        man_id = getattr(manifest_event, "id", None)
-        if hasattr(man_id, "to_hex"):
-            man_id = man_id.to_hex()
-        self.current_manifest = manifest
-        self.current_manifest_id = man_id
+        ident = None
+        try:
+            tags_obj = manifest_event.tags()
+            ident = tags_obj.identifier()
+        except Exception:
+            tags = getattr(manifest_event, "tags", None)
+            if callable(tags):
+                tags = tags()
+            if tags:
+                tag = tags[0]
+                if hasattr(tag, "as_vec"):
+                    vec = tag.as_vec()
+                    if vec and len(vec) >= 2:
+                        ident = vec[1]
+                elif isinstance(tag, (list, tuple)) and len(tag) >= 2:
+                    ident = tag[1]
+                elif isinstance(tag, str):
+                    ident = tag
+        with self._state_lock:
+            self.current_manifest = manifest
+            self.current_manifest_id = ident
         return manifest, chunks
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
@@ -467,24 +501,76 @@ class NostrClient:
             return None
         await self._connect_async()
 
+        self.last_error = None
         pubkey = self.keys.public_key()
-        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).limit(3)
+        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
         timeout = timedelta(seconds=10)
-        events = (await self.client.fetch_events(f, timeout)).to_vec()
+        try:
+            events = (await self.client.fetch_events(f, timeout)).to_vec()
+        except Exception as e:  # pragma: no cover - network errors
+            self.last_error = str(e)
+            logger.error(
+                "Failed to fetch manifest from relays %s: %s",
+                self.relays,
+                e,
+            )
+            return None
+
         if not events:
             return None
 
         for manifest_event in events:
-            result = await self._fetch_chunks_with_retry(manifest_event)
-            if result is not None:
-                return result
+            try:
+                result = await self._fetch_chunks_with_retry(manifest_event)
+                if result is not None:
+                    return result
+            except Exception as e:  # pragma: no cover - network errors
+                self.last_error = str(e)
+                logger.error(
+                    "Error retrieving snapshot from relays %s: %s",
+                    self.relays,
+                    e,
+                )
+
+        if self.last_error is None:
+            self.last_error = "Snapshot not found on relays"
 
         return None
+
+    async def ensure_manifest_is_current(self) -> None:
+        """Verify the local manifest is up to date before publishing."""
+        if self.offline_mode or not self.relays:
+            return
+        await self._connect_async()
+        pubkey = self.keys.public_key()
+        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
+        timeout = timedelta(seconds=10)
+        try:
+            events = (await self.client.fetch_events(f, timeout)).to_vec()
+        except Exception:
+            return
+        if not events:
+            return
+        try:
+            data = json.loads(events[0].content())
+            remote = data.get("delta_since")
+            if remote is not None:
+                remote = int(remote)
+        except Exception:
+            return
+        with self._state_lock:
+            local = self.current_manifest.delta_since if self.current_manifest else None
+        if remote is not None and (local is None or remote > local):
+            self.last_error = "Manifest out of date"
+            raise RuntimeError("Manifest out of date")
 
     async def publish_delta(self, delta_bytes: bytes, manifest_id: str) -> str:
         """Publish a delta event referencing a manifest."""
         if self.offline_mode or not self.relays:
             return ""
+        await self.ensure_manifest_is_current()
         await self._connect_async()
 
         content = base64.b64encode(delta_bytes).decode("utf-8")
@@ -498,24 +584,29 @@ class NostrClient:
         )
         if hasattr(created_at, "secs"):
             created_at = created_at.secs
-        if self.current_manifest is not None:
-            self.current_manifest.delta_since = int(created_at)
-            manifest_json = json.dumps(
-                {
-                    "ver": self.current_manifest.ver,
-                    "algo": self.current_manifest.algo,
-                    "chunks": [meta.__dict__ for meta in self.current_manifest.chunks],
-                    "delta_since": self.current_manifest.delta_since,
-                }
-            )
-            manifest_event = (
-                EventBuilder(Kind(KIND_MANIFEST), manifest_json)
-                .tags([Tag.identifier(self.current_manifest_id)])
-                .build(self.keys.public_key())
-                .sign_with_keys(self.keys)
-            )
+        manifest_event = None
+        with self._state_lock:
+            if self.current_manifest is not None:
+                self.current_manifest.delta_since = int(created_at)
+                manifest_json = json.dumps(
+                    {
+                        "ver": self.current_manifest.ver,
+                        "algo": self.current_manifest.algo,
+                        "chunks": [
+                            meta.__dict__ for meta in self.current_manifest.chunks
+                        ],
+                        "delta_since": self.current_manifest.delta_since,
+                    }
+                )
+                manifest_event = (
+                    EventBuilder(Kind(KIND_MANIFEST), manifest_json)
+                    .tags([Tag.identifier(self.current_manifest_id)])
+                    .build(self.keys.public_key())
+                    .sign_with_keys(self.keys)
+                )
+            self._delta_events.append(delta_id)
+        if manifest_event is not None:
             await self.client.send_event(manifest_event)
-        self._delta_events.append(delta_id)
         return delta_id
 
     async def fetch_deltas_since(self, version: int) -> list[bytes]:
@@ -533,12 +624,16 @@ class NostrClient:
         )
         timeout = timedelta(seconds=10)
         events = (await self.client.fetch_events(f, timeout)).to_vec()
+        events.sort(
+            key=lambda ev: getattr(ev, "created_at", getattr(ev, "timestamp", 0))
+        )
         deltas: list[bytes] = []
         for ev in events:
             deltas.append(base64.b64decode(ev.content().encode("utf-8")))
 
-        if self.current_manifest is not None:
-            snap_size = sum(c.size for c in self.current_manifest.chunks)
+        manifest = self.get_current_manifest()
+        if manifest is not None:
+            snap_size = sum(c.size for c in manifest.chunks)
             if (
                 len(deltas) >= self.delta_threshold
                 or sum(len(d) for d in deltas) > snap_size
@@ -556,6 +651,21 @@ class NostrClient:
                     ).sign_with_keys(self.keys)
                     await self.client.send_event(exp_event)
         return deltas
+
+    def get_current_manifest(self) -> Manifest | None:
+        """Thread-safe access to ``current_manifest``."""
+        with self._state_lock:
+            return self.current_manifest
+
+    def get_current_manifest_id(self) -> str | None:
+        """Thread-safe access to ``current_manifest_id``."""
+        with self._state_lock:
+            return self.current_manifest_id
+
+    def get_delta_events(self) -> list[str]:
+        """Thread-safe snapshot of pending delta event IDs."""
+        with self._state_lock:
+            return list(self._delta_events)
 
     def close_client_pool(self) -> None:
         """Disconnects the client from all relays."""

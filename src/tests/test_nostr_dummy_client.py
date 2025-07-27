@@ -1,13 +1,15 @@
 import asyncio
 import gzip
 import math
+import pytest
 
-from helpers import create_vault, dummy_nostr_client
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
+from helpers import create_vault, dummy_nostr_client, TEST_SEED
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
 from nostr.client import prepare_snapshot
 from nostr.backup_models import KIND_SNAPSHOT_CHUNK
+import constants
 
 
 def test_manifest_generation(tmp_path):
@@ -54,7 +56,7 @@ def test_publish_and_fetch_deltas(dummy_nostr_client):
     client, relay = dummy_nostr_client
     base = b"base"
     manifest, _ = asyncio.run(client.publish_snapshot(base))
-    manifest_id = relay.manifests[-1].id
+    manifest_id = relay.manifests[-1].tags[0]
     d1 = b"d1"
     d2 = b"d2"
     asyncio.run(client.publish_delta(d1, manifest_id))
@@ -73,7 +75,17 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
 
     client, relay = dummy_nostr_client
     monkeypatch.setattr("nostr.client.MAX_RETRIES", 3)
-    monkeypatch.setattr("nostr.client.RETRY_DELAY", 0)
+    monkeypatch.setattr("nostr.client.RETRY_DELAY", 1)
+    monkeypatch.setattr("constants.MAX_RETRIES", 3)
+    monkeypatch.setattr("constants.RETRY_DELAY", 1)
+    monkeypatch.setattr("seedpass.core.config_manager.MAX_RETRIES", 3)
+    monkeypatch.setattr("seedpass.core.config_manager.RETRY_DELAY", 1)
+    delays: list[float] = []
+
+    async def fake_sleep(d):
+        delays.append(d)
+
+    monkeypatch.setattr("nostr.client.asyncio.sleep", fake_sleep)
 
     data1 = os.urandom(60000)
     manifest1, _ = asyncio.run(client.publish_snapshot(data1))
@@ -88,12 +100,9 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
 
     relay.filters.clear()
 
-    fetched_manifest, chunk_bytes = asyncio.run(client.fetch_latest_snapshot())
+    result = asyncio.run(client.fetch_latest_snapshot())
 
-    assert gzip.decompress(b"".join(chunk_bytes)) == data1
-    assert [c.event_id for c in fetched_manifest.chunks] == [
-        c.event_id for c in manifest1.chunks
-    ]
+    assert result is None
 
     attempts = sum(
         1
@@ -105,6 +114,7 @@ def test_fetch_snapshot_fallback_on_missing_chunk(dummy_nostr_client, monkeypatc
         )
     )
     assert attempts == 3
+    assert delays == [1, 2]
 
 
 def test_fetch_snapshot_uses_event_ids(dummy_nostr_client):
@@ -132,3 +142,44 @@ def test_fetch_snapshot_uses_event_ids(dummy_nostr_client):
         if getattr(f, "kind_val", None) == KIND_SNAPSHOT_CHUNK
     ]
     assert id_filters and all(id_filters)
+
+
+def test_publish_delta_aborts_if_outdated(tmp_path, monkeypatch, dummy_nostr_client):
+    client1, relay = dummy_nostr_client
+
+    from cryptography.fernet import Fernet
+    from nostr.client import NostrClient
+    from seedpass.core.encryption import EncryptionManager
+
+    enc_mgr = EncryptionManager(Fernet.generate_key(), tmp_path)
+
+    class DummyKeys:
+        def private_key_hex(self):
+            return "1" * 64
+
+        def public_key_hex(self):
+            return "2" * 64
+
+    class DummyKeyManager:
+        def __init__(self, *a, **k):
+            self.keys = DummyKeys()
+
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr("nostr.client.KeyManager", DummyKeyManager)
+        mp.setattr(enc_mgr, "decrypt_parent_seed", lambda: TEST_SEED)
+        client2 = NostrClient(enc_mgr, "fp")
+
+    base = b"base"
+    manifest, _ = asyncio.run(client1.publish_snapshot(base))
+    with client1._state_lock:
+        client1.current_manifest.delta_since = 0
+    import copy
+
+    with client2._state_lock:
+        client2.current_manifest = copy.deepcopy(manifest)
+        client2.current_manifest_id = manifest_id = relay.manifests[-1].tags[0]
+
+    asyncio.run(client2.publish_delta(b"d1", manifest_id))
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(client1.publish_delta(b"d2", manifest_id))

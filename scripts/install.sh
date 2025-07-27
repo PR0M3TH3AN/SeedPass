@@ -86,13 +86,26 @@ main() {
     # 3. Install OS-specific dependencies
     print_info "Checking for build dependencies..."
     if [ "$OS_NAME" = "Linux" ]; then
-        if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y build-essential pkg-config xclip;
-        elif command -v dnf &> /dev/null; then sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y pkg-config xclip;
-        elif command -v pacman &> /dev/null; then sudo pacman -Syu --noconfirm base-devel pkg-config xclip;
-        else print_warning "Could not detect package manager. Ensure build tools and pkg-config are installed."; fi
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y \
+                build-essential pkg-config xclip \
+                libcairo2 libcairo2-dev \
+                libgirepository-2.0-dev gir1.2-girepository-2.0 \
+                gobject-introspection \
+                gir1.2-gtk-3.0 python3-dev
+        elif command -v dnf &> /dev/null; then
+            sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
+                pkg-config cairo cairo-devel xclip \
+                gobject-introspection-devel cairo-devel gtk3-devel python3-devel
+        elif command -v pacman &> /dev/null; then
+            sudo pacman -Syu --noconfirm base-devel pkg-config cairo xclip \
+                gobject-introspection cairo gtk3 python
+        else
+            print_warning "Could not detect package manager. Ensure build tools, cairo, and pkg-config are installed."
+        fi
     elif [ "$OS_NAME" = "Darwin" ]; then
         if ! command -v brew &> /dev/null; then print_error "Homebrew not installed. See https://brew.sh/"; fi
-        brew install pkg-config
+        brew install pkg-config cairo
     fi
 
     # 4. Clone or update the repository
@@ -120,6 +133,14 @@ main() {
     pip install --upgrade pip
     pip install -r src/requirements.txt
     pip install -e .
+    print_info "Installing platform-specific Toga backend..."
+    if [ "$OS_NAME" = "Linux" ]; then
+        print_info "Installing toga-gtk for Linux..."
+        pip install toga-gtk
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        print_info "Installing toga-cocoa for macOS..."
+        pip install toga-cocoa
+    fi
     deactivate
 
     # 7. Create launcher script
@@ -136,6 +157,23 @@ EOF2
     if [ -n "$existing_cmd" ] && [ "$existing_cmd" != "$LAUNCHER_PATH" ]; then
         print_warning "Another 'seedpass' command was found at $existing_cmd."
         print_warning "Ensure '$LAUNCHER_DIR' comes first in your PATH or remove the old installation."
+    fi
+
+    # Detect any additional seedpass executables on PATH that are not our launcher
+    IFS=':' read -ra _sp_paths <<< "$PATH"
+    stale_cmds=()
+    for _dir in "${_sp_paths[@]}"; do
+        _candidate="$_dir/seedpass"
+        if [ -x "$_candidate" ] && [ "$_candidate" != "$LAUNCHER_PATH" ]; then
+            stale_cmds+=("$_candidate")
+        fi
+    done
+    if [ ${#stale_cmds[@]} -gt 0 ]; then
+        print_warning "Stale 'seedpass' executables detected:"
+        for cmd in "${stale_cmds[@]}"; do
+            print_warning "  - $cmd"
+        done
+        print_warning "Remove or rename these to avoid launching outdated code."
     fi
 
     # 8. Final instructions

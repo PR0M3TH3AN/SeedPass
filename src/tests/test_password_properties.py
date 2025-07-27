@@ -5,8 +5,8 @@ from hypothesis import given, strategies as st, settings
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.password_generation import PasswordGenerator, PasswordPolicy
-from password_manager.entry_types import EntryType
+from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
+from seedpass.core.entry_types import EntryType
 
 
 class DummyEnc:

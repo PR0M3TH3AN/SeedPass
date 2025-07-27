@@ -8,10 +8,10 @@ from utils.key_derivation import (
     derive_key_from_password_argon2,
     derive_index_key,
 )
-from password_manager.encryption import EncryptionManager
-from password_manager.vault import Vault
-from password_manager.config_manager import ConfigManager
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.encryption import EncryptionManager
+from seedpass.core.vault import Vault
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 TEST_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 TEST_PASSWORD = "pw"
@@ -59,12 +59,12 @@ def test_setup_encryption_manager_kdf_modes(monkeypatch):
             cfg = _setup_profile(path, mode)
             pm = _make_pm(path, cfg)
             monkeypatch.setattr(
-                "password_manager.manager.prompt_existing_password",
+                "seedpass.core.manager.prompt_existing_password",
                 lambda *_: TEST_PASSWORD,
             )
             if mode == "argon2":
                 monkeypatch.setattr(
-                    "password_manager.manager.derive_key_from_password_argon2",
+                    "seedpass.core.manager.derive_key_from_password_argon2",
                     lambda pw: derive_key_from_password_argon2(pw, **argon_kwargs),
                 )
             monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)

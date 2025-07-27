@@ -84,12 +84,24 @@ jobs:
         timeout-minutes: 16
         shell: bash
         run: scripts/run_ci_tests.sh
+      - name: Run desktop tests
+        timeout-minutes: 10
+        shell: bash
+        env:
+          TOGA_BACKEND: toga_dummy
+        run: scripts/run_gui_tests.sh
       - name: Upload pytest log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pytest-log-${{ matrix.os }}
           path: pytest.log
+      - name: Upload GUI pytest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-pytest-log-${{ matrix.os }}
+          path: pytest_gui.log
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:

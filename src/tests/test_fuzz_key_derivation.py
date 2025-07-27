@@ -9,7 +9,7 @@ from utils.key_derivation import (
     derive_key_from_password_argon2,
     derive_index_key,
 )
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 
 
 cfg_values = st.one_of(

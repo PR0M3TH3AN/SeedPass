@@ -5,8 +5,8 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager
-from password_manager import manager as manager_module
+from seedpass.core.manager import PasswordManager
+from seedpass.core import manager as manager_module
 
 
 def test_unlock_triggers_sync(monkeypatch, tmp_path):
@@ -22,7 +22,7 @@ def test_unlock_triggers_sync(monkeypatch, tmp_path):
 
     monkeypatch.setattr(PasswordManager, "sync_index_from_nostr", fake_sync)
 
-    pm.unlock_vault()
+    pm.unlock_vault("pw")
     pm.start_background_sync()
     time.sleep(0.05)
 

@@ -3,7 +3,7 @@ import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from password_manager.manager import PasswordManager, EncryptionMode
+from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
 def load_script():
@@ -33,7 +33,7 @@ def test_initialize_profile_and_manager(monkeypatch):
         pm.current_fingerprint = fingerprint
 
         monkeypatch.setattr(
-            "password_manager.manager.prompt_existing_password",
+            "seedpass.core.manager.prompt_existing_password",
             lambda *_: gtp.DEFAULT_PASSWORD,
         )
         monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)

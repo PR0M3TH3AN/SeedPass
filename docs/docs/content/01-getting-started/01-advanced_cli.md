@@ -116,6 +116,10 @@ Miscellaneous helper commands.
 | Verify script checksum | `util verify-checksum` | `seedpass util verify-checksum` |
 | Update script checksum | `util update-checksum` | `seedpass util update-checksum` |
 
+If you see a startup warning about a script checksum mismatch,
+run `seedpass util update-checksum` or choose "Generate Script Checksum"
+from the Settings menu to update the stored value.
+
 ### API Commands
 
 Run or stop the local HTTP API.

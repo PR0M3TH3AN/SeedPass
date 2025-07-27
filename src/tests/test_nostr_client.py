@@ -9,9 +9,10 @@ import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 from nostr.client import NostrClient
 import nostr.client as nostr_client
+import constants
 
 
 def test_nostr_client_uses_custom_relays():
@@ -151,3 +152,31 @@ def test_update_relays_reinitializes_pool(tmp_path, monkeypatch):
     assert called["ran"] is True
     assert isinstance(client.client, FakeAddRelaysClient)
     assert client.relays == new_relays
+
+
+def test_retrieve_json_sync_backoff(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    monkeypatch.setattr("nostr.client.MAX_RETRIES", 3)
+    monkeypatch.setattr("nostr.client.RETRY_DELAY", 1)
+    monkeypatch.setattr("constants.MAX_RETRIES", 3)
+    monkeypatch.setattr("constants.RETRY_DELAY", 1)
+    monkeypatch.setattr("seedpass.core.config_manager.MAX_RETRIES", 3)
+    monkeypatch.setattr("seedpass.core.config_manager.RETRY_DELAY", 1)
+
+    sleeps: list[float] = []
+
+    def fake_sleep(d):
+        sleeps.append(d)
+
+    monkeypatch.setattr(nostr_client.time, "sleep", fake_sleep)
+
+    async def fake_async(self):
+        return None
+
+    monkeypatch.setattr(NostrClient, "_retrieve_json_from_nostr", fake_async)
+
+    result = client.retrieve_json_from_nostr_sync()
+
+    assert result is None
+    assert sleeps == [1, 2]

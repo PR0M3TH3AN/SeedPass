@@ -1,4 +1,4 @@
-# password_manager/manager.py
+# seedpass.core/manager.py
 
 """
 Password Manager Module
@@ -25,14 +25,15 @@ from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
 
-from password_manager.encryption import EncryptionManager
-from password_manager.entry_management import EntryManager
-from password_manager.password_generation import PasswordGenerator
-from password_manager.backup import BackupManager
-from password_manager.vault import Vault
-from password_manager.portable_backup import export_backup, import_backup
-from password_manager.totp import TotpManager
-from password_manager.entry_types import EntryType
+from .encryption import EncryptionManager
+from .entry_management import EntryManager
+from .password_generation import PasswordGenerator
+from .backup import BackupManager
+from .vault import Vault
+from .portable_backup import export_backup, import_backup
+from .totp import TotpManager
+from .entry_types import EntryType
+from .pubsub import bus
 from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
@@ -64,7 +65,7 @@ from utils.terminal_utils import (
 )
 from utils.fingerprint import generate_fingerprint
 from constants import MIN_HEALTHY_RELAYS
-from password_manager.migrations import LATEST_VERSION
+from .migrations import LATEST_VERSION
 
 from constants import (
     APP_DIR,
@@ -94,7 +95,8 @@ from utils.fingerprint_manager import FingerprintManager
 
 # Import NostrClient
 from nostr.client import NostrClient, DEFAULT_RELAYS
-from password_manager.config_manager import ConfigManager
+from .config_manager import ConfigManager
+from .state_manager import StateManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -108,6 +110,24 @@ class Notification:
     level: str = "INFO"
 
 
+class AuthGuard:
+    """Helper to enforce inactivity timeouts."""
+
+    def __init__(
+        self, manager: "PasswordManager", time_fn: callable = time.time
+    ) -> None:
+        self.manager = manager
+        self._time_fn = time_fn
+
+    def check_timeout(self) -> None:
+        """Lock the vault if the inactivity timeout has been exceeded."""
+        timeout = getattr(self.manager, "inactivity_timeout", 0)
+        if self.manager.locked or timeout <= 0:
+            return
+        if self._time_fn() - self.manager.last_activity > timeout:
+            self.manager.lock_vault()
+
+
 class PasswordManager:
     """
     PasswordManager Class
@@ -117,7 +137,9 @@ class PasswordManager:
     verification, ensuring the integrity and confidentiality of the stored password database.
     """
 
-    def __init__(self, fingerprint: Optional[str] = None) -> None:
+    def __init__(
+        self, fingerprint: Optional[str] = None, *, password: Optional[str] = None
+    ) -> None:
         """Initialize the PasswordManager.
 
         Parameters
@@ -138,6 +160,7 @@ class PasswordManager:
         self.bip85: Optional[BIP85] = None
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
+        self.state_manager: Optional[StateManager] = None
         self.notifications: queue.Queue[Notification] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
@@ -155,13 +178,16 @@ class PasswordManager:
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
         self._suppress_entry_actions_menu: bool = False
+        self.last_bip85_idx: int = 0
+        self.last_sync_ts: int = 0
+        self.auth_guard = AuthGuard(self)
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
 
         if fingerprint:
             # Load the specified profile without prompting
-            self.select_fingerprint(fingerprint)
+            self.select_fingerprint(fingerprint, password=password)
         else:
             # Ensure a parent seed is set up before accessing the fingerprint directory
             self.setup_parent_seed()
@@ -186,6 +212,11 @@ class PasswordManager:
                     "yellow",
                 )
             )
+
+    @staticmethod
+    def get_password_prompt() -> str:
+        """Return the standard prompt for requesting a master password."""
+        return "Enter your master password: "
 
     @property
     def parent_seed(self) -> Optional[str]:
@@ -229,7 +260,12 @@ class PasswordManager:
         return (None, parent_fp, self.current_fingerprint)
 
     def update_activity(self) -> None:
-        """Record the current time as the last user activity."""
+        """Record activity and enforce inactivity timeout."""
+        guard = getattr(self, "auth_guard", None)
+        if guard is None:
+            guard = AuthGuard(self)
+            self.auth_guard = guard
+        guard.check_timeout()
         self.last_activity = time.time()
 
     def notify(self, message: str, level: str = "INFO") -> None:
@@ -268,26 +304,35 @@ class PasswordManager:
         self.nostr_client = None
         self.config_manager = None
         self.locked = True
+        bus.publish("vault_locked")
 
-    def unlock_vault(self) -> None:
-        """Prompt for password and reinitialize managers."""
+    def unlock_vault(self, password: Optional[str] = None) -> float:
+        """Unlock the vault using the provided ``password``.
+
+        Parameters
+        ----------
+        password:
+            Master password for the active profile.
+
+        Returns
+        -------
+        float
+            Duration of the unlock process in seconds.
+        """
         start = time.perf_counter()
         if not self.fingerprint_dir:
             raise ValueError("Fingerprint directory not set")
-        self.setup_encryption_manager(self.fingerprint_dir)
+        if password is None:
+            password = prompt_existing_password(self.get_password_prompt())
+        self.setup_encryption_manager(self.fingerprint_dir, password)
         self.initialize_bip85()
         self.initialize_managers()
         self.locked = False
         self.update_activity()
         self.last_unlock_duration = time.perf_counter() - start
-        print(
-            colored(
-                f"Vault unlocked in {self.last_unlock_duration:.2f} seconds",
-                "yellow",
-            )
-        )
         if getattr(self, "verbose_timing", False):
             logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
+        return self.last_unlock_duration
 
     def initialize_fingerprint_manager(self):
         """
@@ -394,7 +439,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
             sys.exit(1)
 
-    def select_fingerprint(self, fingerprint: str) -> None:
+    def select_fingerprint(
+        self, fingerprint: str, *, password: Optional[str] = None
+    ) -> None:
         if self.fingerprint_manager.select_fingerprint(fingerprint):
             self.current_fingerprint = fingerprint  # Add this line
             self.fingerprint_dir = (
@@ -409,7 +456,7 @@ class PasswordManager:
                 )
                 sys.exit(1)
             # Setup the encryption manager and load parent seed
-            self.setup_encryption_manager(self.fingerprint_dir)
+            self.setup_encryption_manager(self.fingerprint_dir, password)
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -531,7 +578,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             sys.exit(1)
 
-    def handle_switch_fingerprint(self) -> bool:
+    def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
         """
         Handles switching to a different seed profile.
 
@@ -572,9 +619,10 @@ class PasswordManager:
                 return False  # Return False to indicate failure
 
             # Prompt for master password for the selected seed profile
-            password = prompt_existing_password(
-                "Enter the master password for the selected seed profile: "
-            )
+            if password is None:
+                password = prompt_existing_password(
+                    "Enter the master password for the selected seed profile: "
+                )
 
             # Set up the encryption manager with the new password and seed profile directory
             if not self.setup_encryption_manager(
@@ -596,6 +644,17 @@ class PasswordManager:
                     config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
+                if getattr(self, "manifest_id", None):
+                    from nostr.backup_models import Manifest
+
+                    with self.nostr_client._state_lock:
+                        self.nostr_client.current_manifest_id = self.manifest_id
+                        self.nostr_client.current_manifest = Manifest(
+                            ver=1,
+                            algo="gzip",
+                            chunks=[],
+                            delta_since=self.delta_since or None,
+                        )
                 logging.info(
                     f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
                 )
@@ -661,14 +720,14 @@ class PasswordManager:
         self.update_activity()
         self.start_background_sync()
 
-    def handle_existing_seed(self) -> None:
+    def handle_existing_seed(self, *, password: Optional[str] = None) -> None:
         """
         Handles the scenario where an existing parent seed file is found.
         Prompts the user for the master password to decrypt the seed.
         """
         try:
-            # Prompt for password using masked input
-            password = prompt_existing_password("Enter your login password: ")
+            if password is None:
+                password = prompt_existing_password("Enter your login password: ")
 
             # Derive encryption key from password
             iterations = (
@@ -763,7 +822,11 @@ class PasswordManager:
             sys.exit(1)
 
     def setup_existing_seed(
-        self, method: Literal["paste", "words"] = "paste"
+        self,
+        method: Literal["paste", "words"] = "paste",
+        *,
+        seed: Optional[str] = None,
+        password: Optional[str] = None,
     ) -> Optional[str]:
         """Prompt for an existing BIP-85 seed and set it up.
 
@@ -779,7 +842,9 @@ class PasswordManager:
             The fingerprint if setup is successful, ``None`` otherwise.
         """
         try:
-            if method == "words":
+            if seed is not None:
+                parent_seed = seed
+            elif method == "words":
                 parent_seed = prompt_seed_words()
             else:
                 parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
@@ -789,17 +854,21 @@ class PasswordManager:
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
                 sys.exit(1)
 
-            return self._finalize_existing_seed(parent_seed)
+            return self._finalize_existing_seed(parent_seed, password=password)
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             self.notify("Operation cancelled by user.", level="WARNING")
             sys.exit(0)
 
-    def setup_existing_seed_word_by_word(self) -> Optional[str]:
+    def setup_existing_seed_word_by_word(
+        self, *, seed: Optional[str] = None, password: Optional[str] = None
+    ) -> Optional[str]:
         """Prompt for an existing seed one word at a time and set it up."""
-        return self.setup_existing_seed(method="words")
+        return self.setup_existing_seed(method="words", seed=seed, password=password)
 
-    def _finalize_existing_seed(self, parent_seed: str) -> Optional[str]:
+    def _finalize_existing_seed(
+        self, parent_seed: str, *, password: Optional[str] = None
+    ) -> Optional[str]:
         """Common logic for initializing an existing seed."""
         if self.validate_bip85_seed(parent_seed):
             fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
@@ -827,7 +896,8 @@ class PasswordManager:
             logging.info(f"Current seed profile set to {fingerprint}")
 
             try:
-                password = prompt_for_password()
+                if password is None:
+                    password = prompt_for_password()
                 index_key = derive_index_key(parent_seed)
                 iterations = (
                     self.config_manager.get_kdf_iterations()
@@ -961,7 +1031,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             sys.exit(1)
 
-    def save_and_encrypt_seed(self, seed: str, fingerprint_dir: Path) -> None:
+    def save_and_encrypt_seed(
+        self, seed: str, fingerprint_dir: Path, *, password: Optional[str] = None
+    ) -> None:
         """
         Saves and encrypts the parent seed.
 
@@ -973,8 +1045,8 @@ class PasswordManager:
             # Set self.fingerprint_dir
             self.fingerprint_dir = fingerprint_dir
 
-            # Prompt for password
-            password = prompt_for_password()
+            if password is None:
+                password = prompt_for_password()
 
             index_key = derive_index_key(seed)
             iterations = (
@@ -1042,6 +1114,7 @@ class PasswordManager:
                 vault=self.vault,
                 fingerprint_dir=self.fingerprint_dir,
             )
+            self.state_manager = StateManager(self.fingerprint_dir)
             self.backup_manager = BackupManager(
                 fingerprint_dir=self.fingerprint_dir,
                 config_manager=self.config_manager,
@@ -1060,7 +1133,19 @@ class PasswordManager:
 
             # Load relay configuration and initialize NostrClient
             config = self.config_manager.load_config()
-            relay_list = config.get("relays", list(DEFAULT_RELAYS))
+            if getattr(self, "state_manager", None) is not None:
+                state = self.state_manager.state
+                relay_list = state.get("relays", list(DEFAULT_RELAYS))
+                self.last_bip85_idx = state.get("last_bip85_idx", 0)
+                self.last_sync_ts = state.get("last_sync_ts", 0)
+                self.manifest_id = state.get("manifest_id")
+                self.delta_since = state.get("delta_since", 0)
+            else:
+                relay_list = list(DEFAULT_RELAYS)
+                self.last_bip85_idx = 0
+                self.last_sync_ts = 0
+                self.manifest_id = None
+                self.delta_since = 0
             self.offline_mode = bool(config.get("offline_mode", False))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
@@ -1079,6 +1164,18 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
+            if getattr(self, "manifest_id", None):
+                from nostr.backup_models import Manifest
+
+                with self.nostr_client._state_lock:
+                    self.nostr_client.current_manifest_id = self.manifest_id
+                    self.nostr_client.current_manifest = Manifest(
+                        ver=1,
+                        algo="gzip",
+                        chunks=[],
+                        delta_since=self.delta_since or None,
+                    )
+
             logger.debug("Managers re-initialized for the new fingerprint.")
 
         except Exception as e:
@@ -1086,45 +1183,77 @@ class PasswordManager:
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             sys.exit(1)
 
-    def sync_index_from_nostr(self) -> None:
+    async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
         start = time.perf_counter()
         try:
-            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            result = await self.nostr_client.fetch_latest_snapshot()
             if not result:
+                if self.nostr_client.last_error:
+                    logger.warning(
+                        "Unable to fetch latest snapshot from Nostr relays %s: %s",
+                        self.nostr_client.relays,
+                        self.nostr_client.last_error,
+                    )
+                    self.notify(
+                        f"Sync failed: {self.nostr_client.last_error}",
+                        level="WARNING",
+                    )
                 return
             manifest, chunks = result
             encrypted = gzip.decompress(b"".join(chunks))
-            if manifest.delta_since:
-                version = int(manifest.delta_since)
-                deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                if deltas:
-                    encrypted = deltas[-1]
             current = self.vault.get_encrypted_index()
+            updated = False
             if current != encrypted:
                 if self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False
+                    encrypted, strict=False, merge=False
                 ):
-                    logger.info("Local database synchronized from Nostr.")
+                    updated = True
+                    current = encrypted
+            if manifest.delta_since:
+                version = int(manifest.delta_since)
+                deltas = await self.nostr_client.fetch_deltas_since(version)
+                for delta in deltas:
+                    if current != delta:
+                        if self.vault.decrypt_and_save_index_from_nostr(
+                            delta, strict=False, merge=True
+                        ):
+                            updated = True
+                            current = delta
+            if updated:
+                logger.info("Local database synchronized from Nostr.")
         except Exception as e:
-            logger.warning(f"Unable to sync index from Nostr: {e}")
+            logger.warning(
+                "Unable to sync index from Nostr relays %s: %s",
+                self.nostr_client.relays,
+                e,
+            )
+            if self.nostr_client.last_error:
+                logger.warning(
+                    "NostrClient last error: %s", self.nostr_client.last_error
+                )
+            self.notify(
+                f"Sync failed: {self.nostr_client.last_error or e}",
+                level="WARNING",
+            )
         finally:
             if getattr(self, "verbose_timing", False):
                 duration = time.perf_counter() - start
                 logger.info("sync_index_from_nostr completed in %.2f seconds", duration)
 
+    def sync_index_from_nostr(self) -> None:
+        asyncio.run(self.sync_index_from_nostr_async())
+
     def start_background_sync(self) -> None:
         """Launch a thread to synchronize the vault without blocking the UI."""
         if getattr(self, "offline_mode", False):
             return
-        if (
-            hasattr(self, "_sync_thread")
-            and self._sync_thread
-            and self._sync_thread.is_alive()
+        if getattr(self, "_sync_task", None) and not getattr(
+            self._sync_task, "done", True
         ):
             return
 
-        def _worker() -> None:
+        async def _worker() -> None:
             try:
                 if hasattr(self, "nostr_client") and hasattr(self, "vault"):
                     self.attempt_initial_sync()
@@ -1133,8 +1262,12 @@ class PasswordManager:
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
 
-        self._sync_thread = threading.Thread(target=_worker, daemon=True)
-        self._sync_thread.start()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(target=lambda: asyncio.run(_worker()), daemon=True).start()
+        else:
+            self._sync_task = asyncio.create_task(_worker())
 
     def start_background_relay_check(self) -> None:
         """Check relay health in a background thread."""
@@ -1170,13 +1303,26 @@ class PasswordManager:
 
         def _worker() -> None:
             try:
-                self.sync_vault(alt_summary=alt_summary)
+                bus.publish("sync_started")
+                result = asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
+                bus.publish("sync_finished", result)
             except Exception as exc:
                 logging.error(f"Background vault sync failed: {exc}", exc_info=True)
 
-        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(target=_worker, daemon=True).start()
+        else:
 
-    def attempt_initial_sync(self) -> bool:
+            async def _async_worker() -> None:
+                bus.publish("sync_started")
+                result = await self.sync_vault_async(alt_summary=alt_summary)
+                bus.publish("sync_finished", result)
+
+            asyncio.create_task(_async_worker())
+
+    async def attempt_initial_sync_async(self) -> bool:
         """Attempt to download the initial vault snapshot from Nostr.
 
         Returns ``True`` if the snapshot was successfully downloaded and the
@@ -1190,21 +1336,26 @@ class PasswordManager:
         have_data = False
         start = time.perf_counter()
         try:
-            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            result = await self.nostr_client.fetch_latest_snapshot()
             if result:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
-                if manifest.delta_since:
-                    version = int(manifest.delta_since)
-                    deltas = asyncio.run(self.nostr_client.fetch_deltas_since(version))
-                    if deltas:
-                        encrypted = deltas[-1]
                 success = self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False
+                    encrypted, strict=False, merge=False
                 )
                 if success:
-                    logger.info("Initialized local database from Nostr.")
                     have_data = True
+                    current = encrypted
+                    if manifest.delta_since:
+                        version = int(manifest.delta_since)
+                        deltas = await self.nostr_client.fetch_deltas_since(version)
+                        for delta in deltas:
+                            if current != delta:
+                                if self.vault.decrypt_and_save_index_from_nostr(
+                                    delta, strict=False, merge=True
+                                ):
+                                    current = delta
+                    logger.info("Initialized local database from Nostr.")
         except Exception as e:  # pragma: no cover - network errors
             logger.warning(f"Unable to sync index from Nostr: {e}")
         finally:
@@ -1214,17 +1365,23 @@ class PasswordManager:
 
         return have_data
 
+    def attempt_initial_sync(self) -> bool:
+        return asyncio.run(self.attempt_initial_sync_async())
+
     def sync_index_from_nostr_if_missing(self) -> None:
         """Retrieve the password database from Nostr if it doesn't exist locally.
 
         If no valid data is found or decryption fails, initialize a fresh local
         database and publish it to Nostr.
         """
-        success = self.attempt_initial_sync()
+        asyncio.run(self.sync_index_from_nostr_if_missing_async())
+
+    async def sync_index_from_nostr_if_missing_async(self) -> None:
+        success = await self.attempt_initial_sync_async()
         if not success:
             self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})
             try:
-                self.sync_vault()
+                await self.sync_vault_async()
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning(f"Unable to publish fresh database: {exc}")
 
@@ -1309,7 +1466,16 @@ class PasswordManager:
                     "green",
                 )
             )
-            print(colored(f"Password for {website_name}: {password}\n", "yellow"))
+            if self.secret_mode_enabled:
+                copy_to_clipboard(password, self.clipboard_clear_delay)
+                print(
+                    colored(
+                        f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                        "green",
+                    )
+                )
+            else:
+                print(colored(f"Password for {website_name}: {password}\n", "yellow"))
 
             # Automatically push the updated encrypted index to Nostr so the
             # latest changes are backed up remotely.
@@ -1567,7 +1733,7 @@ class PasswordManager:
             print(colored("Seed Phrase:", "cyan"))
             print(color_text(phrase, "deterministic"))
             if confirm_action("Show Compact Seed QR? (Y/N): "):
-                from password_manager.seedqr import encode_seedqr
+                from .seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
             try:
@@ -1829,7 +1995,7 @@ class PasswordManager:
                 else:
                     print(color_text(seed, "deterministic"))
                 if confirm_action("Show Compact Seed QR? (Y/N): "):
-                    from password_manager.seedqr import encode_seedqr
+                    from .seedqr import encode_seedqr
 
                     TotpManager.print_qr_code(encode_seedqr(seed))
             try:
@@ -2063,7 +2229,7 @@ class PasswordManager:
                     )
 
                 print(color_text(seed, "deterministic"))
-                from password_manager.seedqr import encode_seedqr
+                from .seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(seed))
                 pause()
@@ -3502,7 +3668,7 @@ class PasswordManager:
         :param encrypted_data: The encrypted data retrieved from Nostr.
         """
         try:
-            self.vault.decrypt_and_save_index_from_nostr(encrypted_data)
+            self.vault.decrypt_and_save_index_from_nostr(encrypted_data, merge=True)
             logging.info("Index file updated from Nostr successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
@@ -3517,7 +3683,7 @@ class PasswordManager:
             # Re-raise the exception to inform the calling function of the failure
             raise
 
-    def sync_vault(
+    async def sync_vault_async(
         self, alt_summary: str | None = None
     ) -> dict[str, list[str] | str] | None:
         """Publish the current vault contents to Nostr and return event IDs."""
@@ -3532,7 +3698,7 @@ class PasswordManager:
             event_id = None
             if callable(pub_snap):
                 if asyncio.iscoroutinefunction(pub_snap):
-                    manifest, event_id = asyncio.run(pub_snap(encrypted))
+                    manifest, event_id = await pub_snap(encrypted)
                 else:
                     manifest, event_id = pub_snap(encrypted)
             else:
@@ -3544,7 +3710,15 @@ class PasswordManager:
             chunk_ids: list[str] = []
             if manifest is not None:
                 chunk_ids = [c.event_id for c in manifest.chunks if c.event_id]
-            delta_ids = getattr(self.nostr_client, "_delta_events", [])
+            delta_ids = self.nostr_client.get_delta_events()
+            if manifest is not None and self.state_manager is not None:
+                ts = manifest.delta_since or int(time.time())
+                self.state_manager.update_state(
+                    manifest_id=event_id,
+                    delta_since=ts,
+                    last_sync_ts=ts,
+                )
+                self.last_sync_ts = ts
             return {
                 "manifest_id": event_id,
                 "chunk_ids": chunk_ids,
@@ -3553,6 +3727,11 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to sync vault: {e}", exc_info=True)
             return None
+
+    def sync_vault(
+        self, alt_summary: str | None = None
+    ) -> dict[str, list[str] | str] | None:
+        return asyncio.run(self.sync_vault_async(alt_summary=alt_summary))
 
     def backup_database(self) -> None:
         """
@@ -3696,7 +3875,9 @@ class PasswordManager:
             print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
             return None
 
-    def handle_backup_reveal_parent_seed(self, file: Path | None = None) -> None:
+    def handle_backup_reveal_parent_seed(
+        self, file: Path | None = None, *, password: Optional[str] = None
+    ) -> None:
         """Reveal the parent seed and optionally save an encrypted backup.
 
         Parameters
@@ -3726,9 +3907,10 @@ class PasswordManager:
             )
 
             # Verify user's identity with secure password verification
-            password = prompt_existing_password(
-                "Enter your master password to continue: "
-            )
+            if password is None:
+                password = prompt_existing_password(
+                    "Enter your master password to continue: "
+                )
             if not self.verify_password(password):
                 print(colored("Incorrect password. Operation aborted.", "red"))
                 return
@@ -3872,15 +4054,11 @@ class PasswordManager:
             print(colored(f"Error: Failed to store hashed password: {e}", "red"))
             raise
 
-    def change_password(self) -> None:
+    def change_password(self, old_password: str, new_password: str) -> None:
         """Change the master password used for encryption."""
         try:
-            current = prompt_existing_password("Enter your current master password: ")
-            if not self.verify_password(current):
-                print(colored("Incorrect password.", "red"))
-                return
-
-            new_password = prompt_for_password()
+            if not self.verify_password(old_password):
+                raise ValueError("Incorrect password")
 
             # Load data with existing encryption manager
             index_data = self.vault.load_index()
@@ -3906,7 +4084,11 @@ class PasswordManager:
             self.password_generator.encryption_manager = new_enc_mgr
             self.store_hashed_password(new_password)
 
-            relay_list = config_data.get("relays", list(DEFAULT_RELAYS))
+            if getattr(self, "state_manager", None) is not None:
+                state = self.state_manager.state
+                relay_list = state.get("relays", list(DEFAULT_RELAYS))
+            else:
+                relay_list = list(DEFAULT_RELAYS)
             self.nostr_client = NostrClient(
                 encryption_manager=self.encryption_manager,
                 fingerprint=self.current_fingerprint,
@@ -3915,7 +4097,17 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            print(colored("Master password changed successfully.", "green"))
+            if getattr(self, "manifest_id", None):
+                from nostr.backup_models import Manifest
+
+                with self.nostr_client._state_lock:
+                    self.nostr_client.current_manifest_id = self.manifest_id
+                    self.nostr_client.current_manifest = Manifest(
+                        ver=1,
+                        algo="gzip",
+                        chunks=[],
+                        delta_since=self.delta_since or None,
+                    )
 
             # Push a fresh backup to Nostr so the newly encrypted index is
             # stored remotely. Include a tag to mark the password change.
@@ -3928,7 +4120,7 @@ class PasswordManager:
                 )
         except Exception as e:
             logging.error(f"Failed to change password: {e}", exc_info=True)
-            print(colored(f"Error: Failed to change password: {e}", "red"))
+            raise
 
     def get_profile_stats(self) -> dict:
         """Return various statistics about the current seed profile."""
@@ -3990,13 +4182,11 @@ class PasswordManager:
         )
 
         # Nostr sync info
-        manifest = getattr(self.nostr_client, "current_manifest", None)
+        manifest = self.nostr_client.get_current_manifest()
         if manifest is not None:
             stats["chunk_count"] = len(manifest.chunks)
             stats["delta_since"] = manifest.delta_since
-            stats["pending_deltas"] = len(
-                getattr(self.nostr_client, "_delta_events", [])
-            )
+            stats["pending_deltas"] = len(self.nostr_client.get_delta_events())
         else:
             stats["chunk_count"] = 0
             stats["delta_since"] = None

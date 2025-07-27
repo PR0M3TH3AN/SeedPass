@@ -7,10 +7,10 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.config_manager import ConfigManager
 
 
 def test_search_entries_prompt_for_details(monkeypatch, capsys):
@@ -38,8 +38,8 @@ def test_search_entries_prompt_for_details(monkeypatch, capsys):
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )
-        monkeypatch.setattr("password_manager.manager.time.sleep", lambda *a, **k: None)
-        monkeypatch.setattr("password_manager.manager.timed_input", lambda *a, **k: "b")
+        monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)
+        monkeypatch.setattr("seedpass.core.manager.timed_input", lambda *a, **k: "b")
 
         inputs = iter(["Example", "0"])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))

@@ -8,10 +8,10 @@ from nostr.coincurve_keys import Keys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.vault import Vault
-from password_manager.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.vault import Vault
+from seedpass.core.config_manager import ConfigManager
 
 
 def test_nostr_key_determinism():

@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from typer.testing import CliRunner
 from seedpass import cli
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 
 
 class DummyPM:
@@ -17,7 +17,7 @@ class DummyPM:
             list_entries=lambda sort_by="index", filter_kind=None, include_archived=False: [
                 (1, "Label", "user", "url", False)
             ],
-            search_entries=lambda q: [(1, "GitHub", "user", "", False)],
+            search_entries=lambda q, kinds=None: [(1, "GitHub", "user", "", False)],
             retrieve_entry=lambda idx: {"type": EntryType.PASSWORD.value, "length": 8},
             get_totp_code=lambda idx, seed: "123456",
             add_entry=lambda label, length, username, url: 1,
@@ -40,10 +40,10 @@ class DummyPM:
         self.handle_display_totp_codes = lambda: None
         self.handle_export_database = lambda path: None
         self.handle_import_database = lambda path: None
-        self.change_password = lambda: None
+        self.change_password = lambda *a, **kw: None
         self.lock_vault = lambda: None
         self.get_profile_stats = lambda: {"n": 1}
-        self.handle_backup_reveal_parent_seed = lambda path=None: None
+        self.handle_backup_reveal_parent_seed = lambda path=None, **_: None
         self.handle_verify_checksum = lambda: None
         self.handle_update_script_checksum = lambda: None
         self.add_new_fingerprint = lambda: None
@@ -58,6 +58,7 @@ class DummyPM:
             "chunk_ids": ["c1"],
             "delta_ids": [],
         }
+        self.start_background_vault_sync = lambda *a, **k: self.sync_vault()
         self.config_manager = SimpleNamespace(
             load_config=lambda require_pin=False: {"inactivity_timeout": 30},
             set_inactivity_timeout=lambda v: None,
@@ -76,7 +77,7 @@ class DummyPM:
         )
         self.secret_mode_enabled = True
         self.clipboard_clear_delay = 30
-        self.select_fingerprint = lambda fp: None
+        self.select_fingerprint = lambda fp, **_: None
 
 
 def load_doc_commands() -> list[str]:
@@ -84,7 +85,9 @@ def load_doc_commands() -> list[str]:
     cmds = set(re.findall(r"`seedpass ([^`<>]+)`", text))
     cmds = {c for c in cmds if "<" not in c and ">" not in c}
     cmds.discard("vault export")
+    cmds.discard("vault export --file backup.json")
     cmds.discard("vault import")
+    cmds.discard("vault import --file backup.json")
     return sorted(cmds)
 
 

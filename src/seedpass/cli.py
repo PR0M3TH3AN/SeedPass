@@ -1,15 +1,32 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import json
 
 import typer
+import sys
 
-from password_manager.manager import PasswordManager
-from password_manager.entry_types import EntryType
+from seedpass.core.manager import PasswordManager
+from seedpass.core.entry_types import EntryType
+from seedpass.core.api import (
+    VaultService,
+    ProfileService,
+    SyncService,
+    EntryService,
+    ConfigService,
+    UtilityService,
+    NostrService,
+    ChangePasswordRequest,
+    UnlockRequest,
+    BackupParentSeedRequest,
+    ProfileSwitchRequest,
+    ProfileRemoveRequest,
+)
 import uvicorn
 from . import api as api_module
 
 import importlib
+import importlib.util
+import subprocess
 
 app = typer.Typer(
     help="SeedPass command line interface",
@@ -52,6 +69,43 @@ def _get_pm(ctx: typer.Context) -> PasswordManager:
     return pm
 
 
+def _get_services(
+    ctx: typer.Context,
+) -> tuple[VaultService, ProfileService, SyncService]:
+    """Return service layer instances for the current context."""
+
+    pm = _get_pm(ctx)
+    return VaultService(pm), ProfileService(pm), SyncService(pm)
+
+
+def _get_entry_service(ctx: typer.Context) -> EntryService:
+    pm = _get_pm(ctx)
+    return EntryService(pm)
+
+
+def _get_config_service(ctx: typer.Context) -> ConfigService:
+    pm = _get_pm(ctx)
+    return ConfigService(pm)
+
+
+def _get_util_service(ctx: typer.Context) -> UtilityService:
+    pm = _get_pm(ctx)
+    return UtilityService(pm)
+
+
+def _get_nostr_service(ctx: typer.Context) -> NostrService:
+    pm = _get_pm(ctx)
+    return NostrService(pm)
+
+
+def _gui_backend_available() -> bool:
+    """Return True if a platform-specific BeeWare backend is installed."""
+    for pkg in ("toga_gtk", "toga_winforms", "toga_cocoa"):
+        if importlib.util.find_spec(pkg) is not None:
+            return True
+    return False
+
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) -> None:
     """SeedPass CLI entry point.
@@ -68,14 +122,14 @@ def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) ->
 def entry_list(
     ctx: typer.Context,
     sort: str = typer.Option(
-        "index", "--sort", help="Sort by 'index', 'label', or 'username'"
+        "index", "--sort", help="Sort by 'index', 'label', or 'updated'"
     ),
     kind: Optional[str] = typer.Option(None, "--kind", help="Filter by entry type"),
     archived: bool = typer.Option(False, "--archived", help="Include archived"),
 ) -> None:
     """List entries in the vault."""
-    pm = _get_pm(ctx)
-    entries = pm.entry_manager.list_entries(
+    service = _get_entry_service(ctx)
+    entries = service.list_entries(
         sort_by=sort, filter_kind=kind, include_archived=archived
     )
     for idx, label, username, url, is_archived in entries:
@@ -90,10 +144,20 @@ def entry_list(
 
 
 @entry_app.command("search")
-def entry_search(ctx: typer.Context, query: str) -> None:
+def entry_search(
+    ctx: typer.Context,
+    query: str,
+    kind: List[str] = typer.Option(
+        None,
+        "--kind",
+        "-k",
+        help="Filter by entry kinds (can be repeated)",
+    ),
+) -> None:
     """Search entries."""
-    pm = _get_pm(ctx)
-    results = pm.entry_manager.search_entries(query)
+    service = _get_entry_service(ctx)
+    kinds = list(kind) if kind else None
+    results = service.search_entries(query, kinds=kinds)
     if not results:
         typer.echo("No matching entries found")
         return
@@ -109,8 +173,8 @@ def entry_search(ctx: typer.Context, query: str) -> None:
 @entry_app.command("get")
 def entry_get(ctx: typer.Context, query: str) -> None:
     """Retrieve a single entry's secret."""
-    pm = _get_pm(ctx)
-    matches = pm.entry_manager.search_entries(query)
+    service = _get_entry_service(ctx)
+    matches = service.search_entries(query)
     if len(matches) == 0:
         typer.echo("No matching entries found")
         raise typer.Exit(code=1)
@@ -124,14 +188,14 @@ def entry_get(ctx: typer.Context, query: str) -> None:
         raise typer.Exit(code=1)
 
     index = matches[0][0]
-    entry = pm.entry_manager.retrieve_entry(index)
+    entry = service.retrieve_entry(index)
     etype = entry.get("type", entry.get("kind"))
     if etype == EntryType.PASSWORD.value:
         length = int(entry.get("length", 12))
-        password = pm.password_generator.generate_password(length, index)
+        password = service.generate_password(length, index)
         typer.echo(password)
     elif etype == EntryType.TOTP.value:
-        code = pm.entry_manager.get_totp_code(index, pm.parent_seed)
+        code = service.get_totp_code(index)
         typer.echo(code)
     else:
         typer.echo("Unsupported entry type")
@@ -147,10 +211,9 @@ def entry_add(
     url: Optional[str] = typer.Option(None, "--url"),
 ) -> None:
     """Add a new password entry and output its index."""
-    pm = _get_pm(ctx)
-    index = pm.entry_manager.add_entry(label, length, username, url)
+    service = _get_entry_service(ctx)
+    index = service.add_entry(label, length, username, url)
     typer.echo(str(index))
-    pm.sync_vault()
 
 
 @entry_app.command("add-totp")
@@ -163,17 +226,15 @@ def entry_add_totp(
     digits: int = typer.Option(6, "--digits", help="Number of TOTP digits"),
 ) -> None:
     """Add a TOTP entry and output the otpauth URI."""
-    pm = _get_pm(ctx)
-    uri = pm.entry_manager.add_totp(
+    service = _get_entry_service(ctx)
+    uri = service.add_totp(
         label,
-        pm.parent_seed,
         index=index,
         secret=secret,
         period=period,
         digits=digits,
     )
     typer.echo(uri)
-    pm.sync_vault()
 
 
 @entry_app.command("add-ssh")
@@ -184,15 +245,13 @@ def entry_add_ssh(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add an SSH key entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_ssh_key(
+    service = _get_entry_service(ctx)
+    idx = service.add_ssh_key(
         label,
-        pm.parent_seed,
         index=index,
         notes=notes,
     )
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("add-pgp")
@@ -205,17 +264,15 @@ def entry_add_pgp(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a PGP key entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_pgp_key(
+    service = _get_entry_service(ctx)
+    idx = service.add_pgp_key(
         label,
-        pm.parent_seed,
         index=index,
         key_type=key_type,
         user_id=user_id,
         notes=notes,
     )
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("add-nostr")
@@ -226,14 +283,13 @@ def entry_add_nostr(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a Nostr key entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_nostr_key(
+    service = _get_entry_service(ctx)
+    idx = service.add_nostr_key(
         label,
         index=index,
         notes=notes,
     )
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("add-seed")
@@ -245,16 +301,14 @@ def entry_add_seed(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a derived seed phrase entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_seed(
+    service = _get_entry_service(ctx)
+    idx = service.add_seed(
         label,
-        pm.parent_seed,
         index=index,
-        words_num=words,
+        words=words,
         notes=notes,
     )
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("add-key-value")
@@ -265,10 +319,9 @@ def entry_add_key_value(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a key/value entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_key_value(label, value, notes=notes)
+    service = _get_entry_service(ctx)
+    idx = service.add_key_value(label, value, notes=notes)
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("add-managed-account")
@@ -279,15 +332,13 @@ def entry_add_managed_account(
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a managed account seed entry and output its index."""
-    pm = _get_pm(ctx)
-    idx = pm.entry_manager.add_managed_account(
+    service = _get_entry_service(ctx)
+    idx = service.add_managed_account(
         label,
-        pm.parent_seed,
         index=index,
         notes=notes,
     )
     typer.echo(str(idx))
-    pm.sync_vault()
 
 
 @entry_app.command("modify")
@@ -305,9 +356,9 @@ def entry_modify(
     value: Optional[str] = typer.Option(None, "--value", help="New value"),
 ) -> None:
     """Modify an existing entry."""
-    pm = _get_pm(ctx)
+    service = _get_entry_service(ctx)
     try:
-        pm.entry_manager.modify_entry(
+        service.modify_entry(
             entry_id,
             username=username,
             url=url,
@@ -319,33 +370,31 @@ def entry_modify(
         )
     except ValueError as e:
         typer.echo(str(e))
+        sys.stdout.flush()
         raise typer.Exit(code=1)
-    pm.sync_vault()
 
 
 @entry_app.command("archive")
 def entry_archive(ctx: typer.Context, entry_id: int) -> None:
     """Archive an entry."""
-    pm = _get_pm(ctx)
-    pm.entry_manager.archive_entry(entry_id)
+    service = _get_entry_service(ctx)
+    service.archive_entry(entry_id)
     typer.echo(str(entry_id))
-    pm.sync_vault()
 
 
 @entry_app.command("unarchive")
 def entry_unarchive(ctx: typer.Context, entry_id: int) -> None:
     """Restore an archived entry."""
-    pm = _get_pm(ctx)
-    pm.entry_manager.restore_entry(entry_id)
+    service = _get_entry_service(ctx)
+    service.restore_entry(entry_id)
     typer.echo(str(entry_id))
-    pm.sync_vault()
 
 
 @entry_app.command("totp-codes")
 def entry_totp_codes(ctx: typer.Context) -> None:
     """Display all current TOTP codes."""
-    pm = _get_pm(ctx)
-    pm.handle_display_totp_codes()
+    service = _get_entry_service(ctx)
+    service.display_totp_codes()
 
 
 @entry_app.command("export-totp")
@@ -353,8 +402,8 @@ def entry_export_totp(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")
 ) -> None:
     """Export all TOTP secrets to a JSON file."""
-    pm = _get_pm(ctx)
-    data = pm.entry_manager.export_totp_entries(pm.parent_seed)
+    service = _get_entry_service(ctx)
+    data = service.export_totp_entries()
     Path(file).write_text(json.dumps(data, indent=2))
     typer.echo(str(file))
 
@@ -363,9 +412,10 @@ def entry_export_totp(
 def vault_export(
     ctx: typer.Context, file: str = typer.Option(..., help="Output file")
 ) -> None:
-    """Export the vault."""
-    pm = _get_pm(ctx)
-    pm.handle_export_database(Path(file))
+    """Export the vault profile to an encrypted file."""
+    vault_service, _profile, _sync = _get_services(ctx)
+    data = vault_service.export_profile()
+    Path(file).write_bytes(data)
     typer.echo(str(file))
 
 
@@ -373,33 +423,63 @@ def vault_export(
 def vault_import(
     ctx: typer.Context, file: str = typer.Option(..., help="Input file")
 ) -> None:
-    """Import a vault from an encrypted JSON file."""
-    pm = _get_pm(ctx)
-    pm.handle_import_database(Path(file))
-    pm.sync_vault()
+    """Import a vault profile from an encrypted file."""
+    vault_service, _profile, _sync = _get_services(ctx)
+    data = Path(file).read_bytes()
+    vault_service.import_profile(data)
     typer.echo(str(file))
 
 
 @vault_app.command("change-password")
 def vault_change_password(ctx: typer.Context) -> None:
     """Change the master password used for encryption."""
-    pm = _get_pm(ctx)
-    pm.change_password()
+    vault_service, _profile, _sync = _get_services(ctx)
+    old_pw = typer.prompt("Current password", hide_input=True)
+    new_pw = typer.prompt("New password", hide_input=True, confirmation_prompt=True)
+    try:
+        vault_service.change_password(
+            ChangePasswordRequest(old_password=old_pw, new_password=new_pw)
+        )
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Password updated")
+
+
+@vault_app.command("unlock")
+def vault_unlock(ctx: typer.Context) -> None:
+    """Unlock the vault for the active profile."""
+    vault_service, _profile, _sync = _get_services(ctx)
+    password = typer.prompt("Master password", hide_input=True)
+    try:
+        resp = vault_service.unlock(UnlockRequest(password=password))
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo(f"Unlocked in {resp.duration:.2f}s")
 
 
 @vault_app.command("lock")
 def vault_lock(ctx: typer.Context) -> None:
     """Lock the vault and clear sensitive data from memory."""
-    pm = _get_pm(ctx)
-    pm.lock_vault()
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.lock()
+    typer.echo("locked")
+
+
+@app.command("lock")
+def root_lock(ctx: typer.Context) -> None:
+    """Lock the vault for the active profile."""
+    vault_service, _profile, _sync = _get_services(ctx)
+    vault_service.lock()
     typer.echo("locked")
 
 
 @vault_app.command("stats")
 def vault_stats(ctx: typer.Context) -> None:
     """Display statistics about the current seed profile."""
-    pm = _get_pm(ctx)
-    stats = pm.get_profile_stats()
+    vault_service, _profile, _sync = _get_services(ctx)
+    stats = vault_service.stats()
     typer.echo(json.dumps(stats, indent=2))
 
 
@@ -411,21 +491,24 @@ def vault_reveal_parent_seed(
     ),
 ) -> None:
     """Display the parent seed and optionally write an encrypted backup file."""
-    pm = _get_pm(ctx)
-    pm.handle_backup_reveal_parent_seed(Path(file) if file else None)
+    vault_service, _profile, _sync = _get_services(ctx)
+    password = typer.prompt("Master password", hide_input=True)
+    vault_service.backup_parent_seed(
+        BackupParentSeedRequest(path=Path(file) if file else None, password=password)
+    )
 
 
 @nostr_app.command("sync")
 def nostr_sync(ctx: typer.Context) -> None:
     """Sync with configured Nostr relays."""
-    pm = _get_pm(ctx)
-    result = pm.sync_vault()
-    if result:
+    _vault, _profile, sync_service = _get_services(ctx)
+    model = sync_service.sync()
+    if model:
         typer.echo("Event IDs:")
-        typer.echo(f"- manifest: {result['manifest_id']}")
-        for cid in result["chunk_ids"]:
+        typer.echo(f"- manifest: {model.manifest_id}")
+        for cid in model.chunk_ids:
             typer.echo(f"- chunk: {cid}")
-        for did in result["delta_ids"]:
+        for did in model.delta_ids:
             typer.echo(f"- delta: {did}")
     else:
         typer.echo("Error: Failed to sync vault")
@@ -434,16 +517,49 @@ def nostr_sync(ctx: typer.Context) -> None:
 @nostr_app.command("get-pubkey")
 def nostr_get_pubkey(ctx: typer.Context) -> None:
     """Display the active profile's npub."""
-    pm = _get_pm(ctx)
-    npub = pm.nostr_client.key_manager.get_npub()
+    service = _get_nostr_service(ctx)
+    npub = service.get_pubkey()
     typer.echo(npub)
+
+
+@nostr_app.command("list-relays")
+def nostr_list_relays(ctx: typer.Context) -> None:
+    """Display configured Nostr relays."""
+    service = _get_nostr_service(ctx)
+    relays = service.list_relays()
+    for i, r in enumerate(relays, 1):
+        typer.echo(f"{i}: {r}")
+
+
+@nostr_app.command("add-relay")
+def nostr_add_relay(ctx: typer.Context, url: str) -> None:
+    """Add a relay URL."""
+    service = _get_nostr_service(ctx)
+    try:
+        service.add_relay(url)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Added")
+
+
+@nostr_app.command("remove-relay")
+def nostr_remove_relay(ctx: typer.Context, idx: int) -> None:
+    """Remove a relay by index (1-based)."""
+    service = _get_nostr_service(ctx)
+    try:
+        service.remove_relay(idx)
+    except Exception as exc:  # pragma: no cover - pass through errors
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+    typer.echo("Removed")
 
 
 @config_app.command("get")
 def config_get(ctx: typer.Context, key: str) -> None:
     """Get a configuration value."""
-    pm = _get_pm(ctx)
-    value = pm.config_manager.load_config(require_pin=False).get(key)
+    service = _get_config_service(ctx)
+    value = service.get(key)
     if value is None:
         typer.echo("Key not found")
     else:
@@ -453,43 +569,18 @@ def config_get(ctx: typer.Context, key: str) -> None:
 @config_app.command("set")
 def config_set(ctx: typer.Context, key: str, value: str) -> None:
     """Set a configuration value."""
-    pm = _get_pm(ctx)
-    cfg = pm.config_manager
-
-    mapping = {
-        "inactivity_timeout": lambda v: cfg.set_inactivity_timeout(float(v)),
-        "secret_mode_enabled": lambda v: cfg.set_secret_mode_enabled(
-            v.lower() in ("1", "true", "yes", "y", "on")
-        ),
-        "clipboard_clear_delay": lambda v: cfg.set_clipboard_clear_delay(int(v)),
-        "additional_backup_path": lambda v: cfg.set_additional_backup_path(v or None),
-        "relays": lambda v: cfg.set_relays(
-            [r.strip() for r in v.split(",") if r.strip()], require_pin=False
-        ),
-        "kdf_iterations": lambda v: cfg.set_kdf_iterations(int(v)),
-        "kdf_mode": lambda v: cfg.set_kdf_mode(v),
-        "backup_interval": lambda v: cfg.set_backup_interval(float(v)),
-        "nostr_max_retries": lambda v: cfg.set_nostr_max_retries(int(v)),
-        "nostr_retry_delay": lambda v: cfg.set_nostr_retry_delay(float(v)),
-        "min_uppercase": lambda v: cfg.set_min_uppercase(int(v)),
-        "min_lowercase": lambda v: cfg.set_min_lowercase(int(v)),
-        "min_digits": lambda v: cfg.set_min_digits(int(v)),
-        "min_special": lambda v: cfg.set_min_special(int(v)),
-        "quick_unlock": lambda v: cfg.set_quick_unlock(
-            v.lower() in ("1", "true", "yes", "y", "on")
-        ),
-        "verbose_timing": lambda v: cfg.set_verbose_timing(
-            v.lower() in ("1", "true", "yes", "y", "on")
-        ),
-    }
-
-    action = mapping.get(key)
-    if action is None:
-        typer.echo("Unknown key")
-        raise typer.Exit(code=1)
+    service = _get_config_service(ctx)
 
     try:
-        action(value)
+        val = (
+            [r.strip() for r in value.split(",") if r.strip()]
+            if key == "relays"
+            else value
+        )
+        service.set(key, val)
+    except KeyError:
+        typer.echo("Unknown key")
+        raise typer.Exit(code=1)
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
@@ -499,12 +590,15 @@ def config_set(ctx: typer.Context, key: str, value: str) -> None:
 
 @config_app.command("toggle-secret-mode")
 def config_toggle_secret_mode(ctx: typer.Context) -> None:
-    """Interactively enable or disable secret mode."""
-    pm = _get_pm(ctx)
-    cfg = pm.config_manager
+    """Interactively enable or disable secret mode.
+
+    When enabled, newly generated and retrieved passwords are copied to the
+    clipboard instead of printed to the screen.
+    """
+    service = _get_config_service(ctx)
     try:
-        enabled = cfg.get_secret_mode_enabled()
-        delay = cfg.get_clipboard_clear_delay()
+        enabled = service.get_secret_mode_enabled()
+        delay = service.get_clipboard_clear_delay()
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error loading settings: {exc}")
         raise typer.Exit(code=1)
@@ -536,10 +630,7 @@ def config_toggle_secret_mode(ctx: typer.Context) -> None:
             raise typer.Exit(code=1)
 
     try:
-        cfg.set_secret_mode_enabled(enabled)
-        cfg.set_clipboard_clear_delay(delay)
-        pm.secret_mode_enabled = enabled
-        pm.clipboard_clear_delay = delay
+        service.set_secret_mode(enabled, delay)
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
@@ -551,10 +642,9 @@ def config_toggle_secret_mode(ctx: typer.Context) -> None:
 @config_app.command("toggle-offline")
 def config_toggle_offline(ctx: typer.Context) -> None:
     """Enable or disable offline mode."""
-    pm = _get_pm(ctx)
-    cfg = pm.config_manager
+    service = _get_config_service(ctx)
     try:
-        enabled = cfg.get_offline_mode()
+        enabled = service.get_offline_mode()
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error loading settings: {exc}")
         raise typer.Exit(code=1)
@@ -573,8 +663,7 @@ def config_toggle_offline(ctx: typer.Context) -> None:
         enabled = False
 
     try:
-        cfg.set_offline_mode(enabled)
-        pm.offline_mode = enabled
+        service.set_offline_mode(enabled)
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
@@ -586,52 +675,55 @@ def config_toggle_offline(ctx: typer.Context) -> None:
 @fingerprint_app.command("list")
 def fingerprint_list(ctx: typer.Context) -> None:
     """List available seed profiles."""
-    pm = _get_pm(ctx)
-    for fp in pm.fingerprint_manager.list_fingerprints():
+    _vault, profile_service, _sync = _get_services(ctx)
+    for fp in profile_service.list_profiles():
         typer.echo(fp)
 
 
 @fingerprint_app.command("add")
 def fingerprint_add(ctx: typer.Context) -> None:
     """Create a new seed profile."""
-    pm = _get_pm(ctx)
-    pm.add_new_fingerprint()
+    _vault, profile_service, _sync = _get_services(ctx)
+    profile_service.add_profile()
 
 
 @fingerprint_app.command("remove")
 def fingerprint_remove(ctx: typer.Context, fingerprint: str) -> None:
     """Remove a seed profile."""
-    pm = _get_pm(ctx)
-    pm.fingerprint_manager.remove_fingerprint(fingerprint)
+    _vault, profile_service, _sync = _get_services(ctx)
+    profile_service.remove_profile(ProfileRemoveRequest(fingerprint=fingerprint))
 
 
 @fingerprint_app.command("switch")
 def fingerprint_switch(ctx: typer.Context, fingerprint: str) -> None:
     """Switch to another seed profile."""
-    pm = _get_pm(ctx)
-    pm.select_fingerprint(fingerprint)
+    _vault, profile_service, _sync = _get_services(ctx)
+    password = typer.prompt("Master password", hide_input=True)
+    profile_service.switch_profile(
+        ProfileSwitchRequest(fingerprint=fingerprint, password=password)
+    )
 
 
 @util_app.command("generate-password")
 def generate_password(ctx: typer.Context, length: int = 24) -> None:
     """Generate a strong password."""
-    pm = _get_pm(ctx)
-    password = pm.password_generator.generate_password(length)
+    service = _get_util_service(ctx)
+    password = service.generate_password(length)
     typer.echo(password)
 
 
 @util_app.command("verify-checksum")
 def verify_checksum(ctx: typer.Context) -> None:
     """Verify the SeedPass script checksum."""
-    pm = _get_pm(ctx)
-    pm.handle_verify_checksum()
+    service = _get_util_service(ctx)
+    service.verify_checksum()
 
 
 @util_app.command("update-checksum")
 def update_checksum(ctx: typer.Context) -> None:
     """Regenerate the script checksum file."""
-    pm = _get_pm(ctx)
-    pm.handle_update_script_checksum()
+    service = _get_util_service(ctx)
+    service.update_checksum()
 
 
 @api_app.command("start")
@@ -655,6 +747,47 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
         )
     except Exception as exc:  # pragma: no cover - best effort
         typer.echo(f"Failed to stop server: {exc}")
+
+
+@app.command()
+def gui() -> None:
+    """Launch the BeeWare GUI.
+
+    If the platform specific backend is missing, attempt to install it and
+    retry launching the GUI.
+    """
+    if not _gui_backend_available():
+        if sys.platform.startswith("linux"):
+            pkg = "toga-gtk"
+        elif sys.platform == "win32":
+            pkg = "toga-winforms"
+        elif sys.platform == "darwin":
+            pkg = "toga-cocoa"
+        else:
+            typer.echo(
+                f"Unsupported platform '{sys.platform}' for BeeWare GUI.",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        typer.echo(f"Attempting to install {pkg} for GUI support...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+            typer.echo(f"Successfully installed {pkg}.")
+        except subprocess.CalledProcessError as exc:
+            typer.echo(f"Failed to install {pkg}: {exc}", err=True)
+            raise typer.Exit(1)
+
+    if not _gui_backend_available():
+        typer.echo(
+            "BeeWare GUI backend still unavailable after installation attempt.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    from seedpass_gui.app import main
+
+    main()
 
 
 if __name__ == "__main__":

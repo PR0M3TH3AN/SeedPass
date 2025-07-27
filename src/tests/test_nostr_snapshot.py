@@ -9,7 +9,7 @@ import asyncio
 from unittest.mock import patch
 
 from nostr import prepare_snapshot, NostrClient
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 
 
 def test_prepare_snapshot_roundtrip():

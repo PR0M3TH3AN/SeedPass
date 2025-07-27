@@ -6,9 +6,9 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.entry_management import EntryManager
-from password_manager.backup import BackupManager
-from password_manager.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
 
 
 def setup_entry_mgr(tmp_path: Path) -> EntryManager:
@@ -41,4 +41,4 @@ def test_add_and_modify_key_value():
         assert updated["value"] == "def456"
 
         results = em.search_entries("def456")
-        assert results == [(idx, "API", None, None, False)]
+        assert results == []

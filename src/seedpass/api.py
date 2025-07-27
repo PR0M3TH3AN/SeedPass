@@ -14,8 +14,8 @@ import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
 
-from password_manager.manager import PasswordManager
-from password_manager.entry_types import EntryType
+from seedpass.core.manager import PasswordManager
+from seedpass.core.entry_types import EntryType
 
 
 app = FastAPI()
@@ -554,11 +554,13 @@ def backup_parent_seed(
 
 
 @app.post("/api/v1/change-password")
-def change_password(authorization: str | None = Header(None)) -> dict[str, str]:
+def change_password(
+    data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
     """Change the master password for the active profile."""
     _check_token(authorization)
     assert _pm is not None
-    _pm.change_password()
+    _pm.change_password(data.get("old", ""), data.get("new", ""))
     return {"status": "ok"}
 
 

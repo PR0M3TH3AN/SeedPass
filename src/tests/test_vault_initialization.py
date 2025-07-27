@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager, EncryptionMode
-from password_manager.vault import Vault
+from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.vault import Vault
 
 VALID_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
@@ -20,11 +20,9 @@ def test_save_and_encrypt_seed_initializes_vault(monkeypatch):
         pm.config_manager = None
         pm.current_fingerprint = "fp"
 
+        monkeypatch.setattr("seedpass.core.manager.prompt_for_password", lambda: "pw")
         monkeypatch.setattr(
-            "password_manager.manager.prompt_for_password", lambda: "pw"
-        )
-        monkeypatch.setattr(
-            "password_manager.manager.NostrClient", lambda *a, **kw: object()
+            "seedpass.core.manager.NostrClient", lambda *a, **kw: object()
         )
 
         pm.save_and_encrypt_seed(VALID_SEED, tmp_path)

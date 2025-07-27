@@ -8,7 +8,7 @@ import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 from utils.checksum import verify_and_update_checksum
 
 

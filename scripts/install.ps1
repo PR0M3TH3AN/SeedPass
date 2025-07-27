@@ -260,6 +260,10 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to install SeedPass package"
 }
 
+Write-Info "Installing BeeWare GUI backend..."
+& "$VenvDir\Scripts\python.exe" -m pip install toga-winforms
+if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to install GUI backend" }
+
 # 5. Create launcher script
 Write-Info "Creating launcher script..."
 if (-not (Test-Path $LauncherDir)) { New-Item -ItemType Directory -Path $LauncherDir | Out-Null }
@@ -277,6 +281,18 @@ $existingSeedpass = Get-Command seedpass -ErrorAction SilentlyContinue
 if ($existingSeedpass -and $existingSeedpass.Source -ne $LauncherPath) {
     Write-Warning "Another 'seedpass' command was found at $($existingSeedpass.Source)."
     Write-Warning "Ensure '$LauncherDir' comes first in your PATH or remove the old installation."
+}
+
+# Detect additional seedpass executables on PATH that are not our launcher
+$allSeedpass = Get-Command seedpass -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+$stale = @()
+foreach ($cmd in $allSeedpass) {
+    if ($cmd -ne $LauncherPath) { $stale += $cmd }
+}
+if ($stale.Count -gt 0) {
+    Write-Warning "Stale 'seedpass' executables detected:" 
+    foreach ($cmd in $stale) { Write-Warning "  - $cmd" }
+    Write-Warning "Remove or rename these to avoid launching outdated code."
 }
 
 # 6. Add launcher directory to User's PATH if needed

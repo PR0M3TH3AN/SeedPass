@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.manager import PasswordManager
+from seedpass.core.manager import PasswordManager
 from constants import MIN_HEALTHY_RELAYS
 
 

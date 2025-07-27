@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
-from password_manager.entry_types import EntryType
+from seedpass.core.entry_types import EntryType
 
 
 def make_pm(search_results, entry=None, totp_code="123456"):

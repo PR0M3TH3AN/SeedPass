@@ -9,7 +9,7 @@ import base64
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from password_manager.encryption import EncryptionManager
+from seedpass.core.encryption import EncryptionManager
 from nostr.client import NostrClient, Manifest
 
 
@@ -84,7 +84,7 @@ def test_publish_snapshot_success():
         ) as mock_send:
             manifest, event_id = asyncio.run(client.publish_snapshot(b"data"))
             assert isinstance(manifest, Manifest)
-            assert event_id == "abcd"
+            assert event_id == "seedpass-manifest-fp"
             assert mock_send.await_count >= 1
 
 

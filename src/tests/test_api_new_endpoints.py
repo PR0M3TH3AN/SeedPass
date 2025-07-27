@@ -291,8 +291,8 @@ def test_vault_lock_endpoint(client):
     assert res.json() == {"status": "locked"}
     assert called.get("locked") is True
     assert api._pm.locked is True
-    api._pm.unlock_vault = lambda: setattr(api._pm, "locked", False)
-    api._pm.unlock_vault()
+    api._pm.unlock_vault = lambda pw: setattr(api._pm, "locked", False)
+    api._pm.unlock_vault("pw")
     assert api._pm.locked is False
 
 

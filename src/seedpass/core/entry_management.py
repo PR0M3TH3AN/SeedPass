@@ -1,4 +1,4 @@
-# password_manager/entry_management.py
+# seedpass.core/entry_management.py
 
 """
 Entry Management Module
@@ -27,18 +27,19 @@ import logging
 import hashlib
 import sys
 import shutil
+import time
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
 from termcolor import colored
-from password_manager.migrations import LATEST_VERSION
-from password_manager.entry_types import EntryType
-from password_manager.totp import TotpManager
+from .migrations import LATEST_VERSION
+from .entry_types import EntryType
+from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
 
-from password_manager.vault import Vault
-from password_manager.backup import BackupManager
+from .vault import Vault
+from .backup import BackupManager
 
 
 # Instantiate the logger
@@ -97,6 +98,7 @@ class EntryManager:
                         entry["word_count"] = entry["words"]
                         entry.pop("words", None)
                     entry.setdefault("tags", [])
+                    entry.setdefault("modified_ts", entry.get("updated", 0))
                 logger.debug("Index loaded successfully.")
                 self._index_cache = data
                 return data
@@ -176,6 +178,7 @@ class EntryManager:
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
+                "modified_ts": int(time.time()),
                 "custom_fields": custom_fields or [],
                 "tags": tags or [],
             }
@@ -236,6 +239,7 @@ class EntryManager:
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
                 "label": label,
+                "modified_ts": int(time.time()),
                 "index": index,
                 "period": period,
                 "digits": digits,
@@ -249,6 +253,7 @@ class EntryManager:
                 "kind": EntryType.TOTP.value,
                 "label": label,
                 "secret": secret,
+                "modified_ts": int(time.time()),
                 "period": period,
                 "digits": digits,
                 "archived": archived,
@@ -294,6 +299,7 @@ class EntryManager:
             "kind": EntryType.SSH.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
@@ -312,7 +318,7 @@ class EntryManager:
         if not entry or (etype != EntryType.SSH.value and kind != EntryType.SSH.value):
             raise ValueError("Entry is not an SSH key entry")
 
-        from password_manager.password_generation import derive_ssh_key_pair
+        from .password_generation import derive_ssh_key_pair
 
         key_index = int(entry.get("index", index))
         return derive_ssh_key_pair(parent_seed, key_index)
@@ -340,6 +346,7 @@ class EntryManager:
             "kind": EntryType.PGP.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
@@ -360,7 +367,7 @@ class EntryManager:
         if not entry or (etype != EntryType.PGP.value and kind != EntryType.PGP.value):
             raise ValueError("Entry is not a PGP key entry")
 
-        from password_manager.password_generation import derive_pgp_key
+        from .password_generation import derive_pgp_key
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -392,6 +399,7 @@ class EntryManager:
             "kind": EntryType.NOSTR.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
@@ -421,6 +429,7 @@ class EntryManager:
             "type": EntryType.KEY_VALUE.value,
             "kind": EntryType.KEY_VALUE.value,
             "label": label,
+            "modified_ts": int(time.time()),
             "value": value,
             "notes": notes,
             "archived": archived,
@@ -480,6 +489,7 @@ class EntryManager:
             "kind": EntryType.SEED.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "word_count": words_num,
             "notes": notes,
             "archived": archived,
@@ -501,7 +511,7 @@ class EntryManager:
         ):
             raise ValueError("Entry is not a seed entry")
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -530,7 +540,7 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -552,6 +562,7 @@ class EntryManager:
             "kind": EntryType.MANAGED_ACCOUNT.value,
             "index": index,
             "label": label,
+            "modified_ts": int(time.time()),
             "word_count": word_count,
             "notes": notes,
             "fingerprint": fingerprint,
@@ -576,7 +587,7 @@ class EntryManager:
         ):
             raise ValueError("Entry is not a managed account entry")
 
-        from password_manager.password_generation import derive_seed_phrase
+        from .password_generation import derive_seed_phrase
         from local_bip85.bip85 import BIP85
         from bip_utils import Bip39SeedGenerator
 
@@ -682,7 +693,8 @@ class EntryManager:
                 ):
                     entry.setdefault("custom_fields", [])
                 logger.debug(f"Retrieved entry at index {index}: {entry}")
-                return entry
+                clean = {k: v for k, v in entry.items() if k != "modified_ts"}
+                return clean
             else:
                 logger.warning(f"No entry found at index {index}.")
                 print(colored(f"Warning: No entry found at index {index}.", "yellow"))
@@ -887,6 +899,8 @@ class EntryManager:
                 entry["tags"] = tags
                 logger.debug(f"Updated tags for index {index}: {tags}")
 
+            entry["modified_ts"] = int(time.time())
+
             data["entries"][str(index)] = entry
             logger.debug(f"Modified entry at index {index}: {entry}")
 
@@ -922,10 +936,17 @@ class EntryManager:
         include_archived: bool = False,
         verbose: bool = True,
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """List entries in the index with optional sorting and filtering.
+        """List entries sorted and filtered according to the provided options.
 
-        By default archived entries are omitted unless ``include_archived`` is
-        ``True``.
+        Parameters
+        ----------
+        sort_by:
+            Field to sort by. Supported values are ``"index"``, ``"label"`` and
+            ``"updated"``.
+        filter_kind:
+            Optional entry kind to restrict the results.
+
+        Archived entries are omitted unless ``include_archived`` is ``True``.
         """
         try:
             data = self._load_index()
@@ -941,11 +962,14 @@ class EntryManager:
                 idx_str, entry = item
                 if sort_by == "index":
                     return int(idx_str)
-                if sort_by in {"website", "label"}:
+                if sort_by == "label":
+                    # labels are stored in the index so no additional
+                    # decryption is required when sorting
                     return entry.get("label", entry.get("website", "")).lower()
-                if sort_by == "username":
-                    return entry.get("username", "").lower()
-                raise ValueError("sort_by must be 'index', 'label', or 'username'")
+                if sort_by == "updated":
+                    # sort newest first
+                    return -int(entry.get("updated", 0))
+                raise ValueError("sort_by must be 'index', 'label', or 'updated'")
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
 
@@ -1045,9 +1069,10 @@ class EntryManager:
             return []
 
     def search_entries(
-        self, query: str
+        self, query: str, kinds: List[str] | None = None
     ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """Return entries matching the query across common fields."""
+        """Return entries matching ``query`` across whitelisted metadata fields."""
+
         data = self._load_index()
         entries_data = data.get("entries", {})
 
@@ -1059,74 +1084,33 @@ class EntryManager:
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
             etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+
+            if kinds is not None and etype not in kinds:
+                continue
+
             label = entry.get("label", entry.get("website", ""))
-            notes = entry.get("notes", "")
+            username = (
+                entry.get("username", "") if etype == EntryType.PASSWORD.value else None
+            )
+            url = entry.get("url", "") if etype == EntryType.PASSWORD.value else None
             tags = entry.get("tags", [])
+            archived = entry.get("archived", entry.get("blacklisted", False))
+
             label_match = query_lower in label.lower()
-            notes_match = query_lower in notes.lower()
+            username_match = bool(username) and query_lower in username.lower()
+            url_match = bool(url) and query_lower in url.lower()
             tags_match = any(query_lower in str(t).lower() for t in tags)
 
-            if etype == EntryType.PASSWORD.value:
-                username = entry.get("username", "")
-                url = entry.get("url", "")
-                custom_fields = entry.get("custom_fields", [])
-                custom_match = any(
-                    query_lower in str(cf.get("label", "")).lower()
-                    or query_lower in str(cf.get("value", "")).lower()
-                    for cf in custom_fields
+            if label_match or username_match or url_match or tags_match:
+                results.append(
+                    (
+                        int(idx),
+                        label,
+                        username if username is not None else None,
+                        url if url is not None else None,
+                        archived,
+                    )
                 )
-                if (
-                    label_match
-                    or query_lower in username.lower()
-                    or query_lower in url.lower()
-                    or notes_match
-                    or custom_match
-                    or tags_match
-                ):
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            username,
-                            url,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
-            elif etype in (EntryType.KEY_VALUE.value, EntryType.MANAGED_ACCOUNT.value):
-                value_field = str(entry.get("value", ""))
-                custom_fields = entry.get("custom_fields", [])
-                custom_match = any(
-                    query_lower in str(cf.get("label", "")).lower()
-                    or query_lower in str(cf.get("value", "")).lower()
-                    for cf in custom_fields
-                )
-                if (
-                    label_match
-                    or query_lower in value_field.lower()
-                    or notes_match
-                    or custom_match
-                    or tags_match
-                ):
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            None,
-                            None,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
-            else:
-                if label_match or notes_match or tags_match:
-                    results.append(
-                        (
-                            int(idx),
-                            label,
-                            None,
-                            None,
-                            entry.get("archived", entry.get("blacklisted", False)),
-                        )
-                    )
 
         return results
 
