@@ -95,6 +95,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **custom_fields** (`array`, optional): Additional user-defined fields.
 - **origin** (`string`, optional): Source identifier for imported data.
 - **value** (`string`, optional): For `key_value` entries, stores the secret value.
+- **key** (`string`, optional): Name of the key for `key_value` entries.
 - **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
 - **word_count** (`integer`, managed_account only): Number of words in the child seed. Managed accounts always use `12`.
 - **fingerprint** (`string`, managed_account only): Identifier of the child profile, used for its directory name.

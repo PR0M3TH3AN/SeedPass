@@ -90,8 +90,8 @@ runner = CliRunner()
         (
             "add-key-value",
             "add_key_value",
-            ["Label", "--value", "val", "--notes", "note"],
-            ("Label", "val"),
+            ["Label", "--key", "k1", "--value", "val", "--notes", "note"],
+            ("Label", "k1", "val"),
             {"notes": "note"},
             "7",
         ),

@@ -173,6 +173,7 @@ def create_entry(
     if etype == "key_value":
         index = _pm.entry_manager.add_key_value(
             entry.get("label"),
+            entry.get("key"),
             entry.get("value"),
             notes=entry.get("notes", ""),
         )

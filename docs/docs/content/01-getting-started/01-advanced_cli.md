@@ -55,7 +55,7 @@ Manage individual entries within a vault.
 | Add a PGP key entry | `entry add-pgp` | `seedpass entry add-pgp Personal --user-id me@example.com` |
 | Add a Nostr key entry | `entry add-nostr` | `seedpass entry add-nostr Chat` |
 | Add a seed phrase entry | `entry add-seed` | `seedpass entry add-seed Backup --words 24` |
-| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --value abc123` |
+| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --key api --value abc123` |
 | Add a managed account entry | `entry add-managed-account` | `seedpass entry add-managed-account Trading` |
 | Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
 | Archive an entry | `entry archive` | `seedpass entry archive 1` |
@@ -144,7 +144,7 @@ Run or stop the local HTTP API.
 - **`seedpass entry add-pgp <label>`** – Create a PGP key entry. Provide `--user-id` and `--key-type` as needed.
 - **`seedpass entry add-nostr <label>`** – Create a Nostr key entry for decentralised chat.
 - **`seedpass entry add-seed <label>`** – Store a derived seed phrase. Use `--words` to set the word count.
-- **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--value`.
+ - **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--key` and `--value`.
 - **`seedpass entry add-managed-account <label>`** – Store a BIP‑85 derived account seed.
 - **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
 - **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.

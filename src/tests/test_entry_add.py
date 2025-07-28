@@ -73,7 +73,7 @@ def test_round_trip_entry_types(method, expected_type):
             entry_mgr.add_totp("example", TEST_SEED)
             index = 0
         elif method == "add_key_value":
-            index = entry_mgr.add_key_value("label", "val")
+            index = entry_mgr.add_key_value("label", "k1", "val")
         else:
             if method == "add_ssh_key":
                 index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
@@ -118,7 +118,7 @@ def test_legacy_entry_defaults_to_password():
         ("add_pgp_key", ("pgp", TEST_SEED)),
         ("add_nostr_key", ("nostr",)),
         ("add_seed", ("seed", TEST_SEED)),
-        ("add_key_value", ("label", "val")),
+        ("add_key_value", ("label", "k1", "val")),
         ("add_managed_account", ("acct", TEST_SEED)),
     ],
 )

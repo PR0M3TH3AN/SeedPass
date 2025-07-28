@@ -26,7 +26,7 @@ class DummyPM:
             add_pgp_key=lambda label, seed, index=None, key_type="ed25519", user_id="", notes="": 3,
             add_nostr_key=lambda label, index=None, notes="": 4,
             add_seed=lambda label, seed, index=None, words_num=24, notes="": 5,
-            add_key_value=lambda label, value, notes="": 6,
+            add_key_value=lambda label, key, value, notes="": 6,
             add_managed_account=lambda label, seed, index=None, notes="": 7,
             modify_entry=lambda *a, **kw: None,
             archive_entry=lambda i: None,

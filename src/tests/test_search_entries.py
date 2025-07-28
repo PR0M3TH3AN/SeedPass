@@ -93,7 +93,7 @@ def test_search_key_value_value():
         tmp_path = Path(tmpdir)
         entry_mgr = setup_entry_manager(tmp_path)
 
-        idx = entry_mgr.add_key_value("API", "token123")
+        idx = entry_mgr.add_key_value("API entry", "api", "token123")
 
         result = entry_mgr.search_entries("token123")
         assert result == []

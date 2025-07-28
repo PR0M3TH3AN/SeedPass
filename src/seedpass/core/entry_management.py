@@ -412,6 +412,7 @@ class EntryManager:
     def add_key_value(
         self,
         label: str,
+        key: str,
         value: str,
         *,
         notes: str = "",
@@ -429,6 +430,7 @@ class EntryManager:
             "type": EntryType.KEY_VALUE.value,
             "kind": EntryType.KEY_VALUE.value,
             "label": label,
+            "key": key,
             "modified_ts": int(time.time()),
             "value": value,
             "notes": notes,
@@ -720,6 +722,7 @@ class EntryManager:
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
+        key: Optional[str] = None,
         value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
@@ -736,6 +739,7 @@ class EntryManager:
         :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
         :param digits: (Optional) The new number of digits for TOTP codes.
+        :param key: (Optional) New key for key/value entries.
         :param value: (Optional) New value for key/value entries.
         """
         try:
@@ -764,6 +768,7 @@ class EntryManager:
                 "label": label,
                 "period": period,
                 "digits": digits,
+                "key": key,
                 "value": value,
                 "custom_fields": custom_fields,
                 "tags": tags,
@@ -790,6 +795,7 @@ class EntryManager:
                 },
                 EntryType.KEY_VALUE.value: {
                     "label",
+                    "key",
                     "value",
                     "archived",
                     "notes",
@@ -870,6 +876,9 @@ class EntryManager:
                     EntryType.KEY_VALUE.value,
                     EntryType.MANAGED_ACCOUNT.value,
                 ):
+                    if key is not None and entry_type == EntryType.KEY_VALUE.value:
+                        entry["key"] = key
+                        logger.debug(f"Updated key for index {index}.")
                     if value is not None:
                         entry["value"] = value
                         logger.debug(f"Updated value for index {index}.")
