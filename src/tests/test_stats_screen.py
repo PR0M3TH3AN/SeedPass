@@ -9,7 +9,10 @@ import main
 
 
 def _make_pm():
-    return SimpleNamespace(display_stats=lambda: print("stats"))
+    return SimpleNamespace(
+        display_stats=lambda: print("stats"),
+        start_background_sync=lambda: None,
+    )
 
 
 def test_live_stats_shows_message(monkeypatch, capsys):
@@ -36,3 +39,21 @@ def test_live_stats_shows_notification(monkeypatch, capsys):
     main._display_live_stats(pm)
     out = capsys.readouterr().out
     assert "note" in out
+
+
+def test_live_stats_triggers_background_sync(monkeypatch):
+    called = {"sync": 0}
+
+    pm = _make_pm()
+    pm.start_background_sync = lambda: called.__setitem__("sync", called["sync"] + 1)
+
+    monkeypatch.setattr(main, "get_notification_text", lambda *_: "")
+    monkeypatch.setattr(
+        main,
+        "timed_input",
+        lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
+
+    main._display_live_stats(pm)
+
+    assert called["sync"] >= 1

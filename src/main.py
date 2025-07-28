@@ -275,11 +275,22 @@ def handle_display_npub(password_manager: PasswordManager):
 def _display_live_stats(
     password_manager: PasswordManager, interval: float = 1.0
 ) -> None:
-    """Continuously refresh stats until the user presses Enter."""
+    """Continuously refresh stats until the user presses Enter.
+
+    Each refresh also triggers a background sync so the latest stats are
+    displayed if newer data exists on Nostr.
+    """
 
     display_fn = getattr(password_manager, "display_stats", None)
+    sync_fn = getattr(password_manager, "start_background_sync", None)
     if not callable(display_fn):
         return
+
+    if callable(sync_fn):
+        try:
+            sync_fn()
+        except Exception as exc:  # pragma: no cover - sync best effort
+            logging.debug("Background sync failed during stats display: %s", exc)
 
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
@@ -292,6 +303,11 @@ def _display_live_stats(
         return
 
     while True:
+        if callable(sync_fn):
+            try:
+                sync_fn()
+            except Exception:  # pragma: no cover - sync best effort
+                logging.debug("Background sync failed during stats display")
         clear_screen()
         display_fn()
         note = get_notification_text(password_manager)
