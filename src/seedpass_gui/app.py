@@ -217,6 +217,7 @@ class EntryDialog(toga.Window):
         self.length_input = toga.NumberInput(
             min=8, max=128, style=Pack(width=80), value=16
         )
+        self.key_input = toga.TextInput(style=Pack(flex=1))
         self.value_input = toga.TextInput(style=Pack(flex=1))
 
         save_button = toga.Button(
@@ -234,6 +235,8 @@ class EntryDialog(toga.Window):
         box.add(self.url_input)
         box.add(toga.Label("Length"))
         box.add(self.length_input)
+        box.add(toga.Label("Key"))
+        box.add(self.key_input)
         box.add(toga.Label("Value"))
         box.add(self.value_input)
         box.add(save_button)
@@ -249,6 +252,7 @@ class EntryDialog(toga.Window):
                 self.username_input.value = entry.get("username", "") or ""
                 self.url_input.value = entry.get("url", "") or ""
                 self.length_input.value = entry.get("length", 16)
+                self.key_input.value = entry.get("key", "")
                 self.value_input.value = entry.get("value", "")
 
     def save(self, widget: toga.Widget) -> None:
@@ -257,6 +261,7 @@ class EntryDialog(toga.Window):
         url = self.url_input.value or None
         length = int(self.length_input.value or 16)
         kind = self.kind_input.value
+        key = self.key_input.value or None
         value = self.value_input.value or None
 
         if self.entry_id is None:
@@ -275,7 +280,9 @@ class EntryDialog(toga.Window):
             elif kind == EntryType.NOSTR.value:
                 entry_id = self.main.entries.add_nostr_key(label)
             elif kind == EntryType.KEY_VALUE.value:
-                entry_id = self.main.entries.add_key_value(label, value or "")
+                entry_id = self.main.entries.add_key_value(
+                    label, key or "", value or ""
+                )
             elif kind == EntryType.MANAGED_ACCOUNT.value:
                 entry_id = self.main.entries.add_managed_account(label)
         else:
@@ -284,7 +291,7 @@ class EntryDialog(toga.Window):
             if kind == EntryType.PASSWORD.value:
                 kwargs.update({"username": username, "url": url})
             elif kind == EntryType.KEY_VALUE.value:
-                kwargs.update({"value": value})
+                kwargs.update({"key": key, "value": value})
             self.main.entries.modify_entry(entry_id, **kwargs)
 
         entry = self.main.entries.retrieve_entry(entry_id) or {}

@@ -363,7 +363,7 @@ entry includes a `label`, while only password entries track a `url`.
 | Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes`, optional `tags` |
 | PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes`, optional `tags` |
 | Nostr Key Pair| `index`, `archived`, optional `notes`, optional `tags` |
-| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags` |
+| Key/Value     | `key`, `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags` |
 | Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes`, optional `tags` |
 
 

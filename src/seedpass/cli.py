@@ -315,12 +315,13 @@ def entry_add_seed(
 def entry_add_key_value(
     ctx: typer.Context,
     label: str,
+    key: str = typer.Option(..., "--key", help="Key name"),
     value: str = typer.Option(..., "--value", help="Stored value"),
     notes: str = typer.Option("", "--notes", help="Entry notes"),
 ) -> None:
     """Add a key/value entry and output its index."""
     service = _get_entry_service(ctx)
-    idx = service.add_key_value(label, value, notes=notes)
+    idx = service.add_key_value(label, key, value, notes=notes)
     typer.echo(str(idx))
 
 

@@ -379,9 +379,13 @@ class EntryService:
             self._manager.start_background_vault_sync()
             return idx
 
-    def add_key_value(self, label: str, value: str, *, notes: str = "") -> int:
+    def add_key_value(
+        self, label: str, key: str, value: str, *, notes: str = ""
+    ) -> int:
         with self._lock:
-            idx = self._manager.entry_manager.add_key_value(label, value, notes=notes)
+            idx = self._manager.entry_manager.add_key_value(
+                label, key, value, notes=notes
+            )
             self._manager.start_background_vault_sync()
             return idx
 

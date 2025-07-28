@@ -38,7 +38,7 @@ def test_handle_list_entries(monkeypatch, capsys):
 
         entry_mgr.add_totp("Example", TEST_SEED)
         entry_mgr.add_entry("example.com", 12)
-        entry_mgr.add_key_value("API", "abc123")
+        entry_mgr.add_key_value("API entry", "api", "abc123")
         entry_mgr.add_managed_account("acct", TEST_SEED)
 
         inputs = iter(["1", ""])  # list all, then exit
@@ -72,7 +72,7 @@ def test_list_entries_show_details(monkeypatch, capsys):
         pm.secret_mode_enabled = False
 
         entry_mgr.add_totp("Example", TEST_SEED)
-        entry_mgr.add_key_value("API", "val")
+        entry_mgr.add_key_value("API entry", "api", "val")
         entry_mgr.add_managed_account("acct", TEST_SEED)
 
         monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
@@ -353,7 +353,7 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             )
             expected = "123456"
         elif entry_type == "key_value":
-            idx = entry_mgr.add_key_value("API", "abc")
+            idx = entry_mgr.add_key_value("API entry", "api", "abc")
             expected = "abc"
         else:  # managed_account
             idx = entry_mgr.add_managed_account("acct", TEST_SEED)
@@ -390,8 +390,8 @@ def test_show_entry_details_with_enum_type(monkeypatch, capsys, entry_type):
             )
             expect = "Label: Example"
         else:  # KEY_VALUE
-            idx = entry_mgr.add_key_value("API", "abc")
-            expect = "API"
+            idx = entry_mgr.add_key_value("API entry", "api", "abc")
+            expect = "API entry"
 
         data = entry_mgr._load_index(force_reload=True)
         data["entries"][str(idx)]["type"] = entry_type

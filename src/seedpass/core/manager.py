@@ -1888,6 +1888,10 @@ class PasswordManager:
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
+            key_field = input("Key: ").strip()
+            if not key_field:
+                print(colored("Error: Key cannot be empty.", "red"))
+                return
             value = input("Value: ").strip()
             notes = input("Notes (optional): ").strip()
             tags_input = input("Enter tags (comma-separated, optional): ").strip()
@@ -1915,6 +1919,7 @@ class PasswordManager:
 
             index = self.entry_manager.add_key_value(
                 label,
+                key_field,
                 value,
                 notes=notes,
                 custom_fields=custom_fields,
@@ -2886,6 +2891,9 @@ class PasswordManager:
                     input(f'Enter new label (leave blank to keep "{label}"): ').strip()
                     or label
                 )
+                new_key = input(
+                    f'Enter new key (leave blank to keep "{entry.get("key", "")}"): '
+                ).strip() or entry.get("key", "")
                 new_value = (
                     input("Enter new value (leave blank to keep current): ").strip()
                     or value
@@ -2947,6 +2955,7 @@ class PasswordManager:
                     archived=new_blacklisted,
                     notes=new_notes,
                     label=new_label,
+                    key=new_key,
                     value=new_value,
                     custom_fields=custom_fields,
                     tags=tags,
@@ -3237,7 +3246,8 @@ class PasswordManager:
                 print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.KEY_VALUE.value:
             print(color_text("  Type: Key/Value", "index"))
-            print(color_text(f"  Label (key): {entry.get('label', '')}", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(color_text(f"  Key: {entry.get('key', '')}", "index"))
             print(color_text(f"  Value: {entry.get('value', '')}", "index"))
             notes = entry.get("notes", "")
             if notes:

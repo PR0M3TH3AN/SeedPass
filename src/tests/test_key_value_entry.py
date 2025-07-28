@@ -23,12 +23,13 @@ def test_add_and_modify_key_value():
         tmp_path = Path(tmpdir)
         em = setup_entry_mgr(tmp_path)
 
-        idx = em.add_key_value("API", "abc123", notes="token")
+        idx = em.add_key_value("API entry", "api_key", "abc123", notes="token")
         entry = em.retrieve_entry(idx)
         assert entry == {
             "type": "key_value",
             "kind": "key_value",
-            "label": "API",
+            "label": "API entry",
+            "key": "api_key",
             "value": "abc123",
             "notes": "token",
             "archived": False,
@@ -36,8 +37,9 @@ def test_add_and_modify_key_value():
             "tags": [],
         }
 
-        em.modify_entry(idx, value="def456")
+        em.modify_entry(idx, key="api_key2", value="def456")
         updated = em.retrieve_entry(idx)
+        assert updated["key"] == "api_key2"
         assert updated["value"] == "def456"
 
         results = em.search_entries("def456")
