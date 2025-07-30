@@ -402,8 +402,10 @@ def test_entry_add(monkeypatch):
 def test_entry_modify(monkeypatch):
     called = {}
 
-    def modify_entry(index, username=None, url=None, notes=None, label=None, **kwargs):
-        called["args"] = (index, username, url, notes, label, kwargs)
+    def modify_entry(
+        index, username=None, url=None, notes=None, label=None, key=None, **kwargs
+    ):
+        called["args"] = (index, username, url, notes, label, key, kwargs)
 
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(modify_entry=modify_entry),
@@ -413,7 +415,7 @@ def test_entry_modify(monkeypatch):
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "modify", "1", "--username", "alice"])
     assert result.exit_code == 0
-    assert called["args"][:5] == (1, "alice", None, None, None)
+    assert called["args"][:6] == (1, "alice", None, None, None, None)
 
 
 def test_entry_modify_invalid(monkeypatch):

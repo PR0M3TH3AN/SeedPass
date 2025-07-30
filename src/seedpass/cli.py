@@ -354,6 +354,7 @@ def entry_modify(
         None, "--period", help="TOTP period in seconds"
     ),
     digits: Optional[int] = typer.Option(None, "--digits", help="TOTP digits"),
+    key: Optional[str] = typer.Option(None, "--key", help="New key"),
     value: Optional[str] = typer.Option(None, "--value", help="New value"),
 ) -> None:
     """Modify an existing entry."""
@@ -367,6 +368,7 @@ def entry_modify(
             label=label,
             period=period,
             digits=digits,
+            key=key,
             value=value,
         )
     except ValueError as e:

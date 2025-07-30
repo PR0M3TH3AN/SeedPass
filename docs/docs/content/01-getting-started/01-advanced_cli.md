@@ -57,7 +57,7 @@ Manage individual entries within a vault.
 | Add a seed phrase entry | `entry add-seed` | `seedpass entry add-seed Backup --words 24` |
 | Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --key api --value abc123` |
 | Add a managed account entry | `entry add-managed-account` | `seedpass entry add-managed-account Trading` |
-| Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
+| Modify an entry | `entry modify` | `seedpass entry modify 1 --key new --value updated` |
 | Archive an entry | `entry archive` | `seedpass entry archive 1` |
 | Unarchive an entry | `entry unarchive` | `seedpass entry unarchive 1` |
 | Export all TOTP secrets | `entry export-totp` | `seedpass entry export-totp --file totp.json` |
@@ -146,7 +146,7 @@ Run or stop the local HTTP API.
 - **`seedpass entry add-seed <label>`** – Store a derived seed phrase. Use `--words` to set the word count.
  - **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--key` and `--value`.
 - **`seedpass entry add-managed-account <label>`** – Store a BIP‑85 derived account seed.
-- **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
+- **`seedpass entry modify <id>`** – Update an entry's fields. For key/value entries you can change the label, key and value.
 - **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.
 - **`seedpass entry unarchive <id>`** – Restore an archived entry.
 - **`seedpass entry export-totp --file <path>`** – Export all stored TOTP secrets to a JSON file.
