@@ -58,6 +58,10 @@ class ConfigManager:
                 "min_lowercase": 2,
                 "min_digits": 2,
                 "min_special": 2,
+                "include_special_chars": True,
+                "allowed_special_chars": "",
+                "special_mode": "standard",
+                "exclude_ambiguous": False,
                 "verbose_timing": False,
             }
         try:
@@ -83,6 +87,10 @@ class ConfigManager:
             data.setdefault("min_lowercase", 2)
             data.setdefault("min_digits", 2)
             data.setdefault("min_special", 2)
+            data.setdefault("include_special_chars", True)
+            data.setdefault("allowed_special_chars", "")
+            data.setdefault("special_mode", "standard")
+            data.setdefault("exclude_ambiguous", False)
             data.setdefault("verbose_timing", False)
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
@@ -259,6 +267,10 @@ class ConfigManager:
             min_lowercase=int(cfg.get("min_lowercase", 2)),
             min_digits=int(cfg.get("min_digits", 2)),
             min_special=int(cfg.get("min_special", 2)),
+            include_special_chars=bool(cfg.get("include_special_chars", True)),
+            allowed_special_chars=cfg.get("allowed_special_chars") or None,
+            special_mode=cfg.get("special_mode") or None,
+            exclude_ambiguous=bool(cfg.get("exclude_ambiguous", False)),
         )
 
     def set_min_uppercase(self, count: int) -> None:
@@ -279,6 +291,30 @@ class ConfigManager:
     def set_min_special(self, count: int) -> None:
         cfg = self.load_config(require_pin=False)
         cfg["min_special"] = int(count)
+        self.save_config(cfg)
+
+    def set_include_special_chars(self, enabled: bool) -> None:
+        """Persist whether special characters are allowed."""
+        cfg = self.load_config(require_pin=False)
+        cfg["include_special_chars"] = bool(enabled)
+        self.save_config(cfg)
+
+    def set_allowed_special_chars(self, chars: str | None) -> None:
+        """Persist the set of allowed special characters."""
+        cfg = self.load_config(require_pin=False)
+        cfg["allowed_special_chars"] = chars or ""
+        self.save_config(cfg)
+
+    def set_special_mode(self, mode: str) -> None:
+        """Persist the special character mode."""
+        cfg = self.load_config(require_pin=False)
+        cfg["special_mode"] = mode
+        self.save_config(cfg)
+
+    def set_exclude_ambiguous(self, enabled: bool) -> None:
+        """Persist whether ambiguous characters are excluded."""
+        cfg = self.load_config(require_pin=False)
+        cfg["exclude_ambiguous"] = bool(enabled)
         self.save_config(cfg)
 
     def set_quick_unlock(self, enabled: bool) -> None:

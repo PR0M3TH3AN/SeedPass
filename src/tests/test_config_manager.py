@@ -196,3 +196,43 @@ def test_nostr_retry_settings_round_trip():
         cfg_mgr.set_nostr_retry_delay(3.5)
         assert cfg_mgr.get_nostr_max_retries() == 5
         assert cfg_mgr.get_nostr_retry_delay() == 3.5
+
+
+def test_special_char_settings_round_trip():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg = cfg_mgr.load_config(require_pin=False)
+        assert cfg["include_special_chars"] is True
+        assert cfg["allowed_special_chars"] == ""
+        assert cfg["special_mode"] == "standard"
+        assert cfg["exclude_ambiguous"] is False
+
+        cfg_mgr.set_include_special_chars(False)
+        cfg_mgr.set_allowed_special_chars("@$")
+        cfg_mgr.set_special_mode("safe")
+        cfg_mgr.set_exclude_ambiguous(True)
+
+        cfg2 = cfg_mgr.load_config(require_pin=False)
+        assert cfg2["include_special_chars"] is False
+        assert cfg2["allowed_special_chars"] == "@$"
+        assert cfg2["special_mode"] == "safe"
+        assert cfg2["exclude_ambiguous"] is True
+
+
+def test_password_policy_extended_fields():
+    with TemporaryDirectory() as tmpdir:
+        vault, _ = create_vault(Path(tmpdir), TEST_SEED, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+
+        cfg_mgr.set_include_special_chars(False)
+        cfg_mgr.set_allowed_special_chars("()")
+        cfg_mgr.set_special_mode("safe")
+        cfg_mgr.set_exclude_ambiguous(True)
+
+        policy = cfg_mgr.get_password_policy()
+        assert policy.include_special_chars is False
+        assert policy.allowed_special_chars == "()"
+        assert policy.special_mode == "safe"
+        assert policy.exclude_ambiguous is True

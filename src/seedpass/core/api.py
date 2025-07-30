@@ -488,6 +488,16 @@ class ConfigService:
             "min_lowercase": ("set_min_lowercase", int),
             "min_digits": ("set_min_digits", int),
             "min_special": ("set_min_special", int),
+            "include_special_chars": (
+                "set_include_special_chars",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
+            "allowed_special_chars": ("set_allowed_special_chars", lambda v: v),
+            "special_mode": ("set_special_mode", lambda v: v),
+            "exclude_ambiguous": (
+                "set_exclude_ambiguous",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
             "quick_unlock": (
                 "set_quick_unlock",
                 lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
