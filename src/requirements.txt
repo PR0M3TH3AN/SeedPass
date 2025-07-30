@@ -11,7 +11,7 @@ pytest>=7.0
 pytest-cov
 pytest-xdist
 portalocker>=2.8
-nostr-sdk>=0.42.1,<0.43
+nostr-sdk>=0.43
 websocket-client==1.7.0
 
 websockets>=15.0.0
