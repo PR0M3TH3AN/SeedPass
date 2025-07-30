@@ -50,6 +50,9 @@ DEFAULT_PASSWORD_LENGTH = 16  # Default length for generated passwords
 MIN_PASSWORD_LENGTH = 8  # Minimum allowed password length
 MAX_PASSWORD_LENGTH = 128  # Maximum allowed password length
 
+# Characters considered safe for passwords when limiting punctuation
+SAFE_SPECIAL_CHARS = "!@#$%^*-_+=?"
+
 # Timeout in seconds before the vault locks due to inactivity
 INACTIVITY_TIMEOUT = 15 * 60  # 15 minutes
 
