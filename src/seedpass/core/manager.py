@@ -2176,6 +2176,7 @@ class PasswordManager:
             print(colored("L. Edit Label", "cyan"))
             if entry_type == EntryType.KEY_VALUE.value:
                 print(colored("K. Edit Key", "cyan"))
+                print(colored("V. Edit Value", "cyan"))  # 🔧 merged conflicting changes from feature-X vs main
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
@@ -2197,6 +2198,12 @@ class PasswordManager:
                     self.entry_manager.modify_entry(index, key=new_key)
                     self.is_dirty = True
                     self.last_update = time.time()
+            elif entry_type == EntryType.KEY_VALUE.value and choice == "v":
+                new_value = input("New value: ").strip()
+                if new_value:
+                    self.entry_manager.modify_entry(index, value=new_value)
+                    self.is_dirty = True
+                    self.last_update = time.time()   # 🔧 merged conflicting changes from feature-X vs main
             elif entry_type == EntryType.PASSWORD.value and choice == "u":
                 new_username = input("New username: ").strip()
                 self.entry_manager.modify_entry(index, username=new_username)
