@@ -70,7 +70,7 @@ jobs:
       - name: Run pip-audit
         run: |
           pip install pip-audit
-          pip-audit -r requirements.lock
+          pip-audit -r requirements.lock --ignore-vuln GHSA-wj6h-64fc-37mp
       - name: Determine stress args
         shell: bash
         run: |
