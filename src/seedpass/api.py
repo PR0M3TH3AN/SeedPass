@@ -218,6 +218,7 @@ def update_entry(
             label=entry.get("label"),
             period=entry.get("period"),
             digits=entry.get("digits"),
+            key=entry.get("key"),
             value=entry.get("value"),
         )
     except ValueError as e:

@@ -416,6 +416,7 @@ class EntryService:
         label: str | None = None,
         period: int | None = None,
         digits: int | None = None,
+        key: str | None = None,
         value: str | None = None,
     ) -> None:
         with self._lock:
@@ -427,6 +428,7 @@ class EntryService:
                 label=label,
                 period=period,
                 digits=digits,
+                key=key,
                 value=value,
             )
             self._manager.start_background_vault_sync()
