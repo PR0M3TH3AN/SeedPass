@@ -41,7 +41,7 @@ def test_enforce_complexity_minimum_counts():
     pg = make_generator()
     alphabet = string.ascii_letters + string.digits + string.punctuation
     dk = bytes(range(32))
-    result = pg._enforce_complexity("a" * 32, alphabet, dk)
+    result = pg._enforce_complexity("a" * 32, alphabet, string.punctuation, dk)
     assert sum(1 for c in result if c.isupper()) >= 2
     assert sum(1 for c in result if c.islower()) >= 2
     assert sum(1 for c in result if c.isdigit()) >= 2
