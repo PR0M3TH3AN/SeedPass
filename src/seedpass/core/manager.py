@@ -2173,7 +2173,9 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             print(colored("\n[+] Edit Menu:", "green"))
-            print(colored("L. Edit Label (key)", "cyan"))
+            print(colored("L. Edit Label", "cyan"))
+            if entry_type == EntryType.KEY_VALUE.value:
+                print(colored("K. Edit Key", "cyan"))
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
@@ -2184,9 +2186,15 @@ class PasswordManager:
             if not choice:
                 break
             if choice == "l":
-                new_label = input("New label (key): ").strip()
+                new_label = input("New label: ").strip()
                 if new_label:
                     self.entry_manager.modify_entry(index, label=new_label)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif entry_type == EntryType.KEY_VALUE.value and choice == "k":
+                new_key = input("New key: ").strip()
+                if new_key:
+                    self.entry_manager.modify_entry(index, key=new_key)
                     self.is_dirty = True
                     self.last_update = time.time()
             elif entry_type == EntryType.PASSWORD.value and choice == "u":
