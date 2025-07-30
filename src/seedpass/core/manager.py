@@ -21,6 +21,7 @@ import builtins
 import threading
 import queue
 from dataclasses import dataclass
+import dataclasses
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -1457,7 +1458,8 @@ class PasswordManager:
             self.last_update = time.time()
 
             # Generate the password using the assigned index
-            password = self.password_generator.generate_password(length, index)
+            entry = self.entry_manager.retrieve_entry(index)
+            password = self._generate_password_for_entry(entry, index, length)
 
             # Provide user feedback
             print(
@@ -2067,6 +2069,29 @@ class PasswordManager:
             entry_type = entry_type.value
         return str(entry_type).lower()
 
+    def _generate_password_for_entry(
+        self, entry: dict, index: int, length: int | None = None
+    ) -> str:
+        """Generate a password for ``entry`` honoring any policy overrides."""
+        if length is None:
+            length = int(entry.get("length", DEFAULT_PASSWORD_LENGTH))
+        overrides = entry.get("policy", {})
+
+        pg = self.password_generator
+        if not hasattr(pg, "policy") or not isinstance(overrides, dict):
+            return pg.generate_password(length, index)
+
+        base_policy = pg.policy
+        merged = dataclasses.replace(
+            base_policy,
+            **{k: overrides[k] for k in overrides if hasattr(base_policy, k)},
+        )
+        pg.policy = merged
+        try:
+            return pg.generate_password(length, index)
+        finally:
+            pg.policy = base_policy
+
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
         while True:
@@ -2176,7 +2201,9 @@ class PasswordManager:
             print(colored("L. Edit Label", "cyan"))
             if entry_type == EntryType.KEY_VALUE.value:
                 print(colored("K. Edit Key", "cyan"))
-                print(colored("V. Edit Value", "cyan"))  # 🔧 merged conflicting changes from feature-X vs main
+                print(
+                    colored("V. Edit Value", "cyan")
+                )  # 🔧 merged conflicting changes from feature-X vs main
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
@@ -2203,7 +2230,9 @@ class PasswordManager:
                 if new_value:
                     self.entry_manager.modify_entry(index, value=new_value)
                     self.is_dirty = True
-                    self.last_update = time.time()   # 🔧 merged conflicting changes from feature-X vs main
+                    self.last_update = (
+                        time.time()
+                    )  # 🔧 merged conflicting changes from feature-X vs main
             elif entry_type == EntryType.PASSWORD.value and choice == "u":
                 new_username = input("New username: ").strip()
                 self.entry_manager.modify_entry(index, username=new_username)
@@ -2649,7 +2678,7 @@ class PasswordManager:
                 level="WARNING",
             )
 
-        password = self.password_generator.generate_password(length, index)
+        password = self._generate_password_for_entry(entry, index, length)
 
         if password:
             if self.secret_mode_enabled:
