@@ -406,6 +406,7 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
     Handles the action of retrieving the encrypted password index from Nostr.
     """
     try:
+        password_manager.nostr_client.fingerprint = password_manager.current_fingerprint
         result = asyncio.run(password_manager.nostr_client.fetch_latest_snapshot())
         if result:
             manifest, chunks = result
@@ -423,8 +424,12 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             print(colored("Encrypted index retrieved and saved successfully.", "green"))
             logging.info("Encrypted index retrieved and saved successfully from Nostr.")
         else:
-            print(colored("Failed to retrieve data from Nostr.", "red"))
-            logging.error("Failed to retrieve data from Nostr.")
+            msg = (
+                f"No Nostr events found for fingerprint"
+                f" {password_manager.current_fingerprint}."
+            )
+            print(colored(msg, "red"))
+            logging.error(msg)
     except Exception as e:
         logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))

@@ -95,7 +95,7 @@ from datetime import datetime
 from utils.fingerprint_manager import FingerprintManager
 
 # Import NostrClient
-from nostr.client import NostrClient, DEFAULT_RELAYS
+from nostr.client import NostrClient, DEFAULT_RELAYS, MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
 
@@ -272,6 +272,8 @@ class PasswordManager:
     def notify(self, message: str, level: str = "INFO") -> None:
         """Enqueue a notification and set it as the active message."""
         note = Notification(message, level)
+        if not hasattr(self, "notifications"):
+            self.notifications = queue.Queue()
         self.notifications.put(note)
         self._current_notification = note
         self._notification_expiry = time.time() + NOTIFICATION_DURATION
@@ -605,6 +607,8 @@ class PasswordManager:
             selected_fingerprint = fingerprints[int(choice) - 1]
             self.fingerprint_manager.current_fingerprint = selected_fingerprint
             self.current_fingerprint = selected_fingerprint
+            if not getattr(self, "manifest_id", None):
+                self.manifest_id = f"{MANIFEST_ID_PREFIX}{selected_fingerprint}"
 
             # Update fingerprint directory
             self.fingerprint_dir = (
@@ -645,7 +649,9 @@ class PasswordManager:
                     config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
-                if getattr(self, "manifest_id", None):
+                if getattr(self, "manifest_id", None) and hasattr(
+                    self.nostr_client, "_state_lock"
+                ):
                     from nostr.backup_models import Manifest
 
                     with self.nostr_client._state_lock:
@@ -903,6 +909,8 @@ class PasswordManager:
             self.current_fingerprint = fingerprint
             self.fingerprint_manager.current_fingerprint = fingerprint
             self.fingerprint_dir = fingerprint_dir
+            if not getattr(self, "manifest_id", None):
+                self.manifest_id = f"{MANIFEST_ID_PREFIX}{fingerprint}"
             logging.info(f"Current seed profile set to {fingerprint}")
 
             try:
@@ -1174,7 +1182,9 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            if getattr(self, "manifest_id", None):
+            if getattr(self, "manifest_id", None) and hasattr(
+                self.nostr_client, "_state_lock"
+            ):
                 from nostr.backup_models import Manifest
 
                 with self.nostr_client._state_lock:
@@ -1197,6 +1207,8 @@ class PasswordManager:
         """Always fetch the latest vault data from Nostr and update the local index."""
         start = time.perf_counter()
         try:
+            if getattr(self, "current_fingerprint", None):
+                self.nostr_client.fingerprint = self.current_fingerprint
             result = await self.nostr_client.fetch_latest_snapshot()
             if not result:
                 if self.nostr_client.last_error:
@@ -1346,6 +1358,8 @@ class PasswordManager:
         have_data = False
         start = time.perf_counter()
         try:
+            if getattr(self, "current_fingerprint", None):
+                self.nostr_client.fingerprint = self.current_fingerprint
             result = await self.nostr_client.fetch_latest_snapshot()
             if result:
                 manifest, chunks = result
@@ -4308,7 +4322,9 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            if getattr(self, "manifest_id", None):
+            if getattr(self, "manifest_id", None) and hasattr(
+                self.nostr_client, "_state_lock"
+            ):
                 from nostr.backup_models import Manifest
 
                 with self.nostr_client._state_lock:
