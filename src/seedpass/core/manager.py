@@ -1281,19 +1281,29 @@ class PasswordManager:
 
         async def _worker() -> None:
             try:
-                if hasattr(self, "nostr_client") and hasattr(self, "vault"):
-                    self.attempt_initial_sync()
-                if hasattr(self, "sync_index_from_nostr"):
-                    self.sync_index_from_nostr()
+                await self.attempt_initial_sync_async()
+                await self.sync_index_from_nostr_async()
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
 
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            threading.Thread(target=lambda: asyncio.run(_worker()), daemon=True).start()
+            thread = threading.Thread(
+                target=lambda: asyncio.run(_worker()), daemon=True
+            )
+            thread.start()
+            self._sync_task = thread
         else:
             self._sync_task = asyncio.create_task(_worker())
+
+    def cleanup(self) -> None:
+        """Cancel any pending background sync task."""
+        task = getattr(self, "_sync_task", None)
+        if isinstance(task, asyncio.Task) and not task.done():
+            task.cancel()
+        elif isinstance(task, threading.Thread) and task.is_alive():
+            task.join(timeout=0.1)
 
     def start_background_relay_check(self) -> None:
         """Check relay health in a background thread."""

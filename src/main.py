@@ -1056,6 +1056,7 @@ def display_menu(
                 continue
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
+            getattr(password_manager, "cleanup", lambda: None)()
             password_manager.nostr_client.close_client_pool()
             sys.exit(0)
         if choice == "1":
@@ -1259,6 +1260,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored("\nReceived shutdown signal. Exiting gracefully...", "yellow"))
         logging.info(f"Received shutdown signal: {sig}. Initiating graceful shutdown.")
         try:
+            getattr(password_manager, "cleanup", lambda: None)()
             password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
@@ -1277,6 +1279,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.info("Program terminated by user via KeyboardInterrupt.")
         print(colored("\nProgram terminated by user.", "yellow"))
         try:
+            getattr(password_manager, "cleanup", lambda: None)()
             password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
@@ -1287,6 +1290,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.error(f"A user-related error occurred: {e}", exc_info=True)
         print(colored(f"Error: {e}", "red"))
         try:
+            getattr(password_manager, "cleanup", lambda: None)()
             password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
@@ -1297,6 +1301,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
+            getattr(password_manager, "cleanup", lambda: None)()
             password_manager.nostr_client.close_client_pool()
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
