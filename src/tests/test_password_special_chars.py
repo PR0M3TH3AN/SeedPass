@@ -4,6 +4,8 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from constants import SAFE_SPECIAL_CHARS
+
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 
 
@@ -47,3 +49,11 @@ def test_exclude_ambiguous_chars():
     pw = pg.generate_password(length=32, index=2)
     for ch in "O0Il1":
         assert ch not in pw
+
+
+def test_safe_special_chars_mode():
+    policy = PasswordPolicy(special_mode="safe")
+    pg = make_generator(policy)
+    pw = pg.generate_password(length=32, index=3)
+    specials = [c for c in pw if c in string.punctuation]
+    assert specials and all(c in SAFE_SPECIAL_CHARS for c in specials)

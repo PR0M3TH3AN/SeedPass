@@ -42,7 +42,12 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for removed module
 
 from local_bip85.bip85 import BIP85
 
-from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH
+from constants import (
+    DEFAULT_PASSWORD_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    MAX_PASSWORD_LENGTH,
+    SAFE_SPECIAL_CHARS,
+)
 from .encryption import EncryptionManager
 
 # Instantiate the logger
