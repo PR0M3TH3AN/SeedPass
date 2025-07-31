@@ -91,8 +91,10 @@ main() {
                 build-essential pkg-config xclip \
                 libcairo2 libcairo2-dev \
                 libgirepository-2.0-dev gir1.2-girepository-2.0 \
+                libgirepository1.0-dev \
                 gobject-introspection \
-                gir1.2-gtk-3.0 python3-dev
+                gir1.2-gtk-3.0 python3-dev \
+                libffi-dev libssl-dev
         elif command -v dnf &> /dev/null; then
             sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
                 pkg-config cairo cairo-devel xclip \
