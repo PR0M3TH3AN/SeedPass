@@ -52,6 +52,14 @@ def test_handle_add_password(monkeypatch, dummy_nostr_client, capsys):
                 "",  # tags
                 "n",  # add custom field
                 "",  # length (default)
+                "",  # include special default
+                "",  # allowed special default
+                "",  # special mode default
+                "",  # exclude ambiguous default
+                "",  # min uppercase
+                "",  # min lowercase
+                "",  # min digits
+                "",  # min special
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
@@ -113,6 +121,14 @@ def test_handle_add_password_secret_mode(monkeypatch, dummy_nostr_client, capsys
                 "",  # tags
                 "n",  # add custom field
                 "",  # length (default)
+                "",  # include special default
+                "",  # allowed special default
+                "",  # special mode default
+                "",  # exclude ambiguous default
+                "",  # min uppercase
+                "",  # min lowercase
+                "",  # min digits
+                "",  # min special
             ]
         )
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
