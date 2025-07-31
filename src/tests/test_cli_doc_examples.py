@@ -20,7 +20,7 @@ class DummyPM:
             search_entries=lambda q, kinds=None: [(1, "GitHub", "user", "", False)],
             retrieve_entry=lambda idx: {"type": EntryType.PASSWORD.value, "length": 8},
             get_totp_code=lambda idx, seed: "123456",
-            add_entry=lambda label, length, username, url: 1,
+            add_entry=lambda label, length, username, url, **kwargs: 1,
             add_totp=lambda label, seed, index=None, secret=None, period=30, digits=6: "totp://",
             add_ssh_key=lambda label, seed, index=None, notes="": 2,
             add_pgp_key=lambda label, seed, index=None, key_type="ed25519", user_id="", notes="": 3,

@@ -239,6 +239,8 @@ seedpass entry get "email"
 # Sort or filter the list view
 seedpass list --sort label
 seedpass list --filter totp
+# Generate a password with the safe character set
+seedpass util generate-password --length 20 --special-mode safe --exclude-ambiguous
 
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
