@@ -109,7 +109,7 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **min_special** (`integer`, default `2`): Minimum required special characters.
 - **include_special_chars** (`boolean`, default `true`): Enable or disable any punctuation in generated passwords.
 - **allowed_special_chars** (`string`, optional): Restrict punctuation to this exact set.
-- **special_mode** (`string`, default `"standard"`): Choose `"safe"` for the `!@#$%^*-_+=?` set, otherwise the full `string.punctuation` is used.
+- **special_mode** (`string`, default `"standard"`): Choose `"safe"` for the `SAFE_SPECIAL_CHARS` set (`!@#$%^*-_+=?`), otherwise the full `string.punctuation` is used.
 - **exclude_ambiguous** (`boolean`, default `false`): Omit confusing characters like `O0Il1`.
   Example:
 
