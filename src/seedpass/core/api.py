@@ -9,7 +9,8 @@ allow easy validation and documentation.
 
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
+import dataclasses
 import json
 
 from pydantic import BaseModel
@@ -283,9 +284,42 @@ class EntryService:
         length: int,
         username: str | None = None,
         url: str | None = None,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
     ) -> int:
         with self._lock:
-            idx = self._manager.entry_manager.add_entry(label, length, username, url)
+            kwargs: dict[str, Any] = {}
+            if include_special_chars is not None:
+                kwargs["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                kwargs["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                kwargs["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                kwargs["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                kwargs["min_uppercase"] = min_uppercase
+            if min_lowercase is not None:
+                kwargs["min_lowercase"] = min_lowercase
+            if min_digits is not None:
+                kwargs["min_digits"] = min_digits
+            if min_special is not None:
+                kwargs["min_special"] = min_special
+
+            idx = self._manager.entry_manager.add_entry(
+                label,
+                length,
+                username,
+                url,
+                **kwargs,
+            )
             self._manager.start_background_vault_sync()
             return idx
 
@@ -557,9 +591,50 @@ class UtilityService:
         self._manager = manager
         self._lock = Lock()
 
-    def generate_password(self, length: int) -> str:
+    def generate_password(
+        self,
+        length: int,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
+    ) -> str:
         with self._lock:
-            return self._manager.password_generator.generate_password(length)
+            pg = self._manager.password_generator
+            base_policy = getattr(pg, "policy", None)
+            overrides: dict[str, Any] = {}
+            if include_special_chars is not None:
+                overrides["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                overrides["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                overrides["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                overrides["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                overrides["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                overrides["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                overrides["min_digits"] = int(min_digits)
+            if min_special is not None:
+                overrides["min_special"] = int(min_special)
+
+            if base_policy is not None and overrides:
+                pg.policy = dataclasses.replace(
+                    base_policy,
+                    **{k: overrides[k] for k in overrides if hasattr(base_policy, k)},
+                )
+                try:
+                    return pg.generate_password(length)
+                finally:
+                    pg.policy = base_policy
+            return pg.generate_password(length)
 
     def verify_checksum(self) -> None:
         with self._lock:

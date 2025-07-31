@@ -321,18 +321,54 @@ def test_nostr_sync(monkeypatch):
 def test_generate_password(monkeypatch):
     called = {}
 
-    def gen_pw(length):
+    def gen_pw(length, **kwargs):
         called["length"] = length
+        called["kwargs"] = kwargs
         return "secretpw"
 
-    pm = SimpleNamespace(
-        password_generator=SimpleNamespace(generate_password=gen_pw),
-        select_fingerprint=lambda fp: None,
+    monkeypatch.setattr(
+        cli,
+        "PasswordManager",
+        lambda: SimpleNamespace(select_fingerprint=lambda fp: None),
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["util", "generate-password", "--length", "12"])
+    monkeypatch.setattr(
+        cli, "UtilityService", lambda pm: SimpleNamespace(generate_password=gen_pw)
+    )
+    result = runner.invoke(
+        app,
+        [
+            "util",
+            "generate-password",
+            "--length",
+            "12",
+            "--no-special",
+            "--allowed-special-chars",
+            "!@",
+            "--special-mode",
+            "safe",
+            "--exclude-ambiguous",
+            "--min-uppercase",
+            "1",
+            "--min-lowercase",
+            "2",
+            "--min-digits",
+            "3",
+            "--min-special",
+            "4",
+        ],
+    )
     assert result.exit_code == 0
     assert called.get("length") == 12
+    assert called.get("kwargs") == {
+        "include_special_chars": False,
+        "allowed_special_chars": "!@",
+        "special_mode": "safe",
+        "exclude_ambiguous": True,
+        "min_uppercase": 1,
+        "min_lowercase": 2,
+        "min_digits": 3,
+        "min_special": 4,
+    }
     assert "secretpw" in result.stdout
 
 
@@ -370,8 +406,9 @@ def test_entry_list_passes_fingerprint(monkeypatch):
 def test_entry_add(monkeypatch):
     called = {}
 
-    def add_entry(label, length, username=None, url=None):
+    def add_entry(label, length, username=None, url=None, **kwargs):
         called["args"] = (label, length, username, url)
+        called["kwargs"] = kwargs
         return 2
 
     pm = SimpleNamespace(
@@ -392,11 +429,35 @@ def test_entry_add(monkeypatch):
             "bob",
             "--url",
             "ex.com",
+            "--no-special",
+            "--allowed-special-chars",
+            "!@",
+            "--special-mode",
+            "safe",
+            "--exclude-ambiguous",
+            "--min-uppercase",
+            "1",
+            "--min-lowercase",
+            "2",
+            "--min-digits",
+            "3",
+            "--min-special",
+            "4",
         ],
     )
     assert result.exit_code == 0
     assert "2" in result.stdout
     assert called["args"] == ("Example", 16, "bob", "ex.com")
+    assert called["kwargs"] == {
+        "include_special_chars": False,
+        "allowed_special_chars": "!@",
+        "special_mode": "safe",
+        "exclude_ambiguous": True,
+        "min_uppercase": 1,
+        "min_lowercase": 2,
+        "min_digits": 3,
+        "min_special": 4,
+    }
 
 
 def test_entry_modify(monkeypatch):
