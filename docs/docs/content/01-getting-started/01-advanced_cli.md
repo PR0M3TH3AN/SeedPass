@@ -223,5 +223,5 @@ Shut down the server with `seedpass api stop`.
 - Use the `--help` flag for details on any command.
 - Set a strong master password and regularly export encrypted backups.
 - Adjust configuration values like `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` through the `config` commands.
-- Customize password complexity with `config set min_uppercase 3`, `config set min_digits 4`, and similar commands.
+- Customize the global password policy with commands like `config set min_uppercase 3`. When adding a password interactively you can override these values, choose a safe special-character set, and exclude ambiguous characters.
 - `entry get` is script‑friendly and can be piped into other commands.

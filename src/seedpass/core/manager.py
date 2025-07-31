@@ -1441,6 +1441,60 @@ class PasswordManager:
                     )
                     return
 
+            include_special_input = (
+                input("Include special characters? (Y/n): ").strip().lower()
+            )
+            include_special_chars: bool | None = None
+            if include_special_input:
+                include_special_chars = include_special_input != "n"
+
+            allowed_special_chars = input(
+                "Allowed special characters (leave blank for default): "
+            ).strip()
+            if not allowed_special_chars:
+                allowed_special_chars = None
+
+            special_mode = input("Special character mode (safe/leave blank): ").strip()
+            if not special_mode:
+                special_mode = None
+
+            exclude_ambiguous_input = (
+                input("Exclude ambiguous characters? (y/N): ").strip().lower()
+            )
+            exclude_ambiguous: bool | None = None
+            if exclude_ambiguous_input:
+                exclude_ambiguous = exclude_ambiguous_input == "y"
+
+            min_uppercase_input = input(
+                "Minimum uppercase letters (blank for default): "
+            ).strip()
+            if min_uppercase_input and not min_uppercase_input.isdigit():
+                print(colored("Error: Minimum uppercase must be a number.", "red"))
+                return
+            min_uppercase = int(min_uppercase_input) if min_uppercase_input else None
+
+            min_lowercase_input = input(
+                "Minimum lowercase letters (blank for default): "
+            ).strip()
+            if min_lowercase_input and not min_lowercase_input.isdigit():
+                print(colored("Error: Minimum lowercase must be a number.", "red"))
+                return
+            min_lowercase = int(min_lowercase_input) if min_lowercase_input else None
+
+            min_digits_input = input("Minimum digits (blank for default): ").strip()
+            if min_digits_input and not min_digits_input.isdigit():
+                print(colored("Error: Minimum digits must be a number.", "red"))
+                return
+            min_digits = int(min_digits_input) if min_digits_input else None
+
+            min_special_input = input(
+                "Minimum special characters (blank for default): "
+            ).strip()
+            if min_special_input and not min_special_input.isdigit():
+                print(colored("Error: Minimum special must be a number.", "red"))
+                return
+            min_special = int(min_special_input) if min_special_input else None
+
             # Add the entry to the index and get the assigned index
             index = self.entry_manager.add_entry(
                 website_name,
@@ -1451,6 +1505,14 @@ class PasswordManager:
                 notes=notes,
                 custom_fields=custom_fields,
                 tags=tags,
+                include_special_chars=include_special_chars,
+                allowed_special_chars=allowed_special_chars,
+                special_mode=special_mode,
+                exclude_ambiguous=exclude_ambiguous,
+                min_uppercase=min_uppercase,
+                min_lowercase=min_lowercase,
+                min_digits=min_digits,
+                min_special=min_special,
             )
 
             # Mark database as dirty for background sync
