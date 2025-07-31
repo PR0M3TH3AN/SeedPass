@@ -808,8 +808,8 @@ class PasswordManager:
 
         choice = input(
             "Do you want to (1) Paste in an existing seed in full "
-            "(2) Enter an existing seed one word at a time or "
-            "(3) Generate a new seed? (1/2/3): "
+            "(2) Enter an existing seed one word at a time, "
+            "(3) Generate a new seed, or (4) Restore from Nostr? (1/2/3/4): "
         ).strip()
 
         if choice == "1":
@@ -818,6 +818,15 @@ class PasswordManager:
             self.setup_existing_seed(method="words")
         elif choice == "3":
             self.generate_new_seed()
+        elif choice == "4":
+            fp = self.setup_existing_seed()
+            if fp:
+                success = self.attempt_initial_sync()
+                if success:
+                    print(colored("Vault restored from Nostr.", "green"))
+                else:
+                    print(colored("Failed to download vault from Nostr.", "red"))
+            return
         else:
             print(colored("Invalid choice. Exiting.", "red"))
             sys.exit(1)
