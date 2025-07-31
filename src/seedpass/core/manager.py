@@ -32,6 +32,7 @@ from .password_generation import PasswordGenerator
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup
+from cryptography.fernet import InvalidToken
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -4013,26 +4014,57 @@ class PasswordManager:
 
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Settings > Import database",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
+
+        if not src.name.endswith(".json.enc"):
+            print(
+                colored(
+                    "Error: Selected file must be a SeedPass database backup (.json.enc).",
+                    "red",
+                )
             )
+            return
+
+        fp, parent_fp, child_fp = self.header_fingerprint_args
+        clear_header_with_notification(
+            self,
+            fp,
+            "Main Menu > Settings > Import database",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
+        )
+
+        try:
             import_backup(
                 self.vault,
                 self.backup_manager,
                 src,
                 parent_seed=self.parent_seed,
             )
-            print(colored("Database imported successfully.", "green"))
-            self.sync_vault()
+        except InvalidToken:
+            logging.error("Invalid backup token during import", exc_info=True)
+            print(
+                colored(
+                    "Error: Invalid backup. Please import a file created by SeedPass.",
+                    "red",
+                )
+            )
+            return
+        except FileNotFoundError:
+            logging.error(f"Backup file not found: {src}", exc_info=True)
+            print(colored(f"Error: File '{src}' not found.", "red"))
+            return
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
-            print(colored(f"Error: Failed to import database: {e}", "red"))
+            print(
+                colored(
+                    f"Error: Failed to import database: {e}. Please verify the backup file.",
+                    "red",
+                )
+            )
+            return
+
+        print(colored("Database imported successfully.", "green"))
+        self.sync_vault()
 
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
