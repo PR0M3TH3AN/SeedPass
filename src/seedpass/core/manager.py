@@ -2974,18 +2974,14 @@ class PasswordManager:
                     custom_fields=custom_fields,
                     tags=tags,
                 )
-            elif entry_type in (
-                EntryType.KEY_VALUE.value,
-                EntryType.MANAGED_ACCOUNT.value,
-            ):
+            elif entry_type == EntryType.SSH.value:
                 label = entry.get("label", "")
-                value = entry.get("value", "")
                 blacklisted = entry.get("archived", False)
                 notes = entry.get("notes", "")
 
                 print(
                     colored(
-                        f"Modifying key/value entry '{label}' (Index: {index}):",
+                        f"Modifying SSH key entry '{label}' (Index: {index}):",
                         "cyan",
                     )
                 )
@@ -2999,9 +2995,86 @@ class PasswordManager:
                     input(f'Enter new label (leave blank to keep "{label}"): ').strip()
                     or label
                 )
-                new_key = input(
-                    f'Enter new key (leave blank to keep "{entry.get("key", "")}"): '
-                ).strip() or entry.get("key", "")
+                blacklist_input = (
+                    input(
+                        f'Archive this entry? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    archived=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    tags=tags,
+                )
+            elif entry_type in (
+                EntryType.KEY_VALUE.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ):
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                blacklisted = entry.get("archived", False)
+                notes = entry.get("notes", "")
+
+                entry_label = (
+                    "key/value entry"
+                    if entry_type == EntryType.KEY_VALUE.value
+                    else "managed account"
+                )
+
+                print(
+                    colored(
+                        f"Modifying {entry_label} '{label}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(
+                    colored(
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                if entry_type == EntryType.KEY_VALUE.value:
+                    new_key = input(
+                        f'Enter new key (leave blank to keep "{entry.get("key", "")}"): '
+                    ).strip() or entry.get("key", "")
+                else:
+                    new_key = None
                 new_value = (
                     input("Enter new value (leave blank to keep current): ").strip()
                     or value
@@ -3058,15 +3131,20 @@ class PasswordManager:
                     else None
                 )
 
+                modify_kwargs = {
+                    "archived": new_blacklisted,
+                    "notes": new_notes,
+                    "label": new_label,
+                    "value": new_value,
+                    "custom_fields": custom_fields,
+                    "tags": tags,
+                }
+                if entry_type == EntryType.KEY_VALUE.value:
+                    modify_kwargs["key"] = new_key
+
                 self.entry_manager.modify_entry(
                     index,
-                    archived=new_blacklisted,
-                    notes=new_notes,
-                    label=new_label,
-                    key=new_key,
-                    value=new_value,
-                    custom_fields=custom_fields,
-                    tags=tags,
+                    **modify_kwargs,
                 )
             else:
                 website_name = entry.get("label", entry.get("website"))
