@@ -84,6 +84,34 @@ class SyncResponse(BaseModel):
     delta_ids: List[str] = []
 
 
+class PasswordPolicyOptions(BaseModel):
+    """Optional password policy overrides."""
+
+    include_special_chars: bool | None = None
+    allowed_special_chars: str | None = None
+    special_mode: str | None = None
+    exclude_ambiguous: bool | None = None
+    min_uppercase: int | None = None
+    min_lowercase: int | None = None
+    min_digits: int | None = None
+    min_special: int | None = None
+
+
+class AddPasswordEntryRequest(PasswordPolicyOptions):
+    label: str
+    length: int
+    username: str | None = None
+    url: str | None = None
+
+
+class GeneratePasswordRequest(PasswordPolicyOptions):
+    length: int
+
+
+class GeneratePasswordResponse(BaseModel):
+    password: str
+
+
 class VaultService:
     """Thread-safe wrapper around vault operations."""
 

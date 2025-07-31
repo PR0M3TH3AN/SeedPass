@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
+from seedpass.core.api import UtilityService
 
 
 app = FastAPI()
@@ -117,11 +118,23 @@ def create_entry(
     etype = (entry.get("type") or entry.get("kind") or "password").lower()
 
     if etype == "password":
+        policy_keys = [
+            "include_special_chars",
+            "allowed_special_chars",
+            "special_mode",
+            "exclude_ambiguous",
+            "min_uppercase",
+            "min_lowercase",
+            "min_digits",
+            "min_special",
+        ]
+        kwargs = {k: entry.get(k) for k in policy_keys if entry.get(k) is not None}
         index = _pm.entry_manager.add_entry(
             entry.get("label"),
             int(entry.get("length", 12)),
             entry.get("username"),
             entry.get("url"),
+            **kwargs,
         )
         return {"id": index}
 
@@ -564,6 +577,30 @@ def change_password(
     assert _pm is not None
     _pm.change_password(data.get("old", ""), data.get("new", ""))
     return {"status": "ok"}
+
+
+@app.post("/api/v1/password")
+def generate_password(
+    data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Generate a password using optional policy overrides."""
+    _check_token(authorization)
+    assert _pm is not None
+    length = int(data.get("length", 12))
+    policy_keys = [
+        "include_special_chars",
+        "allowed_special_chars",
+        "special_mode",
+        "exclude_ambiguous",
+        "min_uppercase",
+        "min_lowercase",
+        "min_digits",
+        "min_special",
+    ]
+    kwargs = {k: data.get(k) for k in policy_keys if data.get(k) is not None}
+    util = UtilityService(_pm)
+    password = util.generate_password(length, **kwargs)
+    return {"password": password}
 
 
 @app.post("/api/v1/vault/lock")
