@@ -2767,6 +2767,8 @@ class PasswordManager:
                         "cyan",
                     )
                 )
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
                 tags = entry.get("tags", [])
                 if tags:
                     print(colored(f"Tags: {', '.join(tags)}", "cyan"))
@@ -3387,9 +3389,15 @@ class PasswordManager:
             username = entry.get("username", "")
             url = entry.get("url", "")
             blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            notes = entry.get("notes", "")
+            tags = entry.get("tags", [])
             print(color_text(f"  Label: {website}", "index"))
             print(color_text(f"  Username: {username or 'N/A'}", "index"))
             print(color_text(f"  URL: {url or 'N/A'}", "index"))
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
             print(
                 color_text(
                     f"  Archived: {'Yes' if blacklisted else 'No'}",
