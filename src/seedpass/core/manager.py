@@ -99,6 +99,7 @@ from utils.fingerprint_manager import FingerprintManager
 from nostr.client import NostrClient, DEFAULT_RELAYS, MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
+from .stats_manager import StatsManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -163,6 +164,7 @@ class PasswordManager:
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
         self.state_manager: Optional[StateManager] = None
+        self.stats_manager: StatsManager = StatsManager()
         self.notifications: queue.Queue[Notification] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0

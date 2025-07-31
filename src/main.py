@@ -281,6 +281,7 @@ def _display_live_stats(
     displayed if newer data exists on Nostr.
     """
 
+    stats_mgr = getattr(password_manager, "stats_manager", None)
     display_fn = getattr(password_manager, "display_stats", None)
     sync_fn = getattr(password_manager, "start_background_sync", None)
     if not callable(display_fn):
@@ -294,12 +295,17 @@ def _display_live_stats(
 
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
-        display_fn()
+        if stats_mgr is not None:
+            stats_mgr.display_stats_once(password_manager)
+        else:
+            display_fn()
         note = get_notification_text(password_manager)
         if note:
             print(note)
         print(colored("Press Enter to continue.", "cyan"))
         pause()
+        if stats_mgr is not None:
+            stats_mgr.reset()
         return
 
     while True:
@@ -309,7 +315,10 @@ def _display_live_stats(
             except Exception:  # pragma: no cover - sync best effort
                 logging.debug("Background sync failed during stats display")
         clear_screen()
-        display_fn()
+        if stats_mgr is not None:
+            stats_mgr.display_stats_once(password_manager)
+        else:
+            display_fn()
         note = get_notification_text(password_manager)
         if note:
             print(note)
@@ -324,6 +333,8 @@ def _display_live_stats(
         except KeyboardInterrupt:
             print()
             break
+    if stats_mgr is not None:
+        stats_mgr.reset()
 
 
 def handle_display_stats(password_manager: PasswordManager) -> None:
