@@ -72,3 +72,48 @@ def test_handle_new_seed_setup_restore_from_nostr(monkeypatch, tmp_path, capsys)
     assert "Vault restored from Nostr" in out
     labels = [e[1] for e in pm_new.entry_manager.list_entries()]
     assert labels == ["site1"]
+
+
+async def _no_snapshot():
+    return None
+
+
+def test_restore_from_nostr_warns(monkeypatch, tmp_path, capsys):
+    client, _relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+    monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.nostr_client = client
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_: True)
+    monkeypatch.setattr(pm, "_finalize_existing_seed", lambda *_a, **_k: "fp")
+    monkeypatch.setattr(pm, "attempt_initial_sync", lambda: False)
+
+    pm.restore_from_nostr_with_guidance(TEST_SEED)
+    out = capsys.readouterr().out
+    assert "No Nostr backup" in out
+
+
+def test_restore_from_nostr_abort(monkeypatch, tmp_path, capsys):
+    client, _relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+    monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.nostr_client = client
+    pm.vault = None
+
+    called = {"finalize": 0}
+
+    def finalize(*_a, **_k):
+        called["finalize"] += 1
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_: False)
+    monkeypatch.setattr(pm, "_finalize_existing_seed", finalize)
+
+    pm.restore_from_nostr_with_guidance(TEST_SEED)
+    out = capsys.readouterr().out
+    assert "No Nostr backup" in out
+    assert called["finalize"] == 0
+    assert pm.vault is None

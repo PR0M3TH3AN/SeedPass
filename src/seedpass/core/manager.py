@@ -105,6 +105,12 @@ from .stats_manager import StatsManager
 logger = logging.getLogger(__name__)
 
 
+def calculate_profile_id(seed: str) -> str:
+    """Return the fingerprint identifier for ``seed``."""
+    fp = generate_fingerprint(seed)
+    return fp or ""
+
+
 @dataclass
 class Notification:
     """Simple message container for UI notifications."""
@@ -828,13 +834,8 @@ class PasswordManager:
         elif choice == "3":
             self.generate_new_seed()
         elif choice == "4":
-            fp = self.setup_existing_seed()
-            if fp:
-                success = self.attempt_initial_sync()
-                if success:
-                    print(colored("Vault restored from Nostr.", "green"))
-                else:
-                    print(colored("Failed to download vault from Nostr.", "red"))
+            seed_phrase = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+            self.restore_from_nostr_with_guidance(seed_phrase)
             return
         else:
             print(colored("Invalid choice. Exiting.", "red"))
@@ -1411,6 +1412,37 @@ class PasswordManager:
                 await self.sync_vault_async()
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning(f"Unable to publish fresh database: {exc}")
+
+    def check_nostr_backup_exists(self, profile_id: str) -> bool:
+        """Return ``True`` if a snapshot exists on Nostr for ``profile_id``."""
+        if not self.nostr_client or getattr(self, "offline_mode", False):
+            return False
+        previous = self.nostr_client.fingerprint
+        self.nostr_client.fingerprint = profile_id
+        try:
+            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            return result is not None
+        finally:
+            self.nostr_client.fingerprint = previous
+
+    def restore_from_nostr_with_guidance(self, seed_phrase: str) -> None:
+        """Restore a profile from Nostr, warning if no backup exists."""
+        profile_id = calculate_profile_id(seed_phrase)
+        have_backup = self.check_nostr_backup_exists(profile_id)
+        if not have_backup:
+            print(colored("No Nostr backup found for this seed profile.", "yellow"))
+            if not confirm_action("Continue with an empty database? (Y/N): "):
+                return
+
+        fp = self._finalize_existing_seed(seed_phrase)
+        if not fp:
+            return
+
+        success = self.attempt_initial_sync()
+        if success:
+            print(colored("Vault restored from Nostr.", "green"))
+        elif have_backup:
+            print(colored("Failed to download vault from Nostr.", "red"))
 
     def handle_add_password(self) -> None:
         try:
