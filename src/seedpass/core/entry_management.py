@@ -152,6 +152,15 @@ class EntryManager:
         notes: str = "",
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
     ) -> int:
         """
         Adds a new entry to the encrypted JSON index file.
@@ -169,7 +178,7 @@ class EntryManager:
             data = self._load_index()
 
             data.setdefault("entries", {})
-            data["entries"][str(index)] = {
+            entry = {
                 "label": label,
                 "length": length,
                 "username": username if username else "",
@@ -182,6 +191,28 @@ class EntryManager:
                 "custom_fields": custom_fields or [],
                 "tags": tags or [],
             }
+
+            policy: dict[str, Any] = {}
+            if include_special_chars is not None:
+                policy["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                policy["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                policy["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                policy["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                policy["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                policy["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                policy["min_digits"] = int(min_digits)
+            if min_special is not None:
+                policy["min_special"] = int(min_special)
+            if policy:
+                entry["policy"] = policy
+
+            data["entries"][str(index)] = entry
 
             logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
 
@@ -726,6 +757,14 @@ class EntryManager:
         value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
         **legacy,
     ) -> None:
         """
@@ -772,6 +811,14 @@ class EntryManager:
                 "value": value,
                 "custom_fields": custom_fields,
                 "tags": tags,
+                "include_special_chars": include_special_chars,
+                "allowed_special_chars": allowed_special_chars,
+                "special_mode": special_mode,
+                "exclude_ambiguous": exclude_ambiguous,
+                "min_uppercase": min_uppercase,
+                "min_lowercase": min_lowercase,
+                "min_digits": min_digits,
+                "min_special": min_special,
             }
 
             allowed = {
@@ -783,6 +830,14 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "include_special_chars",
+                    "allowed_special_chars",
+                    "special_mode",
+                    "exclude_ambiguous",
+                    "min_uppercase",
+                    "min_lowercase",
+                    "min_digits",
+                    "min_special",
                 },
                 EntryType.TOTP.value: {
                     "label",
@@ -907,6 +962,28 @@ class EntryManager:
             if tags is not None:
                 entry["tags"] = tags
                 logger.debug(f"Updated tags for index {index}: {tags}")
+
+            policy_updates: dict[str, Any] = {}
+            if include_special_chars is not None:
+                policy_updates["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                policy_updates["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                policy_updates["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                policy_updates["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                policy_updates["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                policy_updates["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                policy_updates["min_digits"] = int(min_digits)
+            if min_special is not None:
+                policy_updates["min_special"] = int(min_special)
+            if policy_updates:
+                entry_policy = entry.get("policy", {})
+                entry_policy.update(policy_updates)
+                entry["policy"] = entry_policy
 
             entry["modified_ts"] = int(time.time())
 

@@ -265,7 +265,11 @@ class EntryService:
 
     def generate_password(self, length: int, index: int) -> str:
         with self._lock:
-            return self._manager.password_generator.generate_password(length, index)
+            entry = self._manager.entry_manager.retrieve_entry(index)
+            gen_fn = getattr(self._manager, "_generate_password_for_entry", None)
+            if gen_fn is None:
+                return self._manager.password_generator.generate_password(length, index)
+            return gen_fn(entry, index, length)
 
     def get_totp_code(self, entry_id: int) -> str:
         with self._lock:
