@@ -459,10 +459,21 @@ def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def _safe_close_client_pool(pm: PasswordManager) -> None:
+    """Close the Nostr client pool if the client exists."""
+    client = getattr(pm, "nostr_client", None)
+    if client is None:
+        return
+    try:
+        client.close_client_pool()
+    except Exception as exc:
+        logging.error(f"Error during NostrClient shutdown: {exc}")
+
+
 def _reload_relays(password_manager: PasswordManager, relays: list) -> None:
     """Reload NostrClient with the updated relay list."""
     try:
-        password_manager.nostr_client.close_client_pool()
+        _safe_close_client_pool(password_manager)
     except Exception as exc:
         logging.warning(f"Failed to close client pool: {exc}")
     try:
@@ -1051,7 +1062,7 @@ def display_menu(
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
             getattr(password_manager, "cleanup", lambda: None)()
-            password_manager.nostr_client.close_client_pool()
+            _safe_close_client_pool(password_manager)
             sys.exit(0)
         if choice == "1":
             while True:
@@ -1255,7 +1266,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logging.info(f"Received shutdown signal: {sig}. Initiating graceful shutdown.")
         try:
             getattr(password_manager, "cleanup", lambda: None)()
-            password_manager.nostr_client.close_client_pool()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1274,7 +1285,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored("\nProgram terminated by user.", "yellow"))
         try:
             getattr(password_manager, "cleanup", lambda: None)()
-            password_manager.nostr_client.close_client_pool()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1285,7 +1296,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored(f"Error: {e}", "red"))
         try:
             getattr(password_manager, "cleanup", lambda: None)()
-            password_manager.nostr_client.close_client_pool()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1296,7 +1307,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
             getattr(password_manager, "cleanup", lambda: None)()
-            password_manager.nostr_client.close_client_pool()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
