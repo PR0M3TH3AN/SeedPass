@@ -42,7 +42,7 @@ def test_show_qr_for_nostr_keys(monkeypatch):
         pm.is_dirty = False
         pm.secret_mode_enabled = False
 
-        idx = entry_mgr.add_nostr_key("main")
+        idx = entry_mgr.add_nostr_key("main", TEST_SEED)
         npub, _ = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
 
         inputs = iter([str(idx), "q", "p", ""])
@@ -78,7 +78,7 @@ def test_show_private_key_qr(monkeypatch, capsys):
         pm.is_dirty = False
         pm.secret_mode_enabled = False
 
-        idx = entry_mgr.add_nostr_key("main")
+        idx = entry_mgr.add_nostr_key("main", TEST_SEED)
         _, nsec = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
 
         inputs = iter([str(idx), "q", "k", ""])
@@ -116,7 +116,7 @@ def test_qr_menu_case_insensitive(monkeypatch):
         pm.is_dirty = False
         pm.secret_mode_enabled = False
 
-        idx = entry_mgr.add_nostr_key("main")
+        idx = entry_mgr.add_nostr_key("main", TEST_SEED)
         npub, _ = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
 
         # Modify index to use uppercase type/kind

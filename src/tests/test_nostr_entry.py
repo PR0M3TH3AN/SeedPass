@@ -22,7 +22,7 @@ def test_nostr_key_determinism():
         backup_mgr = BackupManager(tmp_path, cfg_mgr)
         entry_mgr = EntryManager(vault, backup_mgr)
 
-        idx = entry_mgr.add_nostr_key("main")
+        idx = entry_mgr.add_nostr_key("main", TEST_SEED)
         entry = entry_mgr.retrieve_entry(idx)
         assert entry == {
             "type": "nostr",

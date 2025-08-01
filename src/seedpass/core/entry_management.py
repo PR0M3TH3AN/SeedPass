@@ -37,6 +37,13 @@ from .entry_types import EntryType
 from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
+from utils.key_validation import (
+    validate_totp_secret,
+    validate_ssh_key_pair,
+    validate_pgp_private_key,
+    validate_nostr_keys,
+    validate_seed_phrase,
+)
 
 from .vault import Vault
 from .backup import BackupManager
@@ -266,6 +273,8 @@ class EntryManager:
             if index is None:
                 index = self.get_next_totp_index()
             secret = TotpManager.derive_secret(parent_seed, index)
+            if not validate_totp_secret(secret):
+                raise ValueError("Invalid derived TOTP secret")
             entry = {
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
@@ -279,6 +288,8 @@ class EntryManager:
                 "tags": tags or [],
             }
         else:
+            if not validate_totp_secret(secret):
+                raise ValueError("Invalid TOTP secret")
             entry = {
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
@@ -322,6 +333,12 @@ class EntryManager:
 
         if index is None:
             index = self.get_next_index()
+
+        from .password_generation import derive_ssh_key_pair
+
+        priv_pem, pub_pem = derive_ssh_key_pair(parent_seed, index)
+        if not validate_ssh_key_pair(priv_pem, pub_pem):
+            raise ValueError("Derived SSH key pair failed validation")
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -370,6 +387,17 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
+        from .password_generation import derive_pgp_key
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        priv_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
+        if not validate_pgp_private_key(priv_key, fp):
+            raise ValueError("Derived PGP key failed validation")
+
         data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
@@ -413,6 +441,7 @@ class EntryManager:
     def add_nostr_key(
         self,
         label: str,
+        parent_seed: str,
         index: int | None = None,
         notes: str = "",
         archived: bool = False,
@@ -422,6 +451,19 @@ class EntryManager:
 
         if index is None:
             index = self.get_next_index()
+
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+        from nostr.coincurve_keys import Keys
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+        entropy = bip85.derive_entropy(index=index, bytes_len=32)
+        keys = Keys(priv_k=entropy.hex())
+        npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
+        nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
+        if not validate_nostr_keys(npub, nsec):
+            raise ValueError("Derived Nostr keys failed validation")
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -515,6 +557,16 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
+        from .password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+        phrase = derive_seed_phrase(bip85, index, words_num)
+        if not validate_seed_phrase(phrase):
+            raise ValueError("Derived seed phrase failed validation")
+
         data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
@@ -583,6 +635,8 @@ class EntryManager:
         word_count = 12
 
         seed_phrase = derive_seed_phrase(bip85, index, word_count)
+        if not validate_seed_phrase(seed_phrase):
+            raise ValueError("Derived managed account seed failed validation")
         fingerprint = generate_fingerprint(seed_phrase)
 
         account_dir = self.fingerprint_dir / "accounts" / fingerprint

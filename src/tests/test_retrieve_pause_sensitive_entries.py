@@ -20,7 +20,7 @@ import pytest
         (lambda mgr: mgr.add_seed("seed", TEST_SEED), True),
         (lambda mgr: mgr.add_pgp_key("pgp", TEST_SEED, user_id="test"), True),
         (lambda mgr: mgr.add_ssh_key("ssh", TEST_SEED), True),
-        (lambda mgr: mgr.add_nostr_key("nostr"), False),
+        (lambda mgr: mgr.add_nostr_key("nostr", TEST_SEED), False),
     ],
 )
 def test_pause_before_entry_actions(monkeypatch, adder, needs_confirm):
