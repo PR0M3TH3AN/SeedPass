@@ -195,6 +195,9 @@ class MainWindow(toga.Window):
         bus.unsubscribe("sync_started", self.sync_started)
         bus.unsubscribe("sync_finished", self.sync_finished)
         bus.unsubscribe("vault_locked", self.vault_locked)
+        manager = getattr(self.nostr, "_manager", None)
+        if manager is not None:
+            manager.cleanup()
 
 
 class EntryDialog(toga.Window):
