@@ -295,10 +295,7 @@ def _display_live_stats(
 
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
-        if stats_mgr is not None:
-            stats_mgr.display_stats_once(password_manager)
-        else:
-            display_fn()
+        display_fn()
         note = get_notification_text(password_manager)
         if note:
             print(note)
@@ -315,10 +312,7 @@ def _display_live_stats(
             except Exception:  # pragma: no cover - sync best effort
                 logging.debug("Background sync failed during stats display")
         clear_screen()
-        if stats_mgr is not None:
-            stats_mgr.display_stats_once(password_manager)
-        else:
-            display_fn()
+        display_fn()
         note = get_notification_text(password_manager)
         if note:
             print(note)
