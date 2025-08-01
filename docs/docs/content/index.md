@@ -90,6 +90,8 @@ maintainable while enabling a consistent experience on multiple platforms.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
+If GTK packages are missing, the installer will try to install them using your
+system's package manager (`apt`, `yum`, `pacman`, or Homebrew).
 
 **Linux and macOS:**
 ```bash

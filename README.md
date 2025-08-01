@@ -114,6 +114,8 @@ See `docs/ARCHITECTURE.md` for details.
 
 Use the automated installer to download SeedPass and its dependencies in one step.
 The scripts also install the correct BeeWare backend for your platform automatically.
+If the GTK `gi` bindings are missing, the installer attempts to install the
+necessary system packages using `apt`, `yum`, `pacman`, or Homebrew.
 
 **Linux and macOS:**
 ```bash

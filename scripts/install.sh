@@ -21,6 +21,32 @@ print_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
 print_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
 print_error() { echo -e "\033[1;31m[ERROR]\033[0m $1" >&2; exit 1; }
+
+# Install build dependencies for Gtk/GObject if available via the system package manager
+install_dependencies() {
+    print_info "Installing system packages required for Gtk bindings..."
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update && sudo apt-get install -y \
+            build-essential pkg-config libcairo2 libcairo2-dev \
+            libgirepository1.0-dev gobject-introspection \
+            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev xclip
+    elif command -v yum &>/dev/null; then
+        sudo yum install -y @'Development Tools' cairo cairo-devel \
+            gobject-introspection-devel gtk3-devel python3-devel \
+            libffi-devel openssl-devel xclip
+    elif command -v dnf &>/dev/null; then
+        sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
+            cairo cairo-devel gobject-introspection-devel gtk3-devel \
+            python3-devel libffi-devel openssl-devel xclip
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -Syu --noconfirm base-devel pkgconf cairo \
+            gobject-introspection gtk3 python xclip
+    elif command -v brew &>/dev/null; then
+        brew install pkg-config cairo gobject-introspection gtk+3
+    else
+        print_warning "Unsupported package manager. Please install Gtk/GObject dependencies manually."
+    fi
+}
 usage() {
     echo "Usage: $0 [-b | --branch <branch_name>] [-h | --help]"
     echo "  -b, --branch   Specify the git branch to install (default: main)"
@@ -84,30 +110,12 @@ main() {
     fi
 
     # 3. Install OS-specific dependencies
-    print_info "Checking for build dependencies..."
-    if [ "$OS_NAME" = "Linux" ]; then
-        if command -v apt-get &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y \
-                build-essential pkg-config xclip \
-                libcairo2 libcairo2-dev \
-                libgirepository-2.0-dev gir1.2-girepository-2.0 \
-                libgirepository1.0-dev \
-                gobject-introspection \
-                gir1.2-gtk-3.0 python3-dev \
-                libffi-dev libssl-dev
-        elif command -v dnf &> /dev/null; then
-            sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
-                pkg-config cairo cairo-devel xclip \
-                gobject-introspection-devel cairo-devel gtk3-devel python3-devel
-        elif command -v pacman &> /dev/null; then
-            sudo pacman -Syu --noconfirm base-devel pkg-config cairo xclip \
-                gobject-introspection cairo gtk3 python
-        else
-            print_warning "Could not detect package manager. Ensure build tools, cairo, and pkg-config are installed."
-        fi
-    elif [ "$OS_NAME" = "Darwin" ]; then
-        if ! command -v brew &> /dev/null; then print_error "Homebrew not installed. See https://brew.sh/"; fi
-        brew install pkg-config cairo
+    print_info "Checking for Gtk development libraries..."
+    if ! python3 -c "import gi" &>/dev/null; then
+        print_warning "Gtk introspection bindings not found. Installing dependencies..."
+        install_dependencies
+    else
+        print_info "Gtk bindings already available."
     fi
 
     # 4. Clone or update the repository
