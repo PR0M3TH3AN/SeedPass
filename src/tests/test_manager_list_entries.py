@@ -246,7 +246,7 @@ def test_show_nostr_entry_details(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         pm, entry_mgr = _setup_manager(tmp_path)
-        idx = entry_mgr.add_nostr_key("nostr")
+        idx = entry_mgr.add_nostr_key("nostr", TEST_SEED)
 
         called = _detail_common(monkeypatch, pm)
 
@@ -339,7 +339,7 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             expected = priv
             extra = fp
         elif entry_type == "nostr":
-            idx = entry_mgr.add_nostr_key("nostr")
+            idx = entry_mgr.add_nostr_key("nostr", TEST_SEED)
             _npub, nsec = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
             expected = nsec
         elif entry_type == "totp":

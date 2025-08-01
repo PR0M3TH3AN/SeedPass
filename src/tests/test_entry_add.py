@@ -116,7 +116,7 @@ def test_legacy_entry_defaults_to_password():
         ("add_totp", ("totp", TEST_SEED)),
         ("add_ssh_key", ("ssh", TEST_SEED)),
         ("add_pgp_key", ("pgp", TEST_SEED)),
-        ("add_nostr_key", ("nostr",)),
+        ("add_nostr_key", ("nostr", TEST_SEED)),
         ("add_seed", ("seed", TEST_SEED)),
         ("add_key_value", ("label", "k1", "val")),
         ("add_managed_account", ("acct", TEST_SEED)),

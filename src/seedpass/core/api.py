@@ -420,6 +420,7 @@ class EntryService:
         with self._lock:
             idx = self._manager.entry_manager.add_nostr_key(
                 label,
+                self._manager.parent_seed,
                 index=index,
                 notes=notes,
             )

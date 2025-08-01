@@ -4,6 +4,7 @@ from typer.testing import CliRunner
 
 from seedpass.cli import app
 from seedpass import cli
+from helpers import TEST_SEED
 
 runner = CliRunner()
 
@@ -98,7 +99,7 @@ runner = CliRunner()
             "add-nostr",
             "add_nostr_key",
             ["Label", "--index", "4", "--notes", "n"],
-            ("Label",),
+            ("Label", "seed"),
             {"index": 4, "notes": "n"},
             "5",
         ),

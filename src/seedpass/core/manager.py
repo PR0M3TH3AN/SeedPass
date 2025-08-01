@@ -1970,7 +1970,9 @@ class PasswordManager:
                 if tags_input
                 else []
             )
-            index = self.entry_manager.add_nostr_key(label, notes=notes, tags=tags)
+            index = self.entry_manager.add_nostr_key(
+                label, self.parent_seed, notes=notes, tags=tags
+            )
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()

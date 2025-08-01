@@ -24,7 +24,7 @@ class DummyPM:
             add_totp=lambda label, seed, index=None, secret=None, period=30, digits=6: "totp://",
             add_ssh_key=lambda label, seed, index=None, notes="": 2,
             add_pgp_key=lambda label, seed, index=None, key_type="ed25519", user_id="", notes="": 3,
-            add_nostr_key=lambda label, index=None, notes="": 4,
+            add_nostr_key=lambda label, seed, index=None, notes="": 4,
             add_seed=lambda label, seed, index=None, words_num=24, notes="": 5,
             add_key_value=lambda label, key, value, notes="": 6,
             add_managed_account=lambda label, seed, index=None, notes="": 7,

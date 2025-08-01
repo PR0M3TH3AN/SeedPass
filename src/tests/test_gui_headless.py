@@ -49,7 +49,7 @@ class FakeEntries:
         self.added.append(("pgp", label))
         return 1
 
-    def add_nostr_key(self, label):
+    def add_nostr_key(self, label, seed=None):
         self.added.append(("nostr", label))
         return 1
 

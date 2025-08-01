@@ -177,6 +177,7 @@ def create_entry(
     if etype == "nostr":
         index = _pm.entry_manager.add_nostr_key(
             entry.get("label"),
+            _pm.parent_seed,
             index=entry.get("index"),
             notes=entry.get("notes", ""),
             archived=entry.get("archived", False),
