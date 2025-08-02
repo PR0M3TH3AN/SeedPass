@@ -1210,8 +1210,12 @@ class EntryManager:
 
     def search_entries(
         self, query: str, kinds: List[str] | None = None
-    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """Return entries matching ``query`` across whitelisted metadata fields."""
+    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool, EntryType]]:
+        """Return entries matching ``query`` across whitelisted metadata fields.
+
+        Each match is represented as ``(index, label, username, url, archived, etype)``
+        where ``etype`` is the :class:`EntryType` of the entry.
+        """
 
         data = self._load_index()
         entries_data = data.get("entries", {})
@@ -1220,19 +1224,23 @@ class EntryManager:
             return []
 
         query_lower = query.lower()
-        results: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
+        results: List[
+            Tuple[int, str, Optional[str], Optional[str], bool, EntryType]
+        ] = []
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
-            etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+            etype = EntryType(
+                entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+            )
 
-            if kinds is not None and etype not in kinds:
+            if kinds is not None and etype.value not in kinds:
                 continue
 
             label = entry.get("label", entry.get("website", ""))
             username = (
-                entry.get("username", "") if etype == EntryType.PASSWORD.value else None
+                entry.get("username", "") if etype == EntryType.PASSWORD else None
             )
-            url = entry.get("url", "") if etype == EntryType.PASSWORD.value else None
+            url = entry.get("url", "") if etype == EntryType.PASSWORD else None
             tags = entry.get("tags", [])
             archived = entry.get("archived", entry.get("blacklisted", False))
 
@@ -1249,6 +1257,7 @@ class EntryManager:
                         username if username is not None else None,
                         url if url is not None else None,
                         archived,
+                        etype,
                     )
                 )
 

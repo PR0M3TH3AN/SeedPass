@@ -8,13 +8,16 @@ from fastapi.testclient import TestClient
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from seedpass import api
+from seedpass.core.entry_types import EntryType
 
 
 @pytest.fixture
 def client(monkeypatch):
     dummy = SimpleNamespace(
         entry_manager=SimpleNamespace(
-            search_entries=lambda q: [(1, "Site", "user", "url", False)],
+            search_entries=lambda q: [
+                (1, "Site", "user", "url", False, EntryType.PASSWORD)
+            ],
             retrieve_entry=lambda i: {"label": "Site"},
             add_entry=lambda *a, **k: 1,
             modify_entry=lambda *a, **k: None,

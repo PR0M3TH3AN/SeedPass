@@ -28,7 +28,7 @@ def test_search_by_website():
         entry_mgr.add_entry("Other.com", 8, "bob")
 
         result = entry_mgr.search_entries("example")
-        assert result == [(idx0, "Example.com", "alice", "", False)]
+        assert result == [(idx0, "Example.com", "alice", "", False, EntryType.PASSWORD)]
 
 
 def test_search_by_username():
@@ -40,7 +40,7 @@ def test_search_by_username():
         idx1 = entry_mgr.add_entry("Test.com", 8, "Bob")
 
         result = entry_mgr.search_entries("bob")
-        assert result == [(idx1, "Test.com", "Bob", "", False)]
+        assert result == [(idx1, "Test.com", "Bob", "", False, EntryType.PASSWORD)]
 
 
 def test_search_by_url():
@@ -52,7 +52,9 @@ def test_search_by_url():
         entry_mgr.add_entry("Other", 8)
 
         result = entry_mgr.search_entries("login")
-        assert result == [(idx, "Example", "", "https://ex.com/login", False)]
+        assert result == [
+            (idx, "Example", "", "https://ex.com/login", False, EntryType.PASSWORD)
+        ]
 
 
 def test_search_by_notes_and_totp():
@@ -117,7 +119,7 @@ def test_search_by_tag_password():
         idx = entry_mgr.add_entry("TaggedSite", 8, tags=["work"])
 
         result = entry_mgr.search_entries("work")
-        assert result == [(idx, "TaggedSite", "", "", False)]
+        assert result == [(idx, "TaggedSite", "", "", False, EntryType.PASSWORD)]
 
 
 def test_search_by_tag_totp():
@@ -129,7 +131,7 @@ def test_search_by_tag_totp():
         idx = entry_mgr.search_entries("OTPAccount")[0][0]
 
         result = entry_mgr.search_entries("mfa")
-        assert result == [(idx, "OTPAccount", None, None, False)]
+        assert result == [(idx, "OTPAccount", None, None, False, EntryType.TOTP)]
 
 
 def test_search_with_kind_filter():
@@ -147,4 +149,4 @@ def test_search_with_kind_filter():
         assert {r[0] for r in all_results} == {idx_pw, idx_totp}
 
         only_pw = entry_mgr.search_entries("", kinds=[EntryType.PASSWORD.value])
-        assert only_pw == [(idx_pw, "Site", "", "", False)]
+        assert only_pw == [(idx_pw, "Site", "", "", False, EntryType.PASSWORD)]

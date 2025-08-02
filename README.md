@@ -59,6 +59,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Quick Unlock:** Optionally skip the password prompt after verifying once.
 - **Secret Mode:** When enabled, newly generated and retrieved passwords are copied to your clipboard and automatically cleared after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
+- **Typed Search Results:** Results now display each entry's type for quicker identification.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
 - **Manual Vault Locking:** Instantly clear keys from memory when needed.
@@ -235,6 +236,7 @@ seedpass import --file "~/seedpass_backup.json"
 seedpass search "github"
 seedpass search --tags "work,personal"
 seedpass get "github"
+# Search results show the entry type, e.g. "1: Password - GitHub"
 # Retrieve a TOTP entry
 seedpass entry get "email"
 # The code is printed and copied to your clipboard

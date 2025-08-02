@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from .manager import PasswordManager
 from .pubsub import bus
+from .entry_types import EntryType
 
 
 class VaultExportRequest(BaseModel):
@@ -274,7 +275,7 @@ class EntryService:
 
     def search_entries(
         self, query: str, kinds: list[str] | None = None
-    ) -> list[tuple[int, str, str | None, str | None, bool]]:
+    ) -> list[tuple[int, str, str | None, str | None, bool, EntryType]]:
         """Search entries optionally filtering by ``kinds``.
 
         Parameters

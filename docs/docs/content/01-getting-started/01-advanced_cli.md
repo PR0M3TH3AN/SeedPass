@@ -136,7 +136,7 @@ Run or stop the local HTTP API.
 ### `entry` Commands
 
 - **`seedpass entry list`** – List entries in the vault, optionally sorted or filtered.
-- **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes.
+- **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes. Results show the entry type before each label.
 - **`seedpass entry get <query>`** – Retrieve the password or TOTP code for one matching entry, depending on the entry's type.
 - **`seedpass entry add <label>`** – Create a new password entry. Use `--length` and flags like `--no-special`, `--special-mode safe`, or `--exclude-ambiguous` to override the global policy.
 - **`seedpass entry add-totp <label>`** – Create a TOTP entry. Use `--secret` to import an existing secret or `--index` to derive from the seed.

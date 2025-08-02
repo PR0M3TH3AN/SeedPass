@@ -27,7 +27,7 @@ def make_pm(search_results, entry=None, totp_code="123456"):
 
 
 def test_search_command(monkeypatch, capsys):
-    pm = make_pm([(0, "Example", "user", "", False)])
+    pm = make_pm([(0, "Example", "user", "", False, EntryType.PASSWORD)])
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
@@ -40,7 +40,7 @@ def test_search_command(monkeypatch, capsys):
 
 def test_get_command(monkeypatch, capsys):
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
-    pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
+    pm = make_pm([(0, "Example", "user", "", False, EntryType.PASSWORD)], entry=entry)
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
@@ -53,7 +53,7 @@ def test_get_command(monkeypatch, capsys):
 
 def test_totp_command(monkeypatch, capsys):
     entry = {"type": EntryType.TOTP.value, "period": 30, "index": 0}
-    pm = make_pm([(0, "Example", None, None, False)], entry=entry)
+    pm = make_pm([(0, "Example", None, None, False, EntryType.TOTP)], entry=entry)
     called = {}
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
@@ -83,7 +83,10 @@ def test_search_command_no_results(monkeypatch, capsys):
 
 
 def test_get_command_multiple_matches(monkeypatch, capsys):
-    matches = [(0, "Example", "user", "", False), (1, "Ex2", "bob", "", False)]
+    matches = [
+        (0, "Example", "user", "", False, EntryType.PASSWORD),
+        (1, "Ex2", "bob", "", False, EntryType.PASSWORD),
+    ]
     pm = make_pm(matches)
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
@@ -97,7 +100,7 @@ def test_get_command_multiple_matches(monkeypatch, capsys):
 
 def test_get_command_wrong_type(monkeypatch, capsys):
     entry = {"type": EntryType.TOTP.value}
-    pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
+    pm = make_pm([(0, "Example", None, None, False, EntryType.TOTP)], entry=entry)
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)
@@ -109,7 +112,10 @@ def test_get_command_wrong_type(monkeypatch, capsys):
 
 
 def test_totp_command_multiple_matches(monkeypatch, capsys):
-    matches = [(0, "GH", None, None, False), (1, "Git", None, None, False)]
+    matches = [
+        (0, "GH", None, None, False, EntryType.TOTP),
+        (1, "Git", None, None, False, EntryType.TOTP),
+    ]
     pm = make_pm(matches)
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
@@ -123,7 +129,7 @@ def test_totp_command_multiple_matches(monkeypatch, capsys):
 
 def test_totp_command_wrong_type(monkeypatch, capsys):
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
-    pm = make_pm([(0, "Example", "user", "", False)], entry=entry)
+    pm = make_pm([(0, "Example", "user", "", False, EntryType.PASSWORD)], entry=entry)
     monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
     monkeypatch.setattr(main, "configure_logging", lambda: None)
     monkeypatch.setattr(main, "initialize_app", lambda: None)

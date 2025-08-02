@@ -34,19 +34,21 @@ def test_entry_list(monkeypatch):
 def test_entry_search(monkeypatch):
     pm = SimpleNamespace(
         entry_manager=SimpleNamespace(
-            search_entries=lambda q, kinds=None: [(1, "L", None, None, False)]
+            search_entries=lambda q, kinds=None: [
+                (1, "L", None, None, False, EntryType.PASSWORD)
+            ]
         ),
         select_fingerprint=lambda fp: None,
     )
     monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", "search", "l"])
     assert result.exit_code == 0
-    assert "1: L" in result.stdout
+    assert "Password - L" in result.stdout
 
 
 def test_entry_get_password(monkeypatch):
     def search(q, kinds=None):
-        return [(2, "Example", "", "", False)]
+        return [(2, "Example", "", "", False, EntryType.PASSWORD)]
 
     entry = {"type": EntryType.PASSWORD.value, "length": 8}
     pm = SimpleNamespace(
