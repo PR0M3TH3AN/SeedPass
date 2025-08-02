@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
+from seedpass.core.entry_types import EntryType
 
 
 def setup_entry_manager(tmp_path: Path) -> EntryManager:
@@ -29,7 +30,7 @@ def test_tags_persist_on_new_entry():
         entry_mgr = setup_entry_manager(tmp_path)
 
         result = entry_mgr.search_entries("work")
-        assert result == [(idx, "Site", "", "", False)]
+        assert result == [(idx, "Site", "", "", False, EntryType.PASSWORD)]
 
 
 def test_tags_persist_after_modify():
@@ -41,9 +42,11 @@ def test_tags_persist_after_modify():
         entry_mgr.modify_entry(idx, tags=["personal"])
 
         # Ensure tag searchable before reload
-        assert entry_mgr.search_entries("personal") == [(idx, "Site", "", "", False)]
+        assert entry_mgr.search_entries("personal") == [
+            (idx, "Site", "", "", False, EntryType.PASSWORD)
+        ]
 
         # Reinitialize to simulate application restart
         entry_mgr = setup_entry_manager(tmp_path)
         result = entry_mgr.search_entries("personal")
-        assert result == [(idx, "Site", "", "", False)]
+        assert result == [(idx, "Site", "", "", False, EntryType.PASSWORD)]

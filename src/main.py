@@ -342,31 +342,28 @@ def handle_display_stats(password_manager: PasswordManager) -> None:
 
 def print_matches(
     password_manager: PasswordManager,
-    matches: list[tuple[int, str, str | None, str | None, bool]],
+    matches: list[tuple[int, str, str | None, str | None, bool, EntryType]],
 ) -> None:
     """Print a list of search matches."""
     print(colored("\n[+] Matches:\n", "green"))
     for entry in matches:
-        idx, website, username, url, blacklisted = entry
+        idx, website, username, url, blacklisted, etype = entry
         data = password_manager.entry_manager.retrieve_entry(idx)
-        etype = (
-            data.get("type", data.get("kind", EntryType.PASSWORD.value))
-            if data
-            else EntryType.PASSWORD.value
-        )
         print(color_text(f"Index: {idx}", "index"))
-        if etype == EntryType.TOTP.value:
-            print(color_text(f"  Label: {data.get('label', website)}", "index"))
-            print(color_text(f"  Derivation Index: {data.get('index', idx)}", "index"))
-        elif etype == EntryType.SEED.value:
+        if etype == EntryType.TOTP:
+            label = data.get("label", website) if data else website
+            deriv = data.get("index", idx) if data else idx
+            print(color_text(f"  Label: {label}", "index"))
+            print(color_text(f"  Derivation Index: {deriv}", "index"))
+        elif etype == EntryType.SEED:
             print(color_text("  Type: Seed Phrase", "index"))
-        elif etype == EntryType.SSH.value:
+        elif etype == EntryType.SSH:
             print(color_text("  Type: SSH Key", "index"))
-        elif etype == EntryType.PGP.value:
+        elif etype == EntryType.PGP:
             print(color_text("  Type: PGP Key", "index"))
-        elif etype == EntryType.NOSTR.value:
+        elif etype == EntryType.NOSTR:
             print(color_text("  Type: Nostr Key", "index"))
-        elif etype == EntryType.KEY_VALUE.value:
+        elif etype == EntryType.KEY_VALUE:
             print(color_text("  Type: Key/Value", "index"))
         else:
             if website:

@@ -46,6 +46,6 @@ def test_search_entries_prompt_for_details(monkeypatch, capsys):
 
         pm.handle_search_entries()
         out = capsys.readouterr().out
-        assert "0. Example" in out
+        assert "0. Totp - Example" in out
         assert "Label: Example" in out
         assert "Period: 30s" in out

@@ -86,8 +86,9 @@ def search_entry(query: str, authorization: str | None = Header(None)) -> List[A
             "username": username,
             "url": url,
             "archived": archived,
+            "type": etype.value,
         }
-        for idx, label, username, url, archived in results
+        for idx, label, username, url, archived, etype in results
     ]
 
 

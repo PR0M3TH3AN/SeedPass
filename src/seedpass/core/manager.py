@@ -3379,11 +3379,12 @@ class PasswordManager:
                     child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Search Results:\n", "green"))
-                for idx, label, username, _url, _b in results:
+                for idx, label, username, _url, _b, etype in results:
                     display_label = label
                     if username:
                         display_label += f" ({username})"
-                    print(colored(f"{idx}. {display_label}", "cyan"))
+                    type_name = etype.value.replace("_", " ").title()
+                    print(colored(f"{idx}. {type_name} - {display_label}", "cyan"))
 
                 idx_input = input(
                     "Enter index to view details or press Enter to go back: "

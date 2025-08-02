@@ -351,7 +351,7 @@ class SearchDialog(toga.Window):
         query = self.query_input.value or ""
         results = self.main.entries.search_entries(query)
         self.main.entry_source.clear()
-        for idx, label, username, url, _arch in results:
+        for idx, label, username, url, _arch, _etype in results:
             self.main.entry_source.append(
                 {
                     "id": idx,

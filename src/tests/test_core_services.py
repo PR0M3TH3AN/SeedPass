@@ -2,6 +2,7 @@ import types
 from types import SimpleNamespace
 
 from seedpass.core.api import VaultService, EntryService, SyncService, UnlockRequest
+from seedpass.core.entry_types import EntryType
 
 
 def test_vault_service_unlock():
@@ -27,7 +28,7 @@ def test_entry_service_add_entry_and_search():
 
     def search_entries(q, kinds=None):
         called["search"] = (q, kinds)
-        return [(5, "Example", username, url, False)]
+        return [(5, "Example", username, url, False, EntryType.PASSWORD)]
 
     def start_background_vault_sync():
         called["sync"] = True
@@ -47,7 +48,7 @@ def test_entry_service_add_entry_and_search():
     assert called.get("sync") is True
 
     results = service.search_entries("ex", kinds=["password"])
-    assert results == [(5, "Example", username, url, False)]
+    assert results == [(5, "Example", username, url, False, EntryType.PASSWORD)]
     assert called["search"] == ("ex", ["password"])
 
 

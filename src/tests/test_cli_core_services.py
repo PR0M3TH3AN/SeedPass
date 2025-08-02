@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from seedpass import cli
 from seedpass.cli import app
+from seedpass.core.entry_types import EntryType
 
 runner = CliRunner()
 
@@ -34,7 +35,7 @@ def test_cli_entry_add_search_sync(monkeypatch):
 
     def search_entries(q, kinds=None):
         calls["search"] = (q, kinds)
-        return [(1, "Label", None, None, False)]
+        return [(1, "Label", None, None, False, EntryType.PASSWORD)]
 
     def start_background_vault_sync():
         calls["sync"] = True

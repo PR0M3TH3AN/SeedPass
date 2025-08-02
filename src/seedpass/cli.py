@@ -161,8 +161,8 @@ def entry_search(
     if not results:
         typer.echo("No matching entries found")
         return
-    for idx, label, username, url, _arch in results:
-        line = f"{idx}: {label}"
+    for idx, label, username, url, _arch, etype in results:
+        line = f"{idx}: {etype.value.replace('_', ' ').title()} - {label}"
         if username:
             line += f" ({username})"
         if url:
@@ -180,8 +180,8 @@ def entry_get(ctx: typer.Context, query: str) -> None:
         raise typer.Exit(code=1)
     if len(matches) > 1:
         typer.echo("Matches:")
-        for idx, label, username, _url, _arch in matches:
-            name = f"{idx}: {label}"
+        for idx, label, username, _url, _arch, etype in matches:
+            name = f"{idx}: {etype.value.replace('_', ' ').title()} - {label}"
             if username:
                 name += f" ({username})"
             typer.echo(name)
