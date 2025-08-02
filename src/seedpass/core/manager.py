@@ -1464,6 +1464,72 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
+
+            def prompt_length() -> int | None:
+                length_input = input(
+                    f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
+                ).strip()
+                length = DEFAULT_PASSWORD_LENGTH
+                if length_input:
+                    if not length_input.isdigit():
+                        print(
+                            colored("Error: Password length must be a number.", "red")
+                        )
+                        return None
+                    length = int(length_input)
+                    if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
+                        print(
+                            colored(
+                                f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
+                                "red",
+                            )
+                        )
+                        return None
+                return length
+
+            def finalize_entry(index: int, label: str, length: int) -> None:
+                # Mark database as dirty for background sync
+                self.is_dirty = True
+                self.last_update = time.time()
+
+                # Generate the password using the assigned index
+                entry = self.entry_manager.retrieve_entry(index)
+                password = self._generate_password_for_entry(entry, index, length)
+
+                # Provide user feedback
+                print(
+                    colored(
+                        f"\n[+] Password generated and indexed with ID {index}.\n",
+                        "green",
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(password, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(colored(f"Password for {label}: {password}\n", "yellow"))
+
+                # Automatically push the updated encrypted index to Nostr so the
+                # latest changes are backed up remotely.
+                try:
+                    self.start_background_vault_sync()
+                    logging.info(
+                        "Encrypted index posted to Nostr after entry addition."
+                    )
+                except Exception as nostr_error:
+                    logging.error(
+                        f"Failed to post updated index to Nostr: {nostr_error}",
+                        exc_info=True,
+                    )
+                pause()
+
+            mode = input("Choose mode: [Q]uick or [A]dvanced? ").strip().lower()
+
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1471,6 +1537,29 @@ class PasswordManager:
 
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
+
+            if mode.startswith("q"):
+                length = prompt_length()
+                if length is None:
+                    return
+                include_special_input = (
+                    input("Include special characters? (Y/n): ").strip().lower()
+                )
+                include_special_chars: bool | None = None
+                if include_special_input:
+                    include_special_chars = include_special_input != "n"
+
+                index = self.entry_manager.add_entry(
+                    website_name,
+                    length,
+                    username,
+                    url,
+                    include_special_chars=include_special_chars,
+                )
+
+                finalize_entry(index, website_name, length)
+                return
+
             notes = input("Enter notes (optional): ").strip()
             tags_input = input("Enter tags (comma-separated, optional): ").strip()
             tags = (
@@ -1491,23 +1580,9 @@ class PasswordManager:
                     {"label": label, "value": value, "is_hidden": hidden}
                 )
 
-            length_input = input(
-                f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
-            ).strip()
-            length = DEFAULT_PASSWORD_LENGTH
-            if length_input:
-                if not length_input.isdigit():
-                    print(colored("Error: Password length must be a number.", "red"))
-                    return
-                length = int(length_input)
-                if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
-                    print(
-                        colored(
-                            f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
-                            "red",
-                        )
-                    )
-                    return
+            length = prompt_length()
+            if length is None:
+                return
 
             include_special_input = (
                 input("Include special characters? (Y/n): ").strip().lower()
@@ -1563,7 +1638,6 @@ class PasswordManager:
                 return
             min_special = int(min_special_input) if min_special_input else None
 
-            # Add the entry to the index and get the assigned index
             index = self.entry_manager.add_entry(
                 website_name,
                 length,
@@ -1583,43 +1657,7 @@ class PasswordManager:
                 min_special=min_special,
             )
 
-            # Mark database as dirty for background sync
-            self.is_dirty = True
-            self.last_update = time.time()
-
-            # Generate the password using the assigned index
-            entry = self.entry_manager.retrieve_entry(index)
-            password = self._generate_password_for_entry(entry, index, length)
-
-            # Provide user feedback
-            print(
-                colored(
-                    f"\n[+] Password generated and indexed with ID {index}.\n",
-                    "green",
-                )
-            )
-            if self.secret_mode_enabled:
-                copy_to_clipboard(password, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
-                    )
-                )
-            else:
-                print(colored(f"Password for {website_name}: {password}\n", "yellow"))
-
-            # Automatically push the updated encrypted index to Nostr so the
-            # latest changes are backed up remotely.
-            try:
-                self.start_background_vault_sync()
-                logging.info("Encrypted index posted to Nostr after entry addition.")
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
+            finalize_entry(index, website_name, length)
 
         except Exception as e:
             logging.error(f"Error during password generation: {e}", exc_info=True)
