@@ -409,6 +409,15 @@ When choosing **Add Entry**, you can now select from:
 - **Key/Value**
 - **Managed Account**
 
+### Adding a Password Entry
+
+After selecting **Password**, SeedPass asks you to pick a mode:
+
+1. **Quick** – prompts only for a label, username, URL, desired length, and whether to include special characters. Default values are used for notes, tags, and policy settings.
+2. **Advanced** – walks through the full set of prompts for notes, tags, custom fields, and detailed password policy options.
+
+Both modes generate the password, display it (or copy it to the clipboard in Secret Mode), and save the entry to your encrypted vault.
+
 ### Adding a 2FA Entry
 
 1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.

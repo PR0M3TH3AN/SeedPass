@@ -50,6 +50,7 @@ def test_manager_workflow(monkeypatch):
 
         inputs = iter(
             [
+                "a",  # advanced mode
                 "example.com",
                 "",  # username
                 "",  # url
