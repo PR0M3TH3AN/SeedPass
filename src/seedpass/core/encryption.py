@@ -24,6 +24,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
 from utils.file_lock import exclusive_lock
+from mnemonic import Mnemonic
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -314,25 +315,21 @@ class EncryptionManager:
             )
             raise
 
-    # ... validate_seed and derive_seed_from_mnemonic can remain the same ...
-    def validate_seed(self, seed_phrase: str) -> bool:
+    def validate_seed(self, seed_phrase: str) -> tuple[bool, Optional[str]]:
+        """Validate a BIP-39 mnemonic.
+
+        Returns a tuple of ``(is_valid, error_message)`` where ``error_message``
+        is ``None`` when the mnemonic is valid.
+        """
         try:
-            words = seed_phrase.split()
-            if len(words) != 12:
-                logger.error("Seed phrase does not contain exactly 12 words.")
-                print(
-                    colored(
-                        "Error: Seed phrase must contain exactly 12 words.",
-                        "red",
-                    )
-                )
-                return False
-            logger.debug("Seed phrase validated successfully.")
-            return True
+            if Mnemonic("english").check(seed_phrase):
+                logger.debug("Seed phrase validated successfully.")
+                return True, None
+            logger.error("Seed phrase failed BIP-39 validation.")
+            return False, "Invalid seed phrase."
         except Exception as e:
-            logging.error(f"Error validating seed phrase: {e}", exc_info=True)
-            print(colored(f"Error: Failed to validate seed phrase: {e}", "red"))
-            return False
+            logger.error(f"Error validating seed phrase: {e}", exc_info=True)
+            return False, f"Failed to validate seed phrase: {e}"
 
     def derive_seed_from_mnemonic(self, mnemonic: str, passphrase: str = "") -> bytes:
         try:
