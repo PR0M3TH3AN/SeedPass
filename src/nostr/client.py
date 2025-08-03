@@ -407,7 +407,9 @@ class NostrClient:
             }
         )
 
-        manifest_identifier = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        manifest_identifier = (
+            self.current_manifest_id or f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        )
         manifest_event = (
             EventBuilder(Kind(KIND_MANIFEST), manifest_json)
             .tags([Tag.identifier(manifest_identifier)])
@@ -516,35 +518,47 @@ class NostrClient:
 
         self.last_error = None
         pubkey = self.keys.public_key()
-        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
-        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
+        identifiers = [
+            f"{MANIFEST_ID_PREFIX}{self.fingerprint}",
+            MANIFEST_ID_PREFIX.rstrip("-"),
+        ]
         timeout = timedelta(seconds=10)
-        try:
-            events = (await self.client.fetch_events(f, timeout)).to_vec()
-        except Exception as e:  # pragma: no cover - network errors
-            self.last_error = str(e)
-            logger.error(
-                "Failed to fetch manifest from relays %s: %s",
-                self.relays,
-                e,
+        for ident in identifiers:
+            f = (
+                Filter()
+                .author(pubkey)
+                .kind(Kind(KIND_MANIFEST))
+                .identifier(ident)
+                .limit(1)
             )
-            return None
-
-        if not events:
-            return None
-
-        for manifest_event in events:
             try:
-                result = await self._fetch_chunks_with_retry(manifest_event)
-                if result is not None:
-                    return result
+                events = (await self.client.fetch_events(f, timeout)).to_vec()
             except Exception as e:  # pragma: no cover - network errors
                 self.last_error = str(e)
                 logger.error(
-                    "Error retrieving snapshot from relays %s: %s",
+                    "Failed to fetch manifest from relays %s: %s",
                     self.relays,
                     e,
                 )
+                return None
+
+            if not events:
+                continue
+
+            for manifest_event in events:
+                try:
+                    result = await self._fetch_chunks_with_retry(manifest_event)
+                    if result is not None:
+                        return result
+                except Exception as e:  # pragma: no cover - network errors
+                    self.last_error = str(e)
+                    logger.error(
+                        "Error retrieving snapshot from relays %s: %s",
+                        self.relays,
+                        e,
+                    )
+            # manifest was found but chunks missing; do not try other identifiers
+            return None
 
         if self.last_error is None:
             self.last_error = "Snapshot not found on relays"
@@ -557,7 +571,7 @@ class NostrClient:
             return
         await self._connect_async()
         pubkey = self.keys.public_key()
-        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        ident = self.current_manifest_id or f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
         f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
         timeout = timedelta(seconds=10)
         try:
