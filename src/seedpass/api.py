@@ -92,6 +92,15 @@ def _require_password(password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid password")
 
 
+def _validate_encryption_path(path: Path) -> None:
+    """Validate that ``path`` stays within the active fingerprint directory."""
+    assert _pm is not None
+    try:
+        _pm.encryption_manager.resolve_relative_path(path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/v1/entry")
 def search_entry(query: str, authorization: str | None = Header(None)) -> List[Any]:
     _check_token(authorization)
@@ -578,6 +587,7 @@ def backup_parent_seed(
     if not path_str:
         raise HTTPException(status_code=400, detail="Missing path")
     path = Path(path_str)
+    _validate_encryption_path(path)
     _pm.encryption_manager.encrypt_and_save_file(_pm.parent_seed.encode("utf-8"), path)
     return {"status": "saved", "path": str(path)}
 
