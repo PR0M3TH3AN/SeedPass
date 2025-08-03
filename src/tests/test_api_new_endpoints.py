@@ -155,30 +155,10 @@ def test_totp_codes_endpoint(client):
     }
 
 
-def test_parent_seed_endpoint(client, tmp_path):
+def test_parent_seed_endpoint_removed(client):
     cl, token = client
-    api._pm.parent_seed = "seed"
-    called = {}
-    api._pm.encryption_manager = SimpleNamespace(
-        encrypt_and_save_file=lambda data, path: called.setdefault("path", path)
-    )
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "X-SeedPass-Password": "pw",
-    }
-
-    res = cl.get("/api/v1/parent-seed", headers=headers)
-    assert res.status_code == 200
-    assert res.json() == {"seed": "seed"}
-
-    out = tmp_path / "bk.enc"
-    res = cl.get("/api/v1/parent-seed", params={"file": str(out)}, headers=headers)
-    assert res.status_code == 200
-    assert res.json() == {"status": "saved", "path": str(out)}
-    assert called["path"] == out
-
     res = cl.get("/api/v1/parent-seed", headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 401
+    assert res.status_code == 404
 
 
 def test_fingerprint_endpoints(client):
@@ -350,22 +330,31 @@ def test_vault_export_endpoint(client, tmp_path):
 
 def test_backup_parent_seed_endpoint(client, tmp_path):
     cl, token = client
+    api._pm.parent_seed = "seed"
     called = {}
-
-    def backup(path=None):
-        called["path"] = path
-
-    api._pm.handle_backup_reveal_parent_seed = backup
+    api._pm.encryption_manager = SimpleNamespace(
+        encrypt_and_save_file=lambda data, path: called.setdefault("path", path)
+    )
     path = tmp_path / "seed.enc"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
+    res = cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": str(path), "confirm": True},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "saved", "path": str(path)}
+    assert called["path"] == path
+
     res = cl.post(
         "/api/v1/vault/backup-parent-seed",
         json={"path": str(path)},
         headers=headers,
     )
-    assert res.status_code == 200
-    assert res.json() == {"status": "ok"}
-    assert called["path"] == path
+    assert res.status_code == 400
 
 
 def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):

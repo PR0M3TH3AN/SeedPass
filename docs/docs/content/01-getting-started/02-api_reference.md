@@ -35,14 +35,13 @@ Keep this token secret and avoid logging it. Tokens expire after a few minutes a
 - `GET /api/v1/totp` – Return current TOTP codes and remaining time.
 - `GET /api/v1/stats` – Return statistics about the active seed profile.
 - `GET /api/v1/notifications` – Retrieve and clear queued notifications. Messages appear in the persistent notification box but remain queued until fetched.
-- `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`. Requires an additional `X-SeedPass-Password` header.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
 - `POST /api/v1/checksum/update` – Update the stored script checksum.
 - `POST /api/v1/change-password` – Change the master password for the active profile.
 - `POST /api/v1/vault/import` – Import a vault backup from a file or path.
 - `POST /api/v1/vault/export` – Export the vault and download the encrypted file. Requires an additional `X-SeedPass-Password` header.
-- `POST /api/v1/vault/backup-parent-seed` – Save an encrypted backup of the parent seed.
+- `POST /api/v1/vault/backup-parent-seed` – Save an encrypted backup of the parent seed. Requires a `confirm` flag in the request body and an `X-SeedPass-Password` header.
 - `POST /api/v1/vault/lock` – Lock the vault and clear sensitive data from memory.
 - `GET /api/v1/relays` – List configured Nostr relays.
 - `POST /api/v1/relays` – Add a relay URL.
@@ -50,7 +49,6 @@ Keep this token secret and avoid logging it. Tokens expire after a few minutes a
 - `POST /api/v1/relays/reset` – Reset the relay list to defaults.
 - `POST /api/v1/shutdown` – Stop the server gracefully.
 
-**Security Warning:** Accessing `/api/v1/parent-seed` exposes your master seed in plain text. Use it only from a trusted environment.
 
 ## Secure Deployment
 
@@ -205,8 +203,9 @@ Trigger an encrypted seed backup with `/api/v1/vault/backup-parent-seed`:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/vault/backup-parent-seed \
      -H "Authorization: Bearer <token>" \
+     -H "X-SeedPass-Password: <master password>" \
      -H "Content-Type: application/json" \
-     -d '{"path": "seed_backup.enc"}'
+     -d '{"path": "seed_backup.enc", "confirm": true}'
 ```
 
 ### Retrieving Vault Statistics

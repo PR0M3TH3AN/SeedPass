@@ -430,25 +430,6 @@ def get_notifications(authorization: str | None = Header(None)) -> List[dict]:
     return notes
 
 
-@app.get("/api/v1/parent-seed")
-def get_parent_seed(
-    authorization: str | None = Header(None),
-    file: str | None = None,
-    password: str | None = Header(None, alias="X-SeedPass-Password"),
-) -> dict:
-    """Return the parent seed or save it as an encrypted backup."""
-    _check_token(authorization)
-    _require_password(password)
-    assert _pm is not None
-    if file:
-        path = Path(file)
-        _pm.encryption_manager.encrypt_and_save_file(
-            _pm.parent_seed.encode("utf-8"), path
-        )
-        return {"status": "saved", "path": str(path)}
-    return {"seed": _pm.parent_seed}
-
-
 @app.get("/api/v1/nostr/pubkey")
 def get_nostr_pubkey(authorization: str | None = Header(None)) -> Any:
     _check_token(authorization)
@@ -581,18 +562,24 @@ async def import_vault(
 
 @app.post("/api/v1/vault/backup-parent-seed")
 def backup_parent_seed(
-    data: dict | None = None, authorization: str | None = Header(None)
+    data: dict,
+    authorization: str | None = Header(None),
+    password: str | None = Header(None, alias="X-SeedPass-Password"),
 ) -> dict[str, str]:
-    """Backup and reveal the parent seed."""
+    """Create an encrypted backup of the parent seed after confirmation."""
     _check_token(authorization)
+    _require_password(password)
     assert _pm is not None
-    path = None
-    if data is not None:
-        p = data.get("path")
-        if p:
-            path = Path(p)
-    _pm.handle_backup_reveal_parent_seed(path)
-    return {"status": "ok"}
+
+    if not data.get("confirm"):
+        raise HTTPException(status_code=400, detail="Confirmation required")
+
+    path_str = data.get("path")
+    if not path_str:
+        raise HTTPException(status_code=400, detail="Missing path")
+    path = Path(path_str)
+    _pm.encryption_manager.encrypt_and_save_file(_pm.parent_seed.encode("utf-8"), path)
+    return {"status": "saved", "path": str(path)}
 
 
 @app.post("/api/v1/change-password")
