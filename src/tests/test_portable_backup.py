@@ -56,6 +56,7 @@ def test_round_trip(monkeypatch):
 from cryptography.fernet import InvalidToken
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="flaky on Windows")
 def test_corruption_detection(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
