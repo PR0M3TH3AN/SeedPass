@@ -76,6 +76,10 @@ class EncryptionManager:
             )
             raise
 
+        # Track user preference for handling legacy indexes
+        self._legacy_migrate_flag = True
+        self.last_migration_performed = False
+
     def encrypt_data(self, data: bytes) -> bytes:
         """
         (2) Encrypts data using the NEW AES-GCM format, prepending a version
@@ -134,6 +138,26 @@ class EncryptionManager:
             if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
                 raise
             logger.error(f"FATAL: Could not decrypt data: {e}", exc_info=True)
+            print(
+                colored(
+                    "Failed to decrypt with current key. This may be a legacy index.",
+                    "red",
+                )
+            )
+            resp = input(
+                "\nChoose an option:\n"
+                "1. Open legacy index without migrating\n"
+                "2. Migrate to new format and sync to Nostr\n"
+                "Selection [1/2]: "
+            ).strip()
+            if resp == "1":
+                self._legacy_migrate_flag = False
+            elif resp == "2":
+                self._legacy_migrate_flag = True
+            else:
+                raise InvalidToken(
+                    "User declined legacy decryption or provided invalid choice."
+                ) from e
             try:
                 password = prompt_existing_password(
                     "Enter your master password for legacy decryption: "
@@ -250,6 +274,7 @@ class EncryptionManager:
             encrypted_data = fh.read()
 
         is_legacy = not encrypted_data.startswith(b"V2:")
+        self.last_migration_performed = False
 
         try:
             decrypted_data = self.decrypt_data(encrypted_data)
@@ -259,10 +284,11 @@ class EncryptionManager:
                 data = json_lib.loads(decrypted_data.decode("utf-8"))
 
             # If it was a legacy file, re-save it in the new format now
-            if is_legacy:
+            if is_legacy and self._legacy_migrate_flag:
                 logger.info(f"Migrating and re-saving legacy vault file: {file_path}")
                 self.save_json_data(data, relative_path)
                 self.update_checksum(relative_path)
+                self.last_migration_performed = True
 
             return data
         except (InvalidToken, InvalidTag, JSONDecodeError) as e:

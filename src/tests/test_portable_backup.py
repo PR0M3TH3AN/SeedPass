@@ -9,6 +9,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import seedpass.core.encryption as enc_module
 from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault
 from seedpass.core.backup import BackupManager
@@ -70,6 +71,17 @@ def test_corruption_detection(monkeypatch):
         payload = b"x" + payload[1:]
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
+
+        def _fast_legacy_key(password: str, iterations: int = 100_000) -> bytes:
+            return base64.urlsafe_b64encode(b"0" * 32)
+
+        monkeypatch.setattr(
+            enc_module, "_derive_legacy_key_from_password", _fast_legacy_key
+        )
+        monkeypatch.setattr(
+            enc_module, "prompt_existing_password", lambda *_a, **_k: PASSWORD
+        )
+        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "1")
 
         with pytest.raises(InvalidToken):
             import_backup(vault, backup, path, parent_seed=SEED)

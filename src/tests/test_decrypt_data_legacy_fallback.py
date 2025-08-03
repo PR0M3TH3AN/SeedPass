@@ -23,6 +23,7 @@ def test_decrypt_data_password_fallback(tmp_path, monkeypatch):
     monkeypatch.setattr(
         enc_module, "prompt_existing_password", lambda *_a, **_k: TEST_PASSWORD
     )
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "1")
 
     legacy_key = _fast_legacy_key(TEST_PASSWORD, iterations=50_000)
     legacy_mgr = EncryptionManager(legacy_key, tmp_path)
