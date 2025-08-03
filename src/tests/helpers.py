@@ -11,6 +11,7 @@ from utils.key_derivation import (
     derive_index_key,
     derive_key_from_password,
 )
+from utils.fingerprint import generate_fingerprint
 
 TEST_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 TEST_PASSWORD = "pw"
@@ -22,7 +23,8 @@ def create_vault(
     password: str = TEST_PASSWORD,
 ) -> tuple[Vault, EncryptionManager]:
     """Create a Vault initialized for tests."""
-    seed_key = derive_key_from_password(password)
+    fp = generate_fingerprint(seed)
+    seed_key = derive_key_from_password(password, fp)
     seed_mgr = EncryptionManager(seed_key, dir_path)
     seed_mgr.encrypt_parent_seed(seed)
 

@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import pytest
 import sys
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
+from utils.fingerprint import generate_fingerprint
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -16,7 +17,8 @@ PASSWORD = "passw0rd"
 
 
 def setup_vault(tmp: Path) -> Vault:
-    seed_key = derive_key_from_password(PASSWORD)
+    fp = generate_fingerprint(SEED)
+    seed_key = derive_key_from_password(PASSWORD, fp)
     seed_mgr = EncryptionManager(seed_key, tmp)
     seed_mgr.encrypt_parent_seed(SEED)
 

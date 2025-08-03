@@ -10,8 +10,9 @@ from utils.key_derivation import (
 
 def test_derive_key_deterministic():
     password = "correct horse battery staple"
-    key1 = derive_key_from_password(password, iterations=1)
-    key2 = derive_key_from_password(password, iterations=1)
+    fp = "fp"
+    key1 = derive_key_from_password(password, fp, iterations=1)
+    key2 = derive_key_from_password(password, fp, iterations=1)
     assert key1 == key2
     assert len(key1) == 44
     logging.info("Deterministic key derivation succeeded")
@@ -19,7 +20,7 @@ def test_derive_key_deterministic():
 
 def test_derive_key_empty_password_error():
     with pytest.raises(ValueError):
-        derive_key_from_password("")
+        derive_key_from_password("", "fp")
     logging.info("Empty password correctly raised ValueError")
 
 
@@ -38,7 +39,12 @@ def test_derive_index_key_seed_only():
 
 def test_argon2_key_deterministic():
     pw = "correct horse battery staple"
-    k1 = derive_key_from_password_argon2(pw, time_cost=1, memory_cost=8, parallelism=1)
-    k2 = derive_key_from_password_argon2(pw, time_cost=1, memory_cost=8, parallelism=1)
+    fp = "fp"
+    k1 = derive_key_from_password_argon2(
+        pw, fp, time_cost=1, memory_cost=8, parallelism=1
+    )
+    k2 = derive_key_from_password_argon2(
+        pw, fp, time_cost=1, memory_cost=8, parallelism=1
+    )
     assert k1 == k2
     assert len(k1) == 44

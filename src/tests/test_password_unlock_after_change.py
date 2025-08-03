@@ -14,19 +14,22 @@ from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
+from utils.fingerprint import generate_fingerprint
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
 
 def test_password_change_and_unlock(monkeypatch):
     with TemporaryDirectory() as tmpdir:
-        fp = Path(tmpdir)
+        fp_name = generate_fingerprint(SEED)
+        fp = Path(tmpdir) / fp_name
+        fp.mkdir()
         old_pw = "oldpw"
         new_pw = "newpw"
 
         # initial encryption setup
         index_key = derive_index_key(SEED)
-        seed_key = derive_key_from_password(old_pw)
+        seed_key = derive_key_from_password(old_pw, fp_name)
         enc_mgr = EncryptionManager(index_key, fp)
         seed_mgr = EncryptionManager(seed_key, fp)
         vault = Vault(enc_mgr, fp)
@@ -54,7 +57,7 @@ def test_password_change_and_unlock(monkeypatch):
         pm.vault = vault
         pm.password_generator = SimpleNamespace(encryption_manager=enc_mgr)
         pm.fingerprint_dir = fp
-        pm.current_fingerprint = "fp"
+        pm.current_fingerprint = fp_name
         pm.parent_seed = SEED
         pm.nostr_client = SimpleNamespace(
             publish_snapshot=lambda *a, **k: (None, "abcd")

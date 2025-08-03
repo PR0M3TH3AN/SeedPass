@@ -15,6 +15,7 @@ from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.portable_backup import export_backup, import_backup
 from utils.key_derivation import derive_index_key, derive_key_from_password
+from utils.fingerprint import generate_fingerprint
 
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -22,7 +23,8 @@ PASSWORD = "passw0rd"
 
 
 def setup_vault(tmp: Path):
-    seed_key = derive_key_from_password(PASSWORD)
+    fp = generate_fingerprint(SEED)
+    seed_key = derive_key_from_password(PASSWORD, fp)
     seed_mgr = EncryptionManager(seed_key, tmp)
     seed_mgr.encrypt_parent_seed(SEED)
 
@@ -126,7 +128,8 @@ def test_export_creates_additional_backup_and_import(monkeypatch):
     with TemporaryDirectory() as td, TemporaryDirectory() as extra:
         tmp = Path(td)
 
-        seed_key = derive_key_from_password(PASSWORD)
+        fp = generate_fingerprint(SEED)
+        seed_key = derive_key_from_password(PASSWORD, fp)
         seed_mgr = EncryptionManager(seed_key, tmp)
         seed_mgr.encrypt_parent_seed(SEED)
 

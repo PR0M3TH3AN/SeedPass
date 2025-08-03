@@ -19,10 +19,11 @@ TEST_PASSWORD = "pw"
 
 def _setup_profile(tmp: Path, mode: str):
     argon_kwargs = dict(time_cost=1, memory_cost=8, parallelism=1)
+    fp = tmp.name
     if mode == "argon2":
-        seed_key = derive_key_from_password_argon2(TEST_PASSWORD, **argon_kwargs)
+        seed_key = derive_key_from_password_argon2(TEST_PASSWORD, fp, **argon_kwargs)
     else:
-        seed_key = derive_key_from_password(TEST_PASSWORD, iterations=1)
+        seed_key = derive_key_from_password(TEST_PASSWORD, fp, iterations=1)
     EncryptionManager(seed_key, tmp).encrypt_parent_seed(TEST_SEED)
 
     index_key = derive_index_key(TEST_SEED)
@@ -44,7 +45,7 @@ def _make_pm(tmp: Path, cfg: ConfigManager):
     pm.encryption_mode = EncryptionMode.SEED_ONLY
     pm.config_manager = cfg
     pm.fingerprint_dir = tmp
-    pm.current_fingerprint = "fp"
+    pm.current_fingerprint = tmp.name
     pm.verify_password = lambda pw: True
     return pm
 
@@ -65,7 +66,9 @@ def test_setup_encryption_manager_kdf_modes(monkeypatch):
             if mode == "argon2":
                 monkeypatch.setattr(
                     "seedpass.core.manager.derive_key_from_password_argon2",
-                    lambda pw: derive_key_from_password_argon2(pw, **argon_kwargs),
+                    lambda pw, fp: derive_key_from_password_argon2(
+                        pw, fp, **argon_kwargs
+                    ),
                 )
             monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
             monkeypatch.setattr(
