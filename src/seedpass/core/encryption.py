@@ -138,7 +138,9 @@ class EncryptionManager:
                 password = prompt_existing_password(
                     "Enter your master password for legacy decryption: "
                 )
-                legacy_key = _derive_legacy_key_from_password(password)
+                legacy_key = _derive_legacy_key_from_password(
+                    password, iterations=50_000
+                )
                 legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
                 result = legacy_mgr.decrypt_data(encrypted_data)
                 logger.warning(
