@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 from pathlib import Path
+import os
+import base64
 import pytest
 
 from seedpass import api
@@ -7,6 +9,7 @@ from test_api import client
 from helpers import dummy_nostr_client
 import string
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
+from seedpass.core.encryption import EncryptionManager
 from nostr.client import NostrClient, DEFAULT_RELAYS
 
 
@@ -333,9 +336,10 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
     api._pm.parent_seed = "seed"
     called = {}
     api._pm.encryption_manager = SimpleNamespace(
-        encrypt_and_save_file=lambda data, path: called.setdefault("path", path)
+        encrypt_and_save_file=lambda data, path: called.setdefault("path", path),
+        resolve_relative_path=lambda p: p,
     )
-    path = tmp_path / "seed.enc"
+    path = Path("seed.enc")
     headers = {
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
@@ -352,6 +356,23 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
     res = cl.post(
         "/api/v1/vault/backup-parent-seed",
         json={"path": str(path)},
+        headers=headers,
+    )
+    assert res.status_code == 400
+
+
+def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
+    cl, token = client
+    api._pm.parent_seed = "seed"
+    key = base64.urlsafe_b64encode(os.urandom(32))
+    api._pm.encryption_manager = EncryptionManager(key, tmp_path)
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
+    res = cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": "../evil.enc", "confirm": True},
         headers=headers,
     )
     assert res.status_code == 400

@@ -120,6 +120,30 @@ class EncryptionManager:
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
 
+    def resolve_relative_path(self, relative_path: Path) -> Path:
+        """Resolve ``relative_path`` within ``fingerprint_dir`` and validate it.
+
+        Parameters
+        ----------
+        relative_path:
+            The user-supplied path relative to ``fingerprint_dir``.
+
+        Returns
+        -------
+        Path
+            The normalized absolute path inside ``fingerprint_dir``.
+
+        Raises
+        ------
+        ValueError
+            If the resulting path is absolute or escapes ``fingerprint_dir``.
+        """
+
+        candidate = (self.fingerprint_dir / relative_path).resolve()
+        if not candidate.is_relative_to(self.fingerprint_dir.resolve()):
+            raise ValueError("Invalid path outside fingerprint directory")
+        return candidate
+
     def encrypt_parent_seed(self, parent_seed: str) -> None:
         """Encrypts and saves the parent seed to 'parent_seed.enc'."""
         data = parent_seed.encode("utf-8")
@@ -147,7 +171,7 @@ class EncryptionManager:
         return decrypted_data.decode("utf-8").strip()
 
     def encrypt_and_save_file(self, data: bytes, relative_path: Path) -> None:
-        file_path = self.fingerprint_dir / relative_path
+        file_path = self.resolve_relative_path(relative_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         encrypted_data = self.encrypt_data(data)
         with exclusive_lock(file_path) as fh:
@@ -159,7 +183,7 @@ class EncryptionManager:
         os.chmod(file_path, 0o600)
 
     def decrypt_file(self, relative_path: Path) -> bytes:
-        file_path = self.fingerprint_dir / relative_path
+        file_path = self.resolve_relative_path(relative_path)
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
             encrypted_data = fh.read()
@@ -182,8 +206,7 @@ class EncryptionManager:
         """
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
-
-        file_path = self.fingerprint_dir / relative_path
+        file_path = self.resolve_relative_path(relative_path)
         if not file_path.exists():
             return {"entries": {}}
 
@@ -216,7 +239,7 @@ class EncryptionManager:
 
     def get_encrypted_index(self) -> Optional[bytes]:
         relative_path = Path("seedpass_entries_db.json.enc")
-        file_path = self.fingerprint_dir / relative_path
+        file_path = self.resolve_relative_path(relative_path)
         if not file_path.exists():
             return None
         with exclusive_lock(file_path) as fh:
@@ -251,7 +274,8 @@ class EncryptionManager:
                 data = json_lib.loads(decrypted_data)
             else:
                 data = json_lib.loads(decrypted_data.decode("utf-8"))
-            if merge and (self.fingerprint_dir / relative_path).exists():
+            existing_file = self.resolve_relative_path(relative_path)
+            if merge and existing_file.exists():
                 current = self.load_json_data(relative_path)
                 current_entries = current.get("entries", {})
                 for idx, entry in data.get("entries", {}).items():
@@ -290,8 +314,7 @@ class EncryptionManager:
         """Updates the checksum file for the specified file."""
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
-
-        file_path = self.fingerprint_dir / relative_path
+        file_path = self.resolve_relative_path(relative_path)
         if not file_path.exists():
             return
 
