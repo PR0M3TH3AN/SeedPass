@@ -17,6 +17,7 @@ import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
 import hashlib
+import hmac
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -50,7 +51,7 @@ def _check_token(auth: str | None) -> None:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if hashlib.sha256(token.encode()).hexdigest() != _token:
+    if not hmac.compare_digest(hashlib.sha256(token.encode()).hexdigest(), _token):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
