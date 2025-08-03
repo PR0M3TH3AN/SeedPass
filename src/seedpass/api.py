@@ -16,6 +16,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, Response
 import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
+import hashlib
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -49,6 +50,8 @@ def _check_token(auth: str | None) -> None:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if hashlib.sha256(token.encode()).hexdigest() != _token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def _reload_relays(relays: list[str]) -> None:
@@ -80,7 +83,8 @@ def start_server(fingerprint: str | None = None) -> str:
         _pm = PasswordManager(fingerprint=fingerprint)
     _jwt_secret = secrets.token_urlsafe(32)
     payload = {"exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
-    _token = jwt.encode(payload, _jwt_secret, algorithm="HS256")
+    raw_token = jwt.encode(payload, _jwt_secret, algorithm="HS256")
+    _token = hashlib.sha256(raw_token.encode()).hexdigest()
     if not getattr(app.state, "limiter", None):
         app.state.limiter = limiter
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -97,7 +101,7 @@ def start_server(fingerprint: str | None = None) -> str:
             allow_methods=["*"],
             allow_headers=["*"],
         )
-    return _token
+    return raw_token
 
 
 def _require_password(password: str | None) -> None:
