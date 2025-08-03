@@ -275,11 +275,23 @@ def handle_display_npub(password_manager: PasswordManager):
 def _display_live_stats(
     password_manager: PasswordManager, interval: float = 1.0
 ) -> None:
-    """Continuously refresh stats until the user presses Enter."""
+    """Continuously refresh stats until the user presses Enter.
 
+    Each refresh also triggers a background sync so the latest stats are
+    displayed if newer data exists on Nostr.
+    """
+
+    stats_mgr = getattr(password_manager, "stats_manager", None)
     display_fn = getattr(password_manager, "display_stats", None)
+    sync_fn = getattr(password_manager, "start_background_sync", None)
     if not callable(display_fn):
         return
+
+    if callable(sync_fn):
+        try:
+            sync_fn()
+        except Exception as exc:  # pragma: no cover - sync best effort
+            logging.debug("Background sync failed during stats display: %s", exc)
 
     if not sys.stdin or not sys.stdin.isatty():
         clear_screen()
@@ -289,9 +301,16 @@ def _display_live_stats(
             print(note)
         print(colored("Press Enter to continue.", "cyan"))
         pause()
+        if stats_mgr is not None:
+            stats_mgr.reset()
         return
 
     while True:
+        if callable(sync_fn):
+            try:
+                sync_fn()
+            except Exception:  # pragma: no cover - sync best effort
+                logging.debug("Background sync failed during stats display")
         clear_screen()
         display_fn()
         note = get_notification_text(password_manager)
@@ -308,6 +327,8 @@ def _display_live_stats(
         except KeyboardInterrupt:
             print()
             break
+    if stats_mgr is not None:
+        stats_mgr.reset()
 
 
 def handle_display_stats(password_manager: PasswordManager) -> None:
@@ -321,31 +342,28 @@ def handle_display_stats(password_manager: PasswordManager) -> None:
 
 def print_matches(
     password_manager: PasswordManager,
-    matches: list[tuple[int, str, str | None, str | None, bool]],
+    matches: list[tuple[int, str, str | None, str | None, bool, EntryType]],
 ) -> None:
     """Print a list of search matches."""
     print(colored("\n[+] Matches:\n", "green"))
     for entry in matches:
-        idx, website, username, url, blacklisted = entry
+        idx, website, username, url, blacklisted, etype = entry
         data = password_manager.entry_manager.retrieve_entry(idx)
-        etype = (
-            data.get("type", data.get("kind", EntryType.PASSWORD.value))
-            if data
-            else EntryType.PASSWORD.value
-        )
         print(color_text(f"Index: {idx}", "index"))
-        if etype == EntryType.TOTP.value:
-            print(color_text(f"  Label: {data.get('label', website)}", "index"))
-            print(color_text(f"  Derivation Index: {data.get('index', idx)}", "index"))
-        elif etype == EntryType.SEED.value:
+        if etype == EntryType.TOTP:
+            label = data.get("label", website) if data else website
+            deriv = data.get("index", idx) if data else idx
+            print(color_text(f"  Label: {label}", "index"))
+            print(color_text(f"  Derivation Index: {deriv}", "index"))
+        elif etype == EntryType.SEED:
             print(color_text("  Type: Seed Phrase", "index"))
-        elif etype == EntryType.SSH.value:
+        elif etype == EntryType.SSH:
             print(color_text("  Type: SSH Key", "index"))
-        elif etype == EntryType.PGP.value:
+        elif etype == EntryType.PGP:
             print(color_text("  Type: PGP Key", "index"))
-        elif etype == EntryType.NOSTR.value:
+        elif etype == EntryType.NOSTR:
             print(color_text("  Type: Nostr Key", "index"))
-        elif etype == EntryType.KEY_VALUE.value:
+        elif etype == EntryType.KEY_VALUE:
             print(color_text("  Type: Key/Value", "index"))
         else:
             if website:
@@ -390,6 +408,7 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
     Handles the action of retrieving the encrypted password index from Nostr.
     """
     try:
+        password_manager.nostr_client.fingerprint = password_manager.current_fingerprint
         result = asyncio.run(password_manager.nostr_client.fetch_latest_snapshot())
         if result:
             manifest, chunks = result
@@ -407,8 +426,12 @@ def handle_retrieve_from_nostr(password_manager: PasswordManager):
             print(colored("Encrypted index retrieved and saved successfully.", "green"))
             logging.info("Encrypted index retrieved and saved successfully from Nostr.")
         else:
-            print(colored("Failed to retrieve data from Nostr.", "red"))
-            logging.error("Failed to retrieve data from Nostr.")
+            msg = (
+                f"No Nostr events found for fingerprint"
+                f" {password_manager.current_fingerprint}."
+            )
+            print(colored(msg, "red"))
+            logging.error(msg)
     except Exception as e:
         logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
@@ -433,10 +456,21 @@ def handle_view_relays(cfg_mgr: "ConfigManager") -> None:
         print(colored(f"Error: {e}", "red"))
 
 
+def _safe_close_client_pool(pm: PasswordManager) -> None:
+    """Close the Nostr client pool if the client exists."""
+    client = getattr(pm, "nostr_client", None)
+    if client is None:
+        return
+    try:
+        client.close_client_pool()
+    except Exception as exc:
+        logging.error(f"Error during NostrClient shutdown: {exc}")
+
+
 def _reload_relays(password_manager: PasswordManager, relays: list) -> None:
     """Reload NostrClient with the updated relay list."""
     try:
-        password_manager.nostr_client.close_client_pool()
+        _safe_close_client_pool(password_manager)
     except Exception as exc:
         logging.warning(f"Failed to close client pool: {exc}")
     try:
@@ -1024,7 +1058,8 @@ def display_menu(
                 continue
             logging.info("Exiting the program.")
             print(colored("Exiting the program.", "green"))
-            password_manager.nostr_client.close_client_pool()
+            getattr(password_manager, "cleanup", lambda: None)()
+            _safe_close_client_pool(password_manager)
             sys.exit(0)
         if choice == "1":
             while True:
@@ -1227,7 +1262,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored("\nReceived shutdown signal. Exiting gracefully...", "yellow"))
         logging.info(f"Received shutdown signal: {sig}. Initiating graceful shutdown.")
         try:
-            password_manager.nostr_client.close_client_pool()
+            getattr(password_manager, "cleanup", lambda: None)()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1245,7 +1281,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.info("Program terminated by user via KeyboardInterrupt.")
         print(colored("\nProgram terminated by user.", "yellow"))
         try:
-            password_manager.nostr_client.close_client_pool()
+            getattr(password_manager, "cleanup", lambda: None)()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1255,7 +1292,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.error(f"A user-related error occurred: {e}", exc_info=True)
         print(colored(f"Error: {e}", "red"))
         try:
-            password_manager.nostr_client.close_client_pool()
+            getattr(password_manager, "cleanup", lambda: None)()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
@@ -1265,7 +1303,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.error(f"An unexpected error occurred: {e}", exc_info=True)
         print(colored(f"Error: An unexpected error occurred: {e}", "red"))
         try:
-            password_manager.nostr_client.close_client_pool()
+            getattr(password_manager, "cleanup", lambda: None)()
+            _safe_close_client_pool(password_manager)
             logging.info("NostrClient closed successfully.")
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")

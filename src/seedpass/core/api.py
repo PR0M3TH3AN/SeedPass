@@ -9,13 +9,15 @@ allow easy validation and documentation.
 
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
+import dataclasses
 import json
 
 from pydantic import BaseModel
 
 from .manager import PasswordManager
 from .pubsub import bus
+from .entry_types import EntryType
 
 
 class VaultExportRequest(BaseModel):
@@ -81,6 +83,34 @@ class SyncResponse(BaseModel):
     manifest_id: str
     chunk_ids: List[str] = []
     delta_ids: List[str] = []
+
+
+class PasswordPolicyOptions(BaseModel):
+    """Optional password policy overrides."""
+
+    include_special_chars: bool | None = None
+    allowed_special_chars: str | None = None
+    special_mode: str | None = None
+    exclude_ambiguous: bool | None = None
+    min_uppercase: int | None = None
+    min_lowercase: int | None = None
+    min_digits: int | None = None
+    min_special: int | None = None
+
+
+class AddPasswordEntryRequest(PasswordPolicyOptions):
+    label: str
+    length: int
+    username: str | None = None
+    url: str | None = None
+
+
+class GeneratePasswordRequest(PasswordPolicyOptions):
+    length: int
+
+
+class GeneratePasswordResponse(BaseModel):
+    password: str
 
 
 class VaultService:
@@ -245,7 +275,7 @@ class EntryService:
 
     def search_entries(
         self, query: str, kinds: list[str] | None = None
-    ) -> list[tuple[int, str, str | None, str | None, bool]]:
+    ) -> list[tuple[int, str, str | None, str | None, bool, EntryType]]:
         """Search entries optionally filtering by ``kinds``.
 
         Parameters
@@ -265,7 +295,11 @@ class EntryService:
 
     def generate_password(self, length: int, index: int) -> str:
         with self._lock:
-            return self._manager.password_generator.generate_password(length, index)
+            entry = self._manager.entry_manager.retrieve_entry(index)
+            gen_fn = getattr(self._manager, "_generate_password_for_entry", None)
+            if gen_fn is None:
+                return self._manager.password_generator.generate_password(length, index)
+            return gen_fn(entry, index, length)
 
     def get_totp_code(self, entry_id: int) -> str:
         with self._lock:
@@ -279,9 +313,42 @@ class EntryService:
         length: int,
         username: str | None = None,
         url: str | None = None,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
     ) -> int:
         with self._lock:
-            idx = self._manager.entry_manager.add_entry(label, length, username, url)
+            kwargs: dict[str, Any] = {}
+            if include_special_chars is not None:
+                kwargs["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                kwargs["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                kwargs["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                kwargs["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                kwargs["min_uppercase"] = min_uppercase
+            if min_lowercase is not None:
+                kwargs["min_lowercase"] = min_lowercase
+            if min_digits is not None:
+                kwargs["min_digits"] = min_digits
+            if min_special is not None:
+                kwargs["min_special"] = min_special
+
+            idx = self._manager.entry_manager.add_entry(
+                label,
+                length,
+                username,
+                url,
+                **kwargs,
+            )
             self._manager.start_background_vault_sync()
             return idx
 
@@ -354,6 +421,7 @@ class EntryService:
         with self._lock:
             idx = self._manager.entry_manager.add_nostr_key(
                 label,
+                self._manager.parent_seed,
                 index=index,
                 notes=notes,
             )
@@ -379,9 +447,13 @@ class EntryService:
             self._manager.start_background_vault_sync()
             return idx
 
-    def add_key_value(self, label: str, value: str, *, notes: str = "") -> int:
+    def add_key_value(
+        self, label: str, key: str, value: str, *, notes: str = ""
+    ) -> int:
         with self._lock:
-            idx = self._manager.entry_manager.add_key_value(label, value, notes=notes)
+            idx = self._manager.entry_manager.add_key_value(
+                label, key, value, notes=notes
+            )
             self._manager.start_background_vault_sync()
             return idx
 
@@ -412,6 +484,7 @@ class EntryService:
         label: str | None = None,
         period: int | None = None,
         digits: int | None = None,
+        key: str | None = None,
         value: str | None = None,
     ) -> None:
         with self._lock:
@@ -423,6 +496,7 @@ class EntryService:
                 label=label,
                 period=period,
                 digits=digits,
+                key=key,
                 value=value,
             )
             self._manager.start_background_vault_sync()
@@ -482,6 +556,16 @@ class ConfigService:
             "min_lowercase": ("set_min_lowercase", int),
             "min_digits": ("set_min_digits", int),
             "min_special": ("set_min_special", int),
+            "include_special_chars": (
+                "set_include_special_chars",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
+            "allowed_special_chars": ("set_allowed_special_chars", lambda v: v),
+            "special_mode": ("set_special_mode", lambda v: v),
+            "exclude_ambiguous": (
+                "set_exclude_ambiguous",
+                lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
+            ),
             "quick_unlock": (
                 "set_quick_unlock",
                 lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
@@ -537,9 +621,50 @@ class UtilityService:
         self._manager = manager
         self._lock = Lock()
 
-    def generate_password(self, length: int) -> str:
+    def generate_password(
+        self,
+        length: int,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
+    ) -> str:
         with self._lock:
-            return self._manager.password_generator.generate_password(length)
+            pg = self._manager.password_generator
+            base_policy = getattr(pg, "policy", None)
+            overrides: dict[str, Any] = {}
+            if include_special_chars is not None:
+                overrides["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                overrides["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                overrides["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                overrides["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                overrides["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                overrides["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                overrides["min_digits"] = int(min_digits)
+            if min_special is not None:
+                overrides["min_special"] = int(min_special)
+
+            if base_policy is not None and overrides:
+                pg.policy = dataclasses.replace(
+                    base_policy,
+                    **{k: overrides[k] for k in overrides if hasattr(base_policy, k)},
+                )
+                try:
+                    return pg.generate_password(length)
+                finally:
+                    pg.policy = base_policy
+            return pg.generate_password(length)
 
     def verify_checksum(self) -> None:
         with self._lock:

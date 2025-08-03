@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
+from seedpass.core.api import UtilityService
 
 
 app = FastAPI()
@@ -85,8 +86,9 @@ def search_entry(query: str, authorization: str | None = Header(None)) -> List[A
             "username": username,
             "url": url,
             "archived": archived,
+            "type": etype.value,
         }
-        for idx, label, username, url, archived in results
+        for idx, label, username, url, archived, etype in results
     ]
 
 
@@ -117,11 +119,23 @@ def create_entry(
     etype = (entry.get("type") or entry.get("kind") or "password").lower()
 
     if etype == "password":
+        policy_keys = [
+            "include_special_chars",
+            "allowed_special_chars",
+            "special_mode",
+            "exclude_ambiguous",
+            "min_uppercase",
+            "min_lowercase",
+            "min_digits",
+            "min_special",
+        ]
+        kwargs = {k: entry.get(k) for k in policy_keys if entry.get(k) is not None}
         index = _pm.entry_manager.add_entry(
             entry.get("label"),
             int(entry.get("length", 12)),
             entry.get("username"),
             entry.get("url"),
+            **kwargs,
         )
         return {"id": index}
 
@@ -164,6 +178,7 @@ def create_entry(
     if etype == "nostr":
         index = _pm.entry_manager.add_nostr_key(
             entry.get("label"),
+            _pm.parent_seed,
             index=entry.get("index"),
             notes=entry.get("notes", ""),
             archived=entry.get("archived", False),
@@ -173,6 +188,7 @@ def create_entry(
     if etype == "key_value":
         index = _pm.entry_manager.add_key_value(
             entry.get("label"),
+            entry.get("key"),
             entry.get("value"),
             notes=entry.get("notes", ""),
         )
@@ -217,6 +233,7 @@ def update_entry(
             label=entry.get("label"),
             period=entry.get("period"),
             digits=entry.get("digits"),
+            key=entry.get("key"),
             value=entry.get("value"),
         )
     except ValueError as e:
@@ -562,6 +579,30 @@ def change_password(
     assert _pm is not None
     _pm.change_password(data.get("old", ""), data.get("new", ""))
     return {"status": "ok"}
+
+
+@app.post("/api/v1/password")
+def generate_password(
+    data: dict, authorization: str | None = Header(None)
+) -> dict[str, str]:
+    """Generate a password using optional policy overrides."""
+    _check_token(authorization)
+    assert _pm is not None
+    length = int(data.get("length", 12))
+    policy_keys = [
+        "include_special_chars",
+        "allowed_special_chars",
+        "special_mode",
+        "exclude_ambiguous",
+        "min_uppercase",
+        "min_lowercase",
+        "min_digits",
+        "min_special",
+    ]
+    kwargs = {k: data.get(k) for k in policy_keys if data.get(k) is not None}
+    util = UtilityService(_pm)
+    password = util.generate_password(length, **kwargs)
+    return {"password": password}
 
 
 @app.post("/api/v1/vault/lock")

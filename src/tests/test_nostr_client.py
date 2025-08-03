@@ -91,7 +91,7 @@ def test_initialize_client_pool_add_relays_used(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelaysClient)
     fc = client.client
     client.connect()
-    assert fc.added == [client.relays]
+    assert [[str(r) for r in relays] for relays in fc.added] == [client.relays]
     assert fc.connected is True
 
 
@@ -99,7 +99,7 @@ def test_initialize_client_pool_add_relay_fallback(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelayClient)
     fc = client.client
     client.connect()
-    assert fc.added == client.relays
+    assert [str(r) for r in fc.added] == client.relays
     assert fc.connected is True
 
 

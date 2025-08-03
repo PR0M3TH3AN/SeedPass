@@ -49,15 +49,15 @@ Manage individual entries within a vault.
 | List entries | `entry list` | `seedpass entry list --sort label` |
 | Search for entries | `entry search` | `seedpass entry search "GitHub"` |
 | Retrieve an entry's secret (password or TOTP code) | `entry get` | `seedpass entry get "GitHub"` |
-| Add a password entry | `entry add` | `seedpass entry add Example --length 16` |
+| Add a password entry | `entry add` | `seedpass entry add Example --length 16 --no-special --exclude-ambiguous` |
 | Add a TOTP entry | `entry add-totp` | `seedpass entry add-totp Email --secret JBSW...` |
 | Add an SSH key entry | `entry add-ssh` | `seedpass entry add-ssh Server --index 0` |
 | Add a PGP key entry | `entry add-pgp` | `seedpass entry add-pgp Personal --user-id me@example.com` |
 | Add a Nostr key entry | `entry add-nostr` | `seedpass entry add-nostr Chat` |
 | Add a seed phrase entry | `entry add-seed` | `seedpass entry add-seed Backup --words 24` |
-| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --value abc123` |
+| Add a key/value entry | `entry add-key-value` | `seedpass entry add-key-value "API Token" --key api --value abc123` |
 | Add a managed account entry | `entry add-managed-account` | `seedpass entry add-managed-account Trading` |
-| Modify an entry | `entry modify` | `seedpass entry modify 1 --username alice` |
+| Modify an entry | `entry modify` | `seedpass entry modify 1 --key new --value updated` |
 | Archive an entry | `entry archive` | `seedpass entry archive 1` |
 | Unarchive an entry | `entry unarchive` | `seedpass entry unarchive 1` |
 | Export all TOTP secrets | `entry export-totp` | `seedpass entry export-totp --file totp.json` |
@@ -112,7 +112,7 @@ Miscellaneous helper commands.
 
 | Action | Command | Examples |
 | :--- | :--- | :--- |
-| Generate a password | `util generate-password` | `seedpass util generate-password --length 24` |
+| Generate a password | `util generate-password` | `seedpass util generate-password --length 24 --special-mode safe --exclude-ambiguous` |
 | Verify script checksum | `util verify-checksum` | `seedpass util verify-checksum` |
 | Update script checksum | `util update-checksum` | `seedpass util update-checksum` |
 
@@ -136,17 +136,17 @@ Run or stop the local HTTP API.
 ### `entry` Commands
 
 - **`seedpass entry list`** – List entries in the vault, optionally sorted or filtered.
-- **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes.
+- **`seedpass entry search <query>`** – Search across labels, usernames, URLs and notes. Results show the entry type before each label.
 - **`seedpass entry get <query>`** – Retrieve the password or TOTP code for one matching entry, depending on the entry's type.
-- **`seedpass entry add <label>`** – Create a new password entry. Use `--length` to set the password length and optional `--username`/`--url` values.
+- **`seedpass entry add <label>`** – Create a new password entry. Use `--length` and flags like `--no-special`, `--special-mode safe`, or `--exclude-ambiguous` to override the global policy.
 - **`seedpass entry add-totp <label>`** – Create a TOTP entry. Use `--secret` to import an existing secret or `--index` to derive from the seed.
 - **`seedpass entry add-ssh <label>`** – Create an SSH key entry derived from the seed.
 - **`seedpass entry add-pgp <label>`** – Create a PGP key entry. Provide `--user-id` and `--key-type` as needed.
 - **`seedpass entry add-nostr <label>`** – Create a Nostr key entry for decentralised chat.
 - **`seedpass entry add-seed <label>`** – Store a derived seed phrase. Use `--words` to set the word count.
-- **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--value`.
+ - **`seedpass entry add-key-value <label>`** – Store arbitrary data with `--key` and `--value`.
 - **`seedpass entry add-managed-account <label>`** – Store a BIP‑85 derived account seed.
-- **`seedpass entry modify <id>`** – Update an entry's label, username, URL or notes.
+- **`seedpass entry modify <id>`** – Update an entry's fields. For key/value entries you can change the label, key and value.
 - **`seedpass entry archive <id>`** – Mark an entry as archived so it is hidden from normal lists.
 - **`seedpass entry unarchive <id>`** – Restore an archived entry.
 - **`seedpass entry export-totp --file <path>`** – Export all stored TOTP secrets to a JSON file.
@@ -185,7 +185,7 @@ QR codes for supported types.
 ### `config` Commands
 
 - **`seedpass config get <key>`** – Retrieve a configuration value such as `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `clipboard_clear_delay`, `additional_backup_path`, `relays`, `quick_unlock`, `nostr_max_retries`, `nostr_retry_delay`, or password policy fields like `min_uppercase`.
-- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`. Use keys like `min_uppercase`, `min_lowercase`, `min_digits`, `min_special`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` to adjust settings.
+- **`seedpass config set <key> <value>`** – Update a configuration option. Example: `seedpass config set kdf_iterations 200000`. Use keys like `min_uppercase`, `min_lowercase`, `min_digits`, `min_special`, `include_special_chars`, `allowed_special_chars`, `special_mode`, `exclude_ambiguous`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` to adjust settings.
 - **`seedpass config toggle-secret-mode`** – Interactively enable or disable Secret Mode and set the clipboard delay.
 - **`seedpass config toggle-offline`** – Enable or disable offline mode to skip Nostr operations.
 
@@ -223,5 +223,5 @@ Shut down the server with `seedpass api stop`.
 - Use the `--help` flag for details on any command.
 - Set a strong master password and regularly export encrypted backups.
 - Adjust configuration values like `kdf_iterations`, `backup_interval`, `inactivity_timeout`, `secret_mode_enabled`, `nostr_max_retries`, `nostr_retry_delay`, or `quick_unlock` through the `config` commands.
-- Customize password complexity with `config set min_uppercase 3`, `config set min_digits 4`, and similar commands.
+- Customize the global password policy with commands like `config set min_uppercase 3` or `config set special_mode safe`. When adding a password interactively you can override these values, choose a safe special-character set, and exclude ambiguous characters.
 - `entry get` is script‑friendly and can be piped into other commands.

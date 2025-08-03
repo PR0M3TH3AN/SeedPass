@@ -31,7 +31,7 @@ requires = [
     "aiohttp>=3.12.14",
     "bcrypt",
     "portalocker>=2.8",
-    "nostr-sdk>=0.42.1",
+    "nostr-sdk>=0.43",
     "websocket-client==1.7.0",
     "websockets>=15.0.0",
     "tomli",

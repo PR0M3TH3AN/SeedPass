@@ -21,6 +21,7 @@ import builtins
 import threading
 import queue
 from dataclasses import dataclass
+import dataclasses
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -31,6 +32,7 @@ from .password_generation import PasswordGenerator
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup
+from cryptography.fernet import InvalidToken
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -94,12 +96,19 @@ from datetime import datetime
 from utils.fingerprint_manager import FingerprintManager
 
 # Import NostrClient
-from nostr.client import NostrClient, DEFAULT_RELAYS
+from nostr.client import NostrClient, DEFAULT_RELAYS, MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
+from .stats_manager import StatsManager
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+def calculate_profile_id(seed: str) -> str:
+    """Return the fingerprint identifier for ``seed``."""
+    fp = generate_fingerprint(seed)
+    return fp or ""
 
 
 @dataclass
@@ -161,6 +170,7 @@ class PasswordManager:
         self.nostr_client: Optional[NostrClient] = None
         self.config_manager: Optional[ConfigManager] = None
         self.state_manager: Optional[StateManager] = None
+        self.stats_manager: StatsManager = StatsManager()
         self.notifications: queue.Queue[Notification] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
@@ -271,6 +281,8 @@ class PasswordManager:
     def notify(self, message: str, level: str = "INFO") -> None:
         """Enqueue a notification and set it as the active message."""
         note = Notification(message, level)
+        if not hasattr(self, "notifications"):
+            self.notifications = queue.Queue()
         self.notifications.put(note)
         self._current_notification = note
         self._notification_expiry = time.time() + NOTIFICATION_DURATION
@@ -604,6 +616,8 @@ class PasswordManager:
             selected_fingerprint = fingerprints[int(choice) - 1]
             self.fingerprint_manager.current_fingerprint = selected_fingerprint
             self.current_fingerprint = selected_fingerprint
+            if not getattr(self, "manifest_id", None):
+                self.manifest_id = f"{MANIFEST_ID_PREFIX}{selected_fingerprint}"
 
             # Update fingerprint directory
             self.fingerprint_dir = (
@@ -644,7 +658,9 @@ class PasswordManager:
                     config_manager=getattr(self, "config_manager", None),
                     parent_seed=getattr(self, "parent_seed", None),
                 )
-                if getattr(self, "manifest_id", None):
+                if getattr(self, "manifest_id", None) and hasattr(
+                    self.nostr_client, "_state_lock"
+                ):
                     from nostr.backup_models import Manifest
 
                     with self.nostr_client._state_lock:
@@ -807,8 +823,8 @@ class PasswordManager:
 
         choice = input(
             "Do you want to (1) Paste in an existing seed in full "
-            "(2) Enter an existing seed one word at a time or "
-            "(3) Generate a new seed? (1/2/3): "
+            "(2) Enter an existing seed one word at a time, "
+            "(3) Generate a new seed, or (4) Restore from Nostr? (1/2/3/4): "
         ).strip()
 
         if choice == "1":
@@ -817,6 +833,10 @@ class PasswordManager:
             self.setup_existing_seed(method="words")
         elif choice == "3":
             self.generate_new_seed()
+        elif choice == "4":
+            seed_phrase = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+            self.restore_from_nostr_with_guidance(seed_phrase)
+            return
         else:
             print(colored("Invalid choice. Exiting.", "red"))
             sys.exit(1)
@@ -893,6 +913,8 @@ class PasswordManager:
             self.current_fingerprint = fingerprint
             self.fingerprint_manager.current_fingerprint = fingerprint
             self.fingerprint_dir = fingerprint_dir
+            if not getattr(self, "manifest_id", None):
+                self.manifest_id = f"{MANIFEST_ID_PREFIX}{fingerprint}"
             logging.info(f"Current seed profile set to {fingerprint}")
 
             try:
@@ -1164,7 +1186,9 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            if getattr(self, "manifest_id", None):
+            if getattr(self, "manifest_id", None) and hasattr(
+                self.nostr_client, "_state_lock"
+            ):
                 from nostr.backup_models import Manifest
 
                 with self.nostr_client._state_lock:
@@ -1187,6 +1211,8 @@ class PasswordManager:
         """Always fetch the latest vault data from Nostr and update the local index."""
         start = time.perf_counter()
         try:
+            if getattr(self, "current_fingerprint", None):
+                self.nostr_client.fingerprint = self.current_fingerprint
             result = await self.nostr_client.fetch_latest_snapshot()
             if not result:
                 if self.nostr_client.last_error:
@@ -1255,19 +1281,29 @@ class PasswordManager:
 
         async def _worker() -> None:
             try:
-                if hasattr(self, "nostr_client") and hasattr(self, "vault"):
-                    self.attempt_initial_sync()
-                if hasattr(self, "sync_index_from_nostr"):
-                    self.sync_index_from_nostr()
+                await self.attempt_initial_sync_async()
+                await self.sync_index_from_nostr_async()
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
 
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            threading.Thread(target=lambda: asyncio.run(_worker()), daemon=True).start()
+            thread = threading.Thread(
+                target=lambda: asyncio.run(_worker()), daemon=True
+            )
+            thread.start()
+            self._sync_task = thread
         else:
             self._sync_task = asyncio.create_task(_worker())
+
+    def cleanup(self) -> None:
+        """Cancel any pending background sync task."""
+        task = getattr(self, "_sync_task", None)
+        if isinstance(task, asyncio.Task) and not task.done():
+            task.cancel()
+        elif isinstance(task, threading.Thread) and task.is_alive():
+            task.join(timeout=0.1)
 
     def start_background_relay_check(self) -> None:
         """Check relay health in a background thread."""
@@ -1336,6 +1372,8 @@ class PasswordManager:
         have_data = False
         start = time.perf_counter()
         try:
+            if getattr(self, "current_fingerprint", None):
+                self.nostr_client.fingerprint = self.current_fingerprint
             result = await self.nostr_client.fetch_latest_snapshot()
             if result:
                 manifest, chunks = result
@@ -1385,6 +1423,37 @@ class PasswordManager:
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning(f"Unable to publish fresh database: {exc}")
 
+    def check_nostr_backup_exists(self, profile_id: str) -> bool:
+        """Return ``True`` if a snapshot exists on Nostr for ``profile_id``."""
+        if not self.nostr_client or getattr(self, "offline_mode", False):
+            return False
+        previous = self.nostr_client.fingerprint
+        self.nostr_client.fingerprint = profile_id
+        try:
+            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+            return result is not None
+        finally:
+            self.nostr_client.fingerprint = previous
+
+    def restore_from_nostr_with_guidance(self, seed_phrase: str) -> None:
+        """Restore a profile from Nostr, warning if no backup exists."""
+        profile_id = calculate_profile_id(seed_phrase)
+        have_backup = self.check_nostr_backup_exists(profile_id)
+        if not have_backup:
+            print(colored("No Nostr backup found for this seed profile.", "yellow"))
+            if not confirm_action("Continue with an empty database? (Y/N): "):
+                return
+
+        fp = self._finalize_existing_seed(seed_phrase)
+        if not fp:
+            return
+
+        success = self.attempt_initial_sync()
+        if success:
+            print(colored("Vault restored from Nostr.", "green"))
+        elif have_backup:
+            print(colored("Failed to download vault from Nostr.", "red"))
+
     def handle_add_password(self) -> None:
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
@@ -1395,6 +1464,72 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
+
+            def prompt_length() -> int | None:
+                length_input = input(
+                    f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
+                ).strip()
+                length = DEFAULT_PASSWORD_LENGTH
+                if length_input:
+                    if not length_input.isdigit():
+                        print(
+                            colored("Error: Password length must be a number.", "red")
+                        )
+                        return None
+                    length = int(length_input)
+                    if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
+                        print(
+                            colored(
+                                f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
+                                "red",
+                            )
+                        )
+                        return None
+                return length
+
+            def finalize_entry(index: int, label: str, length: int) -> None:
+                # Mark database as dirty for background sync
+                self.is_dirty = True
+                self.last_update = time.time()
+
+                # Generate the password using the assigned index
+                entry = self.entry_manager.retrieve_entry(index)
+                password = self._generate_password_for_entry(entry, index, length)
+
+                # Provide user feedback
+                print(
+                    colored(
+                        f"\n[+] Password generated and indexed with ID {index}.\n",
+                        "green",
+                    )
+                )
+                if self.secret_mode_enabled:
+                    copy_to_clipboard(password, self.clipboard_clear_delay)
+                    print(
+                        colored(
+                            f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
+                    )
+                else:
+                    print(colored(f"Password for {label}: {password}\n", "yellow"))
+
+                # Automatically push the updated encrypted index to Nostr so the
+                # latest changes are backed up remotely.
+                try:
+                    self.start_background_vault_sync()
+                    logging.info(
+                        "Encrypted index posted to Nostr after entry addition."
+                    )
+                except Exception as nostr_error:
+                    logging.error(
+                        f"Failed to post updated index to Nostr: {nostr_error}",
+                        exc_info=True,
+                    )
+                pause()
+
+            mode = input("Choose mode: [Q]uick or [A]dvanced? ").strip().lower()
+
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -1402,6 +1537,29 @@ class PasswordManager:
 
             username = input("Enter the username (optional): ").strip()
             url = input("Enter the URL (optional): ").strip()
+
+            if mode.startswith("q"):
+                length = prompt_length()
+                if length is None:
+                    return
+                include_special_input = (
+                    input("Include special characters? (Y/n): ").strip().lower()
+                )
+                include_special_chars: bool | None = None
+                if include_special_input:
+                    include_special_chars = include_special_input != "n"
+
+                index = self.entry_manager.add_entry(
+                    website_name,
+                    length,
+                    username,
+                    url,
+                    include_special_chars=include_special_chars,
+                )
+
+                finalize_entry(index, website_name, length)
+                return
+
             notes = input("Enter notes (optional): ").strip()
             tags_input = input("Enter tags (comma-separated, optional): ").strip()
             tags = (
@@ -1422,25 +1580,64 @@ class PasswordManager:
                     {"label": label, "value": value, "is_hidden": hidden}
                 )
 
-            length_input = input(
-                f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
-            ).strip()
-            length = DEFAULT_PASSWORD_LENGTH
-            if length_input:
-                if not length_input.isdigit():
-                    print(colored("Error: Password length must be a number.", "red"))
-                    return
-                length = int(length_input)
-                if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
-                    print(
-                        colored(
-                            f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
-                            "red",
-                        )
-                    )
-                    return
+            length = prompt_length()
+            if length is None:
+                return
 
-            # Add the entry to the index and get the assigned index
+            include_special_input = (
+                input("Include special characters? (Y/n): ").strip().lower()
+            )
+            include_special_chars: bool | None = None
+            if include_special_input:
+                include_special_chars = include_special_input != "n"
+
+            allowed_special_chars = input(
+                "Allowed special characters (leave blank for default): "
+            ).strip()
+            if not allowed_special_chars:
+                allowed_special_chars = None
+
+            special_mode = input("Special character mode (safe/leave blank): ").strip()
+            if not special_mode:
+                special_mode = None
+
+            exclude_ambiguous_input = (
+                input("Exclude ambiguous characters? (y/N): ").strip().lower()
+            )
+            exclude_ambiguous: bool | None = None
+            if exclude_ambiguous_input:
+                exclude_ambiguous = exclude_ambiguous_input == "y"
+
+            min_uppercase_input = input(
+                "Minimum uppercase letters (blank for default): "
+            ).strip()
+            if min_uppercase_input and not min_uppercase_input.isdigit():
+                print(colored("Error: Minimum uppercase must be a number.", "red"))
+                return
+            min_uppercase = int(min_uppercase_input) if min_uppercase_input else None
+
+            min_lowercase_input = input(
+                "Minimum lowercase letters (blank for default): "
+            ).strip()
+            if min_lowercase_input and not min_lowercase_input.isdigit():
+                print(colored("Error: Minimum lowercase must be a number.", "red"))
+                return
+            min_lowercase = int(min_lowercase_input) if min_lowercase_input else None
+
+            min_digits_input = input("Minimum digits (blank for default): ").strip()
+            if min_digits_input and not min_digits_input.isdigit():
+                print(colored("Error: Minimum digits must be a number.", "red"))
+                return
+            min_digits = int(min_digits_input) if min_digits_input else None
+
+            min_special_input = input(
+                "Minimum special characters (blank for default): "
+            ).strip()
+            if min_special_input and not min_special_input.isdigit():
+                print(colored("Error: Minimum special must be a number.", "red"))
+                return
+            min_special = int(min_special_input) if min_special_input else None
+
             index = self.entry_manager.add_entry(
                 website_name,
                 length,
@@ -1450,44 +1647,17 @@ class PasswordManager:
                 notes=notes,
                 custom_fields=custom_fields,
                 tags=tags,
+                include_special_chars=include_special_chars,
+                allowed_special_chars=allowed_special_chars,
+                special_mode=special_mode,
+                exclude_ambiguous=exclude_ambiguous,
+                min_uppercase=min_uppercase,
+                min_lowercase=min_lowercase,
+                min_digits=min_digits,
+                min_special=min_special,
             )
 
-            # Mark database as dirty for background sync
-            self.is_dirty = True
-            self.last_update = time.time()
-
-            # Generate the password using the assigned index
-            password = self.password_generator.generate_password(length, index)
-
-            # Provide user feedback
-            print(
-                colored(
-                    f"\n[+] Password generated and indexed with ID {index}.\n",
-                    "green",
-                )
-            )
-            if self.secret_mode_enabled:
-                copy_to_clipboard(password, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
-                    )
-                )
-            else:
-                print(colored(f"Password for {website_name}: {password}\n", "yellow"))
-
-            # Automatically push the updated encrypted index to Nostr so the
-            # latest changes are backed up remotely.
-            try:
-                self.start_background_vault_sync()
-                logging.info("Encrypted index posted to Nostr after entry addition.")
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
+            finalize_entry(index, website_name, length)
 
         except Exception as e:
             logging.error(f"Error during password generation: {e}", exc_info=True)
@@ -1838,7 +2008,9 @@ class PasswordManager:
                 if tags_input
                 else []
             )
-            index = self.entry_manager.add_nostr_key(label, notes=notes, tags=tags)
+            index = self.entry_manager.add_nostr_key(
+                label, self.parent_seed, notes=notes, tags=tags
+            )
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
             self.is_dirty = True
             self.last_update = time.time()
@@ -1888,6 +2060,10 @@ class PasswordManager:
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
                 return
+            key_field = input("Key: ").strip()
+            if not key_field:
+                print(colored("Error: Key cannot be empty.", "red"))
+                return
             value = input("Value: ").strip()
             notes = input("Notes (optional): ").strip()
             tags_input = input("Enter tags (comma-separated, optional): ").strip()
@@ -1915,6 +2091,7 @@ class PasswordManager:
 
             index = self.entry_manager.add_key_value(
                 label,
+                key_field,
                 value,
                 notes=notes,
                 custom_fields=custom_fields,
@@ -2062,6 +2239,29 @@ class PasswordManager:
             entry_type = entry_type.value
         return str(entry_type).lower()
 
+    def _generate_password_for_entry(
+        self, entry: dict, index: int, length: int | None = None
+    ) -> str:
+        """Generate a password for ``entry`` honoring any policy overrides."""
+        if length is None:
+            length = int(entry.get("length", DEFAULT_PASSWORD_LENGTH))
+        overrides = entry.get("policy", {})
+
+        pg = self.password_generator
+        if not hasattr(pg, "policy") or not isinstance(overrides, dict):
+            return pg.generate_password(length, index)
+
+        base_policy = pg.policy
+        merged = dataclasses.replace(
+            base_policy,
+            **{k: overrides[k] for k in overrides if hasattr(base_policy, k)},
+        )
+        pg.policy = merged
+        try:
+            return pg.generate_password(length, index)
+        finally:
+            pg.policy = base_policy
+
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
         while True:
@@ -2168,7 +2368,12 @@ class PasswordManager:
                 child_fingerprint=child_fp,
             )
             print(colored("\n[+] Edit Menu:", "green"))
-            print(colored("L. Edit Label (key)", "cyan"))
+            print(colored("L. Edit Label", "cyan"))
+            if entry_type == EntryType.KEY_VALUE.value:
+                print(colored("K. Edit Key", "cyan"))
+                print(
+                    colored("V. Edit Value", "cyan")
+                )  # 🔧 merged conflicting changes from feature-X vs main
             if entry_type == EntryType.PASSWORD.value:
                 print(colored("U. Edit Username", "cyan"))
                 print(colored("R. Edit URL", "cyan"))
@@ -2179,11 +2384,25 @@ class PasswordManager:
             if not choice:
                 break
             if choice == "l":
-                new_label = input("New label (key): ").strip()
+                new_label = input("New label: ").strip()
                 if new_label:
                     self.entry_manager.modify_entry(index, label=new_label)
                     self.is_dirty = True
                     self.last_update = time.time()
+            elif entry_type == EntryType.KEY_VALUE.value and choice == "k":
+                new_key = input("New key: ").strip()
+                if new_key:
+                    self.entry_manager.modify_entry(index, key=new_key)
+                    self.is_dirty = True
+                    self.last_update = time.time()
+            elif entry_type == EntryType.KEY_VALUE.value and choice == "v":
+                new_value = input("New value: ").strip()
+                if new_value:
+                    self.entry_manager.modify_entry(index, value=new_value)
+                    self.is_dirty = True
+                    self.last_update = (
+                        time.time()
+                    )  # 🔧 merged conflicting changes from feature-X vs main
             elif entry_type == EntryType.PASSWORD.value and choice == "u":
                 new_username = input("New username: ").strip()
                 self.entry_manager.modify_entry(index, username=new_username)
@@ -2629,7 +2848,7 @@ class PasswordManager:
                 level="WARNING",
             )
 
-        password = self.password_generator.generate_password(length, index)
+        password = self._generate_password_for_entry(entry, index, length)
 
         if password:
             if self.secret_mode_enabled:
@@ -2656,6 +2875,8 @@ class PasswordManager:
                         "cyan",
                     )
                 )
+                if notes:
+                    print(colored(f"Notes: {notes}", "cyan"))
                 tags = entry.get("tags", [])
                 if tags:
                     print(colored(f"Tags: {', '.join(tags)}", "cyan"))
@@ -2861,18 +3082,14 @@ class PasswordManager:
                     custom_fields=custom_fields,
                     tags=tags,
                 )
-            elif entry_type in (
-                EntryType.KEY_VALUE.value,
-                EntryType.MANAGED_ACCOUNT.value,
-            ):
+            elif entry_type == EntryType.SSH.value:
                 label = entry.get("label", "")
-                value = entry.get("value", "")
                 blacklisted = entry.get("archived", False)
                 notes = entry.get("notes", "")
 
                 print(
                     colored(
-                        f"Modifying key/value entry '{label}' (Index: {index}):",
+                        f"Modifying SSH key entry '{label}' (Index: {index}):",
                         "cyan",
                     )
                 )
@@ -2886,6 +3103,86 @@ class PasswordManager:
                     input(f'Enter new label (leave blank to keep "{label}"): ').strip()
                     or label
                 )
+                blacklist_input = (
+                    input(
+                        f'Archive this entry? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    archived=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    tags=tags,
+                )
+            elif entry_type in (
+                EntryType.KEY_VALUE.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ):
+                label = entry.get("label", "")
+                value = entry.get("value", "")
+                blacklisted = entry.get("archived", False)
+                notes = entry.get("notes", "")
+
+                entry_label = (
+                    "key/value entry"
+                    if entry_type == EntryType.KEY_VALUE.value
+                    else "managed account"
+                )
+
+                print(
+                    colored(
+                        f"Modifying {entry_label} '{label}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                print(
+                    colored(
+                        f"Current Archived Status: {'Archived' if blacklisted else 'Active'}",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new label (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                if entry_type == EntryType.KEY_VALUE.value:
+                    new_key = input(
+                        f'Enter new key (leave blank to keep "{entry.get("key", "")}"): '
+                    ).strip() or entry.get("key", "")
+                else:
+                    new_key = None
                 new_value = (
                     input("Enter new value (leave blank to keep current): ").strip()
                     or value
@@ -2942,14 +3239,20 @@ class PasswordManager:
                     else None
                 )
 
+                modify_kwargs = {
+                    "archived": new_blacklisted,
+                    "notes": new_notes,
+                    "label": new_label,
+                    "value": new_value,
+                    "custom_fields": custom_fields,
+                    "tags": tags,
+                }
+                if entry_type == EntryType.KEY_VALUE.value:
+                    modify_kwargs["key"] = new_key
+
                 self.entry_manager.modify_entry(
                     index,
-                    archived=new_blacklisted,
-                    notes=new_notes,
-                    label=new_label,
-                    value=new_value,
-                    custom_fields=custom_fields,
-                    tags=tags,
+                    **modify_kwargs,
                 )
             else:
                 website_name = entry.get("label", entry.get("website"))
@@ -3114,11 +3417,12 @@ class PasswordManager:
                     child_fingerprint=child_fp,
                 )
                 print(colored("\n[+] Search Results:\n", "green"))
-                for idx, label, username, _url, _b in results:
+                for idx, label, username, _url, _b, etype in results:
                     display_label = label
                     if username:
                         display_label += f" ({username})"
-                    print(colored(f"{idx}. {display_label}", "cyan"))
+                    type_name = etype.value.replace("_", " ").title()
+                    print(colored(f"{idx}. {type_name} - {display_label}", "cyan"))
 
                 idx_input = input(
                     "Enter index to view details or press Enter to go back: "
@@ -3237,7 +3541,8 @@ class PasswordManager:
                 print(color_text(f"  Tags: {', '.join(tags)}", "index"))
         elif etype == EntryType.KEY_VALUE.value:
             print(color_text("  Type: Key/Value", "index"))
-            print(color_text(f"  Label (key): {entry.get('label', '')}", "index"))
+            print(color_text(f"  Label: {entry.get('label', '')}", "index"))
+            print(color_text(f"  Key: {entry.get('key', '')}", "index"))
             print(color_text(f"  Value: {entry.get('value', '')}", "index"))
             notes = entry.get("notes", "")
             if notes:
@@ -3271,9 +3576,15 @@ class PasswordManager:
             username = entry.get("username", "")
             url = entry.get("url", "")
             blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            notes = entry.get("notes", "")
+            tags = entry.get("tags", [])
             print(color_text(f"  Label: {website}", "index"))
             print(color_text(f"  Username: {username or 'N/A'}", "index"))
             print(color_text(f"  URL: {url or 'N/A'}", "index"))
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
             print(
                 color_text(
                     f"  Archived: {'Yes' if blacklisted else 'No'}",
@@ -3788,26 +4099,57 @@ class PasswordManager:
 
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Settings > Import database",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
+
+        if not src.name.endswith(".json.enc"):
+            print(
+                colored(
+                    "Error: Selected file must be a SeedPass database backup (.json.enc).",
+                    "red",
+                )
             )
+            return
+
+        fp, parent_fp, child_fp = self.header_fingerprint_args
+        clear_header_with_notification(
+            self,
+            fp,
+            "Main Menu > Settings > Import database",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
+        )
+
+        try:
             import_backup(
                 self.vault,
                 self.backup_manager,
                 src,
                 parent_seed=self.parent_seed,
             )
-            print(colored("Database imported successfully.", "green"))
-            self.sync_vault()
+        except InvalidToken:
+            logging.error("Invalid backup token during import", exc_info=True)
+            print(
+                colored(
+                    "Error: Invalid backup. Please import a file created by SeedPass.",
+                    "red",
+                )
+            )
+            return
+        except FileNotFoundError:
+            logging.error(f"Backup file not found: {src}", exc_info=True)
+            print(colored(f"Error: File '{src}' not found.", "red"))
+            return
         except Exception as e:
             logging.error(f"Failed to import database: {e}", exc_info=True)
-            print(colored(f"Error: Failed to import database: {e}", "red"))
+            print(
+                colored(
+                    f"Error: Failed to import database: {e}. Please verify the backup file.",
+                    "red",
+                )
+            )
+            return
+
+        print(colored("Database imported successfully.", "green"))
+        self.sync_vault()
 
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
@@ -4097,7 +4439,9 @@ class PasswordManager:
                 parent_seed=getattr(self, "parent_seed", None),
             )
 
-            if getattr(self, "manifest_id", None):
+            if getattr(self, "manifest_id", None) and hasattr(
+                self.nostr_client, "_state_lock"
+            ):
                 from nostr.backup_models import Manifest
 
                 with self.nostr_client._state_lock:

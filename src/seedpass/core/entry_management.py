@@ -37,6 +37,13 @@ from .entry_types import EntryType
 from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
+from utils.key_validation import (
+    validate_totp_secret,
+    validate_ssh_key_pair,
+    validate_pgp_private_key,
+    validate_nostr_keys,
+    validate_seed_phrase,
+)
 
 from .vault import Vault
 from .backup import BackupManager
@@ -152,6 +159,15 @@ class EntryManager:
         notes: str = "",
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
+        *,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
     ) -> int:
         """
         Adds a new entry to the encrypted JSON index file.
@@ -169,7 +185,7 @@ class EntryManager:
             data = self._load_index()
 
             data.setdefault("entries", {})
-            data["entries"][str(index)] = {
+            entry = {
                 "label": label,
                 "length": length,
                 "username": username if username else "",
@@ -182,6 +198,28 @@ class EntryManager:
                 "custom_fields": custom_fields or [],
                 "tags": tags or [],
             }
+
+            policy: dict[str, Any] = {}
+            if include_special_chars is not None:
+                policy["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                policy["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                policy["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                policy["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                policy["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                policy["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                policy["min_digits"] = int(min_digits)
+            if min_special is not None:
+                policy["min_special"] = int(min_special)
+            if policy:
+                entry["policy"] = policy
+
+            data["entries"][str(index)] = entry
 
             logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
 
@@ -235,6 +273,8 @@ class EntryManager:
             if index is None:
                 index = self.get_next_totp_index()
             secret = TotpManager.derive_secret(parent_seed, index)
+            if not validate_totp_secret(secret):
+                raise ValueError("Invalid derived TOTP secret")
             entry = {
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
@@ -248,6 +288,8 @@ class EntryManager:
                 "tags": tags or [],
             }
         else:
+            if not validate_totp_secret(secret):
+                raise ValueError("Invalid TOTP secret")
             entry = {
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
@@ -291,6 +333,12 @@ class EntryManager:
 
         if index is None:
             index = self.get_next_index()
+
+        from .password_generation import derive_ssh_key_pair
+
+        priv_pem, pub_pem = derive_ssh_key_pair(parent_seed, index)
+        if not validate_ssh_key_pair(priv_pem, pub_pem):
+            raise ValueError("Derived SSH key pair failed validation")
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -339,6 +387,17 @@ class EntryManager:
         if index is None:
             index = self.get_next_index()
 
+        from .password_generation import derive_pgp_key
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+
+        priv_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
+        if not validate_pgp_private_key(priv_key, fp):
+            raise ValueError("Derived PGP key failed validation")
+
         data = self._load_index()
         data.setdefault("entries", {})
         data["entries"][str(index)] = {
@@ -382,6 +441,7 @@ class EntryManager:
     def add_nostr_key(
         self,
         label: str,
+        parent_seed: str,
         index: int | None = None,
         notes: str = "",
         archived: bool = False,
@@ -391,6 +451,19 @@ class EntryManager:
 
         if index is None:
             index = self.get_next_index()
+
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+        from nostr.coincurve_keys import Keys
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+        entropy = bip85.derive_entropy(index=index, bytes_len=32)
+        keys = Keys(priv_k=entropy.hex())
+        npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
+        nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
+        if not validate_nostr_keys(npub, nsec):
+            raise ValueError("Derived Nostr keys failed validation")
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -412,6 +485,7 @@ class EntryManager:
     def add_key_value(
         self,
         label: str,
+        key: str,
         value: str,
         *,
         notes: str = "",
@@ -429,6 +503,7 @@ class EntryManager:
             "type": EntryType.KEY_VALUE.value,
             "kind": EntryType.KEY_VALUE.value,
             "label": label,
+            "key": key,
             "modified_ts": int(time.time()),
             "value": value,
             "notes": notes,
@@ -481,6 +556,16 @@ class EntryManager:
 
         if index is None:
             index = self.get_next_index()
+
+        from .password_generation import derive_seed_phrase
+        from local_bip85.bip85 import BIP85
+        from bip_utils import Bip39SeedGenerator
+
+        seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+        bip85 = BIP85(seed_bytes)
+        phrase = derive_seed_phrase(bip85, index, words_num)
+        if not validate_seed_phrase(phrase):
+            raise ValueError("Derived seed phrase failed validation")
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -550,6 +635,8 @@ class EntryManager:
         word_count = 12
 
         seed_phrase = derive_seed_phrase(bip85, index, word_count)
+        if not validate_seed_phrase(seed_phrase):
+            raise ValueError("Derived managed account seed failed validation")
         fingerprint = generate_fingerprint(seed_phrase)
 
         account_dir = self.fingerprint_dir / "accounts" / fingerprint
@@ -720,9 +807,18 @@ class EntryManager:
         label: Optional[str] = None,
         period: Optional[int] = None,
         digits: Optional[int] = None,
+        key: Optional[str] = None,
         value: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
+        include_special_chars: bool | None = None,
+        allowed_special_chars: str | None = None,
+        special_mode: str | None = None,
+        exclude_ambiguous: bool | None = None,
+        min_uppercase: int | None = None,
+        min_lowercase: int | None = None,
+        min_digits: int | None = None,
+        min_special: int | None = None,
         **legacy,
     ) -> None:
         """
@@ -736,6 +832,7 @@ class EntryManager:
         :param label: (Optional) The new label for the entry.
         :param period: (Optional) The new TOTP period in seconds.
         :param digits: (Optional) The new number of digits for TOTP codes.
+        :param key: (Optional) New key for key/value entries.
         :param value: (Optional) New value for key/value entries.
         """
         try:
@@ -764,9 +861,18 @@ class EntryManager:
                 "label": label,
                 "period": period,
                 "digits": digits,
+                "key": key,
                 "value": value,
                 "custom_fields": custom_fields,
                 "tags": tags,
+                "include_special_chars": include_special_chars,
+                "allowed_special_chars": allowed_special_chars,
+                "special_mode": special_mode,
+                "exclude_ambiguous": exclude_ambiguous,
+                "min_uppercase": min_uppercase,
+                "min_lowercase": min_lowercase,
+                "min_digits": min_digits,
+                "min_special": min_special,
             }
 
             allowed = {
@@ -778,6 +884,14 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "include_special_chars",
+                    "allowed_special_chars",
+                    "special_mode",
+                    "exclude_ambiguous",
+                    "min_uppercase",
+                    "min_lowercase",
+                    "min_digits",
+                    "min_special",
                 },
                 EntryType.TOTP.value: {
                     "label",
@@ -790,6 +904,7 @@ class EntryManager:
                 },
                 EntryType.KEY_VALUE.value: {
                     "label",
+                    "key",
                     "value",
                     "archived",
                     "notes",
@@ -870,6 +985,9 @@ class EntryManager:
                     EntryType.KEY_VALUE.value,
                     EntryType.MANAGED_ACCOUNT.value,
                 ):
+                    if key is not None and entry_type == EntryType.KEY_VALUE.value:
+                        entry["key"] = key
+                        logger.debug(f"Updated key for index {index}.")
                     if value is not None:
                         entry["value"] = value
                         logger.debug(f"Updated value for index {index}.")
@@ -898,6 +1016,28 @@ class EntryManager:
             if tags is not None:
                 entry["tags"] = tags
                 logger.debug(f"Updated tags for index {index}: {tags}")
+
+            policy_updates: dict[str, Any] = {}
+            if include_special_chars is not None:
+                policy_updates["include_special_chars"] = include_special_chars
+            if allowed_special_chars is not None:
+                policy_updates["allowed_special_chars"] = allowed_special_chars
+            if special_mode is not None:
+                policy_updates["special_mode"] = special_mode
+            if exclude_ambiguous is not None:
+                policy_updates["exclude_ambiguous"] = exclude_ambiguous
+            if min_uppercase is not None:
+                policy_updates["min_uppercase"] = int(min_uppercase)
+            if min_lowercase is not None:
+                policy_updates["min_lowercase"] = int(min_lowercase)
+            if min_digits is not None:
+                policy_updates["min_digits"] = int(min_digits)
+            if min_special is not None:
+                policy_updates["min_special"] = int(min_special)
+            if policy_updates:
+                entry_policy = entry.get("policy", {})
+                entry_policy.update(policy_updates)
+                entry["policy"] = entry_policy
 
             entry["modified_ts"] = int(time.time())
 
@@ -1070,8 +1210,12 @@ class EntryManager:
 
     def search_entries(
         self, query: str, kinds: List[str] | None = None
-    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool]]:
-        """Return entries matching ``query`` across whitelisted metadata fields."""
+    ) -> List[Tuple[int, str, Optional[str], Optional[str], bool, EntryType]]:
+        """Return entries matching ``query`` across whitelisted metadata fields.
+
+        Each match is represented as ``(index, label, username, url, archived, etype)``
+        where ``etype`` is the :class:`EntryType` of the entry.
+        """
 
         data = self._load_index()
         entries_data = data.get("entries", {})
@@ -1080,19 +1224,23 @@ class EntryManager:
             return []
 
         query_lower = query.lower()
-        results: List[Tuple[int, str, Optional[str], Optional[str], bool]] = []
+        results: List[
+            Tuple[int, str, Optional[str], Optional[str], bool, EntryType]
+        ] = []
 
         for idx, entry in sorted(entries_data.items(), key=lambda x: int(x[0])):
-            etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+            etype = EntryType(
+                entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+            )
 
-            if kinds is not None and etype not in kinds:
+            if kinds is not None and etype.value not in kinds:
                 continue
 
             label = entry.get("label", entry.get("website", ""))
             username = (
-                entry.get("username", "") if etype == EntryType.PASSWORD.value else None
+                entry.get("username", "") if etype == EntryType.PASSWORD else None
             )
-            url = entry.get("url", "") if etype == EntryType.PASSWORD.value else None
+            url = entry.get("url", "") if etype == EntryType.PASSWORD else None
             tags = entry.get("tags", [])
             archived = entry.get("archived", entry.get("blacklisted", False))
 
@@ -1109,6 +1257,7 @@ class EntryManager:
                         username if username is not None else None,
                         url if url is not None else None,
                         archived,
+                        etype,
                     )
                 )
 

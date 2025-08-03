@@ -5,6 +5,8 @@ import pytest
 from seedpass import api
 from test_api import client
 from helpers import dummy_nostr_client
+import string
+from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 from nostr.client import NostrClient, DEFAULT_RELAYS
 
 
@@ -401,3 +403,55 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     assert res.status_code == 200
     assert called.get("init") is True
     assert api._pm.nostr_client.relays == list(DEFAULT_RELAYS)
+
+
+def test_generate_password_no_special_chars(client):
+    cl, token = client
+
+    class DummyEnc:
+        def derive_seed_from_mnemonic(self, mnemonic):
+            return b"\x00" * 32
+
+    class DummyBIP85:
+        def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
+            return bytes(range(bytes_len))
+
+    api._pm.password_generator = PasswordGenerator(DummyEnc(), "seed", DummyBIP85())
+    api._pm.parent_seed = "seed"
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/password",
+        json={"length": 16, "include_special_chars": False},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    pw = res.json()["password"]
+    assert not any(c in string.punctuation for c in pw)
+
+
+def test_generate_password_allowed_chars(client):
+    cl, token = client
+
+    class DummyEnc:
+        def derive_seed_from_mnemonic(self, mnemonic):
+            return b"\x00" * 32
+
+    class DummyBIP85:
+        def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
+            return bytes((index + i) % 256 for i in range(bytes_len))
+
+    api._pm.password_generator = PasswordGenerator(DummyEnc(), "seed", DummyBIP85())
+    api._pm.parent_seed = "seed"
+
+    headers = {"Authorization": f"Bearer {token}"}
+    allowed = "@$"
+    res = cl.post(
+        "/api/v1/password",
+        json={"length": 16, "allowed_special_chars": allowed},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    pw = res.json()["password"]
+    specials = [c for c in pw if c in string.punctuation]
+    assert specials and all(c in allowed for c in specials)

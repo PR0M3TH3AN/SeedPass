@@ -70,6 +70,7 @@ maintainable while enabling a consistent experience on multiple platforms.
 - **Quick Unlock:** Optionally skip the password prompt after verifying once. Startup delay is unaffected.
 - **Secret Mode:** Copy retrieved passwords directly to your clipboard and automatically clear it after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
+- **Typed Search Results:** Searches display each entry's type for easier scanning.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
 - **Manual Vault Locking:** Instantly clear keys from memory when needed.
@@ -90,6 +91,8 @@ maintainable while enabling a consistent experience on multiple platforms.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
+If GTK packages are missing, the installer will try to install them using your
+system's package manager (`apt`, `yum`, `pacman`, or Homebrew).
 
 **Linux and macOS:**
 ```bash
@@ -217,6 +220,7 @@ seedpass vault import --file "~/seedpass_backup.json"
 seedpass search "github"
 seedpass search --tags "work,personal"
 seedpass get "github"
+# Search results show the entry type, e.g. "1: Password - GitHub"
 # Retrieve a TOTP entry
 seedpass entry get "email"
 # The code is printed and copied to your clipboard
@@ -312,6 +316,15 @@ When choosing **Add Entry**, you can now select from:
 - **Key/Value**
 - **Managed Account**
 
+### Adding a Password Entry
+
+After selecting **Password**, SeedPass asks you to choose a mode:
+
+1. **Quick** – enter only a label, username, URL, desired length, and whether to include special characters. All other fields use defaults.
+2. **Advanced** – continue through prompts for notes, tags, custom fields, and detailed password policy settings.
+
+Both modes generate the password, display it (or copy it to the clipboard in Secret Mode), and save the entry to your encrypted vault.
+
 ### Adding a 2FA Entry
 
 1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.
@@ -363,7 +376,7 @@ entry includes a `label`, while only password entries track a `url`.
 | Seed Phrase   | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes`, optional `tags` |
 | PGP Key       | `index`, `key_type`, `archived`, optional `user_id`, optional `notes`, optional `tags` |
 | Nostr Key Pair| `index`, `archived`, optional `notes`, optional `tags` |
-| Key/Value     | `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags` |
+| Key/Value     | `key`, `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags` |
 | Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes`, optional `tags` |
 
 

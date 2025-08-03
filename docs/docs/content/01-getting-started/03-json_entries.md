@@ -95,10 +95,22 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
 - **custom_fields** (`array`, optional): Additional user-defined fields.
 - **origin** (`string`, optional): Source identifier for imported data.
 - **value** (`string`, optional): For `key_value` entries, stores the secret value.
+- **key** (`string`, optional): Name of the key for `key_value` entries.
 - **index** (`integer`, optional): BIP-85 derivation index for entries that derive material from a seed.
 - **word_count** (`integer`, managed_account only): Number of words in the child seed. Managed accounts always use `12`.
 - **fingerprint** (`string`, managed_account only): Identifier of the child profile, used for its directory name.
 - **tags** (`array`, optional): Category labels to aid in organization and search.
+
+#### Password Policy Fields
+
+- **min_uppercase** (`integer`, default `2`): Minimum required uppercase letters.
+- **min_lowercase** (`integer`, default `2`): Minimum required lowercase letters.
+- **min_digits** (`integer`, default `2`): Minimum required digits.
+- **min_special** (`integer`, default `2`): Minimum required special characters.
+- **include_special_chars** (`boolean`, default `true`): Enable or disable any punctuation in generated passwords.
+- **allowed_special_chars** (`string`, optional): Restrict punctuation to this exact set.
+- **special_mode** (`string`, default `"standard"`): Choose `"safe"` for the `SAFE_SPECIAL_CHARS` set (`!@#$%^*-_+=?`), otherwise the full `string.punctuation` is used.
+- **exclude_ambiguous** (`boolean`, default `false`): Omit confusing characters like `O0Il1`.
   Example:
 
   ```json
@@ -157,6 +169,17 @@ Each entry is stored within `seedpass_entries_db.json.enc` under the `entries` d
     "updated_at": "2024-04-27T12:35:56Z",
     "checksum": "def789ghi012"
   }
+}
+```
+
+#### Password Entry with Policy Overrides
+
+```json
+{
+  "label": "Custom Policy",
+  "length": 16,
+  "include_special_chars": false,
+  "exclude_ambiguous": true
 }
 ```
 

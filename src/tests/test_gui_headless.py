@@ -49,20 +49,22 @@ class FakeEntries:
         self.added.append(("pgp", label))
         return 1
 
-    def add_nostr_key(self, label):
+    def add_nostr_key(self, label, seed=None):
         self.added.append(("nostr", label))
         return 1
 
-    def add_key_value(self, label, value):
-        self.added.append(("key_value", label, value))
+    def add_key_value(self, label, key, value):
+        self.added.append(("key_value", label, key, value))
         return 1
 
     def add_managed_account(self, label):
         self.added.append(("managed_account", label))
         return 1
 
-    def modify_entry(self, entry_id, username=None, url=None, label=None, value=None):
-        self.modified.append((entry_id, username, url, label, value))
+    def modify_entry(
+        self, entry_id, username=None, url=None, label=None, key=None, value=None
+    ):
+        self.modified.append((entry_id, username, url, label, key, value))
 
 
 def setup_module(module):
@@ -106,7 +108,7 @@ def test_unlock_creates_main_window():
         (EntryType.SEED.value, ("seed", "L")),
         (EntryType.PGP.value, ("pgp", "L")),
         (EntryType.NOSTR.value, ("nostr", "L")),
-        (EntryType.KEY_VALUE.value, ("key_value", "L", "val")),
+        (EntryType.KEY_VALUE.value, ("key_value", "L", "k1", "val")),
         (EntryType.MANAGED_ACCOUNT.value, ("managed_account", "L")),
     ],
 )
@@ -123,6 +125,7 @@ def test_entrydialog_add_calls_service(kind, expect):
     dlg.username_input.value = "u"
     dlg.url_input.value = "x"
     dlg.length_input.value = 12
+    dlg.key_input.value = "k1"
     dlg.value_input.value = "val"
     dlg.save(None)
 
@@ -136,9 +139,9 @@ def test_entrydialog_add_calls_service(kind, expect):
 @pytest.mark.parametrize(
     "kind,expected",
     [
-        (EntryType.PASSWORD.value, (1, "newu", "newx", "New", None)),
-        (EntryType.KEY_VALUE.value, (1, None, None, "New", "val2")),
-        (EntryType.TOTP.value, (1, None, None, "New", None)),
+        (EntryType.PASSWORD.value, (1, "newu", "newx", "New", None, None)),
+        (EntryType.KEY_VALUE.value, (1, None, None, "New", "k2", "val2")),
+        (EntryType.TOTP.value, (1, None, None, "New", None, None)),
     ],
 )
 def test_entrydialog_edit_calls_service(kind, expected):
@@ -157,6 +160,7 @@ def test_entrydialog_edit_calls_service(kind, expected):
     dlg.kind_input.value = kind
     dlg.username_input.value = "newu"
     dlg.url_input.value = "newx"
+    dlg.key_input.value = "k2"
     dlg.value_input.value = "val2"
     dlg.save(None)
 

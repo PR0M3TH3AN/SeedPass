@@ -50,6 +50,7 @@ def test_manager_workflow(monkeypatch):
 
         inputs = iter(
             [
+                "a",  # advanced mode
                 "example.com",
                 "",  # username
                 "",  # url
@@ -57,6 +58,14 @@ def test_manager_workflow(monkeypatch):
                 "",  # tags
                 "n",  # add custom field
                 "",  # length (default)
+                "",  # include special default
+                "",  # allowed special default
+                "",  # special mode default
+                "",  # exclude ambiguous default
+                "",  # min uppercase
+                "",  # min lowercase
+                "",  # min digits
+                "",  # min special
                 "0",  # retrieve index
                 "",  # no action in entry menu
                 "0",  # modify index

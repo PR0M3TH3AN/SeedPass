@@ -4,7 +4,14 @@
 
 from importlib import import_module
 
-__all__ = ["PasswordManager", "ConfigManager", "Vault", "EntryType", "StateManager"]
+__all__ = [
+    "PasswordManager",
+    "ConfigManager",
+    "Vault",
+    "EntryType",
+    "StateManager",
+    "StatsManager",
+]
 
 
 def __getattr__(name: str):
@@ -18,4 +25,6 @@ def __getattr__(name: str):
         return import_module(".entry_types", __name__).EntryType
     if name == "StateManager":
         return import_module(".state_manager", __name__).StateManager
+    if name == "StatsManager":
+        return import_module(".stats_manager", __name__).StatsManager
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

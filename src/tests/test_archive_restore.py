@@ -14,6 +14,7 @@ from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.entry_types import EntryType
 
 
 def setup_entry_mgr(tmp_path: Path) -> EntryManager:
@@ -31,7 +32,7 @@ def test_archive_restore_affects_listing_and_search():
 
         assert em.list_entries() == [(idx, "example.com", "alice", "", False)]
         assert em.search_entries("example") == [
-            (idx, "example.com", "alice", "", False)
+            (idx, "example.com", "alice", "", False, EntryType.PASSWORD)
         ]
 
         em.archive_entry(idx)
@@ -40,13 +41,15 @@ def test_archive_restore_affects_listing_and_search():
         assert em.list_entries(include_archived=True) == [
             (idx, "example.com", "alice", "", True)
         ]
-        assert em.search_entries("example") == [(idx, "example.com", "alice", "", True)]
+        assert em.search_entries("example") == [
+            (idx, "example.com", "alice", "", True, EntryType.PASSWORD)
+        ]
 
         em.restore_entry(idx)
         assert em.retrieve_entry(idx)["archived"] is False
         assert em.list_entries() == [(idx, "example.com", "alice", "", False)]
         assert em.search_entries("example") == [
-            (idx, "example.com", "alice", "", False)
+            (idx, "example.com", "alice", "", False, EntryType.PASSWORD)
         ]
 
 

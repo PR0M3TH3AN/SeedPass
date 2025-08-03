@@ -21,6 +21,7 @@ from nostr_sdk import (
     Kind,
     KindStandard,
     Tag,
+    RelayUrl,
 )
 from datetime import timedelta
 from nostr_sdk import EventId, Timestamp
@@ -173,14 +174,26 @@ class NostrClient:
     async def _initialize_client_pool(self) -> None:
         if self.offline_mode or not self.relays:
             return
+
+        formatted = []
+        for relay in self.relays:
+            if isinstance(relay, str):
+                try:
+                    formatted.append(RelayUrl.parse(relay))
+                except Exception:
+                    logger.error("Invalid relay URL: %s", relay)
+            else:
+                formatted.append(relay)
+
         if hasattr(self.client, "add_relays"):
-            await self.client.add_relays(self.relays)
+            await self.client.add_relays(formatted)
         else:
-            for relay in self.relays:
+            for relay in formatted:
                 await self.client.add_relay(relay)
+
         await self.client.connect()
         self._connected = True
-        logger.info(f"NostrClient connected to relays: {self.relays}")
+        logger.info("NostrClient connected to relays: %s", formatted)
 
     async def _ping_relay(self, relay: str, timeout: float) -> bool:
         """Attempt to retrieve the latest event from a single relay."""

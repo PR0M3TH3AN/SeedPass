@@ -42,7 +42,12 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for removed module
 
 from local_bip85.bip85 import BIP85
 
-from constants import DEFAULT_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH
+from constants import (
+    DEFAULT_PASSWORD_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    MAX_PASSWORD_LENGTH,
+    SAFE_SPECIAL_CHARS,
+)
 from .encryption import EncryptionManager
 
 # Instantiate the logger
@@ -51,12 +56,27 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PasswordPolicy:
-    """Minimum complexity requirements for generated passwords."""
+    """Minimum complexity requirements for generated passwords.
+
+    Attributes:
+        min_uppercase: Minimum required uppercase letters.
+        min_lowercase: Minimum required lowercase letters.
+        min_digits: Minimum required digits.
+        min_special: Minimum required special characters.
+        include_special_chars: Whether to include any special characters.
+        allowed_special_chars: Explicit set of allowed special characters.
+        special_mode: Preset mode for special characters (e.g. "safe").
+        exclude_ambiguous: Exclude easily confused characters like ``O`` and ``0``.
+    """
 
     min_uppercase: int = 2
     min_lowercase: int = 2
     min_digits: int = 2
     min_special: int = 2
+    include_special_chars: bool = True
+    allowed_special_chars: str | None = None
+    special_mode: str | None = None
+    exclude_ambiguous: bool = False
 
 
 class PasswordGenerator:
@@ -175,9 +195,28 @@ class PasswordGenerator:
 
             dk = self._derive_password_entropy(index=index)
 
-            all_allowed = string.ascii_letters + string.digits + string.punctuation
+            letters = string.ascii_letters
+            digits = string.digits
+
+            if self.policy.exclude_ambiguous:
+                ambiguous = "O0Il1"
+                letters = "".join(c for c in letters if c not in ambiguous)
+                digits = "".join(c for c in digits if c not in ambiguous)
+
+            if not self.policy.include_special_chars:
+                allowed_special = ""
+            elif self.policy.allowed_special_chars is not None:
+                allowed_special = self.policy.allowed_special_chars
+            elif self.policy.special_mode == "safe":
+                allowed_special = SAFE_SPECIAL_CHARS
+            else:
+                allowed_special = string.punctuation
+
+            all_allowed = letters + digits + allowed_special
             password = self._map_entropy_to_chars(dk, all_allowed)
-            password = self._enforce_complexity(password, all_allowed, dk)
+            password = self._enforce_complexity(
+                password, all_allowed, allowed_special, dk
+            )
             password = self._shuffle_deterministically(password, dk)
 
             # Ensure password length by extending if necessary
@@ -195,7 +234,9 @@ class PasswordGenerator:
             # produced above when the requested length is shorter than the
             # initial entropy size.
             password = password[:length]
-            password = self._enforce_complexity(password, all_allowed, dk)
+            password = self._enforce_complexity(
+                password, all_allowed, allowed_special, dk
+            )
             password = self._shuffle_deterministically(password, dk)
             logger.debug(
                 f"Final password (trimmed to {length} chars with complexity enforced): {password}"
@@ -208,7 +249,9 @@ class PasswordGenerator:
             print(colored(f"Error: Failed to generate password: {e}", "red"))
             raise
 
-    def _enforce_complexity(self, password: str, alphabet: str, dk: bytes) -> str:
+    def _enforce_complexity(
+        self, password: str, alphabet: str, allowed_special: str, dk: bytes
+    ) -> str:
         """
         Ensures that the password contains at least two uppercase letters, two lowercase letters,
         two digits, and two special characters, modifying it deterministically if necessary.
@@ -226,7 +269,13 @@ class PasswordGenerator:
             uppercase = string.ascii_uppercase
             lowercase = string.ascii_lowercase
             digits = string.digits
-            special = string.punctuation
+            special = allowed_special
+
+            if self.policy.exclude_ambiguous:
+                ambiguous = "O0Il1"
+                uppercase = "".join(c for c in uppercase if c not in ambiguous)
+                lowercase = "".join(c for c in lowercase if c not in ambiguous)
+                digits = "".join(c for c in digits if c not in ambiguous)
 
             password_chars = list(password)
 
@@ -244,7 +293,7 @@ class PasswordGenerator:
             min_upper = self.policy.min_uppercase
             min_lower = self.policy.min_lowercase
             min_digits = self.policy.min_digits
-            min_special = self.policy.min_special
+            min_special = self.policy.min_special if special else 0
 
             # Initialize derived key index
             dk_index = 0
@@ -282,7 +331,7 @@ class PasswordGenerator:
                     password_chars[index] = char
                     logger.debug(f"Added digit '{char}' at position {index}.")
 
-            if current_special < min_special:
+            if special and current_special < min_special:
                 for _ in range(min_special - current_special):
                     index = get_dk_value() % len(password_chars)
                     char = special[get_dk_value() % len(special)]
@@ -292,23 +341,29 @@ class PasswordGenerator:
                     )
 
             # Additional deterministic inclusion of symbols to increase score
-            symbol_target = 3  # Increase target number of symbols
-            current_symbols = sum(1 for c in password_chars if c in special)
-            additional_symbols_needed = max(symbol_target - current_symbols, 0)
+            if special:
+                symbol_target = 3  # Increase target number of symbols
+                current_symbols = sum(1 for c in password_chars if c in special)
+                additional_symbols_needed = max(symbol_target - current_symbols, 0)
 
-            for _ in range(additional_symbols_needed):
-                if dk_index >= dk_length:
-                    break  # Avoid exceeding the derived key length
-                index = get_dk_value() % len(password_chars)
-                char = special[get_dk_value() % len(special)]
-                password_chars[index] = char
-                logger.debug(f"Added additional symbol '{char}' at position {index}.")
+                for _ in range(additional_symbols_needed):
+                    if dk_index >= dk_length:
+                        break  # Avoid exceeding the derived key length
+                    index = get_dk_value() % len(password_chars)
+                    char = special[get_dk_value() % len(special)]
+                    password_chars[index] = char
+                    logger.debug(
+                        f"Added additional symbol '{char}' at position {index}."
+                    )
 
             # Ensure balanced distribution by assigning different character types to specific segments
             # Example: Divide password into segments and assign different types
-            segment_length = len(password_chars) // 4
+            char_types = [uppercase, lowercase, digits]
+            if special:
+                char_types.append(special)
+            segment_length = len(password_chars) // len(char_types)
             if segment_length > 0:
-                for i, char_type in enumerate([uppercase, lowercase, digits, special]):
+                for i, char_type in enumerate(char_types):
                     segment_start = i * segment_length
                     segment_end = segment_start + segment_length
                     if segment_end > len(password_chars):
@@ -330,7 +385,11 @@ class PasswordGenerator:
                             char = digits[get_dk_value() % len(digits)]
                             password_chars[j] = char
                             logger.debug(f"Assigned digit '{char}' to position {j}.")
-                        elif i == 3 and password_chars[j] not in special:
+                        elif (
+                            special
+                            and i == len(char_types) - 1
+                            and password_chars[j] not in special
+                        ):
                             char = special[get_dk_value() % len(special)]
                             password_chars[j] = char
                             logger.debug(

@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
+from seedpass.core.entry_types import EntryType
 
 
 def setup_entry_mgr(tmp_path: Path) -> EntryManager:
@@ -26,7 +27,9 @@ def test_archive_nonpassword_list_search():
         idx = em.search_entries("Example")[0][0]
 
         assert em.list_entries() == [(idx, "Example", None, None, False)]
-        assert em.search_entries("Example") == [(idx, "Example", None, None, False)]
+        assert em.search_entries("Example") == [
+            (idx, "Example", None, None, False, EntryType.TOTP)
+        ]
 
         em.archive_entry(idx)
         assert em.retrieve_entry(idx)["archived"] is True
@@ -34,9 +37,13 @@ def test_archive_nonpassword_list_search():
         assert em.list_entries(include_archived=True) == [
             (idx, "Example", None, None, True)
         ]
-        assert em.search_entries("Example") == [(idx, "Example", None, None, True)]
+        assert em.search_entries("Example") == [
+            (idx, "Example", None, None, True, EntryType.TOTP)
+        ]
 
         em.restore_entry(idx)
         assert em.retrieve_entry(idx)["archived"] is False
         assert em.list_entries() == [(idx, "Example", None, None, False)]
-        assert em.search_entries("Example") == [(idx, "Example", None, None, False)]
+        assert em.search_entries("Example") == [
+            (idx, "Example", None, None, False, EntryType.TOTP)
+        ]

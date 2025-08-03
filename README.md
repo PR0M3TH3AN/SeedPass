@@ -32,6 +32,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
+  - [Recovery](#recovery)
 - [Building a standalone executable](#building-a-standalone-executable)
 - [Packaging with Briefcase](#packaging-with-briefcase)
 - [Security Considerations](#security-considerations)
@@ -58,6 +59,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Quick Unlock:** Optionally skip the password prompt after verifying once.
 - **Secret Mode:** When enabled, newly generated and retrieved passwords are copied to your clipboard and automatically cleared after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
+- **Typed Search Results:** Results now display each entry's type for quicker identification.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
 - **Manual Vault Locking:** Instantly clear keys from memory when needed.
@@ -113,6 +115,8 @@ See `docs/ARCHITECTURE.md` for details.
 
 Use the automated installer to download SeedPass and its dependencies in one step.
 The scripts also install the correct BeeWare backend for your platform automatically.
+If the GTK `gi` bindings are missing, the installer attempts to install the
+necessary system packages using `apt`, `yum`, `pacman`, or Homebrew.
 
 **Linux and macOS:**
 ```bash
@@ -232,6 +236,7 @@ seedpass import --file "~/seedpass_backup.json"
 seedpass search "github"
 seedpass search --tags "work,personal"
 seedpass get "github"
+# Search results show the entry type, e.g. "1: Password - GitHub"
 # Retrieve a TOTP entry
 seedpass entry get "email"
 # The code is printed and copied to your clipboard
@@ -239,6 +244,8 @@ seedpass entry get "email"
 # Sort or filter the list view
 seedpass list --sort label
 seedpass list --filter totp
+# Generate a password with the safe character set defined by `SAFE_SPECIAL_CHARS`
+seedpass util generate-password --length 20 --special-mode safe --exclude-ambiguous
 
 # Use the **Settings** menu to configure an extra backup directory
 # on an external drive.
@@ -402,6 +409,15 @@ When choosing **Add Entry**, you can now select from:
 - **Key/Value**
 - **Managed Account**
 
+### Adding a Password Entry
+
+After selecting **Password**, SeedPass asks you to pick a mode:
+
+1. **Quick** – prompts only for a label, username, URL, desired length, and whether to include special characters. Default values are used for notes, tags, and policy settings.
+2. **Advanced** – walks through the full set of prompts for notes, tags, custom fields, and detailed password policy options.
+
+Both modes generate the password, display it (or copy it to the clipboard in Secret Mode), and save the entry to your encrypted vault.
+
 ### Adding a 2FA Entry
 
 1. From the main menu choose **Add Entry** and select **2FA (TOTP)**.
@@ -458,7 +474,7 @@ The table below summarizes the extra fields stored for each entry type. Every en
 | Seed Phrase     | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes`, optional `tags`                                            |
 | PGP Key         | `index`, `key_type`, `archived`, optional `user_id`, optional `notes`, optional `tags`                                                                 |
 | Nostr Key Pair  | `index`, `archived`, optional `notes`, optional `tags`                                                                                                |
-| Key/Value       | `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags`                                                                       |
+| Key/Value       | `key`, `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags`                                                                       |
 | Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes`, optional `tags`                                                                   |
 
 ### Managing Multiple Seeds
@@ -538,6 +554,18 @@ seedpass config set nostr_retry_delay 1
 ```
 
 The default configuration uses **50,000** PBKDF2 iterations. Increase this value for stronger password hashing or lower it for faster startup (not recommended). Offline Mode skips all Nostr communication, keeping your data local until you re-enable syncing. Quick Unlock stores a hashed copy of your password in the encrypted config so that after the initial unlock, subsequent operations won't prompt for the password until you exit the program. Avoid enabling Quick Unlock on shared machines.
+
+### Recovery
+
+If you previously backed up your vault to Nostr you can restore it during the
+initial setup:
+
+1. Start SeedPass and choose option **4** when prompted to set up a seed.
+2. Paste your BIP-85 seed phrase when asked.
+3. SeedPass initializes the profile and attempts to download the encrypted vault
+   from the configured relays.
+4. A success message confirms the vault was restored. If no data is found a
+   failure message is shown and a new empty vault is created.
 
 ## Running Tests
 

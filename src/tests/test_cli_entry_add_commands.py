@@ -4,6 +4,7 @@ from typer.testing import CliRunner
 
 from seedpass.cli import app
 from seedpass import cli
+from helpers import TEST_SEED
 
 runner = CliRunner()
 
@@ -22,9 +23,32 @@ runner = CliRunner()
                 "user",
                 "--url",
                 "https://example.com",
+                "--no-special",
+                "--allowed-special-chars",
+                "!@",
+                "--special-mode",
+                "safe",
+                "--exclude-ambiguous",
+                "--min-uppercase",
+                "1",
+                "--min-lowercase",
+                "2",
+                "--min-digits",
+                "3",
+                "--min-special",
+                "4",
             ],
             ("Label", 16, "user", "https://example.com"),
-            {},
+            {
+                "include_special_chars": False,
+                "allowed_special_chars": "!@",
+                "special_mode": "safe",
+                "exclude_ambiguous": True,
+                "min_uppercase": 1,
+                "min_lowercase": 2,
+                "min_digits": 3,
+                "min_special": 4,
+            },
             "1",
         ),
         (
@@ -75,7 +99,7 @@ runner = CliRunner()
             "add-nostr",
             "add_nostr_key",
             ["Label", "--index", "4", "--notes", "n"],
-            ("Label",),
+            ("Label", "seed"),
             {"index": 4, "notes": "n"},
             "5",
         ),
@@ -90,8 +114,8 @@ runner = CliRunner()
         (
             "add-key-value",
             "add_key_value",
-            ["Label", "--value", "val", "--notes", "note"],
-            ("Label", "val"),
+            ["Label", "--key", "k1", "--value", "val", "--notes", "note"],
+            ("Label", "k1", "val"),
             {"notes": "note"},
             "7",
         ),

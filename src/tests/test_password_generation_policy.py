@@ -39,7 +39,7 @@ def test_zero_policy_preserves_length():
     pg = make_generator(policy)
     alphabet = string.ascii_lowercase
     dk = bytes(range(32))
-    result = pg._enforce_complexity("a" * 32, alphabet, dk)
+    result = pg._enforce_complexity("a" * 32, alphabet, "", dk)
     assert len(result) == 32
 
 
@@ -50,7 +50,7 @@ def test_custom_policy_applied():
     pg = make_generator(policy)
     alphabet = string.ascii_letters + string.digits + string.punctuation
     dk = bytes(range(32))
-    result = pg._enforce_complexity("a" * 32, alphabet, dk)
+    result = pg._enforce_complexity("a" * 32, alphabet, string.punctuation, dk)
     counts = count_types(result)
     assert counts[0] >= 4
     assert counts[1] >= 1

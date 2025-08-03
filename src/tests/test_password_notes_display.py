@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -11,19 +12,8 @@ from seedpass.core.backup import BackupManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
 from seedpass.core.config_manager import ConfigManager
 
-import pytest
 
-
-@pytest.mark.parametrize(
-    "adder,needs_confirm",
-    [
-        (lambda mgr: mgr.add_seed("seed", TEST_SEED), True),
-        (lambda mgr: mgr.add_pgp_key("pgp", TEST_SEED, user_id="test"), True),
-        (lambda mgr: mgr.add_ssh_key("ssh", TEST_SEED), True),
-        (lambda mgr: mgr.add_nostr_key("nostr", TEST_SEED), False),
-    ],
-)
-def test_pause_before_entry_actions(monkeypatch, adder, needs_confirm):
+def test_password_notes_shown(monkeypatch, capsys):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
@@ -37,22 +27,26 @@ def test_pause_before_entry_actions(monkeypatch, adder, needs_confirm):
         pm.vault = vault
         pm.entry_manager = entry_mgr
         pm.backup_manager = backup_mgr
+        pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw")
         pm.parent_seed = TEST_SEED
+        pm.nostr_client = SimpleNamespace()
         pm.fingerprint_dir = tmp_path
         pm.secret_mode_enabled = False
 
-        index = adder(entry_mgr)
+        entry_mgr.add_entry("example.com", 8, notes="remember")
 
-        pause_calls = []
         monkeypatch.setattr(
-            "seedpass.core.manager.pause", lambda *a, **k: pause_calls.append(True)
+            "seedpass.core.manager.clear_header_with_notification", lambda *a, **k: None
         )
+        monkeypatch.setattr("seedpass.core.manager.pause", lambda *a, **k: None)
         monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: None)
-        monkeypatch.setattr("builtins.input", lambda *a, **k: str(index))
-        if needs_confirm:
-            monkeypatch.setattr(
-                "seedpass.core.manager.confirm_action", lambda *a, **k: True
-            )
 
+        pm.display_entry_details(0)
+        out = capsys.readouterr().out
+        assert "Notes: remember" in out
+
+        inputs = iter(["0", ""])
+        monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
         pm.handle_retrieve_entry()
-        assert len(pause_calls) == 1
+        out = capsys.readouterr().out
+        assert "Notes: remember" in out
