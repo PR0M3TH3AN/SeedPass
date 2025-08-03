@@ -1,0 +1,8 @@
+title = "SeedPass gitleaks config"
+
+[allowlist]
+  description = "Paths and patterns to ignore when scanning for secrets"
+  # Add file paths that contain test data or other non-sensitive strings
+  paths = []
+  # Add regular expressions that match false positive secrets
+  regexes = []
