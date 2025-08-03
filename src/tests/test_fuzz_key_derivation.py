@@ -9,6 +9,7 @@ from utils.key_derivation import (
     derive_key_from_password_argon2,
     derive_index_key,
 )
+from utils.fingerprint import generate_fingerprint
 from seedpass.core.encryption import EncryptionManager
 
 
@@ -33,12 +34,13 @@ cfg_values = st.one_of(
 def test_fuzz_key_round_trip(password, seed_bytes, config, mode, tmp_path: Path):
     """Ensure EncryptionManager round-trips arbitrary data."""
     seed_phrase = Mnemonic("english").to_mnemonic(seed_bytes)
+    fp = generate_fingerprint(seed_phrase)
     if mode == "argon2":
         key = derive_key_from_password_argon2(
-            password, time_cost=1, memory_cost=8, parallelism=1
+            password, fp, time_cost=1, memory_cost=8, parallelism=1
         )
     else:
-        key = derive_key_from_password(password, iterations=1)
+        key = derive_key_from_password(password, fp, iterations=1)
 
     enc_mgr = EncryptionManager(key, tmp_path)
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from multiprocessing import Process, Queue
 import pytest
 from helpers import TEST_SEED, TEST_PASSWORD
+from utils.fingerprint import generate_fingerprint
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -51,7 +52,8 @@ def _backup(index_key: bytes, dir_path: Path, loops: int, out: Queue) -> None:
 @pytest.mark.parametrize("_", range(3))
 def test_concurrency_stress(tmp_path: Path, loops: int, _):
     index_key = derive_index_key(TEST_SEED)
-    seed_key = derive_key_from_password(TEST_PASSWORD)
+    fp = generate_fingerprint(TEST_SEED)
+    seed_key = derive_key_from_password(TEST_PASSWORD, fp)
     EncryptionManager(seed_key, tmp_path).encrypt_parent_seed(TEST_SEED)
     enc = EncryptionManager(index_key, tmp_path)
     Vault(enc, tmp_path).save_index({"counter": 0})

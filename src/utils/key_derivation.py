@@ -45,7 +45,9 @@ DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
 TOTP_PURPOSE = 39
 
 
-def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
+def derive_key_from_password(
+    password: str, fingerprint: Union[str, bytes], iterations: int = 100_000
+) -> bytes:
     """
     Derives a Fernet-compatible encryption key from the provided password using PBKDF2-HMAC-SHA256.
 
@@ -55,7 +57,9 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
 
     Parameters:
         password (str): The user's password.
-        iterations (int, optional): Number of iterations for the PBKDF2 algorithm. Defaults to 100,000.
+        fingerprint (str | bytes): Seed fingerprint or precomputed salt.
+        iterations (int, optional): Number of iterations for the PBKDF2 algorithm.
+            Defaults to 100,000.
 
     Returns:
         bytes: A URL-safe base64-encoded encryption key suitable for Fernet.
@@ -74,13 +78,19 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
     normalized_password = unicodedata.normalize("NFKD", password).strip()
     password_bytes = normalized_password.encode("utf-8")
 
+    # Derive a deterministic salt from the fingerprint
+    if isinstance(fingerprint, bytes):
+        salt = fingerprint
+    else:
+        salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
+
     try:
         # Derive the key using PBKDF2-HMAC-SHA256
         logger.debug("Starting key derivation from password.")
         key = hashlib.pbkdf2_hmac(
             hash_name="sha256",
             password=password_bytes,
-            salt=b"",  # No salt for deterministic key derivation
+            salt=salt,
             iterations=iterations,
             dklen=32,  # 256-bit key for Fernet
         )
@@ -99,6 +109,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
 
 def derive_key_from_password_argon2(
     password: str,
+    fingerprint: Union[str, bytes],
     *,
     time_cost: int = 2,
     memory_cost: int = 64 * 1024,
@@ -118,9 +129,14 @@ def derive_key_from_password_argon2(
     try:
         from argon2.low_level import hash_secret_raw, Type
 
+        if isinstance(fingerprint, bytes):
+            salt = fingerprint
+        else:
+            salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
+
         key = hash_secret_raw(
             secret=normalized,
-            salt=b"\x00" * 16,
+            salt=salt,
             time_cost=time_cost,
             memory_cost=memory_cost,
             parallelism=parallelism,

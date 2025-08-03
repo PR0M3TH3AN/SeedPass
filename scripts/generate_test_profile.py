@@ -79,7 +79,7 @@ def initialize_profile(
     profile_dir = APP_DIR / fingerprint
     profile_dir.mkdir(parents=True, exist_ok=True)
 
-    seed_key = derive_key_from_password(DEFAULT_PASSWORD)
+    seed_key = derive_key_from_password(DEFAULT_PASSWORD, fingerprint)
     seed_mgr = EncryptionManager(seed_key, profile_dir)
     seed_file = profile_dir / "parent_seed.enc"
     clear_path = profile_dir / "seed_phrase.txt"
