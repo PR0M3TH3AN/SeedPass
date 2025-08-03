@@ -4,6 +4,7 @@ import sys
 
 import pytest
 from fastapi.testclient import TestClient
+import hashlib
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -46,6 +47,12 @@ def client(monkeypatch):
     token = api.start_server()
     client = TestClient(api.app)
     return client, token
+
+
+def test_token_hashed(client):
+    _, token = client
+    assert api._token != token
+    assert api._token == hashlib.sha256(token.encode()).hexdigest()
 
 
 def test_cors_and_auth(client):
