@@ -202,6 +202,8 @@ flowchart TD
                     <p>SeedPass allows you to manage multiple seed profiles (fingerprints). You can switch between different seeds to compartmentalize your passwords.</p>
                     <h3 class="subsection-title">Nostr Relay Integration</h3>
                     <p>SeedPass publishes your encrypted vault to Nostr in 50&#8201;KB chunks using parameterised replaceable events. A manifest describes each snapshot while deltas record updates. When too many deltas accumulate, a new snapshot is rotated in automatically.</p>
+                    <h3 class="subsection-title">Recovery from Nostr</h3>
+                    <p>Restoring a vault on a new device requires both your 12&#8201;word master seed and the master password that encrypted the vault. Without the correct password the downloaded archive cannot be decrypted.</p>
                     <h3 class="subsection-title">Checksum Verification</h3>
                     <p>Built-in checksum verification ensures your SeedPass installation hasn't been tampered with.</p>
                     <h3 class="subsection-title">Interactive TUI</h3>
