@@ -521,12 +521,23 @@ class NostrClient:
 
         self.keys = keys_obj
         pubkey = self.keys.public_key()
-        identifiers = [
-            f"{MANIFEST_ID_PREFIX}{self.fingerprint}",
-            MANIFEST_ID_PREFIX.rstrip("-"),
-        ]
         timeout = timedelta(seconds=10)
-        for ident in identifiers:
+
+        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        f = Filter().author(pubkey).kind(Kind(KIND_MANIFEST)).identifier(ident).limit(1)
+        try:
+            events = (await self.client.fetch_events(f, timeout)).to_vec()
+        except Exception as e:  # pragma: no cover - network errors
+            self.last_error = str(e)
+            logger.error(
+                "Failed to fetch manifest from relays %s: %s",
+                self.relays,
+                e,
+            )
+            return None
+
+        if not events:
+            ident = MANIFEST_ID_PREFIX.rstrip("-")
             f = (
                 Filter()
                 .author(pubkey)
@@ -544,25 +555,24 @@ class NostrClient:
                     e,
                 )
                 return None
-
             if not events:
-                continue
+                return None
 
-            for manifest_event in events:
-                try:
-                    result = await self._fetch_chunks_with_retry(manifest_event)
-                    if result is not None:
-                        return result
-                except Exception as e:  # pragma: no cover - network errors
-                    self.last_error = str(e)
-                    logger.error(
-                        "Error retrieving snapshot from relays %s: %s",
-                        self.relays,
-                        e,
-                    )
-            # manifest was found but chunks missing; do not try other identifiers
-            return None
+        logger.info("Fetched manifest using identifier %s", ident)
 
+        for manifest_event in events:
+            try:
+                result = await self._fetch_chunks_with_retry(manifest_event)
+                if result is not None:
+                    return result
+            except Exception as e:  # pragma: no cover - network errors
+                self.last_error = str(e)
+                logger.error(
+                    "Error retrieving snapshot from relays %s: %s",
+                    self.relays,
+                    e,
+                )
+        # manifest was found but chunks missing
         return None
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
