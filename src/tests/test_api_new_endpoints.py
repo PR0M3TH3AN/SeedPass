@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import base64
 import pytest
+from types import SimpleNamespace
 
 from seedpass import api
 from test_api import client
@@ -225,7 +226,8 @@ def test_vault_import_via_path(client, tmp_path):
 
     api._pm.handle_import_database = import_db
     api._pm.sync_vault = lambda: called.setdefault("sync", True)
-    file_path = tmp_path / "b.json"
+    api._pm.encryption_manager = SimpleNamespace(resolve_relative_path=lambda p: p)
+    file_path = tmp_path / "b.json.enc"
     file_path.write_text("{}")
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -263,6 +265,37 @@ def test_vault_import_via_upload(client, tmp_path):
     assert res.json() == {"status": "ok"}
     assert isinstance(called.get("path"), Path)
     assert called.get("sync") is True
+
+
+def test_vault_import_invalid_extension(client):
+    cl, token = client
+    api._pm.handle_import_database = lambda path: None
+    api._pm.sync_vault = lambda: None
+    api._pm.encryption_manager = SimpleNamespace(resolve_relative_path=lambda p: p)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/vault/import",
+        json={"path": "bad.txt"},
+        headers=headers,
+    )
+    assert res.status_code == 400
+
+
+def test_vault_import_path_traversal_blocked(client, tmp_path):
+    cl, token = client
+    key = base64.urlsafe_b64encode(os.urandom(32))
+    api._pm.encryption_manager = EncryptionManager(key, tmp_path)
+    api._pm.handle_import_database = lambda path: None
+    api._pm.sync_vault = lambda: None
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = cl.post(
+        "/api/v1/vault/import",
+        json={"path": "../evil.json.enc"},
+        headers=headers,
+    )
+    assert res.status_code == 400
 
 
 def test_vault_lock_endpoint(client):

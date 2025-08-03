@@ -111,11 +111,15 @@ def _require_password(password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid password")
 
 
-def _validate_encryption_path(path: Path) -> None:
-    """Validate that ``path`` stays within the active fingerprint directory."""
+def _validate_encryption_path(path: Path) -> Path:
+    """Validate and normalize ``path`` within the active fingerprint directory.
+
+    Returns the resolved absolute path if validation succeeds.
+    """
+
     assert _pm is not None
     try:
-        _pm.encryption_manager.resolve_relative_path(path)
+        return _pm.encryption_manager.resolve_relative_path(path)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -595,11 +599,19 @@ async def import_vault(
             os.unlink(tmp_path)
     else:
         body = await request.json()
-        path = body.get("path")
+        path_str = body.get("path")
 
-        if not path:
+        if not path_str:
             raise HTTPException(status_code=400, detail="Missing file or path")
-        _pm.handle_import_database(Path(path))
+
+        path = _validate_encryption_path(Path(path_str))
+        if not str(path).endswith(".json.enc"):
+            raise HTTPException(
+                status_code=400,
+                detail="Selected file must be a '.json.enc' backup",
+            )
+
+        _pm.handle_import_database(path)
     _pm.sync_vault()
     return {"status": "ok"}
 
