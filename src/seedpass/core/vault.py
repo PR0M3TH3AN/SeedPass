@@ -76,6 +76,9 @@ class Vault:
             )
 
         data = self.encryption_manager.load_json_data(self.index_file)
+        self.migrated_from_legacy = self.migrated_from_legacy or getattr(
+            self.encryption_manager, "last_migration_performed", False
+        )
         from .migrations import apply_migrations, LATEST_VERSION
 
         version = data.get("schema_version", 0)
