@@ -66,6 +66,7 @@ from utils.terminal_utils import (
     clear_header_with_notification,
 )
 from utils.fingerprint import generate_fingerprint
+from utils.atomic_write import atomic_write
 from constants import MIN_HEALTHY_RELAYS
 from .migrations import LATEST_VERSION
 
@@ -4377,8 +4378,11 @@ class PasswordManager:
             else:
                 # Fallback to legacy file method if config_manager unavailable
                 hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-                with open(hashed_password_file, "wb") as f:
-                    f.write(hashed.encode())
+                atomic_write(
+                    hashed_password_file,
+                    lambda f: f.write(hashed.encode()),
+                    mode="wb",
+                )
                 os.chmod(hashed_password_file, 0o600)
             logging.info("User password hashed and stored successfully.")
         except AttributeError:
@@ -4389,8 +4393,11 @@ class PasswordManager:
                 self.config_manager.set_password_hash(hashed)
             else:
                 hashed_password_file = self.fingerprint_dir / "hashed_password.enc"
-                with open(hashed_password_file, "wb") as f:
-                    f.write(hashed.encode())
+                atomic_write(
+                    hashed_password_file,
+                    lambda f: f.write(hashed.encode()),
+                    mode="wb",
+                )
                 os.chmod(hashed_password_file, 0o600)
             logging.info(
                 "User password hashed and stored successfully (using alternative method)."

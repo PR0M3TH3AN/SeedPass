@@ -35,6 +35,7 @@ try:
         clear_and_print_fingerprint,
         clear_header_with_notification,
     )
+    from .atomic_write import atomic_write
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.info("Modules imported successfully.")
@@ -68,4 +69,5 @@ __all__ = [
     "clear_and_print_fingerprint",
     "clear_header_with_notification",
     "pause",
+    "atomic_write",
 ]
