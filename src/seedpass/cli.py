@@ -850,10 +850,16 @@ def gui(
     if not _gui_backend_available():
         if sys.platform.startswith("linux"):
             pkg = "toga-gtk"
+            version = "0.5.2"
+            sha256 = "15b346ac1a2584de5effe5e73a3888f055c68c93300aeb111db9d64186b31646"
         elif sys.platform == "win32":
             pkg = "toga-winforms"
+            version = "0.5.2"
+            sha256 = "83181309f204bcc4a34709d23fdfd68467ae8ecc39c906d13c661cb9a0ef581b"
         elif sys.platform == "darwin":
             pkg = "toga-cocoa"
+            version = "0.5.2"
+            sha256 = "a4d5d1546bf92372a6fb1b450164735fb107b2ee69d15bf87421fec3c78465f9"
         else:
             typer.echo(
                 f"Unsupported platform '{sys.platform}' for BeeWare GUI.",
@@ -863,21 +869,42 @@ def gui(
 
         if not install:
             typer.echo(
-                f"BeeWare GUI backend not found. Please install {pkg} "
-                "manually or rerun with '--install'.",
+                f"BeeWare GUI backend not found. Please install {pkg} manually or rerun "
+                "with '--install'.",
                 err=True,
             )
             raise typer.Exit(1)
 
-        if not typer.confirm(f"Install {pkg} using pip?", default=False):
+        if not typer.confirm(
+            f"Install {pkg}=={version} with hash verification?", default=False
+        ):
             typer.echo("Installation cancelled.", err=True)
             raise typer.Exit(1)
 
+        typer.echo(
+            "SeedPass uses pinned versions and SHA256 hashes to verify the GUI backend "
+            "and protect against tampered packages."
+        )
+
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
-            typer.echo(f"Successfully installed {pkg}.")
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--require-hashes",
+                    f"{pkg}=={version}",
+                    f"--hash=sha256:{sha256}",
+                ]
+            )
+            typer.echo(f"Successfully installed {pkg}=={version}.")
         except subprocess.CalledProcessError as exc:
-            typer.echo(f"Failed to install {pkg}: {exc}", err=True)
+            typer.echo(
+                "Secure installation failed. Please install the package manually "
+                f"from a trusted source. Details: {exc}",
+                err=True,
+            )
             raise typer.Exit(1)
 
         if not _gui_backend_available():
