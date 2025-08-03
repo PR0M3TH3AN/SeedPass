@@ -94,11 +94,11 @@ def derive_key_from_password(
             iterations=iterations,
             dklen=32,  # 256-bit key for Fernet
         )
-        logger.debug(f"Derived key (hex): {key.hex()}")
+        logger.debug("Key derived from password using PBKDF2.")
 
         # Encode the key in URL-safe base64
         key_b64 = base64.urlsafe_b64encode(key)
-        logger.debug(f"Base64-encoded key: {key_b64.decode()}")
+        logger.debug("Derived key encoded in URL-safe base64.")
 
         return key_b64
 
@@ -231,7 +231,7 @@ def derive_totp_secret(seed: str, index: int) -> str:
         # Hash the first 32 bytes of entropy and encode the first 20 bytes
         hashed = hashlib.sha256(entropy[:32]).digest()
         secret = base64.b32encode(hashed[:20]).decode("utf-8")
-        logger.debug(f"Derived TOTP secret for index {index}: {secret}")
+        logger.debug(f"Derived TOTP secret for index {index}.")
         return secret
     except Exception as e:
         logger.error(f"Failed to derive TOTP secret: {e}", exc_info=True)
