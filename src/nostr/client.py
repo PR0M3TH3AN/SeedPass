@@ -510,13 +510,16 @@ class NostrClient:
             self.current_manifest_id = ident
         return manifest, chunks
 
-    async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
-        """Retrieve the latest manifest and all snapshot chunks."""
-        if self.offline_mode or not self.relays:
-            return None
-        await self._connect_async()
+    async def _fetch_manifest_with_keys(
+        self, keys_obj: Keys
+    ) -> tuple[Manifest, list[bytes]] | None:
+        """Attempt to retrieve the manifest and chunks using ``keys_obj``.
 
-        self.last_error = None
+        ``self.keys`` is updated to ``keys_obj`` so that subsequent chunk and
+        delta downloads use the same public key that succeeded.
+        """
+
+        self.keys = keys_obj
         pubkey = self.keys.public_key()
         identifiers = [
             f"{MANIFEST_ID_PREFIX}{self.fingerprint}",
@@ -559,6 +562,36 @@ class NostrClient:
                     )
             # manifest was found but chunks missing; do not try other identifiers
             return None
+
+        return None
+
+    async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
+        """Retrieve the latest manifest and all snapshot chunks."""
+        if self.offline_mode or not self.relays:
+            return None
+        await self._connect_async()
+
+        self.last_error = None
+
+        try:
+            primary_keys = Keys.parse(self.key_manager.keys.private_key_hex())
+        except Exception:
+            primary_keys = self.keys
+
+        result = await self._fetch_manifest_with_keys(primary_keys)
+        if result is not None:
+            return result
+
+        try:
+            legacy_keys = self.key_manager.generate_legacy_nostr_keys()
+            legacy_sdk_keys = Keys.parse(legacy_keys.private_key_hex())
+        except Exception as e:
+            self.last_error = str(e)
+            return None
+
+        result = await self._fetch_manifest_with_keys(legacy_sdk_keys)
+        if result is not None:
+            return result
 
         if self.last_error is None:
             self.last_error = "Snapshot not found on relays"
