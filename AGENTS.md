@@ -9,7 +9,7 @@ This project is written in **Python**. Follow these instructions when working wi
    ```bash
    python3 -m venv venv
    source venv/bin/activate
-   pip install -r src/requirements.txt
+   pip install --require-hashes -r requirements.lock
    ```
 
 2. Run the test suite using **pytest**:
