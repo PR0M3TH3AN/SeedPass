@@ -11,13 +11,18 @@ Ensure that all dependencies are installed and properly configured in your envir
 
 Never ever ever use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed.
 This means it should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this software's use case.
+To keep behaviour stable across Python versions, the shuffling logic uses an
+HMAC-SHA256-based Fisher–Yates shuffle instead of ``random.Random``. The HMAC
+is keyed with the derived password bytes, providing deterministic yet
+cryptographically strong pseudo-randomness without relying on Python's
+non-stable random implementation.
 """
 
 import os
 import logging
 import hashlib
 import string
-import random
+import hmac
 import traceback
 import base64
 from typing import Optional
@@ -145,14 +150,31 @@ class PasswordGenerator:
         logger.debug(f"Password after mapping to all allowed characters: {password}")
         return password
 
+    def _fisher_yates_hmac(self, items: list[str], key: bytes) -> list[str]:
+        """Shuffle ``items`` in a deterministic yet cryptographically sound manner.
+
+        A Fisher–Yates shuffle is driven by an HMAC-SHA256 based
+        pseudo-random number generator seeded with ``key``.  Unlike
+        :class:`random.Random`, this approach is stable across Python
+        versions while still deriving all of its entropy from ``key``.
+        """
+
+        counter = 0
+        for i in range(len(items) - 1, 0, -1):
+            msg = counter.to_bytes(4, "big")
+            digest = hmac.new(key, msg, hashlib.sha256).digest()
+            j = int.from_bytes(digest, "big") % (i + 1)
+            items[i], items[j] = items[j], items[i]
+            counter += 1
+        return items
+
     def _shuffle_deterministically(self, password: str, dk: bytes) -> str:
-        """Deterministically shuffle characters using derived bytes."""
-        shuffle_seed = int.from_bytes(dk, "big")
-        rng = random.Random(shuffle_seed)
+        """Deterministically shuffle characters using an HMAC-based PRNG."""
+
         password_chars = list(password)
-        rng.shuffle(password_chars)
-        shuffled = "".join(password_chars)
-        logger.debug("Shuffled password deterministically.")
+        shuffled_chars = self._fisher_yates_hmac(password_chars, dk)
+        shuffled = "".join(shuffled_chars)
+        logger.debug("Shuffled password deterministically using HMAC-Fisher-Yates.")
         return shuffled
 
     def generate_password(
@@ -396,13 +418,16 @@ class PasswordGenerator:
                                 f"Assigned special character '{char}' to position {j}."
                             )
 
-            # Shuffle again to distribute the characters more evenly
-            shuffle_seed = (
-                int.from_bytes(dk, "big") + dk_index
-            )  # Modify seed to vary shuffle
-            rng = random.Random(shuffle_seed)
-            rng.shuffle(password_chars)
-            logger.debug(f"Shuffled password characters for balanced distribution.")
+            # Shuffle again to distribute the characters more evenly.  The key is
+            # tweaked with the current ``dk_index`` so that each call produces a
+            # unique but deterministic ordering.
+            shuffle_key = hmac.new(
+                dk, dk_index.to_bytes(4, "big"), hashlib.sha256
+            ).digest()
+            password_chars = self._fisher_yates_hmac(password_chars, shuffle_key)
+            logger.debug(
+                "Shuffled password characters for balanced distribution using HMAC-Fisher-Yates."
+            )
 
             # Final counts after modifications
             final_upper = sum(1 for c in password_chars if c in uppercase)
