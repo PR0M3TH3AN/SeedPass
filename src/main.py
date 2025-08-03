@@ -12,8 +12,6 @@ import logging
 import signal
 import time
 import argparse
-import asyncio
-import gzip
 import tomli
 from colorama import init as colorama_init
 from termcolor import colored
@@ -405,34 +403,36 @@ def handle_post_to_nostr(
 
 
 def handle_retrieve_from_nostr(password_manager: PasswordManager):
-    """
-    Handles the action of retrieving the encrypted password index from Nostr.
-    """
+    """Retrieve the encrypted password index from Nostr."""
     try:
-        password_manager.nostr_client.fingerprint = password_manager.current_fingerprint
-        result = asyncio.run(password_manager.nostr_client.fetch_latest_snapshot())
-        if result:
-            manifest, chunks = result
-            encrypted = gzip.decompress(b"".join(chunks))
-            if manifest.delta_since:
-                version = int(manifest.delta_since)
-                deltas = asyncio.run(
-                    password_manager.nostr_client.fetch_deltas_since(version)
-                )
-                if deltas:
-                    encrypted = deltas[-1]
-            password_manager.encryption_manager.decrypt_and_save_index_from_nostr(
-                encrypted
-            )
-            print(colored("Encrypted index retrieved and saved successfully.", "green"))
-            logging.info("Encrypted index retrieved and saved successfully from Nostr.")
-        else:
+        password_manager.sync_index_from_nostr()
+        if password_manager.nostr_client.last_error:
             msg = (
                 f"No Nostr events found for fingerprint"
                 f" {password_manager.current_fingerprint}."
+                if "Snapshot not found" in password_manager.nostr_client.last_error
+                else password_manager.nostr_client.last_error
             )
             print(colored(msg, "red"))
             logging.error(msg)
+        else:
+            try:
+                legacy_pub = (
+                    password_manager.nostr_client.key_manager.generate_legacy_nostr_keys().public_key_hex()
+                )
+                if password_manager.nostr_client.keys.public_key_hex() == legacy_pub:
+                    note = "Restored index from legacy Nostr backup."
+                    print(colored(note, "yellow"))
+                    logging.info(note)
+            except Exception:
+                pass
+            print(
+                colored(
+                    "Encrypted index retrieved and saved successfully.",
+                    "green",
+                )
+            )
+            logging.info("Encrypted index retrieved and saved successfully from Nostr.")
     except Exception as e:
         logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
