@@ -25,6 +25,7 @@ class Vault:
         self.fingerprint_dir = Path(fingerprint_dir)
         self.index_file = self.fingerprint_dir / self.INDEX_FILENAME
         self.config_file = self.fingerprint_dir / self.CONFIG_FILENAME
+        self.migrated_from_legacy = False
 
     def set_encryption_manager(self, manager: EncryptionManager) -> None:
         """Replace the internal encryption manager."""
@@ -97,9 +98,13 @@ class Vault:
         self, encrypted_data: bytes, *, strict: bool = True, merge: bool = False
     ) -> bool:
         """Decrypt Nostr payload and update the local index."""
-        return self.encryption_manager.decrypt_and_save_index_from_nostr(
+        self.migrated_from_legacy = not encrypted_data.startswith(b"V2:")
+        result = self.encryption_manager.decrypt_and_save_index_from_nostr(
             encrypted_data, strict=strict, merge=merge
         )
+        if not result:
+            self.migrated_from_legacy = False
+        return result
 
     # ----- Config helpers -----
     def load_config(self) -> dict:

@@ -6,6 +6,8 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from utils.key_derivation import derive_index_key
 from cryptography.fernet import Fernet
 from types import SimpleNamespace
+import asyncio
+import gzip
 
 from seedpass.core.manager import PasswordManager, EncryptionMode
 from seedpass.core.vault import Vault
@@ -81,3 +83,47 @@ def test_migration_triggers_sync(monkeypatch, tmp_path: Path):
 
     pm.initialize_managers()
     assert calls["sync"] == 1
+
+
+def test_legacy_nostr_payload_triggers_sync(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    legacy_enc = Fernet(key).encrypt(json.dumps(data).encode())
+    compressed = gzip.compress(legacy_enc)
+
+    class DummyClient:
+        def __init__(self):
+            self.relays = []
+            self.last_error = None
+            self.fingerprint = None
+
+        async def fetch_latest_snapshot(self):
+            from nostr.backup_models import Manifest
+
+            return Manifest(ver=1, algo="gzip", chunks=[], delta_since=None), [
+                compressed
+            ]
+
+        async def fetch_deltas_since(self, version):
+            return []
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = Vault(enc_mgr, tmp_path)
+    pm.parent_seed = TEST_SEED
+    pm.fingerprint_dir = tmp_path
+    pm.current_fingerprint = tmp_path.name
+    pm.nostr_client = DummyClient()
+    pm.offline_mode = False
+
+    calls = {"sync": 0}
+    pm.start_background_vault_sync = lambda *a, **k: calls.__setitem__(
+        "sync", calls["sync"] + 1
+    )
+
+    asyncio.run(pm.sync_index_from_nostr_async())
+    assert calls["sync"] == 1
+    assert pm.vault.load_index() == data

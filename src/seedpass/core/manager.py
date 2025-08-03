@@ -1255,12 +1255,14 @@ class PasswordManager:
             encrypted = gzip.decompress(b"".join(chunks))
             current = self.vault.get_encrypted_index()
             updated = False
+            migrated = False
             if current != encrypted:
                 if self.vault.decrypt_and_save_index_from_nostr(
                     encrypted, strict=False, merge=False
                 ):
                     updated = True
                     current = encrypted
+                    migrated = migrated or self.vault.migrated_from_legacy
             if manifest.delta_since:
                 version = int(manifest.delta_since)
                 deltas = await self.nostr_client.fetch_deltas_since(version)
@@ -1271,6 +1273,9 @@ class PasswordManager:
                         ):
                             updated = True
                             current = delta
+                            migrated = migrated or self.vault.migrated_from_legacy
+            if migrated and not getattr(self, "offline_mode", False):
+                self.start_background_vault_sync()
             if updated:
                 logger.info("Local database synchronized from Nostr.")
         except Exception as e:
@@ -1403,11 +1408,13 @@ class PasswordManager:
             if result:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
+                migrated = False
                 success = self.vault.decrypt_and_save_index_from_nostr(
                     encrypted, strict=False, merge=False
                 )
                 if success:
                     have_data = True
+                    migrated = migrated or self.vault.migrated_from_legacy
                     current = encrypted
                     if manifest.delta_since:
                         version = int(manifest.delta_since)
@@ -1418,6 +1425,11 @@ class PasswordManager:
                                     delta, strict=False, merge=True
                                 ):
                                     current = delta
+                                    migrated = (
+                                        migrated or self.vault.migrated_from_legacy
+                                    )
+                    if migrated and not getattr(self, "offline_mode", False):
+                        self.start_background_vault_sync()
                     logger.info("Initialized local database from Nostr.")
         except Exception as e:  # pragma: no cover - network errors
             logger.warning(f"Unable to sync index from Nostr: {e}")
