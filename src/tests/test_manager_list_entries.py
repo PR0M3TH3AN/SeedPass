@@ -301,7 +301,7 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             "seedpass.core.manager.confirm_action", lambda *a, **k: True
         )
         monkeypatch.setattr(
-            "seedpass.core.manager.copy_to_clipboard", lambda *a, **k: None
+            "seedpass.core.manager.copy_to_clipboard", lambda *a, **k: True
         )
         monkeypatch.setattr("seedpass.core.manager.timed_input", lambda *a, **k: "b")
         monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)

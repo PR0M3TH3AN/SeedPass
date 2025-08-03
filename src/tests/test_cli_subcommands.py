@@ -60,7 +60,7 @@ def test_totp_command(monkeypatch, capsys):
     monkeypatch.setattr(main, "initialize_app", lambda: None)
     monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
     monkeypatch.setattr(
-        main, "copy_to_clipboard", lambda v, d: called.setdefault("val", v)
+        main, "copy_to_clipboard", lambda v, d: (called.setdefault("val", v), True)[1]
     )
     rc = main.main(["totp", "ex"])
     assert rc == 0

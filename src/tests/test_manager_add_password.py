@@ -140,7 +140,7 @@ def test_handle_add_password_secret_mode(monkeypatch, dummy_nostr_client, capsys
         called = []
         monkeypatch.setattr(
             "seedpass.core.manager.copy_to_clipboard",
-            lambda text, delay: called.append((text, delay)),
+            lambda text, delay: (called.append((text, delay)), True)[1],
         )
 
         pm.handle_add_password()

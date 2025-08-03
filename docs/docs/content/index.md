@@ -192,12 +192,14 @@ python -m pip install -e .
 #### Linux Clipboard Support
 
 On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`.
-SeedPass will attempt to install **xclip** automatically if neither tool is
-available. If the automatic installation fails, you can install it manually:
+SeedPass does not install these tools automatically. To use clipboard features
+such as secret mode, install **xclip** manually:
 
 ```bash
-sudo apt-get install xclip
+sudo apt install xclip
 ```
+
+After installing `xclip`, restart SeedPass to enable clipboard support.
 
 ## Quick Start
 

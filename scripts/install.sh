@@ -26,26 +26,27 @@ print_error() { echo -e "\033[1;31m[ERROR]\033[0m $1" >&2; exit 1; }
 install_dependencies() {
     print_info "Installing system packages required for Gtk bindings..."
     if command -v apt-get &>/dev/null; then
-        sudo apt-get update && sudo apt-get install -y \
-            build-essential pkg-config libcairo2 libcairo2-dev \
-            libgirepository1.0-dev gobject-introspection \
-            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev xclip
+        sudo apt-get update && sudo apt-get install -y \\
+            build-essential pkg-config libcairo2 libcairo2-dev \\
+            libgirepository1.0-dev gobject-introspection \\
+            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev
     elif command -v yum &>/dev/null; then
-        sudo yum install -y @'Development Tools' cairo cairo-devel \
-            gobject-introspection-devel gtk3-devel python3-devel \
-            libffi-devel openssl-devel xclip
+        sudo yum install -y @'Development Tools' cairo cairo-devel \\
+            gobject-introspection-devel gtk3-devel python3-devel \\
+            libffi-devel openssl-devel
     elif command -v dnf &>/dev/null; then
-        sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
-            cairo cairo-devel gobject-introspection-devel gtk3-devel \
-            python3-devel libffi-devel openssl-devel xclip
+        sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \\
+            cairo cairo-devel gobject-introspection-devel gtk3-devel \\
+            python3-devel libffi-devel openssl-devel
     elif command -v pacman &>/dev/null; then
-        sudo pacman -Syu --noconfirm base-devel pkgconf cairo \
-            gobject-introspection gtk3 python xclip
+        sudo pacman -Syu --noconfirm base-devel pkgconf cairo \\
+            gobject-introspection gtk3 python
     elif command -v brew &>/dev/null; then
         brew install pkg-config cairo gobject-introspection gtk+3
     else
         print_warning "Unsupported package manager. Please install Gtk/GObject dependencies manually."
     fi
+    print_warning "Install 'xclip' manually to enable clipboard features in secret mode."
 }
 usage() {
     echo "Usage: $0 [-b | --branch <branch_name>] [-h | --help]"
