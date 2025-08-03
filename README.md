@@ -36,6 +36,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - [Building a standalone executable](#building-a-standalone-executable)
 - [Packaging with Briefcase](#packaging-with-briefcase)
 - [Security Considerations](#security-considerations)
+- [Dependency Updates](#dependency-updates)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -742,6 +743,25 @@ For local testing, Uvicorn can run with TLS directly:
 ```
 uvicorn seedpass.api:app --ssl-certfile=cert.pem --ssl-keyfile=key.pem
 ```
+
+## Dependency Updates
+
+Automated dependency updates are handled by [Dependabot](https://docs.github.com/en/code-security/dependabot).
+Every week, Dependabot checks Python packages and GitHub Actions used by this repository and opens pull requests when updates are available.
+
+To review and merge these updates:
+
+1. Review the changelog and release notes in the Dependabot pull request.
+2. Run the test suite locally:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r src/requirements.txt
+   pytest
+   ```
+3. Merge the pull request once all checks pass.
+
+A scheduled **Dependency Audit** workflow also runs [`pip-audit`](https://github.com/pypa/pip-audit) weekly to detect vulnerable packages. Address any reported issues promptly to keep dependencies secure.
 
 ## Contributing
 
