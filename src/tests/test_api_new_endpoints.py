@@ -136,7 +136,7 @@ def test_totp_export_endpoint(client):
     cl, token = client
     api._pm.entry_manager.export_totp_entries = lambda seed: {"entries": ["x"]}
     api._pm.parent_seed = "seed"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
     res = cl.get("/api/v1/totp/export", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"entries": ["x"]}
@@ -148,7 +148,7 @@ def test_totp_codes_endpoint(client):
     api._pm.entry_manager.get_totp_code = lambda i, s: "123456"
     api._pm.entry_manager.get_totp_time_remaining = lambda i: 30
     api._pm.parent_seed = "seed"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
     res = cl.get("/api/v1/totp", headers=headers)
     assert res.status_code == 200
     assert res.json() == {

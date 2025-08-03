@@ -19,7 +19,7 @@ Keep this token secret and avoid logging it. Tokens expire after a few minutes a
 ## Endpoints
 
 - `GET /api/v1/entry?query=<text>` – Search entries matching a query.
-- `GET /api/v1/entry/{id}` – Retrieve a single entry by its index.
+- `GET /api/v1/entry/{id}` – Retrieve a single entry by its index. Requires an `X-SeedPass-Password` header.
 - `POST /api/v1/entry` – Create a new entry of any supported type.
 - `PUT /api/v1/entry/{id}` – Modify an existing entry.
 - `PUT /api/v1/config/{key}` – Update a configuration value.
@@ -31,8 +31,8 @@ Keep this token secret and avoid logging it. Tokens expire after a few minutes a
 - `POST /api/v1/fingerprint` – Add a new seed fingerprint.
 - `DELETE /api/v1/fingerprint/{fp}` – Remove a fingerprint.
 - `POST /api/v1/fingerprint/select` – Switch the active fingerprint.
-- `GET /api/v1/totp/export` – Export all TOTP entries as JSON.
-- `GET /api/v1/totp` – Return current TOTP codes and remaining time.
+- `GET /api/v1/totp/export` – Export all TOTP entries as JSON. Requires an `X-SeedPass-Password` header.
+- `GET /api/v1/totp` – Return current TOTP codes and remaining time. Requires an `X-SeedPass-Password` header.
 - `GET /api/v1/stats` – Return statistics about the active seed profile.
 - `GET /api/v1/notifications` – Retrieve and clear queued notifications. Messages appear in the persistent notification box but remain queued until fetched.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
