@@ -198,7 +198,7 @@ Follow these steps to set up SeedPass on your local machine.
 
    ```bash
    python -m pip install --upgrade pip
-   python -m pip install -r src/requirements.txt
+   python -m pip install --require-hashes -r requirements.lock
    python -m pip install -e .
    ```
 // 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
@@ -572,10 +572,10 @@ initial setup:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install -r src/requirements.txt` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 pytest -vv
 ```
 
@@ -639,7 +639,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 
 1. Install all development dependencies:
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 ```
 
 2. When `src/runtime_requirements.txt` changes, rerun:
@@ -756,7 +756,7 @@ To review and merge these updates:
    ```bash
    python3 -m venv venv
    source venv/bin/activate
-   pip install -r src/requirements.txt
+   pip install --require-hashes -r requirements.lock
    pytest
    ```
 3. Merge the pull request once all checks pass.

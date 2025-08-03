@@ -140,9 +140,9 @@ main() {
     source "$VENV_DIR/bin/activate"
 
     # 6. Install/Update Python dependencies
-    print_info "Installing/updating Python dependencies from src/requirements.txt..."
+    print_info "Installing/updating Python dependencies from requirements.lock..."
     pip install --upgrade pip
-    pip install -r src/requirements.txt
+    pip install --require-hashes -r requirements.lock
     pip install -e .
     print_info "Installing platform-specific Toga backend..."
     if [ "$OS_NAME" = "Linux" ]; then

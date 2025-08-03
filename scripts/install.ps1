@@ -249,7 +249,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to upgrade pip"
 }
 
-& "$VenvDir\Scripts\python.exe" -m pip install -r "src\requirements.txt"
+& "$VenvDir\Scripts\python.exe" -m pip install --require-hashes -r "requirements.lock"
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "Failed to install Python dependencies. If errors mention C++, install Microsoft C++ Build Tools: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
     Write-Error "Dependency installation failed."

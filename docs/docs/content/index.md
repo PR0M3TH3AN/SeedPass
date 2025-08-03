@@ -185,7 +185,7 @@ When upgrading pip, use `python -m pip` inside the virtual environment so that p
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -r src/requirements.txt
+python -m pip install --require-hashes -r requirements.lock
 python -m pip install -e .
 ```
 
@@ -452,11 +452,11 @@ Back in the Settings menu you can:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install -r src/requirements.txt` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 pytest -vv
 ```
 
