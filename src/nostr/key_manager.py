@@ -9,6 +9,10 @@ from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator
 from .coincurve_keys import Keys
 
+# BIP-85 application numbers for Nostr key derivation
+NOSTR_KEY_APP_ID = 1237
+LEGACY_NOSTR_KEY_APP_ID = 0
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +86,8 @@ class KeyManager:
             # Derive entropy for Nostr key (32 bytes)
             entropy_bytes = self.bip85.derive_entropy(
                 index=index,
-                bytes_len=32,  # Adjust parameter name and value as per your method signature
+                bytes_len=32,
+                app_no=NOSTR_KEY_APP_ID,
             )
 
             # Generate Nostr key pair from entropy
@@ -92,6 +97,17 @@ class KeyManager:
             return keys
         except Exception as e:
             logger.error(f"Failed to generate Nostr keys: {e}", exc_info=True)
+            raise
+
+    def generate_legacy_nostr_keys(self) -> Keys:
+        """Derive Nostr keys using the legacy application ID."""
+        try:
+            entropy = self.bip85.derive_entropy(
+                index=0, bytes_len=32, app_no=LEGACY_NOSTR_KEY_APP_ID
+            )
+            return Keys(priv_k=entropy.hex())
+        except Exception as e:
+            logger.error(f"Failed to generate legacy Nostr keys: {e}", exc_info=True)
             raise
 
     def get_public_key_hex(self) -> str:
