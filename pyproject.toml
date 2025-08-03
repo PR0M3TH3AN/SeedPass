@@ -28,7 +28,7 @@ requires = [
     "bech32==1.2.0",
     "coincurve>=18.0.0",
     "mnemonic",
-    "aiohttp>=3.12.14",
+    "aiohttp>=3.12.15",
     "bcrypt",
     "portalocker>=2.8",
     "nostr-sdk>=0.43",
@@ -44,7 +44,7 @@ requires = [
     "uvicorn>=0.35.0",
     "httpx>=0.28.1",
     "requests>=2.32",
-    "python-multipart",
+    "python-multipart>=0.0.20",
     "orjson",
     "argon2-cffi",
 ]
