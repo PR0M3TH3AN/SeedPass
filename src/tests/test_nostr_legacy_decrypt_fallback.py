@@ -25,6 +25,7 @@ def test_legacy_password_only_fallback(monkeypatch, tmp_path, caplog):
     monkeypatch.setattr(
         enc_module, "prompt_existing_password", lambda *_a, **_k: TEST_PASSWORD
     )
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "2")
 
     vault, enc_mgr = create_vault(tmp_path)
     data = {"schema_version": 4, "entries": {}}
