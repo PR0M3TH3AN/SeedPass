@@ -94,35 +94,59 @@ class EncryptionManager:
         (3) The core migration logic. Tries the new format first, then falls back
             to the old one. This is the ONLY place decryption logic should live.
         """
-        # Try the new V2 format first
-        if encrypted_data.startswith(b"V2:"):
-            try:
-                nonce = encrypted_data[3:15]
-                ciphertext = encrypted_data[15:]
-                if len(ciphertext) < 16:
-                    logger.error("AES-GCM payload too short")
-                    raise InvalidToken("AES-GCM payload too short")
-                return self.cipher.decrypt(nonce, ciphertext, None)
-            except InvalidTag as e:
-                logger.error("AES-GCM decryption failed: Invalid authentication tag.")
+        try:
+            # Try the new V2 format first
+            if encrypted_data.startswith(b"V2:"):
                 try:
-                    result = self.fernet.decrypt(encrypted_data[3:])
-                    logger.warning(
-                        "Legacy-format file had incorrect 'V2:' header; decrypted with Fernet"
+                    nonce = encrypted_data[3:15]
+                    ciphertext = encrypted_data[15:]
+                    if len(ciphertext) < 16:
+                        logger.error("AES-GCM payload too short")
+                        raise InvalidToken("AES-GCM payload too short")
+                    return self.cipher.decrypt(nonce, ciphertext, None)
+                except InvalidTag as e:
+                    logger.error(
+                        "AES-GCM decryption failed: Invalid authentication tag."
                     )
-                    return result
-                except InvalidToken:
-                    raise InvalidToken("AES-GCM decryption failed.") from e
+                    try:
+                        result = self.fernet.decrypt(encrypted_data[3:])
+                        logger.warning(
+                            "Legacy-format file had incorrect 'V2:' header; decrypted with Fernet"
+                        )
+                        return result
+                    except InvalidToken:
+                        raise InvalidToken("AES-GCM decryption failed.") from e
 
-        # If it's not V2, it must be the legacy Fernet format
-        else:
-            logger.warning("Data is in legacy Fernet format. Attempting migration.")
+            # If it's not V2, it must be the legacy Fernet format
+            else:
+                logger.warning("Data is in legacy Fernet format. Attempting migration.")
+                try:
+                    return self.fernet.decrypt(encrypted_data)
+                except InvalidToken as e:
+                    logger.error(
+                        "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
+                    )
+                    raise InvalidToken(
+                        "Could not decrypt data with any available method."
+                    ) from e
+
+        except (InvalidToken, InvalidTag) as e:
+            if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
+                raise
+            logger.error(f"FATAL: Could not decrypt data: {e}", exc_info=True)
             try:
-                return self.fernet.decrypt(encrypted_data)
-            except InvalidToken as e:
-                logger.error(
-                    "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
+                password = prompt_existing_password(
+                    "Enter your master password for legacy decryption: "
                 )
+                legacy_key = _derive_legacy_key_from_password(password)
+                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                result = legacy_mgr.decrypt_data(encrypted_data)
+                logger.warning(
+                    "Data decrypted using legacy password-only key derivation."
+                )
+                return result
+            except Exception as e2:  # pragma: no cover - exceptional path
+                logger.error(f"Failed legacy decryption attempt: {e2}", exc_info=True)
                 raise InvalidToken(
                     "Could not decrypt data with any available method."
                 ) from e
