@@ -7,14 +7,14 @@ This guide covers how to start the SeedPass API, authenticate requests, and inte
 
 ## Starting the API
 
-Run `seedpass api start` from your terminal. The command prints a one‑time token used for authentication:
+Run `seedpass api start` from your terminal. The command prints a short‑lived JWT token used for authentication:
 
 ```bash
 $ seedpass api start
-API token: abcdef1234567890
+API token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 ```
 
-Keep this token secret. Every request must include it in the `Authorization` header using the `Bearer` scheme.
+Keep this token secret and avoid logging it. Tokens expire after a few minutes and every request must include one in the `Authorization` header using the `Bearer` scheme.
 
 ## Endpoints
 
@@ -35,13 +35,13 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 - `GET /api/v1/totp` – Return current TOTP codes and remaining time.
 - `GET /api/v1/stats` – Return statistics about the active seed profile.
 - `GET /api/v1/notifications` – Retrieve and clear queued notifications. Messages appear in the persistent notification box but remain queued until fetched.
-- `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`.
+- `GET /api/v1/parent-seed` – Reveal the parent seed or save it with `?file=`. Requires an additional `X-SeedPass-Password` header.
 - `GET /api/v1/nostr/pubkey` – Fetch the Nostr public key for the active seed.
 - `POST /api/v1/checksum/verify` – Verify the checksum of the running script.
 - `POST /api/v1/checksum/update` – Update the stored script checksum.
 - `POST /api/v1/change-password` – Change the master password for the active profile.
 - `POST /api/v1/vault/import` – Import a vault backup from a file or path.
-- `POST /api/v1/vault/export` – Export the vault and download the encrypted file.
+- `POST /api/v1/vault/export` – Export the vault and download the encrypted file. Requires an additional `X-SeedPass-Password` header.
 - `POST /api/v1/vault/backup-parent-seed` – Save an encrypted backup of the parent seed.
 - `POST /api/v1/vault/lock` – Lock the vault and clear sensitive data from memory.
 - `GET /api/v1/relays` – List configured Nostr relays.
@@ -52,13 +52,37 @@ Keep this token secret. Every request must include it in the `Authorization` hea
 
 **Security Warning:** Accessing `/api/v1/parent-seed` exposes your master seed in plain text. Use it only from a trusted environment.
 
+## Secure Deployment
+
+Always run the API behind HTTPS. Use a reverse proxy such as Nginx or Caddy to terminate TLS and forward requests to SeedPass. Example Nginx configuration:
+
+```
+server {
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+For local testing, Uvicorn can serve TLS directly:
+
+```
+uvicorn seedpass.api:app --ssl-certfile=cert.pem --ssl-keyfile=key.pem
+```
+
 ## Example Requests
 
 Send requests with the token in the header:
 
 ```bash
 curl -H "Authorization: Bearer <token>" \
-     "http://127.0.0.1:8000/api/v1/entry?query=email"
+     "https://127.0.0.1:8000/api/v1/entry?query=email"
 ```
 
 ### Creating an Entry
@@ -149,8 +173,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/fingerprint/select \
 Download an encrypted vault backup via `POST /api/v1/vault/export`:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/vault/export \
+curl -X POST https://127.0.0.1:8000/api/v1/vault/export \
      -H "Authorization: Bearer <token>" \
+     -H "X-SeedPass-Password: <master-password>" \
      -o backup.json
 ```
 

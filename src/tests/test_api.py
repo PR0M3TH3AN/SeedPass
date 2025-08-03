@@ -39,6 +39,7 @@ def client(monkeypatch):
         nostr_client=SimpleNamespace(
             key_manager=SimpleNamespace(get_npub=lambda: "np")
         ),
+        verify_password=lambda pw: True,
     )
     monkeypatch.setattr(api, "PasswordManager", lambda: dummy)
     monkeypatch.setenv("SEEDPASS_CORS_ORIGINS", "http://example.com")

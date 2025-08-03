@@ -162,7 +162,10 @@ def test_parent_seed_endpoint(client, tmp_path):
     api._pm.encryption_manager = SimpleNamespace(
         encrypt_and_save_file=lambda data, path: called.setdefault("path", path)
     )
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
 
     res = cl.get("/api/v1/parent-seed", headers=headers)
     assert res.status_code == 200
@@ -173,6 +176,9 @@ def test_parent_seed_endpoint(client, tmp_path):
     assert res.status_code == 200
     assert res.json() == {"status": "saved", "path": str(out)}
     assert called["path"] == out
+
+    res = cl.get("/api/v1/parent-seed", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401
 
 
 def test_fingerprint_endpoints(client):
@@ -330,10 +336,16 @@ def test_vault_export_endpoint(client, tmp_path):
 
     api._pm.handle_export_database = lambda: out
 
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
     res = cl.post("/api/v1/vault/export", headers=headers)
     assert res.status_code == 200
     assert res.content == b"data"
+
+    res = cl.post("/api/v1/vault/export", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401
 
 
 def test_backup_parent_seed_endpoint(client, tmp_path):

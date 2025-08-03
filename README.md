@@ -717,6 +717,30 @@ You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
 - **Offline Mode:** When enabled, SeedPass skips all Nostr operations so your vault stays local until syncing is turned back on.
 - **Quick Unlock:** Stores a hashed copy of your password in the encrypted config so you only need to enter it once per session. Avoid this on shared computers.
 
+### Secure Deployment
+
+Always deploy SeedPass behind HTTPS. Place a TLS‑terminating reverse proxy such as Nginx in front of the FastAPI server or configure Uvicorn with certificate files. Example Nginx snippet:
+
+```
+server {
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+For local testing, Uvicorn can run with TLS directly:
+
+```
+uvicorn seedpass.api:app --ssl-certfile=cert.pem --ssl-keyfile=key.pem
+```
+
 ## Contributing
 
 Contributions are welcome! If you have suggestions for improvements, bug fixes, or new features, please follow these steps:
