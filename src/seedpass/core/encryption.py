@@ -2,6 +2,7 @@
 
 import logging
 import traceback
+import unicodedata
 
 try:
     import orjson as json_lib  # type: ignore
@@ -25,9 +26,17 @@ from cryptography.fernet import Fernet, InvalidToken
 from termcolor import colored
 from utils.file_lock import exclusive_lock
 from mnemonic import Mnemonic
+from utils.password_prompt import prompt_existing_password
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
+
+
+def _derive_legacy_key_from_password(password: str, iterations: int = 100_000) -> bytes:
+    """Derive legacy Fernet key using password only (no fingerprint)."""
+    normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
+    key = hashlib.pbkdf2_hmac("sha256", normalized, b"", iterations, dklen=32)
+    return base64.urlsafe_b64encode(key)
 
 
 class EncryptionManager:
@@ -268,12 +277,12 @@ class EncryptionManager:
         """
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
-        try:
-            decrypted_data = self.decrypt_data(encrypted_data)
+
+        def _process(decrypted: bytes) -> dict:
             if USE_ORJSON:
-                data = json_lib.loads(decrypted_data)
+                data = json_lib.loads(decrypted)
             else:
-                data = json_lib.loads(decrypted_data.decode("utf-8"))
+                data = json_lib.loads(decrypted.decode("utf-8"))
             existing_file = self.resolve_relative_path(relative_path)
             if merge and existing_file.exists():
                 current = self.load_json_data(relative_path)
@@ -289,11 +298,52 @@ class EncryptionManager:
                         current.get("schema_version", 0), data.get("schema_version", 0)
                     )
                 data = current
+            return data
+
+        try:
+            decrypted_data = self.decrypt_data(encrypted_data)
+            data = _process(decrypted_data)
             self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
             return True
+        except InvalidToken as e:
+            try:
+                password = prompt_existing_password(
+                    "Enter your master password for legacy decryption: "
+                )
+                legacy_key = _derive_legacy_key_from_password(password)
+                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                decrypted_data = legacy_mgr.decrypt_data(encrypted_data)
+                data = _process(decrypted_data)
+                self.save_json_data(data, relative_path)
+                self.update_checksum(relative_path)
+                logger.warning(
+                    "Index decrypted using legacy password-only key derivation."
+                )
+                print(
+                    colored(
+                        "Warning: index decrypted with legacy key; it will be re-encrypted.",
+                        "yellow",
+                    )
+                )
+                return True
+            except Exception as e2:
+                if strict:
+                    logger.error(
+                        f"Failed legacy decryption attempt: {e2}",
+                        exc_info=True,
+                    )
+                    print(
+                        colored(
+                            f"Error: Failed to decrypt and save data from Nostr: {e2}",
+                            "red",
+                        )
+                    )
+                    raise
+                logger.warning(f"Failed to decrypt index from Nostr: {e2}")
+                return False
         except Exception as e:  # pragma: no cover - error handling
             if strict:
                 logger.error(
