@@ -583,6 +583,7 @@ class NostrClient:
 
         self.last_error = None
 
+        logger.debug("Searching for backup with current keys...")
         try:
             primary_keys = Keys.parse(self.key_manager.keys.private_key_hex())
         except Exception:
@@ -592,6 +593,9 @@ class NostrClient:
         if result is not None:
             return result
 
+        logger.warning(
+            "No backup found with current keys. Falling back to legacy key derivation..."
+        )
         try:
             legacy_keys = self.key_manager.generate_legacy_nostr_keys()
             legacy_sdk_keys = Keys.parse(legacy_keys.private_key_hex())
@@ -601,10 +605,11 @@ class NostrClient:
 
         result = await self._fetch_manifest_with_keys(legacy_sdk_keys)
         if result is not None:
+            logger.info("Found legacy backup with old key derivation.")
             return result
 
         if self.last_error is None:
-            self.last_error = "Snapshot not found on relays"
+            self.last_error = "No backup found on Nostr relays."
 
         return None
 

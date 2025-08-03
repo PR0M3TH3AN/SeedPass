@@ -25,6 +25,7 @@ import dataclasses
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
+from constants import MAX_RETRIES, RETRY_DELAY
 
 from .encryption import EncryptionManager
 from .entry_management import EntryManager
@@ -1460,22 +1461,37 @@ class PasswordManager:
             except Exception as exc:  # pragma: no cover - best effort
                 logger.warning(f"Unable to publish fresh database: {exc}")
 
-    def check_nostr_backup_exists(self, profile_id: str) -> bool:
-        """Return ``True`` if a snapshot exists on Nostr for ``profile_id``."""
+    def check_nostr_backup_exists(self, seed_phrase: str) -> bool:
+        """Return ``True`` if a snapshot exists on Nostr for ``seed_phrase``."""
         if not self.nostr_client or getattr(self, "offline_mode", False):
             return False
+
+        profile_id = calculate_profile_id(seed_phrase)
         previous = self.nostr_client.fingerprint
-        self.nostr_client.fingerprint = profile_id
         try:
-            result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
-            return result is not None
+            if hasattr(self, "config_manager") and self.config_manager is not None:
+                cfg = self.config_manager.load_config(require_pin=False)
+                max_retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
+                delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
+            else:
+                max_retries = MAX_RETRIES
+                delay = RETRY_DELAY
+            for attempt in range(max_retries):
+                self.nostr_client.fingerprint = profile_id
+                result = asyncio.run(self.nostr_client.fetch_latest_snapshot())
+                if result is not None:
+                    return True
+                if attempt < max_retries - 1:
+                    time.sleep(delay * (2**attempt))
+            return False
         finally:
             self.nostr_client.fingerprint = previous
 
     def restore_from_nostr_with_guidance(self, seed_phrase: str) -> None:
         """Restore a profile from Nostr, warning if no backup exists."""
-        profile_id = calculate_profile_id(seed_phrase)
-        have_backup = self.check_nostr_backup_exists(profile_id)
+        self.notify("Searching for Nostr backup, this may take a moment...")
+        have_backup = self.check_nostr_backup_exists(seed_phrase)
+
         if not have_backup:
             print(colored("No Nostr backup found for this seed profile.", "yellow"))
             if not confirm_action("Continue with an empty database? (Y/N): "):
@@ -1485,11 +1501,19 @@ class PasswordManager:
         if not fp:
             return
 
-        success = self.attempt_initial_sync()
-        if success:
-            print(colored("Vault restored from Nostr.", "green"))
-        elif have_backup:
-            print(colored("Failed to download vault from Nostr.", "red"))
+        if have_backup:
+            self.notify("Backup found. Restoring vault...")
+            success = self.attempt_initial_sync()
+            if success:
+                self.notify("Vault restored successfully from Nostr.", level="INFO")
+                print(colored("Vault restored from Nostr.", "green"))
+            else:
+                self.notify(
+                    "Failed to download or decrypt vault from Nostr.", level="ERROR"
+                )
+                print(colored("Failed to download vault from Nostr.", "red"))
+        else:
+            self.notify("Starting with a new, empty vault.", level="INFO")
 
     def handle_add_password(self) -> None:
         try:
