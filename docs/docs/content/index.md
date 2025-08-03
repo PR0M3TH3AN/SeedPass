@@ -46,6 +46,7 @@ maintainable while enabling a consistent experience on multiple platforms.
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
+  - [Recovery](#recovery)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -404,6 +405,22 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
   - In the **Profiles** menu, choose "Set Seed Profile Name" to assign a label to the current profile. The name is stored locally and shown next to the fingerprint.
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
+
+
+### Recovery
+
+If you previously backed up your vault to Nostr you can restore it during the
+initial setup. You must provide both your 12 -word master seed and the master
+password that encrypted the vault; without the correct password the retrieved
+data cannot be decrypted.
+
+1. Start SeedPass and choose option **4** when prompted to set up a seed.
+2. Paste your BIP‑85 seed phrase when asked.
+3. Enter the master password associated with that seed.
+4. SeedPass initializes the profile and attempts to download the encrypted
+   vault from the configured relays.
+5. A success message confirms the vault was restored. If no data is found a
+   failure message is shown and a new empty vault is created.
 
 ### Configuration File and Settings
 

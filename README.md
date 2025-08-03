@@ -561,13 +561,16 @@ The default configuration uses **50,000** PBKDF2 iterations. Increase this value
 ### Recovery
 
 If you previously backed up your vault to Nostr you can restore it during the
-initial setup:
+initial setup. You must provide both your 12‑word master seed and the master
+password that encrypted the vault; without the correct password the retrieved
+data cannot be decrypted.
 
 1. Start SeedPass and choose option **4** when prompted to set up a seed.
-2. Paste your BIP-85 seed phrase when asked.
-3. SeedPass initializes the profile and attempts to download the encrypted vault
-   from the configured relays.
-4. A success message confirms the vault was restored. If no data is found a
+2. Paste your BIP‑85 seed phrase when asked.
+3. Enter the master password associated with that seed.
+4. SeedPass initializes the profile and attempts to download the encrypted
+   vault from the configured relays.
+5. A success message confirms the vault was restored. If no data is found a
    failure message is shown and a new empty vault is created.
 
 ## Running Tests
