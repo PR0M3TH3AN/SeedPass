@@ -482,7 +482,13 @@ def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
 def derive_pgp_key(
     bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
 ) -> tuple[str, str]:
-    """Derive a deterministic PGP private key and return it with its fingerprint."""
+    """Derive a deterministic PGP private key and return it with its fingerprint.
+
+    For RSA keys the randomness required during key generation is provided by
+    an HMAC-SHA256 based deterministic generator seeded from the BIP-85
+    entropy. This avoids use of Python's ``random`` module while ensuring the
+    output remains stable across Python versions.
+    """
 
     from pgpy import PGPKey, PGPUID
     from pgpy.packet.packets import PrivKeyV4
@@ -514,14 +520,18 @@ def derive_pgp_key(
     if key_type.lower() == "rsa":
 
         class DRNG:
+            """HMAC-SHA256 based deterministic random generator."""
+
             def __init__(self, seed: bytes) -> None:
-                self.seed = seed
+                self.key = seed
+                self.counter = 0
 
             def __call__(self, n: int) -> bytes:  # pragma: no cover - deterministic
                 out = b""
                 while len(out) < n:
-                    self.seed = hashlib.sha256(self.seed).digest()
-                    out += self.seed
+                    msg = self.counter.to_bytes(4, "big")
+                    out += hmac.new(self.key, msg, hashlib.sha256).digest()
+                    self.counter += 1
                 return out[:n]
 
         rsa_key = RSA.generate(2048, randfunc=DRNG(entropy))
