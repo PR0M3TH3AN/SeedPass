@@ -222,7 +222,9 @@ class EntryManager:
 
             data["entries"][str(index)] = entry
 
-            logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
+            logger.debug(
+                f"Added entry at index {index} with label '{entry.get('label', '')}'."
+            )
 
             self._save_index(data)
             self.update_checksum()
@@ -780,7 +782,9 @@ class EntryManager:
                     EntryType.MANAGED_ACCOUNT.value,
                 ):
                     entry.setdefault("custom_fields", [])
-                logger.debug(f"Retrieved entry at index {index}: {entry}")
+                logger.debug(
+                    f"Retrieved entry at index {index} with label '{entry.get('label', '')}'."
+                )
                 clean = {k: v for k, v in entry.items() if k != "modified_ts"}
                 return clean
             else:
@@ -1010,13 +1014,11 @@ class EntryManager:
 
             if custom_fields is not None:
                 entry["custom_fields"] = custom_fields
-                logger.debug(
-                    f"Updated custom fields for index {index}: {custom_fields}"
-                )
+                logger.debug(f"Updated custom fields for index {index}.")
 
             if tags is not None:
                 entry["tags"] = tags
-                logger.debug(f"Updated tags for index {index}: {tags}")
+                logger.debug(f"Updated tags for index {index}.")
 
             policy_updates: dict[str, Any] = {}
             if include_special_chars is not None:
@@ -1043,7 +1045,9 @@ class EntryManager:
             entry["modified_ts"] = int(time.time())
 
             data["entries"][str(index)] = entry
-            logger.debug(f"Modified entry at index {index}: {entry}")
+            logger.debug(
+                f"Modified entry at index {index} with label '{entry.get('label', '')}'."
+            )
 
             self._save_index(data)
             self.update_checksum()

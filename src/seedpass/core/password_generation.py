@@ -128,7 +128,7 @@ class PasswordGenerator:
     def _derive_password_entropy(self, index: int) -> bytes:
         """Derive deterministic entropy for password generation."""
         entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
-        logger.debug(f"Derived entropy: {entropy.hex()}")
+        logger.debug("Entropy derived for password generation.")
 
         hkdf = HKDF(
             algorithm=hashes.SHA256(),
@@ -138,16 +138,16 @@ class PasswordGenerator:
             backend=default_backend(),
         )
         hkdf_derived = hkdf.derive(entropy)
-        logger.debug(f"Derived key using HKDF: {hkdf_derived.hex()}")
+        logger.debug("Derived key using HKDF.")
 
         dk = hashlib.pbkdf2_hmac("sha256", entropy, b"", 100000)
-        logger.debug(f"Derived key using PBKDF2: {dk.hex()}")
+        logger.debug("Derived key using PBKDF2.")
         return dk
 
     def _map_entropy_to_chars(self, dk: bytes, alphabet: str) -> str:
         """Map derived bytes to characters from the provided alphabet."""
         password = "".join(alphabet[byte % len(alphabet)] for byte in dk)
-        logger.debug(f"Password after mapping to all allowed characters: {password}")
+        logger.debug("Mapped entropy to allowed characters.")
         return password
 
     def _fisher_yates_hmac(self, items: list[str], key: bytes) -> list[str]:
@@ -248,7 +248,7 @@ class PasswordGenerator:
                     extra = self._map_entropy_to_chars(dk, all_allowed)
                     password += extra
                     password = self._shuffle_deterministically(password, dk)
-                    logger.debug(f"Extended password: {password}")
+                    logger.debug("Extended password to meet length requirement.")
 
             # Trim the password to the desired length and enforce complexity on
             # the final result. Complexity enforcement is repeated here because
@@ -261,7 +261,7 @@ class PasswordGenerator:
             )
             password = self._shuffle_deterministically(password, dk)
             logger.debug(
-                f"Final password (trimmed to {length} chars with complexity enforced): {password}"
+                f"Generated final password of length {length} with complexity enforced."
             )
 
             return password
@@ -333,34 +333,28 @@ class PasswordGenerator:
                     index = get_dk_value() % len(password_chars)
                     char = uppercase[get_dk_value() % len(uppercase)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added uppercase letter '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added uppercase letter at position {index}.")
 
             if current_lower < min_lower:
                 for _ in range(min_lower - current_lower):
                     index = get_dk_value() % len(password_chars)
                     char = lowercase[get_dk_value() % len(lowercase)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added lowercase letter '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added lowercase letter at position {index}.")
 
             if current_digits < min_digits:
                 for _ in range(min_digits - current_digits):
                     index = get_dk_value() % len(password_chars)
                     char = digits[get_dk_value() % len(digits)]
                     password_chars[index] = char
-                    logger.debug(f"Added digit '{char}' at position {index}.")
+                    logger.debug(f"Added digit at position {index}.")
 
             if special and current_special < min_special:
                 for _ in range(min_special - current_special):
                     index = get_dk_value() % len(password_chars)
                     char = special[get_dk_value() % len(special)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added special character '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added special character at position {index}.")
 
             # Additional deterministic inclusion of symbols to increase score
             if special:
@@ -374,9 +368,7 @@ class PasswordGenerator:
                     index = get_dk_value() % len(password_chars)
                     char = special[get_dk_value() % len(special)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added additional symbol '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added additional symbol at position {index}.")
 
             # Ensure balanced distribution by assigning different character types to specific segments
             # Example: Divide password into segments and assign different types
@@ -394,19 +386,15 @@ class PasswordGenerator:
                         if i == 0 and password_chars[j] not in uppercase:
                             char = uppercase[get_dk_value() % len(uppercase)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned uppercase letter '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned uppercase letter to position {j}.")
                         elif i == 1 and password_chars[j] not in lowercase:
                             char = lowercase[get_dk_value() % len(lowercase)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned lowercase letter '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned lowercase letter to position {j}.")
                         elif i == 2 and password_chars[j] not in digits:
                             char = digits[get_dk_value() % len(digits)]
                             password_chars[j] = char
-                            logger.debug(f"Assigned digit '{char}' to position {j}.")
+                            logger.debug(f"Assigned digit to position {j}.")
                         elif (
                             special
                             and i == len(char_types) - 1
@@ -414,9 +402,7 @@ class PasswordGenerator:
                         ):
                             char = special[get_dk_value() % len(special)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned special character '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned special character to position {j}.")
 
             # Shuffle again to distribute the characters more evenly.  The key is
             # tweaked with the current ``dk_index`` so that each call produces a
