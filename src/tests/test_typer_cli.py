@@ -629,7 +629,17 @@ def test_gui_command(monkeypatch):
 
 
 def test_gui_command_no_backend(monkeypatch):
-    """Install backend if missing and launch GUI."""
+    """Exit with message when backend is missing."""
+
+    monkeypatch.setattr(cli, "_gui_backend_available", lambda: False)
+
+    result = runner.invoke(app, ["gui"])
+    assert result.exit_code == 1
+    assert "Please install" in result.output
+
+
+def test_gui_command_install_backend(monkeypatch):
+    """Install backend on request and launch GUI."""
 
     call_count = {"n": 0}
 
@@ -657,7 +667,7 @@ def test_gui_command_no_backend(monkeypatch):
         SimpleNamespace(main=fake_main),
     )
 
-    result = runner.invoke(app, ["gui"])
+    result = runner.invoke(app, ["gui", "--install"], input="y\n")
     assert result.exit_code == 0
     assert installed.get("cmd") is not None
     assert called.get("gui") is True

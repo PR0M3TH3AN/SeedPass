@@ -834,11 +834,18 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
 
 
 @app.command()
-def gui() -> None:
+def gui(
+    install: bool = typer.Option(
+        False,
+        "--install",
+        help="Attempt to install the BeeWare GUI backend if missing",
+    )
+) -> None:
     """Launch the BeeWare GUI.
 
-    If the platform specific backend is missing, attempt to install it and
-    retry launching the GUI.
+    If a platform specific backend is missing, inform the user how to
+    install it. Using ``--install`` will attempt installation after
+    confirmation.
     """
     if not _gui_backend_available():
         if sys.platform.startswith("linux"):
@@ -854,7 +861,18 @@ def gui() -> None:
             )
             raise typer.Exit(1)
 
-        typer.echo(f"Attempting to install {pkg} for GUI support...")
+        if not install:
+            typer.echo(
+                f"BeeWare GUI backend not found. Please install {pkg} "
+                "manually or rerun with '--install'.",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        if not typer.confirm(f"Install {pkg} using pip?", default=False):
+            typer.echo("Installation cancelled.", err=True)
+            raise typer.Exit(1)
+
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
             typer.echo(f"Successfully installed {pkg}.")
@@ -862,12 +880,12 @@ def gui() -> None:
             typer.echo(f"Failed to install {pkg}: {exc}", err=True)
             raise typer.Exit(1)
 
-    if not _gui_backend_available():
-        typer.echo(
-            "BeeWare GUI backend still unavailable after installation attempt.",
-            err=True,
-        )
-        raise typer.Exit(1)
+        if not _gui_backend_available():
+            typer.echo(
+                "BeeWare GUI backend still unavailable after installation attempt.",
+                err=True,
+            )
+            raise typer.Exit(1)
 
     from seedpass_gui.app import main
 
