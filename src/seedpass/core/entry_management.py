@@ -37,6 +37,7 @@ from .entry_types import EntryType
 from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
+from utils.atomic_write import atomic_write
 from utils.key_validation import (
     validate_totp_secret,
     validate_ssh_key_pair,
@@ -1312,8 +1313,7 @@ class EntryManager:
             # The checksum file path already includes the fingerprint directory
             checksum_path = self.checksum_file
 
-            with open(checksum_path, "w") as f:
-                f.write(checksum)
+            atomic_write(checksum_path, lambda f: f.write(checksum))
 
             logger.debug(f"Checksum updated and written to '{checksum_path}'.")
             print(colored(f"[+] Checksum updated successfully.", "green"))

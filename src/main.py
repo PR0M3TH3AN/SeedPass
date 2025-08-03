@@ -32,6 +32,7 @@ from utils import (
     pause,
     clear_header_with_notification,
 )
+from utils.atomic_write import atomic_write
 import queue
 from local_bip85.bip85 import Bip85Error
 
@@ -667,8 +668,7 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
         path = Path(value).expanduser()
         path.mkdir(parents=True, exist_ok=True)
         test_file = path / ".seedpass_write_test"
-        with open(test_file, "w") as f:
-            f.write("test")
+        atomic_write(test_file, lambda f: f.write("test"))
         test_file.unlink()
     except Exception as e:
         print(colored(f"Path not writable: {e}", "red"))

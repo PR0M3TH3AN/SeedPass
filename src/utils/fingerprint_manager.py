@@ -9,6 +9,7 @@ from typing import List, Optional
 
 import shutil  # Ensure shutil is imported if used within the class
 
+from utils.atomic_write import atomic_write
 from utils.fingerprint import generate_fingerprint
 
 # Instantiate the logger
@@ -92,16 +93,15 @@ class FingerprintManager:
         Saves the current list of fingerprints to the fingerprints.json file.
         """
         try:
-            with open(self.fingerprints_file, "w") as f:
-                json.dump(
-                    {
-                        "fingerprints": self.fingerprints,
-                        "last_used": self.current_fingerprint,
-                        "names": self.names,
-                    },
-                    f,
-                    indent=4,
-                )
+            data = {
+                "fingerprints": self.fingerprints,
+                "last_used": self.current_fingerprint,
+                "names": self.names,
+            }
+            atomic_write(
+                self.fingerprints_file,
+                lambda f: json.dump(data, f, indent=4),
+            )
             logger.debug(
                 f"Fingerprints saved: {self.fingerprints} (last used: {self.current_fingerprint})"
             )

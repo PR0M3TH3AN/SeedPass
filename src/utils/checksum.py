@@ -21,6 +21,7 @@ from typing import Optional, Any
 from termcolor import colored
 
 from constants import APP_DIR, SCRIPT_CHECKSUM_FILE
+from utils.atomic_write import atomic_write
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -121,8 +122,7 @@ def update_checksum(content: str, checksum_file_path: str) -> bool:
         hasher = hashlib.sha256()
         hasher.update(content.encode("utf-8"))
         new_checksum = hasher.hexdigest()
-        with open(checksum_file_path, "w") as f:
-            f.write(new_checksum)
+        atomic_write(checksum_file_path, lambda f: f.write(new_checksum))
         logging.debug(f"Updated checksum for '{checksum_file_path}' to: {new_checksum}")
         return True
     except Exception as e:
@@ -179,8 +179,7 @@ def initialize_checksum(file_path: str, checksum_file_path: str) -> bool:
         return False
 
     try:
-        with open(checksum_file_path, "w") as f:
-            f.write(checksum)
+        atomic_write(checksum_file_path, lambda f: f.write(checksum))
         logging.debug(
             f"Initialized checksum file '{checksum_file_path}' with checksum: {checksum}"
         )
@@ -206,8 +205,7 @@ def update_checksum_file(file_path: str, checksum_file_path: str) -> bool:
     if checksum is None:
         return False
     try:
-        with open(checksum_file_path, "w") as f:
-            f.write(checksum)
+        atomic_write(checksum_file_path, lambda f: f.write(checksum))
         logging.debug(
             f"Updated checksum for '{file_path}' to '{checksum}' at '{checksum_file_path}'."
         )
