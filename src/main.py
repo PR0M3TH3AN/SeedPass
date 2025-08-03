@@ -1251,11 +1251,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             idx, password_manager.parent_seed
         )
         print(code)
-        try:
-            copy_to_clipboard(code, password_manager.clipboard_clear_delay)
+        if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
             print(colored("Code copied to clipboard", "green"))
-        except Exception as exc:
-            logging.warning(f"Clipboard copy failed: {exc}")
         return 0
 
     def signal_handler(sig, _frame):

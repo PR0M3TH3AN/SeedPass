@@ -1504,13 +1504,13 @@ class PasswordManager:
                     )
                 )
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(password, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(password, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(colored(f"Password for {label}: {password}\n", "yellow"))
 
@@ -2017,13 +2017,13 @@ class PasswordManager:
             print(colored(f"\n[+] Nostr key entry added with ID {index}.\n", "green"))
             print(colored(f"npub: {npub}", "cyan"))
             if self.secret_mode_enabled:
-                copy_to_clipboard(nsec, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
+                if copy_to_clipboard(nsec, self.clipboard_clear_delay):
+                    print(
+                        colored(
+                            f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
                     )
-                )
             else:
                 print(color_text(f"nsec: {nsec}", "deterministic"))
             if confirm_action("Show QR code for npub? (Y/N): "):
@@ -2104,13 +2104,13 @@ class PasswordManager:
             if notes:
                 print(colored(f"Notes: {notes}", "cyan"))
             if self.secret_mode_enabled:
-                copy_to_clipboard(value, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
+                if copy_to_clipboard(value, self.clipboard_clear_delay):
+                    print(
+                        colored(
+                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
                     )
-                )
             else:
                 print(color_text(f"Value: {value}", "deterministic"))
             try:
@@ -2162,13 +2162,13 @@ class PasswordManager:
             )
             if confirm_action("Reveal seed now? (y/N): "):
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(seed, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Seed copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(seed, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] Seed copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(color_text(seed, "deterministic"))
                 if confirm_action("Show Compact Seed QR? (Y/N): "):
@@ -2521,13 +2521,13 @@ class PasswordManager:
                 while True:
                     code = self.entry_manager.get_totp_code(index, self.parent_seed)
                     if self.secret_mode_enabled:
-                        copy_to_clipboard(code, self.clipboard_clear_delay)
-                        print(
-                            colored(
-                                f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
+                        if copy_to_clipboard(code, self.clipboard_clear_delay):
+                            print(
+                                colored(
+                                    f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                    "green",
+                                )
                             )
-                        )
                     else:
                         print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
                         print(colored(f"Label: {label}", "cyan"))
@@ -2593,13 +2593,13 @@ class PasswordManager:
                 print(colored("Public Key:", "cyan"))
                 print(color_text(pub_pem, "default"))
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(priv_pem, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(priv_pem, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(colored("Private Key:", "cyan"))
                     print(color_text(priv_pem, "deterministic"))
@@ -2628,13 +2628,13 @@ class PasswordManager:
                 if tags:
                     print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(phrase, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(phrase, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(color_text(phrase, "deterministic"))
                 if confirm_action("Show derived entropy as hex? (Y/N): "):
@@ -2679,13 +2679,13 @@ class PasswordManager:
                     print(colored(f"Tags: {', '.join(tags)}", "cyan"))
                 print(colored(f"Fingerprint: {fingerprint}", "cyan"))
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(priv_key, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(priv_key, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(color_text(priv_key, "deterministic"))
             except Exception as e:  # pragma: no cover - best effort
@@ -2704,13 +2704,13 @@ class PasswordManager:
                 print(colored(f"Label: {label}", "cyan"))
                 print(colored(f"npub: {npub}", "cyan"))
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(nsec, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(nsec, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(color_text(f"nsec: {nsec}", "deterministic"))
                 if notes:
@@ -2740,13 +2740,13 @@ class PasswordManager:
                 )
             )
             if self.secret_mode_enabled:
-                copy_to_clipboard(value, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
+                if copy_to_clipboard(value, self.clipboard_clear_delay):
+                    print(
+                        colored(
+                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
                     )
-                )
             else:
                 print(color_text(f"Value: {value}", "deterministic"))
 
@@ -2767,13 +2767,15 @@ class PasswordManager:
                     if show == "y":
                         for f_label, f_value in hidden_fields:
                             if self.secret_mode_enabled:
-                                copy_to_clipboard(f_value, self.clipboard_clear_delay)
-                                print(
-                                    colored(
-                                        f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                        "green",
+                                if copy_to_clipboard(
+                                    f_value, self.clipboard_clear_delay
+                                ):
+                                    print(
+                                        colored(
+                                            f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                            "green",
+                                        )
                                     )
-                                )
                             else:
                                 print(colored(f"  {f_label}: {f_value}", "cyan"))
             return
@@ -2808,13 +2810,13 @@ class PasswordManager:
                     index, self.parent_seed
                 )
                 if self.secret_mode_enabled:
-                    copy_to_clipboard(seed, self.clipboard_clear_delay)
-                    print(
-                        colored(
-                            f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
+                    if copy_to_clipboard(seed, self.clipboard_clear_delay):
+                        print(
+                            colored(
+                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                "green",
+                            )
                         )
-                    )
                 else:
                     print(color_text(seed, "deterministic"))
                 return
@@ -2852,13 +2854,13 @@ class PasswordManager:
 
         if password:
             if self.secret_mode_enabled:
-                copy_to_clipboard(password, self.clipboard_clear_delay)
-                print(
-                    colored(
-                        f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                        "green",
+                if copy_to_clipboard(password, self.clipboard_clear_delay):
+                    print(
+                        colored(
+                            f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                            "green",
+                        )
                     )
-                )
             else:
                 print(
                     colored(
@@ -2897,13 +2899,15 @@ class PasswordManager:
                         if show == "y":
                             for label, value in hidden_fields:
                                 if self.secret_mode_enabled:
-                                    copy_to_clipboard(value, self.clipboard_clear_delay)
-                                    print(
-                                        colored(
-                                            f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                            "green",
+                                    if copy_to_clipboard(
+                                        value, self.clipboard_clear_delay
+                                    ):
+                                        print(
+                                            colored(
+                                                f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
+                                                "green",
+                                            )
                                         )
-                                    )
                                 else:
                                     print(colored(f"  {label}: {value}", "cyan"))
         else:
@@ -3847,10 +3851,10 @@ class PasswordManager:
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
                         if self.secret_mode_enabled:
-                            copy_to_clipboard(code, self.clipboard_clear_delay)
-                            print(
-                                f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
-                            )
+                            if copy_to_clipboard(code, self.clipboard_clear_delay):
+                                print(
+                                    f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
+                                )
                         else:
                             print(
                                 f"[{idx}] {label}: {color_text(code, 'deterministic')} {bar} {remaining:2d}s"
@@ -3863,10 +3867,10 @@ class PasswordManager:
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
                         if self.secret_mode_enabled:
-                            copy_to_clipboard(code, self.clipboard_clear_delay)
-                            print(
-                                f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
-                            )
+                            if copy_to_clipboard(code, self.clipboard_clear_delay):
+                                print(
+                                    f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
+                                )
                         else:
                             print(
                                 f"[{idx}] {label}: {color_text(code, 'imported')} {bar} {remaining:2d}s"

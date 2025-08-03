@@ -1,6 +1,7 @@
 from pathlib import Path
 import pyperclip
 import threading
+import shutil
 
 import sys
 
@@ -66,3 +67,16 @@ def test_copy_to_clipboard_does_not_clear_if_changed(monkeypatch):
     fake_copy("other")
     callbacks["func"]()
     assert clipboard["text"] == "other"
+
+
+def test_copy_to_clipboard_missing_dependency(monkeypatch, capsys):
+    def fail_copy(*args, **kwargs):
+        raise pyperclip.PyperclipException("no copy")
+
+    monkeypatch.setattr(pyperclip, "copy", fail_copy)
+    monkeypatch.setattr(pyperclip, "paste", lambda: "")
+    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+
+    copy_to_clipboard("secret", 1)
+    out = capsys.readouterr().out
+    assert "install xclip" in out.lower()
