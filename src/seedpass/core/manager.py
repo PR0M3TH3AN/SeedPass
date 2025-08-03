@@ -1154,6 +1154,15 @@ class PasswordManager:
                 fingerprint_dir=self.fingerprint_dir,
                 config_manager=self.config_manager,
             )
+
+            migrated = False
+            try:
+                self.vault.load_index()
+                migrated = getattr(self.vault, "migrated_from_legacy", False)
+            except RuntimeError as exc:
+                print(colored(str(exc), "red"))
+                sys.exit(1)
+
             self.entry_manager = EntryManager(
                 vault=self.vault,
                 backup_manager=self.backup_manager,
@@ -1212,6 +1221,9 @@ class PasswordManager:
                         chunks=[],
                         delta_since=self.delta_since or None,
                     )
+
+            if migrated and not self.offline_mode:
+                self.start_background_vault_sync()
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 

@@ -39,6 +39,14 @@ This project is written in **Python**. Follow these instructions when working wi
 
 Following these practices helps keep the code base consistent and secure.
 
+## Legacy Index Migration
+
+- Always provide a migration path for index archives and import/export routines.
+- Support older SeedPass versions whose indexes lacked salts or password-based encryption by detecting legacy formats and upgrading them to the current schema.
+- Ensure migrations unlock older account indexes and allow Nostr synchronization.
+- Add regression tests covering these migrations whenever the index format or encryption changes.
+
+
 ## Integrating New Entry Types
 
 SeedPass supports multiple `kind` values in its JSON entry files. When adding a

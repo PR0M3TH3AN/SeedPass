@@ -3,6 +3,9 @@
 from pathlib import Path
 from typing import Optional, Union
 from os import PathLike
+import shutil
+
+from termcolor import colored
 
 from .encryption import EncryptionManager
 
@@ -29,17 +32,47 @@ class Vault:
 
     # ----- Password index helpers -----
     def load_index(self) -> dict:
-        """Return decrypted password index data as a dict, applying migrations."""
+        """Return decrypted password index data as a dict, applying migrations.
+
+        If a legacy ``seedpass_passwords_db.json.enc`` file is detected, the
+        user is prompted to migrate it. A backup copy of the legacy file (and
+        its checksum) is saved under ``legacy_backups`` within the fingerprint
+        directory before renaming to the new filename.
+        """
+
         legacy_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
+        self.migrated_from_legacy = False
         if legacy_file.exists() and not self.index_file.exists():
+            print(colored("Legacy index detected.", "yellow"))
+            resp = (
+                input("Would you like to migrate this to the new index format? [y/N]: ")
+                .strip()
+                .lower()
+            )
+            if resp != "y":
+                raise RuntimeError("Migration declined by user")
+
             legacy_checksum = (
                 self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
             )
+            backup_dir = self.fingerprint_dir / "legacy_backups"
+            backup_dir.mkdir(exist_ok=True)
+            shutil.copy2(legacy_file, backup_dir / legacy_file.name)
+            if legacy_checksum.exists():
+                shutil.copy2(legacy_checksum, backup_dir / legacy_checksum.name)
+
             legacy_file.rename(self.index_file)
             if legacy_checksum.exists():
                 legacy_checksum.rename(
                     self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
                 )
+            self.migrated_from_legacy = True
+            print(
+                colored(
+                    "Migration complete. Original index backed up to 'legacy_backups'",
+                    "green",
+                )
+            )
 
         data = self.encryption_manager.load_json_data(self.index_file)
         from .migrations import apply_migrations, LATEST_VERSION
