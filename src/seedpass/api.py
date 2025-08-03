@@ -139,8 +139,13 @@ def search_entry(query: str, authorization: str | None = Header(None)) -> List[A
 
 
 @app.get("/api/v1/entry/{entry_id}")
-def get_entry(entry_id: int, authorization: str | None = Header(None)) -> Any:
+def get_entry(
+    entry_id: int,
+    authorization: str | None = Header(None),
+    password: str | None = Header(None, alias="X-SeedPass-Password"),
+) -> Any:
     _check_token(authorization)
+    _require_password(password)
     assert _pm is not None
     entry = _pm.entry_manager.retrieve_entry(entry_id)
     if entry is None:
@@ -417,17 +422,25 @@ def select_fingerprint(
 
 
 @app.get("/api/v1/totp/export")
-def export_totp(authorization: str | None = Header(None)) -> dict:
+def export_totp(
+    authorization: str | None = Header(None),
+    password: str | None = Header(None, alias="X-SeedPass-Password"),
+) -> dict:
     """Return all stored TOTP entries in JSON format."""
     _check_token(authorization)
+    _require_password(password)
     assert _pm is not None
     return _pm.entry_manager.export_totp_entries(_pm.parent_seed)
 
 
 @app.get("/api/v1/totp")
-def get_totp_codes(authorization: str | None = Header(None)) -> dict:
+def get_totp_codes(
+    authorization: str | None = Header(None),
+    password: str | None = Header(None, alias="X-SeedPass-Password"),
+) -> dict:
     """Return active TOTP codes with remaining seconds."""
     _check_token(authorization)
+    _require_password(password)
     assert _pm is not None
     entries = _pm.entry_manager.list_entries(
         filter_kind=EntryType.TOTP.value, include_archived=False

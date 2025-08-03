@@ -78,6 +78,7 @@ def test_get_entry_by_id(client):
     headers = {
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
+        "X-SeedPass-Password": "pw",
     }
     res = cl.get("/api/v1/entry/1", headers=headers)
     assert res.status_code == 200
