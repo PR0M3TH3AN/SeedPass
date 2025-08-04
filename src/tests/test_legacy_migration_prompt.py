@@ -34,7 +34,7 @@ def test_open_legacy_without_migrating(tmp_path, monkeypatch):
     assert mgr.last_migration_performed is False
 
 
-def test_migrate_legacy_and_sync(tmp_path, monkeypatch):
+def test_migrate_legacy_sets_flag(tmp_path, monkeypatch):
     password = "secret"
     _setup_legacy_file(tmp_path, password)
     new_key = base64.urlsafe_b64encode(b"B" * 32)

@@ -84,7 +84,7 @@ def test_legacy_index_migration_removes_strays(monkeypatch, tmp_path: Path):
     assert not (tmp_path / "seedpass_passwords_db_checksum.txt").exists()
 
 
-def test_migration_triggers_sync(monkeypatch, tmp_path: Path):
+def test_migration_syncs_when_confirmed(monkeypatch, tmp_path: Path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 
     key = derive_index_key(TEST_SEED)
@@ -118,9 +118,47 @@ def test_migration_triggers_sync(monkeypatch, tmp_path: Path):
 
     pm.initialize_managers()
     assert calls["sync"] == 1
+    assert enc_mgr.last_migration_performed is False
 
 
-def test_legacy_nostr_payload_triggers_sync(monkeypatch, tmp_path: Path):
+def test_migration_declines_sync(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = Vault(enc_mgr, tmp_path)
+    pm.parent_seed = TEST_SEED
+    pm.fingerprint_dir = tmp_path
+    pm.current_fingerprint = tmp_path.name
+    pm.bip85 = SimpleNamespace()
+
+    calls = {"sync": 0}
+    pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
+        "manifest_id": "m",
+        "chunk_ids": [],
+        "delta_ids": [],
+    }
+
+    monkeypatch.setattr(
+        "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
+    )
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: False)
+
+    pm.initialize_managers()
+    assert calls["sync"] == 0
+    assert enc_mgr.last_migration_performed is False
+
+
+def test_legacy_nostr_payload_syncs_when_confirmed(monkeypatch, tmp_path: Path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 
     key = derive_index_key(TEST_SEED)
@@ -166,9 +204,10 @@ def test_legacy_nostr_payload_triggers_sync(monkeypatch, tmp_path: Path):
     asyncio.run(pm.sync_index_from_nostr_async())
     assert calls["sync"] == 1
     assert pm.vault.load_index() == data
+    assert enc_mgr.last_migration_performed is False
 
 
-def test_legacy_index_reinit_triggers_sync_once(monkeypatch, tmp_path: Path):
+def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 
     key = derive_index_key(TEST_SEED)
@@ -205,3 +244,4 @@ def test_legacy_index_reinit_triggers_sync_once(monkeypatch, tmp_path: Path):
     pm.initialize_managers()
 
     assert calls["sync"] == 1
+    assert enc_mgr.last_migration_performed is False
