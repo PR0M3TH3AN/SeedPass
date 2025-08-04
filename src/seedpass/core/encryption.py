@@ -161,25 +161,41 @@ class EncryptionManager:
                 raise InvalidToken(
                     "User declined legacy decryption or provided invalid choice."
                 ) from e
-            try:
-                password = prompt_existing_password(
-                    "Enter your master password for legacy decryption: "
-                )
-                legacy_key = _derive_legacy_key_from_password(
-                    password, iterations=50_000
-                )
-                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                legacy_mgr._legacy_migrate_flag = False
-                result = legacy_mgr.decrypt_data(encrypted_data)
-                logger.warning(
-                    "Data decrypted using legacy password-only key derivation."
-                )
-                return result
-            except Exception as e2:  # pragma: no cover - exceptional path
-                logger.error(f"Failed legacy decryption attempt: {e2}", exc_info=True)
-                raise InvalidToken(
-                    "Could not decrypt data with any available method."
-                ) from e
+            password = prompt_existing_password(
+                "Enter your master password for legacy decryption: "
+            )
+            last_exc: Optional[Exception] = None
+            for iter_count in [50_000, 100_000]:
+                try:
+                    legacy_key = _derive_legacy_key_from_password(
+                        password, iterations=iter_count
+                    )
+                    legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                    legacy_mgr._legacy_migrate_flag = False
+                    result = legacy_mgr.decrypt_data(encrypted_data)
+                    try:  # record iteration count for future runs
+                        from .vault import Vault
+                        from .config_manager import ConfigManager
+
+                        cfg_mgr = ConfigManager(
+                            Vault(self, self.fingerprint_dir), self.fingerprint_dir
+                        )
+                        cfg_mgr.set_kdf_iterations(iter_count)
+                    except Exception:  # pragma: no cover - best effort
+                        logger.error(
+                            "Failed to record PBKDF2 iteration count in config",
+                            exc_info=True,
+                        )
+                    logger.warning(
+                        "Data decrypted using legacy password-only key derivation."
+                    )
+                    return result
+                except Exception as e2:  # pragma: no cover - try next iteration
+                    last_exc = e2
+            logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
+            raise InvalidToken(
+                "Could not decrypt data with any available method."
+            ) from e
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
 
