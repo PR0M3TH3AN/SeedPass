@@ -32,13 +32,19 @@ class Vault:
         self.encryption_manager = manager
 
     # ----- Password index helpers -----
-    def load_index(self, *, return_migration_flag: bool = False):
+    def load_index(self, *, return_migration_flags: bool = False):
         """Return decrypted password index data, applying migrations.
 
         If a legacy ``seedpass_passwords_db.json.enc`` file is detected, the
         user is prompted to migrate it. A backup copy of the legacy file (and
         its checksum) is saved under ``legacy_backups`` within the fingerprint
         directory before renaming to the new filename.
+
+        When ``return_migration_flags`` is ``True`` the tuple
+        ``(data, migrated, last_migration_performed)`` is returned where
+        ``migrated`` indicates whether any migration occurred and
+        ``last_migration_performed`` reflects whether the underlying
+        :class:`EncryptionManager` reported a conversion.
         """
 
         legacy_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
@@ -154,8 +160,8 @@ class Vault:
         self.migrated_from_legacy = (
             legacy_detected or migration_performed or schema_migrated
         )
-        if return_migration_flag:
-            return data, self.migrated_from_legacy
+        if return_migration_flags:
+            return data, self.migrated_from_legacy, migration_performed
         return data
 
     def save_index(self, data: dict) -> None:

@@ -298,7 +298,7 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     assert enc_mgr.last_migration_performed is False
 
 
-def test_schema_migration_triggers_sync(monkeypatch, tmp_path: Path):
+def test_schema_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 
     data = {"schema_version": 3, "entries": {}}
@@ -316,7 +316,8 @@ def test_schema_migration_triggers_sync(monkeypatch, tmp_path: Path):
     pm.bip85 = SimpleNamespace()
     pm.offline_mode = False
 
-    calls = {"sync": 0}
+    calls = {"sync": 0, "confirm": 0}
+
     pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
         "manifest_id": "m",
         "chunk_ids": [],
@@ -326,8 +327,87 @@ def test_schema_migration_triggers_sync(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
     )
-    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
+
+    def fake_confirm(*_a, **_k):
+        calls["confirm"] += 1
+        return True
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", fake_confirm)
 
     pm.initialize_managers()
-    assert calls["sync"] == 1
+    assert calls["sync"] == 0
+    assert calls["confirm"] == 0
     assert enc_mgr.last_migration_performed is False
+
+
+def test_declined_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "n")
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = Vault(enc_mgr, tmp_path)
+    pm.parent_seed = TEST_SEED
+    pm.fingerprint_dir = tmp_path
+    pm.current_fingerprint = tmp_path.name
+    pm.bip85 = SimpleNamespace()
+
+    calls = {"confirm": 0}
+
+    def fake_confirm(*_a, **_k):
+        calls["confirm"] += 1
+        return True
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", fake_confirm)
+
+    with pytest.raises(SystemExit):
+        pm.initialize_managers()
+
+    assert calls["confirm"] == 0
+
+
+def test_failed_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
+
+    def fail(*_a, **_k):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(enc_mgr, "load_json_data", fail)
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = Vault(enc_mgr, tmp_path)
+    pm.parent_seed = TEST_SEED
+    pm.fingerprint_dir = tmp_path
+    pm.current_fingerprint = tmp_path.name
+    pm.bip85 = SimpleNamespace()
+
+    calls = {"confirm": 0}
+
+    def fake_confirm(*_a, **_k):
+        calls["confirm"] += 1
+        return True
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", fake_confirm)
+
+    with pytest.raises(SystemExit):
+        pm.initialize_managers()
+
+    assert calls["confirm"] == 0
