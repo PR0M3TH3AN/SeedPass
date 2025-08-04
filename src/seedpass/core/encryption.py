@@ -92,11 +92,22 @@ class EncryptionManager:
             logger.error(f"Failed to encrypt data: {e}", exc_info=True)
             raise
 
-    def decrypt_data(self, encrypted_data: bytes) -> bytes:
+    def decrypt_data(
+        self, encrypted_data: bytes, context: Optional[str] = None
+    ) -> bytes:
+        """Decrypt ``encrypted_data`` handling legacy fallbacks.
+
+        Parameters
+        ----------
+        encrypted_data:
+            The bytes to decrypt.
+        context:
+            Optional string describing what is being decrypted ("seed", "index", etc.)
+            for clearer error messages.
         """
-        (3) The core migration logic. Tries the new format first, then falls back
-            to the old one. This is the ONLY place decryption logic should live.
-        """
+
+        ctx = f" {context}" if context else ""
+
         try:
             # Try the new V2 format first
             if encrypted_data.startswith(b"V2:"):
@@ -118,7 +129,9 @@ class EncryptionManager:
                         )
                         return result
                     except InvalidToken:
-                        raise InvalidToken("AES-GCM decryption failed.") from e
+                        msg = f"Failed to decrypt{ctx}: invalid key or corrupt file"
+                        logger.error(msg)
+                        raise InvalidToken(msg) from e
 
             # If it's not V2, it must be the legacy Fernet format
             else:
@@ -129,19 +142,20 @@ class EncryptionManager:
                     logger.error(
                         "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
                     )
-                    raise InvalidToken(
-                        "Could not decrypt data with any available method."
-                    ) from e
+                    raise e
 
         except (InvalidToken, InvalidTag) as e:
+            if encrypted_data.startswith(b"V2:"):
+                # Already determined not to be legacy; re-raise
+                raise
             if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
                 raise
             if not self._legacy_migrate_flag:
                 raise
-            logger.debug(f"Could not decrypt data: {e}")
+            logger.debug(f"Could not decrypt data{ctx}: {e}")
             print(
                 colored(
-                    "Failed to decrypt with current key. This may be a legacy index.",
+                    f"Failed to decrypt{ctx} with current key. This may be a legacy index.",
                     "red",
                 )
             )
@@ -172,7 +186,7 @@ class EncryptionManager:
                     )
                     legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
                     legacy_mgr._legacy_migrate_flag = False
-                    result = legacy_mgr.decrypt_data(encrypted_data)
+                    result = legacy_mgr.decrypt_data(encrypted_data, context=context)
                     try:  # record iteration count for future runs
                         from .vault import Vault
                         from .config_manager import ConfigManager
@@ -194,7 +208,7 @@ class EncryptionManager:
                     last_exc = e2
             logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
             raise InvalidToken(
-                "Could not decrypt data with any available method."
+                f"Could not decrypt{ctx} with any available method."
             ) from e
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
@@ -241,7 +255,7 @@ class EncryptionManager:
             encrypted_data = fh.read()
 
         is_legacy = not encrypted_data.startswith(b"V2:")
-        decrypted_data = self.decrypt_data(encrypted_data)
+        decrypted_data = self.decrypt_data(encrypted_data, context="seed")
 
         if is_legacy:
             logger.info("Parent seed was in legacy format. Re-encrypting to V2 format.")
@@ -266,7 +280,7 @@ class EncryptionManager:
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
             encrypted_data = fh.read()
-        return self.decrypt_data(encrypted_data)
+        return self.decrypt_data(encrypted_data, context=str(relative_path))
 
     def save_json_data(self, data: dict, relative_path: Optional[Path] = None) -> None:
         if relative_path is None:
@@ -297,7 +311,9 @@ class EncryptionManager:
         self.last_migration_performed = False
 
         try:
-            decrypted_data = self.decrypt_data(encrypted_data)
+            decrypted_data = self.decrypt_data(
+                encrypted_data, context=str(relative_path)
+            )
             if USE_ORJSON:
                 data = json_lib.loads(decrypted_data)
             else:
@@ -376,7 +392,9 @@ class EncryptionManager:
             return data
 
         try:
-            decrypted_data = self.decrypt_data(encrypted_data)
+            decrypted_data = self.decrypt_data(
+                encrypted_data, context=str(relative_path)
+            )
             data = _process(decrypted_data)
             self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
@@ -391,7 +409,9 @@ class EncryptionManager:
                 )
                 legacy_key = _derive_legacy_key_from_password(password)
                 legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                decrypted_data = legacy_mgr.decrypt_data(encrypted_data)
+                decrypted_data = legacy_mgr.decrypt_data(
+                    encrypted_data, context=str(relative_path)
+                )
                 data = _process(decrypted_data)
                 self.save_json_data(data, relative_path)
                 self.update_checksum(relative_path)

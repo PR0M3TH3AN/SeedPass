@@ -112,7 +112,7 @@ def import_backup(
 
     raw = Path(path).read_bytes()
     if path.suffix.endswith(".enc"):
-        raw = vault.encryption_manager.decrypt_data(raw)
+        raw = vault.encryption_manager.decrypt_data(raw, context=str(path))
 
     wrapper = json.loads(raw.decode("utf-8"))
     if wrapper.get("format_version") != FORMAT_VERSION:
@@ -129,7 +129,7 @@ def import_backup(
     )
     key = _derive_export_key(seed)
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
-    index_bytes = enc_mgr.decrypt_data(payload)
+    index_bytes = enc_mgr.decrypt_data(payload, context="backup payload")
     index = json.loads(index_bytes.decode("utf-8"))
 
     checksum = json_checksum(index)
