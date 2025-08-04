@@ -1300,8 +1300,49 @@ class PasswordManager:
                             updated = True
                             current = delta
                             migrated = migrated or mig
-            if migrated and not getattr(self, "offline_mode", False):
-                self.start_background_vault_sync()
+            if migrated:
+                print(colored("Local database migration successful.", "green"))
+                if self.encryption_manager is not None:
+                    self.encryption_manager.last_migration_performed = False
+                if not getattr(self, "offline_mode", False):
+                    if confirm_action(
+                        "Do you want to sync the migrated profile to Nostr now?"
+                    ):
+                        try:
+                            result = await self.sync_vault_async()
+                            if result:
+                                print(
+                                    colored(
+                                        "Profile synchronized to Nostr successfully.",
+                                        "green",
+                                    )
+                                )
+                            else:
+                                print(
+                                    colored(
+                                        "Error: Failed to sync profile to Nostr.",
+                                        "red",
+                                    )
+                                )
+                        except Exception as sync_err:
+                            logger.error(
+                                "Failed to sync profile to Nostr after migration: %s",
+                                sync_err,
+                                exc_info=True,
+                            )
+                            print(
+                                colored(
+                                    "Error: Failed to sync profile to Nostr.",
+                                    "red",
+                                )
+                            )
+                    else:
+                        print(
+                            colored(
+                                "You can sync the migrated profile later from the main menu.",
+                                "yellow",
+                            )
+                        )
             if updated:
                 logger.info("Local database synchronized from Nostr.")
         except Exception as e:
