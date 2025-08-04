@@ -2,6 +2,8 @@ import json
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from utils.key_derivation import derive_index_key
 from cryptography.fernet import Fernet
@@ -50,6 +52,55 @@ def test_legacy_index_migrates(monkeypatch, tmp_path: Path):
     assert not (tmp_path / "seedpass_passwords_db_checksum.txt").exists()
     backup = tmp_path / "legacy_backups" / "seedpass_passwords_db.json.enc"
     assert backup.exists()
+
+
+def test_failed_migration_restores_legacy(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+    checksum = hashlib.sha256(enc).hexdigest()
+    (tmp_path / "seedpass_passwords_db_checksum.txt").write_text(checksum)
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
+
+    def bad_load_json(_path):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(enc_mgr, "load_json_data", bad_load_json)
+
+    with pytest.raises(RuntimeError, match="Migration failed:"):
+        vault.load_index()
+
+    # Legacy file restored and new index removed
+    assert legacy_file.exists()
+    assert not (tmp_path / "seedpass_entries_db.json.enc").exists()
+    assert (tmp_path / "seedpass_passwords_db_checksum.txt").read_text() == checksum
+    assert not vault.migrated_from_legacy
+
+
+def test_migrated_index_has_v2_prefix(monkeypatch, tmp_path: Path):
+    vault, _ = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+    (tmp_path / "seedpass_passwords_db_checksum.txt").write_text(
+        hashlib.sha256(enc).hexdigest()
+    )
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
+
+    vault.load_index()
+
+    new_file = tmp_path / "seedpass_entries_db.json.enc"
+    assert new_file.read_bytes().startswith(b"V2:")
+    assert vault.migrated_from_legacy
 
 
 def test_legacy_index_migration_removes_strays(monkeypatch, tmp_path: Path):
