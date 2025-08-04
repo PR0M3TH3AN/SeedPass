@@ -32,8 +32,8 @@ class Vault:
         self.encryption_manager = manager
 
     # ----- Password index helpers -----
-    def load_index(self) -> dict:
-        """Return decrypted password index data as a dict, applying migrations.
+    def load_index(self, *, return_migration_flag: bool = False):
+        """Return decrypted password index data, applying migrations.
 
         If a legacy ``seedpass_passwords_db.json.enc`` file is detected, the
         user is prompted to migrate it. A backup copy of the legacy file (and
@@ -87,7 +87,7 @@ class Vault:
             )
 
         data = self.encryption_manager.load_json_data(self.index_file)
-        self.migrated_from_legacy = self.migrated_from_legacy or getattr(
+        migration_performed = getattr(
             self.encryption_manager, "last_migration_performed", False
         )
         from .migrations import apply_migrations, LATEST_VERSION
@@ -97,7 +97,13 @@ class Vault:
             raise ValueError(
                 f"File schema version {version} is newer than supported {LATEST_VERSION}"
             )
+        schema_migrated = version < LATEST_VERSION
         data = apply_migrations(data)
+        self.migrated_from_legacy = (
+            self.migrated_from_legacy or migration_performed or schema_migrated
+        )
+        if return_migration_flag:
+            return data, self.migrated_from_legacy
         return data
 
     def save_index(self, data: dict) -> None:
@@ -109,15 +115,28 @@ class Vault:
         return self.encryption_manager.get_encrypted_index()
 
     def decrypt_and_save_index_from_nostr(
-        self, encrypted_data: bytes, *, strict: bool = True, merge: bool = False
-    ) -> bool:
-        """Decrypt Nostr payload and update the local index."""
-        self.migrated_from_legacy = not encrypted_data.startswith(b"V2:")
+        self,
+        encrypted_data: bytes,
+        *,
+        strict: bool = True,
+        merge: bool = False,
+        return_migration_flag: bool = False,
+    ):
+        """Decrypt Nostr payload and update the local index.
+
+        Returns ``True``/``False`` for success by default. When
+        ``return_migration_flag`` is ``True`` a tuple ``(success, migrated)`` is
+        returned, where ``migrated`` indicates whether any legacy migration
+        occurred.
+        """
         result = self.encryption_manager.decrypt_and_save_index_from_nostr(
             encrypted_data, strict=strict, merge=merge
         )
-        if not result:
-            self.migrated_from_legacy = False
+        self.migrated_from_legacy = result and getattr(
+            self.encryption_manager, "last_migration_performed", False
+        )
+        if return_migration_flag:
+            return result, self.migrated_from_legacy
         return result
 
     # ----- Config helpers -----

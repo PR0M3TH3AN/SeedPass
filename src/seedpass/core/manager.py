@@ -1158,8 +1158,7 @@ class PasswordManager:
 
             migrated = False
             try:
-                self.vault.load_index()
-                migrated = getattr(self.vault, "migrated_from_legacy", False)
+                _, migrated = self.vault.load_index(return_migration_flag=True)
             except RuntimeError as exc:
                 print(colored(str(exc), "red"))
                 sys.exit(1)
@@ -1258,23 +1257,28 @@ class PasswordManager:
             updated = False
             migrated = False
             if current != encrypted:
-                if self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False, merge=False
-                ):
+                success, mig = self.vault.decrypt_and_save_index_from_nostr(
+                    encrypted, strict=False, merge=False, return_migration_flag=True
+                )
+                if success:
                     updated = True
                     current = encrypted
-                    migrated = migrated or self.vault.migrated_from_legacy
+                    migrated = migrated or mig
             if manifest.delta_since:
                 version = int(manifest.delta_since)
                 deltas = await self.nostr_client.fetch_deltas_since(version)
                 for delta in deltas:
                     if current != delta:
-                        if self.vault.decrypt_and_save_index_from_nostr(
-                            delta, strict=False, merge=True
-                        ):
+                        success, mig = self.vault.decrypt_and_save_index_from_nostr(
+                            delta,
+                            strict=False,
+                            merge=True,
+                            return_migration_flag=True,
+                        )
+                        if success:
                             updated = True
                             current = delta
-                            migrated = migrated or self.vault.migrated_from_legacy
+                            migrated = migrated or mig
             if migrated and not getattr(self, "offline_mode", False):
                 self.start_background_vault_sync()
             if updated:
@@ -1410,25 +1414,32 @@ class PasswordManager:
                 manifest, chunks = result
                 encrypted = gzip.decompress(b"".join(chunks))
                 migrated = False
-                success = self.vault.decrypt_and_save_index_from_nostr(
-                    encrypted, strict=False, merge=False
+                success, mig = self.vault.decrypt_and_save_index_from_nostr(
+                    encrypted,
+                    strict=False,
+                    merge=False,
+                    return_migration_flag=True,
                 )
                 if success:
                     have_data = True
-                    migrated = migrated or self.vault.migrated_from_legacy
+                    migrated = migrated or mig
                     current = encrypted
                     if manifest.delta_since:
                         version = int(manifest.delta_since)
                         deltas = await self.nostr_client.fetch_deltas_since(version)
                         for delta in deltas:
                             if current != delta:
-                                if self.vault.decrypt_and_save_index_from_nostr(
-                                    delta, strict=False, merge=True
-                                ):
-                                    current = delta
-                                    migrated = (
-                                        migrated or self.vault.migrated_from_legacy
+                                success, mig = (
+                                    self.vault.decrypt_and_save_index_from_nostr(
+                                        delta,
+                                        strict=False,
+                                        merge=True,
+                                        return_migration_flag=True,
                                     )
+                                )
+                                if success:
+                                    current = delta
+                                    migrated = migrated or mig
                     if migrated and not getattr(self, "offline_mode", False):
                         self.start_background_vault_sync()
                     logger.info("Initialized local database from Nostr.")
