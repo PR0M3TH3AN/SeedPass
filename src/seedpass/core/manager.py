@@ -1158,7 +1158,7 @@ class PasswordManager:
 
             migrated = False
             try:
-                _, migrated = self.vault.load_index(return_migration_flag=True)
+                self.vault.load_index(return_migration_flag=True)
             except RuntimeError as exc:
                 print(colored(str(exc), "red"))
                 sys.exit(1)
@@ -1222,8 +1222,29 @@ class PasswordManager:
                         delta_since=self.delta_since or None,
                     )
 
-            if migrated and not self.offline_mode:
-                self.start_background_vault_sync()
+            if getattr(self.encryption_manager, "last_migration_performed", False):
+                print(colored("Local database migration successful.", "green"))
+                self.encryption_manager.last_migration_performed = False
+                if not self.offline_mode and confirm_action(
+                    "Do you want to sync the migrated profile to Nostr now?"
+                ):
+                    result = self.sync_vault()
+                    if result:
+                        print(
+                            colored(
+                                "Profile synchronized to Nostr successfully.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(colored("Error: Failed to sync profile to Nostr.", "red"))
+                elif not self.offline_mode:
+                    print(
+                        colored(
+                            "You can sync the migrated profile later from the main menu.",
+                            "yellow",
+                        )
+                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
