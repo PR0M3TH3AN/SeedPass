@@ -105,13 +105,16 @@ def test_migration_triggers_sync(monkeypatch, tmp_path: Path):
     pm.bip85 = SimpleNamespace()
 
     calls = {"sync": 0}
-    pm.start_background_vault_sync = lambda *a, **k: calls.__setitem__(
-        "sync", calls["sync"] + 1
-    )
+    pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
+        "manifest_id": "m",
+        "chunk_ids": [],
+        "delta_ids": [],
+    }
 
     monkeypatch.setattr(
         "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
     )
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
 
     pm.initialize_managers()
     assert calls["sync"] == 1
@@ -186,9 +189,13 @@ def test_legacy_index_reinit_triggers_sync_once(monkeypatch, tmp_path: Path):
     )
 
     calls = {"sync": 0}
-    pm.start_background_vault_sync = lambda *a, **k: calls.__setitem__(
-        "sync", calls["sync"] + 1
-    )
+    pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
+        "manifest_id": "m",
+        "chunk_ids": [],
+        "delta_ids": [],
+    }
+
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
 
     pm.initialize_managers()
     pm.initialize_managers()
