@@ -96,11 +96,11 @@ def test_schema_migration_persisted_once(tmp_path: Path):
         },
     }
     enc_mgr.save_json_data(legacy)
-    data, migrated = vault.load_index(return_migration_flag=True)
+    data, migrated, _ = vault.load_index(return_migration_flags=True)
     assert migrated is True
     assert data["schema_version"] == LATEST_VERSION
     assert data["entries"]["0"]["tags"] == []
 
-    data_again, migrated_again = vault.load_index(return_migration_flag=True)
+    data_again, migrated_again, _ = vault.load_index(return_migration_flags=True)
     assert migrated_again is False
     assert data_again == data

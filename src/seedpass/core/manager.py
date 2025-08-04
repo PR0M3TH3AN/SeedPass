@@ -1157,6 +1157,7 @@ class PasswordManager:
             )
 
             migrated = False
+            last_migration_performed = False
             index_exists = (
                 self.vault.index_file.exists()
                 or (
@@ -1164,7 +1165,9 @@ class PasswordManager:
                 ).exists()
             )
             try:
-                _, migrated = self.vault.load_index(return_migration_flag=True)
+                _, migrated, last_migration_performed = self.vault.load_index(
+                    return_migration_flags=True
+                )
             except RuntimeError as exc:
                 print(colored(str(exc), "red"))
                 sys.exit(1)
@@ -1232,26 +1235,32 @@ class PasswordManager:
                 print(colored("Local database migration successful.", "green"))
                 if self.encryption_manager is not None:
                     self.encryption_manager.last_migration_performed = False
-                if not self.offline_mode and confirm_action(
-                    "Do you want to sync the migrated profile to Nostr now?"
-                ):
-                    result = self.sync_vault()
-                    if result:
+                if last_migration_performed and not self.offline_mode:
+                    if confirm_action(
+                        "Do you want to sync the migrated profile to Nostr now?"
+                    ):
+                        result = self.sync_vault()
+                        if result:
+                            print(
+                                colored(
+                                    "Profile synchronized to Nostr successfully.",
+                                    "green",
+                                )
+                            )
+                        else:
+                            print(
+                                colored(
+                                    "Error: Failed to sync profile to Nostr.",
+                                    "red",
+                                )
+                            )
+                    else:
                         print(
                             colored(
-                                "Profile synchronized to Nostr successfully.",
-                                "green",
+                                "You can sync the migrated profile later from the main menu.",
+                                "yellow",
                             )
                         )
-                    else:
-                        print(colored("Error: Failed to sync profile to Nostr.", "red"))
-                elif not self.offline_mode:
-                    print(
-                        colored(
-                            "You can sync the migrated profile later from the main menu.",
-                            "yellow",
-                        )
-                    )
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
