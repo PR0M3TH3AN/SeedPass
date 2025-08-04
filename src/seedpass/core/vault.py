@@ -43,6 +43,8 @@ class Vault:
 
         legacy_file = self.fingerprint_dir / "seedpass_passwords_db.json.enc"
         self.migrated_from_legacy = False
+        legacy_detected = False
+        backup_dir = None
         if legacy_file.exists() and not self.index_file.exists():
             print(colored("Legacy index detected.", "yellow"))
             resp = (
@@ -78,7 +80,7 @@ class Vault:
             if stray_checksum.exists():
                 stray_checksum.unlink()
 
-            self.migrated_from_legacy = True
+            legacy_detected = True
             print(
                 colored(
                     "Migration complete. Original index backed up to 'legacy_backups'",
@@ -86,10 +88,33 @@ class Vault:
                 )
             )
 
-        data = self.encryption_manager.load_json_data(self.index_file)
-        migration_performed = getattr(
-            self.encryption_manager, "last_migration_performed", False
-        )
+        try:
+            data = self.encryption_manager.load_json_data(self.index_file)
+            migration_performed = getattr(
+                self.encryption_manager, "last_migration_performed", False
+            )
+        except Exception as exc:  # noqa: BLE001 - surface clear error and restore
+            if legacy_detected and backup_dir is not None:
+                backup_file = backup_dir / legacy_file.name
+                legacy_checksum_path = (
+                    self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+                )
+                backup_checksum = backup_dir / legacy_checksum_path.name
+                try:
+                    if self.index_file.exists():
+                        self.index_file.unlink()
+                    shutil.copy2(backup_file, legacy_file)
+                    checksum_new = (
+                        self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
+                    )
+                    if checksum_new.exists():
+                        checksum_new.unlink()
+                    if backup_checksum.exists():
+                        shutil.copy2(backup_checksum, legacy_checksum_path)
+                finally:
+                    self.migrated_from_legacy = False
+            raise RuntimeError(f"Migration failed: {exc}") from exc
+
         from .migrations import apply_migrations, LATEST_VERSION
 
         version = data.get("schema_version", 0)
@@ -98,12 +123,36 @@ class Vault:
                 f"File schema version {version} is newer than supported {LATEST_VERSION}"
             )
         schema_migrated = version < LATEST_VERSION
-        data = apply_migrations(data)
-        if schema_migrated:
-            self.encryption_manager.save_json_data(data, self.index_file)
-            self.encryption_manager.update_checksum(self.index_file)
+
+        try:
+            data = apply_migrations(data)
+            if schema_migrated:
+                self.encryption_manager.save_json_data(data, self.index_file)
+                self.encryption_manager.update_checksum(self.index_file)
+        except Exception as exc:  # noqa: BLE001 - surface clear error and restore
+            if legacy_detected and backup_dir is not None:
+                backup_file = backup_dir / legacy_file.name
+                legacy_checksum_path = (
+                    self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+                )
+                backup_checksum = backup_dir / legacy_checksum_path.name
+                try:
+                    if self.index_file.exists():
+                        self.index_file.unlink()
+                    shutil.copy2(backup_file, legacy_file)
+                    checksum_new = (
+                        self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
+                    )
+                    if checksum_new.exists():
+                        checksum_new.unlink()
+                    if backup_checksum.exists():
+                        shutil.copy2(backup_checksum, legacy_checksum_path)
+                finally:
+                    self.migrated_from_legacy = False
+            raise RuntimeError(f"Migration failed: {exc}") from exc
+
         self.migrated_from_legacy = (
-            self.migrated_from_legacy or migration_performed or schema_migrated
+            legacy_detected or migration_performed or schema_migrated
         )
         if return_migration_flag:
             return data, self.migrated_from_legacy
