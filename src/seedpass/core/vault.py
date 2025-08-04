@@ -99,6 +99,9 @@ class Vault:
             )
         schema_migrated = version < LATEST_VERSION
         data = apply_migrations(data)
+        if schema_migrated:
+            self.encryption_manager.save_json_data(data, self.index_file)
+            self.encryption_manager.update_checksum(self.index_file)
         self.migrated_from_legacy = (
             self.migrated_from_legacy or migration_performed or schema_migrated
         )
