@@ -512,17 +512,36 @@ class PasswordManager:
                 )
                 print("Deriving key...")
                 salt_fp = fingerprint_dir.name
-                if mode == "argon2":
-                    seed_key = derive_key_from_password_argon2(password, salt_fp)
-                else:
-                    seed_key = derive_key_from_password(
-                        password, salt_fp, iterations=iterations
-                    )
-                seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-                print("Decrypting seed...")
-                try:
-                    self.parent_seed = seed_mgr.decrypt_parent_seed()
-                except Exception:
+
+                iter_candidates: list[int] = [iterations]
+                if mode != "argon2":
+                    iter_candidates.extend([50_000, 100_000])
+
+                seed_mgr: EncryptionManager | None = None
+                for iter_try in dict.fromkeys(iter_candidates):
+                    try:
+                        if mode == "argon2":
+                            seed_key = derive_key_from_password_argon2(
+                                password, salt_fp
+                            )
+                        else:
+                            seed_key = derive_key_from_password(
+                                password, salt_fp, iterations=iter_try
+                            )
+                        seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                        print("Decrypting seed...")
+                        self.parent_seed = seed_mgr.decrypt_parent_seed()
+                        if (
+                            mode != "argon2"
+                            and iter_try != iterations
+                            and getattr(self, "config_manager", None)
+                        ):
+                            self.config_manager.set_kdf_iterations(iter_try)
+                        break
+                    except InvalidToken:
+                        seed_mgr = None
+
+                if seed_mgr is None:
                     msg = (
                         "Invalid password for selected seed profile. Please try again."
                     )
