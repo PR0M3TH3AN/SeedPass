@@ -52,6 +52,38 @@ def test_legacy_index_migrates(monkeypatch, tmp_path: Path):
     assert backup.exists()
 
 
+def test_legacy_index_migration_removes_strays(monkeypatch, tmp_path: Path):
+    vault, _ = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    key = derive_index_key(TEST_SEED)
+    data = {"schema_version": 4, "entries": {}}
+    enc = Fernet(key).encrypt(json.dumps(data).encode())
+
+    legacy_file = tmp_path / "seedpass_passwords_db.json.enc"
+    legacy_file.write_bytes(enc)
+    (tmp_path / "seedpass_passwords_db_checksum.txt").write_text(
+        hashlib.sha256(enc).hexdigest()
+    )
+
+    stray_file = tmp_path / "seedpass_passwords_db.extra.enc"
+    stray_file.write_text("junk")
+
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
+
+    # First load triggers migration and removes stray legacy files
+    loaded = vault.load_index()
+    assert loaded == data
+    assert not stray_file.exists()
+
+    # Subsequent load should not detect any legacy files
+    loaded_again = vault.load_index()
+    assert loaded_again == data
+
+    assert (tmp_path / "seedpass_entries_db.json.enc").exists()
+    assert list(tmp_path.glob("seedpass_passwords_db*.enc")) == []
+    assert not (tmp_path / "seedpass_passwords_db_checksum.txt").exists()
+
+
 def test_migration_triggers_sync(monkeypatch, tmp_path: Path):
     vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 

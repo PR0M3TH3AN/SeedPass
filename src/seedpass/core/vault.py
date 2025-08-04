@@ -67,6 +67,17 @@ class Vault:
                 legacy_checksum.rename(
                     self.fingerprint_dir / "seedpass_entries_db_checksum.txt"
                 )
+
+            # Remove any leftover legacy files to avoid triggering migration again
+            for stray in self.fingerprint_dir.glob("seedpass_passwords_db*.enc"):
+                try:
+                    stray.unlink()
+                except FileNotFoundError:
+                    pass
+            stray_checksum = self.fingerprint_dir / "seedpass_passwords_db_checksum.txt"
+            if stray_checksum.exists():
+                stray_checksum.unlink()
+
             self.migrated_from_legacy = True
             print(
                 colored(
