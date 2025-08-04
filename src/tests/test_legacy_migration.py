@@ -245,3 +245,38 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
 
     assert calls["sync"] == 1
     assert enc_mgr.last_migration_performed is False
+
+
+def test_schema_migration_triggers_sync(monkeypatch, tmp_path: Path):
+    vault, enc_mgr = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+
+    data = {"schema_version": 3, "entries": {}}
+    enc_mgr.save_json_data(data, Path("seedpass_entries_db.json.enc"))
+    enc_mgr.update_checksum(Path("seedpass_entries_db.json.enc"))
+    assert enc_mgr.last_migration_performed is False
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = enc_mgr
+    pm.vault = Vault(enc_mgr, tmp_path)
+    pm.parent_seed = TEST_SEED
+    pm.fingerprint_dir = tmp_path
+    pm.current_fingerprint = tmp_path.name
+    pm.bip85 = SimpleNamespace()
+    pm.offline_mode = False
+
+    calls = {"sync": 0}
+    pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
+        "manifest_id": "m",
+        "chunk_ids": [],
+        "delta_ids": [],
+    }
+
+    monkeypatch.setattr(
+        "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
+    )
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
+
+    pm.initialize_managers()
+    assert calls["sync"] == 1
+    assert enc_mgr.last_migration_performed is False
