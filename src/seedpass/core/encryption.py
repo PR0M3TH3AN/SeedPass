@@ -427,7 +427,22 @@ class EncryptionManager:
                 fh.seek(0)
                 encrypted_bytes = fh.read()
             checksum = hashlib.sha256(encrypted_bytes).hexdigest()
-            checksum_file = file_path.parent / f"{file_path.stem}_checksum.txt"
+
+            # Build checksum path by stripping both `.json` and `.enc`
+            checksum_base = file_path.with_suffix("").with_suffix("")
+            checksum_file = checksum_base.parent / f"{checksum_base.name}_checksum.txt"
+
+            # Remove legacy checksum file if present
+            legacy_checksum = file_path.parent / f"{file_path.stem}_checksum.txt"
+            if legacy_checksum != checksum_file and legacy_checksum.exists():
+                try:
+                    legacy_checksum.unlink()
+                except Exception:
+                    logger.warning(
+                        f"Could not remove legacy checksum file '{legacy_checksum}'",
+                        exc_info=True,
+                    )
+
             with exclusive_lock(checksum_file) as fh:
                 fh.seek(0)
                 fh.truncate()
