@@ -155,9 +155,13 @@ def test_legacy_nostr_payload_triggers_sync(monkeypatch, tmp_path: Path):
     pm.offline_mode = False
 
     calls = {"sync": 0}
-    pm.start_background_vault_sync = lambda *a, **k: calls.__setitem__(
-        "sync", calls["sync"] + 1
-    )
+
+    async def fake_sync_vault_async(*_a, **_k):
+        calls["sync"] += 1
+        return True
+
+    pm.sync_vault_async = fake_sync_vault_async
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
 
     asyncio.run(pm.sync_index_from_nostr_async())
     assert calls["sync"] == 1
