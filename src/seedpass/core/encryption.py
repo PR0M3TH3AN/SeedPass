@@ -148,13 +148,15 @@ class EncryptionManager:
             resp = input(
                 "\nChoose an option:\n"
                 "1. Open legacy index without migrating\n"
-                "2. Migrate to new format and sync to Nostr\n"
+                "2. Migrate to new format.\n"
                 "Selection [1/2]: "
             ).strip()
             if resp == "1":
                 self._legacy_migrate_flag = False
+                self.last_migration_performed = False
             elif resp == "2":
                 self._legacy_migrate_flag = True
+                self.last_migration_performed = True
             else:
                 raise InvalidToken(
                     "User declined legacy decryption or provided invalid choice."
