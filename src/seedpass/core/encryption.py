@@ -332,6 +332,9 @@ class EncryptionManager:
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
 
+        is_legacy = not encrypted_data.startswith(b"V2:")
+        self.last_migration_performed = False
+
         def _process(decrypted: bytes) -> dict:
             if USE_ORJSON:
                 data = json_lib.loads(decrypted)
@@ -361,6 +364,7 @@ class EncryptionManager:
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
             print(colored("Index file updated from Nostr successfully.", "green"))
+            self.last_migration_performed = is_legacy
             return True
         except InvalidToken as e:
             try:
@@ -382,6 +386,7 @@ class EncryptionManager:
                         "yellow",
                     )
                 )
+                self.last_migration_performed = True
                 return True
             except Exception as e2:
                 if strict:
