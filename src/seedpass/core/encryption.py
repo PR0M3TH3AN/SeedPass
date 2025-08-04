@@ -1,7 +1,6 @@
 # /src/seedpass.core/encryption.py
 
 import logging
-import traceback
 import unicodedata
 
 try:
@@ -109,7 +108,7 @@ class EncryptionManager:
                         raise InvalidToken("AES-GCM payload too short")
                     return self.cipher.decrypt(nonce, ciphertext, None)
                 except InvalidTag as e:
-                    logger.error(
+                    logger.debug(
                         "AES-GCM decryption failed: Invalid authentication tag."
                     )
                     try:
@@ -137,7 +136,9 @@ class EncryptionManager:
         except (InvalidToken, InvalidTag) as e:
             if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
                 raise
-            logger.error(f"FATAL: Could not decrypt data: {e}", exc_info=True)
+            if not self._legacy_migrate_flag:
+                raise
+            logger.debug(f"Could not decrypt data: {e}")
             print(
                 colored(
                     "Failed to decrypt with current key. This may be a legacy index.",
@@ -166,6 +167,7 @@ class EncryptionManager:
                     password, iterations=50_000
                 )
                 legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                legacy_mgr._legacy_migrate_flag = False
                 result = legacy_mgr.decrypt_data(encrypted_data)
                 logger.warning(
                     "Data decrypted using legacy password-only key derivation."
