@@ -148,7 +148,9 @@ class VaultService:
         """Restore a profile from ``data`` and sync."""
 
         with self._lock:
-            decrypted = self._manager.vault.encryption_manager.decrypt_data(data)
+            decrypted = self._manager.vault.encryption_manager.decrypt_data(
+                data, context="profile"
+            )
             index = json.loads(decrypted.decode("utf-8"))
             self._manager.vault.save_index(index)
             self._manager.sync_vault()
