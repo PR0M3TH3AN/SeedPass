@@ -1157,8 +1157,14 @@ class PasswordManager:
             )
 
             migrated = False
+            index_exists = (
+                self.vault.index_file.exists()
+                or (
+                    self.vault.fingerprint_dir / "seedpass_passwords_db.json.enc"
+                ).exists()
+            )
             try:
-                self.vault.load_index(return_migration_flag=True)
+                _, migrated = self.vault.load_index(return_migration_flag=True)
             except RuntimeError as exc:
                 print(colored(str(exc), "red"))
                 sys.exit(1)
@@ -1222,9 +1228,10 @@ class PasswordManager:
                         delta_since=self.delta_since or None,
                     )
 
-            if getattr(self.encryption_manager, "last_migration_performed", False):
+            if migrated and index_exists:
                 print(colored("Local database migration successful.", "green"))
-                self.encryption_manager.last_migration_performed = False
+                if self.encryption_manager is not None:
+                    self.encryption_manager.last_migration_performed = False
                 if not self.offline_mode and confirm_action(
                     "Do you want to sync the migrated profile to Nostr now?"
                 ):
