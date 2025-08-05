@@ -11,6 +11,7 @@ from typing import Any, List, Optional
 
 from datetime import datetime, timedelta, timezone
 import jwt
+import logging
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 import asyncio
@@ -35,6 +36,8 @@ _RATE_LIMIT_STR = f"{_RATE_LIMIT}/{_RATE_WINDOW} seconds"
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[_RATE_LIMIT_STR])
 app = FastAPI()
+
+logger = logging.getLogger(__name__)
 
 
 def _get_pm(request: Request) -> PasswordManager:
@@ -64,13 +67,13 @@ def _reload_relays(request: Request, relays: list[str]) -> None:
     pm = _get_pm(request)
     try:
         pm.nostr_client.close_client_pool()
-    except Exception:
-        pass
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.warning("Failed to close NostrClient pool: %s", exc)
     try:
         pm.nostr_client.relays = relays
         pm.nostr_client.initialize_client_pool()
-    except Exception:
-        pass
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.error("Failed to initialize NostrClient with relays %s: %s", relays, exc)
 
 
 def start_server(fingerprint: str | None = None) -> str:
