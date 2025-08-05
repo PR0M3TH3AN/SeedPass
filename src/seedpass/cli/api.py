@@ -25,7 +25,7 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
     try:
         requests.post(
             f"http://{host}:{port}/api/v1/shutdown",
-            headers={"Authorization": f"Bearer {api_module._token}"},
+            headers={"Authorization": f"Bearer {api_module.app.state.token_hash}"},
             timeout=2,
         )
     except Exception as exc:  # pragma: no cover - best effort
