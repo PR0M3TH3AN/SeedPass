@@ -399,7 +399,6 @@ class EncryptionManager:
             self.save_json_data(data, relative_path)  # This always saves in V2 format
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
-            print(colored("Index file updated from Nostr successfully.", "green"))
             self.last_migration_performed = is_legacy
             return True
         except InvalidToken as e:
