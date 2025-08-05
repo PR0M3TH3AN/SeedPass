@@ -88,3 +88,21 @@ def test_stats_display_resets_after_exit(monkeypatch, capsys):
     main._display_live_stats(pm)
     out = capsys.readouterr().out
     assert out.count("stats") == 2
+
+
+def test_stats_screen_breaks_on_enter(monkeypatch):
+    calls = {"display": 0}
+
+    def display():
+        calls["display"] += 1
+        print("stats")
+
+    pm = _make_pm()
+    pm.display_stats = display
+
+    monkeypatch.setattr(main, "get_notification_text", lambda *_: "")
+    monkeypatch.setattr(main, "timed_input", lambda *_args, **_kwargs: "")
+
+    main._display_live_stats(pm, interval=0.01)
+
+    assert calls["display"] == 1

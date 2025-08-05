@@ -312,7 +312,33 @@ def _display_live_stats(
             stats_mgr.reset()
         return
 
+    # Flush any pending input so an accidental newline doesn't exit immediately
+    try:  # pragma: no cover - depends on platform
+        import termios
+
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
+    except Exception:
+        try:  # pragma: no cover - Windows fallback
+            import msvcrt
+
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+        except Exception:
+            pass
+
     while True:
+        # Break out immediately if the user has already pressed Enter
+        try:  # pragma: no cover - non-interactive environments
+            import select
+
+            ready, _, _ = select.select([sys.stdin], [], [], 0)
+            if ready:
+                line = sys.stdin.readline().strip()
+                if line == "" or line.lower() == "b":
+                    break
+        except Exception:
+            pass
+
         if callable(sync_fn):
             try:
                 sync_fn()
