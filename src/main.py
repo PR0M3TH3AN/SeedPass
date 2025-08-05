@@ -187,11 +187,7 @@ def handle_add_new_fingerprint(password_manager: PasswordManager):
 
 
 def handle_remove_fingerprint(password_manager: PasswordManager):
-    """
-    Handles removing an existing seed profile.
-
-    :param password_manager: An instance of PasswordManager.
-    """
+    """Handle removing an existing seed profile."""
     try:
         fingerprints = password_manager.fingerprint_manager.list_fingerprints()
         if not fingerprints:
@@ -210,12 +206,24 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
 
         selected_fingerprint = fingerprints[int(choice) - 1]
         confirm = confirm_action(
-            f"Are you sure you want to remove seed profile {selected_fingerprint}? This will delete all associated data. (Y/N): "
+            f"Are you sure you want to remove seed profile {selected_fingerprint}? This will delete all associated data. (Y/N):"
         )
         if confirm:
+
+            def _cleanup_and_exit() -> None:
+                password_manager.current_fingerprint = None
+                password_manager.is_dirty = False
+                getattr(password_manager, "cleanup", lambda: None)()
+                print(colored("All seed profiles removed. Exiting.", "yellow"))
+                sys.exit(0)
+
             if password_manager.fingerprint_manager.remove_fingerprint(
-                selected_fingerprint
+                selected_fingerprint, _cleanup_and_exit
             ):
+                password_manager.current_fingerprint = (
+                    password_manager.fingerprint_manager.current_fingerprint
+                )
+                password_manager.is_dirty = False
                 print(
                     colored(
                         f"Seed profile {selected_fingerprint} removed successfully.",
@@ -1028,11 +1036,15 @@ def display_menu(
             getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         # Periodically push updates to Nostr
-        if (
-            password_manager.is_dirty
-            and time.time() - password_manager.last_update >= sync_interval
-        ):
-            handle_post_to_nostr(password_manager)
+        current_fp = getattr(password_manager, "current_fingerprint", None)
+        if current_fp:
+            if (
+                password_manager.is_dirty
+                and time.time() - password_manager.last_update >= sync_interval
+            ):
+                handle_post_to_nostr(password_manager)
+                password_manager.is_dirty = False
+        else:
             password_manager.is_dirty = False
 
         # Flush logging handlers
