@@ -8,6 +8,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from typer.testing import CliRunner
 from seedpass import cli
+from seedpass.cli import common as cli_common
+from seedpass.cli import api as cli_api
 from seedpass.core.entry_types import EntryType
 
 
@@ -97,9 +99,9 @@ runner = CliRunner()
 
 
 def _setup(monkeypatch):
-    monkeypatch.setattr(cli, "PasswordManager", lambda: DummyPM())
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *a, **kw: None)
-    monkeypatch.setattr(cli.api_module, "start_server", lambda fp: "token")
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: DummyPM())
+    monkeypatch.setattr(cli_api.uvicorn, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cli_api.api_module, "start_server", lambda fp: "token")
     monkeypatch.setitem(
         sys.modules, "requests", SimpleNamespace(post=lambda *a, **kw: None)
     )

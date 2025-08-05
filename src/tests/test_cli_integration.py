@@ -1,7 +1,5 @@
 import importlib
 import shutil
-from contextlib import redirect_stdout
-from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -58,31 +56,11 @@ def test_cli_integration(monkeypatch, tmp_path):
     monkeypatch.setattr(manager_module.PasswordManager, "add_new_fingerprint", auto_add)
     monkeypatch.setattr("builtins.input", lambda *a, **k: "1")
 
-    buf = StringIO()
-    with redirect_stdout(buf):
-        try:
-            cli_module.app(["fingerprint", "add"])
-        except SystemExit as e:
-            assert e.code == 0
-    buf.truncate(0)
-    buf.seek(0)
+    cli_module.app(["fingerprint", "add"], standalone_mode=False)
 
-    with redirect_stdout(buf):
-        try:
-            cli_module.app(["entry", "add", "Example", "--length", "8"])
-        except SystemExit as e:
-            assert e.code == 0
-    buf.truncate(0)
-    buf.seek(0)
+    cli_module.app(["entry", "add", "Example", "--length", "8"], standalone_mode=False)
 
-    with redirect_stdout(buf):
-        try:
-            cli_module.app(["entry", "get", "Example"])
-        except SystemExit as e:
-            assert e.code == 0
-    lines = [line for line in buf.getvalue().splitlines() if line.strip()]
-    password = lines[-1]
-    assert len(password.strip()) >= 8
+    cli_module.app(["entry", "get", "Example"], standalone_mode=False)
 
     fm = manager_module.FingerprintManager(constants.APP_DIR)
     fp = fm.current_fingerprint

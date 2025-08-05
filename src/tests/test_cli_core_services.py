@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from seedpass import cli
 from seedpass.cli import app
+from seedpass.cli import common as cli_common
 from seedpass.core.entry_types import EntryType
 
 runner = CliRunner()
@@ -18,7 +19,7 @@ def test_cli_vault_unlock(monkeypatch):
         return 0.5
 
     pm = SimpleNamespace(unlock_vault=unlock_vault, select_fingerprint=lambda fp: None)
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     monkeypatch.setattr(cli.typer, "prompt", lambda *a, **k: "pw")
     result = runner.invoke(app, ["vault", "unlock"])
     assert result.exit_code == 0
@@ -49,7 +50,7 @@ def test_cli_entry_add_search_sync(monkeypatch):
         sync_vault=lambda: {"manifest_id": "m", "chunk_ids": [], "delta_ids": []},
         select_fingerprint=lambda fp: None,
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
 
     # entry add
     result = runner.invoke(app, ["entry", "add", "Label"])

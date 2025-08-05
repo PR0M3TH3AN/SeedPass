@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from seedpass.cli import app
-from seedpass import cli
+from seedpass.cli import common as cli_common
 
 
 class DummyService:
@@ -37,8 +37,8 @@ def test_cli_relay_crud(monkeypatch):
     def pm_factory(*a, **k):
         return SimpleNamespace()
 
-    monkeypatch.setattr(cli, "PasswordManager", pm_factory)
-    monkeypatch.setattr(cli, "NostrService", lambda pm: DummyService(relays))
+    monkeypatch.setattr(cli_common, "PasswordManager", pm_factory)
+    monkeypatch.setattr(cli_common, "NostrService", lambda pm: DummyService(relays))
 
     result = runner.invoke(app, ["nostr", "list-relays"])
     assert "1: wss://a" in result.stdout

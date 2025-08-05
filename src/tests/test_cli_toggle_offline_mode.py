@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from seedpass.cli import app
-from seedpass import cli
+from seedpass.cli import common as cli_common
 
 runner = CliRunner()
 
@@ -23,7 +23,7 @@ def _make_pm(called, enabled=False):
 def test_toggle_offline_updates(monkeypatch):
     called = {}
     pm = _make_pm(called)
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["config", "toggle-offline"], input="y\n")
     assert result.exit_code == 0
     assert called == {"enabled": True}
@@ -33,7 +33,7 @@ def test_toggle_offline_updates(monkeypatch):
 def test_toggle_offline_keep(monkeypatch):
     called = {}
     pm = _make_pm(called, enabled=True)
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["config", "toggle-offline"], input="\n")
     assert result.exit_code == 0
     assert called == {"enabled": True}
