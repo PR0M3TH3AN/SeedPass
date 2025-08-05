@@ -3813,12 +3813,12 @@ class PasswordManager:
                     print(colored("Invalid choice.", "red"))
                     continue
 
-                summaries = self.entry_manager.get_entry_summaries(
-                    filter_kind, include_archived=False
-                )
-                if not summaries:
-                    continue
                 while True:
+                    summaries = self.entry_manager.get_entry_summaries(
+                        filter_kind, include_archived=False
+                    )
+                    if not summaries:
+                        break
                     fp, parent_fp, child_fp = self.header_fingerprint_args
                     clear_header_with_notification(
                         self,
