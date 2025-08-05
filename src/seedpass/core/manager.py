@@ -1380,6 +1380,7 @@ class PasswordManager:
                         )
             if updated:
                 logger.info("Local database synchronized from Nostr.")
+                self.notify("Index file updated from Nostr successfully.")
         except Exception as e:
             logger.warning(
                 "Unable to sync index from Nostr relays %s: %s",
@@ -1540,6 +1541,7 @@ class PasswordManager:
                     if migrated and not getattr(self, "offline_mode", False):
                         self.start_background_vault_sync()
                     logger.info("Initialized local database from Nostr.")
+                    self.notify("Index file updated from Nostr successfully.")
         except Exception as e:  # pragma: no cover - network errors
             logger.warning(f"Unable to sync index from Nostr: {e}")
         finally:
@@ -4154,7 +4156,6 @@ class PasswordManager:
         try:
             self.vault.decrypt_and_save_index_from_nostr(encrypted_data, merge=True)
             logging.info("Index file updated from Nostr successfully.")
-            print(colored("Index file updated from Nostr successfully.", "green"))
         except Exception as e:
             logging.error(
                 f"Failed to decrypt and save data from Nostr: {e}", exc_info=True
