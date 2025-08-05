@@ -5,7 +5,7 @@ import json
 import logging
 import traceback
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import shutil  # Ensure shutil is imported if used within the class
 
@@ -138,12 +138,15 @@ class FingerprintManager:
             logger.error("Fingerprint generation failed.")
             return None
 
-    def remove_fingerprint(self, fingerprint: str) -> bool:
-        """
-        Removes a fingerprint and its associated directory.
+    def remove_fingerprint(
+        self, fingerprint: str, on_last_removed: Optional[Callable[[], None]] = None
+    ) -> bool:
+        """Remove a fingerprint and its associated directory.
 
         Parameters:
             fingerprint (str): The fingerprint to remove.
+            on_last_removed (Callable | None): Callback invoked when the last
+                fingerprint is deleted.
 
         Returns:
             bool: True if removed successfully, False otherwise.
@@ -167,6 +170,8 @@ class FingerprintManager:
                             shutil.rmtree(child)
                     fingerprint_dir.rmdir()
                 logger.info(f"Fingerprint {fingerprint} removed successfully.")
+                if not self.fingerprints and on_last_removed:
+                    on_last_removed()
                 return True
             except Exception as e:
                 logger.error(
