@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from seedpass.cli import app
-from seedpass import cli
+from seedpass.cli import common as cli_common
 from helpers import TEST_SEED
 
 runner = CliRunner()
@@ -148,7 +148,7 @@ def test_entry_add_commands(
         select_fingerprint=lambda fp: None,
         start_background_vault_sync=start_background_vault_sync,
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["entry", command] + cli_args)
     assert result.exit_code == 0
     assert stdout in result.stdout

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from seedpass.cli import app
-from seedpass import cli
+from seedpass.cli import common as cli_common
 
 runner = CliRunner()
 
@@ -27,7 +27,7 @@ def _make_pm(called, enabled=False, delay=45):
 def test_toggle_secret_mode_updates(monkeypatch):
     called = {}
     pm = _make_pm(called)
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["config", "toggle-secret-mode"], input="y\n10\n")
     assert result.exit_code == 0
     assert called == {"enabled": True, "delay": 10}
@@ -37,7 +37,7 @@ def test_toggle_secret_mode_updates(monkeypatch):
 def test_toggle_secret_mode_keep(monkeypatch):
     called = {}
     pm = _make_pm(called, enabled=True, delay=30)
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["config", "toggle-secret-mode"], input="\n\n")
     assert result.exit_code == 0
     assert called == {"enabled": True, "delay": 30}
