@@ -3,7 +3,6 @@ from pathlib import Path
 import os
 import base64
 import pytest
-from types import SimpleNamespace
 
 from seedpass import api
 from test_api import client
@@ -25,10 +24,10 @@ def test_create_and_modify_totp_entry(client):
     def modify(idx, **kwargs):
         calls["modify"] = (idx, kwargs)
 
-    api._pm.entry_manager.add_totp = add_totp
-    api._pm.entry_manager.modify_entry = modify
-    api._pm.entry_manager.get_next_index = lambda: 5
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.entry_manager.add_totp = add_totp
+    api.app.state.pm.entry_manager.modify_entry = modify
+    api.app.state.pm.entry_manager.get_next_index = lambda: 5
+    api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -77,9 +76,9 @@ def test_create_and_modify_ssh_entry(client):
     def modify(idx, **kwargs):
         calls["modify"] = (idx, kwargs)
 
-    api._pm.entry_manager.add_ssh_key = add_ssh
-    api._pm.entry_manager.modify_entry = modify
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.entry_manager.add_ssh_key = add_ssh
+    api.app.state.pm.entry_manager.modify_entry = modify
+    api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -107,7 +106,7 @@ def test_update_entry_error(client):
     def modify(*a, **k):
         raise ValueError("nope")
 
-    api._pm.entry_manager.modify_entry = modify
+    api.app.state.pm.entry_manager.modify_entry = modify
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
     assert res.status_code == 400
@@ -121,7 +120,7 @@ def test_update_config_secret_mode(client):
     def set_secret(val):
         called["val"] = val
 
-    api._pm.config_manager.set_secret_mode_enabled = set_secret
+    api.app.state.pm.config_manager.set_secret_mode_enabled = set_secret
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.put(
         "/api/v1/config/secret_mode_enabled",
@@ -135,8 +134,8 @@ def test_update_config_secret_mode(client):
 
 def test_totp_export_endpoint(client):
     cl, token = client
-    api._pm.entry_manager.export_totp_entries = lambda seed: {"entries": ["x"]}
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.entry_manager.export_totp_entries = lambda seed: {"entries": ["x"]}
+    api.app.state.pm.parent_seed = "seed"
     headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
     res = cl.get("/api/v1/totp/export", headers=headers)
     assert res.status_code == 200
@@ -145,10 +144,12 @@ def test_totp_export_endpoint(client):
 
 def test_totp_codes_endpoint(client):
     cl, token = client
-    api._pm.entry_manager.list_entries = lambda **kw: [(0, "Email", None, None, False)]
-    api._pm.entry_manager.get_totp_code = lambda i, s: "123456"
-    api._pm.entry_manager.get_totp_time_remaining = lambda i: 30
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.entry_manager.list_entries = lambda **kw: [
+        (0, "Email", None, None, False)
+    ]
+    api.app.state.pm.entry_manager.get_totp_code = lambda i, s: "123456"
+    api.app.state.pm.entry_manager.get_totp_time_remaining = lambda i: 30
+    api.app.state.pm.parent_seed = "seed"
     headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
     res = cl.get("/api/v1/totp", headers=headers)
     assert res.status_code == 200
@@ -169,11 +170,11 @@ def test_fingerprint_endpoints(client):
     cl, token = client
     calls = {}
 
-    api._pm.add_new_fingerprint = lambda: calls.setdefault("add", True)
-    api._pm.fingerprint_manager.remove_fingerprint = lambda fp: calls.setdefault(
-        "remove", fp
+    api.app.state.pm.add_new_fingerprint = lambda: calls.setdefault("add", True)
+    api.app.state.pm.fingerprint_manager.remove_fingerprint = (
+        lambda fp: calls.setdefault("remove", fp)
     )
-    api._pm.select_fingerprint = lambda fp: calls.setdefault("select", fp)
+    api.app.state.pm.select_fingerprint = lambda fp: calls.setdefault("select", fp)
 
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -201,8 +202,10 @@ def test_checksum_endpoints(client):
     cl, token = client
     calls = {}
 
-    api._pm.handle_verify_checksum = lambda: calls.setdefault("verify", True)
-    api._pm.handle_update_script_checksum = lambda: calls.setdefault("update", True)
+    api.app.state.pm.handle_verify_checksum = lambda: calls.setdefault("verify", True)
+    api.app.state.pm.handle_update_script_checksum = lambda: calls.setdefault(
+        "update", True
+    )
 
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -224,9 +227,11 @@ def test_vault_import_via_path(client, tmp_path):
     def import_db(path):
         called["path"] = path
 
-    api._pm.handle_import_database = import_db
-    api._pm.sync_vault = lambda: called.setdefault("sync", True)
-    api._pm.encryption_manager = SimpleNamespace(resolve_relative_path=lambda p: p)
+    api.app.state.pm.handle_import_database = import_db
+    api.app.state.pm.sync_vault = lambda: called.setdefault("sync", True)
+    api.app.state.pm.encryption_manager = SimpleNamespace(
+        resolve_relative_path=lambda p: p
+    )
     file_path = tmp_path / "b.json.enc"
     file_path.write_text("{}")
 
@@ -249,8 +254,8 @@ def test_vault_import_via_upload(client, tmp_path):
     def import_db(path):
         called["path"] = path
 
-    api._pm.handle_import_database = import_db
-    api._pm.sync_vault = lambda: called.setdefault("sync", True)
+    api.app.state.pm.handle_import_database = import_db
+    api.app.state.pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "c.json"
     file_path.write_text("{}")
 
@@ -269,9 +274,11 @@ def test_vault_import_via_upload(client, tmp_path):
 
 def test_vault_import_invalid_extension(client):
     cl, token = client
-    api._pm.handle_import_database = lambda path: None
-    api._pm.sync_vault = lambda: None
-    api._pm.encryption_manager = SimpleNamespace(resolve_relative_path=lambda p: p)
+    api.app.state.pm.handle_import_database = lambda path: None
+    api.app.state.pm.sync_vault = lambda: None
+    api.app.state.pm.encryption_manager = SimpleNamespace(
+        resolve_relative_path=lambda p: p
+    )
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -285,9 +292,9 @@ def test_vault_import_invalid_extension(client):
 def test_vault_import_path_traversal_blocked(client, tmp_path):
     cl, token = client
     key = base64.urlsafe_b64encode(os.urandom(32))
-    api._pm.encryption_manager = EncryptionManager(key, tmp_path)
-    api._pm.handle_import_database = lambda path: None
-    api._pm.sync_vault = lambda: None
+    api.app.state.pm.encryption_manager = EncryptionManager(key, tmp_path)
+    api.app.state.pm.handle_import_database = lambda path: None
+    api.app.state.pm.sync_vault = lambda: None
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -304,20 +311,22 @@ def test_vault_lock_endpoint(client):
 
     def lock():
         called["locked"] = True
-        api._pm.locked = True
+        api.app.state.pm.locked = True
 
-    api._pm.lock_vault = lock
-    api._pm.locked = False
+    api.app.state.pm.lock_vault = lock
+    api.app.state.pm.locked = False
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post("/api/v1/vault/lock", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "locked"}
     assert called.get("locked") is True
-    assert api._pm.locked is True
-    api._pm.unlock_vault = lambda pw: setattr(api._pm, "locked", False)
-    api._pm.unlock_vault("pw")
-    assert api._pm.locked is False
+    assert api.app.state.pm.locked is True
+    api.app.state.pm.unlock_vault = lambda pw: setattr(
+        api.app.state.pm, "locked", False
+    )
+    api.app.state.pm.unlock_vault("pw")
+    assert api.app.state.pm.locked is False
 
 
 def test_secret_mode_endpoint(client):
@@ -330,8 +339,8 @@ def test_secret_mode_endpoint(client):
     def set_delay(val):
         called.setdefault("delay", val)
 
-    api._pm.config_manager.set_secret_mode_enabled = set_secret
-    api._pm.config_manager.set_clipboard_clear_delay = set_delay
+    api.app.state.pm.config_manager.set_secret_mode_enabled = set_secret
+    api.app.state.pm.config_manager.set_clipboard_clear_delay = set_delay
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -350,7 +359,7 @@ def test_vault_export_endpoint(client, tmp_path):
     out = tmp_path / "out.json"
     out.write_text("data")
 
-    api._pm.handle_export_database = lambda: out
+    api.app.state.pm.handle_export_database = lambda: out
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -366,9 +375,9 @@ def test_vault_export_endpoint(client, tmp_path):
 
 def test_backup_parent_seed_endpoint(client, tmp_path):
     cl, token = client
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.parent_seed = "seed"
     called = {}
-    api._pm.encryption_manager = SimpleNamespace(
+    api.app.state.pm.encryption_manager = SimpleNamespace(
         encrypt_and_save_file=lambda data, path: called.setdefault("path", path),
         resolve_relative_path=lambda p: p,
     )
@@ -396,9 +405,9 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
 
 def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
     cl, token = client
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.parent_seed = "seed"
     key = base64.urlsafe_b64encode(os.urandom(32))
-    api._pm.encryption_manager = EncryptionManager(key, tmp_path)
+    api.app.state.pm.encryption_manager = EncryptionManager(key, tmp_path)
     headers = {
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
@@ -424,8 +433,8 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     def set_relays(new, require_pin=False):
         called["set"] = new
 
-    api._pm.config_manager.load_config = load_config
-    api._pm.config_manager.set_relays = set_relays
+    api.app.state.pm.config_manager.load_config = load_config
+    api.app.state.pm.config_manager.set_relays = set_relays
     monkeypatch.setattr(
         NostrClient,
         "initialize_client_pool",
@@ -434,8 +443,8 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     monkeypatch.setattr(
         nostr_client, "close_client_pool", lambda: called.setdefault("close", True)
     )
-    api._pm.nostr_client = nostr_client
-    api._pm.nostr_client.relays = relays.copy()
+    api.app.state.pm.nostr_client = nostr_client
+    api.app.state.pm.nostr_client.relays = relays.copy()
 
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -447,7 +456,7 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     assert res.status_code == 200
     assert called["set"] == ["wss://a", "wss://b", "wss://c"]
 
-    api._pm.config_manager.load_config = lambda require_pin=False: {
+    api.app.state.pm.config_manager.load_config = lambda require_pin=False: {
         "relays": ["wss://a", "wss://b", "wss://c"]
     }
     res = cl.delete("/api/v1/relays/2", headers=headers)
@@ -457,7 +466,7 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     res = cl.post("/api/v1/relays/reset", headers=headers)
     assert res.status_code == 200
     assert called.get("init") is True
-    assert api._pm.nostr_client.relays == list(DEFAULT_RELAYS)
+    assert api.app.state.pm.nostr_client.relays == list(DEFAULT_RELAYS)
 
 
 def test_generate_password_no_special_chars(client):
@@ -471,8 +480,10 @@ def test_generate_password_no_special_chars(client):
         def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
             return bytes(range(bytes_len))
 
-    api._pm.password_generator = PasswordGenerator(DummyEnc(), "seed", DummyBIP85())
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.password_generator = PasswordGenerator(
+        DummyEnc(), "seed", DummyBIP85()
+    )
+    api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
     res = cl.post(
@@ -496,8 +507,10 @@ def test_generate_password_allowed_chars(client):
         def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
             return bytes((index + i) % 256 for i in range(bytes_len))
 
-    api._pm.password_generator = PasswordGenerator(DummyEnc(), "seed", DummyBIP85())
-    api._pm.parent_seed = "seed"
+    api.app.state.pm.password_generator = PasswordGenerator(
+        DummyEnc(), "seed", DummyBIP85()
+    )
+    api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
     allowed = "@$"

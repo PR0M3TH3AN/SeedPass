@@ -51,8 +51,8 @@ def client(monkeypatch):
 
 def test_token_hashed(client):
     _, token = client
-    assert api._token != token
-    assert api._token == hashlib.sha256(token.encode()).hexdigest()
+    assert api.app.state.token_hash != token
+    assert api.app.state.token_hash == hashlib.sha256(token.encode()).hexdigest()
 
 
 def test_cors_and_auth(client):
@@ -158,7 +158,7 @@ def test_update_config(client):
     def set_timeout(val):
         called["val"] = val
 
-    api._pm.config_manager.set_inactivity_timeout = set_timeout
+    api.app.state.pm.config_manager.set_inactivity_timeout = set_timeout
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
     res = cl.put(
         "/api/v1/config/inactivity_timeout",
@@ -174,8 +174,9 @@ def test_update_config(client):
 def test_update_config_quick_unlock(client):
     cl, token = client
     called = {}
-
-    api._pm.config_manager.set_quick_unlock = lambda v: called.setdefault("val", v)
+    api.app.state.pm.config_manager.set_quick_unlock = lambda v: called.setdefault(
+        "val", v
+    )
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
     res = cl.put(
         "/api/v1/config/quick_unlock",
@@ -190,8 +191,7 @@ def test_update_config_quick_unlock(client):
 def test_change_password_route(client):
     cl, token = client
     called = {}
-
-    api._pm.change_password = lambda o, n: called.setdefault("called", (o, n))
+    api.app.state.pm.change_password = lambda o, n: called.setdefault("called", (o, n))
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
     res = cl.post(
         "/api/v1/change-password",
