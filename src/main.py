@@ -32,6 +32,7 @@ from utils import (
     pause,
     clear_header_with_notification,
 )
+from utils.clipboard import ClipboardUnavailableError
 from utils.atomic_write import atomic_write
 import queue
 from local_bip85.bip85 import Bip85Error
@@ -1233,6 +1234,11 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     load_global_config()
     parser = argparse.ArgumentParser()
     parser.add_argument("--fingerprint")
+    parser.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Disable clipboard support and print secrets",
+    )
     sub = parser.add_subparsers(dest="command")
 
     exp = sub.add_parser("export")
@@ -1263,6 +1269,9 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         logger.error(f"Failed to initialize PasswordManager: {e}", exc_info=True)
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
         return 1
+
+    if args.no_clipboard:
+        password_manager.secret_mode_enabled = False
 
     if args.command == "export":
         password_manager.handle_export_database(Path(args.file))
@@ -1311,8 +1320,17 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             idx, password_manager.parent_seed
         )
         print(code)
-        if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
-            print(colored("Code copied to clipboard", "green"))
+        try:
+            if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
+                print(colored("Code copied to clipboard", "green"))
+        except ClipboardUnavailableError as exc:
+            print(
+                colored(
+                    f"Clipboard unavailable: {exc}\n"
+                    "Re-run with '--no-clipboard' to print codes instead.",
+                    "yellow",
+                )
+            )
         return 0
 
     def signal_handler(sig, _frame):

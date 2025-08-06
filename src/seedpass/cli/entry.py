@@ -8,6 +8,7 @@ from typing import List, Optional
 import typer
 
 from .common import _get_entry_service, EntryType
+from utils.clipboard import ClipboardUnavailableError
 
 
 app = typer.Typer(help="Manage individual entries")
@@ -69,31 +70,39 @@ def entry_search(
 def entry_get(ctx: typer.Context, query: str) -> None:
     """Retrieve a single entry's secret."""
     service = _get_entry_service(ctx)
-    matches = service.search_entries(query)
-    if len(matches) == 0:
-        typer.echo("No matching entries found")
-        raise typer.Exit(code=1)
-    if len(matches) > 1:
-        typer.echo("Matches:")
-        for idx, label, username, _url, _arch, etype in matches:
-            name = f"{idx}: {etype.value.replace('_', ' ').title()} - {label}"
-            if username:
-                name += f" ({username})"
-            typer.echo(name)
-        raise typer.Exit(code=1)
+    try:
+        matches = service.search_entries(query)
+        if len(matches) == 0:
+            typer.echo("No matching entries found")
+            raise typer.Exit(code=1)
+        if len(matches) > 1:
+            typer.echo("Matches:")
+            for idx, label, username, _url, _arch, etype in matches:
+                name = f"{idx}: {etype.value.replace('_', ' ').title()} - {label}"
+                if username:
+                    name += f" ({username})"
+                typer.echo(name)
+            raise typer.Exit(code=1)
 
-    index = matches[0][0]
-    entry = service.retrieve_entry(index)
-    etype = entry.get("type", entry.get("kind"))
-    if etype == EntryType.PASSWORD.value:
-        length = int(entry.get("length", 12))
-        password = service.generate_password(length, index)
-        typer.echo(password)
-    elif etype == EntryType.TOTP.value:
-        code = service.get_totp_code(index)
-        typer.echo(code)
-    else:
-        typer.echo("Unsupported entry type")
+        index = matches[0][0]
+        entry = service.retrieve_entry(index)
+        etype = entry.get("type", entry.get("kind"))
+        if etype == EntryType.PASSWORD.value:
+            length = int(entry.get("length", 12))
+            password = service.generate_password(length, index)
+            typer.echo(password)
+        elif etype == EntryType.TOTP.value:
+            code = service.get_totp_code(index)
+            typer.echo(code)
+        else:
+            typer.echo("Unsupported entry type")
+            raise typer.Exit(code=1)
+    except ClipboardUnavailableError as exc:
+        typer.echo(
+            f"Clipboard unavailable: {exc}\n"
+            "Re-run with '--no-clipboard' to print secrets instead.",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
 
