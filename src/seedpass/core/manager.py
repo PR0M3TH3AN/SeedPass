@@ -180,6 +180,7 @@ class PasswordManager:
         self.error_queue: queue.Queue[Exception] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
+        self._bip85_cache: dict[tuple[int, int], bytes] = {}
 
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
@@ -211,6 +212,20 @@ class PasswordManager:
             self.fingerprint_dir = (
                 self.fingerprint_manager.get_current_fingerprint_dir()
             )
+
+    def get_bip85_entropy(self, purpose: int, index: int, bytes_len: int = 32) -> bytes:
+        """Return deterministic entropy via the cached BIP-85 function."""
+
+        if self.bip85 is None:
+            raise RuntimeError("BIP-85 is not initialized")
+        return self.bip85.derive_entropy(
+            index=index, bytes_len=bytes_len, app_no=purpose
+        )
+
+    def clear_bip85_cache(self) -> None:
+        """Clear the internal BIP-85 cache."""
+
+        self._bip85_cache.clear()
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""
@@ -1173,7 +1188,20 @@ class PasswordManager:
         try:
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.bip85 = BIP85(seed_bytes)
+            self._bip85_cache = {}
+            orig_derive = self.bip85.derive_entropy
+
+            def cached_derive(index: int, bytes_len: int, app_no: int = 39) -> bytes:
+                key = (app_no, index)
+                if key not in self._bip85_cache:
+                    self._bip85_cache[key] = orig_derive(
+                        index=index, bytes_len=bytes_len, app_no=app_no
+                    )
+                return self._bip85_cache[key]
+
+            self.bip85.derive_entropy = cached_derive
             logging.debug("BIP-85 initialized successfully.")
+            self.clear_bip85_cache()
         except Exception as e:
             logging.error(f"Failed to initialize BIP-85: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize BIP-85: {e}", "red"))

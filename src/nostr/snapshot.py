@@ -59,7 +59,18 @@ class SnapshotHandler:
         await self.ensure_manifest_is_current()
         await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
+
+        existing: dict[str, str] = {}
+        if self.current_manifest:
+            for old in self.current_manifest.chunks:
+                if old.hash and old.event_id:
+                    existing[old.hash] = old.event_id
+
         for meta, chunk in zip(manifest.chunks, chunks):
+            cached_id = existing.get(meta.hash)
+            if cached_id:
+                meta.event_id = cached_id
+                continue
             content = base64.b64encode(chunk).decode("utf-8")
             builder = nostr_client.EventBuilder(
                 nostr_client.Kind(KIND_SNAPSHOT_CHUNK), content
