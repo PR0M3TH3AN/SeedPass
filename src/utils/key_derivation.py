@@ -21,6 +21,7 @@ import unicodedata
 import logging
 import traceback
 import hmac
+import time
 from enum import Enum
 from typing import Optional, Union
 from bip_utils import Bip39SeedGenerator
@@ -236,3 +237,55 @@ def derive_totp_secret(seed: str, index: int) -> str:
     except Exception as e:
         logger.error(f"Failed to derive TOTP secret: {e}", exc_info=True)
         raise
+
+
+def calibrate_argon2_time_cost(
+    cfg_mgr: "ConfigManager",
+    *,
+    target_ms: float = 500.0,
+    max_time_cost: int = 6,
+) -> int:
+    """Calibrate Argon2 ``time_cost`` based on device performance.
+
+    Runs :func:`derive_key_from_password_argon2` with increasing ``time_cost``
+    until the runtime meets or exceeds ``target_ms``. The chosen ``time_cost``
+    is stored in ``cfg_mgr`` via ``set_argon2_time_cost`` and returned.
+
+    Parameters
+    ----------
+    cfg_mgr:
+        Instance of :class:`~seedpass.core.config_manager.ConfigManager` used to
+        persist the calibrated ``time_cost``.
+    target_ms:
+        Desired minimum execution time in milliseconds for one Argon2 hash.
+    max_time_cost:
+        Upper bound for ``time_cost`` to prevent excessively long calibration.
+
+    Returns
+    -------
+    int
+        Selected ``time_cost`` value.
+    """
+
+    password = "benchmark"
+    fingerprint = b"argon2-calibration"
+    time_cost = 1
+    elapsed_ms = 0.0
+    while time_cost <= max_time_cost:
+        start = time.perf_counter()
+        derive_key_from_password_argon2(
+            password,
+            fingerprint,
+            time_cost=time_cost,
+            memory_cost=8,
+            parallelism=1,
+        )
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        if elapsed_ms >= target_ms:
+            break
+        time_cost += 1
+
+    cfg_mgr.set_argon2_time_cost(time_cost)
+    if cfg_mgr.load_config(require_pin=False).get("verbose_timing"):
+        logger.info("Calibrated Argon2 time_cost=%s (%.2f ms)", time_cost, elapsed_ms)
+    return time_cost

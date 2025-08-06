@@ -47,6 +47,7 @@ class ConfigManager:
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
                 "kdf_iterations": 50_000,
                 "kdf_mode": "pbkdf2",
+                "argon2_time_cost": 2,
                 "additional_backup_path": "",
                 "backup_interval": 0,
                 "secret_mode_enabled": False,
@@ -76,6 +77,7 @@ class ConfigManager:
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
             data.setdefault("kdf_iterations", 50_000)
             data.setdefault("kdf_mode", "pbkdf2")
+            data.setdefault("argon2_time_cost", 2)
             data.setdefault("additional_backup_path", "")
             data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
@@ -195,6 +197,19 @@ class ConfigManager:
         """Retrieve the configured key derivation function."""
         config = self.load_config(require_pin=False)
         return config.get("kdf_mode", "pbkdf2")
+
+    def set_argon2_time_cost(self, time_cost: int) -> None:
+        """Persist the Argon2 ``time_cost`` parameter."""
+        if time_cost <= 0:
+            raise ValueError("time_cost must be positive")
+        config = self.load_config(require_pin=False)
+        config["argon2_time_cost"] = int(time_cost)
+        self.save_config(config)
+
+    def get_argon2_time_cost(self) -> int:
+        """Retrieve the Argon2 ``time_cost`` setting."""
+        config = self.load_config(require_pin=False)
+        return int(config.get("argon2_time_cost", 2))
 
     def set_additional_backup_path(self, path: Optional[str]) -> None:
         """Persist an optional additional backup path in the config."""
