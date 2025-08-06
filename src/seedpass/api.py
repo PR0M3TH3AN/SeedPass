@@ -14,6 +14,7 @@ import jwt
 import logging
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
 import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
@@ -132,12 +133,12 @@ def _validate_encryption_path(request: Request, path: Path) -> Path:
 
 
 @app.get("/api/v1/entry")
-def search_entry(
+async def search_entry(
     request: Request, query: str, authorization: str | None = Header(None)
 ) -> List[Any]:
     _check_token(request, authorization)
     pm = _get_pm(request)
-    results = pm.entry_manager.search_entries(query)
+    results = await run_in_threadpool(pm.entry_manager.search_entries, query)
     return [
         {
             "id": idx,
@@ -152,7 +153,7 @@ def search_entry(
 
 
 @app.get("/api/v1/entry/{entry_id}")
-def get_entry(
+async def get_entry(
     request: Request,
     entry_id: int,
     authorization: str | None = Header(None),
@@ -161,14 +162,14 @@ def get_entry(
     _check_token(request, authorization)
     _require_password(request, password)
     pm = _get_pm(request)
-    entry = pm.entry_manager.retrieve_entry(entry_id)
+    entry = await run_in_threadpool(pm.entry_manager.retrieve_entry, entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Not found")
     return entry
 
 
 @app.post("/api/v1/entry")
-def create_entry(
+async def create_entry(
     request: Request,
     entry: dict,
     authorization: str | None = Header(None),
@@ -197,7 +198,8 @@ def create_entry(
         ]
         kwargs = {k: entry.get(k) for k in policy_keys if entry.get(k) is not None}
 
-        index = pm.entry_manager.add_entry(
+        index = await run_in_threadpool(
+            pm.entry_manager.add_entry,
             entry.get("label"),
             int(entry.get("length", 12)),
             entry.get("username"),
@@ -207,9 +209,10 @@ def create_entry(
         return {"id": index}
 
     if etype == "totp":
-        index = pm.entry_manager.get_next_index()
+        index = await run_in_threadpool(pm.entry_manager.get_next_index)
 
-        uri = pm.entry_manager.add_totp(
+        uri = await run_in_threadpool(
+            pm.entry_manager.add_totp,
             entry.get("label"),
             pm.parent_seed,
             secret=entry.get("secret"),
@@ -222,7 +225,8 @@ def create_entry(
         return {"id": index, "uri": uri}
 
     if etype == "ssh":
-        index = pm.entry_manager.add_ssh_key(
+        index = await run_in_threadpool(
+            pm.entry_manager.add_ssh_key,
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -232,7 +236,8 @@ def create_entry(
         return {"id": index}
 
     if etype == "pgp":
-        index = pm.entry_manager.add_pgp_key(
+        index = await run_in_threadpool(
+            pm.entry_manager.add_pgp_key,
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -244,7 +249,8 @@ def create_entry(
         return {"id": index}
 
     if etype == "nostr":
-        index = pm.entry_manager.add_nostr_key(
+        index = await run_in_threadpool(
+            pm.entry_manager.add_nostr_key,
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -254,7 +260,8 @@ def create_entry(
         return {"id": index}
 
     if etype == "key_value":
-        index = pm.entry_manager.add_key_value(
+        index = await run_in_threadpool(
+            pm.entry_manager.add_key_value,
             entry.get("label"),
             entry.get("key"),
             entry.get("value"),
@@ -268,7 +275,8 @@ def create_entry(
             if etype == "seed"
             else pm.entry_manager.add_managed_account
         )
-        index = func(
+        index = await run_in_threadpool(
+            func,
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),

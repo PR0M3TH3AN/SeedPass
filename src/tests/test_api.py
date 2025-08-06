@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 import hashlib
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -13,7 +13,7 @@ from seedpass.core.entry_types import EntryType
 
 
 @pytest.fixture
-def client(monkeypatch):
+async def client(monkeypatch):
     dummy = SimpleNamespace(
         entry_manager=SimpleNamespace(
             search_entries=lambda q: [
@@ -45,27 +45,31 @@ def client(monkeypatch):
     monkeypatch.setattr(api, "PasswordManager", lambda: dummy)
     monkeypatch.setenv("SEEDPASS_CORS_ORIGINS", "http://example.com")
     token = api.start_server()
-    client = TestClient(api.app)
-    return client, token
+    transport = ASGITransport(app=api.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac, token
 
 
-def test_token_hashed(client):
+@pytest.mark.anyio
+async def test_token_hashed(client):
     _, token = client
     assert api.app.state.token_hash != token
     assert api.app.state.token_hash == hashlib.sha256(token.encode()).hexdigest()
 
 
-def test_cors_and_auth(client):
+@pytest.mark.anyio
+async def test_cors_and_auth(client):
     cl, token = client
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.get("/api/v1/entry", params={"query": "s"}, headers=headers)
+    res = await cl.get("/api/v1/entry", params={"query": "s"}, headers=headers)
     assert res.status_code == 200
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_invalid_token(client):
+@pytest.mark.anyio
+async def test_invalid_token(client):
     cl, _token = client
-    res = cl.get(
+    res = await cl.get(
         "/api/v1/entry",
         params={"query": "s"},
         headers={"Authorization": "Bearer bad"},
@@ -73,60 +77,65 @@ def test_invalid_token(client):
     assert res.status_code == 401
 
 
-def test_get_entry_by_id(client):
+@pytest.mark.anyio
+async def test_get_entry_by_id(client):
     cl, token = client
     headers = {
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
         "X-SeedPass-Password": "pw",
     }
-    res = cl.get("/api/v1/entry/1", headers=headers)
+    res = await cl.get("/api/v1/entry/1", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"label": "Site"}
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_get_config_value(client):
+@pytest.mark.anyio
+async def test_get_config_value(client):
     cl, token = client
     headers = {
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
     }
-    res = cl.get("/api/v1/config/k", headers=headers)
+    res = await cl.get("/api/v1/config/k", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"key": "k", "value": "v"}
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_list_fingerprint(client):
+@pytest.mark.anyio
+async def test_list_fingerprint(client):
     cl, token = client
     headers = {
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
     }
-    res = cl.get("/api/v1/fingerprint", headers=headers)
+    res = await cl.get("/api/v1/fingerprint", headers=headers)
     assert res.status_code == 200
     assert res.json() == ["fp"]
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_get_nostr_pubkey(client):
+@pytest.mark.anyio
+async def test_get_nostr_pubkey(client):
     cl, token = client
     headers = {
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
     }
-    res = cl.get("/api/v1/nostr/pubkey", headers=headers)
+    res = await cl.get("/api/v1/nostr/pubkey", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"npub": "np"}
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_create_modify_archive_entry(client):
+@pytest.mark.anyio
+async def test_create_modify_archive_entry(client):
     cl, token = client
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
 
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/entry",
         json={"label": "test", "length": 12},
         headers=headers,
@@ -134,7 +143,7 @@ def test_create_modify_archive_entry(client):
     assert res.status_code == 200
     assert res.json() == {"id": 1}
 
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/entry/1",
         json={"username": "bob"},
         headers=headers,
@@ -142,16 +151,17 @@ def test_create_modify_archive_entry(client):
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
 
-    res = cl.post("/api/v1/entry/1/archive", headers=headers)
+    res = await cl.post("/api/v1/entry/1/archive", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "archived"}
 
-    res = cl.post("/api/v1/entry/1/unarchive", headers=headers)
+    res = await cl.post("/api/v1/entry/1/unarchive", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "active"}
 
 
-def test_update_config(client):
+@pytest.mark.anyio
+async def test_update_config(client):
     cl, token = client
     called = {}
 
@@ -160,7 +170,7 @@ def test_update_config(client):
 
     api.app.state.pm.config_manager.set_inactivity_timeout = set_timeout
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/config/inactivity_timeout",
         json={"value": 42},
         headers=headers,
@@ -171,14 +181,15 @@ def test_update_config(client):
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_update_config_quick_unlock(client):
+@pytest.mark.anyio
+async def test_update_config_quick_unlock(client):
     cl, token = client
     called = {}
     api.app.state.pm.config_manager.set_quick_unlock = lambda v: called.setdefault(
         "val", v
     )
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/config/quick_unlock",
         json={"value": True},
         headers=headers,
@@ -188,12 +199,13 @@ def test_update_config_quick_unlock(client):
     assert called.get("val") is True
 
 
-def test_change_password_route(client):
+@pytest.mark.anyio
+async def test_change_password_route(client):
     cl, token = client
     called = {}
     api.app.state.pm.change_password = lambda o, n: called.setdefault("called", (o, n))
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/change-password",
         headers=headers,
         json={"old": "old", "new": "new"},
@@ -204,10 +216,11 @@ def test_change_password_route(client):
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
-def test_update_config_unknown_key(client):
+@pytest.mark.anyio
+async def test_update_config_unknown_key(client):
     cl, token = client
     headers = {"Authorization": f"Bearer {token}", "Origin": "http://example.com"}
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/config/bogus",
         json={"value": 1},
         headers=headers,
@@ -215,7 +228,8 @@ def test_update_config_unknown_key(client):
     assert res.status_code == 400
 
 
-def test_shutdown(client, monkeypatch):
+@pytest.mark.anyio
+async def test_shutdown(client, monkeypatch):
     cl, token = client
 
     calls = {}
@@ -231,7 +245,7 @@ def test_shutdown(client, monkeypatch):
         "Authorization": f"Bearer {token}",
         "Origin": "http://example.com",
     }
-    res = cl.post("/api/v1/shutdown", headers=headers)
+    res = await cl.post("/api/v1/shutdown", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "shutting down"}
     assert calls["func"] is sys.exit
@@ -239,6 +253,7 @@ def test_shutdown(client, monkeypatch):
     assert res.headers.get("access-control-allow-origin") == "http://example.com"
 
 
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "method,path",
     [
@@ -256,11 +271,11 @@ def test_shutdown(client, monkeypatch):
         ("post", "/api/v1/vault/lock"),
     ],
 )
-def test_invalid_token_other_endpoints(client, method, path):
+async def test_invalid_token_other_endpoints(client, method, path):
     cl, _token = client
     req = getattr(cl, method)
     kwargs = {"headers": {"Authorization": "Bearer bad"}}
     if method in {"post", "put"}:
         kwargs["json"] = {}
-    res = req(path, **kwargs)
+    res = await req(path, **kwargs)
     assert res.status_code == 401

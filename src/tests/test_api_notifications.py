@@ -1,15 +1,19 @@
 from test_api import client
 from types import SimpleNamespace
 import queue
+import pytest
 import seedpass.api as api
 
 
-def test_notifications_endpoint(client):
+@pytest.mark.anyio
+async def test_notifications_endpoint(client):
     cl, token = client
     api.app.state.pm.notifications = queue.Queue()
     api.app.state.pm.notifications.put(SimpleNamespace(message="m1", level="INFO"))
     api.app.state.pm.notifications.put(SimpleNamespace(message="m2", level="WARNING"))
-    res = cl.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.get(
+        "/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.status_code == 200
     assert res.json() == [
         {"level": "INFO", "message": "m1"},
@@ -18,19 +22,25 @@ def test_notifications_endpoint(client):
     assert api.app.state.pm.notifications.empty()
 
 
-def test_notifications_endpoint_clears_queue(client):
+@pytest.mark.anyio
+async def test_notifications_endpoint_clears_queue(client):
     cl, token = client
     api.app.state.pm.notifications = queue.Queue()
     api.app.state.pm.notifications.put(SimpleNamespace(message="hi", level="INFO"))
-    res = cl.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.get(
+        "/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.status_code == 200
     assert res.json() == [{"level": "INFO", "message": "hi"}]
     assert api.app.state.pm.notifications.empty()
-    res = cl.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.get(
+        "/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.json() == []
 
 
-def test_notifications_endpoint_does_not_clear_current(client):
+@pytest.mark.anyio
+async def test_notifications_endpoint_does_not_clear_current(client):
     cl, token = client
     api.app.state.pm.notifications = queue.Queue()
     msg = SimpleNamespace(message="keep", level="INFO")
@@ -40,7 +50,9 @@ def test_notifications_endpoint_does_not_clear_current(client):
         lambda: api.app.state.pm._current_notification
     )
 
-    res = cl.get("/api/v1/notifications", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.get(
+        "/api/v1/notifications", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.status_code == 200
     assert res.json() == [{"level": "INFO", "message": "keep"}]
     assert api.app.state.pm.notifications.empty()
