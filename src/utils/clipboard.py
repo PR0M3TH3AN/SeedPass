@@ -26,7 +26,10 @@ def _ensure_clipboard() -> None:
                     "Clipboard support requires the 'xclip' package. "
                     "Install it with 'sudo apt install xclip' and restart SeedPass.",
                 ) from exc
-        raise
+        raise ClipboardUnavailableError(
+            "No clipboard mechanism available. Install a supported clipboard tool or "
+            "run SeedPass with --no-clipboard."
+        ) from exc
 
 
 def copy_to_clipboard(text: str, timeout: int) -> bool:
