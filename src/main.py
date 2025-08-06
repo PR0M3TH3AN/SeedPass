@@ -23,6 +23,7 @@ import importlib
 from seedpass.core.manager import PasswordManager
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
+from seedpass.core.config_manager import ConfigManager
 from constants import INACTIVITY_TIMEOUT, initialize_app
 from utils.password_prompt import (
     PasswordPromptError,
@@ -767,8 +768,18 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
     """Toggle secret mode and adjust clipboard delay."""
     cfg = pm.config_manager
     if cfg is None:
-        print(colored("Configuration manager unavailable.", "red"))
-        return
+        vault = getattr(pm, "vault", None)
+        fingerprint_dir = getattr(pm, "fingerprint_dir", None)
+        if vault is not None and fingerprint_dir is not None:
+            try:
+                cfg = pm.config_manager = ConfigManager(vault, fingerprint_dir)
+            except Exception as exc:
+                logging.error(f"Failed to initialize ConfigManager: {exc}")
+                print(colored("Configuration manager unavailable.", "red"))
+                return
+        else:
+            print(colored("Configuration manager unavailable.", "red"))
+            return
     try:
         enabled = cfg.get_secret_mode_enabled()
         delay = cfg.get_clipboard_clear_delay()
