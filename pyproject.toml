@@ -33,6 +33,8 @@ requests = ">=2.32"
 python-multipart = ">=0.0.20"
 orjson = "*"
 argon2-cffi = "*"
+PyJWT = ">=2.8.0"
+slowapi = "^0.1.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"
@@ -40,6 +42,10 @@ coverage = "^7.5"
 black = "^24.3"
 pip-audit = "^2.7"
 pytest-xdist = "^3.5"
+hypothesis = "^6.98"
+freezegun = "^1.5"
+toga-dummy = ">=0.5.2"
+Pillow = "^10.4"
 
 [tool.poetry.scripts]
 seedpass = "seedpass.cli:app"
