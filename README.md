@@ -726,6 +726,7 @@ You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
 - **KDF Iteration Caution:** Lowering `kdf_iterations` makes password cracking easier, while a high `backup_interval` leaves fewer recent backups.
 - **Offline Mode:** When enabled, SeedPass skips all Nostr operations so your vault stays local until syncing is turned back on.
 - **Quick Unlock:** Stores a hashed copy of your password in the encrypted config so you only need to enter it once per session. Avoid this on shared computers.
+- **Prompt Rate Limiting:** Seed and password prompts enforce a configurable attempt limit with exponential backoff to slow brute-force attacks. Adjust or disable the limit for testing via the `--max-prompt-attempts` CLI option or the `SEEDPASS_MAX_PROMPT_ATTEMPTS` environment variable.
 
 ### Secure Deployment
 

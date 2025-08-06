@@ -1239,6 +1239,12 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         action="store_true",
         help="Disable clipboard support and print secrets",
     )
+    parser.add_argument(
+        "--max-prompt-attempts",
+        type=int,
+        default=None,
+        help="Maximum number of password/seed prompt attempts (0 to disable)",
+    )
     sub = parser.add_subparsers(dest="command")
 
     exp = sub.add_parser("export")
@@ -1257,6 +1263,9 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     totp_p.add_argument("query")
 
     args = parser.parse_args(argv)
+
+    if args.max_prompt_attempts is not None:
+        os.environ["SEEDPASS_MAX_PROMPT_ATTEMPTS"] = str(args.max_prompt_attempts)
 
     try:
         password_manager = PasswordManager(fingerprint=args.fingerprint or fingerprint)
