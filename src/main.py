@@ -1064,6 +1064,7 @@ def display_menu(
     getattr(password_manager, "start_background_relay_check", lambda: None)()
     _display_live_stats(password_manager)
     while True:
+        getattr(password_manager, "poll_background_errors", lambda: None)()
         fp, parent_fp, child_fp = getattr(
             password_manager,
             "header_fingerprint_args",

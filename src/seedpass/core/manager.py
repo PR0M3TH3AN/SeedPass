@@ -177,6 +177,7 @@ class PasswordManager:
         self.state_manager: Optional[StateManager] = None
         self.stats_manager: StatsManager = StatsManager()
         self.notifications: queue.Queue[Notification] = queue.Queue()
+        self.error_queue: queue.Queue[Exception] = queue.Queue()
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
 
@@ -306,6 +307,18 @@ class PasswordManager:
         ):
             return self._current_notification
         return None
+
+    def poll_background_errors(self) -> None:
+        """Process exceptions raised by background threads."""
+        if not hasattr(self, "error_queue"):
+            return
+        while True:
+            try:
+                exc = self.error_queue.get_nowait()
+            except queue.Empty:
+                break
+            logger.warning("Background task failed: %s", exc)
+            self.notify(f"Background task failed: {exc}", level="WARNING")
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
@@ -1430,6 +1443,8 @@ class PasswordManager:
                 await self.sync_index_from_nostr_async()
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
+                if hasattr(self, "error_queue"):
+                    self.error_queue.put(exc)
 
         try:
             loop = asyncio.get_running_loop()
@@ -1473,6 +1488,8 @@ class PasswordManager:
                         )
             except Exception as exc:
                 logger.warning(f"Relay health check failed: {exc}")
+                if hasattr(self, "error_queue"):
+                    self.error_queue.put(exc)
 
         self._relay_thread = threading.Thread(target=_worker, daemon=True)
         self._relay_thread.start()
@@ -1489,6 +1506,8 @@ class PasswordManager:
                 bus.publish("sync_finished", result)
             except Exception as exc:
                 logging.error(f"Background vault sync failed: {exc}", exc_info=True)
+                if hasattr(self, "error_queue"):
+                    self.error_queue.put(exc)
 
         try:
             loop = asyncio.get_running_loop()
