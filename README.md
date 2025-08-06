@@ -49,7 +49,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
-- **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
+- **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network. See [Nostr Setup](docs/nostr_setup.md) for relay configuration and event details.
 - **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas. The manifest's `delta_since` field stores the UNIX timestamp of the latest delta event.
 - **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
@@ -82,32 +82,31 @@ before fading.
 
 SeedPass follows a layered design. The **`seedpass.core`** package exposes the
 `PasswordManager` along with service classes (e.g. `VaultService` and
-`EntryService`) that implement the main API used across interfaces.
-The command line tool in **`seedpass.cli`** is a thin adapter built with Typer
-that delegates operations to this API layer.
+`EntryService`) that implement the main API used across interfaces. Both the
+command line tool in **`seedpass.cli`** and the FastAPI server in
+**`seedpass.api`** delegate operations to this core. The BeeWare desktop
+interface (`seedpass_gui.app`) and an optional browser extension reuse these
+services, with the extension communicating through the API layer.
 
-The BeeWare desktop interface lives in **`seedpass_gui.app`** and can be
-started with either `seedpass-gui` or `python -m seedpass_gui`. It reuses the
-same service objects to unlock the vault, list entries and search through them.
-
-An optional browser extension can communicate with the FastAPI server exposed by
-`seedpass.api` to manage entries from within the browser.
+Nostr synchronisation lives in the **`nostr`** modules. The core services call
+into these modules to publish or retrieve encrypted snapshots and deltas from
+configured relays.
 
 ```mermaid
 graph TD
-    core["seedpass.core"]
     cli["CLI"]
     api["FastAPI server"]
-    gui["BeeWare GUI"]
-    ext["Browser Extension"]
+    core["seedpass.core"]
+    nostr["Nostr client"]
+    relays["Nostr relays"]
 
     cli --> core
-    gui --> core
     api --> core
-    ext --> api
+    core --> nostr
+    nostr --> relays
 ```
 
-See `docs/ARCHITECTURE.md` for details.
+See `docs/ARCHITECTURE.md` and [Nostr Setup](docs/nostr_setup.md) for details.
 
 ## Prerequisites
 

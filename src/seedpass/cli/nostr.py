@@ -5,7 +5,9 @@ import typer
 from .common import _get_services, _get_nostr_service
 
 
-app = typer.Typer(help="Interact with Nostr relays")
+app = typer.Typer(
+    help="Interact with Nostr relays. See docs/nostr_setup.md for configuration and troubleshooting."
+)
 
 
 @app.command("sync")
