@@ -23,6 +23,13 @@ fingerprint_option = typer.Option(
     help="Specify which seed profile to use",
 )
 
+no_clipboard_option = typer.Option(
+    False,
+    "--no-clipboard",
+    help="Disable clipboard support and print secrets instead",
+    is_flag=True,
+)
+
 # Sub command groups
 from . import entry, vault, nostr, config, fingerprint, util, api
 
@@ -44,12 +51,16 @@ def _gui_backend_available() -> bool:
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context, fingerprint: Optional[str] = fingerprint_option) -> None:
+def main(
+    ctx: typer.Context,
+    fingerprint: Optional[str] = fingerprint_option,
+    no_clipboard: bool = no_clipboard_option,
+) -> None:
     """SeedPass CLI entry point.
 
     When called without a subcommand this launches the interactive TUI.
     """
-    ctx.obj = {"fingerprint": fingerprint}
+    ctx.obj = {"fingerprint": fingerprint, "no_clipboard": no_clipboard}
     if ctx.invoked_subcommand is None:
         tui = importlib.import_module("main")
         raise typer.Exit(tui.main(fingerprint=fingerprint))

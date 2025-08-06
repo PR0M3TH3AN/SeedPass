@@ -38,13 +38,16 @@ from .atomic_write import atomic_write
 
 # Optional clipboard support
 try:  # pragma: no cover - exercised when dependency missing
-    from .clipboard import copy_to_clipboard
+    from .clipboard import ClipboardUnavailableError, copy_to_clipboard
 except Exception as exc:  # pragma: no cover - executed only if pyperclip missing
+
+    class ClipboardUnavailableError(RuntimeError):
+        """Stub exception when clipboard support is unavailable."""
 
     def copy_to_clipboard(*_args, **_kwargs):
         """Stub when clipboard support is unavailable."""
         logger.warning("Clipboard support unavailable: %s", exc)
-        return False
+        raise ClipboardUnavailableError(str(exc))
 
 
 __all__ = [
@@ -69,6 +72,7 @@ __all__ = [
     "timed_input",
     "InMemorySecret",
     "copy_to_clipboard",
+    "ClipboardUnavailableError",
     "clear_screen",
     "clear_and_print_fingerprint",
     "clear_header_with_notification",
