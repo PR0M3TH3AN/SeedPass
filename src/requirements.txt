@@ -21,6 +21,7 @@ mutmut==2.4.4
 pgpy==0.6.0
 pyotp>=2.8.0
 
+setuptools>=78.1.1
 freezegun
 typer>=0.12.3
 
