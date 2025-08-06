@@ -1,6 +1,17 @@
 import importlib.util
 import logging
+import sys
+from pathlib import Path
+
 import pytest
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from helpers import create_vault, TEST_PASSWORD, TEST_SEED
+from seedpass.core.backup import BackupManager
+from seedpass.core.config_manager import ConfigManager
+from seedpass.core.entry_management import EntryManager
+from seedpass.core.manager import EncryptionMode, PasswordManager
 
 
 @pytest.fixture(
@@ -57,3 +68,29 @@ def pytest_collection_modifyitems(
         for item in items:
             if "desktop" in item.keywords:
                 item.add_marker(skip_desktop)
+
+
+@pytest.fixture
+def vault(tmp_path):
+    vault, _ = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    return vault
+
+
+@pytest.fixture
+def password_manager(vault, tmp_path):
+    cfg_mgr = ConfigManager(vault, tmp_path)
+    backup_mgr = BackupManager(tmp_path, cfg_mgr)
+    entry_mgr = EntryManager(vault, backup_mgr)
+
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.encryption_mode = EncryptionMode.SEED_ONLY
+    pm.encryption_manager = vault.encryption_manager
+    pm.vault = vault
+    pm.entry_manager = entry_mgr
+    pm.backup_manager = backup_mgr
+    pm.parent_seed = TEST_SEED
+    pm.nostr_client = None
+    pm.fingerprint_dir = tmp_path
+    pm.is_dirty = False
+    pm.secret_mode_enabled = False
+    return pm
