@@ -17,6 +17,7 @@ import hashlib
 from typing import Optional, Literal
 import shutil
 import time
+from datetime import datetime, timezone
 import builtins
 import threading
 import queue
@@ -345,6 +346,15 @@ class PasswordManager:
         self.initialize_managers()
         self.locked = False
         self.update_activity()
+        if (
+            getattr(self, "config_manager", None)
+            and self.config_manager.get_quick_unlock()
+        ):
+            logger.info(
+                "Quick unlock used by %s at %s",
+                self.current_fingerprint or "unknown",
+                datetime.now(timezone.utc).isoformat(),
+            )
         self.last_unlock_duration = time.perf_counter() - start
         if getattr(self, "verbose_timing", False):
             logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
