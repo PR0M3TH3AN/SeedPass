@@ -98,3 +98,42 @@ def test_settings_menu_additional_backup(monkeypatch):
             with patch("builtins.input", side_effect=lambda *_: next(inputs)):
                 main.handle_settings(pm)
         handler.assert_called_once_with(pm)
+
+
+def test_settings_menu_change_password(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        calls: list[tuple[str, str]] = []
+        pm.change_password = lambda old, new: calls.append((old, new))
+
+        inputs = iter(["3", ""])
+        monkeypatch.setattr(main, "prompt_existing_password", lambda *_: "oldpw")
+        monkeypatch.setattr(main, "prompt_new_password", lambda *_: "newpw")
+        monkeypatch.setattr(main, "pause", lambda: None)
+
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        assert calls == [("oldpw", "newpw")]
+
+
+def test_settings_menu_change_password_incorrect(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+
+        def fail_change(old, new):
+            raise ValueError("Incorrect password")
+
+        pm.change_password = fail_change
+        inputs = iter(["3", ""])
+        monkeypatch.setattr(main, "prompt_existing_password", lambda *_: "badpw")
+        monkeypatch.setattr(main, "prompt_new_password", lambda *_: "newpw")
+        monkeypatch.setattr(main, "pause", lambda: None)
+
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        out = capsys.readouterr().out
+        assert "Incorrect password" in out
