@@ -538,6 +538,10 @@ class PasswordManager:
                 )
             )
 
+            # Ensure managers are initialized for the newly created profile
+            if getattr(self, "config_manager", None) is None:
+                self.initialize_managers()
+
         except Exception as e:
             logger.error(f"Error adding new seed profile: {e}", exc_info=True)
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
@@ -959,6 +963,10 @@ class PasswordManager:
         else:
             print(colored("Invalid choice. Exiting.", "red"))
             sys.exit(1)
+
+        # Some seed loading paths may not initialize managers; ensure they exist
+        if getattr(self, "config_manager", None) is None:
+            self.initialize_managers()
 
     def setup_existing_seed(
         self,
