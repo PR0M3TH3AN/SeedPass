@@ -22,19 +22,21 @@ pgpy==0.6.0
 pyotp>=2.8.0
 
 freezegun
-pyperclip
-qrcode>=8.2
 typer>=0.12.3
-fastapi>=0.116.1
-uvicorn>=0.35.0
-starlette>=0.47.2
-httpx>=0.28.1
-requests>=2.32
-python-multipart>=0.0.20
-PyJWT
-orjson
-argon2-cffi
-toga-core>=0.5.2
-pillow
-toga-dummy>=0.5.2  # for headless GUI tests
-slowapi
+
+# Optional dependencies - install as needed for additional features
+pyperclip            # Clipboard support for secret mode
+qrcode>=8.2          # Generate QR codes for TOTP setup
+fastapi>=0.116.1     # API server
+uvicorn>=0.35.0      # API server
+starlette>=0.47.2    # API server
+httpx>=0.28.1        # API server
+requests>=2.32       # API server
+python-multipart>=0.0.20  # API server file uploads
+PyJWT                # JWT authentication for API server
+orjson               # Fast JSON serialization for API server
+argon2-cffi          # Password hashing for API server
+toga-core>=0.5.2     # Desktop GUI
+pillow               # Image support for GUI
+toga-dummy>=0.5.2    # Headless GUI tests
+slowapi              # Rate limiting for API server

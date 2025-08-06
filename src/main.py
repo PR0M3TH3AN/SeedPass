@@ -18,6 +18,7 @@ from colorama import init as colorama_init
 from termcolor import colored
 from utils.color_scheme import color_text
 import traceback
+import importlib
 
 from seedpass.core.manager import PasswordManager
 from nostr.client import NostrClient
@@ -37,6 +38,25 @@ from local_bip85.bip85 import Bip85Error
 
 
 colorama_init()
+
+OPTIONAL_DEPENDENCIES = {
+    "pyperclip": "clipboard support for secret mode",
+    "qrcode": "QR code generation for TOTP setup",
+    "toga": "desktop GUI features",
+}
+
+
+def _warn_missing_optional_dependencies() -> None:
+    """Log warnings for any optional packages that are not installed."""
+    for module, feature in OPTIONAL_DEPENDENCIES.items():
+        try:
+            importlib.import_module(module)
+        except ModuleNotFoundError:
+            logging.warning(
+                "Optional dependency '%s' is not installed; %s will be unavailable.",
+                module,
+                feature,
+            )
 
 
 def load_global_config() -> dict:
@@ -1205,6 +1225,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         Optional seed profile fingerprint to select automatically.
     """
     configure_logging()
+    _warn_missing_optional_dependencies()
     initialize_app()
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")

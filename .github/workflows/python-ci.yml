@@ -83,10 +83,8 @@ jobs:
           pip-compile --generate-hashes --output-file=requirements.lock src/requirements.txt
           git diff --exit-code requirements.lock
           pip install --require-hashes -r requirements.lock
-      - name: Run pip-audit
-        run: |
-          pip install pip-audit
-          pip-audit -r requirements.lock --ignore-vuln GHSA-wj6h-64fc-37mp
+      - name: Run dependency scan
+        run: scripts/dependency_scan.sh --ignore-vuln GHSA-wj6h-64fc-37mp
       - name: Determine stress args
         shell: bash
         run: |
