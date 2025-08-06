@@ -539,7 +539,7 @@ class PasswordManager:
             )
 
             # Ensure managers are initialized for the newly created profile
-            if self.config_manager is None:
+            if getattr(self, "config_manager", None) is None:
                 self.initialize_managers()
 
         except Exception as e:
@@ -965,7 +965,7 @@ class PasswordManager:
             sys.exit(1)
 
         # Some seed loading paths may not initialize managers; ensure they exist
-        if self.config_manager is None:
+        if getattr(self, "config_manager", None) is None:
             self.initialize_managers()
 
     def setup_existing_seed(
