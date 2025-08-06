@@ -1,7 +1,8 @@
 """Utility functions for terminal output."""
 
+import logging
 import sys
-
+import queue
 
 from termcolor import colored
 
@@ -17,8 +18,11 @@ def format_profile(fingerprint: str | None, pm=None) -> str | None:
             name = pm.fingerprint_manager.get_name(fingerprint)
             if name:
                 return f"{name} ({fingerprint})"
-        except Exception:
-            pass
+        except Exception as exc:  # pragma: no cover - unexpected errors
+            logging.error(
+                "Error retrieving name for fingerprint %s: %s", fingerprint, exc
+            )
+            raise
     return fingerprint
 
 
@@ -93,8 +97,11 @@ def clear_header_with_notification(
     if hasattr(pm, "get_current_notification"):
         try:
             note = pm.get_current_notification()
-        except Exception:
+        except (queue.Empty, AttributeError):
             note = None
+        except Exception as exc:  # pragma: no cover - unexpected errors
+            logging.error("Error getting current notification: %s", exc)
+            raise
 
     line = ""
     if note:
