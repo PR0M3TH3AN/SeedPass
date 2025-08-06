@@ -1,5 +1,13 @@
+import importlib.util
 import logging
 import pytest
+
+
+@pytest.fixture(
+    params=["asyncio"] + (["trio"] if importlib.util.find_spec("trio") else [])
+)
+def anyio_backend(request):
+    return request.param
 
 
 @pytest.fixture(autouse=True)
