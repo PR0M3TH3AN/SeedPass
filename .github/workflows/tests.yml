@@ -26,9 +26,8 @@ jobs:
         run: poetry run black --check .
       - name: Run security audit
         run: |
-          if ! poetry run pip-audit; then
-            echo "::warning::pip-audit found vulnerabilities"
-          fi
+          poetry run pip-audit || echo "::warning::pip-audit found vulnerabilities"
+        shell: bash
       - name: Run tests with coverage
         run: |
           poetry run coverage run -m pytest
