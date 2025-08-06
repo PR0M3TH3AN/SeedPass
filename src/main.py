@@ -24,7 +24,11 @@ from seedpass.core.manager import PasswordManager
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
 from constants import INACTIVITY_TIMEOUT, initialize_app
-from utils.password_prompt import PasswordPromptError
+from utils.password_prompt import (
+    PasswordPromptError,
+    prompt_existing_password,
+    prompt_new_password,
+)
 from utils import (
     timed_input,
     copy_to_clipboard,
@@ -986,7 +990,16 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "2":
             handle_nostr_menu(password_manager)
         elif choice == "3":
-            password_manager.change_password()
+            try:
+                old_pw = prompt_existing_password("Enter your current password: ")
+                new_pw = prompt_new_password()
+                password_manager.change_password(old_pw, new_pw)
+            except ValueError:
+                print(colored("Incorrect password.", "red"))
+            except PasswordPromptError:
+                pass
+            except Exception as e:
+                print(colored(f"Error: {e}", "red"))
             pause()
         elif choice == "4":
             password_manager.handle_verify_checksum()
