@@ -95,7 +95,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ "$RUNNER_OS" = "Windows" ]; then
-            pip install -r requirements.lock
+            pip install --require-hashes -r requirements.win.lock
           else
             pip install --require-hashes -r requirements.lock
           fi
