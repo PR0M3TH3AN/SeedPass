@@ -14,7 +14,8 @@ import json
 import logging
 import os
 import hashlib
-from typing import Optional, Literal
+import hmac
+from typing import Optional, Literal, Any
 import shutil
 import time
 from datetime import datetime, timezone
@@ -110,6 +111,43 @@ from .stats_manager import StatsManager
 logger = logging.getLogger(__name__)
 
 
+class AuditLogger:
+    """Append-only logger producing tamper-evident JSON records."""
+
+    def __init__(self, key: bytes, path: Path | None = None) -> None:
+        self.key = key
+        self.path = path or (Path.home() / ".seedpass" / "audit.log")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.last_sig = "0" * 64
+        if self.path.exists():
+            try:
+                with self.path.open("r", encoding="utf-8") as fh:
+                    last = None
+                    for line in fh:
+                        if line.strip():
+                            last = line
+                    if last is not None:
+                        self.last_sig = json.loads(last).get("sig", self.last_sig)
+            except Exception:
+                pass
+
+    def log(self, event: str, details: dict[str, Any] | None = None) -> None:
+        details = details or {}
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            "details": details,
+        }
+        payload = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+        sig = hmac.new(
+            self.key, f"{self.last_sig}{payload}".encode(), hashlib.sha256
+        ).hexdigest()
+        entry["sig"] = sig
+        with self.path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, sort_keys=True) + "\n")
+        self.last_sig = sig
+
+
 def calculate_profile_id(seed: str) -> str:
     """Return the fingerprint identifier for ``seed``."""
     fp = generate_fingerprint(seed)
@@ -181,6 +219,7 @@ class PasswordManager:
         self._current_notification: Optional[Notification] = None
         self._notification_expiry: float = 0.0
         self._bip85_cache: dict[tuple[int, int], bytes] = {}
+        self.audit_logger: Optional[AuditLogger] = None
 
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
@@ -375,6 +414,12 @@ class PasswordManager:
         self.locked = False
         self.update_activity()
         if (
+            getattr(self, "audit_logger", None) is None
+            and getattr(self, "_parent_seed_secret", None) is not None
+        ):
+            key = hashlib.sha256(self.parent_seed.encode("utf-8")).digest()
+            self.audit_logger = AuditLogger(key)
+        if (
             getattr(self, "config_manager", None)
             and self.config_manager.get_quick_unlock()
         ):
@@ -383,6 +428,11 @@ class PasswordManager:
                 self.current_fingerprint or "unknown",
                 datetime.now(timezone.utc).isoformat(),
             )
+            audit_logger = getattr(self, "audit_logger", None)
+            if audit_logger:
+                audit_logger.log(
+                    "quick_unlock", {"fingerprint": self.current_fingerprint}
+                )
         self.last_unlock_duration = time.perf_counter() - start
         if getattr(self, "verbose_timing", False):
             logger.info("Vault unlocked in %.2f seconds", self.last_unlock_duration)
@@ -4324,6 +4374,9 @@ class PasswordManager:
                 parent_seed=self.parent_seed,
             )
             print(colored(f"Database exported to '{path}'.", "green"))
+            audit_logger = getattr(self, "audit_logger", None)
+            if audit_logger and path is not None:
+                audit_logger.log("backup_export", {"path": str(path)})
             return path
         except Exception as e:
             logging.error(f"Failed to export database: {e}", exc_info=True)
@@ -4538,7 +4591,12 @@ class PasswordManager:
                         "green",
                     )
                 )
-
+            audit_logger = getattr(self, "audit_logger", None)
+            if audit_logger:
+                details = {
+                    "backup_path": str(backup_path) if save and backup_path else None
+                }
+                audit_logger.log("seed_reveal", details)
         except Exception as e:
             logging.error(f"Error during parent seed backup/reveal: {e}", exc_info=True)
             print(colored(f"Error: Failed to backup/reveal parent seed: {e}", "red"))
