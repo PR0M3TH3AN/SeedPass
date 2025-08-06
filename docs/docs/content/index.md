@@ -185,13 +185,11 @@ Once activated, your terminal prompt should be prefixed with `(venv)` indicating
 
 ### 4. Install Dependencies
 
-Install the required Python packages and build dependencies using `pip`.
-When upgrading pip, use `python -m pip` inside the virtual environment so that pip can update itself cleanly:
+Install the required Python packages using **Poetry**:
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install --require-hashes -r requirements.lock
-python -m pip install -e .
+pip install poetry
+poetry install
 ```
 
 #### Linux Clipboard Support
@@ -473,12 +471,12 @@ Back in the Settings menu you can:
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `poetry install` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 
 ```bash
-pip install --require-hashes -r requirements.lock
-pytest -vv
+poetry install
+poetry run pytest -vv
 ```
 
 `test_fuzz_key_derivation.py` uses Hypothesis to generate random passwords,

@@ -19,22 +19,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        shell: bash
+      - name: Install Poetry and dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            pip install --require-hashes -r requirements.win.lock
-          else
-            pip install --require-hashes -r requirements.lock
-          fi
-          pip install pip-audit black
+          python -m pip install --upgrade pip setuptools
+          pip install poetry
+          poetry install --no-interaction
       - name: Run black
-        run: black --check .
+        run: poetry run black --check .
       - name: Run pip-audit
-        run: pip-audit --ignore-vuln GHSA-wj6h-64fc-37mp
+        run: poetry run pip-audit --ignore-vuln GHSA-wj6h-64fc-37mp
       - name: Run tests
-        run: pytest --cov=src --cov-report=xml
+        run: poetry run pytest --cov=src --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

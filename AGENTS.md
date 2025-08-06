@@ -4,18 +4,17 @@ This project is written in **Python**. Follow these instructions when working wi
 
 ## Running Tests
 
-1. Set up a virtual environment and install dependencies:
+1. Install dependencies using **Poetry**:
 
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --require-hashes -r requirements.lock
+   pip install poetry
+   poetry install
    ```
 
 2. Run the test suite using **pytest**:
 
    ```bash
-   pytest
+   poetry run pytest
    ```
 
    Currently the test folder is located in `src/tests/`. New tests should be placed there so `pytest` can discover them automatically.
@@ -26,7 +25,7 @@ This project is written in **Python**. Follow these instructions when working wi
 - Use [**black**](https://black.readthedocs.io/) to format Python files before committing:
 
   ```bash
-  black .
+  poetry run black .
   ```
 
 - Optionally run **flake8** or another linter to catch style issues.

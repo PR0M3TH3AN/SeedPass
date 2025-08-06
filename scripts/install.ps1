@@ -249,13 +249,17 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to upgrade pip"
 }
 
-& "$VenvDir\Scripts\python.exe" -m pip install --require-hashes -r "requirements.lock"
+& "$VenvDir\Scripts\python.exe" -m pip install poetry
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning "Failed to install Python dependencies. If errors mention C++, install Microsoft C++ Build Tools: https://visualstudio.microsoft.com/visual-cpp-build-tools/"
+    Write-Warning "Failed to install Poetry"
     Write-Error "Dependency installation failed."
 }
 
-& "$VenvDir\Scripts\python.exe" -m pip install -e .
+& "$VenvDir\Scripts\poetry.exe" install
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Failed to install Python dependencies"
+    Write-Error "Dependency installation failed."
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to install SeedPass package"
 }

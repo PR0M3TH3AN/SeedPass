@@ -1,12 +1,55 @@
-[project]
+[tool.poetry]
 name = "seedpass"
 version = "0.1.0"
+description = "Deterministic password manager with a BeeWare GUI"
+authors = ["SeedPass Contributors"]
 
-[build-system]
-requires = ["setuptools>=61", "wheel"]
-build-backend = "setuptools.build_meta"
+[tool.poetry.dependencies]
+python = "^3.10"
+colorama = ">=0.4.6"
+termcolor = ">=1.1.0"
+cryptography = ">=40.0.2"
+"bip-utils" = ">=2.5.0"
+bech32 = "1.2.0"
+coincurve = ">=18.0.0"
+mnemonic = "*"
+aiohttp = ">=3.12.15"
+bcrypt = "*"
+portalocker = ">=2.8"
+"nostr-sdk" = ">=0.43"
+"websocket-client" = "1.7.0"
+websockets = ">=15.0.0"
+tomli = "*"
+hypothesis = "*"
+mutmut = "2.4.4"
+pgpy = "0.6.0"
+pyotp = ">=2.8.0"
+freezegun = "*"
+typer = ">=0.12.3"
+pyperclip = "*"
+qrcode = ">=8.2"
+fastapi = ">=0.116.1"
+uvicorn = ">=0.35.0"
+starlette = ">=0.47.2"
+httpx = ">=0.28.1"
+requests = ">=2.32"
+"python-multipart" = ">=0.0.20"
+PyJWT = "*"
+orjson = "*"
+"argon2-cffi" = "*"
+"toga-core" = ">=0.5.2"
+pillow = "*"
+"toga-dummy" = ">=0.5.2"
+slowapi = "*"
 
-[project.scripts]
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0"
+"pytest-cov" = "*"
+"pytest-xdist" = "*"
+black = "*"
+"pip-audit" = "*"
+
+[tool.poetry.scripts]
 seedpass = "seedpass.cli:app"
 seedpass-gui = "seedpass_gui.app:main"
 
@@ -49,3 +92,7 @@ requires = [
     "argon2-cffi",
 ]
 icon = "logo/png/SeedPass-Logo-24.png"
+
+[build-system]
+requires = ["poetry-core>=1.5.0"]
+build-backend = "poetry.core.masonry.api"

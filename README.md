@@ -200,9 +200,8 @@ Follow these steps to set up SeedPass on your local machine.
 4. **Install Dependencies**
 
    ```bash
-   python -m pip install --upgrade pip
-   python -m pip install --require-hashes -r requirements.lock
-   python -m pip install -e .
+   pip install poetry
+   poetry install
    ```
 // 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
 After reinstalling, run `which seedpass` on Linux/macOS or `where seedpass` on Windows to confirm the command resolves to your virtual environment's `seedpass` executable.
@@ -578,11 +577,11 @@ data cannot be decrypted.
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `poetry install` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
-pip install --require-hashes -r requirements.lock
-pytest -vv
+poetry install
+poetry run pytest -vv
 ```
 
 ### Exploring Nostr Index Size Limits
@@ -645,7 +644,8 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 
 1. Install all development dependencies:
 ```bash
-pip install --require-hashes -r requirements.lock
+pip install poetry
+poetry install
 ```
 
 2. When `src/runtime_requirements.txt` changes, rerun:
@@ -656,8 +656,8 @@ Commit the updated `src/vendor/` directory. The application automatically adds t
 
 3. Before committing, format and test the code:
 ```bash
-black .
-pytest
+poetry run black .
+poetry run pytest
 ```
 
 
@@ -761,10 +761,9 @@ To review and merge these updates:
 1. Review the changelog and release notes in the Dependabot pull request.
 2. Run the test suite locally:
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --require-hashes -r requirements.lock
-   pytest
+   pip install poetry
+   poetry install
+   poetry run pytest
    ```
 3. Merge the pull request once all checks pass.
 

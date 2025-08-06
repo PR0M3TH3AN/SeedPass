@@ -140,10 +140,10 @@ main() {
     source "$VENV_DIR/bin/activate"
 
     # 6. Install/Update Python dependencies
-    print_info "Installing/updating Python dependencies from requirements.lock..."
+    print_info "Installing Python dependencies with Poetry..."
     pip install --upgrade pip
-    pip install --require-hashes -r requirements.lock
-    pip install -e .
+    pip install poetry
+    poetry install
     print_info "Installing platform-specific Toga backend..."
     if [ "$OS_NAME" = "Linux" ]; then
         print_info "Installing toga-gtk for Linux..."
