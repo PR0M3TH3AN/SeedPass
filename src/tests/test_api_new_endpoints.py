@@ -13,7 +13,8 @@ from seedpass.core.encryption import EncryptionManager
 from nostr.client import NostrClient, DEFAULT_RELAYS
 
 
-def test_create_and_modify_totp_entry(client):
+@pytest.mark.anyio
+async def test_create_and_modify_totp_entry(client):
     cl, token = client
     calls = {}
 
@@ -30,7 +31,7 @@ def test_create_and_modify_totp_entry(client):
     api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/entry",
         json={
             "type": "totp",
@@ -54,7 +55,7 @@ def test_create_and_modify_totp_entry(client):
         "archived": False,
     }
 
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/entry/5",
         json={"period": 90, "digits": 6},
         headers=headers,
@@ -65,7 +66,8 @@ def test_create_and_modify_totp_entry(client):
     assert calls["modify"][1]["digits"] == 6
 
 
-def test_create_and_modify_ssh_entry(client):
+@pytest.mark.anyio
+async def test_create_and_modify_ssh_entry(client):
     cl, token = client
     calls = {}
 
@@ -81,7 +83,7 @@ def test_create_and_modify_ssh_entry(client):
     api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/entry",
         json={"type": "ssh", "label": "S", "index": 2, "notes": "n"},
         headers=headers,
@@ -90,7 +92,7 @@ def test_create_and_modify_ssh_entry(client):
     assert res.json() == {"id": 2}
     assert calls["create"] == {"index": 2, "notes": "n", "archived": False}
 
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/entry/2",
         json={"notes": "x"},
         headers=headers,
@@ -100,7 +102,8 @@ def test_create_and_modify_ssh_entry(client):
     assert calls["modify"][1]["notes"] == "x"
 
 
-def test_update_entry_error(client):
+@pytest.mark.anyio
+async def test_update_entry_error(client):
     cl, token = client
 
     def modify(*a, **k):
@@ -108,12 +111,13 @@ def test_update_entry_error(client):
 
     api.app.state.pm.entry_manager.modify_entry = modify
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
+    res = await cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
     assert res.status_code == 400
     assert res.json() == {"detail": "nope"}
 
 
-def test_update_config_secret_mode(client):
+@pytest.mark.anyio
+async def test_update_config_secret_mode(client):
     cl, token = client
     called = {}
 
@@ -122,7 +126,7 @@ def test_update_config_secret_mode(client):
 
     api.app.state.pm.config_manager.set_secret_mode_enabled = set_secret
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.put(
+    res = await cl.put(
         "/api/v1/config/secret_mode_enabled",
         json={"value": True},
         headers=headers,
@@ -132,17 +136,19 @@ def test_update_config_secret_mode(client):
     assert called["val"] is True
 
 
-def test_totp_export_endpoint(client):
+@pytest.mark.anyio
+async def test_totp_export_endpoint(client):
     cl, token = client
     api.app.state.pm.entry_manager.export_totp_entries = lambda seed: {"entries": ["x"]}
     api.app.state.pm.parent_seed = "seed"
     headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
-    res = cl.get("/api/v1/totp/export", headers=headers)
+    res = await cl.get("/api/v1/totp/export", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"entries": ["x"]}
 
 
-def test_totp_codes_endpoint(client):
+@pytest.mark.anyio
+async def test_totp_codes_endpoint(client):
     cl, token = client
     api.app.state.pm.entry_manager.list_entries = lambda **kw: [
         (0, "Email", None, None, False)
@@ -151,7 +157,7 @@ def test_totp_codes_endpoint(client):
     api.app.state.pm.entry_manager.get_totp_time_remaining = lambda i: 30
     api.app.state.pm.parent_seed = "seed"
     headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
-    res = cl.get("/api/v1/totp", headers=headers)
+    res = await cl.get("/api/v1/totp", headers=headers)
     assert res.status_code == 200
     assert res.json() == {
         "codes": [
@@ -160,13 +166,17 @@ def test_totp_codes_endpoint(client):
     }
 
 
-def test_parent_seed_endpoint_removed(client):
+@pytest.mark.anyio
+async def test_parent_seed_endpoint_removed(client):
     cl, token = client
-    res = cl.get("/api/v1/parent-seed", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.get(
+        "/api/v1/parent-seed", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.status_code == 404
 
 
-def test_fingerprint_endpoints(client):
+@pytest.mark.anyio
+async def test_fingerprint_endpoints(client):
     cl, token = client
     calls = {}
 
@@ -178,17 +188,17 @@ def test_fingerprint_endpoints(client):
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = cl.post("/api/v1/fingerprint", headers=headers)
+    res = await cl.post("/api/v1/fingerprint", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert calls.get("add") is True
 
-    res = cl.delete("/api/v1/fingerprint/abc", headers=headers)
+    res = await cl.delete("/api/v1/fingerprint/abc", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "deleted"}
     assert calls.get("remove") == "abc"
 
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/fingerprint/select",
         json={"fingerprint": "xyz"},
         headers=headers,
@@ -198,7 +208,8 @@ def test_fingerprint_endpoints(client):
     assert calls.get("select") == "xyz"
 
 
-def test_checksum_endpoints(client):
+@pytest.mark.anyio
+async def test_checksum_endpoints(client):
     cl, token = client
     calls = {}
 
@@ -209,18 +220,19 @@ def test_checksum_endpoints(client):
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = cl.post("/api/v1/checksum/verify", headers=headers)
+    res = await cl.post("/api/v1/checksum/verify", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert calls.get("verify") is True
 
-    res = cl.post("/api/v1/checksum/update", headers=headers)
+    res = await cl.post("/api/v1/checksum/update", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
     assert calls.get("update") is True
 
 
-def test_vault_import_via_path(client, tmp_path):
+@pytest.mark.anyio
+async def test_vault_import_via_path(client, tmp_path):
     cl, token = client
     called = {}
 
@@ -236,7 +248,7 @@ def test_vault_import_via_path(client, tmp_path):
     file_path.write_text("{}")
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/import",
         json={"path": str(file_path)},
         headers=headers,
@@ -247,7 +259,8 @@ def test_vault_import_via_path(client, tmp_path):
     assert called.get("sync") is True
 
 
-def test_vault_import_via_upload(client, tmp_path):
+@pytest.mark.anyio
+async def test_vault_import_via_upload(client, tmp_path):
     cl, token = client
     called = {}
 
@@ -261,7 +274,7 @@ def test_vault_import_via_upload(client, tmp_path):
 
     headers = {"Authorization": f"Bearer {token}"}
     with open(file_path, "rb") as fh:
-        res = cl.post(
+        res = await cl.post(
             "/api/v1/vault/import",
             files={"file": ("c.json", fh.read())},
             headers=headers,
@@ -272,7 +285,8 @@ def test_vault_import_via_upload(client, tmp_path):
     assert called.get("sync") is True
 
 
-def test_vault_import_invalid_extension(client):
+@pytest.mark.anyio
+async def test_vault_import_invalid_extension(client):
     cl, token = client
     api.app.state.pm.handle_import_database = lambda path: None
     api.app.state.pm.sync_vault = lambda: None
@@ -281,7 +295,7 @@ def test_vault_import_invalid_extension(client):
     )
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/import",
         json={"path": "bad.txt"},
         headers=headers,
@@ -289,7 +303,8 @@ def test_vault_import_invalid_extension(client):
     assert res.status_code == 400
 
 
-def test_vault_import_path_traversal_blocked(client, tmp_path):
+@pytest.mark.anyio
+async def test_vault_import_path_traversal_blocked(client, tmp_path):
     cl, token = client
     key = base64.urlsafe_b64encode(os.urandom(32))
     api.app.state.pm.encryption_manager = EncryptionManager(key, tmp_path)
@@ -297,7 +312,7 @@ def test_vault_import_path_traversal_blocked(client, tmp_path):
     api.app.state.pm.sync_vault = lambda: None
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/import",
         json={"path": "../evil.json.enc"},
         headers=headers,
@@ -305,7 +320,8 @@ def test_vault_import_path_traversal_blocked(client, tmp_path):
     assert res.status_code == 400
 
 
-def test_vault_lock_endpoint(client):
+@pytest.mark.anyio
+async def test_vault_lock_endpoint(client):
     cl, token = client
     called = {}
 
@@ -317,7 +333,7 @@ def test_vault_lock_endpoint(client):
     api.app.state.pm.locked = False
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post("/api/v1/vault/lock", headers=headers)
+    res = await cl.post("/api/v1/vault/lock", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"status": "locked"}
     assert called.get("locked") is True
@@ -329,7 +345,8 @@ def test_vault_lock_endpoint(client):
     assert api.app.state.pm.locked is False
 
 
-def test_secret_mode_endpoint(client):
+@pytest.mark.anyio
+async def test_secret_mode_endpoint(client):
     cl, token = client
     called = {}
 
@@ -343,7 +360,7 @@ def test_secret_mode_endpoint(client):
     api.app.state.pm.config_manager.set_clipboard_clear_delay = set_delay
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/secret-mode",
         json={"enabled": True, "delay": 12},
         headers=headers,
@@ -354,7 +371,8 @@ def test_secret_mode_endpoint(client):
     assert called["delay"] == 12
 
 
-def test_vault_export_endpoint(client, tmp_path):
+@pytest.mark.anyio
+async def test_vault_export_endpoint(client, tmp_path):
     cl, token = client
     out = tmp_path / "out.json"
     out.write_text("data")
@@ -365,15 +383,18 @@ def test_vault_export_endpoint(client, tmp_path):
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
     }
-    res = cl.post("/api/v1/vault/export", headers=headers)
+    res = await cl.post("/api/v1/vault/export", headers=headers)
     assert res.status_code == 200
     assert res.content == b"data"
 
-    res = cl.post("/api/v1/vault/export", headers={"Authorization": f"Bearer {token}"})
+    res = await cl.post(
+        "/api/v1/vault/export", headers={"Authorization": f"Bearer {token}"}
+    )
     assert res.status_code == 401
 
 
-def test_backup_parent_seed_endpoint(client, tmp_path):
+@pytest.mark.anyio
+async def test_backup_parent_seed_endpoint(client, tmp_path):
     cl, token = client
     api.app.state.pm.parent_seed = "seed"
     called = {}
@@ -386,7 +407,7 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
     }
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/backup-parent-seed",
         json={"path": str(path), "confirm": True},
         headers=headers,
@@ -395,7 +416,7 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
     assert res.json() == {"status": "saved", "path": str(path)}
     assert called["path"] == path
 
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/backup-parent-seed",
         json={"path": str(path)},
         headers=headers,
@@ -403,7 +424,8 @@ def test_backup_parent_seed_endpoint(client, tmp_path):
     assert res.status_code == 400
 
 
-def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
+@pytest.mark.anyio
+async def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
     cl, token = client
     api.app.state.pm.parent_seed = "seed"
     key = base64.urlsafe_b64encode(os.urandom(32))
@@ -412,7 +434,7 @@ def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
     }
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/vault/backup-parent-seed",
         json={"path": "../evil.enc", "confirm": True},
         headers=headers,
@@ -420,7 +442,8 @@ def test_backup_parent_seed_path_traversal_blocked(client, tmp_path):
     assert res.status_code == 400
 
 
-def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
+@pytest.mark.anyio
+async def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
     cl, token = client
     nostr_client, _ = dummy_nostr_client
     relays = ["wss://a", "wss://b"]
@@ -448,28 +471,29 @@ def test_relay_management_endpoints(client, dummy_nostr_client, monkeypatch):
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = cl.get("/api/v1/relays", headers=headers)
+    res = await cl.get("/api/v1/relays", headers=headers)
     assert res.status_code == 200
     assert res.json() == {"relays": relays}
 
-    res = cl.post("/api/v1/relays", json={"url": "wss://c"}, headers=headers)
+    res = await cl.post("/api/v1/relays", json={"url": "wss://c"}, headers=headers)
     assert res.status_code == 200
     assert called["set"] == ["wss://a", "wss://b", "wss://c"]
 
     api.app.state.pm.config_manager.load_config = lambda require_pin=False: {
         "relays": ["wss://a", "wss://b", "wss://c"]
     }
-    res = cl.delete("/api/v1/relays/2", headers=headers)
+    res = await cl.delete("/api/v1/relays/2", headers=headers)
     assert res.status_code == 200
     assert called["set"] == ["wss://a", "wss://c"]
 
-    res = cl.post("/api/v1/relays/reset", headers=headers)
+    res = await cl.post("/api/v1/relays/reset", headers=headers)
     assert res.status_code == 200
     assert called.get("init") is True
     assert api.app.state.pm.nostr_client.relays == list(DEFAULT_RELAYS)
 
 
-def test_generate_password_no_special_chars(client):
+@pytest.mark.anyio
+async def test_generate_password_no_special_chars(client):
     cl, token = client
 
     class DummyEnc:
@@ -486,7 +510,7 @@ def test_generate_password_no_special_chars(client):
     api.app.state.pm.parent_seed = "seed"
 
     headers = {"Authorization": f"Bearer {token}"}
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/password",
         json={"length": 16, "include_special_chars": False},
         headers=headers,
@@ -496,7 +520,8 @@ def test_generate_password_no_special_chars(client):
     assert not any(c in string.punctuation for c in pw)
 
 
-def test_generate_password_allowed_chars(client):
+@pytest.mark.anyio
+async def test_generate_password_allowed_chars(client):
     cl, token = client
 
     class DummyEnc:
@@ -514,7 +539,7 @@ def test_generate_password_allowed_chars(client):
 
     headers = {"Authorization": f"Bearer {token}"}
     allowed = "@$"
-    res = cl.post(
+    res = await cl.post(
         "/api/v1/password",
         json={"length": 16, "allowed_special_chars": allowed},
         headers=headers,
