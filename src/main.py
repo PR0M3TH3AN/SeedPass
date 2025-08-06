@@ -13,6 +13,7 @@ import signal
 import time
 import argparse
 import tomli
+from tomli import TOMLDecodeError
 from colorama import init as colorama_init
 from termcolor import colored
 from utils.color_scheme import color_text
@@ -46,7 +47,7 @@ def load_global_config() -> dict:
     try:
         with open(config_path, "rb") as f:
             return tomli.load(f)
-    except Exception as exc:
+    except (OSError, TOMLDecodeError) as exc:
         logging.warning(f"Failed to read {config_path}: {exc}")
         return {}
 
