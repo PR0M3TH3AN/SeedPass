@@ -51,7 +51,7 @@ class ConfigManager:
                 "backup_interval": 0,
                 "secret_mode_enabled": False,
                 "clipboard_clear_delay": 45,
-                "quick_unlock": False,
+                "quick_unlock_enabled": False,
                 "nostr_max_retries": MAX_RETRIES,
                 "nostr_retry_delay": float(RETRY_DELAY),
                 "min_uppercase": 2,
@@ -80,7 +80,7 @@ class ConfigManager:
             data.setdefault("backup_interval", 0)
             data.setdefault("secret_mode_enabled", False)
             data.setdefault("clipboard_clear_delay", 45)
-            data.setdefault("quick_unlock", False)
+            data.setdefault("quick_unlock_enabled", data.get("quick_unlock", False))
             data.setdefault("nostr_max_retries", MAX_RETRIES)
             data.setdefault("nostr_retry_delay", float(RETRY_DELAY))
             data.setdefault("min_uppercase", 2)
@@ -320,13 +320,13 @@ class ConfigManager:
     def set_quick_unlock(self, enabled: bool) -> None:
         """Persist the quick unlock toggle."""
         cfg = self.load_config(require_pin=False)
-        cfg["quick_unlock"] = bool(enabled)
+        cfg["quick_unlock_enabled"] = bool(enabled)
         self.save_config(cfg)
 
     def get_quick_unlock(self) -> bool:
         """Retrieve whether quick unlock is enabled."""
         cfg = self.load_config(require_pin=False)
-        return bool(cfg.get("quick_unlock", False))
+        return bool(cfg.get("quick_unlock_enabled", False))
 
     def set_nostr_max_retries(self, retries: int) -> None:
         """Persist the maximum number of Nostr retry attempts."""
