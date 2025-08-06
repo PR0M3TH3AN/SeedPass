@@ -98,7 +98,9 @@ from datetime import datetime
 from utils.fingerprint_manager import FingerprintManager
 
 # Import NostrClient
-from nostr.client import NostrClient, DEFAULT_RELAYS, MANIFEST_ID_PREFIX
+from nostr.client import NostrClient
+from nostr.connection import DEFAULT_RELAYS
+from nostr.snapshot import MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
 from .stats_manager import StatsManager
