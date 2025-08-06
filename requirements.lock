@@ -148,6 +148,10 @@ attrs==25.3.0 \
     # via
     #   aiohttp
     #   hypothesis
+async-timeout==5.0.1 ; python_version < "3.11" \
+    --hash=sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c \
+    --hash=sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3
+    # via aiohttp
 bcrypt==4.3.0 \
     --hash=sha256:0042b2e342e9ae3d2ed22727c1262f76cc4f345683b5c1715f0250cf4277294f \
     --hash=sha256:0142b2cb84a009f8452c8c5a33ace5e3dfec4159e7735f5afe9a4d50a8ea722d \
