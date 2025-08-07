@@ -2,10 +2,12 @@
 # SeedPass Universal Installer for Windows
 #
 # Supports installing from a specific branch using the -Branch parameter.
-# Example: .\install.ps1 -Branch beta
+# Use -IncludeGui to install the optional BeeWare GUI backend.
+# Example: .\install.ps1 -Branch beta -IncludeGui
 
 param(
-    [string]$Branch = "main" # The git branch to install from
+    [string]$Branch = "main", # The git branch to install from
+    [switch]$IncludeGui # Install BeeWare GUI components
 )
 
 # --- Configuration ---
@@ -255,14 +257,24 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Dependency installation failed."
 }
 
-& "$VenvDir\Scripts\python.exe" -m pip install -e .[gui]
+if ($IncludeGui) {
+    & "$VenvDir\Scripts\python.exe" -m pip install -e .[gui]
+} else {
+    & "$VenvDir\Scripts\python.exe" -m pip install -e .
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to install SeedPass package"
 }
 
-Write-Info "Installing BeeWare GUI backend..."
-& "$VenvDir\Scripts\python.exe" -m pip install toga-winforms
-if ($LASTEXITCODE -ne 0) { Write-Warning "Failed to install GUI backend" }
+if ($IncludeGui) {
+    Write-Info "Installing BeeWare GUI backend..."
+    try {
+        & "$VenvDir\Scripts\python.exe" -m pip install toga-winforms
+        if ($LASTEXITCODE -ne 0) { throw "toga-winforms installation failed" }
+    } catch {
+        Write-Warning "Failed to install GUI backend. Install Microsoft C++ Build Tools from https://visualstudio.microsoft.com/visual-cpp-build-tools/ and rerun the installer."
+    }
+}
 
 # 5. Create launcher script
 Write-Info "Creating launcher script..."
