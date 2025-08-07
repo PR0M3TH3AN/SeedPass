@@ -191,6 +191,13 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
             return
 
         selected_fingerprint = fingerprints[int(choice) - 1]
+        if selected_fingerprint == password_manager.current_fingerprint:
+            print(
+                colored(
+                    f"Seed profile {selected_fingerprint} is already active.", "yellow"
+                )
+            )
+            return
         if password_manager.select_fingerprint(selected_fingerprint):
             print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
         else:
