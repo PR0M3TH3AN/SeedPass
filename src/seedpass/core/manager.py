@@ -529,6 +529,9 @@ class PasswordManager:
                 print(colored("Invalid choice. Exiting.", "red"))
                 sys.exit(1)
 
+            if not fingerprint:
+                return None
+
             # Set current_fingerprint in FingerprintManager only
             self.fingerprint_manager.current_fingerprint = fingerprint
             print(
@@ -541,6 +544,8 @@ class PasswordManager:
             # Ensure managers are initialized for the newly created profile
             if getattr(self, "config_manager", None) is None:
                 self.initialize_managers()
+
+            return fingerprint
 
         except Exception as e:
             logger.error(f"Error adding new seed profile: {e}", exc_info=True)
@@ -1000,8 +1005,8 @@ class PasswordManager:
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
                 sys.exit(1)
-
-            return self._finalize_existing_seed(parent_seed, password=password)
+            fingerprint = self._finalize_existing_seed(parent_seed, password=password)
+            return fingerprint
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             self.notify("Operation cancelled by user.", level="WARNING")
