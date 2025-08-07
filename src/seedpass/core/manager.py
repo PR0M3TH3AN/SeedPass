@@ -1018,7 +1018,19 @@ class PasswordManager:
     ) -> Optional[str]:
         """Common logic for initializing an existing seed."""
         if self.validate_bip85_seed(parent_seed):
-            fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
+            try:
+                fingerprint = self.fingerprint_manager.add_fingerprint(parent_seed)
+            except ValueError:
+                existing_fp = generate_fingerprint(parent_seed)
+                print(colored("Error: Seed profile already exists.", "red"))
+                if confirm_action("Switch to existing profile? (Y/N): "):
+                    self.current_fingerprint = existing_fp
+                    self.fingerprint_manager.current_fingerprint = existing_fp
+                    self.fingerprint_dir = (
+                        self.fingerprint_manager.get_fingerprint_directory(existing_fp)
+                    )
+                    return existing_fp
+                return None
             if not fingerprint:
                 print(
                     colored(
@@ -1103,7 +1115,19 @@ class PasswordManager:
 
         if confirm_action("Do you want to use this generated seed? (Y/N): "):
             # Add a new fingerprint using the generated seed
-            fingerprint = self.fingerprint_manager.add_fingerprint(new_seed)
+            try:
+                fingerprint = self.fingerprint_manager.add_fingerprint(new_seed)
+            except ValueError:
+                print(colored("Error: Seed profile already exists.", "red"))
+                if confirm_action("Switch to existing profile? (Y/N): "):
+                    existing_fp = generate_fingerprint(new_seed)
+                    self.current_fingerprint = existing_fp
+                    self.fingerprint_manager.current_fingerprint = existing_fp
+                    self.fingerprint_dir = (
+                        self.fingerprint_manager.get_fingerprint_directory(existing_fp)
+                    )
+                    return existing_fp
+                return None
             if not fingerprint:
                 print(
                     colored(
@@ -1193,6 +1217,11 @@ class PasswordManager:
             fingerprint_dir (Path): The directory corresponding to the fingerprint.
         """
         try:
+            fingerprint = generate_fingerprint(seed)
+            if fingerprint in self.fingerprint_manager.list_fingerprints():
+                print(colored("Error: Seed profile already exists.", "red"))
+                raise ValueError("Fingerprint already exists")
+
             # Set self.fingerprint_dir
             self.fingerprint_dir = fingerprint_dir
 
