@@ -1401,6 +1401,8 @@ class PasswordManager:
 
     async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
+        if not getattr(self, "nostr_client", None):
+            return
         start = time.perf_counter()
         try:
             if getattr(self, "current_fingerprint", None):
@@ -1518,6 +1520,8 @@ class PasswordManager:
         """Launch a thread to synchronize the vault without blocking the UI."""
         if getattr(self, "offline_mode", False):
             return
+        if getattr(self, "nostr_client", None) is None:
+            return
         if getattr(self, "_sync_task", None) and not getattr(
             self._sync_task, "done", True
         ):
@@ -1529,7 +1533,7 @@ class PasswordManager:
                 await self.sync_index_from_nostr_async()
             except Exception as exc:
                 logger.warning(f"Background sync failed: {exc}")
-                if hasattr(self, "error_queue"):
+                if hasattr(self, "error_queue") and getattr(self, "nostr_client", None):
                     self.error_queue.put(exc)
 
         try:
@@ -1615,6 +1619,9 @@ class PasswordManager:
         local index file was written. Returns ``False`` otherwise. The local
         index file is not created on failure.
         """
+        if not getattr(self, "nostr_client", None):
+            return False
+
         index_file = self.fingerprint_dir / "seedpass_entries_db.json.enc"
         if index_file.exists():
             return True
@@ -1680,6 +1687,8 @@ class PasswordManager:
         asyncio.run(self.sync_index_from_nostr_if_missing_async())
 
     async def sync_index_from_nostr_if_missing_async(self) -> None:
+        if not getattr(self, "nostr_client", None):
+            return
         success = await self.attempt_initial_sync_async()
         if not success:
             self.vault.save_index({"schema_version": LATEST_VERSION, "entries": {}})

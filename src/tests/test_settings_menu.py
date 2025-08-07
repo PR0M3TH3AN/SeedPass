@@ -1,9 +1,13 @@
 import sys
 import importlib
+import queue
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -12,6 +16,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import main
 from nostr.client import DEFAULT_RELAYS
 from seedpass.core.config_manager import ConfigManager
+from seedpass.core.manager import Notification, PasswordManager
 from seedpass.core.vault import Vault
 from utils.fingerprint_manager import FingerprintManager
 
@@ -137,3 +142,31 @@ def test_settings_menu_change_password_incorrect(monkeypatch, capsys):
 
         out = capsys.readouterr().out
         assert "Incorrect password" in out
+
+
+def test_settings_menu_without_nostr_client(monkeypatch):
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.offline_mode = False
+    pm.nostr_client = None
+    pm.notifications = queue.Queue()
+    pm.error_queue = queue.Queue()
+    pm.notify = lambda msg, level="INFO": pm.notifications.put(Notification(msg, level))
+    pm.is_dirty = False
+    pm.last_update = time.time()
+    pm.last_activity = time.time()
+    pm.update_activity = lambda: None
+    pm.lock_vault = lambda: None
+    pm.unlock_vault = lambda: None
+    pm.start_background_relay_check = lambda: None
+    pm.poll_background_errors = PasswordManager.poll_background_errors.__get__(pm)
+    pm.display_stats = lambda: None
+
+    inputs = iter(["7", ""])
+    monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
+    monkeypatch.setattr("builtins.input", lambda *_: "")
+
+    with pytest.raises(SystemExit):
+        main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
+
+    assert pm.error_queue.empty()
+    assert pm.notifications.empty()
