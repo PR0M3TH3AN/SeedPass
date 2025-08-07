@@ -117,7 +117,8 @@ class FingerprintManager:
             seed_phrase (str): The BIP-39 seed phrase.
 
         Returns:
-            Optional[str]: The generated fingerprint or None if failed.
+            Optional[str]: The generated fingerprint or ``None`` if a profile
+                already exists or generation fails.
         """
         fingerprint = generate_fingerprint(seed_phrase)
         if fingerprint and fingerprint not in self.fingerprints:
@@ -133,7 +134,7 @@ class FingerprintManager:
             return fingerprint
         elif fingerprint in self.fingerprints:
             logger.warning(f"Fingerprint {fingerprint} already exists.")
-            return fingerprint
+            raise ValueError("Fingerprint already exists")
         else:
             logger.error("Fingerprint generation failed.")
             return None
