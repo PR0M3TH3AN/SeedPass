@@ -12,6 +12,7 @@ def _make_pm():
     pm.notify = lambda msg, level="INFO": pm.notifications.put(
         manager_module.Notification(msg, level)
     )
+    pm.nostr_client = object()
     return pm
 
 

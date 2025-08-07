@@ -17,6 +17,7 @@ def test_unlock_triggers_sync(monkeypatch, tmp_path):
     pm.setup_encryption_manager = lambda *a, **k: None
     pm.initialize_bip85 = lambda: None
     pm.initialize_managers = lambda: None
+    pm.nostr_client = object()
     called = {"sync": False}
 
     async def fake_sync(self):
@@ -62,6 +63,7 @@ def test_quick_unlock_background_sync(monkeypatch, tmp_path):
 def test_start_background_sync_running_loop(monkeypatch):
     pm = PasswordManager.__new__(PasswordManager)
     pm.offline_mode = False
+    pm.nostr_client = object()
     called = {"init": False, "sync": False}
 
     async def fake_attempt(self):
