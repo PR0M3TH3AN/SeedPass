@@ -15,6 +15,7 @@ VENV_DIR="$INSTALL_DIR/venv"
 LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/seedpass"
 BRANCH="main" # Default branch
+INSTALL_GUI=false
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
@@ -49,8 +50,9 @@ install_dependencies() {
     print_warning "Install 'xclip' manually to enable clipboard features in secret mode."
 }
 usage() {
-    echo "Usage: $0 [-b | --branch <branch_name>] [-h | --help]"
+    echo "Usage: $0 [-b | --branch <branch_name>] [--with-gui] [-h | --help]"
     echo "  -b, --branch   Specify the git branch to install (default: main)"
+    echo "      --with-gui Include graphical interface dependencies"
     echo "  -h, --help     Display this help message"
     exit 0
 }
@@ -70,6 +72,10 @@ main() {
                 ;;
             -h|--help)
                 usage
+                ;;
+            --with-gui)
+                INSTALL_GUI=true
+                shift
                 ;;
             *)
                 print_error "Unknown parameter passed: $1"; usage
@@ -111,12 +117,14 @@ main() {
     fi
 
     # 3. Install OS-specific dependencies
-    print_info "Checking for Gtk development libraries..."
-    if ! python3 -c "import gi" &>/dev/null; then
-        print_warning "Gtk introspection bindings not found. Installing dependencies..."
-        install_dependencies
-    else
-        print_info "Gtk bindings already available."
+    if [ "$INSTALL_GUI" = true ]; then
+        print_info "Checking for Gtk development libraries..."
+        if command -v pkg-config &>/dev/null && pkg-config --exists girepository-2.0; then
+            print_info "Gtk bindings already available."
+        else
+            print_warning "Gtk introspection bindings not found. Installing dependencies..."
+            install_dependencies
+        fi
     fi
 
     # 4. Clone or update the repository
@@ -143,14 +151,33 @@ main() {
     print_info "Installing/updating Python dependencies from requirements.lock..."
     pip install --upgrade pip
     pip install --require-hashes -r requirements.lock
-    pip install -e .[gui]
-    print_info "Installing platform-specific Toga backend..."
-    if [ "$OS_NAME" = "Linux" ]; then
-        print_info "Installing toga-gtk for Linux..."
-        pip install toga-gtk
-    elif [ "$OS_NAME" = "Darwin" ]; then
-        print_info "Installing toga-cocoa for macOS..."
-        pip install toga-cocoa
+    if [ "$INSTALL_GUI" = true ]; then
+        GUI_READY=true
+        if [ "$OS_NAME" = "Linux" ]; then
+            if ! (command -v pkg-config &>/dev/null && pkg-config --exists girepository-2.0); then
+                print_warning "GTK libraries (girepository-2.0) not found. Install them with: sudo apt install libgirepository1.0-dev"
+                read -r -p "Continue with GUI installation anyway? (y/N) " CONTINUE_GUI
+                if [[ ! "$CONTINUE_GUI" =~ ^[Yy]$ ]]; then
+                    GUI_READY=false
+                fi
+            fi
+        fi
+        if [ "$GUI_READY" = true ]; then
+            pip install -e .[gui]
+            print_info "Installing platform-specific Toga backend..."
+            if [ "$OS_NAME" = "Linux" ]; then
+                print_info "Installing toga-gtk for Linux..."
+                pip install toga-gtk
+            elif [ "$OS_NAME" = "Darwin" ]; then
+                print_info "Installing toga-cocoa for macOS..."
+                pip install toga-cocoa
+            fi
+        else
+            print_warning "Skipping GUI installation."
+            pip install -e .
+        fi
+    else
+        pip install -e .
     fi
     deactivate
 
