@@ -255,7 +255,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Dependency installation failed."
 }
 
-& "$VenvDir\Scripts\python.exe" -m pip install -e .
+& "$VenvDir\Scripts\python.exe" -m pip install -e .[gui]
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to install SeedPass package"
 }

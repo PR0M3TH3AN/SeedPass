@@ -143,7 +143,7 @@ main() {
     print_info "Installing/updating Python dependencies from requirements.lock..."
     pip install --upgrade pip
     pip install --require-hashes -r requirements.lock
-    pip install -e .
+    pip install -e .[gui]
     print_info "Installing platform-specific Toga backend..."
     if [ "$OS_NAME" = "Linux" ]; then
         print_info "Installing toga-gtk for Linux..."
