@@ -1218,7 +1218,13 @@ class PasswordManager:
         """
         try:
             fingerprint = generate_fingerprint(seed)
-            if fingerprint in self.fingerprint_manager.list_fingerprints():
+            existing = []
+            if (
+                hasattr(self, "fingerprint_manager")
+                and self.fingerprint_manager is not None
+            ):
+                existing = self.fingerprint_manager.list_fingerprints()
+            if fingerprint in existing:
                 print(colored("Error: Seed profile already exists.", "red"))
                 raise ValueError("Fingerprint already exists")
 
