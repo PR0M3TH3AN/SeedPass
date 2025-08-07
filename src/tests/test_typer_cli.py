@@ -143,7 +143,11 @@ def test_vault_lock(monkeypatch):
         pm.locked = True
 
     pm = SimpleNamespace(
-        lock_vault=lock, locked=False, select_fingerprint=lambda fp: None
+        lock_vault=lock,
+        locked=False,
+        select_fingerprint=lambda fp: None,
+        fingerprint_dir="/does/not/matter",
+        start_background_sync=lambda: None,
     )
     monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["vault", "lock"])
@@ -160,7 +164,11 @@ def test_root_lock(monkeypatch):
         pm.locked = True
 
     pm = SimpleNamespace(
-        lock_vault=lock, locked=False, select_fingerprint=lambda fp: None
+        lock_vault=lock,
+        locked=False,
+        select_fingerprint=lambda fp: None,
+        fingerprint_dir="/does/not/matter",
+        start_background_sync=lambda: None,
     )
     monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
     result = runner.invoke(app, ["lock"])
