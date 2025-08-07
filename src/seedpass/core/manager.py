@@ -1223,15 +1223,17 @@ class PasswordManager:
         """
         try:
             fingerprint = generate_fingerprint(seed)
-            existing = []
             if (
                 hasattr(self, "fingerprint_manager")
                 and self.fingerprint_manager is not None
             ):
                 existing = self.fingerprint_manager.list_fingerprints()
-            if fingerprint in existing:
-                print(colored("Error: Seed profile already exists.", "red"))
-                raise ValueError("Fingerprint already exists")
+                # Allow saving when creating a new profile that was already
+                # registered via FingerprintManager. Only raise an error if
+                # the fingerprint exists for a *different* directory.
+                if fingerprint in existing and fingerprint_dir.name != fingerprint:
+                    print(colored("Error: Seed profile already exists.", "red"))
+                    raise ValueError("Fingerprint already exists")
 
             # Set self.fingerprint_dir
             self.fingerprint_dir = fingerprint_dir
