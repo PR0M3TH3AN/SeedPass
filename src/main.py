@@ -819,8 +819,18 @@ def handle_toggle_quick_unlock(pm: PasswordManager) -> None:
     """Enable or disable Quick Unlock."""
     cfg = pm.config_manager
     if cfg is None:
-        print(colored("Configuration manager unavailable.", "red"))
-        return
+        vault = getattr(pm, "vault", None)
+        fingerprint_dir = getattr(pm, "fingerprint_dir", None)
+        if vault is not None and fingerprint_dir is not None:
+            try:
+                cfg = pm.config_manager = ConfigManager(vault, fingerprint_dir)
+            except Exception as exc:
+                logging.error(f"Failed to initialize ConfigManager: {exc}")
+                print(colored("Configuration manager unavailable.", "red"))
+                return
+        else:
+            print(colored("Configuration manager unavailable.", "red"))
+            return
     try:
         enabled = cfg.get_quick_unlock()
     except Exception as exc:
