@@ -270,10 +270,17 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
-Only `toga-core` and the headless `toga-dummy` backend are included by default.
-The quick installer automatically installs the correct BeeWare backend so the
-GUI works out of the box. If you set up SeedPass manually, install the backend
-for your platform:
+GUI dependencies are optional. Install them alongside SeedPass with:
+
+```bash
+pip install "seedpass[gui]"
+
+# or when working from a local checkout
+pip install -e .[gui]
+```
+
+After installing the optional GUI extras, add the BeeWare backend for your
+platform:
 
 ```bash
 # Linux

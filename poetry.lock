@@ -1854,7 +1854,7 @@ version = "10.4.0"
 description = "Python Imaging Library (Fork)"
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "pillow-10.4.0-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:4d9667937cfa347525b319ae34375c37b9ee6b525440f3ef48542fcf66f2731e"},
     {file = "pillow-10.4.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:543f3dc61c18dafb755773efc89aae60d06b6596a63914107f75459cf984164d"},
@@ -2905,6 +2905,7 @@ files = [
     {file = "toga_core-0.5.2-py3-none-any.whl", hash = "sha256:e872cebd2d899e9138f73393e8cd834a55a057aa269608ff7314a853ab33cb4e"},
     {file = "toga_core-0.5.2.tar.gz", hash = "sha256:bdd3760146b74c8d315cb901392c2b645ab3e5d4cd90114f3e36e0e7dad3d6d1"},
 ]
+markers = {main = "extra == \"gui\""}
 
 [package.dependencies]
 travertino = "0.5.2"
@@ -2994,6 +2995,7 @@ files = [
     {file = "travertino-0.5.2-py3-none-any.whl", hash = "sha256:fd69ac3b14f2847e4c972198588b8a86ca3b437aaa0c8ce7259bbe5dab17aff1"},
     {file = "travertino-0.5.2.tar.gz", hash = "sha256:5afcc673e14e16c3c04c0e3fe387062633e6bc88e87bc0bbd214a04b4dfbbcd4"},
 ]
+markers = {main = "extra == \"gui\""}
 
 [package.extras]
 dev = ["coverage-conditional-plugin (==0.9.0)", "coverage[toml] (==7.9.2)", "pytest (==8.4.1)", "tox (==4.27.0)", "typing-extensions (==4.12.2) ; python_version < \"3.10\""]
@@ -3386,7 +3388,10 @@ idna = ">=2.0"
 multidict = ">=4.0"
 propcache = ">=0.2.1"
 
+[extras]
+gui = ["pillow", "toga-core"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "9328b804a5f8600a6dbf7c857d35d1edbbc4727084aed8bde34d49967775a6ff"
+content-hash = "8d9d5db692f39b9b05e0a365d779505583074f510d34de17627ac1849ca61bde"
