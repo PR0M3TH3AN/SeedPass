@@ -19,7 +19,6 @@ import hashlib
 import base64
 import unicodedata
 import logging
-import traceback
 import hmac
 import time
 from enum import Enum

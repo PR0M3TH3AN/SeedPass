@@ -1,8 +1,9 @@
-# nostr/utils.py
+"""Placeholder utilities for Nostr.
 
-import logging
+This module is intentionally left minimal and will be expanded in future
+releases as the Nostr integration grows.
+"""
 
-
-# Example utility function (if any specific to nostr package)
-def some_helper_function():
-    pass  # Implement as needed
+# The module currently provides no functionality.
+# `pass` denotes the intentional absence of implementation.
+pass

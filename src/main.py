@@ -17,7 +17,6 @@ from tomli import TOMLDecodeError
 from colorama import init as colorama_init
 from termcolor import colored
 from utils.color_scheme import color_text
-import traceback
 import importlib
 
 from seedpass.core.manager import PasswordManager

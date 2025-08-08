@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-import traceback
 from bech32 import bech32_encode, convertbits
 
 from local_bip85.bip85 import BIP85

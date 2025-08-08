@@ -18,7 +18,6 @@ import hashlib
 import hmac
 import logging
 import os
-import traceback
 from colorama import Fore
 
 from bip_utils import Bip32Slip10Secp256k1, Bip39MnemonicGenerator, Bip39Languages
