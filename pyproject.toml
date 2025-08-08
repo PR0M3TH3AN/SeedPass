@@ -60,10 +60,15 @@ python_version = "3.11"
 strict = true
 mypy_path = "src"
 
+[tool.briefcase]
+project_name = "SeedPass"
+bundle = "io.seedpass"
+version = "0.1.0"
+
 [tool.briefcase.app.seedpass-gui]
 formal-name = "SeedPass"
 description = "Deterministic password manager with a BeeWare GUI"
-sources = ["src"]
+sources = ["src/seedpass_gui"]
 requires = [
     "toga-core>=0.5.2",
     "colorama>=0.4.6",
@@ -94,6 +99,7 @@ requires = [
     "argon2-cffi",
 ]
 icon = "logo/png/SeedPass-Logo-24.png"
+license = { file = "LICENSE" }
 
 [build-system]
 requires = ["poetry-core"]
