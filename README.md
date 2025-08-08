@@ -32,6 +32,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [2. Create a Virtual Environment](#2-create-a-virtual-environment)
   - [3. Activate the Virtual Environment](#3-activate-the-virtual-environment)
   - [4. Install Dependencies](#4-install-dependencies)
+  - [Optional GUI](#optional-gui)
 - [Usage](#usage)
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
@@ -220,6 +221,42 @@ sudo apt install xclip
 ```
 
 After installing `xclip`, restart SeedPass to enable clipboard support.
+
+### Optional GUI
+
+SeedPass ships with a GTK-based desktop interface that is still in development
+and not currently functional. Install the packages for your platform before
+adding the Python GUI dependencies.
+
+- **Debian/Ubuntu**
+  ```bash
+  sudo apt install libgirepository1.0-dev libcairo2-dev libpango1.0-dev libwebkit2gtk-4.0-dev
+  ```
+- **Fedora**
+  ```bash
+  sudo dnf install gobject-introspection-devel cairo-devel pango-devel webkit2gtk4.0-devel
+  ```
+- **Arch Linux**
+  ```bash
+  sudo pacman -S gobject-introspection cairo pango webkit2gtk
+  ```
+- **macOS (Homebrew)**
+  ```bash
+  brew install pygobject3 gtk+3 adwaita-icon-theme librsvg webkitgtk
+  ```
+
+With the system requirements in place, install the Python GUI extras:
+
+```bash
+pip install .[gui]
+```
+
+CLI-only users can skip these steps and install just the core package for a
+lightweight setup:
+
+```bash
+pip install .
+```
 
 ## Quick Start
 
