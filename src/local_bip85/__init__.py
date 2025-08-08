@@ -1,17 +1,15 @@
 # bip85/__init__.py
 
 import logging
-import traceback
 
 logger = logging.getLogger(__name__)
 
 try:
     from .bip85 import BIP85
 
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.info("BIP85 module imported successfully.")
+    logger.info("BIP85 module imported successfully.")
 except Exception as e:
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.error(f"Failed to import BIP85 module: {e}", exc_info=True)
+    logger.error("Failed to import BIP85 module: %s", e, exc_info=True)
+    BIP85 = None
 
-__all__ = ["BIP85"]
+__all__ = ["BIP85"] if BIP85 is not None else []
