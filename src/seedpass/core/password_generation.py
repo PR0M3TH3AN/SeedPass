@@ -23,7 +23,6 @@ import logging
 import hashlib
 import string
 import hmac
-import traceback
 import base64
 from typing import Optional
 from dataclasses import dataclass

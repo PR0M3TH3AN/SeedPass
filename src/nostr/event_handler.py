@@ -2,7 +2,6 @@
 
 import time
 import logging
-import traceback
 
 try:
     from monstr.event.event import Event

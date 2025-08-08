@@ -15,7 +15,6 @@ import logging
 import sys
 import os
 import json
-import traceback
 from typing import Optional, Any
 
 from termcolor import colored

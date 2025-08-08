@@ -86,7 +86,6 @@ from constants import (
     initialize_app,
 )
 
-import traceback
 import asyncio
 import gzip
 import bcrypt
