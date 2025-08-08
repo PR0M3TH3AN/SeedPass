@@ -224,9 +224,9 @@ After installing `xclip`, restart SeedPass to enable clipboard support.
 
 ### Optional GUI
 
-SeedPass ships with a GTK-based desktop interface that requires additional system
-libraries. Install the packages for your platform before adding the Python GUI
-dependencies.
+SeedPass ships with a GTK-based desktop interface that is still in development
+and not currently functional. Install the packages for your platform before
+adding the Python GUI dependencies.
 
 - **Debian/Ubuntu**
   ```bash
