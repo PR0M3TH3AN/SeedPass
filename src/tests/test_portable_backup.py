@@ -81,7 +81,6 @@ def test_corruption_detection(monkeypatch):
         monkeypatch.setattr(
             enc_module, "prompt_existing_password", lambda *_a, **_k: PASSWORD
         )
-        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "1")
 
         with pytest.raises(InvalidToken):
             import_backup(vault, backup, path, parent_seed=SEED)

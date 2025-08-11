@@ -395,15 +395,13 @@ class EncryptionManager:
             logger.info("Index file from Nostr was processed and saved successfully.")
             self.last_migration_performed = is_legacy
             return True
-        except InvalidToken as e:
+        except (InvalidToken, LegacyFormatRequiresMigrationError):
             try:
                 password = prompt_existing_password(
                     "Enter your master password for legacy decryption: "
                 )
-                legacy_key = _derive_legacy_key_from_password(password)
-                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                decrypted_data = legacy_mgr.decrypt_data(
-                    encrypted_data, context=str(relative_path)
+                decrypted_data = self.decrypt_legacy(
+                    encrypted_data, password, context=str(relative_path)
                 )
                 data = _process(decrypted_data)
                 self.save_json_data(data, relative_path)

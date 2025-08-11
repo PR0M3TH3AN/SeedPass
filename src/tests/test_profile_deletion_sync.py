@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import main
 from utils.fingerprint_manager import FingerprintManager
-from tests.helpers import TEST_SEED
+from helpers import TEST_SEED
 
 
 def test_profile_deletion_stops_sync(monkeypatch, tmp_path):
