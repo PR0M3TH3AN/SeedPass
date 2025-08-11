@@ -4355,7 +4355,7 @@ class PasswordManager:
                     manifest, event_id = pub_snap(encrypted)
             else:
                 # Fallback for tests using simplified stubs
-                event_id = self.nostr_client.publish_json_to_nostr(encrypted)
+                event_id = await self.nostr_client.publish_json_to_nostr(encrypted)
             self.is_dirty = False
             if event_id is None:
                 return None
