@@ -90,7 +90,7 @@ def _setup_client(tmpdir, fake_cls):
 def test_initialize_client_pool_add_relays_used(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelaysClient)
     fc = client.client
-    client.connect()
+    asyncio.run(client.connect())
     assert [[str(r) for r in relays] for relays in fc.added] == [client.relays]
     assert fc.connected is True
 
@@ -98,7 +98,7 @@ def test_initialize_client_pool_add_relays_used(tmp_path):
 def test_initialize_client_pool_add_relay_fallback(tmp_path):
     client = _setup_client(tmp_path, FakeAddRelayClient)
     fc = client.client
-    client.connect()
+    asyncio.run(client.connect())
     assert [str(r) for r in fc.added] == client.relays
     assert fc.connected is True
 
@@ -166,17 +166,42 @@ def test_retrieve_json_sync_backoff(tmp_path, monkeypatch):
 
     sleeps: list[float] = []
 
-    def fake_sleep(d):
+    async def fake_sleep(d, *_a, **_k):
         sleeps.append(d)
 
-    monkeypatch.setattr(nostr_client.time, "sleep", fake_sleep)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
     async def fake_async(self):
         return None
 
     monkeypatch.setattr(NostrClient, "_retrieve_json_from_nostr", fake_async)
 
-    result = client.retrieve_json_from_nostr_sync()
+    result = asyncio.run(client.retrieve_json_from_nostr())
 
     assert result is None
     assert sleeps == [1, 2]
+
+
+def test_client_methods_run_in_event_loop(tmp_path, monkeypatch):
+    client = _setup_client(tmp_path, FakeAddRelayClient)
+
+    async def fake_init(self):
+        self._connected = True
+
+    async def fake_send_event(_event):
+        return None
+
+    async def fake_retrieve(self):
+        return b"data"
+
+    monkeypatch.setattr(NostrClient, "_initialize_client_pool", fake_init)
+    monkeypatch.setattr(client.client, "send_event", fake_send_event, raising=False)
+    monkeypatch.setattr(NostrClient, "_retrieve_json_from_nostr", fake_retrieve)
+
+    async def run_all():
+        await client.connect()
+        await client.publish_event("e")
+        data = await client.retrieve_json_from_nostr()
+        assert data == b"data"
+
+    asyncio.run(run_all())
