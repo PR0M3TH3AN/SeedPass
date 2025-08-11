@@ -3,14 +3,7 @@
 import time
 import logging
 
-try:
-    from monstr.event.event import Event
-except ImportError:  # pragma: no cover - optional dependency
-
-    class Event:  # minimal placeholder for type hints when monstr is absent
-        id: str
-        created_at: int
-        content: str
+from nostr_sdk import Event
 
 
 # Instantiate the logger
@@ -26,26 +19,15 @@ class EventHandler:
         pass  # Initialize if needed
 
     def handle_new_event(self, evt: Event):
-        """
-        Processes incoming events by logging their details.
+        """Process and log details from a Nostr event."""
 
-        :param evt: The received Event object.
-        """
         try:
-            # Assuming evt.created_at is always an integer Unix timestamp
-            if isinstance(evt.created_at, int):
-                created_at_str = time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.gmtime(evt.created_at)
-                )
-            else:
-                # Handle unexpected types gracefully
-                created_at_str = str(evt.created_at)
+            created_at = evt.created_at().as_secs()
+            created_at_str = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(created_at))
+            event_id = evt.id().to_hex()
 
-            # Log the event details without extra newlines
             logger.info(
-                f"[New Event] ID: {evt.id} | Created At: {created_at_str} | Content: {evt.content}"
+                f"[New Event] ID: {event_id} | Created At: {created_at_str} | Content: {evt.content()}"
             )
         except Exception as e:
             logger.error(f"Error handling new event: {e}", exc_info=True)
-            # Optionally, handle the exception without re-raising
-            # For example, continue processing other events
