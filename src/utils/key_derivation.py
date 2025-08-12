@@ -23,7 +23,9 @@ import hmac
 import time
 from enum import Enum
 from typing import Optional, Union
+
 from bip_utils import Bip39SeedGenerator
+from local_bip85 import BIP85
 
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
@@ -213,8 +215,6 @@ def derive_index_key(seed: str) -> bytes:
 def derive_totp_secret(seed: str, index: int) -> str:
     """Derive a base32-encoded TOTP secret from a BIP39 seed."""
     try:
-        from local_bip85 import BIP85
-
         # Initialize BIP85 from the BIP39 seed bytes
         seed_bytes = Bip39SeedGenerator(seed).Generate()
         bip85 = BIP85(seed_bytes)
