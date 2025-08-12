@@ -9,7 +9,6 @@ from termcolor import colored
 from .entry_types import EntryType
 import seedpass.core.manager as manager_module
 from utils.color_scheme import color_text
-from utils.input_utils import timed_input
 from utils.terminal_utils import clear_header_with_notification
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -184,7 +183,7 @@ class MenuHandler:
                             )
                 sys.stdout.flush()
                 try:
-                    user_input = timed_input("", 1)
+                    user_input = manager_module.timed_input("", 1)
                     if user_input.strip() == "" or user_input.strip().lower() == "b":
                         break
                 except TimeoutError:
