@@ -38,6 +38,17 @@ def _derive_legacy_key_from_password(password: str, iterations: int = 100_000) -
     return base64.urlsafe_b64encode(key)
 
 
+class LegacyFormatRequiresMigrationError(Exception):
+    """Raised when legacy-encrypted data needs user-guided migration."""
+
+    def __init__(self, context: Optional[str] = None) -> None:
+        msg = (
+            f"Legacy data detected for {context}" if context else "Legacy data detected"
+        )
+        super().__init__(msg)
+        self.context = context
+
+
 class EncryptionManager:
     """
     Manages encryption and decryption, handling migration from legacy Fernet
@@ -153,63 +164,46 @@ class EncryptionManager:
             if not self._legacy_migrate_flag:
                 raise
             logger.debug(f"Could not decrypt data{ctx}: {e}")
-            print(
-                colored(
-                    f"Failed to decrypt{ctx} with current key. This may be a legacy index.",
-                    "red",
-                )
-            )
-            resp = input(
-                "\nChoose an option:\n"
-                "1. Open legacy index without migrating\n"
-                "2. Migrate to new format.\n"
-                "Selection [1/2]: "
-            ).strip()
-            if resp == "1":
-                self._legacy_migrate_flag = False
-                self.last_migration_performed = False
-            elif resp == "2":
-                self._legacy_migrate_flag = True
-                self.last_migration_performed = True
-            else:
-                raise InvalidToken(
-                    "User declined legacy decryption or provided invalid choice."
-                ) from e
-            password = prompt_existing_password(
-                "Enter your master password for legacy decryption: "
-            )
-            last_exc: Optional[Exception] = None
-            for iter_count in [50_000, 100_000]:
-                try:
-                    legacy_key = _derive_legacy_key_from_password(
-                        password, iterations=iter_count
-                    )
-                    legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                    legacy_mgr._legacy_migrate_flag = False
-                    result = legacy_mgr.decrypt_data(encrypted_data, context=context)
-                    try:  # record iteration count for future runs
-                        from .vault import Vault
-                        from .config_manager import ConfigManager
+            raise LegacyFormatRequiresMigrationError(context)
 
-                        cfg_mgr = ConfigManager(
-                            Vault(self, self.fingerprint_dir), self.fingerprint_dir
-                        )
-                        cfg_mgr.set_kdf_iterations(iter_count)
-                    except Exception:  # pragma: no cover - best effort
-                        logger.error(
-                            "Failed to record PBKDF2 iteration count in config",
-                            exc_info=True,
-                        )
-                    logger.warning(
-                        "Data decrypted using legacy password-only key derivation."
+    def decrypt_legacy(
+        self, encrypted_data: bytes, password: str, context: Optional[str] = None
+    ) -> bytes:
+        """Decrypt ``encrypted_data`` using legacy password-only key derivation."""
+
+        ctx = f" {context}" if context else ""
+        last_exc: Optional[Exception] = None
+        for iter_count in [50_000, 100_000]:
+            try:
+                legacy_key = _derive_legacy_key_from_password(
+                    password, iterations=iter_count
+                )
+                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                legacy_mgr._legacy_migrate_flag = False
+                result = legacy_mgr.decrypt_data(encrypted_data, context=context)
+                try:  # record iteration count for future runs
+                    from .vault import Vault
+                    from .config_manager import ConfigManager
+
+                    cfg_mgr = ConfigManager(
+                        Vault(self, self.fingerprint_dir), self.fingerprint_dir
                     )
-                    return result
-                except Exception as e2:  # pragma: no cover - try next iteration
-                    last_exc = e2
-            logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
-            raise InvalidToken(
-                f"Could not decrypt{ctx} with any available method."
-            ) from e
+                    cfg_mgr.set_kdf_iterations(iter_count)
+                except Exception:  # pragma: no cover - best effort
+                    logger.error(
+                        "Failed to record PBKDF2 iteration count in config",
+                        exc_info=True,
+                    )
+                logger.warning(
+                    "Data decrypted using legacy password-only key derivation."
+                )
+                return result
+            except Exception as e2:  # pragma: no cover - try next iteration
+                last_exc = e2
+        logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
+        raise InvalidToken(
+            f"Could not decrypt{ctx} with any available method."
+        ) from last_exc
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
 
@@ -401,15 +395,13 @@ class EncryptionManager:
             logger.info("Index file from Nostr was processed and saved successfully.")
             self.last_migration_performed = is_legacy
             return True
-        except InvalidToken as e:
+        except (InvalidToken, LegacyFormatRequiresMigrationError):
             try:
                 password = prompt_existing_password(
                     "Enter your master password for legacy decryption: "
                 )
-                legacy_key = _derive_legacy_key_from_password(password)
-                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                decrypted_data = legacy_mgr.decrypt_data(
-                    encrypted_data, context=str(relative_path)
+                decrypted_data = self.decrypt_legacy(
+                    encrypted_data, password, context=str(relative_path)
                 )
                 data = _process(decrypted_data)
                 self.save_json_data(data, relative_path)

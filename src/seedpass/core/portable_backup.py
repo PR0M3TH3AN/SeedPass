@@ -129,6 +129,7 @@ def import_backup(
     )
     key = _derive_export_key(seed)
     enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
+    enc_mgr._legacy_migrate_flag = False
     index_bytes = enc_mgr.decrypt_data(payload, context="backup payload")
     index = json.loads(index_bytes.decode("utf-8"))
 

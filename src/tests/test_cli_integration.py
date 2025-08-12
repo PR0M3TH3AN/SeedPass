@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
-from tests.helpers import TEST_PASSWORD, TEST_SEED
+from helpers import TEST_PASSWORD, TEST_SEED
 
 import colorama
 import constants

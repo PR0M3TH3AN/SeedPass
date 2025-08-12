@@ -6,8 +6,15 @@ from os import PathLike
 import shutil
 
 from termcolor import colored
+from cryptography.fernet import InvalidToken
 
-from .encryption import EncryptionManager
+from .encryption import (
+    EncryptionManager,
+    LegacyFormatRequiresMigrationError,
+    USE_ORJSON,
+    json_lib,
+)
+from utils.password_prompt import prompt_existing_password
 
 
 class Vault:
@@ -96,6 +103,47 @@ class Vault:
 
         try:
             data = self.encryption_manager.load_json_data(self.index_file)
+            migration_performed = getattr(
+                self.encryption_manager, "last_migration_performed", False
+            )
+        except LegacyFormatRequiresMigrationError:
+            print(
+                colored(
+                    "Failed to decrypt index with current key. This may be a legacy index.",
+                    "red",
+                )
+            )
+            resp = input(
+                "\nChoose an option:\n"
+                "1. Open legacy index without migrating\n"
+                "2. Migrate to new format.\n"
+                "Selection [1/2]: "
+            ).strip()
+            if resp == "1":
+                self.encryption_manager._legacy_migrate_flag = False
+                self.encryption_manager.last_migration_performed = False
+            elif resp == "2":
+                self.encryption_manager._legacy_migrate_flag = True
+                self.encryption_manager.last_migration_performed = True
+            else:
+                raise InvalidToken(
+                    "User declined legacy decryption or provided invalid choice."
+                )
+            password = prompt_existing_password(
+                "Enter your master password for legacy decryption: "
+            )
+            with self.index_file.open("rb") as fh:
+                encrypted_data = fh.read()
+            decrypted = self.encryption_manager.decrypt_legacy(
+                encrypted_data, password, context=str(self.index_file)
+            )
+            if USE_ORJSON:
+                data = json_lib.loads(decrypted)
+            else:
+                data = json_lib.loads(decrypted.decode("utf-8"))
+            if self.encryption_manager._legacy_migrate_flag:
+                self.encryption_manager.save_json_data(data, self.index_file)
+                self.encryption_manager.update_checksum(self.index_file)
             migration_performed = getattr(
                 self.encryption_manager, "last_migration_performed", False
             )
