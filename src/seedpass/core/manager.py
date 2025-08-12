@@ -280,13 +280,15 @@ class PasswordManager:
             )
 
     @requires_unlocked
-    def get_bip85_entropy(self, purpose: int, index: int, bytes_len: int = 32) -> bytes:
+    def get_bip85_entropy(
+        self, purpose: int, index: int, entropy_bytes: int = 32
+    ) -> bytes:
         """Return deterministic entropy via the cached BIP-85 function."""
 
         if self.bip85 is None:
             raise RuntimeError("BIP-85 is not initialized")
         return self.bip85.derive_entropy(
-            index=index, bytes_len=bytes_len, app_no=purpose
+            index=index, entropy_bytes=entropy_bytes, app_no=purpose
         )
 
     @requires_unlocked
@@ -1243,11 +1245,13 @@ class PasswordManager:
             self._bip85_cache = {}
             orig_derive = self.bip85.derive_entropy
 
-            def cached_derive(index: int, bytes_len: int, app_no: int = 39) -> bytes:
+            def cached_derive(
+                index: int, entropy_bytes: int, app_no: int = 39
+            ) -> bytes:
                 key = (app_no, index)
                 if key not in self._bip85_cache:
                     self._bip85_cache[key] = orig_derive(
-                        index=index, bytes_len=bytes_len, app_no=app_no
+                        index=index, entropy_bytes=entropy_bytes, app_no=app_no
                     )
                 return self._bip85_cache[key]
 
@@ -2727,14 +2731,14 @@ class PasswordManager:
                     from bip_utils import Bip39SeedGenerator
 
                     words = int(entry.get("word_count", entry.get("words", 24)))
-                    bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
+                    entropy_bytes = {12: 16, 18: 24, 24: 32}.get(words, 32)
                     seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
                     bip85 = BIP85(seed_bytes)
                     entropy = bip85.derive_entropy(
                         index=int(entry.get("index", index)),
-                        bytes_len=bytes_len,
+                        entropy_bytes=entropy_bytes,
                         app_no=39,
-                        words_len=words,
+                        word_count=words,
                     )
                     print(color_text(f"Entropy: {entropy.hex()}", "deterministic"))
             except Exception as e:  # pragma: no cover - best effort

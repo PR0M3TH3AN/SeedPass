@@ -461,7 +461,7 @@ class EntryManager:
 
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
-        entropy = bip85.derive_entropy(index=index, bytes_len=32)
+        entropy = bip85.derive_entropy(index=index, entropy_bytes=32)
         keys = Keys(priv_k=entropy.hex())
         npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
         nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
@@ -539,7 +539,7 @@ class EntryManager:
         bip85 = BIP85(seed_bytes)
 
         key_idx = int(entry.get("index", index))
-        entropy = bip85.derive_entropy(index=key_idx, bytes_len=32)
+        entropy = bip85.derive_entropy(index=key_idx, entropy_bytes=32)
         keys = Keys(priv_k=entropy.hex())
         npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
         nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")

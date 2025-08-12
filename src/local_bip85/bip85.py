@@ -51,26 +51,34 @@ class BIP85:
             raise Bip85Error(f"Error initializing BIP32 context: {e}")
 
     def derive_entropy(
-        self, index: int, bytes_len: int, app_no: int = 39, words_len: int | None = None
+        self,
+        index: int,
+        entropy_bytes: int,
+        app_no: int = 39,
+        word_count: int | None = None,
     ) -> bytes:
-        """
-        Derives entropy using BIP-85 HMAC-SHA512 method.
+        """Derive entropy using the BIP-85 HMAC-SHA512 method.
 
         Parameters:
             index (int): Index for the child entropy.
-            bytes_len (int): Number of bytes to derive for the entropy.
-            app_no (int): Application number (default 39 for BIP39)
+            entropy_bytes (int): Number of bytes of entropy to derive.
+            app_no (int): Application number (default 39 for BIP39).
+            word_count (int | None): Number of words used in the derivation path
+                for BIP39. If ``None`` and ``app_no`` is ``39``, ``word_count``
+                defaults to ``entropy_bytes``. The final segment of the
+                derivation path becomes ``m/83696968'/39'/0'/word_count'/index'``.
 
         Returns:
-            bytes: Derived entropy.
+            bytes: Derived entropy of length ``entropy_bytes``.
 
         Raises:
-            SystemExit: If derivation fails or entropy length is invalid.
+            SystemExit: If derivation fails or the derived entropy length is
+                invalid.
         """
         if app_no == 39:
-            if words_len is None:
-                words_len = bytes_len
-            path = f"m/83696968'/{app_no}'/0'/{words_len}'/{index}'"
+            if word_count is None:
+                word_count = entropy_bytes
+            path = f"m/83696968'/{app_no}'/0'/{word_count}'/{index}'"
         elif app_no == 32:
             path = f"m/83696968'/{app_no}'/{index}'"
         else:
@@ -86,17 +94,17 @@ class BIP85:
             hmac_result = hmac.new(hmac_key, k, hashlib.sha512).digest()
             logging.debug(f"HMAC-SHA512 result: {hmac_result.hex()}")
 
-            entropy = hmac_result[:bytes_len]
+            entropy = hmac_result[:entropy_bytes]
 
-            if len(entropy) != bytes_len:
+            if len(entropy) != entropy_bytes:
                 logging.error(
-                    f"Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes."
+                    f"Derived entropy length is {len(entropy)} bytes; expected {entropy_bytes} bytes."
                 )
                 print(
-                    f"{Fore.RED}Error: Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes."
+                    f"{Fore.RED}Error: Derived entropy length is {len(entropy)} bytes; expected {entropy_bytes} bytes."
                 )
                 raise Bip85Error(
-                    f"Derived entropy length is {len(entropy)} bytes; expected {bytes_len} bytes."
+                    f"Derived entropy length is {len(entropy)} bytes; expected {entropy_bytes} bytes."
                 )
 
             logging.debug(f"Derived entropy: {entropy.hex()}")
@@ -107,14 +115,17 @@ class BIP85:
             raise Bip85Error(f"Error deriving entropy: {e}")
 
     def derive_mnemonic(self, index: int, words_num: int) -> str:
-        bytes_len = {12: 16, 18: 24, 24: 32}.get(words_num)
-        if not bytes_len:
+        entropy_bytes = {12: 16, 18: 24, 24: 32}.get(words_num)
+        if not entropy_bytes:
             logging.error(f"Unsupported number of words: {words_num}")
             print(f"{Fore.RED}Error: Unsupported number of words: {words_num}")
             raise Bip85Error(f"Unsupported number of words: {words_num}")
 
         entropy = self.derive_entropy(
-            index=index, bytes_len=bytes_len, app_no=39, words_len=words_num
+            index=index,
+            entropy_bytes=entropy_bytes,
+            app_no=39,
+            word_count=words_num,
         )
         try:
             mnemonic = Bip39MnemonicGenerator(Bip39Languages.ENGLISH).FromEntropy(
@@ -130,7 +141,7 @@ class BIP85:
     def derive_symmetric_key(self, index: int = 0, app_no: int = 2) -> bytes:
         """Derive 32 bytes of entropy for symmetric key usage."""
         try:
-            key = self.derive_entropy(index=index, bytes_len=32, app_no=app_no)
+            key = self.derive_entropy(index=index, entropy_bytes=32, app_no=app_no)
             logging.debug(f"Derived symmetric key: {key.hex()}")
             return key
         except Exception as e:

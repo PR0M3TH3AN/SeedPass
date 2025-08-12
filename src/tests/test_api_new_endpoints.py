@@ -501,8 +501,10 @@ async def test_generate_password_no_special_chars(client):
             return b"\x00" * 32
 
     class DummyBIP85:
-        def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
-            return bytes(range(bytes_len))
+        def derive_entropy(
+            self, index: int, entropy_bytes: int, app_no: int = 32
+        ) -> bytes:
+            return bytes(range(entropy_bytes))
 
     api.app.state.pm.password_generator = PasswordGenerator(
         DummyEnc(), "seed", DummyBIP85()
@@ -529,8 +531,10 @@ async def test_generate_password_allowed_chars(client):
             return b"\x00" * 32
 
     class DummyBIP85:
-        def derive_entropy(self, index: int, bytes_len: int, app_no: int = 32) -> bytes:
-            return bytes((index + i) % 256 for i in range(bytes_len))
+        def derive_entropy(
+            self, index: int, entropy_bytes: int, app_no: int = 32
+        ) -> bytes:
+            return bytes((index + i) % 256 for i in range(entropy_bytes))
 
     api.app.state.pm.password_generator = PasswordGenerator(
         DummyEnc(), "seed", DummyBIP85()

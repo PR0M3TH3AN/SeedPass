@@ -85,7 +85,7 @@ class KeyManager:
             # Derive entropy for Nostr key (32 bytes)
             entropy_bytes = self.bip85.derive_entropy(
                 index=index,
-                bytes_len=32,
+                entropy_bytes=32,
                 app_no=NOSTR_KEY_APP_ID,
             )
 
@@ -102,7 +102,7 @@ class KeyManager:
         """Derive Nostr keys using the legacy application ID."""
         try:
             entropy = self.bip85.derive_entropy(
-                index=0, bytes_len=32, app_no=LEGACY_NOSTR_KEY_APP_ID
+                index=0, entropy_bytes=32, app_no=LEGACY_NOSTR_KEY_APP_ID
             )
             return Keys(priv_k=entropy.hex())
         except Exception as e:

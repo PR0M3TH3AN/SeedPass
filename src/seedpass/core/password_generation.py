@@ -126,7 +126,7 @@ class PasswordGenerator:
 
     def _derive_password_entropy(self, index: int) -> bytes:
         """Derive deterministic entropy for password generation."""
-        entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
+        entropy = self.bip85.derive_entropy(index=index, entropy_bytes=64, app_no=32)
         logger.debug("Entropy derived for password generation.")
 
         hkdf = HKDF(
@@ -433,7 +433,7 @@ class PasswordGenerator:
 
 def derive_ssh_key(bip85: BIP85, idx: int) -> bytes:
     """Derive 32 bytes of entropy suitable for an SSH key."""
-    return bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+    return bip85.derive_entropy(index=idx, entropy_bytes=32, app_no=32)
 
 
 def derive_ssh_key_pair(parent_seed: str, index: int) -> tuple[str, str]:
@@ -499,7 +499,7 @@ def derive_pgp_key(
     import hashlib
     import datetime
 
-    entropy = bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+    entropy = bip85.derive_entropy(index=idx, entropy_bytes=32, app_no=32)
     created = datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
 
     if key_type.lower() == "rsa":

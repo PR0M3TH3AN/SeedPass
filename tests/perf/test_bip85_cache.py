@@ -9,10 +9,10 @@ class SlowBIP85:
     def __init__(self):
         self.calls = 0
 
-    def derive_entropy(self, index: int, bytes_len: int, app_no: int = 39) -> bytes:
+    def derive_entropy(self, index: int, entropy_bytes: int, app_no: int = 39) -> bytes:
         self.calls += 1
         time.sleep(0.01)
-        return b"\x00" * bytes_len
+        return b"\x00" * entropy_bytes
 
 
 def _setup_manager(bip85: SlowBIP85) -> PasswordManager:
@@ -21,10 +21,12 @@ def _setup_manager(bip85: SlowBIP85) -> PasswordManager:
     pm.bip85 = bip85
     orig = bip85.derive_entropy
 
-    def cached(index: int, bytes_len: int, app_no: int = 39) -> bytes:
+    def cached(index: int, entropy_bytes: int, app_no: int = 39) -> bytes:
         key = (app_no, index)
         if key not in pm._bip85_cache:
-            pm._bip85_cache[key] = orig(index=index, bytes_len=bytes_len, app_no=app_no)
+            pm._bip85_cache[key] = orig(
+                index=index, entropy_bytes=entropy_bytes, app_no=app_no
+            )
         return pm._bip85_cache[key]
 
     bip85.derive_entropy = cached
