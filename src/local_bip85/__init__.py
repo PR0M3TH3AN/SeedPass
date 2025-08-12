@@ -6,10 +6,10 @@ logger = logging.getLogger(__name__)
 
 try:
     from .bip85 import BIP85
+except Exception as exc:
+    logger.error("Failed to import BIP85 module: %s", exc, exc_info=True)
+    raise ImportError(
+        "BIP85 dependencies are missing. Install 'bip_utils', 'cryptography', and 'colorama'."
+    ) from exc
 
-    logger.info("BIP85 module imported successfully.")
-except Exception as e:
-    logger.error(f"Failed to import BIP85 module: {e}", exc_info=True)
-    BIP85 = None
-
-__all__ = ["BIP85"] if BIP85 is not None else []
+__all__ = ["BIP85"]

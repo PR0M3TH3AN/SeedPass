@@ -18,6 +18,8 @@ import hashlib
 import hmac
 import logging
 import os
+from typing import Union
+
 from colorama import Fore
 
 from bip_utils import Bip32Slip10Secp256k1, Bip39MnemonicGenerator, Bip39Languages
@@ -37,13 +39,19 @@ class Bip85Error(Exception):
 
 
 class BIP85:
-    def __init__(self, seed_bytes: bytes | str):
-        """Initialize from BIP39 seed bytes or BIP32 xprv string."""
+    def __init__(self, seed_or_xprv: Union[bytes, str]):
+        """Initialize from seed bytes or an ``xprv`` string.
+
+        Parameters:
+            seed_or_xprv (Union[bytes, str]): Either raw BIP39 seed bytes
+                or a BIP32 extended private key (``xprv``) string.
+        """
+
         try:
-            if isinstance(seed_bytes, (bytes, bytearray)):
-                self.bip32_ctx = Bip32Slip10Secp256k1.FromSeed(seed_bytes)
+            if isinstance(seed_or_xprv, (bytes, bytearray)):
+                self.bip32_ctx = Bip32Slip10Secp256k1.FromSeed(seed_or_xprv)
             else:
-                self.bip32_ctx = Bip32Slip10Secp256k1.FromExtendedKey(seed_bytes)
+                self.bip32_ctx = Bip32Slip10Secp256k1.FromExtendedKey(seed_or_xprv)
             logging.debug("BIP32 context initialized successfully.")
         except Exception as e:
             logging.error(f"Error initializing BIP32 context: {e}", exc_info=True)
