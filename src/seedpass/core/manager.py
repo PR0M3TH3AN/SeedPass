@@ -24,6 +24,7 @@ import threading
 import queue
 from dataclasses import dataclass
 import dataclasses
+from functools import wraps
 from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
@@ -72,6 +73,7 @@ from utils.fingerprint import generate_fingerprint
 from utils.atomic_write import atomic_write
 from constants import MIN_HEALTHY_RELAYS
 from .migrations import LATEST_VERSION
+from ..errors import VaultLockedError
 
 from constants import (
     APP_DIR,
@@ -164,6 +166,18 @@ class Notification:
     level: str = "INFO"
 
 
+def requires_unlocked(func):
+    """Decorator to ensure the vault is unlocked before proceeding."""
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if getattr(self, "is_locked", False):
+            raise VaultLockedError("Vault is locked")
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class AuthGuard:
     """Helper to enforce inactivity timeouts."""
 
@@ -228,6 +242,7 @@ class PasswordManager:
         self.last_update: float = time.time()
         self.last_activity: float = time.time()
         self.locked: bool = False
+        self.is_locked: bool = False
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
         self.clipboard_clear_delay: int = 45
@@ -264,6 +279,7 @@ class PasswordManager:
                 self.fingerprint_manager.get_current_fingerprint_dir()
             )
 
+    @requires_unlocked
     def get_bip85_entropy(self, purpose: int, index: int, bytes_len: int = 32) -> bytes:
         """Return deterministic entropy via the cached BIP-85 function."""
 
@@ -273,6 +289,7 @@ class PasswordManager:
             index=index, bytes_len=bytes_len, app_no=purpose
         )
 
+    @requires_unlocked
     def clear_bip85_cache(self) -> None:
         """Clear the internal BIP-85 cache."""
 
@@ -400,6 +417,8 @@ class PasswordManager:
 
     @property
     def entry_service(self) -> EntryService:
+        if getattr(self, "is_locked", False):
+            raise VaultLockedError("Vault is locked")
         if getattr(self, "_entry_service", None) is None:
             self._entry_service = EntryService(self)
         return self._entry_service
@@ -408,15 +427,7 @@ class PasswordManager:
         """Clear sensitive information from memory."""
         if self.entry_manager is not None:
             self.entry_manager.clear_cache()
-        self.parent_seed = None
-        self.encryption_manager = None
-        self.entry_manager = None
-        self.password_generator = None
-        self.backup_manager = None
-        self.vault = None
-        self.bip85 = None
-        self.nostr_client = None
-        self.config_manager = None
+        self.is_locked = True
         self.locked = True
         bus.publish("vault_locked")
 
@@ -441,6 +452,7 @@ class PasswordManager:
         self.setup_encryption_manager(self.fingerprint_dir, password)
         self.initialize_bip85()
         self.initialize_managers()
+        self.is_locked = False
         self.locked = False
         self.update_activity()
         if (
@@ -746,9 +758,11 @@ class PasswordManager:
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             sys.exit(1)
 
+    @requires_unlocked
     def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
         return self.profile_service.handle_switch_fingerprint(password=password)
 
+    @requires_unlocked
     def load_managed_account(self, index: int) -> None:
         """Load a managed account derived from the current seed profile."""
         if not self.entry_manager or not self.parent_seed:
@@ -777,6 +791,7 @@ class PasswordManager:
         self.update_activity()
         self.start_background_sync()
 
+    @requires_unlocked
     def exit_managed_account(self) -> None:
         """Return to the parent seed profile if one is on the stack."""
         if not self.profile_stack:
@@ -1041,6 +1056,7 @@ class PasswordManager:
             print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
             sys.exit(1)
 
+    @requires_unlocked
     def generate_new_seed(self) -> Optional[str]:
         """
         Generates a new BIP-85 seed, displays it to the user, and prompts for confirmation before saving.
@@ -1146,6 +1162,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             sys.exit(1)
 
+    @requires_unlocked
     def save_and_encrypt_seed(
         self, seed: str, fingerprint_dir: Path, *, password: Optional[str] = None
     ) -> None:
