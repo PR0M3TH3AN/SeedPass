@@ -105,6 +105,9 @@ from nostr.snapshot import MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
 from .stats_manager import StatsManager
+from .menu_handler import MenuHandler
+from .profile_service import ProfileService
+from .entry_service import EntryService
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -236,6 +239,16 @@ class PasswordManager:
         self.last_bip85_idx: int = 0
         self.last_sync_ts: int = 0
         self.auth_guard = AuthGuard(self)
+
+        # Service composition
+        self._menu_handler: MenuHandler | None = None
+        self._profile_service: ProfileService | None = None
+        self._entry_service: EntryService | None = None
+
+        # Initialize service instances
+        self.menu_handler
+        self.profile_service
+        self.entry_service
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -372,6 +385,24 @@ class PasswordManager:
                 break
             logger.warning("Background task failed: %s", exc)
             self.notify(f"Background task failed: {exc}", level="WARNING")
+
+    @property
+    def menu_handler(self) -> MenuHandler:
+        if getattr(self, "_menu_handler", None) is None:
+            self._menu_handler = MenuHandler(self)
+        return self._menu_handler
+
+    @property
+    def profile_service(self) -> ProfileService:
+        if getattr(self, "_profile_service", None) is None:
+            self._profile_service = ProfileService(self)
+        return self._profile_service
+
+    @property
+    def entry_service(self) -> EntryService:
+        if getattr(self, "_entry_service", None) is None:
+            self._entry_service = EntryService(self)
+        return self._entry_service
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
@@ -716,102 +747,7 @@ class PasswordManager:
             sys.exit(1)
 
     def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
-        """
-        Handles switching to a different seed profile.
-
-        Returns:
-            bool: True if switch was successful, False otherwise.
-        """
-        try:
-            print(colored("\nAvailable Seed Profiles:", "cyan"))
-            fingerprints = self.fingerprint_manager.list_fingerprints()
-            for idx, fp in enumerate(fingerprints, start=1):
-                display = (
-                    self.fingerprint_manager.display_name(fp)
-                    if hasattr(self.fingerprint_manager, "display_name")
-                    else fp
-                )
-                print(colored(f"{idx}. {display}", "cyan"))
-
-            choice = input("Select a seed profile by number to switch: ").strip()
-            if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
-                print(colored("Invalid selection. Returning to main menu.", "red"))
-                return False  # Return False to indicate failure
-
-            selected_fingerprint = fingerprints[int(choice) - 1]
-            self.fingerprint_manager.current_fingerprint = selected_fingerprint
-            self.current_fingerprint = selected_fingerprint
-            if not getattr(self, "manifest_id", None):
-                self.manifest_id = f"{MANIFEST_ID_PREFIX}{selected_fingerprint}"
-
-            # Update fingerprint directory
-            self.fingerprint_dir = (
-                self.fingerprint_manager.get_current_fingerprint_dir()
-            )
-            if not self.fingerprint_dir:
-                print(
-                    colored(
-                        f"Error: Seed profile directory for {selected_fingerprint} not found.",
-                        "red",
-                    )
-                )
-                return False  # Return False to indicate failure
-
-            # Prompt for master password for the selected seed profile
-            if password is None:
-                password = prompt_existing_password(
-                    "Enter the master password for the selected seed profile: "
-                )
-
-            # Set up the encryption manager with the new password and seed profile directory
-            if not self.setup_encryption_manager(
-                self.fingerprint_dir, password, exit_on_fail=False
-            ):
-                return False
-
-            # Initialize BIP85 and other managers
-            self.initialize_bip85()
-            self.initialize_managers()
-            self.start_background_sync()
-            print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
-
-            # Re-initialize NostrClient with the new fingerprint
-            try:
-                self.nostr_client = NostrClient(
-                    encryption_manager=self.encryption_manager,
-                    fingerprint=self.current_fingerprint,
-                    config_manager=getattr(self, "config_manager", None),
-                    parent_seed=getattr(self, "parent_seed", None),
-                )
-                if getattr(self, "manifest_id", None) and hasattr(
-                    self.nostr_client, "_state_lock"
-                ):
-                    from nostr.backup_models import Manifest
-
-                    with self.nostr_client._state_lock:
-                        self.nostr_client.current_manifest_id = self.manifest_id
-                        self.nostr_client.current_manifest = Manifest(
-                            ver=1,
-                            algo="gzip",
-                            chunks=[],
-                            delta_since=self.delta_since or None,
-                        )
-                logging.info(
-                    f"NostrClient re-initialized with seed profile {self.current_fingerprint}."
-                )
-            except Exception as e:
-                logging.error(f"Failed to re-initialize NostrClient: {e}")
-                print(
-                    colored(f"Error: Failed to re-initialize NostrClient: {e}", "red")
-                )
-                return False
-
-            return True  # Return True to indicate success
-
-        except Exception as e:
-            logging.error(f"Error during seed profile switching: {e}", exc_info=True)
-            print(colored(f"Error: Failed to switch seed profiles: {e}", "red"))
-            return False  # Return False to indicate failure
+        return self.profile_service.handle_switch_fingerprint(password=password)
 
     def load_managed_account(self, index: int) -> None:
         """Load a managed account derived from the current seed profile."""
@@ -1791,216 +1727,10 @@ class PasswordManager:
                 print(colored("Failed to download vault from Nostr.", "red"))
         else:
             self.notify("Starting with a new, empty vault.", level="INFO")
+            return
 
     def handle_add_password(self) -> None:
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > Password",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
-
-            def prompt_length() -> int | None:
-                length_input = input(
-                    f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
-                ).strip()
-                length = DEFAULT_PASSWORD_LENGTH
-                if length_input:
-                    if not length_input.isdigit():
-                        print(
-                            colored("Error: Password length must be a number.", "red")
-                        )
-                        return None
-                    length = int(length_input)
-                    if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
-                        print(
-                            colored(
-                                f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
-                                "red",
-                            )
-                        )
-                        return None
-                return length
-
-            def finalize_entry(index: int, label: str, length: int) -> None:
-                # Mark database as dirty for background sync
-                self.is_dirty = True
-                self.last_update = time.time()
-
-                # Generate the password using the assigned index
-                entry = self.entry_manager.retrieve_entry(index)
-                password = self._generate_password_for_entry(entry, index, length)
-
-                # Provide user feedback
-                print(
-                    colored(
-                        f"\n[+] Password generated and indexed with ID {index}.\n",
-                        "green",
-                    )
-                )
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(password, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] Password copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(colored(f"Password for {label}: {password}\n", "yellow"))
-
-                # Automatically push the updated encrypted index to Nostr so the
-                # latest changes are backed up remotely.
-                try:
-                    self.start_background_vault_sync()
-                    logging.info(
-                        "Encrypted index posted to Nostr after entry addition."
-                    )
-                except Exception as nostr_error:
-                    logging.error(
-                        f"Failed to post updated index to Nostr: {nostr_error}",
-                        exc_info=True,
-                    )
-                pause()
-
-            mode = input("Choose mode: [Q]uick or [A]dvanced? ").strip().lower()
-
-            website_name = input("Enter the label or website name: ").strip()
-            if not website_name:
-                print(colored("Error: Label cannot be empty.", "red"))
-                return
-
-            username = input("Enter the username (optional): ").strip()
-            url = input("Enter the URL (optional): ").strip()
-
-            if mode.startswith("q"):
-                length = prompt_length()
-                if length is None:
-                    return
-                include_special_input = (
-                    input("Include special characters? (Y/n): ").strip().lower()
-                )
-                include_special_chars: bool | None = None
-                if include_special_input:
-                    include_special_chars = include_special_input != "n"
-
-                index = self.entry_manager.add_entry(
-                    website_name,
-                    length,
-                    username,
-                    url,
-                    include_special_chars=include_special_chars,
-                )
-
-                finalize_entry(index, website_name, length)
-                return
-
-            notes = input("Enter notes (optional): ").strip()
-            tags_input = input("Enter tags (comma-separated, optional): ").strip()
-            tags = (
-                [t.strip() for t in tags_input.split(",") if t.strip()]
-                if tags_input
-                else []
-            )
-
-            custom_fields: list[dict[str, object]] = []
-            while True:
-                add_field = input("Add custom field? (y/N): ").strip().lower()
-                if add_field != "y":
-                    break
-                label = input("  Field label: ").strip()
-                value = input("  Field value: ").strip()
-                hidden = input("  Hidden field? (y/N): ").strip().lower() == "y"
-                custom_fields.append(
-                    {"label": label, "value": value, "is_hidden": hidden}
-                )
-
-            length = prompt_length()
-            if length is None:
-                return
-
-            include_special_input = (
-                input("Include special characters? (Y/n): ").strip().lower()
-            )
-            include_special_chars: bool | None = None
-            if include_special_input:
-                include_special_chars = include_special_input != "n"
-
-            allowed_special_chars = input(
-                "Allowed special characters (leave blank for default): "
-            ).strip()
-            if not allowed_special_chars:
-                allowed_special_chars = None
-
-            special_mode = input("Special character mode (safe/leave blank): ").strip()
-            if not special_mode:
-                special_mode = None
-
-            exclude_ambiguous_input = (
-                input("Exclude ambiguous characters? (y/N): ").strip().lower()
-            )
-            exclude_ambiguous: bool | None = None
-            if exclude_ambiguous_input:
-                exclude_ambiguous = exclude_ambiguous_input == "y"
-
-            min_uppercase_input = input(
-                "Minimum uppercase letters (blank for default): "
-            ).strip()
-            if min_uppercase_input and not min_uppercase_input.isdigit():
-                print(colored("Error: Minimum uppercase must be a number.", "red"))
-                return
-            min_uppercase = int(min_uppercase_input) if min_uppercase_input else None
-
-            min_lowercase_input = input(
-                "Minimum lowercase letters (blank for default): "
-            ).strip()
-            if min_lowercase_input and not min_lowercase_input.isdigit():
-                print(colored("Error: Minimum lowercase must be a number.", "red"))
-                return
-            min_lowercase = int(min_lowercase_input) if min_lowercase_input else None
-
-            min_digits_input = input("Minimum digits (blank for default): ").strip()
-            if min_digits_input and not min_digits_input.isdigit():
-                print(colored("Error: Minimum digits must be a number.", "red"))
-                return
-            min_digits = int(min_digits_input) if min_digits_input else None
-
-            min_special_input = input(
-                "Minimum special characters (blank for default): "
-            ).strip()
-            if min_special_input and not min_special_input.isdigit():
-                print(colored("Error: Minimum special must be a number.", "red"))
-                return
-            min_special = int(min_special_input) if min_special_input else None
-
-            index = self.entry_manager.add_entry(
-                website_name,
-                length,
-                username,
-                url,
-                archived=False,
-                notes=notes,
-                custom_fields=custom_fields,
-                tags=tags,
-                include_special_chars=include_special_chars,
-                allowed_special_chars=allowed_special_chars,
-                special_mode=special_mode,
-                exclude_ambiguous=exclude_ambiguous,
-                min_uppercase=min_uppercase,
-                min_lowercase=min_lowercase,
-                min_digits=min_digits,
-                min_special=min_special,
-            )
-
-            finalize_entry(index, website_name, length)
-
-        except Exception as e:
-            logging.error(f"Error during password generation: {e}", exc_info=True)
-            print(colored(f"Error: Failed to generate password: {e}", "red"))
-            pause()
+        self.entry_service.handle_add_password()
 
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
@@ -3936,85 +3666,7 @@ class PasswordManager:
         print("-" * 40)
 
     def handle_list_entries(self) -> None:
-        """List entries and optionally show details."""
-        try:
-            while True:
-                fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_header_with_notification(
-                    self,
-                    fp,
-                    "Main Menu > List Entries",
-                    parent_fingerprint=parent_fp,
-                    child_fingerprint=child_fp,
-                )
-                print(color_text("\nList Entries:", "menu"))
-                print(color_text("1. All", "menu"))
-                print(color_text("2. Passwords", "menu"))
-                print(color_text("3. 2FA (TOTP)", "menu"))
-                print(color_text("4. SSH Key", "menu"))
-                print(color_text("5. Seed Phrase", "menu"))
-                print(color_text("6. Nostr Key Pair", "menu"))
-                print(color_text("7. PGP", "menu"))
-                print(color_text("8. Key/Value", "menu"))
-                print(color_text("9. Managed Account", "menu"))
-                choice = input("Select entry type or press Enter to go back: ").strip()
-                if choice == "1":
-                    filter_kind = None
-                elif choice == "2":
-                    filter_kind = EntryType.PASSWORD.value
-                elif choice == "3":
-                    filter_kind = EntryType.TOTP.value
-                elif choice == "4":
-                    filter_kind = EntryType.SSH.value
-                elif choice == "5":
-                    filter_kind = EntryType.SEED.value
-                elif choice == "6":
-                    filter_kind = EntryType.NOSTR.value
-                elif choice == "7":
-                    filter_kind = EntryType.PGP.value
-                elif choice == "8":
-                    filter_kind = EntryType.KEY_VALUE.value
-                elif choice == "9":
-                    filter_kind = EntryType.MANAGED_ACCOUNT.value
-                elif not choice:
-                    return
-                else:
-                    print(colored("Invalid choice.", "red"))
-                    continue
-
-                while True:
-                    summaries = self.entry_manager.get_entry_summaries(
-                        filter_kind, include_archived=False
-                    )
-                    if not summaries:
-                        break
-                    fp, parent_fp, child_fp = self.header_fingerprint_args
-                    clear_header_with_notification(
-                        self,
-                        fp,
-                        "Main Menu > List Entries",
-                        parent_fingerprint=parent_fp,
-                        child_fingerprint=child_fp,
-                    )
-                    print(colored("\n[+] Entries:\n", "green"))
-                    for idx, etype, label in summaries:
-                        if filter_kind is None:
-                            display_type = etype.capitalize()
-                            print(colored(f"{idx}. {display_type} - {label}", "cyan"))
-                        else:
-                            print(colored(f"{idx}. {label}", "cyan"))
-                    idx_input = input(
-                        "Enter index to view details or press Enter to go back: "
-                    ).strip()
-                    if not idx_input:
-                        break
-                    if not idx_input.isdigit():
-                        print(colored("Invalid index.", "red"))
-                        continue
-                    self.show_entry_details_by_index(int(idx_input))
-        except Exception as e:
-            logging.error(f"Failed to list entries: {e}", exc_info=True)
-            print(colored(f"Error: Failed to list entries: {e}", "red"))
+        self.menu_handler.handle_list_entries()
 
     def delete_entry(self) -> None:
         """Deletes an entry from the password index."""
@@ -4139,93 +3791,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to view archived entries: {e}", "red"))
 
     def handle_display_totp_codes(self) -> None:
-        """Display all stored TOTP codes with a countdown progress bar."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > 2FA Codes",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
-            data = self.entry_manager.vault.load_index()
-            entries = data.get("entries", {})
-            totp_list: list[tuple[str, int, int, bool]] = []
-            for idx_str, entry in entries.items():
-                if self._entry_type_str(
-                    entry
-                ) == EntryType.TOTP.value and not entry.get(
-                    "archived", entry.get("blacklisted", False)
-                ):
-                    label = entry.get("label", "")
-                    period = int(entry.get("period", 30))
-                    imported = "secret" in entry
-                    totp_list.append((label, int(idx_str), period, imported))
-
-            if not totp_list:
-                self.notify("No 2FA entries found.", level="WARNING")
-                return
-
-            totp_list.sort(key=lambda t: t[0].lower())
-            print(colored("Press Enter to return to the menu.", "cyan"))
-            while True:
-                fp, parent_fp, child_fp = self.header_fingerprint_args
-                clear_header_with_notification(
-                    self,
-                    fp,
-                    "Main Menu > 2FA Codes",
-                    parent_fingerprint=parent_fp,
-                    child_fingerprint=child_fp,
-                )
-                print(colored("Press Enter to return to the menu.", "cyan"))
-                generated = [t for t in totp_list if not t[3]]
-                imported_list = [t for t in totp_list if t[3]]
-                if generated:
-                    print(colored("\nGenerated 2FA Codes:", "green"))
-                    for label, idx, period, _ in generated:
-                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
-                        remaining = self.entry_manager.get_totp_time_remaining(idx)
-                        filled = int(20 * (period - remaining) / period)
-                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                        if self.secret_mode_enabled:
-                            if copy_to_clipboard(code, self.clipboard_clear_delay):
-                                print(
-                                    f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
-                                )
-                        else:
-                            print(
-                                f"[{idx}] {label}: {color_text(code, 'deterministic')} {bar} {remaining:2d}s"
-                            )
-                if imported_list:
-                    print(colored("\nImported 2FA Codes:", "green"))
-                    for label, idx, period, _ in imported_list:
-                        code = self.entry_manager.get_totp_code(idx, self.parent_seed)
-                        remaining = self.entry_manager.get_totp_time_remaining(idx)
-                        filled = int(20 * (period - remaining) / period)
-                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                        if self.secret_mode_enabled:
-                            if copy_to_clipboard(code, self.clipboard_clear_delay):
-                                print(
-                                    f"[{idx}] {label}: [HIDDEN] {bar} {remaining:2d}s - copied to clipboard"
-                                )
-                        else:
-                            print(
-                                f"[{idx}] {label}: {color_text(code, 'imported')} {bar} {remaining:2d}s"
-                            )
-                sys.stdout.flush()
-                try:
-                    user_input = timed_input("", 1)
-                    if user_input.strip() == "" or user_input.strip().lower() == "b":
-                        break
-                except TimeoutError:
-                    pass
-                except KeyboardInterrupt:
-                    print()
-                    break
-        except Exception as e:
-            logging.error(f"Error displaying TOTP codes: {e}", exc_info=True)
-            print(colored(f"Error: Failed to display TOTP codes: {e}", "red"))
+        self.menu_handler.handle_display_totp_codes()
 
     def handle_verify_checksum(self) -> None:
         """
