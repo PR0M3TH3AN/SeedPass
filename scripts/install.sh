@@ -9,6 +9,14 @@ set -euo pipefail
 IFS=$'\n\t'
 trap 'echo "[ERROR] Line $LINENO failed"; exit 1' ERR
 
+# Determine the Python interpreter minor version
+PYTHON_BIN="python3"
+PY_MINOR="$(python3 - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
+)"
+
 # --- Configuration ---
 REPO_URL="https://github.com/PR0M3TH3AN/SeedPass.git"
 APP_ROOT_DIR="$HOME/.seedpass"
@@ -32,15 +40,15 @@ install_dependencies() {
         sudo apt-get update && sudo apt-get install -y \\
             build-essential pkg-config libcairo2 libcairo2-dev \\
             libgirepository1.0-dev gobject-introspection \\
-            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev
+            gir1.2-gtk-3.0 python${PY_MINOR}-dev libffi-dev libssl-dev
     elif command -v yum &>/dev/null; then
         sudo yum install -y @'Development Tools' cairo cairo-devel \\
-            gobject-introspection-devel gtk3-devel python3-devel \\
+            gobject-introspection-devel gtk3-devel python${PY_MINOR}-devel \\
             libffi-devel openssl-devel
     elif command -v dnf &>/dev/null; then
         sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \\
             cairo cairo-devel gobject-introspection-devel gtk3-devel \\
-            python3-devel libffi-devel openssl-devel
+            python${PY_MINOR}-devel libffi-devel openssl-devel
     elif command -v pacman &>/dev/null; then
         sudo pacman -Syu --noconfirm base-devel pkgconf cairo \\
             gobject-introspection gtk3 python
@@ -107,9 +115,36 @@ main() {
         fi
         if ! command -v git &> /dev/null; then print_error "Git installation failed or git not found in PATH."; fi
     fi
-    if ! command -v python3 &> /dev/null; then print_error "Python 3 is not installed. Please install it."; fi
-    if ! python3 -m ensurepip --default-pip &> /dev/null && ! command -v pip3 &> /dev/null; then print_error "pip for Python 3 is not available. Please install it."; fi
-    if ! python3 -c "import venv" &> /dev/null; then
+    if ! command -v "$PYTHON_BIN" &> /dev/null; then print_error "Python 3 is not installed. Please install it."; fi
+    PY_MINOR_NUM="${PY_MINOR#*.}"
+    if (( PY_MINOR_NUM >= 13 )); then
+        print_warning "Detected Python ${PY_MINOR}. SeedPass recommends Python 3.11 or 3.12."
+        read -r -p "Install Python 3.12 and create a virtual environment? (y/N) " INSTALL_ALT
+        if [[ "$INSTALL_ALT" =~ ^[Yy]$ ]]; then
+            if command -v pyenv &>/dev/null; then
+                print_info "Installing Python 3.12 via pyenv..."
+                pyenv install -s 3.12
+                PYTHON_BIN="python3.12"
+            elif command -v apt-get &>/dev/null; then
+                print_info "Installing python3.12 via apt..."
+                sudo apt-get update && sudo apt-get install -y python3.12 python3.12-venv python3.12-dev
+                PYTHON_BIN="python3.12"
+            elif command -v dnf &>/dev/null; then
+                print_info "Installing python3.12 via dnf..."
+                sudo dnf install -y python3.12 python3.12-devel
+                PYTHON_BIN="python3.12"
+            elif command -v yum &>/dev/null; then
+                print_info "Installing python3.12 via yum..."
+                sudo yum install -y python3.12 python3.12-devel
+                PYTHON_BIN="python3.12"
+            else
+                print_warning "Automatic Python 3.12 installation is not supported. Please install it manually."
+            fi
+            PY_MINOR="3.12"
+        fi
+    fi
+    if ! "$PYTHON_BIN" -m ensurepip --default-pip &> /dev/null && ! command -v pip3 &> /dev/null; then print_error "pip for Python 3 is not available. Please install it."; fi
+    if ! "$PYTHON_BIN" -c "import venv" &> /dev/null; then
         print_warning "Python 'venv' module not found. Attempting to install..."
         if [ "$OS_NAME" = "Linux" ]; then
             if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y python3-venv;
@@ -145,7 +180,7 @@ main() {
 
     # 5. Set up Python virtual environment
     print_info "Setting up Python virtual environment in '$VENV_DIR'..."
-    if [ ! -d "$VENV_DIR" ]; then python3 -m venv "$VENV_DIR"; fi
+    if [ ! -d "$VENV_DIR" ]; then "$PYTHON_BIN" -m venv "$VENV_DIR"; fi
     # shellcheck source=/dev/null
     source "$VENV_DIR/bin/activate"
 
