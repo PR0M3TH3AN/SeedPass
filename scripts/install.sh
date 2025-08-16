@@ -5,7 +5,9 @@
 # Supports installing from a specific branch using the -b or --branch flag.
 # Example: ./install.sh -b beta
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
+trap 'echo "[ERROR] Line $LINENO failed"; exit 1' ERR
 
 # --- Configuration ---
 REPO_URL="https://github.com/PR0M3TH3AN/SeedPass.git"
@@ -18,10 +20,10 @@ BRANCH="main" # Default branch
 INSTALL_GUI=false
 
 # --- Helper Functions ---
-print_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
-print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
-print_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
-print_error() { echo -e "\033[1;31m[ERROR]\033[0m $1" >&2; exit 1; }
+print_info() { echo -e "\033[1;34m[INFO]\033[0m" "$1"; }
+print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m" "$1"; }
+print_warning() { echo -e "\033[1;33m[WARNING]\033[0m" "$1"; }
+print_error() { echo -e "\033[1;31m[ERROR]\033[0m" "$1" >&2; exit 1; }
 
 # Install build dependencies for Gtk/GObject if available via the system package manager
 install_dependencies() {
