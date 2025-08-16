@@ -6,7 +6,6 @@ bech32>=1.2,<2
 coincurve>=18.0.0,<22
 mnemonic>=0.21,<1
 aiohttp>=3.9,<4
-async-timeout>=4,<6 ; python_version < "3.12"
 bcrypt>=4,<5
 pytest>=7,<9
 pytest-cov>=4,<7

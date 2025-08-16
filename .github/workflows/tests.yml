@@ -18,22 +18,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v3
       - name: Install dependencies
-        shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --require-hashes -r requirements.lock
-          python -m pip install black pip-audit coverage
+        run: uv pip sync requirements.lock
       - name: Check formatting
-        run: black --check .
+        run: uvx black --check .
       - name: Run security audit
         run: |
-          pip-audit || echo "::warning::pip-audit found vulnerabilities"
-        shell: bash
+          uvx pip-audit || echo "::warning::pip-audit found vulnerabilities"
       - name: Run tests with coverage
         run: |
-          coverage run -m pytest
-          coverage xml
+          uv run coverage run -m pytest
+          uv run coverage xml
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
