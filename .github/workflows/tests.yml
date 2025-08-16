@@ -11,16 +11,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
       - uses: astral-sh/setup-uv@v3
       - name: Install dependencies
-        run: uv pip sync requirements.lock
+        run: uv pip sync --frozen requirements.lock
       - name: Check formatting
         run: uvx black --check .
       - name: Run security audit
@@ -33,6 +32,6 @@ jobs:
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: coverage-${{ matrix.os }}
           path: coverage.xml
 

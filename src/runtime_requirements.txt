@@ -8,6 +8,7 @@ bech32>=1.2,<2
 coincurve>=18.0.0,<22
 mnemonic>=0.21,<1
 aiohttp>=3.9,<4
+async-timeout>=4,<6; python_version < "3.12"
 bcrypt>=4,<5
 portalocker>=2.8,<4
 nostr-sdk>=0.43,<1

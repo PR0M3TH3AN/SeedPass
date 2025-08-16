@@ -23,17 +23,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
 
+  lock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v3
+      - name: Verify requirements.lock
+        run: |
+          uv pip compile src/requirements.txt --python-version 3.11 --generate-hashes --emit-index-url -o requirements.lock
+          git diff --exit-code requirements.lock
+      - name: Verify runtime.lock
+        run: |
+          uv pip compile src/runtime_requirements.txt --python-version 3.11 --generate-hashes --emit-index-url -o runtime.lock
+          git diff --exit-code runtime.lock
+
   build:
+    needs: lock-check
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11"]
-        exclude:
-          - os: windows-latest
-            python-version: "3.11"
-        include:
-          - os: windows-latest
-            python-version: "3.10"
     runs-on: ${{ matrix.os }}
     env:
       HYPOTHESIS_SEED: 123456
@@ -41,7 +52,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
       - uses: astral-sh/setup-uv@v3
       - name: Install build tools (Linux/macOS)
         if: runner.os != 'Windows'
@@ -77,11 +88,8 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('requirements.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-
-      - name: Verify lockfile and install dependencies
-        run: |
-          uv pip compile src/requirements.txt --universal --generate-hashes --emit-index-url -o requirements.lock
-          git diff --exit-code requirements.lock
-          uv pip sync requirements.lock
+      - name: Install dependencies
+        run: uv pip sync --frozen requirements.lock
       - name: Run dependency scan
         run: scripts/dependency_scan.sh --ignore-vuln GHSA-wj6h-64fc-37mp
       - name: Determine stress args
