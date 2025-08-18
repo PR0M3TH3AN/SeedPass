@@ -146,6 +146,10 @@ The Windows installer will attempt to install Git automatically if it is not alr
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
 
+#### Installer Dependency Checks
+
+The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Pass `--no-gui` to skip installing GUI packages. On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
+
 #### Windows Nostr Sync Troubleshooting
 
 When backing up or restoring from Nostr on Windows, a few issues are common:
