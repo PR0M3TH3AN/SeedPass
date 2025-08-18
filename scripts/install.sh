@@ -188,6 +188,11 @@ main() {
     else
         pip install -e .
     fi
+
+    if ! "$VENV_DIR/bin/python" -c "import seedpass.cli; print('ok')"; then
+        print_error "SeedPass CLI import check failed."
+    fi
+
     deactivate
 
     # 7. Create launcher script

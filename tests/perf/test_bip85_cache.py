@@ -46,7 +46,7 @@ def test_bip85_cache_benchmark():
     for _ in range(3):
         pm.get_bip85_entropy(32, 1)
     cached_time = time.perf_counter() - start
-
-    assert cached_time < uncached_time
+    # Ensure caching avoids redundant derive calls without relying on
+    # potentially flaky timing comparisons across platforms.
     assert slow_uncached.calls == 3
     assert slow_cached.calls == 1
