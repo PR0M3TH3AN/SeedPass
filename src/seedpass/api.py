@@ -478,7 +478,7 @@ def get_totp_codes(
     _require_password(request, password)
     pm = _get_pm(request)
     entries = pm.entry_manager.list_entries(
-        filter_kind=EntryType.TOTP.value, include_archived=False
+        filter_kinds=[EntryType.TOTP.value], include_archived=False
     )
     codes = []
     for idx, label, _u, _url, _arch in entries:

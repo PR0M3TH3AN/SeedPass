@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from termcolor import colored
 
-from .entry_types import EntryType
+from .entry_types import EntryType, ALL_ENTRY_TYPES
 import seedpass.core.manager as manager_module
 from utils.color_scheme import color_text
 from utils.terminal_utils import clear_header_with_notification
@@ -36,33 +36,16 @@ class MenuHandler:
                 )
                 print(color_text("\nList Entries:", "menu"))
                 print(color_text("1. All", "menu"))
-                print(color_text("2. Passwords", "menu"))
-                print(color_text("3. 2FA (TOTP)", "menu"))
-                print(color_text("4. SSH Key", "menu"))
-                print(color_text("5. Seed Phrase", "menu"))
-                print(color_text("6. Nostr Key Pair", "menu"))
-                print(color_text("7. PGP", "menu"))
-                print(color_text("8. Key/Value", "menu"))
-                print(color_text("9. Managed Account", "menu"))
+                option_map: dict[str, str] = {}
+                for i, etype in enumerate(ALL_ENTRY_TYPES, start=2):
+                    label = etype.replace("_", " ").title()
+                    print(color_text(f"{i}. {label}", "menu"))
+                    option_map[str(i)] = etype
                 choice = input("Select entry type or press Enter to go back: ").strip()
                 if choice == "1":
-                    filter_kind = None
-                elif choice == "2":
-                    filter_kind = EntryType.PASSWORD.value
-                elif choice == "3":
-                    filter_kind = EntryType.TOTP.value
-                elif choice == "4":
-                    filter_kind = EntryType.SSH.value
-                elif choice == "5":
-                    filter_kind = EntryType.SEED.value
-                elif choice == "6":
-                    filter_kind = EntryType.NOSTR.value
-                elif choice == "7":
-                    filter_kind = EntryType.PGP.value
-                elif choice == "8":
-                    filter_kind = EntryType.KEY_VALUE.value
-                elif choice == "9":
-                    filter_kind = EntryType.MANAGED_ACCOUNT.value
+                    filter_kinds = None
+                elif choice in option_map:
+                    filter_kinds = [option_map[choice]]
                 elif not choice:
                     return
                 else:
@@ -71,7 +54,7 @@ class MenuHandler:
 
                 while True:
                     summaries = pm.entry_manager.get_entry_summaries(
-                        filter_kind, include_archived=False
+                        filter_kinds, include_archived=False
                     )
                     if not summaries:
                         break
@@ -85,7 +68,7 @@ class MenuHandler:
                     )
                     print(colored("\n[+] Entries:\n", "green"))
                     for idx, etype, label in summaries:
-                        if filter_kind is None:
+                        if filter_kinds is None:
                             display_type = etype.capitalize()
                             print(colored(f"{idx}. {display_type} - {label}", "cyan"))
                         else:

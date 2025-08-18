@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
+import click
 
 from .common import _get_entry_service, EntryType
+from seedpass.core.entry_types import ALL_ENTRY_TYPES
 from utils.clipboard import ClipboardUnavailableError
 
 
@@ -20,13 +22,20 @@ def entry_list(
     sort: str = typer.Option(
         "index", "--sort", help="Sort by 'index', 'label', or 'updated'"
     ),
-    kind: Optional[str] = typer.Option(None, "--kind", help="Filter by entry type"),
+    kind: Optional[str] = typer.Option(
+        None,
+        "--kind",
+        help="Filter by entry type",
+        click_type=click.Choice(ALL_ENTRY_TYPES),
+    ),
     archived: bool = typer.Option(False, "--archived", help="Include archived"),
 ) -> None:
     """List entries in the vault."""
     service = _get_entry_service(ctx)
     entries = service.list_entries(
-        sort_by=sort, filter_kind=kind, include_archived=archived
+        sort_by=sort,
+        filter_kinds=[kind] if kind else None,
+        include_archived=archived,
     )
     for idx, label, username, url, is_archived in entries:
         line = f"{idx}: {label}"
@@ -43,16 +52,17 @@ def entry_list(
 def entry_search(
     ctx: typer.Context,
     query: str,
-    kind: List[str] = typer.Option(
+    kinds: List[str] = typer.Option(
         None,
         "--kind",
         "-k",
         help="Filter by entry kinds (can be repeated)",
+        click_type=click.Choice(ALL_ENTRY_TYPES),
     ),
 ) -> None:
     """Search entries."""
     service = _get_entry_service(ctx)
-    kinds = list(kind) if kind else None
+    kinds = list(kinds) if kinds else None
     results = service.search_entries(query, kinds=kinds)
     if not results:
         typer.echo("No matching entries found")

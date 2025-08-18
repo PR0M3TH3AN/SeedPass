@@ -33,7 +33,7 @@ from pathlib import Path
 
 from termcolor import colored
 from .migrations import LATEST_VERSION
-from .entry_types import EntryType
+from .entry_types import EntryType, ALL_ENTRY_TYPES
 from .totp import TotpManager
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
@@ -1076,7 +1076,7 @@ class EntryManager:
     def list_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
         verbose: bool = True,
@@ -1088,8 +1088,9 @@ class EntryManager:
         sort_by:
             Field to sort by. Supported values are ``"index"``, ``"label"`` and
             ``"updated"``.
-        filter_kind:
-            Optional entry kind to restrict the results.
+        filter_kinds:
+            Optional list of entry kinds to restrict the results. Defaults to
+            ``ALL_ENTRY_TYPES``.
 
         Archived entries are omitted unless ``include_archived`` is ``True``.
         """
@@ -1118,12 +1119,14 @@ class EntryManager:
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
 
+            if filter_kinds is None:
+                filter_kinds = ALL_ENTRY_TYPES
+
             filtered_items: List[Tuple[int, Dict[str, Any]]] = []
             for idx_str, entry in sorted_items:
                 if (
-                    filter_kind is not None
-                    and entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                    != filter_kind
+                    entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+                    not in filter_kinds
                 ):
                     continue
                 if not include_archived and entry.get(
@@ -1371,7 +1374,7 @@ class EntryManager:
     def list_all_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
     ) -> None:
@@ -1379,7 +1382,7 @@ class EntryManager:
         try:
             entries = self.list_entries(
                 sort_by=sort_by,
-                filter_kind=filter_kind,
+                filter_kinds=filter_kinds,
                 include_archived=include_archived,
             )
             if not entries:
@@ -1403,7 +1406,7 @@ class EntryManager:
 
     def get_entry_summaries(
         self,
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
     ) -> list[tuple[int, str, str]]:
@@ -1412,10 +1415,13 @@ class EntryManager:
             data = self._load_index()
             entries_data = data.get("entries", {})
 
+            if filter_kinds is None:
+                filter_kinds = ALL_ENTRY_TYPES
+
             summaries: list[tuple[int, str, str]] = []
             for idx_str, entry in entries_data.items():
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                if filter_kind and etype != filter_kind:
+                if etype not in filter_kinds:
                     continue
                 if not include_archived and entry.get(
                     "archived", entry.get("blacklisted", False)

@@ -265,13 +265,13 @@ class EntryService:
     def list_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         include_archived: bool = False,
     ):
         with self._lock:
             return self._manager.entry_manager.list_entries(
                 sort_by=sort_by,
-                filter_kind=filter_kind,
+                filter_kinds=filter_kinds,
                 include_archived=include_archived,
             )
 

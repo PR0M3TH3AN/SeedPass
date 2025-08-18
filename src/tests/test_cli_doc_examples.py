@@ -16,7 +16,7 @@ from seedpass.core.entry_types import EntryType
 class DummyPM:
     def __init__(self):
         self.entry_manager = SimpleNamespace(
-            list_entries=lambda sort_by="index", filter_kind=None, include_archived=False: [
+            list_entries=lambda sort_by="index", filter_kinds=None, include_archived=False: [
                 (1, "Label", "user", "url", False)
             ],
             search_entries=lambda q, kinds=None: [
