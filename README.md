@@ -274,10 +274,10 @@ You can then launch SeedPass and create a backup:
 seedpass
 
 # Export your index
-seedpass export --file "~/seedpass_backup.json"
+seedpass vault export --file "~/seedpass_backup.json"
 
 # Later you can restore it
-seedpass import --file "~/seedpass_backup.json"
+seedpass vault import --file "~/seedpass_backup.json"
 
 # Quickly find or retrieve entries
 seedpass search "github"
