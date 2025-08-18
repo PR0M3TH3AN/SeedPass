@@ -17,7 +17,7 @@ VENV_DIR="$INSTALL_DIR/venv"
 LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/seedpass"
 BRANCH="main" # Default branch
-INSTALL_GUI=false
+INSTALL_GUI=true
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[1;34m[INFO]\033[0m" "$1"; }
@@ -59,9 +59,9 @@ install_dependencies() {
     fi
 }
 usage() {
-    echo "Usage: $0 [-b | --branch <branch_name>] [--with-gui] [-h | --help]"
+    echo "Usage: $0 [-b | --branch <branch_name>] [--no-gui] [-h | --help]"
     echo "  -b, --branch   Specify the git branch to install (default: main)"
-    echo "      --with-gui Include graphical interface dependencies"
+    echo "      --no-gui   Skip graphical interface dependencies (default: include GUI)"
     echo "  -h, --help     Display this help message"
     exit 0
 }
@@ -82,8 +82,8 @@ main() {
             -h|--help)
                 usage
                 ;;
-            --with-gui)
-                INSTALL_GUI=true
+            --no-gui)
+                INSTALL_GUI=false
                 shift
                 ;;
             *)
