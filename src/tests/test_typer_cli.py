@@ -18,8 +18,8 @@ runner = CliRunner()
 def test_entry_list(monkeypatch):
     called = {}
 
-    def list_entries(sort_by="index", filter_kind=None, include_archived=False):
-        called["args"] = (sort_by, filter_kind, include_archived)
+    def list_entries(sort_by="index", filter_kinds=None, include_archived=False):
+        called["args"] = (sort_by, filter_kinds, include_archived)
         return [(0, "Site", "user", "", False)]
 
     pm = SimpleNamespace(

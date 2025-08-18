@@ -393,7 +393,7 @@ class TotpViewerWindow(toga.Window):
     def refresh_codes(self) -> None:
         self.table.data = []
         for idx, label, *_rest in self.entries.list_entries(
-            filter_kind=EntryType.TOTP.value
+            filter_kinds=[EntryType.TOTP.value]
         ):
             entry = self.entries.retrieve_entry(idx)
             code = self.entries.get_totp_code(idx)
