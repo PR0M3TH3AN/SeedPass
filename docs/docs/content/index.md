@@ -120,6 +120,11 @@ isn't on your PATH. If these tools are unavailable you'll see a link to download
 the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
+
+#### Installer Dependency Checks
+
+The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Pass `--no-gui` to skip installing GUI packages. On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
+
 ### Uninstall
 
 Run the matching uninstaller if you need to remove a previous installation or clean up an old `seedpass` command:
