@@ -32,24 +32,31 @@ install_dependencies() {
         sudo apt-get update && sudo apt-get install -y \\
             build-essential pkg-config libcairo2 libcairo2-dev \\
             libgirepository1.0-dev gobject-introspection \\
-            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev
+            gir1.2-gtk-3.0 libgtk-3-dev python3-dev libffi-dev libssl-dev \\
+            cmake rustc cargo zlib1g-dev libjpeg-dev libpng-dev \\
+            libfreetype6-dev xclip wl-clipboard
     elif command -v yum &>/dev/null; then
         sudo yum install -y @'Development Tools' cairo cairo-devel \\
             gobject-introspection-devel gtk3-devel python3-devel \\
-            libffi-devel openssl-devel
+            libffi-devel openssl-devel cmake rust cargo zlib-devel \\
+            libjpeg-turbo-devel libpng-devel freetype-devel xclip \\
+            wl-clipboard
     elif command -v dnf &>/dev/null; then
         sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \\
             cairo cairo-devel gobject-introspection-devel gtk3-devel \\
-            python3-devel libffi-devel openssl-devel
+            python3-devel libffi-devel openssl-devel cmake rust cargo \\
+            zlib-devel libjpeg-turbo-devel libpng-devel freetype-devel \\
+            xclip wl-clipboard
     elif command -v pacman &>/dev/null; then
-        sudo pacman -Syu --noconfirm base-devel pkgconf cairo \\
-            gobject-introspection gtk3 python
+        sudo pacman -Syu --noconfirm base-devel pkgconf cmake rustup \\
+            gtk3 gobject-introspection cairo libjpeg-turbo zlib \\
+            libpng freetype xclip wl-clipboard && rustup default stable
     elif command -v brew &>/dev/null; then
-        brew install pkg-config cairo gobject-introspection gtk+3
+        brew install pkg-config cairo gobject-introspection gtk+3 cmake rustup-init && \\
+            rustup-init -y
     else
         print_warning "Unsupported package manager. Please install Gtk/GObject dependencies manually."
     fi
-    print_warning "Install 'xclip' manually to enable clipboard features in secret mode."
 }
 usage() {
     echo "Usage: $0 [-b | --branch <branch_name>] [--with-gui] [-h | --help]"
