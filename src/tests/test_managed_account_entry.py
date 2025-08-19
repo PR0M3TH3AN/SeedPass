@@ -41,6 +41,9 @@ def test_add_and_get_managed_account_seed():
         assert fp
         assert (tmp_path / "accounts" / fp).exists()
 
+        # Appears in listing
+        assert mgr.list_entries() == [(idx, "acct", None, None, False)]
+
         phrase_a = mgr.get_managed_account_seed(idx, TEST_SEED)
         phrase_b = mgr.get_managed_account_seed(idx, TEST_SEED)
         assert phrase_a == phrase_b
@@ -50,6 +53,23 @@ def test_add_and_get_managed_account_seed():
         expected = derive_seed_phrase(bip85, idx, 12)
         assert phrase_a == expected
         assert generate_fingerprint(phrase_a) == fp
+
+        # Archive and ensure it disappears from default listing
+        mgr.archive_entry(idx)
+        archived = mgr.retrieve_entry(idx)
+        assert archived["archived"] is True
+        assert mgr.list_entries() == []
+        assert mgr.list_entries(include_archived=True) == [
+            (idx, "acct", None, None, True)
+        ]
+
+        # Restore and ensure deterministic derivation is unchanged
+        mgr.restore_entry(idx)
+        restored = mgr.retrieve_entry(idx)
+        assert restored["archived"] is False
+        assert mgr.list_entries() == [(idx, "acct", None, None, False)]
+        phrase_c = mgr.get_managed_account_seed(idx, TEST_SEED)
+        assert phrase_c == expected
 
 
 def test_load_and_exit_managed_account(monkeypatch):
