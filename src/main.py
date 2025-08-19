@@ -19,7 +19,7 @@ from termcolor import colored
 from utils.color_scheme import color_text
 import importlib
 
-from seedpass.core.manager import PasswordManager
+from seedpass.core.manager import PasswordManager, restore_backup_index
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
 from seedpass.core.config_manager import ConfigManager
@@ -1286,6 +1286,10 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     parser = argparse.ArgumentParser()
     parser.add_argument("--fingerprint")
     parser.add_argument(
+        "--restore-backup",
+        help="Restore index from backup file before starting",
+    )
+    parser.add_argument(
         "--no-clipboard",
         action="store_true",
         help="Disable clipboard support and print secrets",
@@ -1314,6 +1318,41 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     totp_p.add_argument("query")
 
     args = parser.parse_args(argv)
+
+    if args.restore_backup:
+        fp_target = args.fingerprint or fingerprint
+        if fp_target is None:
+            print(
+                colored(
+                    "Error: --fingerprint is required when using --restore-backup.",
+                    "red",
+                )
+            )
+            return 1
+        try:
+            restore_backup_index(Path(args.restore_backup), fp_target)
+            logger.info("Restored backup from %s", args.restore_backup)
+        except Exception as e:
+            logger.error(f"Failed to restore backup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to restore backup: {e}", "red"))
+            return 1
+    elif args.command is None:
+        print("Startup Options:")
+        print("1. Continue")
+        print("2. Restore from backup")
+        choice = input("Select an option: ").strip()
+        if choice == "2":
+            path = input("Enter backup file path: ").strip()
+            fp_target = args.fingerprint or fingerprint
+            if fp_target is None:
+                fp_target = input("Enter fingerprint for restore: ").strip()
+            try:
+                restore_backup_index(Path(path), fp_target)
+                logger.info("Restored backup from %s", path)
+            except Exception as e:
+                logger.error(f"Failed to restore backup: {e}", exc_info=True)
+                print(colored(f"Error: Failed to restore backup: {e}", "red"))
+                return 1
 
     if args.max_prompt_attempts is not None:
         os.environ["SEEDPASS_MAX_PROMPT_ATTEMPTS"] = str(args.max_prompt_attempts)

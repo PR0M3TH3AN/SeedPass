@@ -158,6 +158,31 @@ def calculate_profile_id(seed: str) -> str:
     return fp or ""
 
 
+def restore_backup_index(path: Path, fingerprint: str) -> None:
+    """Restore the encrypted index for ``fingerprint`` from ``path``.
+
+    This helper is intended for use before full :class:`PasswordManager`
+    initialization. It simply copies the provided backup file into the
+    profile's directory, replacing the existing index if present. A copy of
+    the previous index is kept with a ``.bak`` suffix to allow manual
+    recovery if needed.
+    """
+
+    fingerprint_dir = APP_DIR / fingerprint
+    fingerprint_dir.mkdir(parents=True, exist_ok=True)
+    dest = fingerprint_dir / "seedpass_entries_db.json.enc"
+    src = Path(path)
+
+    # Ensure the source file can be read
+    src.read_bytes()
+
+    if dest.exists():
+        shutil.copy2(dest, dest.with_suffix(".bak"))
+
+    shutil.copy2(src, dest)
+    os.chmod(dest, 0o600)
+
+
 @dataclass
 class Notification:
     """Simple message container for UI notifications."""

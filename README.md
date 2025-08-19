@@ -435,6 +435,16 @@ For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). Th
    ```
    *(or `python src/main.py` when running directly from the repository)*
 
+   To restore a previously backed up index at launch, provide the backup path
+   and fingerprint:
+
+   ```bash
+   seedpass --restore-backup /path/to/backup.json.enc --fingerprint <fp>
+   ```
+
+   Without the flag, the startup prompt offers a **Restore from backup** option
+   before the vault is initialized.
+
 2. **Follow the Prompts:**
 
    - **Seed Profile Selection:** If you have existing seed profiles, you'll be prompted to select one or add a new one.
@@ -619,6 +629,10 @@ If you previously backed up your vault to Nostr you can restore it during the
 initial setup. You must provide both your 12‑word master seed and the master
 password that encrypted the vault; without the correct password the retrieved
 data cannot be decrypted.
+
+Alternatively, a local backup file can be loaded at startup. Launch the
+application with `--restore-backup <file> --fingerprint <fp>` or choose the
+**Restore from backup** option presented before the vault initializes.
 
 1. Start SeedPass and choose option **4** when prompted to set up a seed.
 2. Paste your BIP‑85 seed phrase when asked.
