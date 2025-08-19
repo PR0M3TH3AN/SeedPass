@@ -14,6 +14,7 @@ from .encryption import (
     USE_ORJSON,
     json_lib,
 )
+from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 from utils.password_prompt import prompt_existing_password
 
 
@@ -37,6 +38,11 @@ class Vault:
     def set_encryption_manager(self, manager: EncryptionManager) -> None:
         """Replace the internal encryption manager."""
         self.encryption_manager = manager
+
+    def _hkdf_kdf(self) -> KdfConfig:
+        return KdfConfig(
+            name="hkdf", version=CURRENT_KDF_VERSION, params={}, salt_b64=""
+        )
 
     # ----- Password index helpers -----
     def load_index(self, *, return_migration_flags: bool = False):
@@ -102,10 +108,24 @@ class Vault:
             )
 
         try:
-            data = self.encryption_manager.load_json_data(self.index_file)
+            data, kdf = self.encryption_manager.load_json_data(
+                self.index_file, return_kdf=True
+            )
             migration_performed = getattr(
                 self.encryption_manager, "last_migration_performed", False
             )
+            if kdf.version < CURRENT_KDF_VERSION:
+                new_kdf = KdfConfig(
+                    name=kdf.name,
+                    version=CURRENT_KDF_VERSION,
+                    params=kdf.params,
+                    salt_b64=kdf.salt_b64,
+                )
+                self.encryption_manager.save_json_data(
+                    data, self.index_file, kdf=new_kdf
+                )
+                self.encryption_manager.update_checksum(self.index_file)
+                migration_performed = True
         except LegacyFormatRequiresMigrationError:
             print(
                 colored(
@@ -142,7 +162,9 @@ class Vault:
             else:
                 data = json_lib.loads(decrypted.decode("utf-8"))
             if self.encryption_manager._legacy_migrate_flag:
-                self.encryption_manager.save_json_data(data, self.index_file)
+                self.encryption_manager.save_json_data(
+                    data, self.index_file, kdf=self._hkdf_kdf()
+                )
                 self.encryption_manager.update_checksum(self.index_file)
             migration_performed = getattr(
                 self.encryption_manager, "last_migration_performed", False
@@ -181,7 +203,9 @@ class Vault:
         try:
             data = apply_migrations(data)
             if schema_migrated:
-                self.encryption_manager.save_json_data(data, self.index_file)
+                self.encryption_manager.save_json_data(
+                    data, self.index_file, kdf=self._hkdf_kdf()
+                )
                 self.encryption_manager.update_checksum(self.index_file)
         except Exception as exc:  # noqa: BLE001 - surface clear error and restore
             if legacy_detected and backup_dir is not None:
@@ -214,7 +238,9 @@ class Vault:
 
     def save_index(self, data: dict) -> None:
         """Encrypt and write password index."""
-        self.encryption_manager.save_json_data(data, self.index_file)
+        self.encryption_manager.save_json_data(
+            data, self.index_file, kdf=self._hkdf_kdf()
+        )
 
     def get_encrypted_index(self) -> Optional[bytes]:
         """Return the encrypted index bytes if present."""
@@ -252,4 +278,6 @@ class Vault:
 
     def save_config(self, config: dict) -> None:
         """Encrypt and persist configuration."""
-        self.encryption_manager.save_json_data(config, self.config_file)
+        self.encryption_manager.save_json_data(
+            config, self.config_file, kdf=self._hkdf_kdf()
+        )

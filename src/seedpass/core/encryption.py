@@ -16,8 +16,9 @@ except Exception:  # pragma: no cover - fallback for environments without orjson
 import hashlib
 import os
 import base64
+from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidTag
@@ -26,6 +27,7 @@ from termcolor import colored
 from utils.file_lock import exclusive_lock
 from mnemonic import Mnemonic
 from utils.password_prompt import prompt_existing_password
+from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -231,40 +233,58 @@ class EncryptionManager:
             raise ValueError("Invalid path outside fingerprint directory")
         return candidate
 
-    def encrypt_parent_seed(self, parent_seed: str) -> None:
+    def encrypt_parent_seed(
+        self, parent_seed: str, kdf: Optional[KdfConfig] = None
+    ) -> None:
         """Encrypts and saves the parent seed to 'parent_seed.enc'."""
         data = parent_seed.encode("utf-8")
-        encrypted_data = self.encrypt_data(data)  # This now creates V2 format
-        with exclusive_lock(self.parent_seed_file) as fh:
-            fh.seek(0)
-            fh.truncate()
-            fh.write(encrypted_data)
-        os.chmod(self.parent_seed_file, 0o600)
+        self.encrypt_and_save_file(data, self.parent_seed_file, kdf=kdf)
         logger.info(f"Parent seed encrypted and saved to '{self.parent_seed_file}'.")
 
     def decrypt_parent_seed(self) -> str:
         """Decrypts and returns the parent seed, handling migration."""
         with exclusive_lock(self.parent_seed_file) as fh:
             fh.seek(0)
-            encrypted_data = fh.read()
+            blob = fh.read()
 
+        kdf, encrypted_data = self._deserialize(blob)
         is_legacy = not encrypted_data.startswith(b"V2:")
         decrypted_data = self.decrypt_data(encrypted_data, context="seed")
 
         if is_legacy:
             logger.info("Parent seed was in legacy format. Re-encrypting to V2 format.")
-            self.encrypt_parent_seed(decrypted_data.decode("utf-8").strip())
+            self.encrypt_parent_seed(decrypted_data.decode("utf-8").strip(), kdf=kdf)
 
         return decrypted_data.decode("utf-8").strip()
 
-    def encrypt_and_save_file(self, data: bytes, relative_path: Path) -> None:
+    def _serialize(self, kdf: KdfConfig, ciphertext: bytes) -> bytes:
+        payload = {"kdf": asdict(kdf), "ct": base64.b64encode(ciphertext).decode()}
+        if USE_ORJSON:
+            return json_lib.dumps(payload)
+        return json_lib.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+    def _deserialize(self, blob: bytes) -> Tuple[KdfConfig, bytes]:
+        if USE_ORJSON:
+            obj = json_lib.loads(blob)
+        else:
+            obj = json_lib.loads(blob.decode("utf-8"))
+        kdf = KdfConfig(**obj.get("kdf", {}))
+        ct = base64.b64decode(obj.get("ct", ""))
+        return kdf, ct
+
+    def encrypt_and_save_file(
+        self, data: bytes, relative_path: Path, *, kdf: Optional[KdfConfig] = None
+    ) -> None:
+        if kdf is None:
+            kdf = KdfConfig()
         file_path = self.resolve_relative_path(relative_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         encrypted_data = self.encrypt_data(data)
+        payload = self._serialize(kdf, encrypted_data)
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
             fh.truncate()
-            fh.write(encrypted_data)
+            fh.write(payload)
             fh.flush()
             os.fsync(fh.fileno())
         os.chmod(file_path, 0o600)
@@ -273,20 +293,37 @@ class EncryptionManager:
         file_path = self.resolve_relative_path(relative_path)
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
-            encrypted_data = fh.read()
+            blob = fh.read()
+        _, encrypted_data = self._deserialize(blob)
         return self.decrypt_data(encrypted_data, context=str(relative_path))
 
-    def save_json_data(self, data: dict, relative_path: Optional[Path] = None) -> None:
+    def get_file_kdf(self, relative_path: Path) -> KdfConfig:
+        file_path = self.resolve_relative_path(relative_path)
+        with exclusive_lock(file_path) as fh:
+            fh.seek(0)
+            blob = fh.read()
+        kdf, _ = self._deserialize(blob)
+        return kdf
+
+    def save_json_data(
+        self,
+        data: dict,
+        relative_path: Optional[Path] = None,
+        *,
+        kdf: Optional[KdfConfig] = None,
+    ) -> None:
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
         if USE_ORJSON:
             json_data = json_lib.dumps(data)
         else:
             json_data = json_lib.dumps(data, separators=(",", ":")).encode("utf-8")
-        self.encrypt_and_save_file(json_data, relative_path)
+        self.encrypt_and_save_file(json_data, relative_path, kdf=kdf)
         logger.debug(f"JSON data encrypted and saved to '{relative_path}'.")
 
-    def load_json_data(self, relative_path: Optional[Path] = None) -> dict:
+    def load_json_data(
+        self, relative_path: Optional[Path] = None, *, return_kdf: bool = False
+    ) -> dict | Tuple[dict, KdfConfig]:
         """
         Loads and decrypts JSON data, automatically migrating and re-saving
         if it's in the legacy format.
@@ -299,8 +336,9 @@ class EncryptionManager:
 
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
-            encrypted_data = fh.read()
+            blob = fh.read()
 
+        kdf, encrypted_data = self._deserialize(blob)
         is_legacy = not encrypted_data.startswith(b"V2:")
         self.last_migration_performed = False
 
@@ -316,10 +354,12 @@ class EncryptionManager:
             # If it was a legacy file, re-save it in the new format now
             if is_legacy and self._legacy_migrate_flag:
                 logger.info(f"Migrating and re-saving legacy vault file: {file_path}")
-                self.save_json_data(data, relative_path)
+                self.save_json_data(data, relative_path, kdf=kdf)
                 self.update_checksum(relative_path)
                 self.last_migration_performed = True
 
+            if return_kdf:
+                return data, kdf
             return data
         except (InvalidToken, InvalidTag, JSONDecodeError) as e:
             logger.error(

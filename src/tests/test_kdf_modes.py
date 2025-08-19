@@ -1,4 +1,6 @@
 import bcrypt
+import hashlib
+import base64
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -7,6 +9,7 @@ from utils.key_derivation import (
     derive_key_from_password,
     derive_key_from_password_argon2,
     derive_index_key,
+    KdfConfig,
 )
 from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault
@@ -21,10 +24,24 @@ def _setup_profile(tmp: Path, mode: str):
     argon_kwargs = dict(time_cost=1, memory_cost=8, parallelism=1)
     fp = tmp.name
     if mode == "argon2":
-        seed_key = derive_key_from_password_argon2(TEST_PASSWORD, fp, **argon_kwargs)
+        cfg = KdfConfig(
+            params=argon_kwargs,
+            salt_b64=base64.b64encode(
+                hashlib.sha256(fp.encode()).digest()[:16]
+            ).decode(),
+        )
+        seed_key = derive_key_from_password_argon2(TEST_PASSWORD, cfg)
+        EncryptionManager(seed_key, tmp).encrypt_parent_seed(TEST_SEED, kdf=cfg)
     else:
         seed_key = derive_key_from_password(TEST_PASSWORD, fp, iterations=1)
-    EncryptionManager(seed_key, tmp).encrypt_parent_seed(TEST_SEED)
+        cfg = KdfConfig(
+            name="pbkdf2",
+            params={"iterations": 1},
+            salt_b64=base64.b64encode(
+                hashlib.sha256(fp.encode()).digest()[:16]
+            ).decode(),
+        )
+        EncryptionManager(seed_key, tmp).encrypt_parent_seed(TEST_SEED, kdf=cfg)
 
     index_key = derive_index_key(TEST_SEED)
     enc_mgr = EncryptionManager(index_key, tmp)
@@ -65,9 +82,9 @@ def test_setup_encryption_manager_kdf_modes(monkeypatch):
             )
             if mode == "argon2":
                 monkeypatch.setattr(
-                    "seedpass.core.manager.derive_key_from_password_argon2",
-                    lambda pw, fp: derive_key_from_password_argon2(
-                        pw, fp, **argon_kwargs
+                    "seedpass.core.manager.KdfConfig",
+                    lambda salt_b64, **_: KdfConfig(
+                        params=argon_kwargs, salt_b64=salt_b64
                     ),
                 )
             monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
@@ -76,3 +93,26 @@ def test_setup_encryption_manager_kdf_modes(monkeypatch):
             )
             assert pm.setup_encryption_manager(path, exit_on_fail=False)
             assert pm.parent_seed == TEST_SEED
+
+
+def test_kdf_param_round_trip(tmp_path):
+    cfg = KdfConfig(
+        params={"time_cost": 3, "memory_cost": 32, "parallelism": 1},
+        salt_b64=base64.b64encode(b"static-salt-1234").decode(),
+    )
+    key = derive_key_from_password_argon2(TEST_PASSWORD, cfg)
+    mgr = EncryptionManager(key, tmp_path)
+    mgr.encrypt_parent_seed(TEST_SEED, kdf=cfg)
+    stored = mgr.get_file_kdf(Path("parent_seed.enc"))
+    assert stored.params == cfg.params
+
+
+def test_vault_kdf_migration(tmp_path):
+    index_key = derive_index_key(TEST_SEED)
+    mgr = EncryptionManager(index_key, tmp_path)
+    vault = Vault(mgr, tmp_path)
+    old_kdf = KdfConfig(name="hkdf", version=0, params={}, salt_b64="")
+    mgr.save_json_data({"entries": {}}, vault.index_file, kdf=old_kdf)
+    vault.load_index()
+    new_kdf = mgr.get_file_kdf(vault.index_file)
+    assert new_kdf.version == KdfConfig().version
