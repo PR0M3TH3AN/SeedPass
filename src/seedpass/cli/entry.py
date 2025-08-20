@@ -177,6 +177,9 @@ def entry_add_totp(
     secret: Optional[str] = typer.Option(None, "--secret", help="Import secret"),
     period: int = typer.Option(30, "--period", help="TOTP period in seconds"),
     digits: int = typer.Option(6, "--digits", help="Number of TOTP digits"),
+    deterministic_totp: bool = typer.Option(
+        False, "--deterministic-totp", help="Derive secret deterministically"
+    ),
 ) -> None:
     """Add a TOTP entry and output the otpauth URI."""
     service = _get_entry_service(ctx)
@@ -186,6 +189,7 @@ def entry_add_totp(
         secret=secret,
         period=period,
         digits=digits,
+        deterministic=deterministic_totp,
     )
     typer.echo(uri)
 

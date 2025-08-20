@@ -32,7 +32,7 @@ def test_handle_display_totp_codes(monkeypatch, capsys, password_manager):
 
     pm.handle_display_totp_codes()
     out = capsys.readouterr().out
-    assert "Generated 2FA Codes" in out
+    assert "Imported 2FA Codes" in out
     assert "[0] Example" in out
     assert "123456" in out
 

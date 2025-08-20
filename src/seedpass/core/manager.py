@@ -239,6 +239,7 @@ class PasswordManager:
     KEY_INDEX: bytes | None = None
     KEY_PW_DERIVE: bytes | None = None
     KEY_TOTP_DET: bytes | None = None
+    deterministic_totp: bool = False
 
     def __init__(
         self, fingerprint: Optional[str] = None, *, password: Optional[str] = None
@@ -287,6 +288,7 @@ class PasswordManager:
         self.is_locked: bool = False
         self.inactivity_timeout: float = INACTIVITY_TIMEOUT
         self.secret_mode_enabled: bool = False
+        self.deterministic_totp: bool = False
         self.clipboard_clear_delay: int = 45
         self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
@@ -1852,7 +1854,7 @@ class PasswordManager:
                     child_fingerprint=child_fp,
                 )
                 print("\nAdd TOTP:")
-                print("1. Make 2FA (derive from seed)")
+                print("1. Make 2FA")
                 print("2. Import 2FA (paste otpauth URI or secret)")
                 choice = input("Select option or press Enter to go back: ").strip()
                 if choice == "1":
@@ -1876,9 +1878,13 @@ class PasswordManager:
                         if tags_input
                         else []
                     )
-                    totp_index = self.entry_manager.get_next_totp_index()
                     entry_id = self.entry_manager.get_next_index()
-                    key = self.KEY_TOTP_DET or getattr(self, "parent_seed", None)
+                    key = self.KEY_TOTP_DET if self.deterministic_totp else None
+                    totp_index = (
+                        self.entry_manager.get_next_totp_index()
+                        if self.deterministic_totp
+                        else None
+                    )
                     uri = self.entry_manager.add_totp(
                         label,
                         key,
@@ -1887,8 +1893,14 @@ class PasswordManager:
                         digits=int(digits),
                         notes=notes,
                         tags=tags,
+                        deterministic=self.deterministic_totp,
                     )
-                    secret = TotpManager.derive_secret(key, totp_index)
+                    if self.deterministic_totp:
+                        secret = TotpManager.derive_secret(key, totp_index or 0)
+                        color_cat = "deterministic"
+                    else:
+                        _lbl, secret, _, _ = TotpManager.parse_otpauth(uri)
+                        color_cat = "default"
                     self.is_dirty = True
                     self.last_update = time.time()
                     print(
@@ -1899,7 +1911,7 @@ class PasswordManager:
                     print(colored("Add this URI to your authenticator app:", "cyan"))
                     print(colored(uri, "yellow"))
                     TotpManager.print_qr_code(uri)
-                    print(color_text(f"Secret: {secret}\n", "deterministic"))
+                    print(color_text(f"Secret: {secret}\n", color_cat))
                     try:
                         self.start_background_vault_sync()
                     except Exception as nostr_error:
@@ -1931,15 +1943,15 @@ class PasswordManager:
                             else []
                         )
                         entry_id = self.entry_manager.get_next_index()
-                        key = self.KEY_TOTP_DET or getattr(self, "parent_seed", None)
                         uri = self.entry_manager.add_totp(
                             label,
-                            key,
+                            None,
                             secret=secret,
                             period=period,
                             digits=digits,
                             notes=notes,
                             tags=tags,
+                            deterministic=False,
                         )
                         self.is_dirty = True
                         self.last_update = time.time()

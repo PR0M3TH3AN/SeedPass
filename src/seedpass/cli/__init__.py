@@ -30,6 +30,13 @@ no_clipboard_option = typer.Option(
     is_flag=True,
 )
 
+deterministic_totp_option = typer.Option(
+    False,
+    "--deterministic-totp",
+    help="Derive TOTP secrets deterministically",
+    is_flag=True,
+)
+
 # Sub command groups
 from . import entry, vault, nostr, config, fingerprint, util, api
 
@@ -55,12 +62,17 @@ def main(
     ctx: typer.Context,
     fingerprint: Optional[str] = fingerprint_option,
     no_clipboard: bool = no_clipboard_option,
+    deterministic_totp: bool = deterministic_totp_option,
 ) -> None:
     """SeedPass CLI entry point.
 
     When called without a subcommand this launches the interactive TUI.
     """
-    ctx.obj = {"fingerprint": fingerprint, "no_clipboard": no_clipboard}
+    ctx.obj = {
+        "fingerprint": fingerprint,
+        "no_clipboard": no_clipboard,
+        "deterministic_totp": deterministic_totp,
+    }
     if ctx.invoked_subcommand is None:
         tui = importlib.import_module("main")
         raise typer.Exit(tui.main(fingerprint=fingerprint))
