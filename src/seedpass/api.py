@@ -464,7 +464,7 @@ def export_totp(
     _check_token(request, authorization)
     _require_password(request, password)
     pm = _get_pm(request)
-    return pm.entry_manager.export_totp_entries(pm.parent_seed)
+    return pm.entry_manager.export_totp_entries(pm.KEY_TOTP_DET)
 
 
 @app.get("/api/v1/totp")
@@ -482,7 +482,7 @@ def get_totp_codes(
     )
     codes = []
     for idx, label, _u, _url, _arch in entries:
-        code = pm.entry_manager.get_totp_code(idx, pm.parent_seed)
+        code = pm.entry_manager.get_totp_code(idx, pm.KEY_TOTP_DET)
 
         rem = pm.entry_manager.get_totp_time_remaining(idx)
 

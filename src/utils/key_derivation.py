@@ -25,6 +25,7 @@ from typing import Optional, Union, Dict, Any
 
 from bip_utils import Bip39SeedGenerator
 from local_bip85 import BIP85
+from .key_hierarchy import kd
 
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
@@ -208,16 +209,10 @@ def derive_key_from_parent_seed(parent_seed: str, fingerprint: str = None) -> by
 
 
 def derive_index_key_seed_only(seed: str) -> bytes:
-    """Derive a deterministic Fernet key from only the BIP-39 seed."""
+    """Derive the index encryption key using the v1 hierarchy."""
     seed_bytes = Bip39SeedGenerator(seed).Generate()
-    hkdf = HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=None,
-        info=b"password-db",
-        backend=default_backend(),
-    )
-    key = hkdf.derive(seed_bytes)
+    master = kd(seed_bytes, b"seedpass:v1:master")
+    key = kd(master, b"seedpass:v1:storage")
     return base64.urlsafe_b64encode(key)
 
 
@@ -226,23 +221,21 @@ def derive_index_key(seed: str) -> bytes:
     return derive_index_key_seed_only(seed)
 
 
-def derive_totp_secret(seed: str, index: int) -> str:
-    """Derive a base32-encoded TOTP secret from a BIP39 seed."""
+def derive_totp_secret(seed: Union[str, bytes], index: int) -> str:
+    """Derive a base32-encoded TOTP secret from a seed or raw key."""
     try:
-        # Initialize BIP85 from the BIP39 seed bytes
-        seed_bytes = Bip39SeedGenerator(seed).Generate()
+        if isinstance(seed, (bytes, bytearray)):
+            seed_bytes = bytes(seed)
+        else:
+            seed_bytes = Bip39SeedGenerator(seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        # Build the BIP32 path m/83696968'/39'/TOTP'/{index}'
         totp_int = int.from_bytes(b"TOTP", "big")
         path = f"m/83696968'/{TOTP_PURPOSE}'/{totp_int}'/{index}'"
-
-        # Derive entropy using the same scheme as BIP85
         child_key = bip85.bip32_ctx.DerivePath(path)
         key_bytes = child_key.PrivateKey().Raw().ToBytes()
         entropy = hmac.new(b"bip-entropy-from-k", key_bytes, hashlib.sha512).digest()
 
-        # Hash the first 32 bytes of entropy and encode the first 20 bytes
         hashed = hashlib.sha256(entropy[:32]).digest()
         secret = base64.b32encode(hashed[:20]).decode("utf-8")
         logger.debug(f"Derived TOTP secret for index {index}.")

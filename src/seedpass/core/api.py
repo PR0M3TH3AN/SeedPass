@@ -306,7 +306,7 @@ class EntryService:
     def get_totp_code(self, entry_id: int) -> str:
         with self._lock:
             return self._manager.entry_manager.get_totp_code(
-                entry_id, self._manager.parent_seed
+                entry_id, self._manager.KEY_TOTP_DET
             )
 
     def add_entry(

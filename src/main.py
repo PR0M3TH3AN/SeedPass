@@ -1416,7 +1416,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             print(colored("Entry is not a TOTP entry.", "red"))
             return 1
         code = password_manager.entry_manager.get_totp_code(
-            idx, password_manager.parent_seed
+            idx, password_manager.KEY_TOTP_DET
         )
         print(code)
         try:

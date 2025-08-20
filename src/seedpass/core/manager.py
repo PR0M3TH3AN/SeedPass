@@ -45,10 +45,10 @@ from utils.key_derivation import (
     derive_key_from_parent_seed,
     derive_key_from_password,
     derive_key_from_password_argon2,
-    derive_index_key,
     EncryptionMode,
     KdfConfig,
 )
+from utils.key_hierarchy import kd
 from utils.checksum import (
     calculate_checksum,
     verify_checksum,
@@ -264,6 +264,13 @@ class PasswordManager:
         self._bip85_cache: dict[tuple[int, int], bytes] = {}
         self.audit_logger: Optional[AuditLogger] = None
 
+        # Derived key hierarchy
+        self.master_key: bytes | None = None
+        self.KEY_STORAGE: bytes | None = None
+        self.KEY_INDEX: bytes | None = None
+        self.KEY_PW_DERIVE: bytes | None = None
+        self.KEY_TOTP_DET: bytes | None = None
+
         # Track changes to trigger periodic Nostr sync
         self.is_dirty: bool = False
         self.last_update: float = time.time()
@@ -323,6 +330,16 @@ class PasswordManager:
         """Clear the internal BIP-85 cache."""
 
         self._bip85_cache.clear()
+
+    def derive_key_hierarchy(self, seed_bytes: bytes) -> None:
+        """Populate sub-keys from ``seed_bytes`` using HKDF."""
+
+        master = kd(seed_bytes, b"seedpass:v1:master")
+        self.master_key = master
+        self.KEY_STORAGE = kd(master, b"seedpass:v1:storage")
+        self.KEY_INDEX = kd(master, b"seedpass:v1:index")
+        self.KEY_PW_DERIVE = kd(master, b"seedpass:v1:pw")
+        self.KEY_TOTP_DET = kd(master, b"seedpass:v1:totp")
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""
@@ -488,8 +505,7 @@ class PasswordManager:
             getattr(self, "audit_logger", None) is None
             and getattr(self, "_parent_seed_secret", None) is not None
         ):
-            key = hashlib.sha256(self.parent_seed.encode("utf-8")).digest()
-            self.audit_logger = AuditLogger(key)
+            self.audit_logger = AuditLogger(self.KEY_INDEX)
         if (
             getattr(self, "config_manager", None)
             and self.config_manager.get_quick_unlock()
@@ -720,9 +736,10 @@ class PasswordManager:
                     password = None
                     continue
 
-                key = derive_index_key(self.parent_seed)
-
-                self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+                seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+                self.derive_key_hierarchy(seed_bytes)
+                key_b64 = base64.urlsafe_b64encode(self.KEY_STORAGE)
+                self.encryption_manager = EncryptionManager(key_b64, fingerprint_dir)
                 self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
                 self.config_manager = ConfigManager(
@@ -783,6 +800,7 @@ class PasswordManager:
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
             self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
             self.bip85 = BIP85(seed_bytes)
         except Exception as e:
             logger.error(f"Failed to load parent seed: {e}", exc_info=True)
@@ -812,8 +830,10 @@ class PasswordManager:
         self.fingerprint_dir = account_dir
         self.parent_seed = seed
 
-        key = derive_index_key(seed)
-        self.encryption_manager = EncryptionManager(key, account_dir)
+        seed_bytes = Bip39SeedGenerator(seed).Generate()
+        self.derive_key_hierarchy(seed_bytes)
+        key_b64 = base64.urlsafe_b64encode(self.KEY_STORAGE)
+        self.encryption_manager = EncryptionManager(key_b64, account_dir)
         self.vault = Vault(self.encryption_manager, account_dir)
 
         self.initialize_bip85()
@@ -833,8 +853,10 @@ class PasswordManager:
         self.fingerprint_dir = path
         self.parent_seed = seed
 
-        key = derive_index_key(seed)
-        self.encryption_manager = EncryptionManager(key, path)
+        seed_bytes = Bip39SeedGenerator(seed).Generate()
+        self.derive_key_hierarchy(seed_bytes)
+        key_b64 = base64.urlsafe_b64encode(self.KEY_STORAGE)
+        self.encryption_manager = EncryptionManager(key_b64, path)
         self.vault = Vault(self.encryption_manager, path)
 
         self.initialize_bip85()
@@ -900,10 +922,14 @@ class PasswordManager:
                 password, selected_fingerprint, iterations=iterations
             )
 
-            # Initialize EncryptionManager with key and fingerprint_dir
-            self.encryption_manager = EncryptionManager(key, fingerprint_dir)
+            seed_mgr = EncryptionManager(key, fingerprint_dir)
+            self.vault = Vault(seed_mgr, fingerprint_dir)
+            self.parent_seed = seed_mgr.decrypt_parent_seed()
+            seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
+            key_b64 = base64.urlsafe_b64encode(self.KEY_STORAGE)
+            self.encryption_manager = EncryptionManager(key_b64, fingerprint_dir)
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
-            self.parent_seed = self.encryption_manager.decrypt_parent_seed()
 
             # Log the type and content of parent_seed
             logger.debug(
@@ -1045,7 +1071,9 @@ class PasswordManager:
             try:
                 if password is None:
                     password = prompt_for_password()
-                index_key = derive_index_key(parent_seed)
+                seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+                self.derive_key_hierarchy(seed_bytes)
+                index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
                 iterations = (
                     self.config_manager.get_kdf_iterations()
                     if getattr(self, "config_manager", None)
@@ -1224,7 +1252,9 @@ class PasswordManager:
             if password is None:
                 password = prompt_for_password()
 
-            index_key = derive_index_key(seed)
+            seed_bytes = Bip39SeedGenerator(seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
+            index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
@@ -1270,6 +1300,7 @@ class PasswordManager:
         """
         try:
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
             self.bip85 = BIP85(seed_bytes)
             self._bip85_cache = {}
             orig_derive = self.bip85.derive_entropy
@@ -1334,10 +1365,11 @@ class PasswordManager:
                 backup_manager=self.backup_manager,
             )
 
+            pw_bip85 = BIP85(self.KEY_PW_DERIVE)
             self.password_generator = PasswordGenerator(
                 encryption_manager=self.encryption_manager,
-                parent_seed=self.parent_seed,
-                bip85=self.bip85,
+                parent_seed=self.KEY_PW_DERIVE,
+                bip85=pw_bip85,
                 policy=self.config_manager.get_password_policy(),
             )
 
@@ -1823,14 +1855,14 @@ class PasswordManager:
                     entry_id = self.entry_manager.get_next_index()
                     uri = self.entry_manager.add_totp(
                         label,
-                        self.parent_seed,
+                        self.KEY_TOTP_DET,
                         index=totp_index,
                         period=int(period),
                         digits=int(digits),
                         notes=notes,
                         tags=tags,
                     )
-                    secret = TotpManager.derive_secret(self.parent_seed, totp_index)
+                    secret = TotpManager.derive_secret(self.KEY_TOTP_DET, totp_index)
                     self.is_dirty = True
                     self.last_update = time.time()
                     print(
@@ -1875,7 +1907,7 @@ class PasswordManager:
                         entry_id = self.entry_manager.get_next_index()
                         uri = self.entry_manager.add_totp(
                             label,
-                            self.parent_seed,
+                            self.KEY_TOTP_DET,
                             secret=secret,
                             period=period,
                             digits=digits,
@@ -2637,7 +2669,7 @@ class PasswordManager:
             print(colored("Press Enter to return to the menu.", "cyan"))
             try:
                 while True:
-                    code = self.entry_manager.get_totp_code(index, self.parent_seed)
+                    code = self.entry_manager.get_totp_code(index, self.KEY_TOTP_DET)
                     if self.secret_mode_enabled:
                         if copy_to_clipboard(code, self.clipboard_clear_delay):
                             print(
@@ -4135,7 +4167,7 @@ class PasswordManager:
                         secret = entry["secret"]
                     else:
                         idx = int(entry.get("index", 0))
-                        secret = TotpManager.derive_secret(self.parent_seed, idx)
+                        secret = TotpManager.derive_secret(self.KEY_TOTP_DET, idx)
                     uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
                     totp_entries.append(
                         {
@@ -4380,7 +4412,7 @@ class PasswordManager:
             config_data = self.config_manager.load_config(require_pin=False)
 
             # Create a new encryption manager with the new password
-            new_key = derive_index_key(self.parent_seed)
+            new_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
 
             iterations = self.config_manager.get_kdf_iterations()
             seed_key = derive_key_from_password(

@@ -257,7 +257,7 @@ class EntryManager:
     def add_totp(
         self,
         label: str,
-        parent_seed: str,
+        parent_seed: str | bytes,
         *,
         archived: bool = False,
         secret: str | None = None,
@@ -689,7 +689,10 @@ class EntryManager:
         return derive_seed_phrase(bip85, seed_index, words)
 
     def get_totp_code(
-        self, index: int, parent_seed: str | None = None, timestamp: int | None = None
+        self,
+        index: int,
+        parent_seed: str | bytes | None = None,
+        timestamp: int | None = None,
     ) -> str:
         """Return the current TOTP code for the specified entry."""
         entry = self.retrieve_entry(index)
@@ -719,7 +722,9 @@ class EntryManager:
         period = int(entry.get("period", 30))
         return TotpManager.time_remaining(period)
 
-    def export_totp_entries(self, parent_seed: str) -> dict[str, list[dict[str, Any]]]:
+    def export_totp_entries(
+        self, parent_seed: str | bytes
+    ) -> dict[str, list[dict[str, Any]]]:
         """Return all TOTP secrets and metadata for external use."""
         data = self._load_index()
         entries = data.get("entries", {})
