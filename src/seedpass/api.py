@@ -9,8 +9,6 @@ import secrets
 import queue
 from typing import Any, List, Optional
 
-from datetime import datetime, timedelta, timezone
-import jwt
 import logging
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
@@ -18,8 +16,8 @@ from fastapi.concurrency import run_in_threadpool
 import asyncio
 import sys
 from fastapi.middleware.cors import CORSMiddleware
-import hashlib
-import hmac
+
+import bcrypt
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -50,16 +48,9 @@ def _get_pm(request: Request) -> PasswordManager:
 def _check_token(request: Request, auth: str | None) -> None:
     if auth is None or not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    token = auth.split(" ", 1)[1]
-    jwt_secret = getattr(request.app.state, "jwt_secret", "")
-    token_hash = getattr(request.app.state, "token_hash", "")
-    try:
-        jwt.decode(token, jwt_secret, algorithms=["HS256"])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    if not hmac.compare_digest(hashlib.sha256(token.encode()).hexdigest(), token_hash):
+    token = auth.split(" ", 1)[1].encode()
+    token_hash = getattr(request.app.state, "token_hash", b"")
+    if not token_hash or not bcrypt.checkpw(token, token_hash):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
@@ -78,7 +69,7 @@ def _reload_relays(request: Request, relays: list[str]) -> None:
 
 
 def start_server(fingerprint: str | None = None) -> str:
-    """Initialize global state and return a short-lived JWT token.
+    """Initialize global state and return a random API token.
 
     Parameters
     ----------
@@ -90,10 +81,8 @@ def start_server(fingerprint: str | None = None) -> str:
     else:
         pm = PasswordManager(fingerprint=fingerprint)
     app.state.pm = pm
-    app.state.jwt_secret = secrets.token_urlsafe(32)
-    payload = {"exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
-    raw_token = jwt.encode(payload, app.state.jwt_secret, algorithm="HS256")
-    app.state.token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    raw_token = secrets.token_urlsafe(32)
+    app.state.token_hash = bcrypt.hashpw(raw_token.encode(), bcrypt.gensalt())
     if not getattr(app.state, "limiter", None):
         app.state.limiter = limiter
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

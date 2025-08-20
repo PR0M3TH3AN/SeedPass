@@ -127,7 +127,7 @@ Run or stop the local HTTP API.
 | Action | Command | Examples |
 | :--- | :--- | :--- |
 | Start the API | `api start` | `seedpass api start --host 0.0.0.0 --port 8000` |
-| Stop the API | `api stop` | `seedpass api stop` |
+| Stop the API | `api stop --token TOKEN` | `seedpass api stop --token <token>` |
 
 ---
 
@@ -214,7 +214,7 @@ Set the `SEEDPASS_CORS_ORIGINS` environment variable to a comma‑separated list
 SEEDPASS_CORS_ORIGINS=http://localhost:3000 seedpass api start
 ```
 
-Shut down the server with `seedpass api stop`.
+Shut down the server with `seedpass api stop --token <token>`.
 
 ---
 

@@ -4,7 +4,7 @@ import sys
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-import hashlib
+import bcrypt
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -54,7 +54,7 @@ async def client(monkeypatch):
 async def test_token_hashed(client):
     _, token = client
     assert api.app.state.token_hash != token
-    assert api.app.state.token_hash == hashlib.sha256(token.encode()).hexdigest()
+    assert bcrypt.checkpw(token.encode(), api.app.state.token_hash)
 
 
 @pytest.mark.anyio
