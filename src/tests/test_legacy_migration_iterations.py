@@ -66,5 +66,5 @@ def test_migrate_iterations(tmp_path, monkeypatch, iterations):
     cfg = ConfigManager(vault, tmp_path)
     assert cfg.get_kdf_iterations() == iterations
 
-    content = (tmp_path / "seedpass_entries_db.json.enc").read_bytes()
-    assert content.startswith(b"V2:")
+    payload = json.loads((tmp_path / "seedpass_entries_db.json.enc").read_text())
+    assert base64.b64decode(payload["ct"]).startswith(b"V2:")

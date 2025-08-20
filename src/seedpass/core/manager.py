@@ -15,6 +15,7 @@ import logging
 import os
 import hashlib
 import hmac
+import base64
 from typing import Optional, Literal, Any
 import shutil
 import time
@@ -46,6 +47,7 @@ from utils.key_derivation import (
     derive_key_from_password_argon2,
     derive_index_key,
     EncryptionMode,
+    KdfConfig,
 )
 from utils.checksum import (
     calculate_checksum,
@@ -689,9 +691,9 @@ class PasswordManager:
                 for iter_try in dict.fromkeys(iter_candidates):
                     try:
                         if mode == "argon2":
-                            seed_key = derive_key_from_password_argon2(
-                                password, salt_fp
-                            )
+                            salt = hashlib.sha256(salt_fp.encode()).digest()[:16]
+                            cfg = KdfConfig(salt_b64=base64.b64encode(salt).decode())
+                            seed_key = derive_key_from_password_argon2(password, cfg)
                         else:
                             seed_key = derive_key_from_password(
                                 password, salt_fp, iterations=iter_try
@@ -771,7 +773,9 @@ class PasswordManager:
             )
             salt_fp = fingerprint_dir.name
             if mode == "argon2":
-                seed_key = derive_key_from_password_argon2(password, salt_fp)
+                salt = hashlib.sha256(salt_fp.encode()).digest()[:16]
+                cfg = KdfConfig(salt_b64=base64.b64encode(salt).decode())
+                seed_key = derive_key_from_password_argon2(password, cfg)
             else:
                 seed_key = derive_key_from_password(
                     password, salt_fp, iterations=iterations

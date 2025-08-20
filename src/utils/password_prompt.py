@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_MAX_ATTEMPTS = 5
 
 
+def _env_password() -> str | None:
+    """Return a password supplied via environment for non-interactive use."""
+
+    return os.getenv("SEEDPASS_TEST_PASSWORD") or os.getenv("SEEDPASS_PASSWORD")
+
+
 def _get_max_attempts(override: int | None = None) -> int:
     """Return the configured maximum number of prompt attempts."""
 
@@ -80,6 +86,13 @@ def prompt_new_password(max_retries: int | None = None) -> str:
     Raises:
         PasswordPromptError: If the user fails to provide a valid password after multiple attempts.
     """
+    env_pw = _env_password()
+    if env_pw:
+        normalized = unicodedata.normalize("NFKD", env_pw)
+        if len(normalized) < MIN_PASSWORD_LENGTH:
+            raise PasswordPromptError("Environment password too short")
+        return normalized
+
     max_retries = _get_max_attempts(max_retries)
     attempts = 0
 
@@ -164,6 +177,10 @@ def prompt_existing_password(
         PasswordPromptError: If the user interrupts the operation or exceeds
             ``max_retries`` attempts.
     """
+    env_pw = _env_password()
+    if env_pw:
+        return unicodedata.normalize("NFKD", env_pw)
+
     max_retries = _get_max_attempts(max_retries)
     attempts = 0
     while max_retries == 0 or attempts < max_retries:

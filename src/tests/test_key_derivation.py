@@ -1,11 +1,15 @@
 import logging
 import pytest
+import logging
+import hashlib
+import base64
 from utils.fingerprint import generate_fingerprint
 from utils.key_derivation import (
     derive_key_from_password,
     derive_key_from_password_argon2,
     derive_index_key_seed_only,
     derive_index_key,
+    KdfConfig,
 )
 
 
@@ -48,15 +52,17 @@ def test_argon2_fingerprint_affects_key():
     fp1 = generate_fingerprint("seed one")
     fp2 = generate_fingerprint("seed two")
 
-    k1 = derive_key_from_password_argon2(
-        password, fp1, time_cost=1, memory_cost=8, parallelism=1
+    cfg1 = KdfConfig(
+        params={"time_cost": 1, "memory_cost": 8, "parallelism": 1},
+        salt_b64=base64.b64encode(hashlib.sha256(fp1.encode()).digest()[:16]).decode(),
     )
-    k2 = derive_key_from_password_argon2(
-        password, fp1, time_cost=1, memory_cost=8, parallelism=1
+    cfg2 = KdfConfig(
+        params={"time_cost": 1, "memory_cost": 8, "parallelism": 1},
+        salt_b64=base64.b64encode(hashlib.sha256(fp2.encode()).digest()[:16]).decode(),
     )
-    k3 = derive_key_from_password_argon2(
-        password, fp2, time_cost=1, memory_cost=8, parallelism=1
-    )
+    k1 = derive_key_from_password_argon2(password, cfg1)
+    k2 = derive_key_from_password_argon2(password, cfg1)
+    k3 = derive_key_from_password_argon2(password, cfg2)
 
     assert k1 == k2
     assert k1 != k3

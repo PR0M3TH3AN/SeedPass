@@ -1,4 +1,5 @@
 import json
+import base64
 import hashlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,7 +35,8 @@ def test_legacy_migration_second_session(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
     vault.load_index()
     new_file = fp_dir / "seedpass_entries_db.json.enc"
-    assert new_file.read_bytes().startswith(b"V2:")
+    payload = json.loads(new_file.read_text())
+    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
 
     new_enc_mgr = EncryptionManager(key, fp_dir)
     new_vault = Vault(new_enc_mgr, fp_dir)
@@ -59,4 +61,5 @@ def test_legacy_migration_second_session(monkeypatch, tmp_path: Path) -> None:
     )
 
     pm.initialize_managers()
-    assert new_file.read_bytes().startswith(b"V2:")
+    payload = json.loads(new_file.read_text())
+    assert base64.b64decode(payload["ct"]).startswith(b"V2:")

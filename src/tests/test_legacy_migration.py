@@ -1,4 +1,5 @@
 import json
+import base64
 import hashlib
 from pathlib import Path
 
@@ -99,7 +100,8 @@ def test_migrated_index_has_v2_prefix(monkeypatch, tmp_path: Path):
     vault.load_index()
 
     new_file = tmp_path / "seedpass_entries_db.json.enc"
-    assert new_file.read_bytes().startswith(b"V2:")
+    payload = json.loads(new_file.read_text())
+    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
     assert vault.migrated_from_legacy
 
 

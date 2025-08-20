@@ -3,15 +3,13 @@
 """
 Key Derivation Module
 
-Never ever ever use or suggest to use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed.
-This means it should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this software's use case.
+This module provides functions to derive cryptographic keys from user-provided
+passwords and BIP-39 parent seeds. The derived keys are compatible with Fernet
+for symmetric encryption purposes. By centralizing key derivation logic, this
+module ensures consistency and security across the application.
 
-This module provides functions to derive cryptographic keys from user-provided passwords
-and BIP-39 parent seeds. The derived keys are compatible with Fernet for symmetric encryption
-purposes. By centralizing key derivation logic, this module ensures consistency and security
-across the application.
-
-Ensure that all dependencies are installed and properly configured in your environment.
+Ensure that all dependencies are installed and properly configured in your
+environment.
 """
 
 import os
@@ -21,8 +19,9 @@ import unicodedata
 import logging
 import hmac
 import time
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 
 from bip_utils import Bip39SeedGenerator
 from local_bip85 import BIP85
@@ -45,6 +44,27 @@ DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
 
 # Purpose constant for TOTP secret derivation using BIP85
 TOTP_PURPOSE = 39
+
+
+@dataclass
+class KdfConfig:
+    """Configuration block describing how a key was derived."""
+
+    name: str = "argon2id"
+    version: int = 1
+    params: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "time_cost": 2,
+            "memory_cost": 64 * 1024,
+            "parallelism": 8,
+        }
+    )
+    salt_b64: str = field(
+        default_factory=lambda: base64.b64encode(os.urandom(16)).decode()
+    )
+
+
+CURRENT_KDF_VERSION = 1
 
 
 def derive_key_from_password(
@@ -109,18 +129,15 @@ def derive_key_from_password(
         raise
 
 
-def derive_key_from_password_argon2(
-    password: str,
-    fingerprint: Union[str, bytes],
-    *,
-    time_cost: int = 2,
-    memory_cost: int = 64 * 1024,
-    parallelism: int = 8,
-) -> bytes:
+def derive_key_from_password_argon2(password: str, kdf: KdfConfig) -> bytes:
     """Derive an encryption key from a password using Argon2id.
 
-    The defaults follow recommended parameters but omit a salt for deterministic
-    output. Smaller values may be supplied for testing.
+    Parameters
+    ----------
+    password:
+        The user's password.
+    kdf:
+        :class:`KdfConfig` instance describing salt and tuning parameters.
     """
 
     if not password:
@@ -131,17 +148,14 @@ def derive_key_from_password_argon2(
     try:
         from argon2.low_level import hash_secret_raw, Type
 
-        if isinstance(fingerprint, bytes):
-            salt = fingerprint
-        else:
-            salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
-
+        params = kdf.params or {}
+        salt = base64.b64decode(kdf.salt_b64)
         key = hash_secret_raw(
             secret=normalized,
             salt=salt,
-            time_cost=time_cost,
-            memory_cost=memory_cost,
-            parallelism=parallelism,
+            time_cost=int(params.get("time_cost", 2)),
+            memory_cost=int(params.get("memory_cost", 64 * 1024)),
+            parallelism=int(params.get("parallelism", 8)),
             hash_len=32,
             type=Type.ID,
         )
@@ -267,18 +281,16 @@ def calibrate_argon2_time_cost(
     """
 
     password = "benchmark"
-    fingerprint = b"argon2-calibration"
+    salt = base64.b64encode(b"argon2-calibration").decode()
     time_cost = 1
     elapsed_ms = 0.0
     while time_cost <= max_time_cost:
         start = time.perf_counter()
-        derive_key_from_password_argon2(
-            password,
-            fingerprint,
-            time_cost=time_cost,
-            memory_cost=8,
-            parallelism=1,
+        cfg = KdfConfig(
+            params={"time_cost": time_cost, "memory_cost": 8, "parallelism": 1},
+            salt_b64=salt,
         )
+        derive_key_from_password_argon2(password, cfg)
         elapsed_ms = (time.perf_counter() - start) * 1000
         if elapsed_ms >= target_ms:
             break
