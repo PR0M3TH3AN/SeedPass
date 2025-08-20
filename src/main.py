@@ -1415,9 +1415,10 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         if entry.get("type") != EntryType.TOTP.value:
             print(colored("Entry is not a TOTP entry.", "red"))
             return 1
-        code = password_manager.entry_manager.get_totp_code(
-            idx, password_manager.parent_seed
+        key = getattr(password_manager, "KEY_TOTP_DET", None) or getattr(
+            password_manager, "parent_seed", None
         )
+        code = password_manager.entry_manager.get_totp_code(idx, key)
         print(code)
         try:
             if copy_to_clipboard(code, password_manager.clipboard_clear_delay):

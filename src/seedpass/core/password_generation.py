@@ -113,10 +113,12 @@ class PasswordGenerator:
             self.bip85 = bip85
             self.policy = policy or PasswordPolicy()
 
-            # Derive seed bytes from parent_seed using BIP39 (handled by EncryptionManager)
-            self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(
-                self.parent_seed
-            )
+            if isinstance(parent_seed, (bytes, bytearray)):
+                self.seed_bytes = bytes(parent_seed)
+            else:
+                self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(
+                    self.parent_seed
+                )
 
             logger.debug("PasswordGenerator initialized successfully.")
         except Exception as e:
