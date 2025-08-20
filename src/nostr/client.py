@@ -33,7 +33,7 @@ from .backup_models import (
 )
 from .connection import ConnectionHandler, DEFAULT_RELAYS
 from .key_manager import KeyManager as SeedPassKeyManager
-from .snapshot import MANIFEST_ID_PREFIX, SnapshotHandler, prepare_snapshot
+from .snapshot import SnapshotHandler, prepare_snapshot
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type hints
     from seedpass.core.config_manager import ConfigManager
@@ -57,6 +57,7 @@ class NostrClient(ConnectionHandler, SnapshotHandler):
         parent_seed: Optional[str] = None,
         offline_mode: bool = False,
         config_manager: Optional["ConfigManager"] = None,
+        key_index: bytes | None = None,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
@@ -99,6 +100,7 @@ class NostrClient(ConnectionHandler, SnapshotHandler):
         self.current_manifest: Manifest | None = None
         self.current_manifest_id: str | None = None
         self._delta_events: list[str] = []
+        self.key_index = key_index or b""
 
         # Configure and initialize the nostr-sdk Client
         signer = NostrSigner.keys(self.keys)
@@ -111,5 +113,4 @@ __all__ = [
     "NostrClient",
     "prepare_snapshot",
     "DEFAULT_RELAYS",
-    "MANIFEST_ID_PREFIX",
 ]

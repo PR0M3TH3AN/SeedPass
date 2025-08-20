@@ -5,7 +5,6 @@ import json
 
 from helpers import DummyEvent, DummyFilter, dummy_nostr_client
 from nostr.backup_models import KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
-from nostr.client import MANIFEST_ID_PREFIX
 from nostr_sdk import Keys
 
 
@@ -55,9 +54,7 @@ def test_fetch_snapshot_legacy_key_fallback(dummy_nostr_client, monkeypatch):
             ],
         }
     )
-    manifest_event = DummyEvent(
-        KIND_MANIFEST, manifest_json, tags=[f"{MANIFEST_ID_PREFIX}fp"]
-    )
+    manifest_event = DummyEvent(KIND_MANIFEST, manifest_json, tags=["legacy"])
     chunk_event = DummyEvent(
         KIND_SNAPSHOT_CHUNK,
         base64.b64encode(chunk_bytes).decode("utf-8"),
@@ -69,9 +66,9 @@ def test_fetch_snapshot_legacy_key_fallback(dummy_nostr_client, monkeypatch):
     async def fake_fetch_events(f, _timeout):
         call["count"] += 1
         call["authors"].append(getattr(f, "author_pk", None))
-        if call["count"] <= 2:
+        if call["count"] == 1:
             return type("R", (), {"to_vec": lambda self: []})()
-        elif call["count"] == 3:
+        elif call["count"] == 2:
             return type("R", (), {"to_vec": lambda self: [manifest_event]})()
         else:
             return type("R", (), {"to_vec": lambda self: [chunk_event]})()

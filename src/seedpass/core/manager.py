@@ -106,7 +106,6 @@ from utils.fingerprint_manager import FingerprintManager
 # Import NostrClient
 from nostr.client import NostrClient
 from nostr.connection import DEFAULT_RELAYS
-from nostr.snapshot import MANIFEST_ID_PREFIX
 from .config_manager import ConfigManager
 from .state_manager import StateManager
 from .stats_manager import StatsManager
@@ -1089,7 +1088,7 @@ class PasswordManager:
             self.fingerprint_manager.current_fingerprint = fingerprint
             self.fingerprint_dir = fingerprint_dir
             if not getattr(self, "manifest_id", None):
-                self.manifest_id = f"{MANIFEST_ID_PREFIX}{fingerprint}"
+                self.manifest_id = None
             logging.info(f"Current seed profile set to {fingerprint}")
 
             try:
@@ -1431,6 +1430,7 @@ class PasswordManager:
                 offline_mode=self.offline_mode,
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
+                key_index=self.KEY_INDEX,
             )
 
             if getattr(self, "manifest_id", None) and hasattr(
@@ -4487,6 +4487,7 @@ class PasswordManager:
                 relays=relay_list,
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
+                key_index=self.KEY_INDEX,
             )
 
             if getattr(self, "manifest_id", None) and hasattr(

@@ -6,7 +6,6 @@ from typing import Optional, TYPE_CHECKING
 from termcolor import colored
 
 import seedpass.core.manager as manager_module
-from nostr.snapshot import MANIFEST_ID_PREFIX
 
 from utils.password_prompt import prompt_existing_password
 
@@ -44,7 +43,7 @@ class ProfileService:
             pm.fingerprint_manager.current_fingerprint = selected_fingerprint
             pm.current_fingerprint = selected_fingerprint
             if not getattr(pm, "manifest_id", None):
-                pm.manifest_id = f"{MANIFEST_ID_PREFIX}{selected_fingerprint}"
+                pm.manifest_id = None
 
             pm.fingerprint_dir = pm.fingerprint_manager.get_current_fingerprint_dir()
             if not pm.fingerprint_dir:
@@ -77,6 +76,7 @@ class ProfileService:
                     fingerprint=pm.current_fingerprint,
                     config_manager=getattr(pm, "config_manager", None),
                     parent_seed=getattr(pm, "parent_seed", None),
+                    key_index=pm.KEY_INDEX,
                 )
                 if getattr(pm, "manifest_id", None) and hasattr(
                     pm.nostr_client, "_state_lock"
