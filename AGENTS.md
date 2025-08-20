@@ -39,6 +39,11 @@ This project is written in **Python**. Follow these instructions when working wi
 
 Following these practices helps keep the code base consistent and secure.
 
+## Deterministic Artifact Generation
+
+- All generated artifacts (passwords, keys, TOTP secrets, etc.) must be fully deterministic across runs and platforms.
+- Randomness is only permitted for security primitives (e.g., encryption nonces, in-memory keys) and must never influence derived artifacts.
+
 ## Legacy Index Migration
 
 - Always provide a migration path for index archives and import/export routines.
