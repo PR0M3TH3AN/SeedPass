@@ -305,9 +305,10 @@ class EntryService:
 
     def get_totp_code(self, entry_id: int) -> str:
         with self._lock:
-            return self._manager.entry_manager.get_totp_code(
-                entry_id, self._manager.KEY_TOTP_DET
+            key = getattr(self._manager, "KEY_TOTP_DET", None) or getattr(
+                self._manager, "parent_seed", None
             )
+            return self._manager.entry_manager.get_totp_code(entry_id, key)
 
     def add_entry(
         self,
@@ -515,9 +516,10 @@ class EntryService:
 
     def export_totp_entries(self) -> dict:
         with self._lock:
-            return self._manager.entry_manager.export_totp_entries(
-                self._manager.parent_seed
+            key = getattr(self._manager, "KEY_TOTP_DET", None) or getattr(
+                self._manager, "parent_seed", None
             )
+            return self._manager.entry_manager.export_totp_entries(key)
 
     def display_totp_codes(self) -> None:
         with self._lock:

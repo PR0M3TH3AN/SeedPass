@@ -131,7 +131,10 @@ class MenuHandler:
                 if generated:
                     print(colored("\nGenerated 2FA Codes:", "green"))
                     for label, idx, period, _ in generated:
-                        code = pm.entry_manager.get_totp_code(idx, pm.KEY_TOTP_DET)
+                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
+                            pm, "parent_seed", None
+                        )
+                        code = pm.entry_manager.get_totp_code(idx, key)
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
@@ -149,7 +152,10 @@ class MenuHandler:
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
                     for label, idx, period, _ in imported_list:
-                        code = pm.entry_manager.get_totp_code(idx, pm.KEY_TOTP_DET)
+                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
+                            pm, "parent_seed", None
+                        )
+                        code = pm.entry_manager.get_totp_code(idx, key)
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
