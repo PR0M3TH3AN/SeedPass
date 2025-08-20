@@ -264,13 +264,31 @@ class EncryptionManager:
         return json_lib.dumps(payload, separators=(",", ":")).encode("utf-8")
 
     def _deserialize(self, blob: bytes) -> Tuple[KdfConfig, bytes]:
-        if USE_ORJSON:
-            obj = json_lib.loads(blob)
-        else:
-            obj = json_lib.loads(blob.decode("utf-8"))
-        kdf = KdfConfig(**obj.get("kdf", {}))
-        ct = base64.b64decode(obj.get("ct", ""))
-        return kdf, ct
+        """Return ``(KdfConfig, ciphertext)`` from serialized *blob*.
+
+        Legacy files stored the raw ciphertext without a JSON wrapper. If
+        decoding the wrapper fails, treat ``blob`` as the ciphertext and return
+        a default HKDF configuration.
+        """
+
+        try:
+            if USE_ORJSON:
+                obj = json_lib.loads(blob)
+            else:
+                obj = json_lib.loads(blob.decode("utf-8"))
+            kdf = KdfConfig(**obj.get("kdf", {}))
+            ct_b64 = obj.get("ct", "")
+            ciphertext = base64.b64decode(ct_b64)
+            if ciphertext:
+                return kdf, ciphertext
+        except Exception:  # pragma: no cover - fall back to legacy path
+            pass
+
+        # Legacy format: ``blob`` already contains the ciphertext
+        return (
+            KdfConfig(name="hkdf", version=CURRENT_KDF_VERSION, params={}, salt_b64=""),
+            blob,
+        )
 
     def encrypt_and_save_file(
         self, data: bytes, relative_path: Path, *, kdf: Optional[KdfConfig] = None
@@ -332,7 +350,12 @@ class EncryptionManager:
             relative_path = Path("seedpass_entries_db.json.enc")
         file_path = self.resolve_relative_path(relative_path)
         if not file_path.exists():
-            return {"entries": {}}
+            empty: dict = {"entries": {}}
+            if return_kdf:
+                return empty, KdfConfig(
+                    name="hkdf", version=CURRENT_KDF_VERSION, params={}, salt_b64=""
+                )
+            return empty
 
         with exclusive_lock(file_path) as fh:
             fh.seek(0)
@@ -400,7 +423,8 @@ class EncryptionManager:
         if relative_path is None:
             relative_path = Path("seedpass_entries_db.json.enc")
 
-        is_legacy = not encrypted_data.startswith(b"V2:")
+        kdf, ciphertext = self._deserialize(encrypted_data)
+        is_legacy = not ciphertext.startswith(b"V2:")
         self.last_migration_performed = False
 
         def _process(decrypted: bytes) -> dict:
@@ -426,11 +450,9 @@ class EncryptionManager:
             return data
 
         try:
-            decrypted_data = self.decrypt_data(
-                encrypted_data, context=str(relative_path)
-            )
+            decrypted_data = self.decrypt_data(ciphertext, context=str(relative_path))
             data = _process(decrypted_data)
-            self.save_json_data(data, relative_path)  # This always saves in V2 format
+            self.save_json_data(data, relative_path, kdf=kdf)
             self.update_checksum(relative_path)
             logger.info("Index file from Nostr was processed and saved successfully.")
             self.last_migration_performed = is_legacy
@@ -441,10 +463,10 @@ class EncryptionManager:
                     "Enter your master password for legacy decryption: "
                 )
                 decrypted_data = self.decrypt_legacy(
-                    encrypted_data, password, context=str(relative_path)
+                    ciphertext, password, context=str(relative_path)
                 )
                 data = _process(decrypted_data)
-                self.save_json_data(data, relative_path)
+                self.save_json_data(data, relative_path, kdf=kdf)
                 self.update_checksum(relative_path)
                 logger.warning(
                     "Index decrypted using legacy password-only key derivation."

@@ -50,6 +50,6 @@ def test_migrate_legacy_sets_flag(tmp_path, monkeypatch):
     monkeypatch.setattr(vault_module, "prompt_existing_password", lambda _: password)
     monkeypatch.setattr("builtins.input", lambda _: "2")
     vault.load_index()
-    content = (tmp_path / "seedpass_entries_db.json.enc").read_bytes()
-    assert content.startswith(b"V2:")
+    payload = json.loads((tmp_path / "seedpass_entries_db.json.enc").read_text())
+    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
     assert vault.encryption_manager.last_migration_performed is True

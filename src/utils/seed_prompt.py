@@ -102,9 +102,11 @@ def _masked_input_posix(prompt: str) -> str:
 
 def masked_input(prompt: str) -> str:
     """Return input from the user while masking typed characters."""
-    if sys.platform == "win32":
-        return _masked_input_windows(prompt)
-    return _masked_input_posix(prompt)
+    func = _masked_input_windows if sys.platform == "win32" else _masked_input_posix
+    try:
+        return func(prompt)
+    except Exception:  # pragma: no cover - fallback when TTY operations fail
+        return input(prompt)
 
 
 def prompt_seed_words(count: int = 12, *, max_attempts: int | None = None) -> str:
