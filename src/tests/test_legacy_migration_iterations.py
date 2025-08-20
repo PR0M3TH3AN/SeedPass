@@ -67,4 +67,4 @@ def test_migrate_iterations(tmp_path, monkeypatch, iterations):
     assert cfg.get_kdf_iterations() == iterations
 
     payload = json.loads((tmp_path / "seedpass_entries_db.json.enc").read_text())
-    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
+    assert base64.b64decode(payload["ct"]).startswith(b"V3|")
