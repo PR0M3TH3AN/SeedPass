@@ -29,6 +29,8 @@ def _get_pm(ctx: typer.Context) -> PasswordManager:
         pm = PasswordManager(fingerprint=fp)
     if ctx.obj.get("no_clipboard"):
         pm.secret_mode_enabled = False
+    if ctx.obj.get("deterministic_totp"):
+        pm.deterministic_totp = True
     return pm
 
 

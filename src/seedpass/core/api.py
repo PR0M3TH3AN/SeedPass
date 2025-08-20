@@ -363,15 +363,18 @@ class EntryService:
         secret: str | None = None,
         period: int = 30,
         digits: int = 6,
+        deterministic: bool = False,
     ) -> str:
         with self._lock:
+            key = self._manager.KEY_TOTP_DET if deterministic else None
             uri = self._manager.entry_manager.add_totp(
                 label,
-                self._manager.parent_seed,
+                key,
                 index=index,
                 secret=secret,
                 period=period,
                 digits=digits,
+                deterministic=deterministic,
             )
             self._manager.start_background_vault_sync()
             return uri

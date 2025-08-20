@@ -33,7 +33,9 @@ class FakeEntries:
         self.added.append(("password", label, length, username, url))
         return 1
 
-    def add_totp(self, label):
+    def add_totp(
+        self, label, deterministic=False, index=None, secret=None, period=30, digits=6
+    ):
         self.added.append(("totp", label))
         return 1
 

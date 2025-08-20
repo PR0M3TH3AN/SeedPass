@@ -65,8 +65,14 @@ runner = CliRunner()
                 "--digits",
                 "7",
             ],
-            ("Label", "seed"),
-            {"index": 1, "secret": "abc", "period": 45, "digits": 7},
+            ("Label", None),
+            {
+                "index": 1,
+                "secret": "abc",
+                "period": 45,
+                "digits": 7,
+                "deterministic": False,
+            },
             "otpauth://uri",
         ),
         (

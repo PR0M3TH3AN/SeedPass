@@ -34,7 +34,7 @@ from pathlib import Path
 from termcolor import colored
 from .migrations import LATEST_VERSION
 from .entry_types import EntryType, ALL_ENTRY_TYPES
-from .totp import TotpManager
+from .totp import TotpManager, random_totp_secret
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
 from utils.atomic_write import atomic_write
@@ -257,7 +257,7 @@ class EntryManager:
     def add_totp(
         self,
         label: str,
-        parent_seed: str | bytes,
+        parent_seed: str | bytes | None = None,
         *,
         archived: bool = False,
         secret: str | None = None,
@@ -266,13 +266,16 @@ class EntryManager:
         digits: int = 6,
         notes: str = "",
         tags: list[str] | None = None,
+        deterministic: bool = False,
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
         data = self._load_index()
         data.setdefault("entries", {})
 
-        if secret is None:
+        if deterministic:
+            if parent_seed is None:
+                raise ValueError("Seed required for deterministic TOTP")
             if index is None:
                 index = self.get_next_totp_index()
             secret = TotpManager.derive_secret(parent_seed, index)
@@ -289,8 +292,11 @@ class EntryManager:
                 "archived": archived,
                 "notes": notes,
                 "tags": tags or [],
+                "deterministic": True,
             }
         else:
+            if secret is None:
+                secret = random_totp_secret()
             if not validate_totp_secret(secret):
                 raise ValueError("Invalid TOTP secret")
             entry = {
@@ -304,6 +310,7 @@ class EntryManager:
                 "archived": archived,
                 "notes": notes,
                 "tags": tags or [],
+                "deterministic": False,
             }
 
         data["entries"][str(entry_id)] = entry
@@ -702,12 +709,12 @@ class EntryManager:
             etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
         ):
             raise ValueError("Entry is not a TOTP entry")
-        if "secret" in entry:
-            return TotpManager.current_code_from_secret(entry["secret"], timestamp)
-        if parent_seed is None:
-            raise ValueError("Seed required for derived TOTP")
-        totp_index = int(entry.get("index", 0))
-        return TotpManager.current_code(parent_seed, totp_index, timestamp)
+        if entry.get("deterministic", False) or "secret" not in entry:
+            if parent_seed is None:
+                raise ValueError("Seed required for derived TOTP")
+            totp_index = int(entry.get("index", 0))
+            return TotpManager.current_code(parent_seed, totp_index, timestamp)
+        return TotpManager.current_code_from_secret(entry["secret"], timestamp)
 
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""
@@ -723,7 +730,7 @@ class EntryManager:
         return TotpManager.time_remaining(period)
 
     def export_totp_entries(
-        self, parent_seed: str | bytes
+        self, parent_seed: str | bytes | None
     ) -> dict[str, list[dict[str, Any]]]:
         """Return all TOTP secrets and metadata for external use."""
         data = self._load_index()
@@ -736,11 +743,13 @@ class EntryManager:
             label = entry.get("label", "")
             period = int(entry.get("period", 30))
             digits = int(entry.get("digits", 6))
-            if "secret" in entry:
-                secret = entry["secret"]
-            else:
+            if entry.get("deterministic", False) or "secret" not in entry:
+                if parent_seed is None:
+                    raise ValueError("Seed required for deterministic TOTP export")
                 idx = int(entry.get("index", 0))
                 secret = TotpManager.derive_secret(parent_seed, idx)
+            else:
+                secret = entry["secret"]
             uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
             exported.append(
                 {

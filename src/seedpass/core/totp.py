@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
+import base64
 from typing import Union
 from urllib.parse import quote
 from urllib.parse import urlparse, parse_qs, unquote
@@ -13,6 +15,11 @@ import qrcode
 import pyotp
 
 from utils import key_derivation
+
+
+def random_totp_secret(length: int = 20) -> str:
+    """Return a random Base32 encoded TOTP secret."""
+    return base64.b32encode(os.urandom(length)).decode("ascii").rstrip("=")
 
 
 class TotpManager:

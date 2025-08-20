@@ -214,13 +214,14 @@ async def create_entry(
         uri = await run_in_threadpool(
             pm.entry_manager.add_totp,
             entry.get("label"),
-            pm.parent_seed,
+            pm.KEY_TOTP_DET if entry.get("deterministic", False) else None,
             secret=entry.get("secret"),
             index=entry.get("index"),
             period=int(entry.get("period", 30)),
             digits=int(entry.get("digits", 6)),
             notes=entry.get("notes", ""),
             archived=entry.get("archived", False),
+            deterministic=entry.get("deterministic", False),
         )
         return {"id": index, "uri": uri}
 

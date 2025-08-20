@@ -1295,6 +1295,11 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         help="Disable clipboard support and print secrets",
     )
     parser.add_argument(
+        "--deterministic-totp",
+        action="store_true",
+        help="Derive TOTP secrets deterministically",
+    )
+    parser.add_argument(
         "--max-prompt-attempts",
         type=int,
         default=None,
@@ -1371,6 +1376,8 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
 
     if args.no_clipboard:
         password_manager.secret_mode_enabled = False
+    if args.deterministic_totp:
+        password_manager.deterministic_totp = True
 
     if args.command == "export":
         password_manager.handle_export_database(Path(args.file))

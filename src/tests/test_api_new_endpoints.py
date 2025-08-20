@@ -53,6 +53,7 @@ async def test_create_and_modify_totp_entry(client):
         "digits": 8,
         "notes": "n",
         "archived": False,
+        "deterministic": False,
     }
 
     res = await cl.put(
