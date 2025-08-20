@@ -2,8 +2,10 @@ import asyncio
 import base64
 import gzip
 import hashlib
+import hmac
 import json
 import logging
+import os
 import time
 from datetime import timedelta
 from typing import Tuple
@@ -22,9 +24,6 @@ from .backup_models import (
 
 logger = logging.getLogger("nostr.client")
 logger.setLevel(logging.WARNING)
-
-# Identifier prefix for replaceable manifest events
-MANIFEST_ID_PREFIX = "seedpass-manifest-"
 
 
 def prepare_snapshot(
@@ -45,6 +44,19 @@ def prepare_snapshot(
         )
     manifest = Manifest(ver=1, algo="gzip", chunks=metas)
     return manifest, chunks
+
+
+def new_manifest_id(key_index: bytes) -> tuple[str, bytes]:
+    """Return a new manifest identifier and nonce.
+
+    The identifier is computed as HMAC-SHA256 of ``b"manifest|" + nonce``
+    using ``key_index`` as the HMAC key. The nonce is returned so it can be
+    embedded inside the manifest itself.
+    """
+
+    nonce = os.urandom(16)
+    digest = hmac.new(key_index, b"manifest|" + nonce, hashlib.sha256).hexdigest()
+    return digest, nonce
 
 
 class SnapshotHandler:
@@ -84,34 +96,43 @@ class SnapshotHandler:
             except Exception:
                 meta.event_id = None
 
+        if (
+            self.current_manifest_id
+            and self.current_manifest
+            and getattr(self.current_manifest, "nonce", None)
+        ):
+            manifest_id = self.current_manifest_id
+            manifest.nonce = self.current_manifest.nonce
+        else:
+            manifest_id, nonce = new_manifest_id(self.key_index)
+            manifest.nonce = base64.b64encode(nonce).decode("utf-8")
+
         manifest_json = json.dumps(
             {
                 "ver": manifest.ver,
                 "algo": manifest.algo,
                 "chunks": [meta.__dict__ for meta in manifest.chunks],
                 "delta_since": manifest.delta_since,
+                "nonce": manifest.nonce,
             }
         )
 
-        manifest_identifier = (
-            self.current_manifest_id or f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
-        )
         manifest_event = (
             nostr_client.EventBuilder(nostr_client.Kind(KIND_MANIFEST), manifest_json)
-            .tags([nostr_client.Tag.identifier(manifest_identifier)])
+            .tags([nostr_client.Tag.identifier(manifest_id)])
             .build(self.keys.public_key())
             .sign_with_keys(self.keys)
         )
         await self.client.send_event(manifest_event)
         with self._state_lock:
             self.current_manifest = manifest
-            self.current_manifest_id = manifest_identifier
+            self.current_manifest_id = manifest_id
             self.current_manifest.delta_since = int(time.time())
             self._delta_events = []
         if getattr(self, "verbose_timing", False):
             duration = time.perf_counter() - start
             logger.info("publish_snapshot completed in %.2f seconds", duration)
-        return manifest, manifest_identifier
+        return manifest, manifest_id
 
     async def _fetch_chunks_with_retry(
         self, manifest_event
@@ -129,6 +150,7 @@ class SnapshotHandler:
                     if data.get("delta_since") is not None
                     else None
                 ),
+                nonce=data.get("nonce"),
             )
         except Exception:
             return None
@@ -204,14 +226,11 @@ class SnapshotHandler:
         pubkey = self.keys.public_key()
         timeout = timedelta(seconds=10)
 
-        ident = f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
-        f = (
-            nostr_client.Filter()
-            .author(pubkey)
-            .kind(nostr_client.Kind(KIND_MANIFEST))
-            .identifier(ident)
-            .limit(1)
-        )
+        ident = self.current_manifest_id
+        f = nostr_client.Filter().author(pubkey).kind(nostr_client.Kind(KIND_MANIFEST))
+        if ident:
+            f = f.identifier(ident)
+        f = f.limit(1)
         try:
             events = (await self.client.fetch_events(f, timeout)).to_vec()
         except Exception as e:  # pragma: no cover - network errors
@@ -223,13 +242,11 @@ class SnapshotHandler:
             )
             return None
 
-        if not events:
-            ident = MANIFEST_ID_PREFIX.rstrip("-")
+        if not events and ident:
             f = (
                 nostr_client.Filter()
                 .author(pubkey)
                 .kind(nostr_client.Kind(KIND_MANIFEST))
-                .identifier(ident)
                 .limit(1)
             )
             try:
@@ -244,8 +261,6 @@ class SnapshotHandler:
                 return None
             if not events:
                 return None
-
-        logger.info("Fetched manifest using identifier %s", ident)
 
         for manifest_event in events:
             try:
@@ -300,7 +315,9 @@ class SnapshotHandler:
             return
         await self._connect_async()
         pubkey = self.keys.public_key()
-        ident = self.current_manifest_id or f"{MANIFEST_ID_PREFIX}{self.fingerprint}"
+        ident = self.current_manifest_id
+        if ident is None:
+            return
         f = (
             nostr_client.Filter()
             .author(pubkey)
@@ -358,6 +375,7 @@ class SnapshotHandler:
                             meta.__dict__ for meta in self.current_manifest.chunks
                         ],
                         "delta_since": self.current_manifest.delta_since,
+                        "nonce": self.current_manifest.nonce,
                     }
                 )
                 manifest_event = (
