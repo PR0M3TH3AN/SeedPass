@@ -3,9 +3,16 @@ from __future__ import annotations
 import os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+# TODO: Replace this Python implementation with a Rust/WASM module for
+# critical cryptographic operations.
+
 
 class InMemorySecret:
-    """Store sensitive data encrypted in RAM using AES-GCM."""
+    """Store sensitive data encrypted in RAM using AES-GCM.
+
+    Zeroization is best-effort only; Python's memory management may retain
+    copies of the plaintext.
+    """
 
     def __init__(self, data: bytes) -> None:
         if not isinstance(data, (bytes, bytearray)):
