@@ -409,11 +409,13 @@ class EncryptionManager:
             if return_kdf:
                 return data, kdf
             return data
-        except (InvalidToken, InvalidTag, JSONDecodeError) as e:
-            logger.error(
-                f"FATAL: Could not decrypt or parse data from {file_path}: {e}",
-                exc_info=True,
-            )
+        except (InvalidToken, InvalidTag) as e:
+            msg = f"Failed to decrypt or parse data from {file_path}: {e}"
+            logger.error(msg)
+            raise InvalidToken(msg) from e
+        except JSONDecodeError as e:
+            msg = f"Failed to parse JSON data from {file_path}: {e}"
+            logger.error(msg)
             raise
 
     def get_encrypted_index(self) -> Optional[bytes]:
