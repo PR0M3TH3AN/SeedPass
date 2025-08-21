@@ -31,4 +31,4 @@ def test_parent_seed_migrates_from_fernet(tmp_path: Path) -> None:
     assert new_file.exists()
     assert new_file.read_bytes() != encrypted
     payload = json.loads(new_file.read_text())
-    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
+    assert base64.b64decode(payload["ct"]).startswith(b"V3|")

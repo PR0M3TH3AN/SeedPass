@@ -83,7 +83,7 @@ def test_failed_migration_restores_legacy(monkeypatch, tmp_path: Path):
     assert not vault.migrated_from_legacy
 
 
-def test_migrated_index_has_v2_prefix(monkeypatch, tmp_path: Path):
+def test_migrated_index_has_v3_prefix(monkeypatch, tmp_path: Path):
     vault, _ = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
 
     key = derive_index_key(TEST_SEED)
@@ -101,7 +101,7 @@ def test_migrated_index_has_v2_prefix(monkeypatch, tmp_path: Path):
 
     new_file = tmp_path / "seedpass_entries_db.json.enc"
     payload = json.loads(new_file.read_text())
-    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
+    assert base64.b64decode(payload["ct"]).startswith(b"V3|")
     assert vault.migrated_from_legacy
 
 

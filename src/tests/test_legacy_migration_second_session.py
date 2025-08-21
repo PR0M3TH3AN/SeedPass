@@ -36,7 +36,7 @@ def test_legacy_migration_second_session(monkeypatch, tmp_path: Path) -> None:
     vault.load_index()
     new_file = fp_dir / "seedpass_entries_db.json.enc"
     payload = json.loads(new_file.read_text())
-    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
+    assert base64.b64decode(payload["ct"]).startswith(b"V3|")
 
     new_enc_mgr = EncryptionManager(key, fp_dir)
     new_vault = Vault(new_enc_mgr, fp_dir)
@@ -62,4 +62,4 @@ def test_legacy_migration_second_session(monkeypatch, tmp_path: Path) -> None:
 
     pm.initialize_managers()
     payload = json.loads(new_file.read_text())
-    assert base64.b64decode(payload["ct"]).startswith(b"V2:")
+    assert base64.b64decode(payload["ct"]).startswith(b"V3|")

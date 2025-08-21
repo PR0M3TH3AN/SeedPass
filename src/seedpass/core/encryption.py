@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover - fallback for environments without orjson
 import hashlib
 import os
 import base64
+import zlib
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional, Tuple
@@ -91,16 +92,23 @@ class EncryptionManager:
         # Track user preference for handling legacy indexes
         self._legacy_migrate_flag = True
         self.last_migration_performed = False
+        # Track nonces to detect accidental reuse
+        self.nonce_crc_table: set[int] = set()
 
     def encrypt_data(self, data: bytes) -> bytes:
         """
-        (2) Encrypts data using the NEW AES-GCM format, prepending a version
-            header and the nonce. All new data will be in this format.
+        Encrypt data using AES-GCM, emitting ``b"V3|" + nonce + ciphertext + tag``.
+        A fresh 96-bit nonce is generated for each call and tracked via a CRC
+        table to detect accidental reuse during batch operations.
         """
         try:
             nonce = os.urandom(12)  # 96-bit nonce is recommended for AES-GCM
+            crc = zlib.crc32(nonce)
+            if crc in self.nonce_crc_table:
+                raise ValueError("Nonce reuse detected")
+            self.nonce_crc_table.add(crc)
             ciphertext = self.cipher.encrypt(nonce, data, None)
-            return b"V2:" + nonce + ciphertext
+            return b"V3|" + nonce + ciphertext
         except Exception as e:
             logger.error(f"Failed to encrypt data: {e}", exc_info=True)
             raise
@@ -122,7 +130,21 @@ class EncryptionManager:
         ctx = f" {context}" if context else ""
 
         try:
-            # Try the new V2 format first
+            # Try the new V3 format first
+            if encrypted_data.startswith(b"V3|"):
+                try:
+                    nonce = encrypted_data[3:15]
+                    ciphertext = encrypted_data[15:]
+                    if len(ciphertext) < 16:
+                        logger.error("AES-GCM payload too short")
+                        raise InvalidToken("AES-GCM payload too short")
+                    return self.cipher.decrypt(nonce, ciphertext, None)
+                except InvalidTag as e:
+                    msg = f"Failed to decrypt{ctx}: invalid key or corrupt file"
+                    logger.error(msg)
+                    raise InvalidToken(msg) from e
+
+            # Next try the older V2 format
             if encrypted_data.startswith(b"V2:"):
                 try:
                     nonce = encrypted_data[3:15]
@@ -146,19 +168,18 @@ class EncryptionManager:
                         logger.error(msg)
                         raise InvalidToken(msg) from e
 
-            # If it's not V2, it must be the legacy Fernet format
-            else:
-                logger.warning("Data is in legacy Fernet format. Attempting migration.")
-                try:
-                    return self.fernet.decrypt(encrypted_data)
-                except InvalidToken as e:
-                    logger.error(
-                        "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
-                    )
-                    raise e
+            # If it's neither V3 nor V2, assume legacy Fernet format
+            logger.warning("Data is in legacy Fernet format. Attempting migration.")
+            try:
+                return self.fernet.decrypt(encrypted_data)
+            except InvalidToken as e:
+                logger.error(
+                    "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
+                )
+                raise e
 
         except (InvalidToken, InvalidTag) as e:
-            if encrypted_data.startswith(b"V2:"):
+            if encrypted_data.startswith(b"V3|") or encrypted_data.startswith(b"V2:"):
                 # Already determined not to be legacy; re-raise
                 raise
             if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
@@ -248,11 +269,13 @@ class EncryptionManager:
             blob = fh.read()
 
         kdf, encrypted_data = self._deserialize(blob)
-        is_legacy = not encrypted_data.startswith(b"V2:")
+        is_legacy = not (
+            encrypted_data.startswith(b"V3|") or encrypted_data.startswith(b"V2:")
+        )
         decrypted_data = self.decrypt_data(encrypted_data, context="seed")
 
         if is_legacy:
-            logger.info("Parent seed was in legacy format. Re-encrypting to V2 format.")
+            logger.info("Parent seed was in legacy format. Re-encrypting to V3 format.")
             self.encrypt_parent_seed(decrypted_data.decode("utf-8").strip(), kdf=kdf)
 
         return decrypted_data.decode("utf-8").strip()
@@ -362,7 +385,9 @@ class EncryptionManager:
             blob = fh.read()
 
         kdf, encrypted_data = self._deserialize(blob)
-        is_legacy = not encrypted_data.startswith(b"V2:")
+        is_legacy = not (
+            encrypted_data.startswith(b"V3|") or encrypted_data.startswith(b"V2:")
+        )
         self.last_migration_performed = False
 
         try:
@@ -424,7 +449,7 @@ class EncryptionManager:
             relative_path = Path("seedpass_entries_db.json.enc")
 
         kdf, ciphertext = self._deserialize(encrypted_data)
-        is_legacy = not ciphertext.startswith(b"V2:")
+        is_legacy = not (ciphertext.startswith(b"V3|") or ciphertext.startswith(b"V2:"))
         self.last_migration_performed = False
 
         def _process(decrypted: bytes) -> dict:
