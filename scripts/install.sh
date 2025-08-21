@@ -17,7 +17,8 @@ VENV_DIR="$INSTALL_DIR/venv"
 LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/seedpass"
 BRANCH="main" # Default branch
-INSTALL_GUI=true
+MODE="tui"
+INSTALL_GUI=false
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[1;34m[INFO]\033[0m" "$1"; }
@@ -59,9 +60,9 @@ install_dependencies() {
     fi
 }
 usage() {
-    echo "Usage: $0 [-b | --branch <branch_name>] [--no-gui] [-h | --help]"
+    echo "Usage: $0 [-b | --branch <branch_name>] [-m | --mode <tui|gui|both>] [-h | --help]"
     echo "  -b, --branch   Specify the git branch to install (default: main)"
-    echo "      --no-gui   Skip graphical interface dependencies (default: include GUI)"
+    echo "  -m, --mode     Installation mode: tui, gui, both (default: tui)"
     echo "  -h, --help     Display this help message"
     exit 0
 }
@@ -82,15 +83,39 @@ main() {
             -h|--help)
                 usage
                 ;;
-            --no-gui)
-                INSTALL_GUI=false
-                shift
+            -m|--mode)
+                if [ -n "$2" ]; then
+                    MODE="$2"
+                    shift 2
+                else
+                    print_error "Error: --mode requires an argument (tui|gui|both)."
+                fi
                 ;;
             *)
                 print_error "Unknown parameter passed: $1"; usage
                 ;;
         esac
     done
+
+    case "$MODE" in
+        tui|gui|both) ;;
+        *)
+            print_error "Invalid mode: $MODE. Use 'tui', 'gui', or 'both'."
+            ;;
+    esac
+
+    DISPLAY_DETECTED=false
+    if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        DISPLAY_DETECTED=true
+    fi
+
+    if [[ "$MODE" == "gui" || "$MODE" == "both" ]]; then
+        if [ "$DISPLAY_DETECTED" = true ]; then
+            INSTALL_GUI=true
+        else
+            print_warning "No display detected. Skipping GUI installation."
+        fi
+    fi
 
     # 1. Detect OS
     OS_NAME=$(uname -s)
