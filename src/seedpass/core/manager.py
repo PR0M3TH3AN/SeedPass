@@ -624,9 +624,11 @@ class PasswordManager:
         """
         try:
             choice = input(
-                "Do you want to (1) Paste in an existing seed in full "
-                "(2) Enter an existing seed one word at a time or "
-                "(3) Generate a new seed? (1/2/3): "
+                "Choose an option:\n"
+                "1. Paste in an existing seed in full\n"
+                "2. Enter an existing seed one word at a time\n"
+                "3. Generate a new seed\n"
+                "Enter choice (1/2/3): "
             ).strip()
             if choice == "1":
                 fingerprint = self.setup_existing_seed(method="paste")
@@ -981,9 +983,12 @@ class PasswordManager:
         self.notify("No existing seed found. Let's set up a new one!", level="WARNING")
 
         choice = input(
-            "Do you want to (1) Paste in an existing seed in full "
-            "(2) Enter an existing seed one word at a time, "
-            "(3) Generate a new seed, or (4) Restore from Nostr? (1/2/3/4): "
+            "Choose an option:\n"
+            "1. Paste in an existing seed in full\n"
+            "2. Enter an existing seed one word at a time\n"
+            "3. Generate a new seed\n"
+            "4. Restore from Nostr\n"
+            "Enter choice (1/2/3/4): "
         ).strip()
 
         if choice == "1":
