@@ -670,33 +670,49 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
 
 
 def handle_set_kdf_iterations(password_manager: PasswordManager) -> None:
-    """Change the PBKDF2 iteration count."""
+    """Interactive slider for PBKDF2 iteration strength with benchmarking."""
+    import hashlib
+    import time
+
     cfg_mgr = password_manager.config_manager
     if cfg_mgr is None:
         print(colored("Configuration manager unavailable.", "red"))
         return
+    levels = [
+        ("1", "Very Fast", 10_000),
+        ("2", "Fast", 50_000),
+        ("3", "Balanced", 100_000),
+        ("4", "Slow", 200_000),
+        ("5", "Paranoid", 500_000),
+    ]
     try:
         current = cfg_mgr.get_kdf_iterations()
-        print(colored(f"Current iterations: {current}", "cyan"))
     except Exception as e:
         logging.error(f"Error loading iterations: {e}")
         print(colored(f"Error: {e}", "red"))
         return
-    value = input("Enter new iteration count: ").strip()
-    if not value:
-        print(colored("No iteration count entered.", "yellow"))
+    print(colored(f"Current iterations: {current}", "cyan"))
+    for key, label, iters in levels:
+        marker = "*" if iters == current else " "
+        print(colored(f"{key}. {label} ({iters}) {marker}", "menu"))
+    print(colored("b. Benchmark current setting", "menu"))
+    choice = input("Select strength or 'b' to benchmark: ").strip().lower()
+    if not choice:
+        print(colored("No change made.", "yellow"))
+        return
+    if choice == "b":
+        start = time.perf_counter()
+        hashlib.pbkdf2_hmac("sha256", b"bench", b"salt", current)
+        elapsed = time.perf_counter() - start
+        print(colored(f"{current} iterations took {elapsed:.2f}s", "green"))
+        return
+    selected = {k: v for k, _, v in levels}.get(choice)
+    if not selected:
+        print(colored("Invalid choice.", "red"))
         return
     try:
-        iterations = int(value)
-        if iterations <= 0:
-            print(colored("Iterations must be positive.", "red"))
-            return
-    except ValueError:
-        print(colored("Invalid number.", "red"))
-        return
-    try:
-        cfg_mgr.set_kdf_iterations(iterations)
-        print(colored("KDF iteration count updated.", "green"))
+        cfg_mgr.set_kdf_iterations(selected)
+        print(colored(f"KDF iteration count set to {selected}.", "green"))
     except Exception as e:
         logging.error(f"Error saving iterations: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -1014,12 +1030,12 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("8. Import database", "menu"))
         print(color_text("9. Export 2FA codes", "menu"))
         print(color_text("10. Set additional backup location", "menu"))
-        print(color_text("11. Set KDF iterations", "menu"))
+        print(color_text("11. KDF strength & benchmark", "menu"))
         print(color_text("12. Set inactivity timeout", "menu"))
         print(color_text("13. Lock Vault", "menu"))
         print(color_text("14. Stats", "menu"))
         print(color_text("15. Toggle Secret Mode", "menu"))
-        print(color_text("16. Toggle Offline Mode", "menu"))
+        print(color_text("16. Toggle Offline Mode (default ON)", "menu"))
         print(color_text("17. Toggle Quick Unlock", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
