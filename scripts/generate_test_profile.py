@@ -43,6 +43,7 @@ from seedpass.core.vault import Vault
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.entry_management import EntryManager
+from seedpass.core.state_manager import StateManager
 from nostr.client import NostrClient
 from utils.fingerprint import generate_fingerprint
 from utils.fingerprint_manager import FingerprintManager
@@ -195,11 +196,13 @@ def main() -> None:
 
     encrypted = entry_mgr.vault.get_encrypted_index()
     if encrypted:
+        idx = StateManager(dir_path).state.get("nostr_account_idx", 0)
         client = NostrClient(
             entry_mgr.vault.encryption_manager,
             fingerprint or dir_path.name,
             parent_seed=seed,
             config_manager=cfg_mgr,
+            account_index=idx,
         )
         asyncio.run(client.publish_snapshot(encrypted))
         print("[+] Data synchronized to Nostr.")

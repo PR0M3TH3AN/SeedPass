@@ -77,6 +77,7 @@ class ProfileService:
                     config_manager=getattr(pm, "config_manager", None),
                     parent_seed=getattr(pm, "parent_seed", None),
                     key_index=pm.KEY_INDEX,
+                    account_index=pm.nostr_account_idx,
                 )
                 if getattr(pm, "manifest_id", None) and hasattr(
                     pm.nostr_client, "_state_lock"

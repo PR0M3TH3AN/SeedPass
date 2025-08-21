@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from seedpass.core.manager import PasswordManager
 from utils.fingerprint_manager import FingerprintManager
 from utils.fingerprint import generate_fingerprint
+from seedpass.core.state_manager import StateManager
 
 VALID_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
@@ -13,6 +14,7 @@ def setup_pm(tmp_path, monkeypatch):
     pm = PasswordManager.__new__(PasswordManager)
     pm.fingerprint_manager = FingerprintManager(tmp_path)
     pm.config_manager = type("Cfg", (), {"get_kdf_iterations": lambda self: 1})()
+    pm.state_manager = StateManager(tmp_path)
     monkeypatch.setattr("seedpass.core.manager.prompt_for_password", lambda: "pw")
     monkeypatch.setattr("seedpass.core.manager.derive_index_key", lambda seed: b"idx")
     monkeypatch.setattr(
@@ -49,3 +51,5 @@ def test_generate_new_seed_creates_profile(monkeypatch):
 
         assert fingerprint == generate_fingerprint(VALID_SEED)
         assert pm.fingerprint_manager.list_fingerprints() == [fingerprint]
+        sm = StateManager(tmp_path / fingerprint)
+        assert sm.state["nostr_account_idx"] == 1

@@ -29,6 +29,7 @@ def test_add_and_switch_fingerprint(monkeypatch):
         pm.fingerprint_manager = fm
         pm.encryption_manager = object()
         pm.current_fingerprint = None
+        pm.nostr_account_idx = 0
 
         monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: "1")
         monkeypatch.setattr(
