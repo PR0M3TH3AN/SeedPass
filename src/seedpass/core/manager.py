@@ -4420,6 +4420,15 @@ class PasswordManager:
             else:
                 logging.warning("Password verification failed.")
             return is_correct
+        except InvalidToken as e:
+            logging.error(f"Failed to decrypt config: {e}")
+            print(
+                colored(
+                    "Error: Could not decrypt configuration. The password may be incorrect or the file may be corrupted.",
+                    "red",
+                )
+            )
+            return False
         except Exception as e:
             logging.error(f"Error verifying password: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify password: {e}", "red"))
