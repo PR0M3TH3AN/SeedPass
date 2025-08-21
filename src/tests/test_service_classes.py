@@ -120,6 +120,7 @@ def test_profile_service_switch(monkeypatch):
     pm.delta_since = None
     pm.encryption_manager = SimpleNamespace()
     pm.parent_seed = TEST_SEED
+    pm.nostr_account_idx = 0
 
     service = ProfileService(pm)
     monkeypatch.setattr("builtins.input", lambda *_: "2")

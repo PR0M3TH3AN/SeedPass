@@ -26,6 +26,7 @@ class StateManager:
                 "manifest_id": None,
                 "delta_since": 0,
                 "relays": list(DEFAULT_RELAYS),
+                "nostr_account_idx": 0,
             }
         with shared_lock(self.state_path) as fh:
             fh.seek(0)
@@ -37,6 +38,7 @@ class StateManager:
                 "manifest_id": None,
                 "delta_since": 0,
                 "relays": list(DEFAULT_RELAYS),
+                "nostr_account_idx": 0,
             }
         try:
             obj = json.loads(data.decode())
@@ -47,6 +49,7 @@ class StateManager:
         obj.setdefault("manifest_id", None)
         obj.setdefault("delta_since", 0)
         obj.setdefault("relays", list(DEFAULT_RELAYS))
+        obj.setdefault("nostr_account_idx", 0)
         return obj
 
     def _save(self, data: dict) -> None:

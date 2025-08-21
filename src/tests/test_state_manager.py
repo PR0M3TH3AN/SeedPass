@@ -14,6 +14,7 @@ def test_state_manager_round_trip():
         assert state["last_sync_ts"] == 0
         assert state["manifest_id"] is None
         assert state["delta_since"] == 0
+        assert state["nostr_account_idx"] == 0
 
         sm.add_relay("wss://example.com")
         sm.update_state(
@@ -30,6 +31,7 @@ def test_state_manager_round_trip():
         assert state2["last_sync_ts"] == 123
         assert state2["manifest_id"] == "mid"
         assert state2["delta_since"] == 111
+        assert state2["nostr_account_idx"] == 0
 
         sm2.remove_relay(1)  # remove first default relay
         assert len(sm2.list_relays()) == len(DEFAULT_RELAYS)

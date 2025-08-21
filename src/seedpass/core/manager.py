@@ -296,6 +296,7 @@ class PasswordManager:
         self._suppress_entry_actions_menu: bool = False
         self.last_bip85_idx: int = 0
         self.last_sync_ts: int = 0
+        self.nostr_account_idx: int = 0
         self.auth_guard = AuthGuard(self)
 
         # Service composition
@@ -1152,6 +1153,14 @@ class PasswordManager:
         print(colored("Please write this down and keep it in a safe place!", "red"))
 
         if confirm_action("Do you want to use this generated seed? (Y/N): "):
+            # Determine next account index if state manager is available
+            next_idx = 0
+            if getattr(self, "state_manager", None) is not None:
+                try:
+                    next_idx = self.state_manager.state.get("nostr_account_idx", 0) + 1
+                except Exception:
+                    next_idx = 0
+
             # Add a new fingerprint using the generated seed
             try:
                 fingerprint = self.fingerprint_manager.add_fingerprint(new_seed)
@@ -1183,6 +1192,15 @@ class PasswordManager:
                     colored("Error: Failed to retrieve seed profile directory.", "red")
                 )
                 sys.exit(1)
+
+            # Persist the assigned account index for the new profile
+            try:
+                StateManager(fingerprint_dir).update_state(nostr_account_idx=next_idx)
+                if getattr(self, "state_manager", None) is not None:
+                    self.state_manager.update_state(nostr_account_idx=next_idx)
+                self.nostr_account_idx = next_idx
+            except Exception:
+                pass
 
             # Set the current fingerprint in both PasswordManager and FingerprintManager
             self.current_fingerprint = fingerprint
@@ -1408,12 +1426,14 @@ class PasswordManager:
                 self.last_sync_ts = state.get("last_sync_ts", 0)
                 self.manifest_id = state.get("manifest_id")
                 self.delta_since = state.get("delta_since", 0)
+                self.nostr_account_idx = state.get("nostr_account_idx", 0)
             else:
                 relay_list = list(DEFAULT_RELAYS)
                 self.last_bip85_idx = 0
                 self.last_sync_ts = 0
                 self.manifest_id = None
                 self.delta_since = 0
+                self.nostr_account_idx = 0
             self.offline_mode = bool(config.get("offline_mode", True))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
@@ -1431,6 +1451,7 @@ class PasswordManager:
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
                 key_index=self.KEY_INDEX,
+                account_index=self.nostr_account_idx,
             )
 
             if getattr(self, "manifest_id", None) and hasattr(
@@ -4537,6 +4558,7 @@ class PasswordManager:
                 config_manager=self.config_manager,
                 parent_seed=getattr(self, "parent_seed", None),
                 key_index=self.KEY_INDEX,
+                account_index=self.nostr_account_idx,
             )
 
             if getattr(self, "manifest_id", None) and hasattr(

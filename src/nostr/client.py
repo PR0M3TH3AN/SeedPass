@@ -58,6 +58,7 @@ class NostrClient(ConnectionHandler, SnapshotHandler):
         offline_mode: bool = False,
         config_manager: Optional["ConfigManager"] = None,
         key_index: bytes | None = None,
+        account_index: int | None = None,
     ) -> None:
         self.encryption_manager = encryption_manager
         self.fingerprint = fingerprint
@@ -69,7 +70,7 @@ class NostrClient(ConnectionHandler, SnapshotHandler):
             parent_seed = self.encryption_manager.decrypt_parent_seed()
 
         # Use our project's KeyManager to derive the private key
-        self.key_manager = KeyManager(parent_seed, fingerprint)
+        self.key_manager = KeyManager(parent_seed, fingerprint, account_index)
 
         # Create a nostr-sdk Keys object from our derived private key
         private_key_hex = self.key_manager.keys.private_key_hex()

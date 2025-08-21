@@ -16,17 +16,22 @@ logger = logging.getLogger(__name__)
 
 
 class KeyManager:
-    """
-    Manages key generation, encoding, and derivation for NostrClient.
-    """
+    """Manages key generation, encoding, and derivation for ``NostrClient``."""
 
-    def __init__(self, parent_seed: str, fingerprint: str):
-        """
-        Initializes the KeyManager with the provided parent_seed and fingerprint.
+    def __init__(
+        self, parent_seed: str, fingerprint: str, account_index: int | None = None
+    ):
+        """Initialize the key manager.
 
-        Parameters:
-            parent_seed (str): The parent seed used for key derivation.
-            fingerprint (str): The fingerprint to differentiate key derivations.
+        Parameters
+        ----------
+        parent_seed:
+            The BIP-39 seed used as the root for derivations.
+        fingerprint:
+            Seed profile fingerprint used for legacy derivations and logging.
+        account_index:
+            Optional explicit index for BIP-85 Nostr key derivation. When ``None``
+            the index defaults to ``0``.
         """
         try:
             if not isinstance(parent_seed, str):
@@ -40,12 +45,15 @@ class KeyManager:
 
             self.parent_seed = parent_seed
             self.fingerprint = fingerprint
-            logger.debug(f"KeyManager initialized with parent_seed and fingerprint.")
+            self.account_index = account_index
+            logger.debug(
+                "KeyManager initialized with parent_seed, fingerprint and account index."
+            )
 
             # Initialize BIP85
             self.bip85 = self.initialize_bip85()
 
-            # Generate Nostr keys using the fingerprint
+            # Generate Nostr keys using the provided account index
             self.keys = self.generate_nostr_keys()
             logger.debug("Nostr Keys initialized successfully.")
 
@@ -70,32 +78,34 @@ class KeyManager:
             raise
 
     def generate_nostr_keys(self) -> Keys:
-        """
-        Derives a unique Nostr key pair for the given fingerprint using BIP-85.
-
-        Returns:
-            Keys: An instance of Keys containing the Nostr key pair.
-        """
+        """Derive a Nostr key pair using the configured ``account_index``."""
         try:
-            # Convert fingerprint to an integer index (using a hash function)
-            index = int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (
-                2**31
-            )
+            index = self.account_index if self.account_index is not None else 0
 
-            # Derive entropy for Nostr key (32 bytes)
             entropy_bytes = self.bip85.derive_entropy(
-                index=index,
-                entropy_bytes=32,
-                app_no=NOSTR_KEY_APP_ID,
+                index=index, entropy_bytes=32, app_no=NOSTR_KEY_APP_ID
             )
 
-            # Generate Nostr key pair from entropy
             private_key_hex = entropy_bytes.hex()
             keys = Keys(priv_k=private_key_hex)
-            logger.debug(f"Nostr keys generated for fingerprint {self.fingerprint}.")
+            logger.debug("Nostr keys generated for account index %s", index)
             return keys
         except Exception as e:
             logger.error(f"Failed to generate Nostr keys: {e}", exc_info=True)
+            raise
+
+    def generate_v1_nostr_keys(self) -> Keys:
+        """Derive keys using the legacy fingerprint-hash method."""
+        try:
+            index = int(hashlib.sha256(self.fingerprint.encode()).hexdigest(), 16) % (
+                2**31
+            )
+            entropy_bytes = self.bip85.derive_entropy(
+                index=index, entropy_bytes=32, app_no=NOSTR_KEY_APP_ID
+            )
+            return Keys(priv_k=entropy_bytes.hex())
+        except Exception as e:
+            logger.error(f"Failed to generate v1 Nostr keys: {e}", exc_info=True)
             raise
 
     def generate_legacy_nostr_keys(self) -> Keys:

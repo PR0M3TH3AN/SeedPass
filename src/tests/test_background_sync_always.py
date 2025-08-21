@@ -20,6 +20,7 @@ def test_switch_fingerprint_triggers_bg_sync(monkeypatch, tmp_path):
     pm.current_fingerprint = None
     pm.encryption_manager = object()
     pm.config_manager = SimpleNamespace(get_quick_unlock=lambda: False)
+    pm.nostr_account_idx = 0
 
     monkeypatch.setattr("builtins.input", lambda *_a, **_k: "1")
     monkeypatch.setattr(

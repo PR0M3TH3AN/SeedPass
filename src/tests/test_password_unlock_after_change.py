@@ -62,6 +62,7 @@ def test_password_change_and_unlock(monkeypatch):
         pm.nostr_client = SimpleNamespace(
             publish_snapshot=lambda *a, **k: (None, "abcd")
         )
+        pm.nostr_account_idx = 0
 
         monkeypatch.setattr(
             "seedpass.core.manager.prompt_existing_password", lambda *_: old_pw

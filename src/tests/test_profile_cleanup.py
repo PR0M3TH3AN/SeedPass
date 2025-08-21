@@ -20,6 +20,7 @@ def setup_pm(tmp_path):
     pm.encryption_mode = manager_module.EncryptionMode.SEED_ONLY
     pm.fingerprint_manager = manager_module.FingerprintManager(constants.APP_DIR)
     pm.current_fingerprint = None
+    pm.state_manager = manager_module.StateManager(constants.APP_DIR)
     return pm, constants, manager_module
 
 
@@ -41,8 +42,8 @@ def test_generate_seed_cleanup_on_failure(monkeypatch):
 
         # fingerprint list should be empty and only fingerprints.json should remain
         assert pm.fingerprint_manager.list_fingerprints() == []
-        contents = list(const.APP_DIR.iterdir())
-        assert len(contents) == 1 and contents[0].name == "fingerprints.json"
+        contents = sorted(p.name for p in const.APP_DIR.iterdir())
+        assert contents == ["fingerprints.json", "seedpass_state.json"]
         fp_file = pm.fingerprint_manager.fingerprints_file
         with open(fp_file) as f:
             data = json.load(f)

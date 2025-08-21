@@ -35,6 +35,7 @@ def test_change_password_triggers_nostr_backup(monkeypatch):
         pm.parent_seed = TEST_SEED
         pm.store_hashed_password = lambda pw: None
         pm.verify_password = lambda pw: True
+        pm.nostr_account_idx = 0
 
         with patch("seedpass.core.manager.NostrClient") as MockClient:
             mock_instance = MockClient.return_value

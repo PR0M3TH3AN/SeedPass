@@ -21,6 +21,7 @@ from utils.key_derivation import (
 )
 from .encryption import EncryptionManager
 from utils.checksum import json_checksum, canonical_json_dumps
+from .state_manager import StateManager
 
 logger = logging.getLogger(__name__)
 
@@ -106,10 +107,12 @@ def export_backup(
         enc_file.write_bytes(encrypted)
         os.chmod(enc_file, 0o600)
         try:
+            idx = StateManager(vault.fingerprint_dir).state.get("nostr_account_idx", 0)
             client = NostrClient(
                 vault.encryption_manager,
                 vault.fingerprint_dir.name,
                 config_manager=backup_manager.config_manager,
+                account_index=idx,
             )
             asyncio.run(client.publish_snapshot(encrypted))
         except Exception:
