@@ -2,6 +2,60 @@
 
 This project is written in **Python**. Follow these instructions when working with the code base.
 
+## Installation Quickstart for AI Agents
+
+### Prerequisites
+
+Ensure the system has the required build tools and Python headers. Examples:
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install -y \
+    build-essential \
+    libffi-dev \
+    pkg-config \
+    python3.11-dev \
+    curl \
+    git
+
+# CentOS/RHEL
+sudo yum install -y gcc gcc-c++ libffi-devel pkgconfig python3-devel curl git
+
+# macOS
+brew install python@3.11 libffi pkg-config git
+```
+
+### Installation
+
+Run the installer script to fetch the latest release:
+
+```bash
+# Stable release
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+
+# Beta branch
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
+```
+
+### Environment Layout
+
+- Virtual environment: `~/.seedpass/app/venv/`
+- Entry point: `~/.seedpass/app/src/main.py`
+
+### Verification
+
+```bash
+cd ~/.seedpass/app && source venv/bin/activate
+cd src && python main.py --version  # Expected: SeedPass v[version]
+```
+
+### Running SeedPass
+
+```bash
+cd ~/.seedpass/app && source venv/bin/activate
+cd src && python main.py
+```
+
 ## Running Tests
 
 1. Set up a virtual environment and install dependencies:
