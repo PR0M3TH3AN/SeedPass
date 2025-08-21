@@ -1325,6 +1325,11 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
 
     exp = sub.add_parser("export")
     exp.add_argument("--file")
+    exp.add_argument(
+        "--unencrypted",
+        action="store_true",
+        help="Export without encryption",
+    )
 
     imp = sub.add_parser("import")
     imp.add_argument("--file")
@@ -1396,7 +1401,9 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         password_manager.deterministic_totp = True
 
     if args.command == "export":
-        password_manager.handle_export_database(Path(args.file))
+        password_manager.handle_export_database(
+            Path(args.file), encrypt=not args.unencrypted
+        )
         return 0
     if args.command == "import":
         password_manager.handle_import_database(Path(args.file))

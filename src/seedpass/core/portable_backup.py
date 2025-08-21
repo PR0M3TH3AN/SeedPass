@@ -32,6 +32,7 @@ class PortableMode(Enum):
     """Encryption mode for portable exports."""
 
     SEED_ONLY = EncryptionMode.SEED_ONLY.value
+    NONE = "none"
 
 
 def _derive_export_key(seed: str) -> bytes:
@@ -47,8 +48,15 @@ def export_backup(
     *,
     publish: bool = False,
     parent_seed: str | None = None,
+    encrypt: bool = True,
 ) -> Path:
-    """Export the current vault state to a portable encrypted file."""
+    """Export the current vault state to a portable file.
+
+    When ``encrypt`` is ``True`` (the default) the payload is encrypted with a
+    key derived from the parent seed.  When ``encrypt`` is ``False`` the payload
+    is written in plaintext and the wrapper records an ``encryption_mode`` of
+    :data:`PortableMode.NONE`.
+    """
 
     if dest_path is None:
         ts = int(time.time())
@@ -57,24 +65,32 @@ def export_backup(
         dest_path = dest_dir / EXPORT_NAME_TEMPLATE.format(ts=ts)
 
     index_data = vault.load_index()
-    seed = (
-        parent_seed
-        if parent_seed is not None
-        else vault.encryption_manager.decrypt_parent_seed()
-    )
-    key = _derive_export_key(seed)
-    enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
-
     canonical = canonical_json_dumps(index_data)
-    payload_bytes = enc_mgr.encrypt_data(canonical.encode("utf-8"))
+
+    if encrypt:
+        seed = (
+            parent_seed
+            if parent_seed is not None
+            else vault.encryption_manager.decrypt_parent_seed()
+        )
+        key = _derive_export_key(seed)
+        enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
+        payload_bytes = enc_mgr.encrypt_data(canonical.encode("utf-8"))
+        mode = PortableMode.SEED_ONLY
+        cipher = "aes-gcm"
+    else:
+        payload_bytes = canonical.encode("utf-8")
+        mode = PortableMode.NONE
+        cipher = "none"
+
     checksum = json_checksum(index_data)
 
     wrapper = {
         "format_version": FORMAT_VERSION,
         "created_at": int(time.time()),
         "fingerprint": vault.fingerprint_dir.name,
-        "encryption_mode": PortableMode.SEED_ONLY.value,
-        "cipher": "aes-gcm",
+        "encryption_mode": mode.value,
+        "cipher": cipher,
         "checksum": checksum,
         "payload": base64.b64encode(payload_bytes).decode("utf-8"),
     }
@@ -118,19 +134,24 @@ def import_backup(
     if wrapper.get("format_version") != FORMAT_VERSION:
         raise ValueError("Unsupported backup format")
 
-    if wrapper.get("encryption_mode") != PortableMode.SEED_ONLY.value:
-        raise ValueError("Unsupported encryption mode")
+    mode = wrapper.get("encryption_mode")
     payload = base64.b64decode(wrapper["payload"])
 
-    seed = (
-        parent_seed
-        if parent_seed is not None
-        else vault.encryption_manager.decrypt_parent_seed()
-    )
-    key = _derive_export_key(seed)
-    enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
-    enc_mgr._legacy_migrate_flag = False
-    index_bytes = enc_mgr.decrypt_data(payload, context="backup payload")
+    if mode == PortableMode.SEED_ONLY.value:
+        seed = (
+            parent_seed
+            if parent_seed is not None
+            else vault.encryption_manager.decrypt_parent_seed()
+        )
+        key = _derive_export_key(seed)
+        enc_mgr = EncryptionManager(key, vault.fingerprint_dir)
+        enc_mgr._legacy_migrate_flag = False
+        index_bytes = enc_mgr.decrypt_data(payload, context="backup payload")
+    elif mode == PortableMode.NONE.value:
+        index_bytes = payload
+    else:
+        raise ValueError("Unsupported encryption mode")
+
     index = json.loads(index_bytes.decode("utf-8"))
 
     checksum = json_checksum(index)

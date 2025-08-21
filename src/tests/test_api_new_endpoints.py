@@ -378,7 +378,7 @@ async def test_vault_export_endpoint(client, tmp_path):
     out = tmp_path / "out.json"
     out.write_text("data")
 
-    api.app.state.pm.handle_export_database = lambda: out
+    api.app.state.pm.handle_export_database = lambda *a, **k: out
 
     headers = {
         "Authorization": f"Bearer {token}",

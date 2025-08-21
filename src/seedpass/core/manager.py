@@ -36,7 +36,7 @@ from .entry_management import EntryManager
 from .password_generation import PasswordGenerator
 from .backup import BackupManager
 from .vault import Vault
-from .portable_backup import export_backup, import_backup
+from .portable_backup import export_backup, import_backup, PortableMode
 from cryptography.fernet import InvalidToken
 from .totp import TotpManager
 from .entry_types import EntryType
@@ -4102,8 +4102,15 @@ class PasswordManager:
     def handle_export_database(
         self,
         dest: Path | None = None,
+        *,
+        encrypt: bool | None = None,
     ) -> Path | None:
-        """Export the current database to an encrypted portable file."""
+        """Export the current database to a portable file.
+
+        If ``encrypt`` is ``True`` (default) the payload is encrypted.  When
+        ``encrypt`` is ``False`` the export contains plaintext data.  When
+        ``encrypt`` is ``None`` the user is prompted interactively.
+        """
         try:
             fp, parent_fp, child_fp = self.header_fingerprint_args
             clear_header_with_notification(
@@ -4113,11 +4120,16 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
+            if encrypt is None:
+                encrypt = not confirm_action(
+                    "Export database without encryption? (Y/N): "
+                )
             path = export_backup(
                 self.vault,
                 self.backup_manager,
                 dest,
                 parent_seed=self.parent_seed,
+                encrypt=encrypt,
             )
             print(colored(f"Database exported to '{path}'.", "green"))
             audit_logger = getattr(self, "audit_logger", None)
@@ -4132,14 +4144,25 @@ class PasswordManager:
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
 
-        if not src.name.endswith(".json.enc"):
+        if not (src.name.endswith(".json.enc") or src.name.endswith(".json")):
             print(
                 colored(
-                    "Error: Selected file must be a SeedPass database backup (.json.enc).",
+                    "Error: Selected file must be a SeedPass database backup (.json or .json.enc).",
                     "red",
                 )
             )
             return
+
+        # Determine encryption mode for post-processing
+        mode = None
+        try:
+            raw = src.read_bytes()
+            if src.suffix.endswith(".enc"):
+                raw = self.vault.encryption_manager.decrypt_data(raw, context=str(src))
+            wrapper = json.loads(raw.decode("utf-8"))
+            mode = wrapper.get("encryption_mode")
+        except Exception:
+            mode = None
 
         fp, parent_fp, child_fp = self.header_fingerprint_args
         clear_header_with_notification(
@@ -4179,6 +4202,23 @@ class PasswordManager:
                 )
             )
             return
+
+        if mode == PortableMode.NONE.value:
+            try:
+                password = prompt_new_password()
+                iterations = self.config_manager.get_kdf_iterations()
+                seed_key = derive_key_from_password(
+                    password, self.current_fingerprint, iterations=iterations
+                )
+                seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
+                seed_mgr.encrypt_parent_seed(self.parent_seed)
+                self.store_hashed_password(password)
+            except Exception as e:
+                logging.error(
+                    f"Failed to set master password after import: {e}", exc_info=True
+                )
+                print(colored(f"Error: Failed to set master password: {e}", "red"))
+                return
 
         print(colored("Database imported successfully.", "green"))
         self.sync_vault()
