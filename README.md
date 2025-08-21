@@ -123,9 +123,9 @@ See `docs/ARCHITECTURE.md` and [Nostr Setup](docs/nostr_setup.md) for details.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
-The scripts can also install the BeeWare backend for your platform when requested (use `-IncludeGui` on Windows).
+The scripts can also install the BeeWare backend for your platform when requested (`--mode gui` or `--mode both` on Linux/macOS, `-IncludeGui` on Windows).
 If the GTK `gi` bindings are missing, the installer attempts to install the
-necessary system packages using `apt`, `yum`, `pacman`, or Homebrew.
+necessary system packages using `apt`, `yum`, `pacman`, or Homebrew. When no display server is detected, GUI components are skipped automatically.
 
 **Linux and macOS:**
 ```bash
@@ -136,6 +136,10 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
 ```
 Make sure the command ends right after `-b beta` with **no trailing parenthesis**.
+*Install with GUI support:*
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ --mode gui
+```
 
 **Windows (PowerShell):**
 ```powershell
@@ -152,7 +156,7 @@ The Windows installer will attempt to install Git automatically if it is not alr
 
 #### Installer Dependency Checks
 
-The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Pass `--no-gui` to skip installing GUI packages. On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
+The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Use `--mode gui` to install only the graphical interface or `--mode both` to install both interfaces (default: `tui`). On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
 
 #### Windows Nostr Sync Troubleshooting
 
