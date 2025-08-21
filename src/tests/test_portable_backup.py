@@ -15,6 +15,7 @@ from seedpass.core.vault import Vault
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.portable_backup import export_backup, import_backup
+from seedpass.core.portable_backup import PortableMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
 from utils.fingerprint import generate_fingerprint
 
@@ -48,6 +49,22 @@ def test_round_trip(monkeypatch):
         assert path.exists()
         wrapper = json.loads(path.read_text())
         assert wrapper.get("cipher") == "aes-gcm"
+
+        vault.save_index({"pw": 0})
+        import_backup(vault, backup, path, parent_seed=SEED)
+        assert vault.load_index()["pw"] == data["pw"]
+
+
+def test_round_trip_unencrypted(monkeypatch):
+    with TemporaryDirectory() as td:
+        tmp = Path(td)
+        vault, backup, _ = setup_vault(tmp)
+        data = {"pw": 1}
+        vault.save_index(data)
+
+        path = export_backup(vault, backup, parent_seed=SEED, encrypt=False)
+        wrapper = json.loads(path.read_text())
+        assert wrapper["encryption_mode"] == PortableMode.NONE.value
 
         vault.save_index({"pw": 0})
         import_backup(vault, backup, path, parent_seed=SEED)

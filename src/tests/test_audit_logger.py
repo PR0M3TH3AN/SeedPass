@@ -36,6 +36,7 @@ def test_audit_logger_records_events(monkeypatch, tmp_path):
     monkeypatch.setattr(manager_module, "export_backup", lambda *a, **k: dest)
     pm.vault = object()
     pm.backup_manager = object()
+    monkeypatch.setattr("seedpass.core.manager.confirm_action", lambda *_a, **_k: True)
     pm.handle_export_database(dest)
 
     confirms = iter([True, False])

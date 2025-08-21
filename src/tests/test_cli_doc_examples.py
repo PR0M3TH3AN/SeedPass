@@ -42,7 +42,7 @@ class DummyPM:
         )
         self.parent_seed = "seed"
         self.handle_display_totp_codes = lambda: None
-        self.handle_export_database = lambda path: None
+        self.handle_export_database = lambda path, **kwargs: None
         self.handle_import_database = lambda path: None
         self.change_password = lambda *a, **kw: None
         self.lock_vault = lambda: None
