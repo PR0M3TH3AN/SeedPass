@@ -40,6 +40,11 @@ pillow = { version = "*", optional = true }
 [tool.poetry.extras]
 gui = ["toga-core", "pillow"]
 
+[project.optional-dependencies]
+gui-gtk = ["toga-gtk>=0.5.2"]
+gui-win = ["toga-winforms>=0.5.2"]
+gui-mac = ["toga-cocoa>=0.5.2"]
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"
 coverage = "^7.5"

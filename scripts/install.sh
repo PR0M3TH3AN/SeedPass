@@ -197,14 +197,15 @@ main() {
             fi
         fi
         if [ "$GUI_READY" = true ]; then
-            pip install -e .[gui]
-            print_info "Installing platform-specific Toga backend..."
             if [ "$OS_NAME" = "Linux" ]; then
-                print_info "Installing toga-gtk for Linux..."
-                pip install toga-gtk
+                print_info "Installing Linux GUI dependencies..."
+                pip install -e ".[gui-gtk]"
             elif [ "$OS_NAME" = "Darwin" ]; then
-                print_info "Installing toga-cocoa for macOS..."
-                pip install toga-cocoa
+                print_info "Installing macOS GUI dependencies..."
+                pip install -e ".[gui-mac]"
+            else
+                print_warning "Unsupported OS for GUI installation. Installing core package only."
+                pip install -e .
             fi
         else
             print_warning "Skipping GUI installation."
