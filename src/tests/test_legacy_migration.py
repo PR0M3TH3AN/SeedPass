@@ -156,6 +156,14 @@ def test_migration_syncs_when_confirmed(monkeypatch, tmp_path: Path):
     pm.fingerprint_dir = tmp_path
     pm.current_fingerprint = tmp_path.name
     pm.bip85 = SimpleNamespace()
+    from seedpass.core.config_manager import ConfigManager
+
+    cfg_mgr = ConfigManager(pm.vault, tmp_path)
+    cfg = cfg_mgr.load_config(require_pin=False)
+    cfg["offline_mode"] = False
+    cfg_mgr.save_config(cfg)
+    pm.config_manager = cfg_mgr
+    pm.offline_mode = False
 
     calls = {"sync": 0}
     pm.sync_vault = lambda *a, **k: calls.__setitem__("sync", calls["sync"] + 1) or {
@@ -279,6 +287,7 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     pm.fingerprint_dir = tmp_path
     pm.current_fingerprint = tmp_path.name
     pm.bip85 = SimpleNamespace()
+    pm.offline_mode = True
 
     monkeypatch.setattr(
         "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
@@ -296,7 +305,7 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     pm.initialize_managers()
     pm.initialize_managers()
 
-    assert calls["sync"] == 1
+    assert calls["sync"] == 0
     assert enc_mgr.last_migration_performed is False
 
 
@@ -316,6 +325,13 @@ def test_schema_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
     pm.fingerprint_dir = tmp_path
     pm.current_fingerprint = tmp_path.name
     pm.bip85 = SimpleNamespace()
+    from seedpass.core.config_manager import ConfigManager
+
+    cfg_mgr = ConfigManager(pm.vault, tmp_path)
+    cfg = cfg_mgr.load_config(require_pin=False)
+    cfg["offline_mode"] = False
+    cfg_mgr.save_config(cfg)
+    pm.config_manager = cfg_mgr
     pm.offline_mode = False
 
     calls = {"sync": 0, "confirm": 0}

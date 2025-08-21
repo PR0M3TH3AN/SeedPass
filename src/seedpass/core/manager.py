@@ -289,7 +289,7 @@ class PasswordManager:
         self.secret_mode_enabled: bool = False
         self.deterministic_totp: bool = False
         self.clipboard_clear_delay: int = 45
-        self.offline_mode: bool = False
+        self.offline_mode: bool = True
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
@@ -1414,7 +1414,7 @@ class PasswordManager:
                 self.last_sync_ts = 0
                 self.manifest_id = None
                 self.delta_since = 0
-            self.offline_mode = bool(config.get("offline_mode", False))
+            self.offline_mode = bool(config.get("offline_mode", True))
             self.inactivity_timeout = config.get(
                 "inactivity_timeout", INACTIVITY_TIMEOUT
             )

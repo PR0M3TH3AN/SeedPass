@@ -16,6 +16,10 @@ This software was not developed by an experienced security expert and should be 
 
 Recent releases derive passwords and other artifacts using a fully deterministic algorithm that behaves consistently across Python versions. This improvement means artifacts generated with earlier versions of SeedPass will not match those produced now. Regenerate any previously derived data or retain the old version if you need to reproduce older passwords or keys.
 
+**⚠️ First Run Warning**
+
+Use a dedicated BIP-39 seed phrase exclusively for SeedPass. Offline Mode is **ON by default**, keeping all Nostr syncing disabled until you explicitly opt in.
+
 ---
 ### Supported OS
 
