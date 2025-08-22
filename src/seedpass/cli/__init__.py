@@ -9,6 +9,7 @@ from typing import Optional
 import typer
 
 from .common import _get_services
+from seedpass.core.errors import SeedPassError
 
 app = typer.Typer(
     help="SeedPass command line interface",
@@ -47,6 +48,15 @@ app.add_typer(config.app, name="config")
 app.add_typer(fingerprint.app, name="fingerprint")
 app.add_typer(util.app, name="util")
 app.add_typer(api.app, name="api")
+
+
+def run() -> None:
+    """Invoke the CLI, handling SeedPass errors gracefully."""
+    try:
+        app()
+    except SeedPassError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
 
 
 def _gui_backend_available() -> bool:
@@ -173,4 +183,4 @@ def gui(
 
 
 if __name__ == "__main__":  # pragma: no cover
-    app()
+    run()

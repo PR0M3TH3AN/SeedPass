@@ -38,6 +38,7 @@ from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup, PortableMode
 from cryptography.fernet import InvalidToken
+from .errors import SeedPassError
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -559,7 +560,7 @@ class PasswordManager:
             print(
                 colored(f"Error: Failed to initialize FingerprintManager: {e}", "red")
             )
-            sys.exit(1)
+            raise SeedPassError(f"Failed to initialize FingerprintManager: {e}") from e
 
     def setup_parent_seed(self) -> None:
         """
@@ -601,7 +602,7 @@ class PasswordManager:
             choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints) + 1):
                 print(colored("Invalid selection. Exiting.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Invalid selection.")
 
             choice = int(choice)
             if choice == len(fingerprints) + 1:
@@ -615,7 +616,7 @@ class PasswordManager:
         except Exception as e:
             logger.error(f"Error during seed profile selection: {e}", exc_info=True)
             print(colored(f"Error: Failed to select seed profile: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to select seed profile: {e}") from e
 
     def add_new_fingerprint(self):
         """
@@ -638,7 +639,7 @@ class PasswordManager:
                 fingerprint = self.generate_new_seed()
             else:
                 print(colored("Invalid choice. Exiting.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Invalid choice.")
 
             if not fingerprint:
                 return None
@@ -661,7 +662,7 @@ class PasswordManager:
         except Exception as e:
             logger.error(f"Error adding new seed profile: {e}", exc_info=True)
             print(colored(f"Error: Failed to add new seed profile: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to add new seed profile: {e}") from e
 
     def select_fingerprint(
         self, fingerprint: str, *, password: Optional[str] = None
@@ -678,7 +679,9 @@ class PasswordManager:
                         "red",
                     )
                 )
-                sys.exit(1)
+                raise SeedPassError(
+                    f"Seed profile directory for {fingerprint} not found."
+                )
             # Setup the encryption manager and load parent seed
             self.setup_encryption_manager(self.fingerprint_dir, password)
             # Initialize BIP85 and other managers
@@ -692,7 +695,7 @@ class PasswordManager:
             )
         else:
             print(colored(f"Error: Seed profile {fingerprint} not found.", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Seed profile {fingerprint} not found.")
 
     def setup_encryption_manager(
         self,
@@ -784,10 +787,10 @@ class PasswordManager:
                 logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
                 print(colored(f"Error: Failed to set up encryption: {e}", "red"))
                 if exit_on_fail:
-                    sys.exit(1)
+                    raise SeedPassError(f"Failed to set up encryption: {e}") from e
                 return False
         if exit_on_fail:
-            sys.exit(1)
+            raise SeedPassError("Failed to set up encryption")
         return False
 
     def load_parent_seed(
@@ -829,7 +832,7 @@ class PasswordManager:
         except Exception as e:
             logger.error(f"Failed to load parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to load parent seed: {e}") from e
 
     @requires_unlocked
     def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
@@ -913,7 +916,9 @@ class PasswordManager:
                         "red",
                     )
                 )
-                sys.exit(1)
+                raise SeedPassError(
+                    "No seed profiles available. Please add a seed profile first."
+                )
 
             print(colored("Available Seed Profiles:", "cyan"))
             for idx, fp in enumerate(fingerprints, start=1):
@@ -927,7 +932,7 @@ class PasswordManager:
             choice = input("Select a seed profile by number: ").strip()
             if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
                 print(colored("Invalid selection. Exiting.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Invalid selection.")
 
             selected_fingerprint = fingerprints[int(choice) - 1]
             self.current_fingerprint = selected_fingerprint
@@ -936,7 +941,7 @@ class PasswordManager:
             )
             if not fingerprint_dir:
                 print(colored("Error: Seed profile directory not found.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Seed profile directory not found.")
 
             # Derive encryption key from password using selected fingerprint
             iterations = (
@@ -966,14 +971,14 @@ class PasswordManager:
             if not self.validate_bip85_seed(self.parent_seed):
                 logging.error("Decrypted seed is invalid. Exiting.")
                 print(colored("Error: Decrypted seed is invalid.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Decrypted seed is invalid.")
 
             self.initialize_bip85()
             logging.debug("Parent seed decrypted and validated successfully.")
         except Exception as e:
             logging.error(f"Failed to decrypt parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to decrypt parent seed: {e}") from e
 
     def handle_new_seed_setup(self) -> None:
         """
@@ -1013,7 +1018,7 @@ class PasswordManager:
             return
         else:
             print(colored("Invalid choice. Exiting.", "red"))
-            sys.exit(1)
+            raise SeedPassError("Invalid choice.")
 
         # Some seed loading paths may not initialize managers; ensure they exist
         if getattr(self, "config_manager", None) is None:
@@ -1050,13 +1055,13 @@ class PasswordManager:
             if not self.validate_bip85_seed(parent_seed):
                 logging.error("Invalid BIP-85 seed phrase. Exiting.")
                 print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
-                sys.exit(1)
+                raise SeedPassError("Invalid BIP-85 seed phrase.")
             fingerprint = self._finalize_existing_seed(parent_seed, password=password)
             return fingerprint
         except KeyboardInterrupt:
             logging.info("Operation cancelled by user.")
             self.notify("Operation cancelled by user.", level="WARNING")
-            sys.exit(0)
+            raise SeedPassError("Operation cancelled by user.")
 
     def setup_existing_seed_word_by_word(
         self, *, seed: Optional[str] = None, password: Optional[str] = None
@@ -1089,7 +1094,9 @@ class PasswordManager:
                         "red",
                     )
                 )
-                sys.exit(1)
+                raise SeedPassError(
+                    "Failed to generate seed profile for the provided seed."
+                )
 
             fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
                 fingerprint
@@ -1098,7 +1105,7 @@ class PasswordManager:
                 print(
                     colored("Error: Failed to retrieve seed profile directory.", "red")
                 )
-                sys.exit(1)
+                raise SeedPassError("Failed to retrieve seed profile directory.")
 
             self.current_fingerprint = fingerprint
             self.fingerprint_manager.current_fingerprint = fingerprint
@@ -1152,7 +1159,7 @@ class PasswordManager:
         else:
             logging.error("Invalid BIP-85 seed phrase. Exiting.")
             print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
-            sys.exit(1)
+            raise SeedPassError("Invalid BIP-85 seed phrase.")
 
     @requires_unlocked
     def generate_new_seed(self) -> Optional[str]:
@@ -1197,7 +1204,7 @@ class PasswordManager:
                         "red",
                     )
                 )
-                sys.exit(1)
+                raise SeedPassError("Failed to generate seed profile for the new seed.")
 
             fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
                 fingerprint
@@ -1206,7 +1213,7 @@ class PasswordManager:
                 print(
                     colored("Error: Failed to retrieve seed profile directory.", "red")
                 )
-                sys.exit(1)
+                raise SeedPassError("Failed to retrieve seed profile directory.")
 
             # Persist the assigned account index for the new profile
             try:
@@ -1234,7 +1241,7 @@ class PasswordManager:
             return fingerprint  # Return the generated fingerprint
         else:
             self.notify("Seed generation cancelled. Exiting.", level="WARNING")
-            sys.exit(0)
+            raise SeedPassError("Seed generation cancelled.")
 
     def validate_bip85_seed(self, seed: str) -> bool:
         """
@@ -1271,11 +1278,11 @@ class PasswordManager:
         except Bip85Error as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
         except Exception as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
 
     @requires_unlocked
     def save_and_encrypt_seed(
@@ -1348,7 +1355,7 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to encrypt and save parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to encrypt and save parent seed: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to encrypt and save parent seed: {e}") from e
 
     def initialize_bip85(self):
         """
@@ -1377,7 +1384,7 @@ class PasswordManager:
         except Exception as e:
             logging.error(f"Failed to initialize BIP-85: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize BIP-85: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to initialize BIP-85: {e}") from e
 
     def initialize_managers(self) -> None:
         """
@@ -1417,7 +1424,7 @@ class PasswordManager:
                 )
             except RuntimeError as exc:
                 print(colored(str(exc), "red"))
-                sys.exit(1)
+                raise SeedPassError(str(exc))
 
             self.entry_manager = EntryManager(
                 vault=self.vault,
@@ -1519,7 +1526,7 @@ class PasswordManager:
         except Exception as e:
             logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to initialize managers: {e}") from e
 
     async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""

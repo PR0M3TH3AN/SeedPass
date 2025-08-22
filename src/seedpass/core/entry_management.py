@@ -25,7 +25,6 @@ except Exception:  # pragma: no cover - fallback when orjson is missing
     USE_ORJSON = False
 import logging
 import hashlib
-import sys
 import shutil
 import time
 from typing import Optional, Tuple, Dict, Any, List
@@ -48,6 +47,7 @@ from utils.key_validation import (
 
 from .vault import Vault
 from .backup import BackupManager
+from .errors import SeedPassError
 
 
 # Instantiate the logger
@@ -148,7 +148,7 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Error determining next index: {e}", exc_info=True)
             print(colored(f"Error determining next index: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Error determining next index: {e}") from e
 
     def add_entry(
         self,
@@ -238,7 +238,7 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Failed to add entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to add entry: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to add entry: {e}") from e
 
     def get_next_totp_index(self) -> int:
         """Return the next available derivation index for TOTP secrets."""
