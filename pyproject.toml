@@ -36,9 +36,15 @@ PyJWT = ">=2.8.0"
 slowapi = "^0.1.9"
 toga-core = { version = ">=0.5.2", optional = true }
 pillow = { version = "*", optional = true }
+toga-gtk = { version = ">=0.5.2", optional = true }
+toga-winforms = { version = ">=0.5.2", optional = true }
+toga-cocoa = { version = ">=0.5.2", optional = true }
 
 [tool.poetry.extras]
 gui = ["toga-core", "pillow"]
+gui-gtk = ["toga-gtk"]
+gui-win = ["toga-winforms"]
+gui-mac = ["toga-cocoa"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"

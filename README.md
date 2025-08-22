@@ -257,10 +257,18 @@ adding the Python GUI dependencies.
   brew install pygobject3 gtk+3 adwaita-icon-theme librsvg webkitgtk
   ```
 
-With the system requirements in place, install the Python GUI extras:
+With the system requirements in place, install the Python GUI extras for your
+platform:
 
 ```bash
-pip install .[gui]
+# Linux
+pip install .[gui-gtk]
+
+# Windows
+pip install .[gui-win]
+
+# macOS
+pip install .[gui-mac]
 ```
 
 CLI-only users can skip these steps and install just the core package for a
@@ -323,31 +331,30 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
-GUI dependencies are optional. Install them alongside SeedPass with:
-
-```bash
-pip install "seedpass[gui]"
-
-# or when working from a local checkout
-pip install -e .[gui]
-```
-
-After installing the optional GUI extras, add the BeeWare backend for your
-platform:
+GUI dependencies are optional. Install them alongside SeedPass with the
+extra for your platform:
 
 ```bash
 # Linux
-pip install toga-gtk
-
-# If you see build errors about "cairo" on Linux, install the cairo
-# development headers using your package manager, e.g.:
-sudo apt-get install libcairo2 libcairo2-dev
+pip install "seedpass[gui-gtk]"
 
 # Windows
-pip install toga-winforms
+pip install "seedpass[gui-win]"
 
 # macOS
-pip install toga-cocoa
+pip install "seedpass[gui-mac]"
+
+# or when working from a local checkout
+pip install -e ".[gui-gtk]"  # Linux
+pip install -e ".[gui-win]"  # Windows
+pip install -e ".[gui-mac]"  # macOS
+```
+
+If you see build errors about "cairo" on Linux, install the cairo development
+headers using your package manager, e.g.:
+
+```bash
+sudo apt-get install libcairo2 libcairo2-dev
 ```
 
 The GUI works with the same vault and configuration files as the CLI.
