@@ -14,6 +14,7 @@ import gzip
 
 from seedpass.core.manager import PasswordManager, EncryptionMode
 from seedpass.core.vault import Vault
+from seedpass.core.errors import SeedPassError
 
 
 def test_legacy_index_migrates(monkeypatch, tmp_path: Path):
@@ -386,7 +387,7 @@ def test_declined_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr("seedpass.core.manager.confirm_action", fake_confirm)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SeedPassError):
         pm.initialize_managers()
 
     assert calls["confirm"] == 0
@@ -425,7 +426,7 @@ def test_failed_migration_no_sync_prompt(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr("seedpass.core.manager.confirm_action", fake_confirm)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SeedPassError):
         pm.initialize_managers()
 
     assert calls["confirm"] == 0

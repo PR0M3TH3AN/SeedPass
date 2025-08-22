@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 import seedpass.core.manager as manager_module
+from seedpass.core.errors import SeedPassError
 from helpers import TEST_SEED
 from utils import seed_prompt
 
@@ -86,7 +87,7 @@ def test_add_new_fingerprint_words_flow_invalid_phrase(monkeypatch):
     monkeypatch.setattr(seed_prompt, "clear_screen", lambda *_a, **_k: None)
     monkeypatch.setattr(builtins, "input", lambda *_: next(inputs))
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SeedPassError):
         pm.add_new_fingerprint()
 
     assert pm.fingerprint_manager.current_fingerprint is None
