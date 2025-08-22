@@ -18,7 +18,7 @@ Recent releases derive passwords and other artifacts using a fully deterministic
 
 **⚠️ First Run Warning**
 
-Use a dedicated BIP-39 seed phrase exclusively for SeedPass. Offline Mode is **ON by default**, keeping all Nostr syncing disabled until you explicitly opt in.
+Use a dedicated BIP-39 seed phrase exclusively for SeedPass. Offline Mode is **ON by default**, keeping all Nostr syncing disabled until you explicitly opt in. To synchronize with Nostr, disable offline mode through the Settings menu or by running `seedpass config toggle-offline` and choosing to turn syncing on.
 
 ---
 ### Supported OS

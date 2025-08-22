@@ -1,6 +1,6 @@
 # Nostr Setup
 
-This guide explains how SeedPass uses the Nostr protocol for encrypted vault backups and how to configure relays.
+This guide explains how SeedPass uses the Nostr protocol for encrypted vault backups and how to configure relays. SeedPass starts in offline mode, so you must explicitly disable it before any network synchronization. Run `seedpass config toggle-offline` or use the Settings menu to enable online syncing.
 
 ## Relay Configuration
 
