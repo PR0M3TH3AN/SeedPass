@@ -123,13 +123,13 @@ See `docs/ARCHITECTURE.md` and [Nostr Setup](docs/nostr_setup.md) for details.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
-The scripts can also install the BeeWare backend for your platform when requested (`--mode gui` or `--mode both` on Linux/macOS, `-IncludeGui` on Windows).
-If the GTK `gi` bindings are missing, the installer attempts to install the
+The default `tui` mode installs only the text interface, so it runs headlessly and works well in CI or other automation. GUI backends are optional and must be explicitly requested (`--mode gui` or `--mode both` on Linux/macOS, `-IncludeGui` on Windows). If the GTK `gi` bindings are missing, the installer attempts to install the
 necessary system packages using `apt`, `yum`, `pacman`, or Homebrew. When no display server is detected, GUI components are skipped automatically.
 
 **Linux and macOS:**
 ```bash
-bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+# TUI-only/agent install (headless default)
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ --mode tui
 ```
 *Install the beta branch:*
 ```bash
@@ -143,6 +143,7 @@ bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/
 
 **Windows (PowerShell):**
 ```powershell
+# TUI-only/agent install (default)
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
 ```
 *Install with the optional GUI:*
@@ -237,8 +238,9 @@ After installing `xclip`, restart SeedPass to enable clipboard support.
 ### Optional GUI
 
 SeedPass ships with a GTK-based desktop interface that is still in development
-and not currently functional. Install the packages for your platform before
-adding the Python GUI dependencies.
+and not currently functional. GUI backends are optional—run the installer with
+`--mode gui` or install the Python extras below to add them. Install the packages
+for your platform before adding the Python GUI dependencies.
 
 - **Debian/Ubuntu**
   ```bash
@@ -272,7 +274,7 @@ pip install .[gui-mac]
 ```
 
 CLI-only users can skip these steps and install just the core package for a
-lightweight setup:
+lightweight, headless setup compatible with CI/automation:
 
 ```bash
 pip install .
