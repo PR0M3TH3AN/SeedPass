@@ -78,7 +78,7 @@ Manage the entire vault for a profile.
 
 ### Nostr Commands
 
-Interact with the Nostr network for backup and synchronization.
+Interact with the Nostr network for backup and synchronization. Offline mode is enabled by default, so disable it with `seedpass config toggle-offline` before using these commands.
 
 | Action | Command | Examples |
 | :--- | :--- | :--- |

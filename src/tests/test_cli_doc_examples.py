@@ -77,7 +77,7 @@ class DummyPM:
             set_offline_mode=lambda v: None,
             get_secret_mode_enabled=lambda: True,
             get_clipboard_clear_delay=lambda: 30,
-            get_offline_mode=lambda: False,
+            get_offline_mode=lambda: True,
         )
         self.secret_mode_enabled = True
         self.clipboard_clear_delay = 30

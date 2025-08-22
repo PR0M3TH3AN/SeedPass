@@ -83,7 +83,7 @@ maintainable while enabling a consistent experience on multiple platforms.
 - **Change Master Password:** Rotate your encryption password at any time.
 - **Checksum Verification Utilities:** Verify or regenerate the script checksum.
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
-- **Offline Mode:** Disable network sync to work entirely locally.
+- **Offline Mode (default):** SeedPass runs without network sync until you explicitly enable it.
 
 ## Prerequisites
 
@@ -472,7 +472,7 @@ Back in the Settings menu you can:
   whether both the encrypted database and the script itself pass checksum
   validation.
 * Choose `14` to toggle Secret Mode and set the clipboard clear delay.
-* Select `15` to toggle Offline Mode and work locally without contacting Nostr.
+* Select `15` to toggle Offline Mode. SeedPass starts offline; disable it here to enable Nostr syncing.
 * Choose `16` to toggle Quick Unlock so subsequent actions skip the password prompt. Startup delay is unchanged.
 * Select `17` to return to the main menu.
 
@@ -566,7 +566,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Use `seedpass config set kdf_iterations` to change this.
-- **Offline Mode:** Disable Nostr sync to keep all operations local until you re-enable networking.
+- **Offline Mode (default):** Nostr sync is disabled until you explicitly enable it via the Settings menu or `seedpass config toggle-offline`.
   - **Quick Unlock:** Store a hashed copy of your password so future actions skip the prompt. Startup delay no longer changes. Use with caution on shared systems.
 
 ## Contributing

@@ -7,7 +7,7 @@ from seedpass.cli import common as cli_common
 runner = CliRunner()
 
 
-def _make_pm(called, enabled=False):
+def _make_pm(called, enabled=True):
     cfg = SimpleNamespace(
         get_offline_mode=lambda: enabled,
         set_offline_mode=lambda v: called.setdefault("enabled", v),
@@ -24,10 +24,10 @@ def test_toggle_offline_updates(monkeypatch):
     called = {}
     pm = _make_pm(called)
     monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
-    result = runner.invoke(app, ["config", "toggle-offline"], input="y\n")
+    result = runner.invoke(app, ["config", "toggle-offline"], input="n\n")
     assert result.exit_code == 0
-    assert called == {"enabled": True}
-    assert "Offline mode enabled." in result.stdout
+    assert called == {"enabled": False}
+    assert "Offline mode disabled." in result.stdout
 
 
 def test_toggle_offline_keep(monkeypatch):

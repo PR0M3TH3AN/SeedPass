@@ -243,7 +243,7 @@ class ConfigManager:
     def get_offline_mode(self) -> bool:
         """Retrieve the offline mode setting."""
         config = self.load_config(require_pin=False)
-        return bool(config.get("offline_mode", False))
+        return bool(config.get("offline_mode", True))
 
     def set_clipboard_clear_delay(self, delay: int) -> None:
         """Persist clipboard clear timeout in seconds."""
