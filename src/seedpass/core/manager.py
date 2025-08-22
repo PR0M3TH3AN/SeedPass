@@ -988,7 +988,8 @@ class PasswordManager:
             "2. Enter an existing seed one word at a time\n"
             "3. Generate a new seed\n"
             "4. Restore from Nostr\n"
-            "Enter choice (1/2/3/4): "
+            "5. Restore from local backup\n"
+            "Enter choice (1/2/3/4/5): "
         ).strip()
 
         if choice == "1":
@@ -1000,6 +1001,15 @@ class PasswordManager:
         elif choice == "4":
             seed_phrase = masked_input("Enter your 12-word BIP-85 seed: ").strip()
             self.restore_from_nostr_with_guidance(seed_phrase)
+            return
+        elif choice == "5":
+            backup_path = input("Enter backup file path: ").strip()
+            if not getattr(self, "fingerprint_manager", None):
+                self.initialize_fingerprint_manager()
+            seed_phrase = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+            fp = self._finalize_existing_seed(seed_phrase)
+            if fp:
+                self.backup_manager.restore_from_backup(backup_path)
             return
         else:
             print(colored("Invalid choice. Exiting.", "red"))

@@ -74,6 +74,61 @@ def test_handle_new_seed_setup_restore_from_nostr(monkeypatch, tmp_path, capsys)
     assert labels == ["site1"]
 
 
+def test_handle_new_seed_setup_restore_from_local_backup(monkeypatch, tmp_path, capsys):
+    dir_a = tmp_path / "A"
+    dir_b = tmp_path / "B"
+    dir_a.mkdir()
+    dir_b.mkdir()
+
+    pm_src = _init_pm(dir_a, None)
+    pm_src.notify = lambda *a, **k: None
+    pm_src.entry_manager.add_entry("site1", 12)
+    pm_src.backup_manager.create_backup()
+    backup_path = next(
+        pm_src.backup_manager.backup_dir.glob("entries_db_backup_*.json.enc")
+    )
+
+    pm_new = PasswordManager.__new__(PasswordManager)
+    pm_new.encryption_mode = EncryptionMode.SEED_ONLY
+    pm_new.notify = lambda *a, **k: None
+
+    called = {"init": False}
+
+    def init_fp_mgr():
+        called["init"] = True
+        pm_new.fingerprint_manager = object()
+
+    monkeypatch.setattr(pm_new, "initialize_fingerprint_manager", init_fp_mgr)
+
+    def finalize(seed, *, password=None):
+        assert pm_new.fingerprint_manager is not None
+        vault, enc_mgr = create_vault(dir_b, seed, TEST_PASSWORD)
+        cfg_mgr = ConfigManager(vault, dir_b)
+        backup_mgr = BackupManager(dir_b, cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
+        pm_new.encryption_manager = enc_mgr
+        pm_new.vault = vault
+        pm_new.entry_manager = entry_mgr
+        pm_new.backup_manager = backup_mgr
+        pm_new.config_manager = cfg_mgr
+        pm_new.fingerprint_dir = dir_b
+        pm_new.current_fingerprint = "fp"
+        return "fp"
+
+    monkeypatch.setattr(pm_new, "_finalize_existing_seed", finalize)
+    monkeypatch.setattr("seedpass.core.manager.masked_input", lambda *_: TEST_SEED)
+
+    inputs = iter(["5", str(backup_path)])
+    monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
+
+    pm_new.handle_new_seed_setup()
+    out = capsys.readouterr().out
+    assert "Index file restored from backup" in out
+    labels = [e[1] for e in pm_new.entry_manager.list_entries()]
+    assert labels == ["site1"]
+    assert called["init"]
+
+
 async def _no_snapshot():
     return None
 

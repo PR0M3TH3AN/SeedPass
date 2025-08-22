@@ -145,6 +145,28 @@ class BackupManager:
                 )
             )
 
+    def restore_from_backup(self, backup_path: str) -> None:
+        """Restore the index file from a user-specified backup path."""
+        try:
+            src = Path(backup_path)
+            if not src.exists():
+                logger.error(f"Backup file '{src}' does not exist.")
+                print(colored(f"Error: Backup file '{src}' does not exist.", "red"))
+                return
+            shutil.copy2(src, self.index_file)
+            os.chmod(self.index_file, 0o600)
+            logger.info(f"Index file restored from backup '{src}'.")
+            print(colored(f"[+] Index file restored from backup '{src}'.", "green"))
+        except Exception as e:
+            logger.error(
+                f"Failed to restore from backup '{backup_path}': {e}", exc_info=True
+            )
+            print(
+                colored(
+                    f"Error: Failed to restore from backup '{backup_path}': {e}", "red"
+                )
+            )
+
     def list_backups(self) -> None:
         try:
             backup_files = sorted(
