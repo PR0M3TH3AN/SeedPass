@@ -37,8 +37,7 @@ from .password_generation import PasswordGenerator
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup, PortableMode
-from cryptography.fernet import InvalidToken
-from .errors import SeedPassError
+from .errors import SeedPassError, DecryptionError
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -752,13 +751,11 @@ class PasswordManager:
                         ):
                             self.config_manager.set_kdf_iterations(iter_try)
                         break
-                    except InvalidToken:
+                    except DecryptionError:
                         seed_mgr = None
 
                 if seed_mgr is None:
-                    msg = (
-                        "Invalid password for selected seed profile. Please try again."
-                    )
+                    msg = "Incorrect password or corrupt file"
                     print(colored(msg, "red"))
                     attempts += 1
                     password = None
@@ -830,6 +827,10 @@ class PasswordManager:
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.derive_key_hierarchy(seed_bytes)
             self.bip85 = BIP85(seed_bytes)
+        except DecryptionError as e:
+            logger.error(f"Failed to load parent seed: {e}", exc_info=True)
+            print(colored("Incorrect password or corrupt file", "red"))
+            raise SeedPassError("Incorrect password or corrupt file") from e
         except Exception as e:
             logger.error(f"Failed to load parent seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
@@ -4246,7 +4247,7 @@ class PasswordManager:
                 src,
                 parent_seed=self.parent_seed,
             )
-        except InvalidToken:
+        except DecryptionError:
             logging.error("Invalid backup token during import", exc_info=True)
             print(
                 colored(
@@ -4488,7 +4489,7 @@ class PasswordManager:
             else:
                 logging.warning("Password verification failed.")
             return is_correct
-        except InvalidToken as e:
+        except DecryptionError as e:
             logging.error(f"Failed to decrypt config: {e}")
             print(
                 colored(
