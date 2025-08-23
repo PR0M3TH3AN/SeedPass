@@ -10,6 +10,7 @@ from .entry_types import EntryType, ALL_ENTRY_TYPES
 import seedpass.core.manager as manager_module
 from utils.color_scheme import color_text
 from utils.terminal_utils import clear_header_with_notification
+from utils.logging_utils import pause_logging_for_ui
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .manager import PasswordManager
@@ -21,6 +22,7 @@ class MenuHandler:
     def __init__(self, manager: PasswordManager) -> None:
         self.manager = manager
 
+    @pause_logging_for_ui
     def handle_list_entries(self) -> None:
         """List entries and optionally show details."""
         pm = self.manager
@@ -86,6 +88,7 @@ class MenuHandler:
             logging.error(f"Failed to list entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to list entries: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         pm = self.manager

@@ -1,4 +1,6 @@
 import logging
+from contextlib import contextmanager
+from functools import wraps
 
 _console_paused = False
 
@@ -22,3 +24,24 @@ def resume_console_logging() -> None:
     """Resume logging to console handlers."""
     global _console_paused
     _console_paused = False
+
+
+@contextmanager
+def console_logging_paused() -> None:
+    """Context manager to pause console logging within a block."""
+    pause_console_logging()
+    try:
+        yield
+    finally:
+        resume_console_logging()
+
+
+def pause_logging_for_ui(func):
+    """Decorator to pause console logging while ``func`` executes."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with console_logging_paused():
+            return func(*args, **kwargs)
+
+    return wrapper

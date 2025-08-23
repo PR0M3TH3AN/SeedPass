@@ -39,7 +39,7 @@ from utils import (
 )
 from utils.clipboard import ClipboardUnavailableError
 from utils.atomic_write import atomic_write
-from utils.logging_utils import ConsolePauseFilter
+from utils.logging_utils import ConsolePauseFilter, pause_logging_for_ui
 import queue
 from local_bip85.bip85 import Bip85Error
 
@@ -86,12 +86,6 @@ def configure_logging():
     """Configure application-wide logging with queue-based handlers."""
     global _queue_listener
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
     log_directory = Path("logs")
     log_directory.mkdir(parents=True, exist_ok=True)
 
@@ -99,7 +93,7 @@ def configure_logging():
     queue_handler = QueueHandler(log_queue)
 
     console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.ERROR)
+    console_handler.setLevel(logging.WARNING)
     console_handler.addFilter(ConsolePauseFilter())
 
     file_handler = logging.FileHandler(log_directory / "main.log")
@@ -114,12 +108,17 @@ def configure_logging():
     _queue_listener = QueueListener(log_queue, console_handler, file_handler)
     _queue_listener.start()
 
-    logger.addHandler(queue_handler)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[queue_handler],
+        force=True,
+    )
 
     logging.getLogger("monstr").setLevel(logging.WARNING)
     logging.getLogger("nostr").setLevel(logging.WARNING)
 
 
+@pause_logging_for_ui
 def confirm_action(prompt: str) -> bool:
     """
     Prompts the user for confirmation.
@@ -168,6 +167,7 @@ def get_notification_text(pm: PasswordManager) -> str:
     return color_text(getattr(note, "message", ""), category)
 
 
+@pause_logging_for_ui
 def handle_switch_fingerprint(password_manager: PasswordManager):
     """
     Handles switching the active fingerprint.

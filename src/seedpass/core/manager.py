@@ -103,6 +103,7 @@ from mnemonic import Mnemonic
 from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
+from utils.logging_utils import pause_logging_for_ui
 
 # Import NostrClient
 from nostr.client import NostrClient
@@ -834,6 +835,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to load parent seed: {e}", "red"))
             raise SeedPassError(f"Failed to load parent seed: {e}") from e
 
+    @pause_logging_for_ui
     @requires_unlocked
     def handle_switch_fingerprint(self, *, password: Optional[str] = None) -> bool:
         return self.profile_service.handle_switch_fingerprint(password=password)
@@ -894,6 +896,7 @@ class PasswordManager:
         self.update_activity()
         self.start_background_sync()
 
+    @pause_logging_for_ui
     def handle_existing_seed(self, *, password: Optional[str] = None) -> None:
         """
         Handles the scenario where an existing parent seed file is found.
@@ -980,6 +983,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to decrypt parent seed: {e}", "red"))
             raise SeedPassError(f"Failed to decrypt parent seed: {e}") from e
 
+    @pause_logging_for_ui
     def handle_new_seed_setup(self) -> None:
         """
         Handles the setup process when no existing parent seed is found.
@@ -1881,9 +1885,11 @@ class PasswordManager:
             self.notify("Starting with a new, empty vault.", level="INFO")
             return
 
+    @pause_logging_for_ui
     def handle_add_password(self) -> None:
         self.entry_service.handle_add_password()
 
+    @pause_logging_for_ui
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
         try:
@@ -2025,6 +2031,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add TOTP: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
         try:
@@ -2082,6 +2089,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add SSH key: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
         try:
@@ -2151,6 +2159,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
         try:
@@ -2218,6 +2227,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add PGP key: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
         try:
@@ -2277,6 +2287,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_key_value(self) -> None:
         """Add a generic key/value entry."""
         try:
@@ -2358,6 +2369,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_add_managed_account(self) -> None:
         """Add a managed account seed entry."""
         try:
@@ -3147,6 +3159,7 @@ class PasswordManager:
             print(colored("Error: Failed to retrieve the password.", "red"))
         return
 
+    @pause_logging_for_ui
     def handle_retrieve_entry(self) -> None:
         """Prompt for an index and display the corresponding entry."""
         try:
@@ -3181,6 +3194,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to retrieve password: {e}", "red"))
             pause()
 
+    @pause_logging_for_ui
     def handle_modify_entry(self) -> None:
         """
         Handles modifying an existing password entry by prompting the user for the index number
@@ -3621,6 +3635,7 @@ class PasswordManager:
             logging.error(f"Error during modifying entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to modify entry: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_search_entries(self) -> None:
         """Prompt for a query, list matches and optionally show details."""
         try:
@@ -3830,6 +3845,7 @@ class PasswordManager:
             )
         print("-" * 40)
 
+    @pause_logging_for_ui
     def handle_list_entries(self) -> None:
         self.menu_handler.handle_list_entries()
 
@@ -3870,6 +3886,7 @@ class PasswordManager:
             logging.error(f"Error during entry deletion: {e}", exc_info=True)
             print(colored(f"Error: Failed to delete entry: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_archive_entry(self) -> None:
         """Archive an entry without deleting it."""
         try:
@@ -3888,6 +3905,7 @@ class PasswordManager:
             logging.error(f"Error archiving entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to archive entry: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_view_archived_entries(self) -> None:
         """Display archived entries and optionally view or restore them."""
         try:
@@ -3955,9 +3973,11 @@ class PasswordManager:
             logging.error(f"Error viewing archived entries: {e}", exc_info=True)
             print(colored(f"Error: Failed to view archived entries: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_display_totp_codes(self) -> None:
         self.menu_handler.handle_display_totp_codes()
 
+    @pause_logging_for_ui
     def handle_verify_checksum(self) -> None:
         """
         Handles verifying the script's checksum against the stored checksum to ensure integrity.
@@ -3997,6 +4017,7 @@ class PasswordManager:
             logging.error(f"Error during checksum verification: {e}", exc_info=True)
             print(colored(f"Error: Failed to verify checksum: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_update_script_checksum(self) -> None:
         """Generate a new checksum for the manager script."""
         if not confirm_action("Generate new script checksum? (Y/N): "):
@@ -4142,6 +4163,7 @@ class PasswordManager:
             logging.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
 
+    @pause_logging_for_ui
     def handle_export_database(
         self,
         dest: Path | None = None,
@@ -4184,6 +4206,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to export database: {e}", "red"))
             return None
 
+    @pause_logging_for_ui
     def handle_import_database(self, src: Path) -> None:
         """Import a portable database file, replacing the current index."""
 
@@ -4266,6 +4289,7 @@ class PasswordManager:
         print(colored("Database imported successfully.", "green"))
         self.sync_vault()
 
+    @pause_logging_for_ui
     def handle_export_totp_codes(self) -> Path | None:
         """Export all 2FA codes to a JSON file for other authenticator apps."""
         try:
@@ -4336,6 +4360,7 @@ class PasswordManager:
             print(colored(f"Error: Failed to export 2FA codes: {e}", "red"))
             return None
 
+    @pause_logging_for_ui
     def handle_backup_reveal_parent_seed(
         self, file: Path | None = None, *, password: Optional[str] = None
     ) -> None:
