@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from contextlib import contextmanager
 from functools import wraps
 
@@ -12,6 +13,20 @@ class ConsolePauseFilter(logging.Filter):
         self, record: logging.LogRecord
     ) -> bool:  # pragma: no cover - small utility
         return not _console_paused
+
+
+class ChecksumWarningFilter(logging.Filter):
+    """Filter allowing only checksum warnings and errors to surface."""
+
+    def filter(
+        self, record: logging.LogRecord
+    ) -> bool:  # pragma: no cover - simple filter
+        if record.levelno >= logging.ERROR:
+            return True
+        return (
+            record.levelno == logging.WARNING
+            and Path(record.pathname).name == "checksum.py"
+        )
 
 
 def pause_console_logging() -> None:
