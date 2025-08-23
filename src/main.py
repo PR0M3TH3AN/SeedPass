@@ -9,6 +9,7 @@ if vendor_dir.exists():
 
 import os
 import logging
+from logging.handlers import QueueHandler, QueueListener
 import signal
 import time
 import argparse
@@ -38,6 +39,7 @@ from utils import (
 )
 from utils.clipboard import ClipboardUnavailableError
 from utils.atomic_write import atomic_write
+from utils.logging_utils import ConsolePauseFilter
 import queue
 from local_bip85.bip85 import Bip85Error
 
@@ -77,39 +79,43 @@ def load_global_config() -> dict:
         return {}
 
 
-def configure_logging():
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # Keep this as DEBUG to capture all logs
+_queue_listener: QueueListener | None = None
 
-    # Remove all handlers associated with the root logger object
+
+def configure_logging():
+    """Configure application-wide logging with queue-based handlers."""
+    global _queue_listener
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
 
-    # Ensure the 'logs' directory exists
     log_directory = Path("logs")
-    if not log_directory.exists():
-        log_directory.mkdir(parents=True, exist_ok=True)
+    log_directory.mkdir(parents=True, exist_ok=True)
 
-    # Create handlers
-    c_handler = logging.StreamHandler(sys.stdout)
-    f_handler = logging.FileHandler(log_directory / "main.log")
+    log_queue: queue.Queue[logging.LogRecord] = queue.Queue()
+    queue_handler = QueueHandler(log_queue)
 
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)
-    f_handler.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(logging.ERROR)
+    console_handler.addFilter(ConsolePauseFilter())
 
-    # Create formatters and add them to handlers
+    file_handler = logging.FileHandler(log_directory / "main.log")
+    file_handler.setLevel(logging.DEBUG)
+
     formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]"
+        "%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]",
     )
-    c_handler.setFormatter(formatter)
-    f_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
 
-    # Add handlers to the logger
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
+    _queue_listener = QueueListener(log_queue, console_handler, file_handler)
+    _queue_listener.start()
 
-    # Set logging level for third-party libraries to WARNING to suppress their debug logs
+    logger.addHandler(queue_handler)
+
     logging.getLogger("monstr").setLevel(logging.WARNING)
     logging.getLogger("nostr").setLevel(logging.WARNING)
 

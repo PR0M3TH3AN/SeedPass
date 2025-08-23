@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover - POSIX only
     tty = None  # type: ignore
 
 from utils.terminal_utils import clear_screen
+from utils.logging_utils import pause_console_logging, resume_console_logging
 
 
 DEFAULT_MAX_ATTEMPTS = 5
@@ -107,12 +108,15 @@ def _masked_input_posix(prompt: str) -> str:
 def masked_input(prompt: str) -> str:
     """Return input from the user while masking typed characters."""
     func = _masked_input_windows if sys.platform == "win32" else _masked_input_posix
+    pause_console_logging()
     try:
         return func(prompt)
     except KeyboardInterrupt:
         raise
     except Exception:  # pragma: no cover - fallback when TTY operations fail
         return input(prompt)
+    finally:
+        resume_console_logging()
 
 
 def prompt_seed_words(count: int = 12, *, max_attempts: int | None = None) -> str:
