@@ -9,7 +9,6 @@ if vendor_dir.exists():
 
 import os
 import logging
-from logging.handlers import QueueHandler, QueueListener
 import signal
 import time
 import argparse
@@ -39,8 +38,11 @@ from utils import (
 )
 from utils.clipboard import ClipboardUnavailableError
 from utils.atomic_write import atomic_write
-from utils.logging_utils import ConsolePauseFilter, pause_logging_for_ui
-import queue
+from utils.logging_utils import (
+    ConsolePauseFilter,
+    ChecksumWarningFilter,
+    pause_logging_for_ui,
+)
 from local_bip85.bip85 import Bip85Error
 
 
@@ -79,22 +81,16 @@ def load_global_config() -> dict:
         return {}
 
 
-_queue_listener: QueueListener | None = None
-
-
-def configure_logging():
-    """Configure application-wide logging with queue-based handlers."""
-    global _queue_listener
+def configure_logging() -> None:
+    """Configure application-wide logging handlers."""
 
     log_directory = Path("logs")
     log_directory.mkdir(parents=True, exist_ok=True)
 
-    log_queue: queue.Queue[logging.LogRecord] = queue.Queue()
-    queue_handler = QueueHandler(log_queue)
-
     console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.ERROR)
+    console_handler.setLevel(logging.WARNING)
     console_handler.addFilter(ConsolePauseFilter())
+    console_handler.addFilter(ChecksumWarningFilter())
 
     file_handler = logging.FileHandler(log_directory / "main.log")
     file_handler.setLevel(logging.DEBUG)
@@ -105,14 +101,12 @@ def configure_logging():
     console_handler.setFormatter(formatter)
     file_handler.setFormatter(formatter)
 
-    _queue_listener = QueueListener(log_queue, console_handler, file_handler)
-    _queue_listener.start()
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers.clear()
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
 
-    logging.basicConfig(
-        level=logging.DEBUG,
-        handlers=[queue_handler],
-        force=True,
-    )
     logging.captureWarnings(True)
 
     logging.getLogger("monstr").setLevel(logging.ERROR)
