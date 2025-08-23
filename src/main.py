@@ -59,7 +59,7 @@ def _warn_missing_optional_dependencies() -> None:
         try:
             importlib.import_module(module)
         except ModuleNotFoundError:
-            logging.warning(
+            logging.debug(
                 "Optional dependency '%s' is not installed; %s will be unavailable.",
                 module,
                 feature,
@@ -93,7 +93,7 @@ def configure_logging():
     queue_handler = QueueHandler(log_queue)
 
     console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.WARNING)
+    console_handler.setLevel(logging.ERROR)
     console_handler.addFilter(ConsolePauseFilter())
 
     file_handler = logging.FileHandler(log_directory / "main.log")
@@ -113,9 +113,10 @@ def configure_logging():
         handlers=[queue_handler],
         force=True,
     )
+    logging.captureWarnings(True)
 
-    logging.getLogger("monstr").setLevel(logging.WARNING)
-    logging.getLogger("nostr").setLevel(logging.WARNING)
+    logging.getLogger("monstr").setLevel(logging.ERROR)
+    logging.getLogger("nostr").setLevel(logging.ERROR)
 
 
 @pause_logging_for_ui
