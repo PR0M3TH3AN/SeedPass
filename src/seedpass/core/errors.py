@@ -9,6 +9,7 @@ exception, displaying a friendly message and exiting with code ``1``.
 """
 
 from click import ClickException
+from cryptography.fernet import InvalidToken
 
 
 class SeedPassError(ClickException):
@@ -18,8 +19,12 @@ class SeedPassError(ClickException):
         super().__init__(message)
 
 
-class DecryptionError(SeedPassError):
-    """Raised when encrypted data cannot be decrypted."""
+class DecryptionError(InvalidToken, SeedPassError):
+    """Raised when encrypted data cannot be decrypted.
+
+    Subclasses :class:`cryptography.fernet.InvalidToken` so callers expecting
+    the cryptography exception continue to work.
+    """
 
 
 __all__ = ["SeedPassError", "DecryptionError"]
