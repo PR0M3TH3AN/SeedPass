@@ -29,6 +29,7 @@ from utils.file_lock import exclusive_lock
 from mnemonic import Mnemonic
 from utils.password_prompt import prompt_existing_password
 from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
+from .errors import DecryptionError
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -137,12 +138,13 @@ class EncryptionManager:
                     ciphertext = encrypted_data[15:]
                     if len(ciphertext) < 16:
                         logger.error("AES-GCM payload too short")
-                        raise InvalidToken("AES-GCM payload too short")
+                        raise DecryptionError("Incorrect password or corrupt file")
                     return self.cipher.decrypt(nonce, ciphertext, None)
                 except InvalidTag as e:
-                    msg = f"Failed to decrypt{ctx}: invalid key or corrupt file"
-                    logger.error(msg)
-                    raise InvalidToken(msg) from e
+                    logger.error(
+                        f"Failed to decrypt{ctx}: incorrect password or corrupt file"
+                    )
+                    raise DecryptionError("Incorrect password or corrupt file") from e
 
             # Next try the older V2 format
             if encrypted_data.startswith(b"V2:"):
@@ -151,7 +153,7 @@ class EncryptionManager:
                     ciphertext = encrypted_data[15:]
                     if len(ciphertext) < 16:
                         logger.error("AES-GCM payload too short")
-                        raise InvalidToken("AES-GCM payload too short")
+                        raise DecryptionError("Incorrect password or corrupt file")
                     return self.cipher.decrypt(nonce, ciphertext, None)
                 except InvalidTag as e:
                     logger.debug(
@@ -164,9 +166,12 @@ class EncryptionManager:
                         )
                         return result
                     except InvalidToken:
-                        msg = f"Failed to decrypt{ctx}: invalid key or corrupt file"
-                        logger.error(msg)
-                        raise InvalidToken(msg) from e
+                        logger.error(
+                            f"Failed to decrypt{ctx}: incorrect password or corrupt file"
+                        )
+                        raise DecryptionError(
+                            "Incorrect password or corrupt file"
+                        ) from e
 
             # If it's neither V3 nor V2, assume legacy Fernet format
             logger.warning("Data is in legacy Fernet format. Attempting migration.")
@@ -176,18 +181,19 @@ class EncryptionManager:
                 logger.error(
                     "Legacy Fernet decryption failed. Vault may be corrupt or key is incorrect."
                 )
-                raise e
+                raise DecryptionError("Incorrect password or corrupt file") from e
 
-        except (InvalidToken, InvalidTag) as e:
-            if encrypted_data.startswith(b"V3|") or encrypted_data.startswith(b"V2:"):
-                # Already determined not to be legacy; re-raise
-                raise
-            if isinstance(e, InvalidToken) and str(e) == "AES-GCM payload too short":
-                raise
-            if not self._legacy_migrate_flag:
+        except DecryptionError as e:
+            if (
+                encrypted_data.startswith(b"V3|")
+                or encrypted_data.startswith(b"V2:")
+                or not self._legacy_migrate_flag
+            ):
                 raise
             logger.debug(f"Could not decrypt data{ctx}: {e}")
-            raise LegacyFormatRequiresMigrationError(context)
+            raise LegacyFormatRequiresMigrationError(context) from e
+        except (InvalidToken, InvalidTag) as e:  # pragma: no cover - safety net
+            raise DecryptionError("Incorrect password or corrupt file") from e
 
     def decrypt_legacy(
         self, encrypted_data: bytes, password: str, context: Optional[str] = None
@@ -224,9 +230,7 @@ class EncryptionManager:
             except Exception as e2:  # pragma: no cover - try next iteration
                 last_exc = e2
         logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
-        raise InvalidToken(
-            f"Could not decrypt{ctx} with any available method."
-        ) from last_exc
+        raise DecryptionError(f"Incorrect password or corrupt file") from last_exc
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
 
@@ -409,10 +413,14 @@ class EncryptionManager:
             if return_kdf:
                 return data, kdf
             return data
-        except (InvalidToken, InvalidTag) as e:
+        except DecryptionError as e:
             msg = f"Failed to decrypt or parse data from {file_path}: {e}"
             logger.error(msg)
-            raise InvalidToken(msg) from e
+            raise
+        except (InvalidToken, InvalidTag) as e:  # pragma: no cover - legacy safety
+            msg = f"Failed to decrypt or parse data from {file_path}: {e}"
+            logger.error(msg)
+            raise DecryptionError("Incorrect password or corrupt file") from e
         except JSONDecodeError as e:
             msg = f"Failed to parse JSON data from {file_path}: {e}"
             logger.error(msg)
@@ -484,7 +492,7 @@ class EncryptionManager:
             logger.info("Index file from Nostr was processed and saved successfully.")
             self.last_migration_performed = is_legacy
             return True
-        except (InvalidToken, LegacyFormatRequiresMigrationError):
+        except (DecryptionError, LegacyFormatRequiresMigrationError):
             try:
                 password = prompt_existing_password(
                     "Enter your master password for legacy decryption: "

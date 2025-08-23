@@ -18,4 +18,8 @@ class SeedPassError(ClickException):
         super().__init__(message)
 
 
-__all__ = ["SeedPassError"]
+class DecryptionError(SeedPassError):
+    """Raised when encrypted data cannot be decrypted."""
+
+
+__all__ = ["SeedPassError", "DecryptionError"]
