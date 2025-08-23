@@ -58,6 +58,8 @@ def _masked_input_windows(prompt: str) -> str:
     buffer: list[str] = []
     while True:
         ch = msvcrt.getwch()
+        if ch == "\x03":
+            raise KeyboardInterrupt
         if ch in ("\r", "\n"):
             sys.stdout.write("\n")
             return "".join(buffer)
@@ -85,6 +87,8 @@ def _masked_input_posix(prompt: str) -> str:
         tty.setraw(fd)
         while True:
             ch = sys.stdin.read(1)
+            if ch == "\x03":
+                raise KeyboardInterrupt
             if ch in ("\r", "\n"):
                 sys.stdout.write("\n")
                 return "".join(buffer)
@@ -105,6 +109,8 @@ def masked_input(prompt: str) -> str:
     func = _masked_input_windows if sys.platform == "win32" else _masked_input_posix
     try:
         return func(prompt)
+    except KeyboardInterrupt:
+        raise
     except Exception:  # pragma: no cover - fallback when TTY operations fail
         return input(prompt)
 
