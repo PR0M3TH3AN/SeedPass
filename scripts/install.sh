@@ -16,7 +16,8 @@ LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/seedpass"
 BRANCH="main" # Default branch
 HEADLESS_MODE="${SEEDPASS_HEADLESS:-}"
-SKIP_GUI=0
+ENABLE_GUI_EXPERIMENTAL="${SEEDPASS_ENABLE_GUI:-}"
+SKIP_GUI=1
 
 # --- Helper Functions ---
 is_truthy() {
@@ -194,10 +195,9 @@ main() {
         if is_truthy "$HEADLESS_MODE"; then
             SKIP_GUI=1
             print_info "Headless mode requested via SEEDPASS_HEADLESS. GUI backend installation will be skipped in favor of toga-dummy."
-        elif [ -z "${DISPLAY:-}" ]; then
-            SKIP_GUI=1
-            print_info "DISPLAY environment variable is empty. Assuming headless environment and skipping toga-gtk."
-        else
+        elif is_truthy "$ENABLE_GUI_EXPERIMENTAL"; then
+            SKIP_GUI=0
+            print_warning "Experimental GUI installation requested (SEEDPASS_ENABLE_GUI set)."
             print_info "Checking for Gtk/cairo development libraries..."
             if check_pkg_config_cairo && check_python_has_gtk; then
                 print_info "Gtk/cairo bindings already available."
@@ -205,6 +205,9 @@ main() {
                 print_warning "Gtk/cairo bindings not fully available. Attempting to install prerequisites..."
                 ensure_linux_gui_prereqs
             fi
+        else
+            SKIP_GUI=1
+            print_info "Defaulting to headless installation on Linux (toga-dummy backend)."
         fi
     fi
 
@@ -240,12 +243,17 @@ main() {
             print_info "Installing toga-dummy backend for headless Linux..."
             pip install --upgrade "toga-dummy>=0.5.2"
         else
-            print_info "Installing toga-gtk for Linux..."
+            print_info "Installing experimental toga-gtk backend for Linux..."
             pip install --upgrade "toga-gtk>=0.5.2"
         fi
     elif [ "$OS_NAME" = "Darwin" ]; then
-        print_info "Installing toga-cocoa for macOS..."
-        pip install --upgrade "toga-cocoa>=0.5.2"
+        if is_truthy "$ENABLE_GUI_EXPERIMENTAL"; then
+            print_info "Installing toga-cocoa for macOS..."
+            pip install --upgrade "toga-cocoa>=0.5.2"
+        else
+            print_info "Defaulting to headless backend on macOS. Set SEEDPASS_ENABLE_GUI=1 to install toga-cocoa."
+            pip install --upgrade "toga-dummy>=0.5.2"
+        fi
     fi
     deactivate
 
@@ -284,11 +292,14 @@ EOF2
 
     # 8. Final instructions
     print_success "Installation/update complete!"
-    print_info "You can now launch the interactive TUI by typing: seedpass"
-    print_info "'seedpass' resolves to: $(command -v seedpass)"
+    print_info "SeedPass launcher created at: $LAUNCHER_PATH"
     if [[ ":$PATH:" != *":$LAUNCHER_DIR:"* ]]; then
         print_warning "Directory '$LAUNCHER_DIR' is not in your PATH."
-        print_warning "Please add 'export PATH=\"$HOME/.local/bin:$PATH\"' to your shell's config file (e.g., ~/.bashrc, ~/.zshrc) and restart your terminal."
+        print_warning "To use 'seedpass' without the full path, add the following line to your shell config (e.g., ~/.bashrc):"
+        print_warning "    export PATH=\"$HOME/.local/bin:[0m$PATH\""
+        print_warning "Then reload your shell or run: source ~/.bashrc"
+    else
+        print_info "You can now launch the interactive TUI by typing: seedpass"
     fi
 }
 
