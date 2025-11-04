@@ -18,6 +18,7 @@ BRANCH="main" # Default branch
 HEADLESS_MODE="${SEEDPASS_HEADLESS:-}"
 SKIP_GUI=0
 
+# --- Helper Functions ---
 is_truthy() {
     case "$1" in
         1|y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON|enable|Enable|enabled|Enabled)
@@ -29,7 +30,6 @@ is_truthy() {
     esac
 }
 
-# --- Helper Functions ---
 print_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
 print_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
@@ -64,25 +64,10 @@ except Exception:
     sys.exit(1)
 PY
 }
-    if ! check_pkg_config_cairo; then
-+        run_with_privilege updatedb >/dev/null 2>&1 || true
-+        if command -v locate >/dev/null 2>&1; then
-+            CAIRO_PC_PATH=$(locate -n 1 "cairo.pc" 2>/dev/null || true)
-+            if [ -n "$CAIRO_PC_PATH" ]; then
-+                export PKG_CONFIG_PATH="$(dirname "$CAIRO_PC_PATH"):${PKG_CONFIG_PATH:-}"
-+            fi
-+        fi
-+    fi
-+
-+    if ! check_pkg_config_cairo; then
-         print_error "Cairo/GObject development files are still missing (pkg-config cannot locate 'cairo' and 'gobject-2.0')."
-     fi
- }
-
 
 ensure_linux_gui_prereqs() {
-    if command -v pkg-config &>/dev/null && pkg-config --exists cairo gobject-2.0 >/dev/null 2>&1; then
-        print_info "Cairo/GObject development libraries detected."
+    if check_pkg_config_cairo && check_python_has_gtk; then
+        print_info "Cairo/GObject development libraries already available."
         return 0
     fi
 
@@ -127,7 +112,14 @@ ensure_linux_gui_prereqs() {
     if ! check_pkg_config_cairo; then
         print_error "Cairo/GObject development files are still missing (pkg-config cannot locate 'cairo' and 'gobject-2.0')."
     fi
+
+    if ! check_python_has_gtk; then
+        print_error "Gtk/cairo Python bindings are still unavailable after installing prerequisites."
+    fi
+
+    print_info "Gtk/cairo development dependencies verified."
 }
+
 usage() {
     echo "Usage: $0 [-b | --branch <branch_name>] [-h | --help]"
     echo "  -b, --branch   Specify the git branch to install (default: main)"
@@ -152,7 +144,7 @@ main() {
                 usage
                 ;;
             *)
-                print_error "Unknown parameter passed: $1"; usage
+                print_error "Unknown parameter passed: $1"
                 ;;
         esac
     done
@@ -164,34 +156,47 @@ main() {
 
     # 2. Check for prerequisites
     print_info "Checking for prerequisites (git, python3, pip)..."
-    if ! command -v git &> /dev/null; then
+    if ! command -v git &>/dev/null; then
         print_warning "Git is not installed. Attempting to install..."
         if [ "$OS_NAME" = "Linux" ]; then
-            if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y git;
-            elif command -v dnf &> /dev/null; then sudo dnf install -y git;
-            elif command -v pacman &> /dev/null; then sudo pacman -Syu --noconfirm git;
+            if command -v apt-get &>/dev/null; then run_with_privilege apt-get update && run_with_privilege apt-get install -y git
+            elif command -v dnf &>/dev/null; then run_with_privilege dnf install -y git
+            elif command -v pacman &>/dev/null; then run_with_privilege pacman -Syu --noconfirm git
             else print_error "Git is not installed and automatic installation is not supported on this system."; fi
         elif [ "$OS_NAME" = "Darwin" ]; then
-            if command -v brew &> /dev/null; then brew install git;
+            if command -v brew &>/dev/null; then brew install git
             else print_error "Git is not installed and Homebrew was not found. Please install Git manually."; fi
         else
             print_error "Git is not installed. Please install it."
         fi
-        if ! command -v git &> /dev/null; then print_error "Git installation failed or git not found in PATH."; fi
+        if ! command -v git &>/dev/null; then print_error "Git installation failed or git not found in PATH."; fi
     fi
-    if ! command -v python3 &> /dev/null; then print_error "Python 3 is not installed. Please install it."; fi
-    if ! python3 -m ensurepip --default-pip &> /dev/null && ! command -v pip3 &> /dev/null; then print_error "pip for Python 3 is not available. Please install it."; fi
-    if ! python3 -c "import venv" &> /dev/null; then
+
+    if ! command -v python3 &>/dev/null; then print_error "Python 3 is not installed. Please install it."; fi
+
+    if ! python3 -m ensurepip --default-pip &>/dev/null && ! command -v pip3 &>/dev/null; then
+        print_error "pip for Python 3 is not available. Please install it."
+    fi
+
+    if ! python3 -c "import venv" &>/dev/null; then
         print_warning "Python 'venv' module not found. Attempting to install..."
         if [ "$OS_NAME" = "Linux" ]; then
-            if command -v apt-get &> /dev/null; then sudo apt-get update && sudo apt-get install -y python3-venv;
-            elif command -v dnf &> /dev/null; then sudo dnf install -y python3-virtualenv;
+            if command -v apt-get &>/dev/null; then run_with_privilege apt-get update && run_with_privilege apt-get install -y python3-venv
+            elif command -v dnf &>/dev/null; then run_with_privilege dnf install -y python3-virtualenv
             else print_error "Could not auto-install python3-venv. Please install it for your distribution."; fi
-        else print_error "Python 'venv' module is missing."; fi
+        else
+            print_error "Python 'venv' module is missing."
+        fi
     fi
 
     # 3. Install OS-specific dependencies
     if [ "$OS_NAME" = "Linux" ]; then
+        if is_truthy "$HEADLESS_MODE"; then
+            SKIP_GUI=1
+            print_info "Headless mode requested via SEEDPASS_HEADLESS. GUI backend installation will be skipped in favor of toga-dummy."
+        elif [ -z "${DISPLAY:-}" ]; then
+            SKIP_GUI=1
+            print_info "DISPLAY environment variable is empty. Assuming headless environment and skipping toga-gtk."
         else
             print_info "Checking for Gtk/cairo development libraries..."
             if check_pkg_config_cairo && check_python_has_gtk; then
@@ -199,13 +204,6 @@ main() {
             else
                 print_warning "Gtk/cairo bindings not fully available. Attempting to install prerequisites..."
                 ensure_linux_gui_prereqs
-                if ! check_pkg_config_cairo; then
-                    print_error "pkg-config could not locate 'cairo' and 'gobject-2.0' after attempting installation."
-                fi
-                if ! check_python_has_gtk; then
-                    print_error "Gtk/cairo Python bindings are still missing after installing prerequisites."
-                fi
-                print_info "Gtk/cairo bindings are now available."
             fi
         fi
     fi
@@ -235,6 +233,7 @@ main() {
     pip install --upgrade pip
     pip install -r src/requirements.txt
     pip install -e .
+
     print_info "Installing platform-specific Toga backend..."
     if [ "$OS_NAME" = "Linux" ]; then
         if [ "$SKIP_GUI" -eq 1 ]; then
@@ -253,7 +252,7 @@ main() {
     # 7. Create launcher script
     print_info "Creating launcher script at '$LAUNCHER_PATH'..."
     mkdir -p "$LAUNCHER_DIR"
-cat > "$LAUNCHER_PATH" << EOF2
+    cat > "$LAUNCHER_PATH" << EOF2
 #!/bin/bash
 source "$VENV_DIR/bin/activate"
 exec "$VENV_DIR/bin/seedpass" "\$@"
