@@ -15,6 +15,19 @@ VENV_DIR="$INSTALL_DIR/venv"
 LAUNCHER_DIR="$HOME/.local/bin"
 LAUNCHER_PATH="$LAUNCHER_DIR/seedpass"
 BRANCH="main" # Default branch
+HEADLESS_MODE="${SEEDPASS_HEADLESS:-}"
+SKIP_GUI=0
+
+is_truthy() {
+    case "$1" in
+        1|y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON|enable|Enable|enabled|Enabled)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[1;34m[INFO]\033[0m $1"; }
@@ -22,29 +35,62 @@ print_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $1"; }
 print_warning() { echo -e "\033[1;33m[WARNING]\033[0m $1"; }
 print_error() { echo -e "\033[1;31m[ERROR]\033[0m $1" >&2; exit 1; }
 
-# Install build dependencies for Gtk/GObject if available via the system package manager
-install_dependencies() {
-    print_info "Installing system packages required for Gtk bindings..."
-    if command -v apt-get &>/dev/null; then
-        sudo apt-get update && sudo apt-get install -y \
-            build-essential pkg-config libcairo2 libcairo2-dev \
-            libgirepository1.0-dev gobject-introspection \
-            gir1.2-gtk-3.0 python3-dev libffi-dev libssl-dev xclip
-    elif command -v yum &>/dev/null; then
-        sudo yum install -y @'Development Tools' cairo cairo-devel \
-            gobject-introspection-devel gtk3-devel python3-devel \
-            libffi-devel openssl-devel xclip
-    elif command -v dnf &>/dev/null; then
-        sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y \
-            cairo cairo-devel gobject-introspection-devel gtk3-devel \
-            python3-devel libffi-devel openssl-devel xclip
-    elif command -v pacman &>/dev/null; then
-        sudo pacman -Syu --noconfirm base-devel pkgconf cairo \
-            gobject-introspection gtk3 python xclip
-    elif command -v brew &>/dev/null; then
-        brew install pkg-config cairo gobject-introspection gtk+3
+run_with_privilege() {
+    if [ "$EUID" -eq 0 ]; then
+        "$@"
+    elif command -v sudo &>/dev/null; then
+        sudo "$@"
     else
-        print_warning "Unsupported package manager. Please install Gtk/GObject dependencies manually."
+        print_error "Elevated privileges are required to install system packages, but 'sudo' was not found."
+    fi
+}
+
+ensure_linux_gui_prereqs() {
+    if command -v pkg-config &>/dev/null && pkg-config --exists cairo gobject-2.0 >/dev/null 2>&1; then
+        print_info "Cairo/GObject development libraries detected."
+        return 0
+    fi
+
+    print_info "Installing system packages required for Gtk/pycairo (this may prompt for your password)..."
+
+    if command -v apt-get &>/dev/null; then
+        run_with_privilege apt-get update
+        run_with_privilege env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential pkg-config python3-dev python3-venv python3-gi \
+            libgirepository-2.0-dev libcairo2-dev gir1.2-gtk-3.0 \
+            libcanberra-gtk3-module gobject-introspection
+    elif command -v dnf &>/dev/null; then
+        run_with_privilege dnf groupinstall -y "Development Tools"
+        run_with_privilege dnf install -y \
+            gcc make pkgconf-pkg-config python3-devel python3-gobject \
+            gobject-introspection-devel cairo-devel cairo-gobject-devel \
+            gtk3 libcanberra-gtk3
+    elif command -v yum &>/dev/null; then
+        run_with_privilege yum groupinstall -y "Development Tools"
+        run_with_privilege yum install -y \
+            cairo cairo-devel gobject-introspection-devel gtk3-devel \
+            python3-devel python3-gobject pkgconf-pkg-config libcanberra-gtk3
+    elif command -v pacman &>/dev/null; then
+        run_with_privilege pacman -Syu --noconfirm --needed \
+            base-devel pkgconf python python-pip python-gobject \
+            cairo gobject-introspection gtk3 libcanberra
+    elif command -v zypper &>/dev/null; then
+        run_with_privilege zypper install -y -t pattern devel_basis || true
+        run_with_privilege zypper install -y \
+            pkgconf-pkg-config python3-devel python3-gobject gobject-introspection-devel \
+            cairo-devel gtk3 'typelib(Gtk)=3.0' libcanberra-gtk3-module
+    elif command -v apk &>/dev/null; then
+        run_with_privilege apk add --no-cache \
+            build-base pkgconf python3-dev py3-gobject3 \
+            gobject-introspection-dev cairo-dev gtk+3.0-dev
+    elif command -v brew &>/dev/null; then
+        brew install pkg-config cairo gobject-introspection gtk+3 pygobject3
+    else
+        print_warning "Unsupported package manager. Please install cairo/GTK development libraries manually."
+    fi
+
+    if ! command -v pkg-config &>/dev/null || ! pkg-config --exists cairo >/dev/null 2>&1; then
+        print_error "Cairo development files are still missing (pkg-config cannot locate 'cairo')."
     fi
 }
 usage() {
@@ -110,12 +156,47 @@ main() {
     fi
 
     # 3. Install OS-specific dependencies
-    print_info "Checking for Gtk development libraries..."
-    if ! python3 -c "import gi" &>/dev/null; then
-        print_warning "Gtk introspection bindings not found. Installing dependencies..."
-        install_dependencies
-    else
-        print_info "Gtk bindings already available."
+    if [ "$OS_NAME" = "Linux" ]; then
+        if is_truthy "$HEADLESS_MODE"; then
+            SKIP_GUI=1
+            print_info "Headless mode requested via SEEDPASS_HEADLESS. GUI backend installation will be skipped in favor of toga-dummy."
+        elif [ -z "${DISPLAY:-}" ]; then
+            SKIP_GUI=1
+            print_info "DISPLAY environment variable is empty. Assuming headless environment and skipping toga-gtk."
+        else
+            print_info "Checking for Gtk/cairo development libraries..."
+            if ! python3 - <<'PY' &>/dev/null
+import sys
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk  # noqa: F401
+    import cairo  # noqa: F401
+except Exception:
+    sys.exit(1)
+PY
+            then
+                print_warning "Gtk/cairo bindings not fully available. Attempting to install prerequisites..."
+                ensure_linux_gui_prereqs
+                if ! python3 - <<'PY' &>/dev/null
+import sys
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk  # noqa: F401
+    import cairo  # noqa: F401
+except Exception:
+    sys.exit(1)
+PY
+                then
+                    print_error "Gtk/cairo bindings are still missing after installing prerequisites."
+                else
+                    print_info "Gtk/cairo bindings are now available."
+                fi
+            else
+                print_info "Gtk/cairo bindings already available."
+            fi
+        fi
     fi
 
     # 4. Clone or update the repository
@@ -145,11 +226,16 @@ main() {
     pip install -e .
     print_info "Installing platform-specific Toga backend..."
     if [ "$OS_NAME" = "Linux" ]; then
-        print_info "Installing toga-gtk for Linux..."
-        pip install toga-gtk
+        if [ "$SKIP_GUI" -eq 1 ]; then
+            print_info "Installing toga-dummy backend for headless Linux..."
+            pip install --upgrade "toga-dummy>=0.5.2"
+        else
+            print_info "Installing toga-gtk for Linux..."
+            pip install --upgrade "toga-gtk>=0.5.2"
+        fi
     elif [ "$OS_NAME" = "Darwin" ]; then
         print_info "Installing toga-cocoa for macOS..."
-        pip install toga-cocoa
+        pip install --upgrade "toga-cocoa>=0.5.2"
     fi
     deactivate
 
