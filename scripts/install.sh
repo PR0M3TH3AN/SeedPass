@@ -45,6 +45,41 @@ run_with_privilege() {
     fi
 }
 
+check_pkg_config_cairo() {
+    if ! command -v pkg-config >/dev/null 2>&1; then
+        return 1
+    fi
+    pkg-config --exists cairo gobject-2.0 >/dev/null 2>&1
+}
+
+check_python_has_gtk() {
+    python3 - <<'PY' >/dev/null 2>&1
+import sys
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk  # noqa: F401
+    import cairo  # noqa: F401
+except Exception:
+    sys.exit(1)
+PY
+}
+    if ! check_pkg_config_cairo; then
++        run_with_privilege updatedb >/dev/null 2>&1 || true
++        if command -v locate >/dev/null 2>&1; then
++            CAIRO_PC_PATH=$(locate -n 1 "cairo.pc" 2>/dev/null || true)
++            if [ -n "$CAIRO_PC_PATH" ]; then
++                export PKG_CONFIG_PATH="$(dirname "$CAIRO_PC_PATH"):${PKG_CONFIG_PATH:-}"
++            fi
++        fi
++    fi
++
++    if ! check_pkg_config_cairo; then
+         print_error "Cairo/GObject development files are still missing (pkg-config cannot locate 'cairo' and 'gobject-2.0')."
+     fi
+ }
+
+
 ensure_linux_gui_prereqs() {
     if command -v pkg-config &>/dev/null && pkg-config --exists cairo gobject-2.0 >/dev/null 2>&1; then
         print_info "Cairo/GObject development libraries detected."
@@ -89,8 +124,8 @@ ensure_linux_gui_prereqs() {
         print_warning "Unsupported package manager. Please install cairo/GTK development libraries manually."
     fi
 
-    if ! command -v pkg-config &>/dev/null || ! pkg-config --exists cairo >/dev/null 2>&1; then
-        print_error "Cairo development files are still missing (pkg-config cannot locate 'cairo')."
+    if ! check_pkg_config_cairo; then
+        print_error "Cairo/GObject development files are still missing (pkg-config cannot locate 'cairo' and 'gobject-2.0')."
     fi
 }
 usage() {
@@ -157,44 +192,20 @@ main() {
 
     # 3. Install OS-specific dependencies
     if [ "$OS_NAME" = "Linux" ]; then
-        if is_truthy "$HEADLESS_MODE"; then
-            SKIP_GUI=1
-            print_info "Headless mode requested via SEEDPASS_HEADLESS. GUI backend installation will be skipped in favor of toga-dummy."
-        elif [ -z "${DISPLAY:-}" ]; then
-            SKIP_GUI=1
-            print_info "DISPLAY environment variable is empty. Assuming headless environment and skipping toga-gtk."
         else
             print_info "Checking for Gtk/cairo development libraries..."
-            if ! python3 - <<'PY' &>/dev/null
-import sys
-try:
-    import gi
-    gi.require_version('Gtk', '3.0')
-    from gi.repository import Gtk  # noqa: F401
-    import cairo  # noqa: F401
-except Exception:
-    sys.exit(1)
-PY
-            then
+            if check_pkg_config_cairo && check_python_has_gtk; then
+                print_info "Gtk/cairo bindings already available."
+            else
                 print_warning "Gtk/cairo bindings not fully available. Attempting to install prerequisites..."
                 ensure_linux_gui_prereqs
-                if ! python3 - <<'PY' &>/dev/null
-import sys
-try:
-    import gi
-    gi.require_version('Gtk', '3.0')
-    from gi.repository import Gtk  # noqa: F401
-    import cairo  # noqa: F401
-except Exception:
-    sys.exit(1)
-PY
-                then
-                    print_error "Gtk/cairo bindings are still missing after installing prerequisites."
-                else
-                    print_info "Gtk/cairo bindings are now available."
+                if ! check_pkg_config_cairo; then
+                    print_error "pkg-config could not locate 'cairo' and 'gobject-2.0' after attempting installation."
                 fi
-            else
-                print_info "Gtk/cairo bindings already available."
+                if ! check_python_has_gtk; then
+                    print_error "Gtk/cairo Python bindings are still missing after installing prerequisites."
+                fi
+                print_info "Gtk/cairo bindings are now available."
             fi
         fi
     fi
