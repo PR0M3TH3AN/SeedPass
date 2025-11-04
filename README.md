@@ -120,7 +120,7 @@ necessary system packages using `apt`, `yum`, `pacman`, or Homebrew.
 
 **Linux and macOS:**
 ```bash
-bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+SEEDPASS_HEADLESS=1 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
 ```
 *Install the beta branch:*
 ```bash
