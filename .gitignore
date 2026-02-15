@@ -44,7 +44,3 @@ src/seedpass.egg-info/top_level.txt
 
 # Allow vendored dependencies to be committed
 !src/vendor/
-
-# Node.js
-node_modules/
-npm-debug.log
