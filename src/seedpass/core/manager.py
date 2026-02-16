@@ -26,7 +26,7 @@ from termcolor import colored
 from utils.color_scheme import color_text
 from utils.input_utils import timed_input
 
-from .encryption import EncryptionManager
+from .encryption import EncryptionManager, get_salt_from_parent_seed_file
 from .entry_management import EntryManager
 from .password_generation import PasswordGenerator
 from .backup import BackupManager
@@ -508,15 +508,34 @@ class PasswordManager:
                     if getattr(self, "config_manager", None)
                     else 50_000
                 )
+
+                # Check for existing salt in parent_seed.enc (V3 format)
+                parent_seed_file = fingerprint_dir / "parent_seed.enc"
+                salt = get_salt_from_parent_seed_file(parent_seed_file)
+
                 print("Deriving key...")
                 if mode == "argon2":
-                    seed_key = derive_key_from_password_argon2(password)
+                    seed_key = derive_key_from_password_argon2(password, salt=salt)
                 else:
-                    seed_key = derive_key_from_password(password, iterations=iterations)
+                    seed_key = derive_key_from_password(password, salt=salt, iterations=iterations)
+
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                 print("Decrypting seed...")
                 try:
                     self.parent_seed = seed_mgr.decrypt_parent_seed()
+
+                    # If the file didn't have a salt (legacy/V2), upgrade it to V3
+                    if not salt:
+                        logging.info("Upgrading parent seed encryption to V3 (with salt).")
+                        new_salt = os.urandom(16)
+                        if mode == "argon2":
+                            new_seed_key = derive_key_from_password_argon2(password, salt=new_salt)
+                        else:
+                            new_seed_key = derive_key_from_password(password, salt=new_salt, iterations=iterations)
+
+                        new_seed_mgr = EncryptionManager(new_seed_key, fingerprint_dir)
+                        new_seed_mgr.encrypt_parent_seed(self.parent_seed, salt=new_salt)
+
                 except Exception:
                     msg = (
                         "Invalid password for selected seed profile. Please try again."
@@ -577,10 +596,15 @@ class PasswordManager:
                 if getattr(self, "config_manager", None)
                 else 50_000
             )
+
+            parent_seed_file = fingerprint_dir / "parent_seed.enc"
+            salt = get_salt_from_parent_seed_file(parent_seed_file)
+
             if mode == "argon2":
-                seed_key = derive_key_from_password_argon2(password)
+                seed_key = derive_key_from_password_argon2(password, salt=salt)
             else:
-                seed_key = derive_key_from_password(password, iterations=iterations)
+                seed_key = derive_key_from_password(password, salt=salt, iterations=iterations)
+
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
             self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
@@ -745,14 +769,6 @@ class PasswordManager:
             if password is None:
                 password = prompt_existing_password("Enter your login password: ")
 
-            # Derive encryption key from password
-            iterations = (
-                self.config_manager.get_kdf_iterations()
-                if getattr(self, "config_manager", None)
-                else 50_000
-            )
-            key = derive_key_from_password(password, iterations=iterations)
-
             # Initialize FingerprintManager if not already initialized
             if not self.fingerprint_manager:
                 self.initialize_fingerprint_manager()
@@ -790,6 +806,17 @@ class PasswordManager:
             if not fingerprint_dir:
                 print(colored("Error: Seed profile directory not found.", "red"))
                 sys.exit(1)
+
+            # Derive encryption key from password, now that we have the directory to check for salt
+            iterations = (
+                self.config_manager.get_kdf_iterations()
+                if getattr(self, "config_manager", None)
+                else 50_000
+            )
+            parent_seed_file = fingerprint_dir / "parent_seed.enc"
+            salt = get_salt_from_parent_seed_file(parent_seed_file)
+
+            key = derive_key_from_password(password, salt=salt, iterations=iterations)
 
             # Initialize EncryptionManager with key and fingerprint_dir
             self.encryption_manager = EncryptionManager(key, fingerprint_dir)
@@ -926,7 +953,10 @@ class PasswordManager:
                     if getattr(self, "config_manager", None)
                     else 50_000
                 )
-                seed_key = derive_key_from_password(password, iterations=iterations)
+
+                # Generate new salt for new profile
+                salt = os.urandom(16)
+                seed_key = derive_key_from_password(password, salt=salt, iterations=iterations)
 
                 self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
@@ -937,7 +967,7 @@ class PasswordManager:
                     fingerprint_dir=fingerprint_dir,
                 )
 
-                seed_mgr.encrypt_parent_seed(parent_seed)
+                seed_mgr.encrypt_parent_seed(parent_seed, salt=salt)
                 logging.info("Parent seed encrypted and saved successfully.")
 
                 self.store_hashed_password(password)
@@ -1076,7 +1106,10 @@ class PasswordManager:
                 if getattr(self, "config_manager", None)
                 else 50_000
             )
-            seed_key = derive_key_from_password(password, iterations=iterations)
+
+            # Generate new salt for new seed
+            salt = os.urandom(16)
+            seed_key = derive_key_from_password(password, salt=salt, iterations=iterations)
 
             self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
@@ -1093,7 +1126,7 @@ class PasswordManager:
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
-            seed_mgr.encrypt_parent_seed(seed)
+            seed_mgr.encrypt_parent_seed(seed, salt=salt)
             logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
@@ -4410,12 +4443,15 @@ class PasswordManager:
             new_key = derive_index_key(self.parent_seed)
 
             iterations = self.config_manager.get_kdf_iterations()
-            seed_key = derive_key_from_password(new_password, iterations=iterations)
+
+            # Generate new salt for changed password
+            salt = os.urandom(16)
+            seed_key = derive_key_from_password(new_password, salt=salt, iterations=iterations)
             seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
 
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            seed_mgr.encrypt_parent_seed(self.parent_seed)
+            seed_mgr.encrypt_parent_seed(self.parent_seed, salt=salt)
             self.vault.set_encryption_manager(new_enc_mgr)
             self.vault.save_index(index_data)
             self.config_manager.vault = self.vault

@@ -29,6 +29,28 @@ from utils.file_lock import exclusive_lock
 logger = logging.getLogger(__name__)
 
 
+def get_salt_from_parent_seed_file(file_path: Path) -> bytes:
+    """
+    Reads the salt from the parent seed file if it exists and uses the V3 format.
+
+    Parameters:
+        file_path (Path): The path to the parent seed file.
+
+    Returns:
+        bytes: The 16-byte salt if found, otherwise an empty bytes object.
+    """
+    if not file_path.exists():
+        return b""
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(3)
+            if header == b"V3:":
+                return f.read(16)
+    except Exception as e:
+        logger.warning(f"Failed to read salt from {file_path}: {e}")
+    return b""
+
+
 class EncryptionManager:
     """
     Manages encryption and decryption, handling migration from legacy Fernet
@@ -119,10 +141,23 @@ class EncryptionManager:
 
     # --- All functions below this point now use the smart `decrypt_data` method ---
 
-    def encrypt_parent_seed(self, parent_seed: str) -> None:
+    def encrypt_parent_seed(self, parent_seed: str, salt: bytes = b"") -> None:
         """Encrypts and saves the parent seed to 'parent_seed.enc'."""
         data = parent_seed.encode("utf-8")
-        encrypted_data = self.encrypt_data(data)  # This now creates V2 format
+
+        if salt:
+            # V3 format: V3:<salt(16)><nonce(12)><ciphertext>
+            try:
+                nonce = os.urandom(12)
+                ciphertext = self.cipher.encrypt(nonce, data, None)
+                encrypted_data = b"V3:" + salt + nonce + ciphertext
+            except Exception as e:
+                logger.error(f"Failed to encrypt parent seed with V3 format: {e}", exc_info=True)
+                raise
+        else:
+            # Fallback to V2 (no salt stored) or use encrypt_data
+            encrypted_data = self.encrypt_data(data)  # This creates V2 format
+
         with exclusive_lock(self.parent_seed_file) as fh:
             fh.seek(0)
             fh.truncate()
@@ -135,6 +170,20 @@ class EncryptionManager:
         with exclusive_lock(self.parent_seed_file) as fh:
             fh.seek(0)
             encrypted_data = fh.read()
+
+        if encrypted_data.startswith(b"V3:"):
+            # V3 format: V3:<salt(16)><nonce(12)><ciphertext>
+            try:
+                # Salt is used for key derivation externally, so we skip it here
+                nonce = encrypted_data[19:31]
+                ciphertext = encrypted_data[31:]
+                if len(ciphertext) < 16:
+                    raise InvalidToken("AES-GCM payload too short")
+                decrypted_data = self.cipher.decrypt(nonce, ciphertext, None)
+                return decrypted_data.decode("utf-8").strip()
+            except InvalidTag as e:
+                logger.error("AES-GCM decryption failed for V3 parent seed.")
+                raise InvalidToken("AES-GCM decryption failed.") from e
 
         is_legacy = not encrypted_data.startswith(b"V2:")
         decrypted_data = self.decrypt_data(encrypted_data)

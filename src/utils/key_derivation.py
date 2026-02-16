@@ -45,7 +45,9 @@ DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
 TOTP_PURPOSE = 39
 
 
-def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
+def derive_key_from_password(
+    password: str, salt: bytes = b"", iterations: int = 100_000
+) -> bytes:
     """
     Derives a Fernet-compatible encryption key from the provided password using PBKDF2-HMAC-SHA256.
 
@@ -55,6 +57,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
 
     Parameters:
         password (str): The user's password.
+        salt (bytes, optional): A salt for key derivation. Defaults to b"" (empty).
         iterations (int, optional): Number of iterations for the PBKDF2 algorithm. Defaults to 100,000.
 
     Returns:
@@ -80,7 +83,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
         key = hashlib.pbkdf2_hmac(
             hash_name="sha256",
             password=password_bytes,
-            salt=b"",  # No salt for deterministic key derivation
+            salt=salt,  # Use provided salt (default empty for backward compatibility)
             iterations=iterations,
             dklen=32,  # 256-bit key for Fernet
         )
@@ -99,6 +102,7 @@ def derive_key_from_password(password: str, iterations: int = 100_000) -> bytes:
 
 def derive_key_from_password_argon2(
     password: str,
+    salt: bytes = b"\x00" * 16,
     *,
     time_cost: int = 2,
     memory_cost: int = 64 * 1024,
@@ -106,8 +110,8 @@ def derive_key_from_password_argon2(
 ) -> bytes:
     """Derive an encryption key from a password using Argon2id.
 
-    The defaults follow recommended parameters but omit a salt for deterministic
-    output. Smaller values may be supplied for testing.
+    The defaults follow recommended parameters but use a default salt for deterministic
+    output (backward compatibility). Smaller values may be supplied for testing.
     """
 
     if not password:
@@ -120,7 +124,7 @@ def derive_key_from_password_argon2(
 
         key = hash_secret_raw(
             secret=normalized,
-            salt=b"\x00" * 16,
+            salt=salt,
             time_cost=time_cost,
             memory_cost=memory_cost,
             parallelism=parallelism,
