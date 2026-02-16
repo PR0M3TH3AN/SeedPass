@@ -1,3 +1,7 @@
+torch/node_modules
+torch/node_modules/
+node_modules/
+
 # Ignore virtual environment directory
 venv/
 
