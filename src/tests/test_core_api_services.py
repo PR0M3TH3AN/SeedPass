@@ -30,10 +30,12 @@ from seedpass.core.api import (
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
 
+
 @dataclass
 class MockPolicy:
     include_special_chars: bool = False
     min_uppercase: int = 0
+
 
 @pytest.fixture
 def mock_manager():
@@ -57,11 +59,13 @@ def mock_manager():
 
     return manager
 
+
 @pytest.fixture
 def mock_bus():
     """Mock the pubsub bus."""
     with patch("seedpass.core.api.bus") as mock:
         yield mock
+
 
 class TestVaultService:
     @pytest.fixture
@@ -90,19 +94,29 @@ class TestVaultService:
         result = service.export_profile()
 
         mock_manager.vault.load_index.assert_called_once()
-        expected_payload = json.dumps(mock_index, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        mock_manager.vault.encryption_manager.encrypt_data.assert_called_once_with(expected_payload)
+        expected_payload = json.dumps(
+            mock_index, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        mock_manager.vault.encryption_manager.encrypt_data.assert_called_once_with(
+            expected_payload
+        )
         assert result == b"encrypted"
 
     def test_import_profile(self, service, mock_manager):
         data = b"encrypted_data"
         decrypted_json = json.dumps({"entries": {}})
-        mock_manager.vault.encryption_manager.decrypt_data.return_value = decrypted_json.encode("utf-8")
+        mock_manager.vault.encryption_manager.decrypt_data.return_value = (
+            decrypted_json.encode("utf-8")
+        )
 
         service.import_profile(data)
 
-        mock_manager.vault.encryption_manager.decrypt_data.assert_called_once_with(data, context="profile")
-        mock_manager.vault.save_index.assert_called_once_with(json.loads(decrypted_json))
+        mock_manager.vault.encryption_manager.decrypt_data.assert_called_once_with(
+            data, context="profile"
+        )
+        mock_manager.vault.save_index.assert_called_once_with(
+            json.loads(decrypted_json)
+        )
         mock_manager.sync_vault.assert_called_once()
 
     def test_change_password(self, service, mock_manager):
@@ -127,7 +141,9 @@ class TestVaultService:
         req = BackupParentSeedRequest(path=Path("/tmp/seed.enc"), password="pw")
         service.backup_parent_seed(req)
 
-        mock_manager.handle_backup_reveal_parent_seed.assert_called_once_with(req.path, password=req.password)
+        mock_manager.handle_backup_reveal_parent_seed.assert_called_once_with(
+            req.path, password=req.password
+        )
 
     def test_stats(self, service, mock_manager):
         expected_stats = {"entries": 10}
@@ -137,6 +153,7 @@ class TestVaultService:
 
         mock_manager.get_profile_stats.assert_called_once()
         assert stats == expected_stats
+
 
 class TestProfileService:
     @pytest.fixture
@@ -161,13 +178,16 @@ class TestProfileService:
         req = ProfileRemoveRequest(fingerprint="fp1")
         service.remove_profile(req)
 
-        mock_manager.fingerprint_manager.remove_fingerprint.assert_called_once_with("fp1")
+        mock_manager.fingerprint_manager.remove_fingerprint.assert_called_once_with(
+            "fp1"
+        )
 
     def test_switch_profile(self, service, mock_manager):
         req = ProfileSwitchRequest(fingerprint="fp2", password="pw")
         service.switch_profile(req)
 
         mock_manager.select_fingerprint.assert_called_once_with("fp2", password="pw")
+
 
 class TestSyncService:
     @pytest.fixture
@@ -180,10 +200,9 @@ class TestSyncService:
 
         result = service.sync()
 
-        mock_bus.publish.assert_has_calls([
-            call("sync_started"),
-            call("sync_finished", mock_result)
-        ])
+        mock_bus.publish.assert_has_calls(
+            [call("sync_started"), call("sync_finished", mock_result)]
+        )
         mock_manager.sync_vault.assert_called_once()
         assert result.manifest_id == "m1"
 
@@ -192,10 +211,9 @@ class TestSyncService:
 
         result = service.sync()
 
-        mock_bus.publish.assert_has_calls([
-            call("sync_started"),
-            call("sync_finished", None)
-        ])
+        mock_bus.publish.assert_has_calls(
+            [call("sync_started"), call("sync_finished", None)]
+        )
         assert result is None
 
     def test_start_background_sync(self, service, mock_manager):
@@ -205,6 +223,7 @@ class TestSyncService:
     def test_start_background_vault_sync(self, service, mock_manager):
         service.start_background_vault_sync("summary")
         mock_manager.start_background_vault_sync.assert_called_once_with("summary")
+
 
 class TestEntryService:
     @pytest.fixture
@@ -224,7 +243,9 @@ class TestEntryService:
         mock_manager.entry_manager.search_entries.return_value = []
         results = service.search_entries("query")
 
-        mock_manager.entry_manager.search_entries.assert_called_once_with("query", kinds=None)
+        mock_manager.entry_manager.search_entries.assert_called_once_with(
+            "query", kinds=None
+        )
         assert results == []
 
     def test_retrieve_entry(self, service, mock_manager):
@@ -341,8 +362,15 @@ class TestEntryService:
         service.modify_entry(1, label="new_label")
 
         mock_manager.entry_manager.modify_entry.assert_called_once_with(
-            1, username=None, url=None, notes=None, label="new_label",
-            period=None, digits=None, key=None, value=None
+            1,
+            username=None,
+            url=None,
+            notes=None,
+            label="new_label",
+            period=None,
+            digits=None,
+            key=None,
+            value=None,
         )
         mock_manager.start_background_vault_sync.assert_called_once()
 
@@ -370,6 +398,7 @@ class TestEntryService:
         service.display_totp_codes()
         mock_manager.handle_display_totp_codes.assert_called_once()
 
+
 class TestConfigService:
     @pytest.fixture
     def service(self, mock_manager):
@@ -379,7 +408,9 @@ class TestConfigService:
         mock_manager.config_manager.load_config.return_value = {"key": "value"}
         val = service.get("key")
 
-        mock_manager.config_manager.load_config.assert_called_once_with(require_pin=False)
+        mock_manager.config_manager.load_config.assert_called_once_with(
+            require_pin=False
+        )
         assert val == "value"
 
     def test_set_simple(self, service, mock_manager):
@@ -388,7 +419,9 @@ class TestConfigService:
 
     def test_set_bool(self, service, mock_manager):
         service.set("secret_mode_enabled", "true")
-        mock_manager.config_manager.set_secret_mode_enabled.assert_called_once_with(True)
+        mock_manager.config_manager.set_secret_mode_enabled.assert_called_once_with(
+            True
+        )
 
     def test_set_relays(self, service, mock_manager):
         # relays setter logic: ("set_relays", lambda v: (v, {"require_pin": False})),
@@ -398,7 +431,9 @@ class TestConfigService:
         # So arg is v, kwargs is {"require_pin": False}
 
         service.set("relays", ["r1"])
-        mock_manager.config_manager.set_relays.assert_called_once_with(["r1"], require_pin=False)
+        mock_manager.config_manager.set_relays.assert_called_once_with(
+            ["r1"], require_pin=False
+        )
 
     def test_set_invalid_key(self, service, mock_manager):
         with pytest.raises(KeyError):
@@ -415,8 +450,12 @@ class TestConfigService:
     def test_set_secret_mode(self, service, mock_manager):
         service.set_secret_mode(True, 30)
 
-        mock_manager.config_manager.set_secret_mode_enabled.assert_called_once_with(True)
-        mock_manager.config_manager.set_clipboard_clear_delay.assert_called_once_with(30)
+        mock_manager.config_manager.set_secret_mode_enabled.assert_called_once_with(
+            True
+        )
+        mock_manager.config_manager.set_clipboard_clear_delay.assert_called_once_with(
+            30
+        )
         assert mock_manager.secret_mode_enabled is True
         assert mock_manager.clipboard_clear_delay == 30
 
@@ -429,6 +468,7 @@ class TestConfigService:
 
         mock_manager.config_manager.set_offline_mode.assert_called_once_with(True)
         assert mock_manager.offline_mode is True
+
 
 class TestUtilityService:
     @pytest.fixture
@@ -459,6 +499,7 @@ class TestUtilityService:
     def test_update_checksum(self, service, mock_manager):
         service.update_checksum()
         mock_manager.handle_update_script_checksum.assert_called_once()
+
 
 class TestNostrService:
     @pytest.fixture
