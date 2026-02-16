@@ -567,6 +567,9 @@ def backup_parent_seed(
     if data is not None:
         p = data.get("path")
         if p:
+            # Prevent directory traversal
+            if "/" in p or "\\" in p or ".." in p:
+                raise HTTPException(status_code=400, detail="Invalid filename")
             path = Path(p)
     _pm.handle_backup_reveal_parent_seed(path)
     return {"status": "ok"}
