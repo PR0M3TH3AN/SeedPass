@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional, List
 import json
+import os
 
 import typer
 import sys
@@ -811,10 +812,16 @@ def update_checksum(ctx: typer.Context) -> None:
 
 
 @api_app.command("start")
-def api_start(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> None:
+def api_start(
+    ctx: typer.Context,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    token: Optional[str] = typer.Option(None, "--token", help="API token"),
+) -> None:
     """Start the SeedPass API server."""
-    token = api_module.start_server(ctx.obj.get("fingerprint"))
-    typer.echo(f"API token: {token}")
+    actual_token = api_module.start_server(ctx.obj.get("fingerprint"), token=token)
+    if not os.getenv("SEEDPASS_API_TOKEN") and token is None:
+        typer.echo(f"API token: {actual_token}", err=True)
     uvicorn.run(api_module.app, host=host, port=port)
 
 
@@ -823,10 +830,11 @@ def api_stop(ctx: typer.Context, host: str = "127.0.0.1", port: int = 8000) -> N
     """Stop the SeedPass API server."""
     import requests
 
+    token = os.getenv("SEEDPASS_API_TOKEN", api_module._token)
     try:
         requests.post(
             f"http://{host}:{port}/api/v1/shutdown",
-            headers={"Authorization": f"Bearer {api_module._token}"},
+            headers={"Authorization": f"Bearer {token}"},
             timeout=2,
         )
     except Exception as exc:  # pragma: no cover - best effort
