@@ -426,13 +426,34 @@ class NostrClient:
             logger.info("publish_snapshot completed in %.2f seconds", duration)
         return manifest, manifest_identifier
 
+    async def _fetch_single_chunk(
+        self, meta: ChunkMeta, pubkey, max_retries: int, delay: float
+    ) -> bytes | None:
+        """Fetch a single chunk with retries."""
+        timeout = timedelta(seconds=10)
+        for attempt in range(max_retries):
+            cf = Filter().author(pubkey).kind(Kind(KIND_SNAPSHOT_CHUNK))
+            if meta.event_id:
+                cf = cf.id(EventId.parse(meta.event_id))
+            else:
+                cf = cf.identifier(meta.id)
+            cf = cf.limit(1)
+            cev = (await self.client.fetch_events(cf, timeout)).to_vec()
+            if cev:
+                candidate = base64.b64decode(cev[0].content().encode("utf-8"))
+                if hashlib.sha256(candidate).hexdigest() == meta.hash:
+                    return candidate
+            if attempt < max_retries - 1:
+                await asyncio.sleep(delay * (2**attempt))
+        return None
+
     async def _fetch_chunks_with_retry(
         self, manifest_event
     ) -> tuple[Manifest, list[bytes]] | None:
         """Retrieve all chunks referenced by ``manifest_event`` with retries."""
 
         pubkey = self.keys.public_key()
-        timeout = timedelta(seconds=10)
+        # timeout is used inside _fetch_single_chunk
 
         try:
             data = json.loads(manifest_event.content())
@@ -463,27 +484,21 @@ class NostrClient:
         max_retries = int(cfg.get("nostr_max_retries", MAX_RETRIES))
         delay = float(cfg.get("nostr_retry_delay", RETRY_DELAY))
 
+        # Limit concurrency to 10 to avoid overwhelming relays
+        semaphore = asyncio.Semaphore(10)
+
+        async def fetch_with_semaphore(meta: ChunkMeta) -> bytes | None:
+            async with semaphore:
+                return await self._fetch_single_chunk(meta, pubkey, max_retries, delay)
+
+        tasks = [fetch_with_semaphore(meta) for meta in manifest.chunks]
+        results = await asyncio.gather(*tasks)
+
         chunks: list[bytes] = []
-        for meta in manifest.chunks:
-            chunk_bytes: bytes | None = None
-            for attempt in range(max_retries):
-                cf = Filter().author(pubkey).kind(Kind(KIND_SNAPSHOT_CHUNK))
-                if meta.event_id:
-                    cf = cf.id(EventId.parse(meta.event_id))
-                else:
-                    cf = cf.identifier(meta.id)
-                cf = cf.limit(1)
-                cev = (await self.client.fetch_events(cf, timeout)).to_vec()
-                if cev:
-                    candidate = base64.b64decode(cev[0].content().encode("utf-8"))
-                    if hashlib.sha256(candidate).hexdigest() == meta.hash:
-                        chunk_bytes = candidate
-                        break
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(delay * (2**attempt))
-            if chunk_bytes is None:
+        for res in results:
+            if res is None:
                 return None
-            chunks.append(chunk_bytes)
+            chunks.append(res)
 
         ident = None
         try:
