@@ -35,7 +35,6 @@ from utils import (
 import queue
 from local_bip85.bip85 import Bip85Error
 
-
 colorama_init()
 
 

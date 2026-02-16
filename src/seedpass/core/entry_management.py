@@ -48,7 +48,6 @@ from utils.key_validation import (
 from .vault import Vault
 from .backup import BackupManager
 
-
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 

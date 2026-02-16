@@ -16,7 +16,6 @@ from seedpass.core.config_manager import ConfigManager
 from seedpass.core.portable_backup import export_backup, import_backup
 from utils.key_derivation import derive_index_key, derive_key_from_password
 
-
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 PASSWORD = "passw0rd"
 
