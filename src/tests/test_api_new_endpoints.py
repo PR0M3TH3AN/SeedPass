@@ -235,14 +235,16 @@ def test_vault_import_via_path(client, tmp_path):
         called["path"] = path
 
     api._pm.handle_import_database = import_db
+    api._pm.fingerprint_dir = tmp_path  # Mock fingerprint_dir for resolving relative paths
     api._pm.sync_vault = lambda: called.setdefault("sync", True)
     file_path = tmp_path / "b.json"
     file_path.write_text("{}")
 
     headers = {"Authorization": f"Bearer {token}"}
+    # Pass relative path, which should resolve to file_path
     res = cl.post(
         "/api/v1/vault/import",
-        json={"path": str(file_path)},
+        json={"path": "b.json"},
         headers=headers,
     )
     assert res.status_code == 200

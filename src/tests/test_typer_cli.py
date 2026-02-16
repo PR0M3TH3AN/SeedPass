@@ -378,8 +378,8 @@ def test_api_start_passes_fingerprint(monkeypatch):
     """Ensure the API start command forwards the selected fingerprint."""
     called = {}
 
-    def fake_start(fp=None):
-        called["fp"] = fp
+    def fake_start(fingerprint=None, token=None):
+        called["fp"] = fingerprint
         return "tok"
 
     monkeypatch.setattr(cli.api_module, "start_server", fake_start)

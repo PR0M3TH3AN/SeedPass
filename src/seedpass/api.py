@@ -539,7 +539,7 @@ async def import_vault(
         if file is None:
             raise HTTPException(status_code=400, detail="Missing file")
         data = await file.read()
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".json.enc") as tmp:
             tmp.write(data)
             tmp_path = Path(tmp.name)
         try:
@@ -551,7 +551,11 @@ async def import_vault(
         path = body.get("path")
         if not path:
             raise HTTPException(status_code=400, detail="Missing file or path")
-        _pm.handle_import_database(Path(path))
+        p = Path(path)
+        if p.is_absolute() or ".." in p.parts:
+            raise HTTPException(status_code=400, detail="Invalid path")
+        full_path = _pm.fingerprint_dir / p
+        _pm.handle_import_database(full_path)
     _pm.sync_vault()
     return {"status": "ok"}
 
