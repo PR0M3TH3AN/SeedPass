@@ -27,3 +27,16 @@ def test_inmemory_secret_wipe_clears_attributes():
     assert secret._nonce is None
     assert secret._cipher is None
     assert secret._encrypted is None
+
+
+def test_access_after_wipe_raises_error():
+    secret = InMemorySecret(b"secret data")
+    secret.wipe()
+
+    with pytest.raises(RuntimeError) as excinfo:
+        secret.get_bytes()
+    assert str(excinfo.value) == "Secret has been wiped"
+
+    with pytest.raises(RuntimeError) as excinfo:
+        secret.get_str()
+    assert str(excinfo.value) == "Secret has been wiped"
