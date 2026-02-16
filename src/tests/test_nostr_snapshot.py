@@ -6,9 +6,12 @@ from tempfile import TemporaryDirectory
 import base64
 import os
 import asyncio
+import sys
 from unittest.mock import patch
 
-from nostr import prepare_snapshot, NostrClient
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from nostr.client import prepare_snapshot, NostrClient
 from seedpass.core.encryption import EncryptionManager
 
 
