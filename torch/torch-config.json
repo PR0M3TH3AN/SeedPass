@@ -1,0 +1,29 @@
+{
+  "nostrLock": {
+    "namespace": "torch-c00fb269",
+    "relays": [
+      "wss://relay.damus.io",
+      "wss://nos.lol",
+      "wss://relay.primal.net"
+    ],
+    "ttlSeconds": 7200,
+    "queryTimeoutMs": 15000,
+    "publishTimeoutMs": 8000,
+    "minSuccessfulRelayPublishes": 2,
+    "minActiveRelayPool": 2,
+    "relayFallbacks": [
+      "wss://relay.snort.social",
+      "wss://relay.nostr.band"
+    ]
+  },
+  "dashboard": {
+    "defaultCadenceView": "daily",
+    "defaultStatusView": "active"
+  },
+  "scheduler": {
+    "firstPromptByCadence": {
+      "daily": "scheduler-update-agent",
+      "weekly": "bug-reproducer-agent"
+    }
+  }
+}
