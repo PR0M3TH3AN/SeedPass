@@ -65,7 +65,9 @@ def test_setup_encryption_manager_kdf_modes(monkeypatch):
             if mode == "argon2":
                 monkeypatch.setattr(
                     "seedpass.core.manager.derive_key_from_password_argon2",
-                    lambda pw: derive_key_from_password_argon2(pw, **argon_kwargs),
+                    lambda pw, salt=None: derive_key_from_password_argon2(
+                        pw, salt=salt if salt is not None else b"\x00" * 16, **argon_kwargs
+                    ),
                 )
             monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
             monkeypatch.setattr(
