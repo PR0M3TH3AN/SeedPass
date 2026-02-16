@@ -16,3 +16,14 @@ The `style-agent` detected usage of `innerHTML` in `landing/index.html`, which v
 
 ## Recommendation
 Refactor the code to use `document.createElement` or `textContent` where possible.
+
+## Reproduction Attempt (2026-02-16T11:47:38Z)
+Ran reproduction script: `torch/examples/reproducers/ISSUE_daily_style-agent_innerhtml/repro.py`
+```
+Checking torch/landing/index.html for innerHTML usage...
+FAILURE: innerHTML found in file.
+Line 865: contentDiv.innerHTML = marked.parse(text);
+Line 869: contentDiv.innerHTML = `<p class="text-danger">Error loading documentation: ${error.message}</p>`;
+Line 931: const originalContent = btn.innerHTML;
+Line 937: btn.innerHTML = originalContent;
+```
