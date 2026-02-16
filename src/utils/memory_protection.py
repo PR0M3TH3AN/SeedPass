@@ -17,6 +17,8 @@ class InMemorySecret:
 
     def get_bytes(self) -> bytes:
         """Decrypt and return the plaintext bytes."""
+        if self._cipher is None:
+            raise RuntimeError("Secret has been wiped")
         return self._cipher.decrypt(self._nonce, self._encrypted, None)
 
     def wipe(self) -> None:
