@@ -33,10 +33,10 @@ Canonical roster source: `src/prompts/roster.json` (`weekly` key).
 | 7 | perf-deepdive-agent | `perf-deepdive-agent.md` |
 | 8 | perf-optimization-agent | `perf-optimization-agent.md` |
 | 9 | pr-review-agent | `pr-review-agent.md` |
-| 10 | prompt-maintenance-agent | `prompt-maintenance-agent.md` |
-| 11 | prompt-safety-agent | `prompt-safety-agent.md` |
-| 12 | prompt-fixer-agent | `prompt-fixer-agent.md` |
-| 13 | prompt-gap-analysis-agent | `prompt-gap-analysis-agent.md` |
+| 10 | prompt-fixer-agent | `prompt-fixer-agent.md` |
+| 11 | prompt-gap-analysis-agent | `prompt-gap-analysis-agent.md` |
+| 12 | prompt-maintenance-agent | `prompt-maintenance-agent.md` |
+| 13 | prompt-safety-agent | `prompt-safety-agent.md` |
 | 14 | race-condition-agent | `race-condition-agent.md` |
 | 15 | refactor-agent | `refactor-agent.md` |
 | 16 | repo-fit-agent | `repo-fit-agent.md` |
