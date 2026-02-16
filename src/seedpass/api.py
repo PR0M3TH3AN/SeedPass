@@ -25,7 +25,8 @@ _token: str = ""
 
 
 def _check_token(auth: str | None) -> None:
-    if auth != f"Bearer {_token}":
+    expected = f"Bearer {_token}"
+    if auth is None or not secrets.compare_digest(auth, expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 

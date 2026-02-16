@@ -65,6 +65,16 @@ def test_invalid_token(client):
     assert res.status_code == 401
 
 
+def test_missing_token(client):
+    cl, _token = client
+    # No Authorization header
+    res = cl.get(
+        "/api/v1/entry",
+        params={"query": "s"},
+    )
+    assert res.status_code == 401
+
+
 def test_get_entry_by_id(client):
     cl, token = client
     headers = {
