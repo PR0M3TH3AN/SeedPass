@@ -307,6 +307,13 @@ class EntryService:
                 entry_id, self._manager.parent_seed
             )
 
+    def get_totp_secret(self, entry_id: int) -> str:
+        """Return the TOTP secret (base32) for the given entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_totp_secret(
+                entry_id, self._manager.parent_seed
+            )
+
     def add_entry(
         self,
         label: str,

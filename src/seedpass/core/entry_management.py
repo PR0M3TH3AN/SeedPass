@@ -15,14 +15,6 @@ completely deterministic passwords from a BIP-85 seed, ensuring that passwords a
 the same way every time. Salts would break this functionality and are not suitable for this software.
 """
 
-try:
-    import orjson as json_lib  # type: ignore
-
-    USE_ORJSON = True
-except Exception:  # pragma: no cover - fallback when orjson is missing
-    import json as json_lib
-
-    USE_ORJSON = False
 import logging
 import hashlib
 import sys
@@ -684,6 +676,29 @@ class EntryManager:
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
+    def get_totp_secret(self, index: int, parent_seed: str | None = None) -> str:
+        """Return the TOTP secret for the specified entry.
+
+        If the entry uses an imported secret, it is returned directly.
+        If the entry uses a derived secret, it is derived from the parent seed.
+        """
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
+        ):
+            raise ValueError("Entry is not a TOTP entry")
+
+        if "secret" in entry:
+            return entry["secret"]
+
+        if parent_seed is None:
+            raise ValueError("Seed required for derived TOTP")
+
+        totp_index = int(entry.get("index", 0))
+        return TotpManager.derive_secret(parent_seed, totp_index)
+
     def get_totp_code(
         self, index: int, parent_seed: str | None = None, timestamp: int | None = None
     ) -> str:
@@ -1315,7 +1330,7 @@ class EntryManager:
                 f.write(checksum)
 
             logger.debug(f"Checksum updated and written to '{checksum_path}'.")
-            print(colored(f"[+] Checksum updated successfully.", "green"))
+            print(colored("[+] Checksum updated successfully.", "green"))
 
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}", exc_info=True)
