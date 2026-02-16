@@ -99,7 +99,11 @@ runner = CliRunner()
 def _setup(monkeypatch):
     monkeypatch.setattr(cli, "PasswordManager", lambda: DummyPM())
     monkeypatch.setattr(cli.uvicorn, "run", lambda *a, **kw: None)
-    monkeypatch.setattr(cli.api_module, "start_server", lambda fp: "token")
+    monkeypatch.setattr(
+        cli.api_module,
+        "start_server",
+        lambda fingerprint=None, token=None: "token",
+    )
     monkeypatch.setitem(
         sys.modules, "requests", SimpleNamespace(post=lambda *a, **kw: None)
     )
