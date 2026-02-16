@@ -4,7 +4,6 @@ import typer
 
 from .common import _get_services, ProfileRemoveRequest, ProfileSwitchRequest
 
-
 app = typer.Typer(help="Manage seed profiles")
 
 

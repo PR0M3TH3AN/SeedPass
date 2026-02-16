@@ -28,7 +28,6 @@ from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
 from seedpass.core.api import UtilityService
 
-
 _RATE_LIMIT = int(os.getenv("SEEDPASS_RATE_LIMIT", "100"))
 _RATE_WINDOW = int(os.getenv("SEEDPASS_RATE_WINDOW", "60"))
 _RATE_LIMIT_STR = f"{_RATE_LIMIT}/{_RATE_WINDOW} seconds"

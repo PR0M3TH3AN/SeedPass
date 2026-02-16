@@ -10,7 +10,6 @@ from helpers import create_vault, dummy_nostr_client
 import gzip
 from nostr.backup_models import Manifest, ChunkMeta
 
-
 VALID_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
 

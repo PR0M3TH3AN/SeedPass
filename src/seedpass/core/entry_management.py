@@ -49,7 +49,6 @@ from .vault import Vault
 from .backup import BackupManager
 from .errors import SeedPassError
 
-
 # Instantiate the logger
 logger = logging.getLogger(__name__)
 

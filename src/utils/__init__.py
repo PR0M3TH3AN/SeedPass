@@ -40,14 +40,15 @@ from .atomic_write import atomic_write
 try:  # pragma: no cover - exercised when dependency missing
     from .clipboard import ClipboardUnavailableError, copy_to_clipboard
 except Exception as exc:  # pragma: no cover - executed only if pyperclip missing
+    _error_msg = str(exc)
 
     class ClipboardUnavailableError(RuntimeError):
         """Stub exception when clipboard support is unavailable."""
 
     def copy_to_clipboard(*_args, **_kwargs):
         """Stub when clipboard support is unavailable."""
-        logger.warning("Clipboard support unavailable: %s", exc)
-        raise ClipboardUnavailableError(str(exc))
+        logger.warning("Clipboard support unavailable: %s", _error_msg)
+        raise ClipboardUnavailableError(_error_msg)
 
 
 __all__ = [

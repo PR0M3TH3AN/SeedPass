@@ -5,7 +5,6 @@ import uvicorn
 
 from .. import api as api_module
 
-
 app = typer.Typer(help="Run the API server")
 
 

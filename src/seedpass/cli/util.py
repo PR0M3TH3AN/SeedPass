@@ -6,7 +6,6 @@ import typer
 
 from .common import _get_util_service
 
-
 app = typer.Typer(help="Utility commands")
 
 

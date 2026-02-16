@@ -13,7 +13,6 @@ from .common import (
     BackupParentSeedRequest,
 )
 
-
 app = typer.Typer(help="Manage the entire vault")
 
 

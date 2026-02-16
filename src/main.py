@@ -11,6 +11,7 @@ import os
 import logging
 import signal
 import time
+import queue
 import argparse
 import tomli
 from tomli import TOMLDecodeError
@@ -44,7 +45,6 @@ from utils.logging_utils import (
     pause_logging_for_ui,
 )
 from local_bip85.bip85 import Bip85Error
-
 
 colorama_init()
 
