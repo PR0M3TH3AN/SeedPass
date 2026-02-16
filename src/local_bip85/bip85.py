@@ -72,8 +72,6 @@ class BIP85:
             if words_len is None:
                 words_len = bytes_len
             path = f"m/83696968'/{app_no}'/0'/{words_len}'/{index}'"
-        elif app_no == 32:
-            path = f"m/83696968'/{app_no}'/{index}'"
         else:
             # Handle other app_no if necessary
             path = f"m/83696968'/{app_no}'/{index}'"
