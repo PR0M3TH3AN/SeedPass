@@ -7,7 +7,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from seedpass.core.totp import TotpManager
 
-
 # Test parsing a normal otpauth URI with custom period and digits
 
 
