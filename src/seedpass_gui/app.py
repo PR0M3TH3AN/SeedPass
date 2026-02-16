@@ -381,6 +381,7 @@ class TotpViewerWindow(toga.Window):
         box.add(self.table)
         self.content = box
 
+        self._secret_cache: dict[int, str] = {}
         self._running = True
         self.controller.loop.create_task(self._update_loop())
         self.refresh_codes()
@@ -396,7 +397,18 @@ class TotpViewerWindow(toga.Window):
             filter_kind=EntryType.TOTP.value
         ):
             entry = self.entries.retrieve_entry(idx)
-            code = self.entries.get_totp_code(idx)
+
+            if idx in self._secret_cache:
+                secret = self._secret_cache[idx]
+            else:
+                try:
+                    secret = self.entries.get_totp_secret(idx)
+                    self._secret_cache[idx] = secret
+                except Exception:
+                    # Skip entries where secret cannot be derived (e.g. no seed)
+                    continue
+
+            code = TotpManager.current_code_from_secret(secret)
             period = int(entry.get("period", 30)) if entry else 30
             remaining = TotpManager.time_remaining(period)
             self.table.data.append((label, code, remaining))
