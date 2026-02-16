@@ -18,7 +18,6 @@ from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
 from seedpass.core.api import UtilityService
 
-
 app = FastAPI()
 
 _pm: Optional[PasswordManager] = None
