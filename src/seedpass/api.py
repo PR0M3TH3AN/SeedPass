@@ -43,21 +43,24 @@ def _reload_relays(relays: list[str]) -> None:
         pass
 
 
-def start_server(fingerprint: str | None = None) -> str:
+def start_server(fingerprint: str | None = None, token: str | None = None) -> str:
     """Initialize global state and return the API token.
 
     Parameters
     ----------
     fingerprint:
         Optional seed profile fingerprint to select before starting the server.
+    token:
+        Optional API token to use. If omitted, it checks the
+        ``SEEDPASS_API_TOKEN`` environment variable, or generates a new one.
     """
     global _pm, _token
     if fingerprint is None:
         _pm = PasswordManager()
     else:
         _pm = PasswordManager(fingerprint=fingerprint)
-    _token = secrets.token_urlsafe(16)
-    print(f"API token: {_token}")
+
+    _token = token or os.getenv("SEEDPASS_API_TOKEN") or secrets.token_urlsafe(16)
     origins = [
         o.strip()
         for o in os.getenv("SEEDPASS_CORS_ORIGINS", "").split(",")
