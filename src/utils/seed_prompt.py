@@ -17,7 +17,6 @@ except ImportError:  # pragma: no cover - POSIX only
 from utils.terminal_utils import clear_screen
 from utils.logging_utils import pause_console_logging, resume_console_logging
 
-
 DEFAULT_MAX_ATTEMPTS = 5
 
 

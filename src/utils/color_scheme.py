@@ -2,7 +2,6 @@
 
 from termcolor import colored
 
-
 # ANSI escape for 256-color orange (color code 208)
 _ORANGE = "\033[38;5;208m"
 _RESET = "\033[0m"

@@ -16,7 +16,6 @@ from utils.key_derivation import (
 from utils.fingerprint import generate_fingerprint
 from seedpass.core.encryption import EncryptionManager
 
-
 cfg_values = st.one_of(
     st.integers(min_value=0, max_value=100),
     st.text(min_size=0, max_size=20),

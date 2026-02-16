@@ -4,7 +4,6 @@ import typer
 
 from .common import _get_config_service
 
-
 app = typer.Typer(help="Get or set configuration values")
 
 

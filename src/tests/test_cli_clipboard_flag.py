@@ -4,7 +4,6 @@ from seedpass.cli import app, entry as cli_entry
 from seedpass.core.entry_types import EntryType
 from utils.clipboard import ClipboardUnavailableError
 
-
 runner = CliRunner()
 
 

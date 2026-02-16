@@ -12,7 +12,6 @@ from .common import _get_entry_service, EntryType
 from seedpass.core.entry_types import ALL_ENTRY_TYPES
 from utils.clipboard import ClipboardUnavailableError
 
-
 app = typer.Typer(help="Manage individual entries")
 
 
