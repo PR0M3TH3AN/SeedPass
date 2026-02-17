@@ -1,0 +1,12 @@
+{
+  "scheduler": {
+    "firstPromptByCadence": {
+      "daily": "ci-health-agent"
+    },
+    "memoryPolicyByCadence": {
+      "daily": {
+        "mode": "optional"
+      }
+    }
+  }
+}
