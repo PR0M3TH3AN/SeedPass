@@ -1,0 +1,4 @@
+{
+  "daily": ["daily_agent"],
+  "weekly": ["weekly_agent"]
+}
