@@ -1,15 +1,19 @@
 import subprocess
 import sys
 
+
 def run_command(command):
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command, shell=True, check=True, capture_output=True, text=True
+        )
         print(f"Command '{command}' passed.")
         return result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Command '{command}' failed with exit code {e.returncode}.")
         print(e.stderr)
         return e.stderr
+
 
 def main():
     print("Running daily checks...")
@@ -26,6 +30,7 @@ def main():
     run_command("pytest")
 
     print("\nDaily checks completed.")
+
 
 if __name__ == "__main__":
     main()
