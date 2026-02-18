@@ -62,7 +62,10 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
         pm, entry_mgr = setup_pm(tmp)
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            "seedpass.core.totp.TotpManager.current_code_from_secret",
+            lambda *a, **k: "123456",
+        )
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
@@ -112,7 +115,10 @@ def test_totp_display_no_secret_mode(monkeypatch, capsys):
         pm.secret_mode_enabled = False
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            "seedpass.core.totp.TotpManager.current_code_from_secret",
+            lambda *a, **k: "123456",
+        )
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )

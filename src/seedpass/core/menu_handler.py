@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from termcolor import colored
 
 from .entry_types import EntryType, ALL_ENTRY_TYPES
+from .totp import TotpManager
 import seedpass.core.manager as manager_module
 from utils.color_scheme import color_text
 from utils.terminal_utils import clear_header_with_notification
@@ -118,6 +119,15 @@ class MenuHandler:
                 return
 
             totp_list.sort(key=lambda t: t[0].lower())
+
+            totp_secrets: dict[int, str] = {}
+            key = getattr(pm, "KEY_TOTP_DET", None) or getattr(pm, "parent_seed", None)
+            for _, idx, _, _ in totp_list:
+                try:
+                    totp_secrets[idx] = pm.entry_manager.get_totp_secret(idx, key)
+                except Exception:
+                    pass
+
             print(colored("Press Enter to return to the menu.", "cyan"))
             while True:
                 fp, parent_fp, child_fp = pm.header_fingerprint_args
@@ -134,10 +144,12 @@ class MenuHandler:
                 if generated:
                     print(colored("\nGenerated 2FA Codes:", "green"))
                     for label, idx, period, _ in generated:
-                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
-                            pm, "parent_seed", None
+                        secret = totp_secrets.get(idx)
+                        code = (
+                            TotpManager.current_code_from_secret(secret)
+                            if secret
+                            else "ERROR"
                         )
-                        code = pm.entry_manager.get_totp_code(idx, key)
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
@@ -155,10 +167,12 @@ class MenuHandler:
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
                     for label, idx, period, _ in imported_list:
-                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
-                            pm, "parent_seed", None
+                        secret = totp_secrets.get(idx)
+                        code = (
+                            TotpManager.current_code_from_secret(secret)
+                            if secret
+                            else "ERROR"
                         )
-                        code = pm.entry_manager.get_totp_code(idx, key)
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"

@@ -2763,9 +2763,10 @@ class PasswordManager:
             print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
             print(colored("Press Enter to return to the menu.", "cyan"))
             try:
+                key = self.KEY_TOTP_DET or getattr(self, "parent_seed", None)
+                secret = self.entry_manager.get_totp_secret(index, key)
                 while True:
-                    key = self.KEY_TOTP_DET or getattr(self, "parent_seed", None)
-                    code = self.entry_manager.get_totp_code(index, key)
+                    code = TotpManager.current_code_from_secret(secret)
                     if self.secret_mode_enabled:
                         if copy_to_clipboard(code, self.clipboard_clear_delay):
                             print(
