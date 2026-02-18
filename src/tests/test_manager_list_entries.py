@@ -15,6 +15,7 @@ from seedpass.core.backup import BackupManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
 from seedpass.core.entry_types import EntryType
 from seedpass.core.config_manager import ConfigManager
+from seedpass.core.totp import TotpManager
 
 
 def test_handle_list_entries(monkeypatch, capsys):
@@ -75,7 +76,7 @@ def test_list_entries_show_details(monkeypatch, capsys):
         entry_mgr.add_key_value("API entry", "api", "val")
         entry_mgr.add_managed_account("acct", TEST_SEED)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(TotpManager, "current_code_from_secret", lambda *a, **k: "123456")
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )
@@ -346,7 +347,7 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             entry_mgr.add_totp("Example", TEST_SEED)
             idx = 0
             monkeypatch.setattr(
-                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+                TotpManager, "current_code_from_secret", lambda *a, **k: "123456"
             )
             monkeypatch.setattr(
                 pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
@@ -383,7 +384,7 @@ def test_show_entry_details_with_enum_type(monkeypatch, capsys, entry_type):
             entry_mgr.add_totp("Example", TEST_SEED)
             idx = 0
             monkeypatch.setattr(
-                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+                TotpManager, "current_code_from_secret", lambda *a, **k: "123456"
             )
             monkeypatch.setattr(
                 pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
