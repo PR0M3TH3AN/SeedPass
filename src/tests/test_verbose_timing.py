@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from seedpass.core.manager import PasswordManager
-from helpers import dummy_nostr_client
 
 
 def test_unlock_vault_logs_time(monkeypatch, caplog, tmp_path):

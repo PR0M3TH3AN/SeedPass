@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from utils.seed_prompt import masked_input
 
@@ -14,6 +14,9 @@ from .vault import Vault
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
 from constants import INACTIVITY_TIMEOUT, MAX_RETRIES, RETRY_DELAY
+
+if TYPE_CHECKING:
+    from .password_generation import PasswordPolicy
 
 logger = logging.getLogger(__name__)
 

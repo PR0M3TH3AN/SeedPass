@@ -46,9 +46,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function escapeHtml(text) {
+    if (!text) return text;
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function highlight(text, q) {
+    if (!q) return escapeHtml(text);
     const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + ')', 'gi');
-    return text.replace(re, '<mark>$1</mark>');
+    return text.split(re).map((part, index) => {
+      if (index % 2 === 1) {
+        return '<mark>' + escapeHtml(part) + '</mark>';
+      } else {
+        return escapeHtml(part);
+      }
+    }).join('');
   }
 
   searchInput?.addEventListener('input', async e => {

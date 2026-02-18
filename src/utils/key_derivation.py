@@ -21,7 +21,7 @@ import hmac
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, TYPE_CHECKING
 
 from bip_utils import Bip39SeedGenerator
 from local_bip85 import BIP85
@@ -45,6 +45,9 @@ DEFAULT_ENCRYPTION_MODE = EncryptionMode.SEED_ONLY
 
 # Purpose constant for TOTP secret derivation using BIP85
 TOTP_PURPOSE = 39
+
+if TYPE_CHECKING:
+    from seedpass.core.config_manager import ConfigManager
 
 
 @dataclass

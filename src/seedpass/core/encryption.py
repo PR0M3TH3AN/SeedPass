@@ -6,7 +6,7 @@ import unicodedata
 try:
     import orjson as json_lib  # type: ignore
 
-    JSONDecodeError = orjson.JSONDecodeError
+    JSONDecodeError = json_lib.JSONDecodeError
     USE_ORJSON = True
 except Exception:  # pragma: no cover - fallback for environments without orjson
     import json as json_lib

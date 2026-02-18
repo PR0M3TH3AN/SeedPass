@@ -28,14 +28,12 @@ no_clipboard_option = typer.Option(
     False,
     "--no-clipboard",
     help="Disable clipboard support and print secrets instead",
-    is_flag=True,
 )
 
 deterministic_totp_option = typer.Option(
     False,
     "--deterministic-totp",
     help="Derive TOTP secrets deterministically",
-    is_flag=True,
 )
 
 # Sub command groups

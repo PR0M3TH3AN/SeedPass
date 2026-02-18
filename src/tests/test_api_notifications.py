@@ -1,4 +1,3 @@
-from test_api import client
 from types import SimpleNamespace
 import queue
 import pytest

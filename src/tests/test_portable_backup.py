@@ -19,7 +19,6 @@ from seedpass.core.portable_backup import PortableMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
 from utils.fingerprint import generate_fingerprint
 
-
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 PASSWORD = "passw0rd"
 

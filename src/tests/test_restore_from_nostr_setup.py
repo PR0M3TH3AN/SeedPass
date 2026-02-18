@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from helpers import create_vault, dummy_nostr_client, TEST_SEED, TEST_PASSWORD
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
@@ -28,8 +28,10 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_handle_new_seed_setup_restore_from_nostr(monkeypatch, tmp_path, capsys):
-    client, _relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+def test_handle_new_seed_setup_restore_from_nostr(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
+    client, _relay = make_dummy_nostr_client(tmp_path / "srv")
 
     dir_a = tmp_path / "A"
     dir_b = tmp_path / "B"
@@ -133,8 +135,10 @@ async def _no_snapshot():
     return None
 
 
-def test_restore_from_nostr_warns(monkeypatch, tmp_path, capsys):
-    client, _relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+def test_restore_from_nostr_warns(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
+    client, _relay = make_dummy_nostr_client(tmp_path / "srv")
     monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
 
     pm = PasswordManager.__new__(PasswordManager)
@@ -150,8 +154,10 @@ def test_restore_from_nostr_warns(monkeypatch, tmp_path, capsys):
     assert "No Nostr backup" in out
 
 
-def test_restore_from_nostr_abort(monkeypatch, tmp_path, capsys):
-    client, _relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+def test_restore_from_nostr_abort(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
+    client, _relay = make_dummy_nostr_client(tmp_path / "srv")
     monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
 
     pm = PasswordManager.__new__(PasswordManager)

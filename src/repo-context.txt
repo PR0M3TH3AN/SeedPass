@@ -3081,52 +3081,6 @@ __all__ = ['NostrClient']
 
 ```
 
-## nostr/event_handler.py
-```python
-# nostr/event_handler.py
-
-import time
-import logging
-import traceback
-from monstr.event.event import Event
-
-# Instantiate the logger
-logger = logging.getLogger(__name__)
-
-class EventHandler:
-    """
-    Handles incoming Nostr events.
-    """
-
-    def __init__(self):
-        pass  # Initialize if needed
-
-    def handle_new_event(self, evt: Event):
-        """
-        Processes incoming events by logging their details.
-
-        :param evt: The received Event object.
-        """
-        try:
-            # Assuming evt.created_at is always an integer Unix timestamp
-            if isinstance(evt.created_at, int):
-                created_at_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(evt.created_at))
-            else:
-                # Handle unexpected types gracefully
-                created_at_str = str(evt.created_at)
-
-            # Log the event details without extra newlines
-            logger.info(
-                f"[New Event] ID: {evt.id} | Created At: {created_at_str} | Content: {evt.content}"
-            )
-        except Exception as e:
-            logger.error(f"Error handling new event: {e}")
-            logger.error(traceback.format_exc())
-            # Optionally, handle the exception without re-raising
-            # For example, continue processing other events
-
-```
-
 ## nostr/encryption_manager.py
 ```python
 # nostr/encryption_manager.py
@@ -3276,7 +3230,6 @@ import fcntl
 
 from .key_manager import KeyManager
 from .encryption_manager import EncryptionManager
-from .event_handler import EventHandler
 from constants import APP_DIR
 from utils.file_lock import lock_file
 
@@ -3326,7 +3279,6 @@ class NostrClient:
             )
 
             # Initialize event handler and client pool
-            self.event_handler = EventHandler()
             self.relays = relays if relays else DEFAULT_RELAYS
             self.client_pool = ClientPool(self.relays)
             self.subscriptions = {}
@@ -3582,7 +3534,6 @@ class NostrClient:
         try:
             await asyncio.gather(
                 self.do_post_async(text),
-                self.subscribe_feed_async(self.event_handler.handle_new_event)
             )
         except Exception as e:
             logger.error(f"An error occurred in publish_and_subscribe_async: {e}", exc_info=True)

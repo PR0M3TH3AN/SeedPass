@@ -1,4 +1,3 @@
-from test_api import client
 import pytest
 
 

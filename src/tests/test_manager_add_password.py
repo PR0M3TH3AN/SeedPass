@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from helpers import create_vault, TEST_SEED, TEST_PASSWORD, dummy_nostr_client
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
