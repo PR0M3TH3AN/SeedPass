@@ -36,7 +36,6 @@ def create_vault(
 
 import uuid
 import asyncio
-import pytest
 
 from nostr.backup_models import (
     KIND_MANIFEST,
@@ -239,39 +238,3 @@ class DummyRelayClient:
         return Result(events)
 
 
-@pytest.fixture
-def dummy_nostr_client(tmp_path, monkeypatch):
-    """Return a NostrClient wired to a DummyRelayClient."""
-    from cryptography.fernet import Fernet
-    from nostr.client import NostrClient
-
-    relay = DummyRelayClient()
-    monkeypatch.setattr("nostr.client.Client", lambda signer: relay)
-    monkeypatch.setattr("nostr.client.EventBuilder", DummyBuilder)
-    monkeypatch.setattr("nostr.client.Filter", DummyFilter)
-    monkeypatch.setattr("nostr.client.Tag", DummyTag)
-    monkeypatch.setattr("nostr.client.Timestamp", DummyTimestamp)
-    monkeypatch.setattr("nostr.client.EventId", DummyEventId)
-    from nostr.backup_models import KIND_DELTA as KD
-
-    monkeypatch.setattr("nostr.client.KIND_DELTA", KD, raising=False)
-    monkeypatch.setattr(NostrClient, "initialize_client_pool", lambda self: None)
-
-    enc_mgr = EncryptionManager(Fernet.generate_key(), tmp_path)
-
-    class DummyKeys:
-        def private_key_hex(self):
-            return "1" * 64
-
-        def public_key_hex(self):
-            return "2" * 64
-
-    class DummyKeyManager:
-        def __init__(self, *a, **k):
-            self.keys = DummyKeys()
-
-    with pytest.MonkeyPatch().context() as mp:
-        mp.setattr("nostr.client.KeyManager", DummyKeyManager)
-        mp.setattr(enc_mgr, "decrypt_parent_seed", lambda: TEST_SEED)
-        client = NostrClient(enc_mgr, "fp")
-    return client, relay

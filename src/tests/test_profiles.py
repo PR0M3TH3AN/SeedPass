@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
-from helpers import create_vault, dummy_nostr_client
+from helpers import create_vault
 import gzip
 from nostr.backup_models import Manifest, ChunkMeta
 

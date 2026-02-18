@@ -14,7 +14,7 @@ def generate_password(
     ctx: typer.Context,
     length: int = 24,
     no_special: bool = typer.Option(
-        False, "--no-special", help="Exclude special characters", is_flag=True
+        False, "--no-special", help="Exclude special characters"
     ),
     allowed_special_chars: Optional[str] = typer.Option(
         None, "--allowed-special-chars", help="Explicit set of special characters"
@@ -28,7 +28,6 @@ def generate_password(
         False,
         "--exclude-ambiguous",
         help="Exclude ambiguous characters",
-        is_flag=True,
     ),
     min_uppercase: Optional[int] = typer.Option(None, "--min-uppercase"),
     min_lowercase: Optional[int] = typer.Option(None, "--min-lowercase"),

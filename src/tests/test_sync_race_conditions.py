@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 
 
-from helpers import create_vault, dummy_nostr_client
+from helpers import create_vault
 
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
@@ -31,8 +31,8 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_sync_race_conditions(monkeypatch, tmp_path):
-    client_a, relay = dummy_nostr_client.__wrapped__(tmp_path / "c1", monkeypatch)
+def test_sync_race_conditions(monkeypatch, tmp_path, make_dummy_nostr_client):
+    client_a, relay = make_dummy_nostr_client(tmp_path / "c1")
 
     from cryptography.fernet import Fernet
     from nostr.client import NostrClient

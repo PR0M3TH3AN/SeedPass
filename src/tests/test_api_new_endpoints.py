@@ -5,8 +5,6 @@ import base64
 import pytest
 
 from seedpass import api
-from test_api import client
-from helpers import dummy_nostr_client
 import string
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 from seedpass.core.encryption import EncryptionManager

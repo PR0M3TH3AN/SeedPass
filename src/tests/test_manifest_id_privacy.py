@@ -1,6 +1,5 @@
 import asyncio
 
-from helpers import dummy_nostr_client
 
 
 def test_published_events_no_fingerprint(dummy_nostr_client):

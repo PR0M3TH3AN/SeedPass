@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from helpers import create_vault, dummy_nostr_client
+from helpers import create_vault
 
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager

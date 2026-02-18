@@ -1,53 +1,12 @@
-from types import SimpleNamespace
 from pathlib import Path
 import sys
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 import bcrypt
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from seedpass import api
-from seedpass.core.entry_types import EntryType
-
-
-@pytest.fixture
-async def client(monkeypatch):
-    dummy = SimpleNamespace(
-        entry_manager=SimpleNamespace(
-            search_entries=lambda q: [
-                (1, "Site", "user", "url", False, EntryType.PASSWORD)
-            ],
-            retrieve_entry=lambda i: {"label": "Site"},
-            add_entry=lambda *a, **k: 1,
-            modify_entry=lambda *a, **k: None,
-            archive_entry=lambda i: None,
-            restore_entry=lambda i: None,
-        ),
-        config_manager=SimpleNamespace(
-            load_config=lambda require_pin=False: {"k": "v"},
-            set_pin=lambda v: None,
-            set_password_hash=lambda v: None,
-            set_relays=lambda v, require_pin=False: None,
-            set_inactivity_timeout=lambda v: None,
-            set_additional_backup_path=lambda v: None,
-            set_secret_mode_enabled=lambda v: None,
-            set_clipboard_clear_delay=lambda v: None,
-            set_quick_unlock=lambda v: None,
-        ),
-        fingerprint_manager=SimpleNamespace(list_fingerprints=lambda: ["fp"]),
-        nostr_client=SimpleNamespace(
-            key_manager=SimpleNamespace(get_npub=lambda: "np")
-        ),
-        verify_password=lambda pw: True,
-    )
-    monkeypatch.setattr(api, "PasswordManager", lambda: dummy)
-    monkeypatch.setenv("SEEDPASS_CORS_ORIGINS", "http://example.com")
-    token = api.start_server()
-    transport = ASGITransport(app=api.app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac, token
 
 
 @pytest.mark.anyio

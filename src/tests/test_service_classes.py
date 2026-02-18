@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from helpers import create_vault, TEST_SEED, TEST_PASSWORD, dummy_nostr_client
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.manager import PasswordManager, EncryptionMode

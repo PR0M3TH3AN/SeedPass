@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 import asyncio
 import gzip
 
-from helpers import dummy_nostr_client
 
 
 def load_script():

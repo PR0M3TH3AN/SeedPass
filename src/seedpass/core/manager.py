@@ -1671,7 +1671,7 @@ class PasswordManager:
                     self.error_queue.put(exc)
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             thread = threading.Thread(
                 target=lambda: asyncio.run(_worker()), daemon=True
@@ -1734,7 +1734,7 @@ class PasswordManager:
                     self.error_queue.put(exc)
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             threading.Thread(target=_worker, daemon=True).start()
         else:

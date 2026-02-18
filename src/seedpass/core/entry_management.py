@@ -1336,7 +1336,7 @@ class EntryManager:
             atomic_write(checksum_path, lambda f: f.write(checksum))
 
             logger.debug(f"Checksum updated and written to '{checksum_path}'.")
-            print(colored(f"[+] Checksum updated successfully.", "green"))
+            print(colored("[+] Checksum updated successfully.", "green"))
 
         except Exception as e:
             logger.error(f"Failed to update checksum: {e}", exc_info=True)
