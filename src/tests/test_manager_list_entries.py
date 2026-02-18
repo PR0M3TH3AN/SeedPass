@@ -346,7 +346,8 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             entry_mgr.add_totp("Example", TEST_SEED)
             idx = 0
             monkeypatch.setattr(
-                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+                "seedpass.core.manager.TotpManager.current_code_from_secret",
+                lambda *a, **k: "123456",
             )
             monkeypatch.setattr(
                 pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
@@ -383,7 +384,8 @@ def test_show_entry_details_with_enum_type(monkeypatch, capsys, entry_type):
             entry_mgr.add_totp("Example", TEST_SEED)
             idx = 0
             monkeypatch.setattr(
-                pm.entry_manager, "get_totp_code", lambda *a, **k: "123456"
+                "seedpass.core.manager.TotpManager.current_code_from_secret",
+                lambda *a, **k: "123456",
             )
             monkeypatch.setattr(
                 pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1

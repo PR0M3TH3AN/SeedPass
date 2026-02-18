@@ -21,7 +21,10 @@ def test_handle_display_totp_codes(monkeypatch, capsys, password_manager):
 
     pm.entry_manager.add_totp("Example", TEST_SEED)
 
-    monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+    monkeypatch.setattr(
+        "seedpass.core.totp.TotpManager.current_code_from_secret",
+        lambda *a, **k: "123456",
+    )
     monkeypatch.setattr(pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30)
 
     # interrupt the loop after first iteration
@@ -45,7 +48,10 @@ def test_display_totp_codes_excludes_archived(monkeypatch, capsys, password_mana
     pm.entry_manager.add_totp("Hidden", TEST_SEED)
     pm.entry_manager.modify_entry(1, archived=True)
 
-    monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+    monkeypatch.setattr(
+        "seedpass.core.totp.TotpManager.current_code_from_secret",
+        lambda *a, **k: "123456",
+    )
     monkeypatch.setattr(pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30)
 
     monkeypatch.setattr(
