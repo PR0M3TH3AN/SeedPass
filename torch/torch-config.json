@@ -1,0 +1,20 @@
+{
+  "scheduler": {
+    "firstPromptByCadence": {
+      "daily": "ci-health-agent"
+    },
+    "memoryPolicyByCadence": {
+      "daily": {
+        "retrieveCommand": "echo 'Retrieving memory...' && touch memory_retrieved.marker",
+        "storeCommand": "echo 'Storing memory...' && touch memory_stored.marker",
+        "retrieveArtifact": "memory_retrieved.marker",
+        "storeArtifact": "memory_stored.marker",
+        "mode": "required"
+      }
+    }
+  },
+  "cadence": "daily",
+  "log_dir": "task-logs/daily/",
+  "branch_prefix": "agents/daily/",
+  "prompt_dir": "src/prompts/daily/"
+}
