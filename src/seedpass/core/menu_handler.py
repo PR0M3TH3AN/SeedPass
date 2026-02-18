@@ -128,7 +128,9 @@ class MenuHandler:
                 try:
                     secrets_cache[idx] = pm.entry_manager.get_totp_secret(idx, key)
                 except Exception as e:
-                    logging.error(f"Failed to retrieve TOTP secret for index {idx}: {e}")
+                    logging.error(
+                        f"Failed to retrieve TOTP secret for index {idx}: {e}"
+                    )
 
             while True:
                 fp, parent_fp, child_fp = pm.header_fingerprint_args
