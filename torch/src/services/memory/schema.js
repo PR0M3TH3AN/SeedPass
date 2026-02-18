@@ -48,6 +48,8 @@ export function normalizeEvent(event) {
  * @param {Partial<MemoryRecord>} input
  * @returns {MemoryRecord}
  */
+import crypto from 'node:crypto';
+
 export function normalizeMemoryItem(input = {}) {
   const now = Date.now();
 
