@@ -1,23 +1,5 @@
 {
-  "name": "torch",
-  "version": "1.0.0",
-  "description": "TORCH Agent Environment",
-  "main": "index.js",
-  "scripts": {
-    "lock:check:daily": "torch-lock check --cadence daily",
-    "lock:lock": "torch-lock lock",
-    "lock:complete": "torch-lock complete"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "torch-lock": "https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0",
-    "globals": "^17.3.0"
   }
 }
