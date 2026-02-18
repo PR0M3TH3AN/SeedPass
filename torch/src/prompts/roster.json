@@ -1,0 +1,6 @@
+{
+  "daily": [
+    "ci-health-agent",
+    "content-audit-agent"
+  ]
+}
