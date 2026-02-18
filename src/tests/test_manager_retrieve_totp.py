@@ -45,7 +45,7 @@ def test_handle_retrieve_totp_entry(monkeypatch, capsys):
 
         inputs = iter(["0", "n", ""])
         monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(TotpManager, "current_code_from_secret", lambda *a, **k: "123456")
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 1
         )

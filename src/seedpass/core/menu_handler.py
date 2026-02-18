@@ -119,6 +119,17 @@ class MenuHandler:
 
             totp_list.sort(key=lambda t: t[0].lower())
             print(colored("Press Enter to return to the menu.", "cyan"))
+
+            from .totp import TotpManager
+
+            secrets_cache: dict[int, str] = {}
+            key = getattr(pm, "KEY_TOTP_DET", None) or getattr(pm, "parent_seed", None)
+            for _, idx, _, _ in totp_list:
+                try:
+                    secrets_cache[idx] = pm.entry_manager.get_totp_secret(idx, key)
+                except Exception as e:
+                    logging.error(f"Failed to retrieve TOTP secret for index {idx}: {e}")
+
             while True:
                 fp, parent_fp, child_fp = pm.header_fingerprint_args
                 clear_header_with_notification(
@@ -134,10 +145,12 @@ class MenuHandler:
                 if generated:
                     print(colored("\nGenerated 2FA Codes:", "green"))
                     for label, idx, period, _ in generated:
-                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
-                            pm, "parent_seed", None
-                        )
-                        code = pm.entry_manager.get_totp_code(idx, key)
+                        if idx in secrets_cache:
+                            code = TotpManager.current_code_from_secret(
+                                secrets_cache[idx]
+                            )
+                        else:
+                            code = "ERROR"
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
@@ -155,10 +168,12 @@ class MenuHandler:
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
                     for label, idx, period, _ in imported_list:
-                        key = getattr(pm, "KEY_TOTP_DET", None) or getattr(
-                            pm, "parent_seed", None
-                        )
-                        code = pm.entry_manager.get_totp_code(idx, key)
+                        if idx in secrets_cache:
+                            code = TotpManager.current_code_from_secret(
+                                secrets_cache[idx]
+                            )
+                        else:
+                            code = "ERROR"
                         remaining = pm.entry_manager.get_totp_time_remaining(idx)
                         filled = int(20 * (period - remaining) / period)
                         bar = "[" + "#" * filled + "-" * (20 - filled) + "]"

@@ -694,6 +694,27 @@ class EntryManager:
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
+    def get_totp_secret(
+        self,
+        index: int,
+        parent_seed: str | bytes | None = None,
+    ) -> str:
+        """Return the TOTP secret for the specified entry."""
+        entry = self.retrieve_entry(index)
+        etype = entry.get("type") if entry else None
+        kind = entry.get("kind") if entry else None
+        if not entry or (
+            etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
+        ):
+            raise ValueError("Entry is not a TOTP entry")
+
+        if entry.get("deterministic", False) or "secret" not in entry:
+            if parent_seed is None:
+                raise ValueError("Seed required for derived TOTP")
+            totp_index = int(entry.get("index", 0))
+            return TotpManager.derive_secret(parent_seed, totp_index)
+        return entry["secret"]
+
     def get_totp_code(
         self,
         index: int,
