@@ -12,6 +12,7 @@ LOG_DIR = "task-logs/daily/"
 AGENTS_MD_FILE = "../AGENTS.md"  # Relative to torch/
 VALIDATION_CMD = "npm run lint"  # Default validation command
 
+
 def run_command(command, check=True):
     print(f"Running: {command}")
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -21,9 +22,11 @@ def run_command(command, check=True):
         # Don't exit here immediately, let caller handle
     return result
 
+
 def ensure_directories():
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs("task-logs/weekly/", exist_ok=True)
+
 
 def check_agents_md():
     if os.path.exists(AGENTS_MD_FILE):
@@ -33,6 +36,7 @@ def check_agents_md():
             f.read(100)
     else:
         print(f"No {AGENTS_MD_FILE} found; continuing")
+
 
 def get_exclusion_set():
     # MUST 2: Run preflight to get the exclusion set
@@ -46,13 +50,13 @@ def get_exclusion_set():
 
     try:
         output = result.stdout.strip()
-        print(f"Exclusion output: {output}") # Debug print
+        print(f"Exclusion output: {output}")  # Debug print
 
         # Find the JSON object
-        start = output.find('{')
-        end = output.rfind('}')
+        start = output.find("{")
+        end = output.rfind("}")
         if start != -1 and end != -1:
-            json_str = output[start:end+1]
+            json_str = output[start : end + 1]
             data = json.loads(json_str)
             return set(data.get("excluded", []))
         else:
@@ -62,18 +66,23 @@ def get_exclusion_set():
         print(f"Warning: Failed to parse exclusion JSON: {e}")
         return set()
 
+
 def get_next_agent(roster, excluded):
     # List files in log dir
     log_files = sorted([f for f in os.listdir(LOG_DIR) if f.endswith(".md")])
 
     start_index = 0
     if not log_files:
-        start_agent = "ci-health-agent" # Default if no logs
+        start_agent = "ci-health-agent"  # Default if no logs
         # Try to read from config if available
         try:
             with open(CONFIG_FILE, "r") as f:
                 config = json.load(f)
-                start_agent = config.get("scheduler", {}).get("firstPromptByCadence", {}).get("daily", start_agent)
+                start_agent = (
+                    config.get("scheduler", {})
+                    .get("firstPromptByCadence", {})
+                    .get("daily", start_agent)
+                )
         except (FileNotFoundError, json.JSONDecodeError):
             pass
 
@@ -100,6 +109,7 @@ def get_next_agent(roster, excluded):
 
     return None
 
+
 def acquire_lock(agent):
     # AGENT_PLATFORM=<platform> npm run lock:lock -- --agent <agent-name> --cadence daily
     # platform is simulated as 'local'
@@ -121,13 +131,18 @@ def acquire_lock(agent):
         print(result.stderr)
         return False
 
+
 def run_memory_workflow(stage, agent):
     # stage is 'retrieve' or 'store'
     # Check config for command
     try:
         with open(CONFIG_FILE, "r") as f:
             config = json.load(f)
-            policy = config.get("scheduler", {}).get("memoryPolicyByCadence", {}).get("daily", {})
+            policy = (
+                config.get("scheduler", {})
+                .get("memoryPolicyByCadence", {})
+                .get("daily", {})
+            )
 
             command = policy.get(f"{stage}Command")
             artifact = policy.get(f"{stage}Artifact")
@@ -157,6 +172,7 @@ def run_memory_workflow(stage, agent):
         pass
     return True
 
+
 def main():
     # 1. & 2. Ensure directories and check AGENTS.md
     ensure_directories()
@@ -184,7 +200,9 @@ def main():
         agent = get_next_agent(daily_roster, excluded)
         if not agent:
             print("All roster tasks currently claimed by other agents")
-            timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+            timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y-%m-%dT%H-%M-%SZ"
+            )
             # Write to a special log file or just print and exit
             log_file = os.path.join(LOG_DIR, f"{timestamp}__scheduler__failed.md")
             with open(log_file, "w") as f:
@@ -198,13 +216,15 @@ def main():
             break
         else:
             print("Retrying selection...")
-            time.sleep(1) # Wait a bit before retry
+            time.sleep(1)  # Wait a bit before retry
 
     # 7. Execute Prompt
     # Memory Retrieval
     if not run_memory_workflow("retrieve", agent):
         print("Memory retrieval failed (required).")
-        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H-%M-%SZ"
+        )
         log_file = os.path.join(LOG_DIR, f"{timestamp}__{agent}__failed.md")
         with open(log_file, "w") as f:
             f.write("Memory retrieval failed (required).")
@@ -225,7 +245,9 @@ def main():
     # Memory Storage
     if not run_memory_workflow("store", agent):
         print("Memory storage failed (required).")
-        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H-%M-%SZ"
+        )
         log_file = os.path.join(LOG_DIR, f"{timestamp}__{agent}__failed.md")
         with open(log_file, "w") as f:
             f.write("Memory storage failed (required).")
@@ -244,10 +266,14 @@ def main():
         print(validation_result.stdout)
         print(validation_result.stderr)
         # Write failed log
-        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H-%M-%SZ"
+        )
         log_file = os.path.join(LOG_DIR, f"{timestamp}__{agent}__failed.md")
         with open(log_file, "w") as f:
-            f.write(f"Validation failed:\n{validation_result.stdout}\n{validation_result.stderr}")
+            f.write(
+                f"Validation failed:\n{validation_result.stdout}\n{validation_result.stderr}"
+            )
         sys.exit(1)
 
     # 9. Complete Lock
@@ -255,23 +281,30 @@ def main():
     complete_cmd = f"npm run --silent lock:complete -- --agent {agent} --cadence daily"
     env = os.environ.copy()
     env["AGENT_PLATFORM"] = "local"
-    complete_result = subprocess.run(complete_cmd, shell=True, env=env, capture_output=True, text=True)
+    complete_result = subprocess.run(
+        complete_cmd, shell=True, env=env, capture_output=True, text=True
+    )
 
     if complete_result.returncode != 0:
         print("Completion failed:")
         print(complete_result.stderr)
-        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H-%M-%SZ"
+        )
         log_file = os.path.join(LOG_DIR, f"{timestamp}__{agent}__failed.md")
         with open(log_file, "w") as f:
             f.write(f"Completion failed:\n{complete_result.stderr}")
         sys.exit(1)
 
     # 10. Write Completed Log
-    timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H-%M-%SZ"
+    )
     log_file = os.path.join(LOG_DIR, f"{timestamp}__{agent}__completed.md")
     with open(log_file, "w") as f:
         f.write(f"Task completed successfully for {agent}.\n")
     print(f"Log written to {log_file}")
+
 
 if __name__ == "__main__":
     main()
