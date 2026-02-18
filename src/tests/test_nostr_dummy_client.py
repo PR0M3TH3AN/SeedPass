@@ -3,7 +3,7 @@ import gzip
 import math
 import pytest
 
-from helpers import create_vault, dummy_nostr_client, TEST_SEED
+from helpers import create_vault, TEST_SEED
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager

@@ -3,7 +3,7 @@ import base64
 import hashlib
 import json
 
-from helpers import DummyEvent, DummyFilter, dummy_nostr_client
+from helpers import DummyEvent, DummyFilter
 from nostr.backup_models import KIND_MANIFEST, KIND_SNAPSHOT_CHUNK
 from nostr_sdk import Keys
 
