@@ -6,7 +6,6 @@ import asyncio
 import gzip
 
 
-
 def load_script():
     script_path = (
         Path(__file__).resolve().parents[2] / "scripts" / "generate_test_profile.py"

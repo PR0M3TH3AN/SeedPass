@@ -1,7 +1,6 @@
 import asyncio
 
 
-
 def test_published_events_no_fingerprint(dummy_nostr_client):
     client, relay = dummy_nostr_client
     asyncio.run(client.publish_snapshot(b"secret"))

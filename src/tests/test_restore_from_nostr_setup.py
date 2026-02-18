@@ -28,7 +28,9 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_handle_new_seed_setup_restore_from_nostr(monkeypatch, tmp_path, capsys, make_dummy_nostr_client):
+def test_handle_new_seed_setup_restore_from_nostr(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
     client, _relay = make_dummy_nostr_client(tmp_path / "srv")
 
     dir_a = tmp_path / "A"
@@ -133,7 +135,9 @@ async def _no_snapshot():
     return None
 
 
-def test_restore_from_nostr_warns(monkeypatch, tmp_path, capsys, make_dummy_nostr_client):
+def test_restore_from_nostr_warns(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
     client, _relay = make_dummy_nostr_client(tmp_path / "srv")
     monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
 
@@ -150,7 +154,9 @@ def test_restore_from_nostr_warns(monkeypatch, tmp_path, capsys, make_dummy_nost
     assert "No Nostr backup" in out
 
 
-def test_restore_from_nostr_abort(monkeypatch, tmp_path, capsys, make_dummy_nostr_client):
+def test_restore_from_nostr_abort(
+    monkeypatch, tmp_path, capsys, make_dummy_nostr_client
+):
     client, _relay = make_dummy_nostr_client(tmp_path / "srv")
     monkeypatch.setattr(client, "fetch_latest_snapshot", _no_snapshot)
 
