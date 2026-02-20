@@ -1,7 +1,6 @@
 import { createProposal, listProposals, applyProposal, rejectProposal, getProposal } from './services/governance/index.js';
 import { ExitError } from './errors.mjs';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 
 export async function cmdProposal(subcommand, args = {}) {
   switch (subcommand) {
@@ -30,7 +29,7 @@ async function handleCreate({ agent, target, contentFile, reason }) {
   let newContent;
   try {
     newContent = await fs.readFile(contentFile, 'utf8');
-  } catch (e) {
+  } catch (_e) {
     console.error(`Failed to read content file: ${contentFile}`);
     throw new ExitError(1, 'File read error');
   }

@@ -21,6 +21,20 @@ export const DEFAULT_MAX_QUARANTINE_COOLDOWN_MS = 300_000;
 export const DEFAULT_SNAPSHOT_INTERVAL_MS = 60_000;
 export const VALID_CADENCES = new Set(['daily', 'weekly']);
 export const KIND_APP_DATA = 30078;
+export const MS_PER_SECOND = 1000;
+
+/**
+ * Script keys injected into the host package.json during `torch-lock init`.
+ * Used by both init (to add) and remove (to clean up).
+ */
+export const TORCH_HOST_SCRIPTS = [
+  'torch:dashboard',
+  'torch:check',
+  'torch:lock',
+  'torch:health',
+  'torch:memory:list',
+  'torch:memory:inspect',
+];
 
 export const USAGE_TEXT = `Usage: torch-lock <command> [options]
 
@@ -33,6 +47,7 @@ Commands:
   dashboard [--port <port>] [--host <host>]        Serve the dashboard (default: ${DEFAULT_DASHBOARD_PORT})
   init      [--force]                              Initialize torch/ directory in current project
   update    [--force]                              Update torch/ configuration (backups, merges)
+  remove    [--force]                              Remove all TORCH files and configuration from project
 
   list-memories           [--agent <id>] [--type <type>] [--tags <a,b>] [--pinned <true|false>] [--full]
   inspect-memory          --id <memoryId>

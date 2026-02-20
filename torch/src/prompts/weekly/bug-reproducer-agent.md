@@ -72,6 +72,8 @@ HARD CONSTRAINTS
 ───────────────────────────────────────────────────────────────────────────────
 WORKFLOW
 
+If no work is required, exit without making changes.
+
 1) Preflight
   - Read `AGENTS.md` and `CLAUDE.md` for:
       - directory conventions for examples/repro scripts

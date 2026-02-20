@@ -518,6 +518,40 @@
         /* Define danger color if not exists in dashboard/styles.css */
         :root {
             --danger: #ef4444;
+            /* Warm Accent Colors */
+            --warm-primary: #ff6b6b;
+            --warm-secondary: #fbbf24;
+            --warm-glow: rgba(255, 107, 107, 0.15);
+        }
+
+        /* Ambient Background */
+        .background-decoration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .background-decoration svg {
+            width: 100%;
+            height: 100%;
+            opacity: 0.4;
+        }
+
+        /* Scroll Animations */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+        }
+
+        .scroll-reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         /* Core Capabilities Section */
@@ -767,6 +801,38 @@
 </head>
 <body>
 
+    <div class="background-decoration">
+        <svg viewBox="0 0 1440 1024" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <defs>
+                <linearGradient id="warmGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="var(--accent)" stop-opacity="0" />
+                    <stop offset="50%" stop-color="var(--warm-primary)" stop-opacity="0.6" />
+                    <stop offset="100%" stop-color="var(--warm-secondary)" stop-opacity="0" />
+                </linearGradient>
+            </defs>
+            <path d="M-100 600 C 200 400, 600 800, 1540 500" stroke="url(#warmGradient)" stroke-width="2" fill="none" opacity="0.5">
+                <animate attributeName="d"
+                         values="M-100 600 C 200 400, 600 800, 1540 500; M-100 600 C 200 500, 600 700, 1540 500; M-100 600 C 200 400, 600 800, 1540 500"
+                         dur="20s" repeatCount="indefinite" />
+            </path>
+            <path d="M-100 300 C 400 500, 800 100, 1540 400" stroke="url(#warmGradient)" stroke-width="1.5" fill="none" opacity="0.3">
+                 <animate attributeName="d"
+                         values="M-100 300 C 400 500, 800 100, 1540 400; M-100 300 C 400 400, 800 200, 1540 400; M-100 300 C 400 500, 800 100, 1540 400"
+                         dur="25s" repeatCount="indefinite" />
+            </path>
+            <circle cx="200" cy="400" r="4" fill="var(--warm-primary)" opacity="0.2">
+                <animate attributeName="opacity" values="0.2;0.8;0.2" dur="4s" repeatCount="indefinite" />
+                <animate attributeName="cx" values="200;220;200" dur="10s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="800" cy="100" r="3" fill="var(--info)" opacity="0.3">
+                <animate attributeName="opacity" values="0.2;0.6;0.2" dur="3s" repeatCount="indefinite" />
+            </circle>
+             <circle cx="1200" cy="700" r="2" fill="var(--warm-secondary)" opacity="0.4">
+                <animate attributeName="cy" values="700;720;700" dur="8s" repeatCount="indefinite" />
+            </circle>
+        </svg>
+    </div>
+
     <header>
         <div class="logo-container">
             <img src="../assets/logo.svg" alt="TORCH Logo" width="32" height="32">
@@ -778,10 +844,10 @@
     </header>
 
     <main>
-        <section class="hero">
-            <h1>The Operating System for Your AI Workforce.</h1>
+        <section class="hero scroll-reveal">
+            <h1>A Simple Round-Robin Agent Scheduler.</h1>
             <p>
-                A simple drag-and-drop folder that grants every project autonomous AI agents that learn, adapt, and evolve over time.
+                A lightweight, drop-in folder that rotates through autonomous agents to maintain and improve your codebase. No complex pipelines—just simple, effective orchestration.
             </p>
             <div class="actions">
                 <a href="../dashboard/" class="cta-button primary">Launch Dashboard</a>
@@ -789,32 +855,64 @@
             </div>
         </section>
 
-        <div class="install-container">
+        <div class="install-container scroll-reveal">
             <h2 class="mb-8 text-text-strong" style="font-size: 2rem;">Choose Your Agent</h2>
 
             <div class="agent-selector">
-                <a href="https://jules.google/" target="_blank" class="agent-card active">
+                <div id="card-jules" onclick="selectAgent('jules')" class="agent-card active" style="cursor: pointer;">
                     <div class="agent-header">
                         <span class="agent-name">Jules</span>
                         <span class="agent-status">Active</span>
                     </div>
-                    <p class="agent-desc">Optimized for Google's latest coding agent. Click to learn more.</p>
-                </a>
-
-                <div class="agent-card disabled">
-                    <div class="agent-header">
-                        <span class="agent-name">Codex</span>
-                        <span class="agent-status">Coming Soon</span>
-                    </div>
-                    <p class="agent-desc">Advanced reasoning for complex tasks.</p>
+                    <p class="agent-desc">Web-based tool with Auto-Scheduler. Optimized for Google's latest coding agent. <a href="https://jules.google/" target="_blank" onclick="event.stopPropagation()">Learn more</a>.</p>
                 </div>
 
-                <div class="agent-card disabled">
+                <div id="card-codex" onclick="selectAgent('codex')" class="agent-card" style="cursor: pointer;">
                     <div class="agent-header">
-                        <span class="agent-name">Claude</span>
+                        <span class="agent-name">Codex CLI</span>
+                        <span class="agent-status">Active</span>
+                    </div>
+                    <p class="agent-desc">Advanced reasoning for complex tasks. (Requires full access permissions)</p>
+                </div>
+
+                <div id="card-opencode" class="agent-card disabled">
+                    <div class="agent-header">
+                        <span class="agent-name">OpenCode CLI</span>
                         <span class="agent-status">Coming Soon</span>
                     </div>
-                    <p class="agent-desc">Long-context understanding and safety.</p>
+                    <p class="agent-desc">Open source models running locally.</p>
+                </div>
+
+                <div id="card-claude" onclick="selectAgent('claude')" class="agent-card" style="cursor: pointer;">
+                    <div class="agent-header">
+                        <span class="agent-name">Claude Code CLI</span>
+                        <span class="agent-status">Active</span>
+                    </div>
+                    <p class="agent-desc">Long-context understanding and safety. (CLI Required, needs cronjob)</p>
+                </div>
+
+                <div id="card-gemini" onclick="selectAgent('gemini')" class="agent-card" style="cursor: pointer;">
+                    <div class="agent-header">
+                        <span class="agent-name">Gemini CLI</span>
+                        <span class="agent-status">Active</span>
+                    </div>
+                    <p class="agent-desc">Google's multimodal AI model. (CLI Required, needs cronjob)</p>
+                </div>
+
+                <div id="card-qwen" onclick="selectAgent('qwen')" class="agent-card" style="cursor: pointer;">
+                    <div class="agent-header">
+                        <span class="agent-name">Qwen Coder CLI</span>
+                        <span class="agent-status">Active</span>
+                    </div>
+                    <p class="agent-desc">Alibaba's open weights coding model. (CLI Required, needs cronjob)</p>
+                </div>
+
+                <div id="card-antigravity" onclick="selectAgent('antigravity')" class="agent-card" style="cursor: pointer;">
+                    <div class="agent-header">
+                        <span class="agent-name">Antigravity IDE</span>
+                        <span class="agent-status">Active</span>
+                    </div>
+                    <p class="agent-desc">The autonomous Python IDE. (Manual only)</p>
                 </div>
             </div>
 
@@ -858,7 +956,7 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
         </div>
 
-        <section class="features">
+        <section class="features scroll-reveal">
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
                 <div class="feature-title">Instant Setup</div>
@@ -866,7 +964,7 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🤖</div>
-                <div class="feature-title">Self-Evolving Agents</div>
+                <div class="feature-title">Adaptive Agents</div>
                 <div class="feature-desc">Agents automatically adapt to your codebase and workflow patterns.</div>
             </div>
             <div class="feature-card">
@@ -876,13 +974,13 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
         </section>
 
-        <section class="core-capabilities">
+        <section class="core-capabilities scroll-reveal">
             <h2>Why Run TORCH?</h2>
             <div class="capability-grid">
                 <div class="capability-card">
                     <div class="cap-icon">🧠</div>
-                    <h3>Drop-in Divinity</h3>
-                    <p>Transform any LLM session into a project manager. Just paste a meta-prompt, and watch it coordinate tasks autonomously.</p>
+                    <h3>Drop-in Orchestration</h3>
+                    <p>Transform any LLM session into a productive workforce. Just paste a meta-prompt, and watch it coordinate tasks autonomously.</p>
                 </div>
                 <div class="capability-card">
                     <div class="cap-icon">✅</div>
@@ -902,15 +1000,7 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
         </section>
 
-        <section class="agent-showcase" id="agent-showcase">
-            <h2>Functional Agents</h2>
-            <div id="functional-agent-list">
-                <!-- Populated by JS -->
-                <p class="text-center text-muted">Loading agents...</p>
-            </div>
-        </section>
-
-        <section class="meta-prompts">
+        <section class="meta-prompts scroll-reveal">
             <h2>Scheduler Meta Prompts</h2>
             <div class="prompts-grid">
                 <div class="prompt-card">
@@ -931,6 +1021,14 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
                         <pre><code id="weekly-code">Loading...</code></pre>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section class="agent-showcase scroll-reveal" id="agent-showcase">
+            <h2>Functional Agents</h2>
+            <div id="functional-agent-list">
+                <!-- Populated by JS -->
+                <p class="text-center text-muted">Loading agents...</p>
             </div>
         </section>
 
@@ -991,6 +1089,17 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
     </div>
 
     <script>
+        // Scroll Reveal
+        const scrollObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.scroll-reveal').forEach(el => scrollObserver.observe(el));
+
         // Modal Logic
         const modal = document.getElementById("docsModal");
         const btn = document.getElementById("openDocs");
@@ -1354,6 +1463,39 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
                  .replace(/>/g, "&gt;")
                  .replace(/"/g, "&quot;")
                  .replace(/'/g, "&#039;");
+        }
+
+        function selectAgent(agent) {
+            // Remove active class from all cards
+            document.querySelectorAll('.agent-card').forEach(card => card.classList.remove('active'));
+
+            // Add active class to selected card
+            const selectedCard = document.getElementById('card-' + agent);
+            if (selectedCard) {
+                selectedCard.classList.add('active');
+            }
+
+            // Update prompt text
+            const installCmd = document.getElementById('install-cmd');
+            let promptText = '';
+
+            if (agent === 'jules') {
+                promptText = "Hey Jules, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            } else if (agent === 'codex') {
+                promptText = "Hey Codex, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            } else if (agent === 'claude') {
+                promptText = "Hey Claude, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            } else if (agent === 'gemini') {
+                promptText = "Hey Gemini, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            } else if (agent === 'qwen') {
+                promptText = "Hey Qwen, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            } else if (agent === 'antigravity') {
+                promptText = "Hey Antigravity, can you install and setup TORCH into this repo? Here is the install command:\n\nnpm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && npx torch-lock init";
+            }
+
+            if (installCmd) {
+                installCmd.textContent = promptText;
+            }
         }
     </script>
 </body>

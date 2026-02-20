@@ -30,7 +30,7 @@ export async function listProposals() {
           id: entry.name,
           ...meta
         });
-      } catch (e) {
+      } catch (_e) {
         // Ignore invalid proposals
       }
     }
@@ -107,7 +107,7 @@ export async function createProposal({ agent, target, newContent, reason }) {
           console.error('Diff generation failed:', e.message);
       }
     }
-  } catch (err) {
+  } catch (_err) {
     diff = '(New File)';
   }
 
@@ -175,19 +175,27 @@ export async function applyProposal(id) {
   try {
     const oldContent = await fs.readFile(absoluteTarget, 'utf8');
     const hash = createHash('sha256').update(oldContent).digest('hex');
-
-    // We store archives in .torch/prompt-history/<target_path>/<hash>.md
-    // Note: meta.target is relative path like 'src/prompts/daily/agent.md'
-    // We want to keep that structure.
     const archiveDir = path.join(HISTORY_DIR, path.dirname(meta.target));
     await fs.mkdir(archiveDir, { recursive: true });
 
-    // Add timestamp to filename for easier sorting later?
-    // Or just rely on hash and store metadata elsewhere?
-    // User requested <path>/<hash>.md.
-    const archivePath = path.join(archiveDir, `${path.basename(meta.target, '.md')}_${hash}.md`);
+    // Filename: <base>_<timestamp>_<hash>.md for deterministic sort by name
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const baseName = path.basename(meta.target, '.md');
+    const archiveName = `${baseName}_${ts}_${hash}.md`;
+    const archivePath = path.join(archiveDir, archiveName);
     await fs.writeFile(archivePath, oldContent);
-  } catch (e) {
+
+    // Write sidecar metadata for rich version listing
+    const archiveMeta = {
+      proposalId: id,
+      author: meta.author,
+      reason: meta.reason,
+      target: meta.target,
+      hash,
+      archivedAt: new Date().toISOString(),
+    };
+    await fs.writeFile(archivePath.replace(/\.md$/, '.meta.json'), JSON.stringify(archiveMeta, null, 2));
+  } catch (_e) {
     // If file didn't exist, nothing to archive
   }
 
@@ -228,6 +236,78 @@ export async function rejectProposal(id, reason) {
   return { success: true };
 }
 
+export async function listPromptVersions(target) {
+  // target is relative path e.g. src/prompts/daily/agent.md
+  const archiveDir = path.join(HISTORY_DIR, path.dirname(target));
+  const targetBase = path.basename(target, '.md');
+  const prefix = targetBase + '_';
+
+  const versions = [];
+  try {
+    const files = await fs.readdir(archiveDir);
+    const archiveFiles = files.filter(f => f.startsWith(prefix) && f.endsWith('.md'));
+
+    for (const file of archiveFiles) {
+      const filePath = path.join(archiveDir, file);
+      const metaPath = filePath.replace(/\.md$/, '.meta.json');
+
+      let meta = null;
+      try {
+        meta = JSON.parse(await fs.readFile(metaPath, 'utf8'));
+      } catch {
+        // No sidecar — legacy archive or missing
+      }
+
+      // Extract timestamp and hash from filename: <base>_<timestamp>_<hash>.md
+      // Legacy format: <base>_<hash>.md (40-char hex)
+      const withoutPrefix = file.slice(prefix.length, -3); // strip prefix and .md
+      const parts = withoutPrefix.split('_');
+      let archivedAt = null;
+      let hash = null;
+
+      if (parts.length >= 2) {
+        // New format: timestamp_hash (timestamp has dashes instead of colons)
+        hash = parts[parts.length - 1];
+        const tsPart = parts.slice(0, -1).join('_');
+        // Convert back: YYYY-MM-DDTHH-MM-SS-mmmZ -> ISO
+        archivedAt = tsPart.replace(
+          /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-(\d{3})Z$/,
+          '$1:$2:$3.$4Z'
+        );
+        if (archivedAt === tsPart) archivedAt = null; // parse failed
+      } else {
+        // Legacy: single part = hash only, use file stat for date
+        hash = withoutPrefix;
+        try {
+          const stat = await fs.stat(filePath);
+          archivedAt = stat.mtime.toISOString();
+        } catch {
+          // ignore
+        }
+      }
+
+      versions.push({
+        filename: file,
+        archivedAt: meta?.archivedAt ?? archivedAt,
+        hash: meta?.hash ?? hash,
+        proposalId: meta?.proposalId ?? null,
+        author: meta?.author ?? null,
+        reason: meta?.reason ?? null,
+      });
+    }
+  } catch (_e) {
+    // archiveDir doesn't exist — no versions yet
+  }
+
+  // Sort newest first, using archivedAt string (ISO sorts lexicographically)
+  versions.sort((a, b) => {
+    if (a.archivedAt && b.archivedAt) return b.archivedAt.localeCompare(a.archivedAt);
+    return 0;
+  });
+
+  return versions;
+}
+
 export async function rollbackPrompt(target, hashOrStrategy = 'latest') {
   // target is relative path e.g. src/prompts/daily/agent.md
   const archiveDir = path.join(HISTORY_DIR, path.dirname(target));
@@ -237,52 +317,36 @@ export async function rollbackPrompt(target, hashOrStrategy = 'latest') {
   let sourceName = null;
 
   try {
-    // Try Local Archive first
     if (hashOrStrategy === 'latest') {
-       // Find latest file in archiveDir
-       // Our naming is <agent>_<hash>.md.
-       // We can rely on file mtime.
-       const files = await fs.readdir(archiveDir);
-       const targetBase = path.basename(target, '.md');
-       const prefix = targetBase + '_';
-       const candidates = files.filter(f => f.startsWith(prefix));
-
-       if (candidates.length > 0) {
-           const stats = await Promise.all(candidates.map(async f => ({
-               name: f,
-               ...await fs.stat(path.join(archiveDir, f))
-           })));
-           const latest = stats.sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
-           sourceName = latest.name;
-           sourceContent = await fs.readFile(path.join(archiveDir, sourceName), 'utf8');
-       }
+      const versions = await listPromptVersions(target);
+      if (versions.length > 0) {
+        sourceName = versions[0].filename;
+        sourceContent = await fs.readFile(path.join(archiveDir, sourceName), 'utf8');
+      }
     } else {
-        // Try to find file containing hash
-        const files = await fs.readdir(archiveDir);
-        const match = files.find(f => f.includes(hashOrStrategy));
-        if (match) {
-            sourceName = match;
-            sourceContent = await fs.readFile(path.join(archiveDir, match), 'utf8');
-        }
+      // Try to find file containing the hash or timestamp fragment
+      const files = await fs.readdir(archiveDir);
+      const match = files.find(f => f.includes(hashOrStrategy) && f.endsWith('.md'));
+      if (match) {
+        sourceName = match;
+        sourceContent = await fs.readFile(path.join(archiveDir, match), 'utf8');
+      }
     }
-  } catch (e) {
-      // Archive lookup failed
+  } catch (_e) {
+    // Archive lookup failed
   }
 
   if (sourceContent) {
-      await fs.writeFile(absoluteTarget, sourceContent);
-      return { success: true, source: 'archive', restored: sourceName };
+    await fs.writeFile(absoluteTarget, sourceContent);
+    return { success: true, source: 'archive', restored: sourceName };
   }
 
   // Fallback to Git
   try {
-      const commit = hashOrStrategy === 'latest' ? 'HEAD' : hashOrStrategy;
-      // Use git show instead of checkout to avoid detaching head if we just want content
-      // But user said "git checkout" implying revert state.
-      // Actually `git checkout <commit> -- <path>` overwrites the file in working tree.
-      execSync(`git checkout "${commit}" -- "${target}"`);
-      return { success: true, source: 'git', restored: commit };
+    const commit = hashOrStrategy === 'latest' ? 'HEAD' : hashOrStrategy;
+    execSync(`git checkout "${commit}" -- "${target}"`);
+    return { success: true, source: 'git', restored: commit };
   } catch (e) {
-      throw new Error(`Rollback failed: Local archive not found and git failed (${e.message})`, { cause: e });
+    throw new Error(`Rollback failed: Local archive not found and git failed (${e.message})`, { cause: e });
   }
 }

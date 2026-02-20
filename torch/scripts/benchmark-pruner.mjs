@@ -96,7 +96,7 @@ async function runBenchmark() {
     duplicateWindowMs: 1000 * 60 * 60, // 1 hour
     similarityThreshold: 0.99,
     getEmbedding: getEmbeddingWrapper,
-    generateSummary: async (prompt) => {
+    generateSummary: async (_prompt) => {
       await delay(LATENCY_MS);
       return JSON.stringify({
         summary: 'Condensed summary based on prompt.',

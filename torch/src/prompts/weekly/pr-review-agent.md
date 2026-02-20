@@ -76,6 +76,8 @@ HARD CONSTRAINTS
 ───────────────────────────────────────────────────────────────────────────────
 WORKFLOW
 
+If no work is required, exit without making changes.
+
 1) Preflight
   - Read `AGENTS.md` and `CLAUDE.md` for:
       - release channel guidance (default branch vs release branch)

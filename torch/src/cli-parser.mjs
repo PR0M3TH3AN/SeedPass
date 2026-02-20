@@ -40,6 +40,8 @@ export function parseArgs(argv) {
     reason: null,
     strategy: null,
     status: null,
+    list: false,
+    output: null,
   };
   let i = 0;
 
@@ -161,6 +163,12 @@ export function parseArgs(argv) {
       args.status = argv[++i];
     } else if (arg.startsWith('--status=')) {
       args.status = arg.split('=')[1];
+    } else if (arg === '--list') {
+      args.list = true;
+    } else if (arg === '--output') {
+      args.output = argv[++i];
+    } else if (arg.startsWith('--output=')) {
+      args.output = arg.split('=')[1];
     }
   }
 

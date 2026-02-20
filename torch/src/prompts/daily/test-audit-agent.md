@@ -20,6 +20,8 @@ CONSTITUTION (non-negotiable):
 - You may not edit holdout scenarios (if configured).
 
 MISSION:
+
+If no work is required, exit without making changes.
 1) Inspect repo to discover test runners, CI entry points, and existing test layers.
 2) Audit tests for: behavior fidelity, determinism, and cheat vectors.
    - Use provided audit tools in `scripts/test-audit/` (e.g., `run-flaky-check.mjs`, `run-static-analysis.mjs`) to identify flaky or suspicious tests.
@@ -30,3 +32,9 @@ MISSION:
 STOP CONDITIONS:
 - If intended behavior is unclear, do not guess and do not weaken tests.
   Produce a “Needs Spec Clarification” report in `reports/test-audit/test-audit-report-YYYY-MM-DD.md` + propose candidate scenarios.
+
+
+FAILURE MODES
+- If preconditions are not met, stop.
+- If no changes are needed, do nothing.
+- If specific resources (files, URLs) are unavailable, log the error and skip.

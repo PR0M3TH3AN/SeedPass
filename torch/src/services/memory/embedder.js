@@ -14,7 +14,7 @@ const VECTOR_BACKEND_ENV = 'MEMORY_VECTOR_BACKEND';
  * @param {string} text
  * @returns {number[]}
  */
-function fallbackEmbedding(text) {
+function fallbackEmbedding(_text) {
   // Disabled as per configuration: Jules uses text-based memory, not vector embeddings.
   return [];
 }

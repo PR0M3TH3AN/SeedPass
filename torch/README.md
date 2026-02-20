@@ -58,6 +58,9 @@ npx --no-install torch-lock init
 # Update TORCH configuration and scripts
 npx --no-install torch-lock update
 
+# Remove TORCH completely from this project
+npx --no-install torch-lock remove
+
 # Run the Dashboard
 npx --no-install torch-lock dashboard
 ```
@@ -80,6 +83,54 @@ npx --no-install torch-lock unpin-memory --id <memory-id>
 # Check memory stats
 npx --no-install torch-lock memory-stats
 ```
+
+### Prompt Governance & Versioning CLI
+
+Agent prompts are changed through a governance workflow that archives the previous version before overwriting, enabling full rollback.
+
+```bash
+# Propose a change to an agent prompt
+npx --no-install torch-lock proposal create \
+  --agent my-agent \
+  --target src/prompts/daily/my-agent.md \
+  --content /path/to/new-content.md \
+  --reason "Add missing EXIT CRITERIA section"
+
+# List pending proposals
+npx --no-install torch-lock proposal list
+npx --no-install torch-lock proposal list --status pending
+
+# Inspect or apply a proposal
+npx --no-install torch-lock proposal show --id <proposal-id>
+npx --no-install torch-lock proposal apply --id <proposal-id>
+npx --no-install torch-lock proposal reject --id <proposal-id> --reason "..."
+
+# List available archived versions of a prompt
+npx --no-install torch-lock rollback --target src/prompts/daily/my-agent.md --list
+
+# Roll back to the most recent archived version
+npx --no-install torch-lock rollback --target src/prompts/daily/my-agent.md
+
+# Roll back to a specific version by hash fragment
+npx --no-install torch-lock rollback --target src/prompts/daily/my-agent.md --strategy <hash>
+```
+
+### State Backup CLI
+
+Snapshot agent runtime state (long-term memory and scheduler state) to a timestamped directory under `.torch/backups/`.
+
+```bash
+# Create a snapshot
+npx --no-install torch-lock backup
+
+# List existing snapshots
+npx --no-install torch-lock backup --list
+
+# Write snapshot to a custom directory
+npx --no-install torch-lock backup --output /path/to/backup-dir
+```
+
+See [docs/prompt-versioning.md](docs/prompt-versioning.md) for the full workflow, restore procedure, and storage layout.
 
 ### Configuration (`torch-config.json`)
 
@@ -112,6 +163,18 @@ By default, the dashboard binds to `127.0.0.1`. To allow external access, you ca
 #### Authentication
 
 The dashboard supports Basic Authentication. You can enable it by setting the `TORCH_DASHBOARD_AUTH` environment variable or the `dashboard.auth` field in `torch-config.json` with the format `username:password`.
+
+## Removing TORCH
+
+To completely remove TORCH from a project:
+
+```bash
+npx torch-lock remove
+```
+
+This removes the `torch/` directory, configuration files, runtime artifacts, host package.json scripts, and the npm package. Use `--force` to skip the confirmation prompt.
+
+For manual removal steps and a full list of what gets cleaned up, see [docs/removal.md](docs/removal.md).
 
 ## Environment variables
 
@@ -160,6 +223,9 @@ If you are developing `torch-lock` itself:
 - `npm run dashboard:serve`
 - `npm test` (run unit tests)
 - `npm run lint` (run linter)
+- `npm run lock:complete` (manually complete a task)
+- `npm run scheduler:daily` (run full daily scheduler cycle)
+- `npm run scheduler:weekly` (run full weekly scheduler cycle)
 - `npm run report:lock-reliability` (aggregate recent scheduler logs into markdown+JSON reliability reports)
 
 

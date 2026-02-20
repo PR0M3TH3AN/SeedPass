@@ -31,7 +31,7 @@ async function runTests(i) {
 
     child.stdout.on('data', (d) => stdout += d.toString());
 
-    child.on('close', (code) => {
+    child.on('close', (_code) => {
       const lines = stdout.split('\n');
       for (const line of lines) {
         if (line.startsWith('not ok ') && !line.includes('# skip') && !line.includes('# todo')) {

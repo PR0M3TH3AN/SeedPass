@@ -89,6 +89,8 @@ WEEKLY RUN DELIVERABLES (always)
 ───────────────────────────────────────────────────────────────────────────────
 WEEKLY WORKFLOW (mandatory)
 
+If no work is required, exit without making changes.
+
 1) Preflight
   - Read `AGENTS.md` and `CLAUDE.md` for:
       - branch/commit/PR conventions

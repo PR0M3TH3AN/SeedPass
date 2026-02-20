@@ -3,6 +3,7 @@ import path from 'node:path';
 import WebSocket from 'ws';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { getNamespace, getRelays } from './torch-config.mjs';
+import { MS_PER_SECOND } from './constants.mjs';
 
 const PROBE_KIND = 27235;
 
@@ -97,7 +98,7 @@ async function probePublishRead(relayUrl, namespace, timeoutMs) {
   const ws = new WebSocket(relayUrl);
   const sk = generateSecretKey();
   const pk = getPublicKey(sk);
-  const createdAt = Math.floor(Date.now() / 1000);
+  const createdAt = Math.floor(Date.now() / MS_PER_SECOND);
   const nonce = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
   const probeTag = `${namespace}-health-probe-${nonce}`;
   const event = finalizeEvent({
