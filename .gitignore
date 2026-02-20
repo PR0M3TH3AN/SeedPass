@@ -46,3 +46,4 @@ src/seedpass.egg-info/top_level.txt
 !src/vendor/
 torch/node_modules
 torch/torch/
+node_modules/

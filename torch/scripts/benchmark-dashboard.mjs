@@ -22,7 +22,7 @@ async function waitForServer() {
         req.end();
       });
       return;
-    } catch (e) {
+    } catch (_e) {
       await sleep(100);
     }
   }
@@ -59,8 +59,8 @@ async function benchmark() {
             if (current >= REQUESTS) break;
             try {
                 await makeRequest();
-            } catch (e) {
-                // console.error(e);
+            } catch (_e) {
+                // console.error(_e);
             }
         }
     };

@@ -45,6 +45,8 @@ GOALS
 ───────────────────────────────────────────────────────────────────────────────
 WORKFLOW
 
+If no work is required, exit without making changes.
+
 1. **Discovery & Validation**
    - List all prompts in `src/prompts/daily/` and `src/prompts/weekly/`.
    - For each prompt:

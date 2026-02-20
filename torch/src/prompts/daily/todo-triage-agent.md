@@ -74,6 +74,8 @@ P3  Cosmetic/low-value TODOs → issue or leave (don’t churn) unless policy
 ───────────────────────────────────────────────────────────────────────────────
 SCAN WORKFLOW
 
+If no work is required, exit without making changes.
+
 1. Preflight
   - Read `AGENTS.md` (and `CLAUDE.md` if present) to confirm:
     - branch conventions

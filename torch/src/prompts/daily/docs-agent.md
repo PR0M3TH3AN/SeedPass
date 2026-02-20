@@ -79,8 +79,6 @@ DOC AUDIT TARGETS (minimum set per run)
 Audit these documents for accuracy relative to code:
 - `README.md`
 - `AGENTS.md`
-- `docs/event-schemas.md`
-- `docs/runtime-fallback.md`
 
 If any referenced file does not exist, do not guess — update the prompt/docs
 or open an issue explaining the discrepancy.
@@ -184,5 +182,4 @@ OUTPUTS PER RUN
 
 - Updated `README.md` (as needed, verified)
 - `CONTRIBUTING.md` (added if missing, minimal and verified)
-- Targeted fixes to `docs/event-schemas.md` and/or `docs/runtime-fallback.md`
 - 0–N issues for any mismatches requiring maintainer decision

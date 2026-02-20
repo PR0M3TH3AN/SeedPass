@@ -1,11 +1,12 @@
 import fs from 'node:fs';
+import { MS_PER_SECOND } from './constants.mjs';
 
 export function todayDateStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export function nowUnix() {
-  return Math.floor(Date.now() / 1000);
+  return Math.floor(Date.now() / MS_PER_SECOND);
 }
 
 export function getIsoWeekStr(dateInput) {
@@ -35,6 +36,9 @@ export function detectPlatform() {
   if (process.env.CODEX_API_KEY || process.env.CODEX_SESSION_ID) return 'codex';
   if (process.env.GOOSE_API_KEY || process.env.GOOSE_SESSION_ID) return 'goose';
   if (process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_SESSION_ID) return 'claude';
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) return 'gemini';
+  if (process.env.ANTIGRAVITY_API_KEY || process.env.ANTIGRAVITY_SESSION_ID) return 'antigravity';
+  if (process.env.QWEN_API_KEY || process.env.QWEN_SESSION_ID) return 'qwen';
   return null;
 }
 

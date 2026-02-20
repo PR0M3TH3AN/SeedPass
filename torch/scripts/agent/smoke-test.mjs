@@ -16,11 +16,8 @@ const getArg = (key) => {
   if (flagIdx !== -1 && ARGS[flagIdx + 1] && !ARGS[flagIdx + 1].startsWith('--')) return ARGS[flagIdx + 1];
   return null;
 };
-const hasArg = (key) => ARGS.includes(`--${key}`);
-
 const RELAYS = (getArg('relays') || process.env.RELAY_URLS || '').split(',').filter(Boolean);
 const SERVE_CMD = getArg('serve') || 'npx';
-const CONFIRM_PUBLIC = hasArg('confirm-public');
 const OUT_DIR = getArg('out') || 'artifacts';
 
 // --- Logging ---
@@ -45,7 +42,7 @@ async function waitForServer(url, timeoutMs = 10000) {
     try {
       const res = await fetch(url);
       if (res.ok) return true;
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
     await sleep(500);

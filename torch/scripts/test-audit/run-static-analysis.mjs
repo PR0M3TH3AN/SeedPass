@@ -12,7 +12,7 @@ function getFiles(dir, files = []) {
         files.push(name);
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // ignore if dir doesn't exist
   }
   return files;

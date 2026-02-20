@@ -8,7 +8,7 @@ import { DEFAULT_DASHBOARD_PORT } from './constants.mjs';
 import { getDashboardAuth, parseTorchConfig } from './torch-config.mjs';
 
 const SECURITY_HEADERS = {
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; object-src 'none'; base-uri 'self';",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:; object-src 'none'; base-uri 'self';",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin'
@@ -18,8 +18,15 @@ function timingSafeCompare(a, b) {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
   if (bufA.length !== bufB.length) {
-    // Still do a comparison to avoid some timing leaks, though length leak is hard to avoid entirely
-    crypto.timingSafeEqual(bufA, bufA);
+    // Pad both buffers to equal length so the comparison takes constant time
+    // regardless of input lengths. The length difference is still observable,
+    // but the content timing channel is closed.
+    const maxLen = Math.max(bufA.length, bufB.length);
+    const paddedA = Buffer.alloc(maxLen);
+    const paddedB = Buffer.alloc(maxLen);
+    bufA.copy(paddedA);
+    bufB.copy(paddedB);
+    crypto.timingSafeEqual(paddedA, paddedB);
     return false;
   }
   return crypto.timingSafeEqual(bufA, bufB);

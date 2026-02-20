@@ -7,7 +7,7 @@ import { getMemoryPruneMode, isMemoryIngestEnabled } from './feature-flags.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
-import { ensureDir } from '../../utils.mjs';
+
 
 const MEMORY_FILE_PATH = path.join(process.cwd(), '.scheduler-memory', 'memory-store.json');
 const debug = util.debuglog('torch-memory');

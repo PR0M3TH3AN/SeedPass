@@ -425,6 +425,54 @@ The lock CLI resolves roster names in this order:
 3. Preserve database state for post-incident analysis; do not drop or rewrite memory tables during rollback.
 4. Keep prune actions in `dry-run` (or disabled) until lifecycle policy and data integrity are revalidated.
 
+## Prompt Versioning & State Backup
+
+### How prompt changes are governed
+
+Every agent prompt in `src/prompts/daily/` and `src/prompts/weekly/` must be changed through the governance workflow — direct file edits skip the archive and break rollback lineage.
+
+**Proposal → Apply → Rollback cycle:**
+
+```bash
+# 1. Propose a change
+torch-lock proposal create \
+  --agent <agent> \
+  --target src/prompts/daily/<agent>.md \
+  --content /path/to/new.md \
+  --reason "reason"
+
+# 2. Review and apply
+torch-lock proposal list --status pending
+torch-lock proposal show  --id <id>
+torch-lock proposal apply --id <id>   # archives old version, writes new
+torch-lock proposal reject --id <id> --reason "..."
+
+# 3. Inspect available versions
+torch-lock rollback --target src/prompts/daily/<agent>.md --list
+
+# 4. Roll back (defaults to most recent archive; falls back to git)
+torch-lock rollback --target src/prompts/daily/<agent>.md
+torch-lock rollback --target src/prompts/daily/<agent>.md --strategy <hash>
+```
+
+Archives are stored in `.torch/prompt-history/` with filenames that embed an ISO timestamp and SHA-256 hash (`<base>_<ts>_<hash>.md`) alongside a `.meta.json` sidecar recording who applied the change, why, and when.
+
+### State backup
+
+Runtime state lives outside git. Snapshot it before destructive operations or on a schedule:
+
+```bash
+torch-lock backup          # creates .torch/backups/<timestamp>/
+torch-lock backup --list   # list all snapshots
+```
+
+Files captured per snapshot:
+- `.scheduler-memory/memory-store.json` (agent long-term memory)
+- `task-logs/daily/.scheduler-run-state.json` (scheduler deferral state)
+
+See [docs/prompt-versioning.md](docs/prompt-versioning.md) for the full reference including restore steps and storage layout.
+
+
 ## Offline & Air-Gapped Installation
 
 TORCH is designed to operate in diverse environments, including high-security, air-gapped, or offline networks where direct access to the npm registry is restricted.
@@ -456,3 +504,27 @@ The "Offline Bundle" is a standard npm package tarball (`.tgz`) generated during
     ```bash
     npx torch-lock init
     ```
+
+## Included Resources
+
+- `src/lib.mjs` — Core library logic (can be imported in scripts)
+- `TORCH.md` — Protocol summary and usage
+- `src/prompts/` — Generic scheduler prompts and flow
+- `skills/` — Repository-local skill guides for agent onboarding and repeatable workflows
+- `dashboard/` — Static lock dashboard assets
+
+## NPM Scripts (for development)
+
+If you are developing `torch-lock` itself:
+
+- `npm run lock:check:daily`
+- `npm run lock:check:weekly`
+- `npm run lock:list`
+- `npm run lock:health -- --cadence daily` (relay websocket + publish/read probe; writes history to `task-logs/relay-health/`)
+- `npm run dashboard:serve`
+- `npm test` (run unit tests)
+- `npm run lint` (run linter)
+- `npm run lock:complete` (manually complete a task)
+- `npm run scheduler:daily` (run full daily scheduler cycle)
+- `npm run scheduler:weekly` (run full weekly scheduler cycle)
+- `npm run report:lock-reliability` (aggregate recent scheduler logs into markdown+JSON reliability reports)

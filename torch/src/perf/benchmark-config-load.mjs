@@ -25,7 +25,7 @@ async function run() {
         const res = await loadTorchConfig();
         // Use res to prevent dead code elimination if JIT is smart (though side effects exist)
         if (!res) throw new Error("Failed");
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     }

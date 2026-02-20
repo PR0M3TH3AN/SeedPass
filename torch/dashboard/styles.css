@@ -12,6 +12,8 @@
   --success: #35c47c;
   --warning: #f5b84b;
   --danger: #ff6b6b;
+  --purple: #a855f7;
+  --pink: #ec4899;
 }
 
 * { box-sizing: border-box; }
@@ -69,6 +71,9 @@ a { color: inherit; }
 .bg-danger { background-color: var(--danger); }
 .bg-danger\/10 { background-color: color-mix(in srgb, var(--danger) 10%, transparent); }
 .bg-info\/10 { background-color: color-mix(in srgb, var(--info) 10%, transparent); }
+.bg-accent\/10 { background-color: color-mix(in srgb, var(--accent) 10%, transparent); }
+.bg-purple\/10 { background-color: color-mix(in srgb, var(--purple) 10%, transparent); }
+.bg-pink\/10 { background-color: color-mix(in srgb, var(--pink) 10%, transparent); }
 .bg-border\/30 { background-color: color-mix(in srgb, var(--border) 30%, transparent); }
 
 .text-text { color: var(--text); }
@@ -76,11 +81,14 @@ a { color: inherit; }
 .text-muted { color: var(--muted); }
 .text-info { color: var(--info); }
 .text-info-strong { color: var(--info-strong); }
-.text-accent-strong { color: var(--accent); }
+.text-accent { color: var(--accent); }
+.text-accent-strong { color: var(--accent-strong); }
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
 .text-danger { color: var(--danger); }
-.text-white { color: #fff; }
+.text-purple { color: var(--purple); }
+.text-pink { color: var(--pink); }
+.text-white { color: var(--text-strong); }
 
 .border { border-width: 1px; border-style: solid; }
 .border-t { border-top-width: 1px; border-top-style: solid; }

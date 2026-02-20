@@ -34,6 +34,8 @@ HARD CONSTRAINTS
 ===============================================================================
 DAILY WORKFLOW
 
+If no work is required, exit without making changes.
+
 1) **Scan for Failures**
    - Look for files ending in `_failed.md` in `task-logs/daily/` and `task-logs/weekly/` from the last 24-48 hours.
    - Also check `_completed.md` files for keywords like "error", "exception", "failed", "fatal" in their content, as some agents might log errors but still exit successfully.

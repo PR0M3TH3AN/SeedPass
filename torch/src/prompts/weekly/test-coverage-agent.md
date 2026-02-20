@@ -64,6 +64,8 @@ HARD CONSTRAINTS & GUARDRAILS
 ─────────────────────────────────────────────────────────────────────────────
 WORKFLOW (mandatory)
 
+If no work is required, exit without making changes.
+
 1) Preflight
   - Read `AGENTS.md` and `CLAUDE.md` to confirm CI/test guardrails and branch/PR conventions.
   - Inspect `package.json`:
