@@ -66,6 +66,10 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 // Log when the page is loaded
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('[data-copy-target]').forEach((button) => {
+        const buttonText = button.querySelector('.copy-button-text');
+        const buttonIcon = button.querySelector('i');
+        const status = button.closest('.install-command-shell')?.querySelector('.install-copy-status');
+
         button.addEventListener('click', async () => {
             const targetId = button.getAttribute('data-copy-target');
             const target = document.getElementById(targetId);
@@ -84,12 +88,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.removeChild(temp);
             }
 
-            const original = button.innerHTML;
             button.classList.add('copied');
-            button.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> Copied';
+            if (buttonText) buttonText.textContent = 'Copied';
+            if (buttonIcon) buttonIcon.className = 'fas fa-check';
+            if (status) status.textContent = 'Install command copied to clipboard.';
             setTimeout(() => {
                 button.classList.remove('copied');
-                button.innerHTML = original;
+                if (buttonText) buttonText.textContent = 'Copy';
+                if (buttonIcon) buttonIcon.className = 'fas fa-copy';
+                if (status) status.textContent = '';
             }, 1800);
         });
     });

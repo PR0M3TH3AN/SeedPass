@@ -79,11 +79,21 @@ flowchart TB
                     <div class="install-quickstart">
                         <p class="install-label">Install SeedPass (stable)</p>
                         <div class="install-command-shell">
-                            <pre class="code-block install-code" id="install-command">bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"</pre>
-                            <button class="install-copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
-                                <i class="fas fa-copy" aria-hidden="true"></i>
-                                Copy
-                            </button>
+                            <div class="install-shell-header" aria-hidden="true">
+                                <span class="install-shell-dot"></span>
+                                <span class="install-shell-dot"></span>
+                                <span class="install-shell-dot"></span>
+                                <span class="install-shell-title">Terminal</span>
+                            </div>
+                            <div class="install-shell-body">
+                                <pre class="code-block install-code"><span class="install-code-prompt">$</span><code id="install-command">bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"</code></pre>
+                                <button class="install-copy-button" type="button" data-copy-target="install-command" aria-label="Copy install command">
+                                    <i class="fas fa-copy" aria-hidden="true"></i>
+                                    <span class="copy-button-text">Copy</span>
+                                </button>
+                            </div>
+                            <p class="install-hint">Includes checksum verification and idempotent setup.</p>
+                            <p class="install-copy-status" role="status" aria-live="polite"></p>
                         </div>
                     </div>
                 </div>

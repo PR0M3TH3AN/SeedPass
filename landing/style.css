@@ -233,11 +233,16 @@ footer .social-media a:focus {
     }
 
     .install-command-shell {
-        flex-direction: column;
+        max-width: 100%;
+    }
+
+    .install-shell-body {
+        grid-template-columns: 1fr;
     }
 
     .install-copy-button {
-        min-height: 40px;
+        width: 100%;
+        min-height: 44px;
     }
 }
 
@@ -346,50 +351,142 @@ footer .social-media a:focus {
 }
 
 .install-quickstart {
-    margin: 28px auto 0;
-    max-width: 900px;
+    margin: 30px auto 0;
+    max-width: 920px;
     text-align: left;
 }
 
 .install-label {
-    margin: 0 0 8px;
+    margin: 0 0 10px;
     font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.92);
 }
 
 .install-command-shell {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(9, 11, 16, 0.82), rgba(20, 24, 31, 0.92));
+    backdrop-filter: blur(3px);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.install-shell-header {
     display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.install-shell-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.install-shell-dot:first-child {
+    background: #ff5f57;
+}
+
+.install-shell-dot:nth-child(2) {
+    background: #febc2e;
+}
+
+.install-shell-dot:nth-child(3) {
+    background: #28c840;
+}
+
+.install-shell-title {
+    margin-left: 6px;
+    font-size: 0.84rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.install-shell-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
     align-items: stretch;
-    gap: 10px;
+    padding: 14px;
 }
 
 .install-code {
-    flex: 1;
     margin: 0;
+    max-width: none;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(7, 10, 14, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.install-code-prompt {
+    color: #7dd3fc;
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.install-code code {
+    color: #e5edf7;
+    font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+    font-size: 0.92rem;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 .install-copy-button {
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
-    border-radius: 8px;
-    padding: 0 14px;
+    border-radius: 10px;
+    padding: 0 16px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    min-height: 54px;
+    min-width: 116px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .install-copy-button:hover,
 .install-copy-button:focus {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.52);
+    transform: translateY(-1px);
     outline: none;
 }
 
 .install-copy-button.copied {
     background: #2ea043;
     border-color: #2ea043;
+}
+
+.install-hint {
+    margin: 0;
+    padding: 0 14px 12px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.74);
+}
+
+.install-copy-status {
+    margin: 0;
+    min-height: 0;
+    padding: 0 14px 12px;
+    font-size: 0.8rem;
+    color: #8fda9f;
 }
 
 /* Mini flow chart in hero */
@@ -1044,6 +1141,20 @@ body.dark-mode .install-label {
     color: #c9d1d9;
 }
 
+body.dark-mode .install-command-shell {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: linear-gradient(180deg, rgba(9, 12, 17, 0.95), rgba(17, 22, 29, 0.95));
+}
+
+body.dark-mode .install-shell-header {
+    border-bottom-color: rgba(255, 255, 255, 0.13);
+}
+
+body.dark-mode .install-code {
+    background: rgba(5, 9, 14, 0.8);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
 body.dark-mode .install-copy-button {
     border-color: rgba(255, 255, 255, 0.3);
     background: rgba(255, 255, 255, 0.08);
@@ -1052,6 +1163,14 @@ body.dark-mode .install-copy-button {
 body.dark-mode .install-copy-button:hover,
 body.dark-mode .install-copy-button:focus {
     background: rgba(255, 255, 255, 0.18);
+}
+
+body.dark-mode .install-hint {
+    color: rgba(201, 209, 217, 0.78);
+}
+
+body.dark-mode .install-copy-status {
+    color: #8fda9f;
 }
 
 body.dark-mode .disclaimer .container {
