@@ -55,7 +55,7 @@ pytest-xdist = "^3.5"
 hypothesis = "^6.98"
 freezegun = "^1.5"
 toga-dummy = ">=0.5.2"
-Pillow = "^10.4"
+Pillow = "^12.1"
 
 [tool.poetry.scripts]
 seedpass = "seedpass.cli:app"
