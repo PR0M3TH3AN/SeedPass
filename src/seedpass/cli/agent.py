@@ -47,19 +47,45 @@ def _policy_path() -> Path:
     return APP_DIR / "agent_policy.json"
 
 
-def _load_policy() -> dict:
+def _deny_all_policy() -> dict:
+    return {
+        "allow_kinds": [],
+        "deny_private_reveal": list(ALL_ENTRY_TYPES),
+        "allow_export_import": False,
+    }
+
+
+def _load_policy(*, strict: bool = False) -> dict:
     path = _policy_path()
     if not path.exists():
         return dict(DEFAULT_POLICY)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return dict(DEFAULT_POLICY)
+    except Exception as exc:
+        if strict:
+            raise ValueError("agent policy file is not valid JSON") from exc
+        return _deny_all_policy()
+
+    if not isinstance(data, dict):
+        if strict:
+            raise ValueError("agent policy file must be a JSON object")
+        return _deny_all_policy()
+
     policy = dict(DEFAULT_POLICY)
     if isinstance(data.get("allow_kinds"), list):
-        policy["allow_kinds"] = [str(v) for v in data["allow_kinds"]]
+        allow_kinds = [str(v) for v in data["allow_kinds"]]
+        invalid = [v for v in allow_kinds if v not in ALL_ENTRY_TYPES]
+        if invalid and strict:
+            raise ValueError(f"agent policy has invalid allow_kinds entries: {invalid}")
+        policy["allow_kinds"] = [v for v in allow_kinds if v in ALL_ENTRY_TYPES]
     if isinstance(data.get("deny_private_reveal"), list):
-        policy["deny_private_reveal"] = [str(v) for v in data["deny_private_reveal"]]
+        deny_private = [str(v) for v in data["deny_private_reveal"]]
+        invalid = [v for v in deny_private if v not in ALL_ENTRY_TYPES]
+        if invalid and strict:
+            raise ValueError(
+                f"agent policy has invalid deny_private_reveal entries: {invalid}"
+            )
+        policy["deny_private_reveal"] = [v for v in deny_private if v in ALL_ENTRY_TYPES]
     if isinstance(data.get("allow_export_import"), bool):
         policy["allow_export_import"] = data["allow_export_import"]
     return policy
@@ -187,7 +213,11 @@ def agent_init(
 @app.command("policy-show")
 def agent_policy_show() -> None:
     """Show the active agent policy."""
-    typer.echo(json.dumps(_load_policy(), indent=2))
+    try:
+        policy = _load_policy(strict=True)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc))
+    typer.echo(json.dumps(policy, indent=2))
 
 
 @app.command("policy-set")
@@ -211,7 +241,7 @@ def agent_policy_set(
     ),
 ) -> None:
     """Set policy flags used by agent commands."""
-    policy = _load_policy()
+    policy = _load_policy(strict=False)
     if allow_kind:
         policy["allow_kinds"] = list(allow_kind)
     if deny_private_kind:
@@ -240,7 +270,20 @@ def agent_get(
     if not fingerprint:
         raise typer.BadParameter("Specify target profile with --fingerprint.")
     password = _password_from_env(password_env)
-    policy = _load_policy()
+    try:
+        policy = _load_policy(strict=True)
+    except ValueError as exc:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "denied",
+                    "reason": "invalid_policy",
+                    "detail": str(exc),
+                },
+                indent=2,
+            )
+        )
+        raise typer.Exit(1)
 
     pm = PasswordManager(fingerprint=fingerprint, password=password)
     service = EntryService(pm)

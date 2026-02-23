@@ -285,6 +285,32 @@ async def test_vault_import_via_upload(client, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_vault_import_upload_too_large(client):
+    cl, token = client
+    called = {}
+    api.app.state.pm.handle_import_database = lambda path: called.setdefault(
+        "import_called", True
+    )
+    api.app.state.pm.sync_vault = lambda: called.setdefault("sync_called", True)
+
+    old_limit = api._MAX_IMPORT_BYTES
+    api._MAX_IMPORT_BYTES = 8
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        res = await cl.post(
+            "/api/v1/vault/import",
+            files={"file": ("big.json.enc", b"123456789")},
+            headers=headers,
+        )
+    finally:
+        api._MAX_IMPORT_BYTES = old_limit
+
+    assert res.status_code == 413
+    assert "exceeds max size" in res.json()["detail"]
+    assert called == {}
+
+
+@pytest.mark.anyio
 async def test_vault_import_invalid_extension(client):
     cl, token = client
     api.app.state.pm.handle_import_database = lambda path: None

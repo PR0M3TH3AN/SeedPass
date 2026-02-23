@@ -224,7 +224,6 @@ Follow these steps to set up SeedPass on your local machine.
    python -m pip install --require-hashes -r requirements.lock
    python -m pip install -e .
    ```
-// 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
 After reinstalling, run `which seedpass` on Linux/macOS or `where seedpass` on Windows to confirm the command resolves to your virtual environment's `seedpass` executable.
 
 #### Linux Clipboard Support
@@ -322,7 +321,7 @@ seedpass util generate-password --length 20 --special-mode safe --exclude-ambigu
 # on an external drive.
 ```
 
-For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md). Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
+For additional command examples, see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). Details on the REST API can be found in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
 
 ### Getting Started with the GUI
 
@@ -436,14 +435,13 @@ If this command displays `usage: main.py` instead of the Typer help output, an o
 ```bash
 python -m pip install -e .
 ```
-// 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
 You can confirm which executable will run with:
 
 ```bash
 which seedpass  # or 'where seedpass' on Windows
 ```
 
-For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
+For a full list of commands see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). The REST API is described in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
 
 ### Agent Mode (Non-Interactive)
 

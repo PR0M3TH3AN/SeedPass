@@ -67,6 +67,23 @@ def test_agent_init_creates_profile(monkeypatch, tmp_path):
     assert (profile_dir / "parent_seed.enc").exists()
 
 
+def test_agent_init_requires_password_env(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_cli, "APP_DIR", tmp_path)
+    monkeypatch.delenv("SEEDPASS_PASSWORD", raising=False)
+    result = runner.invoke(
+        app,
+        [
+            "agent",
+            "init",
+            "--seed",
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        ],
+    )
+    assert result.exit_code == 2
+    combined = f"{result.stdout}{result.stderr}"
+    assert "Missing password env var" in combined
+
+
 def test_agent_get_requires_fingerprint(monkeypatch):
     monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
     result = runner.invoke(app, ["agent", "get", "example"])
@@ -100,7 +117,7 @@ def test_agent_get_password_json(monkeypatch):
     monkeypatch.setattr(
         agent_cli,
         "_load_policy",
-        lambda: {"allow_kinds": ["password"], "deny_private_reveal": []},
+        lambda **kwargs: {"allow_kinds": ["password"], "deny_private_reveal": []},
     )
 
     result = runner.invoke(app, ["--fingerprint", "ABC123", "agent", "get", "example"])
@@ -136,7 +153,7 @@ def test_agent_get_denied_by_policy(monkeypatch):
     monkeypatch.setattr(
         agent_cli,
         "_load_policy",
-        lambda: {
+        lambda **kwargs: {
             "allow_kinds": ["password", "totp", "key_value"],
             "deny_private_reveal": ["seed"],
         },
@@ -147,3 +164,127 @@ def test_agent_get_denied_by_policy(monkeypatch):
     payload = json.loads(result.stdout)
     assert payload["status"] == "denied"
     assert payload["reason"] in {"kind_not_allowed", "private_kind_blocked"}
+
+
+def test_agent_get_ambiguous_returns_error_payload(monkeypatch):
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    monkeypatch.setattr(
+        agent_cli,
+        "PasswordManager",
+        lambda fingerprint, password: SimpleNamespace(
+            fingerprint=fingerprint, password=password
+        ),
+    )
+
+    class DummyEntryService:
+        def __init__(self, _pm):
+            pass
+
+        def search_entries(self, _q):
+            return [
+                (2, "Example1", "", "", False, EntryType.PASSWORD),
+                (3, "Example2", "", "", False, EntryType.PASSWORD),
+            ]
+
+    monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
+    monkeypatch.setattr(
+        agent_cli,
+        "_load_policy",
+        lambda **kwargs: {"allow_kinds": ["password"], "deny_private_reveal": []},
+    )
+
+    result = runner.invoke(app, ["--fingerprint", "ABC123", "agent", "get", "example"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "error"
+    assert payload["reason"] == "ambiguous_or_missing"
+    assert payload["match_count"] == 2
+
+
+def test_agent_get_key_value_json(monkeypatch):
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    monkeypatch.setattr(
+        agent_cli,
+        "PasswordManager",
+        lambda fingerprint, password: SimpleNamespace(
+            fingerprint=fingerprint, password=password
+        ),
+    )
+
+    class DummyEntryService:
+        def __init__(self, _pm):
+            pass
+
+        def search_entries(self, _q):
+            return [(2, "Key", "", "", False, EntryType.KEY_VALUE)]
+
+        def retrieve_entry(self, _i):
+            return {"kind": EntryType.KEY_VALUE.value, "label": "Key", "value": "v123"}
+
+    monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
+    monkeypatch.setattr(
+        agent_cli,
+        "_load_policy",
+        lambda **kwargs: {"allow_kinds": ["key_value"], "deny_private_reveal": []},
+    )
+
+    result = runner.invoke(app, ["--fingerprint", "ABC123", "agent", "get", "key"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ok"
+    assert payload["kind"] == "key_value"
+    assert payload["secret"] == "v123"
+
+
+def test_agent_get_unsupported_kind_payload(monkeypatch):
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    monkeypatch.setattr(
+        agent_cli,
+        "PasswordManager",
+        lambda fingerprint, password: SimpleNamespace(
+            fingerprint=fingerprint, password=password
+        ),
+    )
+
+    class DummyEntryService:
+        def __init__(self, _pm):
+            pass
+
+        def search_entries(self, _q):
+            return [(4, "SSH", "", "", False, EntryType.SSH)]
+
+        def retrieve_entry(self, _i):
+            return {"kind": EntryType.SSH.value, "label": "SSH"}
+
+    monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
+    monkeypatch.setattr(
+        agent_cli,
+        "_load_policy",
+        lambda **kwargs: {"allow_kinds": ["ssh"], "deny_private_reveal": []},
+    )
+
+    result = runner.invoke(app, ["--fingerprint", "ABC123", "agent", "get", "ssh"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "error"
+    assert payload["reason"] == "unsupported_kind_for_agent_get"
+
+
+def test_agent_policy_show_invalid_json(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_cli, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text("{", encoding="utf-8")
+    result = runner.invoke(app, ["agent", "policy-show"])
+    assert result.exit_code == 2
+    combined = f"{result.stdout}{result.stderr}"
+    assert "not valid JSON" in combined
+
+
+def test_agent_get_denied_when_policy_invalid(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_cli, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text("{", encoding="utf-8")
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    result = runner.invoke(app, ["--fingerprint", "ABC123", "agent", "get", "example"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "denied"
+    assert payload["reason"] == "invalid_policy"

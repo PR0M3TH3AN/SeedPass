@@ -245,8 +245,8 @@ seedpass list --filter totp
 # on an external drive.
 ```
 
-For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md).
-Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
+For additional command examples, see [01-getting-started/01-advanced_cli.md](01-getting-started/01-advanced_cli.md).
+Details on the REST API can be found in [01-getting-started/02-api_reference.md](01-getting-started/02-api_reference.md).
 
 ### Vault JSON Layout
 
@@ -285,7 +285,7 @@ You can explore other CLI commands using:
 ```bash
 seedpass --help
 ```
-For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
+For a full list of commands see [01-getting-started/01-advanced_cli.md](01-getting-started/01-advanced_cli.md). The REST API is described in [01-getting-started/02-api_reference.md](01-getting-started/02-api_reference.md).
 
 ### Running the Application
 
