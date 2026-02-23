@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeedPass Docs</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./docs.css">
+
+    <!-- Highlight JS CSS for markdown codeblocks -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+</head>
+
+<body class="scanlines">
+    <div class="tui-wrapper docs-wrapper">
+        <!-- Nav -->
+        <nav class="tui-nav">
+            <div class="nav-brand glitched" data-text="SeedPass_">SeedPass_</div>
+            <ul class="nav-links">
+                <li><a href="./index.html#intro" class="nav-btn">[ HOME ]</a></li>
+                <li><a href="./index.html#features" class="nav-btn">[ FEATURES ]</a></li>
+                <li><a href="./index.html#architecture" class="nav-btn">[ ARCHITECTURE ]</a></li>
+                <li><a href="./docs.html" class="nav-btn active">[ DOCS ]</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Window -->
+        <main class="tui-window docs-window">
+            <div class="tui-window-header">
+                <span class="tui-window-title">root@seedpass: ~/docs</span>
+                <span class="tui-window-controls">_ &square; X</span>
+            </div>
+
+            <div class="tui-window-body docs-layout">
+                <!-- Sidebar Navigation -->
+                <aside class="docs-sidebar ascii-box">
+                    <h2 class="sidebar-title"><span class="accent">#</span> Index</h2>
+                    <ul class="docs-nav-list" id="docs-nav">
+                        <li><a href="#" data-file="README.md" class="doc-link active">&gt; README</a></li>
+                        <li><a href="#" data-file="ARCHITECTURE.md" class="doc-link">&gt; Architecture</a></li>
+                        <li><a href="#" data-file="SPEC.md" class="doc-link">&gt; Specification</a></li>
+                        <li><a href="#" data-file="security.md" class="doc-link">&gt; Security</a></li>
+                        <li><a href="#" data-file="nostr_setup.md" class="doc-link">&gt; Nostr Setup</a></li>
+                        <li><a href="#" data-file="packaging.md" class="doc-link">&gt; Packaging</a></li>
+                        <li><a href="#" data-file="agent_testing_roadmap.md" class="doc-link">&gt; Testing Roadmap</a>
+                        </li>
+                        <li><a href="#" data-file="ai_agent_tui_testing.md" class="doc-link">&gt; TUI Testing</a></li>
+                        <li><a href="#" data-file="installer_testing.md" class="doc-link">&gt; Installer Testing</a>
+                        </li>
+                        <li><a href="#" data-file="secret-scanning.md" class="doc-link">&gt; Secret Scanning</a></li>
+                    </ul>
+                </aside>
+
+                <!-- Document Content -->
+                <section class="docs-content ascii-box" id="docs-content">
+                    <div class="loading-state">
+                        <i class="fas fa-circle-notch fa-spin"></i> Loading module...
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="tui-footer">
+            <div class="status-bar">
+                <span class="status-item"><i class="fas fa-circle-notch fa-spin"></i> SYSTEM: ONLINE</span>
+                <span class="status-item">MODULE: DOCS_VIEWER</span>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank"><i class="fab fa-github"></i>
+                    GitHub</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Dependencies for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <script src="./docs.js"></script>
+</body>
+
+</html>
