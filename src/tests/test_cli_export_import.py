@@ -17,8 +17,8 @@ def _setup_pm(tmp_path: Path):
     cfg = ConfigManager(vault, tmp_path)
     backup = BackupManager(tmp_path, cfg)
     pm = SimpleNamespace(
-        handle_export_database=lambda p: export_backup(
-            vault, backup, p, parent_seed=TEST_SEED
+        handle_export_database=lambda p, encrypt=True: export_backup(
+            vault, backup, p, parent_seed=TEST_SEED, encrypt=encrypt
         ),
         handle_import_database=lambda p: import_backup(
             vault, backup, p, parent_seed=TEST_SEED
@@ -91,3 +91,36 @@ def test_cli_import_round_trip(monkeypatch, tmp_path):
     rc = main.main(["import", "--file", str(export_path)])
     assert rc == 0
     assert vault.load_index() == original
+
+
+def test_cli_export_import_unencrypted(monkeypatch, tmp_path):
+    pm, vault = _setup_pm(tmp_path)
+    data = {
+        "schema_version": 4,
+        "entries": {
+            "0": {
+                "label": "example",
+                "type": "password",
+                "notes": "",
+                "custom_fields": [],
+                "origin": "",
+                "tags": [],
+            }
+        },
+    }
+    vault.save_index(data)
+
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+
+    export_path = tmp_path / "out.json"
+    rc = main.main(["export", "--file", str(export_path), "--unencrypted"])
+    assert rc == 0
+    assert export_path.exists()
+
+    vault.save_index({"schema_version": 4, "entries": {}})
+    rc = main.main(["import", "--file", str(export_path)])
+    assert rc == 0
+    assert vault.load_index() == data

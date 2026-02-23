@@ -40,7 +40,7 @@ Create / update these files in each PR branch and include them in the PR:
 - `src/todo/TODO_<timestamp>.md` — List of duplicated constants to canonicalize and status for each.
 - `src/decisions/DECISIONS_<timestamp>.md` — Where canonical constants were placed and why. Record alternatives considered.
 - `src/test_logs/TEST_LOG_<timestamp>.md` — Exact commands run (lint/tests) and outputs.
-- `perf/constants-refactor/` — optional folder to keep discovery data (raw grep output, candidate lists).
+- `reports/performance/constants-refactor/` — optional folder to keep discovery data (raw grep output, candidate lists).
 
 Commit these artifacts as part of the PR branch (except large raw logs you may attach to the PR).
 
@@ -67,14 +67,14 @@ DETAILED WORKFLOW (step-by-step)
      - Thresholds: `0.8`, `0.9`, percent/limits like `100`, `0.5`
    - Run a first-pass ripgrep to list numeric literals in `js/`:
      ```
-     rg --hidden --no-ignore -n --glob 'js/**/*.js' -e '\b(5000|10000|30000|60000|15000|3|5|0\.5|0\.8|600000|100)\b' > perf/constants-refactor/raw-numeric-hits.txt
+     rg --hidden --no-ignore -n --glob 'js/**/*.js' -e '\b(5000|10000|30000|60000|15000|3|5|0\.5|0\.8|600000|100)\b' > reports/performance/constants-refactor/raw-numeric-hits.txt
      ```
      - (Adjust regex to include more candidates you want.)
    - For a more robust approach, run an AST scan (Node/ES module) to find numeric literals:
-     - If comfortable, use `node` + `acorn` or `@babel/parser` to create a script (e.g., `torch/scripts/find-numeric-literals.js`) that produces JSON output of numeric literals with file, line, column, and nearby AST context (identifier or property name).
+     - If comfortable, use `node` + `acorn` or `@babel/parser` to create a script (e.g., `scripts/find-numeric-literals.js`) that produces JSON output of numeric literals with file, line, column, and nearby AST context (identifier or property name).
      - Example (conceptual — script must be created first):
        ```
-       node torch/scripts/find-numeric-literals.js js > perf/constants-refactor/numeric-literals.json
+       node scripts/find-numeric-literals.js js > reports/performance/constants-refactor/numeric-literals.json
        ```
    - From results, group occurrences by numeric value and inspect contexts to find semantic similarity (timeouts, retries, TTLs).
 
@@ -85,7 +85,7 @@ DETAILED WORKFLOW (step-by-step)
      - Retry: look for `retry`, `attempt`, `republish`, `RETRY_DELAY_MS` usage.
      - TTL: look for `cache`, `PROFILE_CACHE_TTL_MS`, `PERSIST_TTL`.
      - Threshold: look for `threshold`, `limit`, `max`, `MIN_SCORE`.
-   - Produce a candidate entry in `perf/constants-refactor/candidates.json`:
+   - Produce a candidate entry in `reports/performance/constants-refactor/candidates.json`:
      ```
      {
        "value": 5000,
@@ -176,7 +176,7 @@ DETAILED WORKFLOW (step-by-step)
 
 9) **Follow-up**
    - Track PR reviews and address comments.
-   - When merged, update `INITIAL_BASELINE.md` or a `perf/constants-refactor/history.md` to note the canonicalization for future audits.
+   - When merged, update `reports/performance/INITIAL_BASELINE.md` or a `reports/performance/constants-refactor/history.md` to note the canonicalization for future audits.
    - If any replacement surfaced ambiguous semantics that required a behavior change, document in `src/decisions/DECISIONS_<timestamp>.md` and open an Issue for broader discussion.
 
 - If no work is required, exit without making changes.
@@ -194,13 +194,13 @@ SEARCH / TOOLING SUGGESTIONS
 - Quick search for specific numeric candidates:
 ````
 
-rg --hidden --no-ignore -n --glob 'js/**/*.js' '\b(5000|10000|30000|60000|15000|3|5|0.5|600000)\b' > perf/constants-refactor/raw-hits.txt
+rg --hidden --no-ignore -n --glob 'js/**/*.js' '\b(5000|10000|30000|60000|15000|3|5|0.5|600000)\b' > reports/performance/constants-refactor/raw-hits.txt
 
 ````
 - AST-based approach (recommended for accuracy):
 - Use `@babel/parser` to parse, walk nodes, and collect numeric literals with context (parent identifiers or property names). Example script:
-  - `torch/scripts/find-numeric-literals.js` (create if needed)
-  - Run: `node torch/scripts/find-numeric-literals.js js > perf/constants-refactor/numeric-literals.json`
+  - `scripts/find-numeric-literals.js` (create if needed)
+  - Run: `node scripts/find-numeric-literals.js js > reports/performance/constants-refactor/numeric-literals.json`
 - For replacements, prefer editor/IDE or `jscodeshift` transforms to keep edits safe and consistent:
 - Example: create a `jscodeshift` codemod that replaces numeric literal with identifier and adds import.
 - If using manual edits, ensure ESLint passes and imports are correct.
@@ -254,7 +254,7 @@ FINAL NOTES & Etiquette
 * Record every decision and test run to make audits traceable.
 * Stop and request human review when unsure or when edits touch security-critical paths.
 
-Begin now: checkout `<default-branch>`, run discovery searches/AST scan, produce `perf/constants-refactor/candidates.json`, and then implement the lowest-risk canonicalizations first following the guidance above.
+Begin now: checkout `<default-branch>`, run discovery searches/AST scan, produce `reports/performance/constants-refactor/candidates.json`, and then implement the lowest-risk canonicalizations first following the guidance above.
 
 FAILURE MODES
 - If preconditions are not met, stop.

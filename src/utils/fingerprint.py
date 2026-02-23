@@ -10,7 +10,6 @@ facilitating organized and secure storage.
 
 import hashlib
 import logging
-import traceback
 from typing import Optional
 
 # Instantiate the logger

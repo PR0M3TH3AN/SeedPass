@@ -15,3 +15,7 @@ class EntryType(str, Enum):
     NOSTR = "nostr"
     KEY_VALUE = "key_value"
     MANAGED_ACCOUNT = "managed_account"
+
+
+# List of all entry type values for convenience
+ALL_ENTRY_TYPES = [e.value for e in EntryType]

@@ -231,6 +231,14 @@ footer .social-media a:focus {
     .nav-links.active {
         display: flex;
     }
+
+    .install-command-shell {
+        flex-direction: column;
+    }
+
+    .install-copy-button {
+        min-height: 40px;
+    }
 }
 
 /* Section Titles */
@@ -335,6 +343,53 @@ footer .social-media a:focus {
 .cta-button:focus {
     background-color: var(--cta-button-hover-bg);
     transform: translateY(-3px);
+}
+
+.install-quickstart {
+    margin: 28px auto 0;
+    max-width: 900px;
+    text-align: left;
+}
+
+.install-label {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.install-command-shell {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.install-code {
+    flex: 1;
+    margin: 0;
+}
+
+.install-copy-button {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.install-copy-button:hover,
+.install-copy-button:focus {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.45);
+    outline: none;
+}
+
+.install-copy-button.copied {
+    background: #2ea043;
+    border-color: #2ea043;
 }
 
 /* Mini flow chart in hero */
@@ -983,6 +1038,20 @@ body.dark-mode .code-block {
     background-color: #2d2d2d;
     color: #dcdcdc;
     box-shadow: 0 2px 8px var(--shadow-dark);
+}
+
+body.dark-mode .install-label {
+    color: #c9d1d9;
+}
+
+body.dark-mode .install-copy-button {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-mode .install-copy-button:hover,
+body.dark-mode .install-copy-button:focus {
+    background: rgba(255, 255, 255, 0.18);
 }
 
 body.dark-mode .disclaimer .container {

@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 
 import os
 import base64
+import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -40,3 +41,15 @@ def test_encrypt_and_decrypt_file_binary_round_trip():
         file_path = Path(tmpdir) / rel
         raw = file_path.read_bytes()
         assert raw != payload
+
+
+def test_encrypt_file_rejects_traversal():
+    with TemporaryDirectory() as tmpdir:
+        key = base64.urlsafe_b64encode(os.urandom(32))
+        manager = EncryptionManager(key, Path(tmpdir))
+
+        with pytest.raises(ValueError):
+            manager.encrypt_and_save_file(b"data", Path("../evil.enc"))
+
+        with pytest.raises(ValueError):
+            manager.encrypt_and_save_file(b"data", Path("/abs.enc"))

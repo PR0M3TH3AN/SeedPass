@@ -46,7 +46,7 @@ def test_password_retrieve_secret_mode(monkeypatch, capsys):
         called = []
         monkeypatch.setattr(
             "seedpass.core.manager.copy_to_clipboard",
-            lambda text, t: called.append((text, t)),
+            lambda text, t: (called.append((text, t)), True)[1],
         )
 
         pm.handle_retrieve_entry()
@@ -62,7 +62,10 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
         pm, entry_mgr = setup_pm(tmp)
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            "seedpass.core.totp.TotpManager.current_code_from_secret",
+            lambda *a, **k: "123456",
+        )
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
@@ -73,7 +76,7 @@ def test_totp_display_secret_mode(monkeypatch, capsys):
         called = []
         monkeypatch.setattr(
             "seedpass.core.manager.copy_to_clipboard",
-            lambda text, t: called.append((text, t)),
+            lambda text, t: (called.append((text, t)), True)[1],
         )
 
         pm.handle_display_totp_codes()
@@ -95,7 +98,7 @@ def test_password_retrieve_no_secret_mode(monkeypatch, capsys):
         called = []
         monkeypatch.setattr(
             "seedpass.core.manager.copy_to_clipboard",
-            lambda *a, **k: called.append((a, k)),
+            lambda *a, **k: (called.append((a, k)), True)[1],
         )
 
         pm.handle_retrieve_entry()
@@ -112,7 +115,10 @@ def test_totp_display_no_secret_mode(monkeypatch, capsys):
         pm.secret_mode_enabled = False
         entry_mgr.add_totp("Example", TEST_SEED)
 
-        monkeypatch.setattr(pm.entry_manager, "get_totp_code", lambda *a, **k: "123456")
+        monkeypatch.setattr(
+            "seedpass.core.totp.TotpManager.current_code_from_secret",
+            lambda *a, **k: "123456",
+        )
         monkeypatch.setattr(
             pm.entry_manager, "get_totp_time_remaining", lambda *a, **k: 30
         )
@@ -123,7 +129,7 @@ def test_totp_display_no_secret_mode(monkeypatch, capsys):
         called = []
         monkeypatch.setattr(
             "seedpass.core.manager.copy_to_clipboard",
-            lambda *a, **k: called.append((a, k)),
+            lambda *a, **k: (called.append((a, k)), True)[1],
         )
 
         pm.handle_display_totp_codes()

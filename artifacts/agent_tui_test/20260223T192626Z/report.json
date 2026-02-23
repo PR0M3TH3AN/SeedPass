@@ -1,0 +1,43 @@
+{
+  "timestamp_utc": "20260223T192626Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-uk08yxgg",
+  "duration_sec": 29.608,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: \"Seed entry 'agent-seed' added with ID\"\nRecent output:\n   3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 1\r\n\u001bcSeed Profile: Main Menu > Add Entry\r\n\r\n\r\nAdd Entry:\r\n1. Password\r\n2. 2FA (TOTP)\r\n3. SSH Key\r\n4. Seed Phrase\r\n5. Nostr Key Pair\r\n6. PGP Key\r\n7. Key/Value\r\n8. Managed Account\r\nSelect entry type or press Enter to go back: 4\r\n\u001bcSeed Profile: 19E180BD20F62DB0 > Main Menu > Add Entry > Seed Phrase\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\nLabel: agent-seed\r\nWord count (12 or 24, default 24): 12\r\nNotes (optional): \r\nEnter tags (comma-separated, optional): \r\n[+] Checksum updated successfully.\r\nBackup created successfully at '/tmp/seedpass-agent-home-uk08yxgg/.seedpass/19E180BD20F62DB0/backups/entries_db_backup_1771874789.json.enc'.\r\nWARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): y\r\n\r\n[+] Seed entry 'agent-seed' added with ID 3.\r\n\r\nIndex: 3\r\nLabel: agent-seed\r\nSeed Phrase:\r\naerobic because blur flock outside essay media boring wing abstract economy nominee\r\nShow Compact Seed QR? (Y/N): n\r\nPress Enter to continue...",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 28.097440375000588,
+      "detail": "Timed out waiting for pattern: \"Seed entry 'agent-seed' added with ID\"\nRecent output:\n   3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 1\r\n\u001bcSeed Profile: Main Menu > Add Entry\r\n\r\n\r\nAdd Entry:\r\n1. Password\r\n2. 2FA (TOTP)\r\n3. SSH Key\r\n4. Seed Phrase\r\n5. Nostr Key Pair\r\n6. PGP Key\r\n7. Key/Value\r\n8. Managed Account\r\nSelect entry type or press Enter to go back: 4\r\n\u001bcSeed Profile: 19E180BD20F62DB0 > Main Menu > Add Entry > Seed Phrase\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\nLabel: agent-seed\r\nWord count (12 or 24, default 24): 12\r\nNotes (optional): \r\nEnter tags (comma-separated, optional): \r\n[+] Checksum updated successfully.\r\nBackup created successfully at '/tmp/seedpass-agent-home-uk08yxgg/.seedpass/19E180BD20F62DB0/backups/entries_db_backup_1771874789.json.enc'.\r\nWARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): y\r\n\r\n[+] Seed entry 'agent-seed' added with ID 3.\r\n\r\nIndex: 3\r\nLabel: agent-seed\r\nSeed Phrase:\r\naerobic because blur flock outside essay media boring wing abstract economy nominee\r\nShow Compact Seed QR? (Y/N): n\r\nPress Enter to continue..."
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "invalid_input_resilience": true,
+    "add_password_quick": true,
+    "invalid_length_validation": true,
+    "add_totp": true,
+    "add_all_entry_types": false,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "list_entries": true,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_codes_view": false,
+    "settings_toggles_lock_unlock": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192626Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192626Z/transcript.raw.txt"
+}

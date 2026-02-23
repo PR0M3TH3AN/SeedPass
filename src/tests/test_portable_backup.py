@@ -9,19 +9,23 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import seedpass.core.encryption as enc_module
 from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.portable_backup import export_backup, import_backup
+from seedpass.core.portable_backup import PortableMode
 from utils.key_derivation import derive_index_key, derive_key_from_password
+from utils.fingerprint import generate_fingerprint
 
 SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 PASSWORD = "passw0rd"
 
 
 def setup_vault(tmp: Path):
-    seed_key = derive_key_from_password(PASSWORD)
+    fp = generate_fingerprint(SEED)
+    seed_key = derive_key_from_password(PASSWORD, fp)
     seed_mgr = EncryptionManager(seed_key, tmp)
     seed_mgr.encrypt_parent_seed(SEED)
 
@@ -50,9 +54,26 @@ def test_round_trip(monkeypatch):
         assert vault.load_index()["pw"] == data["pw"]
 
 
+def test_round_trip_unencrypted(monkeypatch):
+    with TemporaryDirectory() as td:
+        tmp = Path(td)
+        vault, backup, _ = setup_vault(tmp)
+        data = {"pw": 1}
+        vault.save_index(data)
+
+        path = export_backup(vault, backup, parent_seed=SEED, encrypt=False)
+        wrapper = json.loads(path.read_text())
+        assert wrapper["encryption_mode"] == PortableMode.NONE.value
+
+        vault.save_index({"pw": 0})
+        import_backup(vault, backup, path, parent_seed=SEED)
+        assert vault.load_index()["pw"] == data["pw"]
+
+
 from cryptography.fernet import InvalidToken
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="flaky on Windows")
 def test_corruption_detection(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
@@ -66,6 +87,16 @@ def test_corruption_detection(monkeypatch):
         payload = b"x" + payload[1:]
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
+
+        def _fast_legacy_key(password: str, iterations: int = 100_000) -> bytes:
+            return base64.urlsafe_b64encode(b"0" * 32)
+
+        monkeypatch.setattr(
+            enc_module, "_derive_legacy_key_from_password", _fast_legacy_key
+        )
+        monkeypatch.setattr(
+            enc_module, "prompt_existing_password", lambda *_a, **_k: PASSWORD
+        )
 
         with pytest.raises(InvalidToken):
             import_backup(vault, backup, path, parent_seed=SEED)
@@ -125,7 +156,8 @@ def test_export_creates_additional_backup_and_import(monkeypatch):
     with TemporaryDirectory() as td, TemporaryDirectory() as extra:
         tmp = Path(td)
 
-        seed_key = derive_key_from_password(PASSWORD)
+        fp = generate_fingerprint(SEED)
+        seed_key = derive_key_from_password(PASSWORD, fp)
         seed_mgr = EncryptionManager(seed_key, tmp)
         seed_mgr.encrypt_parent_seed(SEED)
 

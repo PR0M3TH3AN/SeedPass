@@ -37,12 +37,12 @@ Mission: identify external protocol/spec dependencies used by this codebase, map
 3. Update `PROTOCOL_INVENTORY.md` with concrete code pointers.
 3. Validate behavior with targeted unit/integration tests.
 4. Classify gaps and propose minimal remediations.
-5. Publish a dated report: `protocol-report-YYYY-MM-DD.md`.
+5. Publish a dated report: `reports/protocol/protocol-report-YYYY-MM-DD.md`.
 
 ## Deliverables
 
 - `PROTOCOL_INVENTORY.md`
-- `protocol-report-YYYY-MM-DD.md`
+- `reports/protocol/protocol-report-YYYY-MM-DD.md`
 - Test additions or issue links for identified gaps
 
 Keep outputs practical, evidence-based, and easy for maintainers to act on.

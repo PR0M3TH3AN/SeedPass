@@ -15,9 +15,16 @@ completely deterministic passwords from a BIP-85 seed, ensuring that passwords a
 the same way every time. Salts would break this functionality and are not suitable for this software.
 """
 
+try:
+    import orjson as json_lib  # type: ignore
+
+    USE_ORJSON = True
+except Exception:  # pragma: no cover - fallback when orjson is missing
+    import json as json_lib
+
+    USE_ORJSON = False
 import logging
 import hashlib
-import sys
 import shutil
 import time
 from typing import Optional, Tuple, Dict, Any, List
@@ -25,10 +32,11 @@ from pathlib import Path
 
 from termcolor import colored
 from .migrations import LATEST_VERSION
-from .entry_types import EntryType
-from .totp import TotpManager
+from .entry_types import EntryType, ALL_ENTRY_TYPES
+from .totp import TotpManager, random_totp_secret
 from utils.fingerprint import generate_fingerprint
 from utils.checksum import canonical_json_dumps
+from utils.atomic_write import atomic_write
 from utils.key_validation import (
     validate_totp_secret,
     validate_ssh_key_pair,
@@ -39,6 +47,7 @@ from utils.key_validation import (
 
 from .vault import Vault
 from .backup import BackupManager
+from .errors import SeedPassError
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -138,7 +147,7 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Error determining next index: {e}", exc_info=True)
             print(colored(f"Error determining next index: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Error determining next index: {e}") from e
 
     def add_entry(
         self,
@@ -212,7 +221,9 @@ class EntryManager:
 
             data["entries"][str(index)] = entry
 
-            logger.debug(f"Added entry at index {index}: {data['entries'][str(index)]}")
+            logger.debug(
+                f"Added entry at index {index} with label '{entry.get('label', '')}'."
+            )
 
             self._save_index(data)
             self.update_checksum()
@@ -226,7 +237,7 @@ class EntryManager:
         except Exception as e:
             logger.error(f"Failed to add entry: {e}", exc_info=True)
             print(colored(f"Error: Failed to add entry: {e}", "red"))
-            sys.exit(1)
+            raise SeedPassError(f"Failed to add entry: {e}") from e
 
     def get_next_totp_index(self) -> int:
         """Return the next available derivation index for TOTP secrets."""
@@ -245,7 +256,7 @@ class EntryManager:
     def add_totp(
         self,
         label: str,
-        parent_seed: str,
+        parent_seed: str | bytes | None = None,
         *,
         archived: bool = False,
         secret: str | None = None,
@@ -254,13 +265,16 @@ class EntryManager:
         digits: int = 6,
         notes: str = "",
         tags: list[str] | None = None,
+        deterministic: bool = False,
     ) -> str:
         """Add a new TOTP entry and return the provisioning URI."""
         entry_id = self.get_next_index()
         data = self._load_index()
         data.setdefault("entries", {})
 
-        if secret is None:
+        if deterministic:
+            if parent_seed is None:
+                raise ValueError("Seed required for deterministic TOTP")
             if index is None:
                 index = self.get_next_totp_index()
             secret = TotpManager.derive_secret(parent_seed, index)
@@ -277,8 +291,11 @@ class EntryManager:
                 "archived": archived,
                 "notes": notes,
                 "tags": tags or [],
+                "deterministic": True,
             }
         else:
+            if secret is None:
+                secret = random_totp_secret()
             if not validate_totp_secret(secret):
                 raise ValueError("Invalid TOTP secret")
             entry = {
@@ -292,6 +309,7 @@ class EntryManager:
                 "archived": archived,
                 "notes": notes,
                 "tags": tags or [],
+                "deterministic": False,
             }
 
         data["entries"][str(entry_id)] = entry
@@ -449,7 +467,7 @@ class EntryManager:
 
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
-        entropy = bip85.derive_entropy(index=index, bytes_len=32)
+        entropy = bip85.derive_entropy(index=index, entropy_bytes=32)
         keys = Keys(priv_k=entropy.hex())
         npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
         nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
@@ -527,7 +545,7 @@ class EntryManager:
         bip85 = BIP85(seed_bytes)
 
         key_idx = int(entry.get("index", index))
-        entropy = bip85.derive_entropy(index=key_idx, bytes_len=32)
+        entropy = bip85.derive_entropy(index=key_idx, entropy_bytes=32)
         keys = Keys(priv_k=entropy.hex())
         npub = Keys.hex_to_bech32(keys.public_key_hex(), "npub")
         nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
@@ -676,12 +694,12 @@ class EntryManager:
         seed_index = int(entry.get("index", index))
         return derive_seed_phrase(bip85, seed_index, words)
 
-    def get_totp_secret(self, index: int, parent_seed: str | None = None) -> str:
-        """Return the TOTP secret for the specified entry.
-
-        If the entry uses an imported secret, it is returned directly.
-        If the entry uses a derived secret, it is derived from the parent seed.
-        """
+    def get_totp_secret(
+        self,
+        index: int,
+        parent_seed: str | bytes | None = None,
+    ) -> str:
+        """Return the TOTP secret for the specified entry."""
         entry = self.retrieve_entry(index)
         etype = entry.get("type") if entry else None
         kind = entry.get("kind") if entry else None
@@ -689,18 +707,18 @@ class EntryManager:
             etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
         ):
             raise ValueError("Entry is not a TOTP entry")
-
-        if "secret" in entry:
-            return entry["secret"]
-
-        if parent_seed is None:
-            raise ValueError("Seed required for derived TOTP")
-
-        totp_index = int(entry.get("index", 0))
-        return TotpManager.derive_secret(parent_seed, totp_index)
+        if entry.get("deterministic", False) or "secret" not in entry:
+            if parent_seed is None:
+                raise ValueError("Seed required for derived TOTP")
+            totp_index = int(entry.get("index", 0))
+            return TotpManager.derive_secret(parent_seed, totp_index)
+        return entry["secret"]
 
     def get_totp_code(
-        self, index: int, parent_seed: str | None = None, timestamp: int | None = None
+        self,
+        index: int,
+        parent_seed: str | bytes | None = None,
+        timestamp: int | None = None,
     ) -> str:
         """Return the current TOTP code for the specified entry."""
         entry = self.retrieve_entry(index)
@@ -710,12 +728,12 @@ class EntryManager:
             etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
         ):
             raise ValueError("Entry is not a TOTP entry")
-        if "secret" in entry:
-            return TotpManager.current_code_from_secret(entry["secret"], timestamp)
-        if parent_seed is None:
-            raise ValueError("Seed required for derived TOTP")
-        totp_index = int(entry.get("index", 0))
-        return TotpManager.current_code(parent_seed, totp_index, timestamp)
+        if entry.get("deterministic", False) or "secret" not in entry:
+            if parent_seed is None:
+                raise ValueError("Seed required for derived TOTP")
+            totp_index = int(entry.get("index", 0))
+            return TotpManager.current_code(parent_seed, totp_index, timestamp)
+        return TotpManager.current_code_from_secret(entry["secret"], timestamp)
 
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""
@@ -730,7 +748,9 @@ class EntryManager:
         period = int(entry.get("period", 30))
         return TotpManager.time_remaining(period)
 
-    def export_totp_entries(self, parent_seed: str) -> dict[str, list[dict[str, Any]]]:
+    def export_totp_entries(
+        self, parent_seed: str | bytes | None
+    ) -> dict[str, list[dict[str, Any]]]:
         """Return all TOTP secrets and metadata for external use."""
         data = self._load_index()
         entries = data.get("entries", {})
@@ -742,11 +762,13 @@ class EntryManager:
             label = entry.get("label", "")
             period = int(entry.get("period", 30))
             digits = int(entry.get("digits", 6))
-            if "secret" in entry:
-                secret = entry["secret"]
-            else:
+            if entry.get("deterministic", False) or "secret" not in entry:
+                if parent_seed is None:
+                    raise ValueError("Seed required for deterministic TOTP export")
                 idx = int(entry.get("index", 0))
                 secret = TotpManager.derive_secret(parent_seed, idx)
+            else:
+                secret = entry["secret"]
             uri = TotpManager.make_otpauth_uri(label, secret, period, digits)
             exported.append(
                 {
@@ -793,7 +815,9 @@ class EntryManager:
                     EntryType.MANAGED_ACCOUNT.value,
                 ):
                     entry.setdefault("custom_fields", [])
-                logger.debug(f"Retrieved entry at index {index}: {entry}")
+                logger.debug(
+                    f"Retrieved entry at index {index} with label '{entry.get('label', '')}'."
+                )
                 clean = {k: v for k, v in entry.items() if k != "modified_ts"}
                 return clean
             else:
@@ -1023,13 +1047,11 @@ class EntryManager:
 
             if custom_fields is not None:
                 entry["custom_fields"] = custom_fields
-                logger.debug(
-                    f"Updated custom fields for index {index}: {custom_fields}"
-                )
+                logger.debug(f"Updated custom fields for index {index}.")
 
             if tags is not None:
                 entry["tags"] = tags
-                logger.debug(f"Updated tags for index {index}: {tags}")
+                logger.debug(f"Updated tags for index {index}.")
 
             policy_updates: dict[str, Any] = {}
             if include_special_chars is not None:
@@ -1056,7 +1078,9 @@ class EntryManager:
             entry["modified_ts"] = int(time.time())
 
             data["entries"][str(index)] = entry
-            logger.debug(f"Modified entry at index {index}: {entry}")
+            logger.debug(
+                f"Modified entry at index {index} with label '{entry.get('label', '')}'."
+            )
 
             self._save_index(data)
             self.update_checksum()
@@ -1085,7 +1109,7 @@ class EntryManager:
     def list_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
         verbose: bool = True,
@@ -1097,8 +1121,9 @@ class EntryManager:
         sort_by:
             Field to sort by. Supported values are ``"index"``, ``"label"`` and
             ``"updated"``.
-        filter_kind:
-            Optional entry kind to restrict the results.
+        filter_kinds:
+            Optional list of entry kinds to restrict the results. Defaults to
+            ``ALL_ENTRY_TYPES``.
 
         Archived entries are omitted unless ``include_archived`` is ``True``.
         """
@@ -1127,12 +1152,14 @@ class EntryManager:
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
 
+            if filter_kinds is None:
+                filter_kinds = ALL_ENTRY_TYPES
+
             filtered_items: List[Tuple[int, Dict[str, Any]]] = []
             for idx_str, entry in sorted_items:
                 if (
-                    filter_kind is not None
-                    and entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                    != filter_kind
+                    entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
+                    not in filter_kinds
                 ):
                     continue
                 if not include_archived and entry.get(
@@ -1326,8 +1353,7 @@ class EntryManager:
             # The checksum file path already includes the fingerprint directory
             checksum_path = self.checksum_file
 
-            with open(checksum_path, "w") as f:
-                f.write(checksum)
+            atomic_write(checksum_path, lambda f: f.write(checksum))
 
             logger.debug(f"Checksum updated and written to '{checksum_path}'.")
             print(colored("[+] Checksum updated successfully.", "green"))
@@ -1381,7 +1407,7 @@ class EntryManager:
     def list_all_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
     ) -> None:
@@ -1389,7 +1415,7 @@ class EntryManager:
         try:
             entries = self.list_entries(
                 sort_by=sort_by,
-                filter_kind=filter_kind,
+                filter_kinds=filter_kinds,
                 include_archived=include_archived,
             )
             if not entries:
@@ -1413,7 +1439,7 @@ class EntryManager:
 
     def get_entry_summaries(
         self,
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         *,
         include_archived: bool = False,
     ) -> list[tuple[int, str, str]]:
@@ -1422,10 +1448,13 @@ class EntryManager:
             data = self._load_index()
             entries_data = data.get("entries", {})
 
+            if filter_kinds is None:
+                filter_kinds = ALL_ENTRY_TYPES
+
             summaries: list[tuple[int, str, str]] = []
             for idx_str, entry in entries_data.items():
                 etype = entry.get("type", entry.get("kind", EntryType.PASSWORD.value))
-                if filter_kind and etype != filter_kind:
+                if etype not in filter_kinds:
                     continue
                 if not include_archived and entry.get(
                     "archived", entry.get("blacklisted", False)

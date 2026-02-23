@@ -3,4 +3,3 @@ selected_directories:
 - utils/
 - nostr/
 - local_bip85/
-- password_manager/

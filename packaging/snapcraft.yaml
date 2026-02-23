@@ -1,0 +1,22 @@
+name: seedpass
+base: core22
+version: '0.1.0'
+summary: Deterministic password manager
+description: |
+  SeedPass deterministically generates passwords using BIP-39 seeds.
+grade: devel
+confinement: strict
+apps:
+  seedpass-gui:
+    command: bin/seedpass-gui
+    plugs:
+      - network
+      - x11
+parts:
+  seedpass:
+    plugin: dump
+    source: build/seedpass-gui/ubuntu/noble/app
+    stage-packages:
+      - libgtk-3-0
+      - libglib2.0-0
+      - libgdk-pixbuf2.0-0

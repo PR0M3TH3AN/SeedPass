@@ -1,0 +1,47 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): Your new BIP-85 seed phrase is:
+crane occur rapid use globe hockey slight strike evidence whale radio guard
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Enter a new password: Confirm your password: c
+=== Seed Profile Stats ===
+Total entries: 0
+  password: 0
+  totp: 0
+  ssh: 0
+  seed: 0
+  pgp: 0
+  nostr: 0
+  key_value: 0
+  managed_account: 0
+Relays configured: 3
+Backups: 0 (dir: /tmp/seedpass-agent-home-maymnzvh/.seedpass/0D51417FDC8605A2/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to continue.
+cSeed Profile: 0D51417FDC8605A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: Exiting the program.

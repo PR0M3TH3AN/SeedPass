@@ -71,7 +71,7 @@ WORKFLOW
       - branch naming conventions (e.g., `ai/*`)
       - label conventions (e.g., `requires-security-review`, `requires-protocol-review`)
   - Verify whether the target folder exists:
-      - `ai/reports/`
+      - `reports/weekly-synthesis/`
     If it does not exist, do not invent new structure without checking policy:
       - Prefer placing the report where existing reports live, or open an issue
         proposing the location.
@@ -125,7 +125,7 @@ Optional method (use curl to query the GitHub API):
 
 6) Write the report file
   File name (if allowed by repo conventions):
-  - `ai/reports/weekly-YYYYMMDD.md`
+  - `reports/weekly-synthesis/weekly-report-YYYY-MM-DD.md`
 
   Keep the report compact and scannable.
 
@@ -193,5 +193,5 @@ If report directory doesn’t exist and policy is unclear:
 ───────────────────────────────────────────────────────────────────────────────
 OUTPUTS PER RUN
 
-- `ai/reports/weekly-YYYYMMDD.md` (or repo-approved equivalent)
+- `reports/weekly-synthesis/weekly-report-YYYY-MM-DD.md` (or repo-approved equivalent)
 - One commit containing only the report (if committing is allowed by policy)

@@ -1,0 +1,74 @@
+{
+  "timestamp_utc": "20260223T195510Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-y9xodvvp",
+  "scenario": "extended",
+  "stress_cycles": null,
+  "stress_seed": null,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "invalid_input_resilience",
+    "add_password_quick",
+    "invalid_length_validation",
+    "add_totp",
+    "add_all_entry_types",
+    "retrieve_entry",
+    "search_entries",
+    "list_entries",
+    "modify_entry",
+    "archive_restore",
+    "totp_codes_view",
+    "settings_toggles_lock_unlock",
+    "settings_stats",
+    "graceful_exit"
+  ],
+  "required_post_conditions": [
+    "archive_restore_consistency",
+    "lock_unlock_recovers_retrieval"
+  ],
+  "duration_sec": 32.184,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Archived Entries'\nRecent output:\n\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 8\r\n\u001bcSeed Profile: 838F2A553C9E0619 > Main Menu > Archived Entries\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n[+] Archived Entries:\r\n\r\n0. agent.example\r\nEnter index to manage or press Enter to go back: 0\r\nEnter 'v' to view details, 'r' to restore, or press Enter to go back: r\r\n[+] Checksum updated successfully.\r\nBackup created successfully at '/tmp/seedpass-agent-home-y9xodvvp/.seedpass/838F2A553C9E0619/backups/entries_db_backup_1771876514.json.enc'.\r\n[+] Entry at index 0 modified successfully.\r\nPress Enter to continue...\r\nAll entries restored.\r\nPress Enter to continue...\r\n\u001bcSeed Profile: 838F2A553C9E0619 > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 8\r\nPress Enter to continue...",
+  "steps": [
+    {
+      "step_id": "extended_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 30.673868958998355,
+      "detail": "Timed out waiting for pattern: 'Archived Entries'\nRecent output:\n\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 8\r\n\u001bcSeed Profile: 838F2A553C9E0619 > Main Menu > Archived Entries\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n[+] Archived Entries:\r\n\r\n0. agent.example\r\nEnter index to manage or press Enter to go back: 0\r\nEnter 'v' to view details, 'r' to restore, or press Enter to go back: r\r\n[+] Checksum updated successfully.\r\nBackup created successfully at '/tmp/seedpass-agent-home-y9xodvvp/.seedpass/838F2A553C9E0619/backups/entries_db_backup_1771876514.json.enc'.\r\n[+] Entry at index 0 modified successfully.\r\nPress Enter to continue...\r\nAll entries restored.\r\nPress Enter to continue...\r\n\u001bcSeed Profile: 838F2A553C9E0619 > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 8\r\nPress Enter to continue..."
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": true,
+    "add_password_quick": true,
+    "add_totp": true,
+    "archive_restore": true,
+    "graceful_exit": false,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": true,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "seeded_negative_campaign": false,
+    "settings_stats": false,
+    "settings_toggles_lock_unlock": false,
+    "startup_onboarding": true,
+    "stress_cycles": false,
+    "totp_codes_view": false
+  },
+  "post_conditions": {
+    "archive_restore_consistency": false,
+    "lock_unlock_recovers_retrieval": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195510Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195510Z/transcript.raw.txt"
+}

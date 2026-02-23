@@ -1,12 +1,15 @@
 from pathlib import Path
 import pyperclip
 import threading
+import shutil
 
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from utils.clipboard import copy_to_clipboard
+import pytest
+
+from utils.clipboard import ClipboardUnavailableError, copy_to_clipboard
 
 
 def test_copy_to_clipboard_clears(monkeypatch):
@@ -66,3 +69,15 @@ def test_copy_to_clipboard_does_not_clear_if_changed(monkeypatch):
     fake_copy("other")
     callbacks["func"]()
     assert clipboard["text"] == "other"
+
+
+def test_copy_to_clipboard_missing_dependency(monkeypatch):
+    def fail_copy(*args, **kwargs):
+        raise pyperclip.PyperclipException("no copy")
+
+    monkeypatch.setattr(pyperclip, "copy", fail_copy)
+    monkeypatch.setattr(pyperclip, "paste", lambda: "")
+    monkeypatch.setattr(shutil, "which", lambda cmd: None)
+
+    with pytest.raises(ClipboardUnavailableError):
+        copy_to_clipboard("secret", 1)

@@ -3,12 +3,12 @@
 import os
 import json
 import logging
-import traceback
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import shutil  # Ensure shutil is imported if used within the class
 
+from utils.atomic_write import atomic_write
 from utils.fingerprint import generate_fingerprint
 
 # Instantiate the logger
@@ -92,16 +92,15 @@ class FingerprintManager:
         Saves the current list of fingerprints to the fingerprints.json file.
         """
         try:
-            with open(self.fingerprints_file, "w") as f:
-                json.dump(
-                    {
-                        "fingerprints": self.fingerprints,
-                        "last_used": self.current_fingerprint,
-                        "names": self.names,
-                    },
-                    f,
-                    indent=4,
-                )
+            data = {
+                "fingerprints": self.fingerprints,
+                "last_used": self.current_fingerprint,
+                "names": self.names,
+            }
+            atomic_write(
+                self.fingerprints_file,
+                lambda f: json.dump(data, f, indent=4),
+            )
             logger.debug(
                 f"Fingerprints saved: {self.fingerprints} (last used: {self.current_fingerprint})"
             )
@@ -117,7 +116,8 @@ class FingerprintManager:
             seed_phrase (str): The BIP-39 seed phrase.
 
         Returns:
-            Optional[str]: The generated fingerprint or None if failed.
+            Optional[str]: The generated fingerprint or ``None`` if a profile
+                already exists or generation fails.
         """
         fingerprint = generate_fingerprint(seed_phrase)
         if fingerprint and fingerprint not in self.fingerprints:
@@ -133,17 +133,20 @@ class FingerprintManager:
             return fingerprint
         elif fingerprint in self.fingerprints:
             logger.warning(f"Fingerprint {fingerprint} already exists.")
-            return fingerprint
+            raise ValueError("Fingerprint already exists")
         else:
             logger.error("Fingerprint generation failed.")
             return None
 
-    def remove_fingerprint(self, fingerprint: str) -> bool:
-        """
-        Removes a fingerprint and its associated directory.
+    def remove_fingerprint(
+        self, fingerprint: str, on_last_removed: Optional[Callable[[], None]] = None
+    ) -> bool:
+        """Remove a fingerprint and its associated directory.
 
         Parameters:
             fingerprint (str): The fingerprint to remove.
+            on_last_removed (Callable | None): Callback invoked when the last
+                fingerprint is deleted.
 
         Returns:
             bool: True if removed successfully, False otherwise.
@@ -167,6 +170,8 @@ class FingerprintManager:
                             shutil.rmtree(child)
                     fingerprint_dir.rmdir()
                 logger.info(f"Fingerprint {fingerprint} removed successfully.")
+                if not self.fingerprints and on_last_removed:
+                    on_last_removed()
                 return True
             except Exception as e:
                 logger.error(

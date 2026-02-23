@@ -8,13 +8,15 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from typer.testing import CliRunner
 from seedpass import cli
+from seedpass.cli import common as cli_common
+from seedpass.cli import api as cli_api
 from seedpass.core.entry_types import EntryType
 
 
 class DummyPM:
     def __init__(self):
         self.entry_manager = SimpleNamespace(
-            list_entries=lambda sort_by="index", filter_kind=None, include_archived=False: [
+            list_entries=lambda sort_by="index", filter_kinds=None, include_archived=False: [
                 (1, "Label", "user", "url", False)
             ],
             search_entries=lambda q, kinds=None: [
@@ -23,7 +25,7 @@ class DummyPM:
             retrieve_entry=lambda idx: {"type": EntryType.PASSWORD.value, "length": 8},
             get_totp_code=lambda idx, seed: "123456",
             add_entry=lambda label, length, username, url, **kwargs: 1,
-            add_totp=lambda label, seed, index=None, secret=None, period=30, digits=6: "totp://",
+            add_totp=lambda label, seed, index=None, secret=None, period=30, digits=6, deterministic=False: "totp://",
             add_ssh_key=lambda label, seed, index=None, notes="": 2,
             add_pgp_key=lambda label, seed, index=None, key_type="ed25519", user_id="", notes="": 3,
             add_nostr_key=lambda label, seed, index=None, notes="": 4,
@@ -40,7 +42,7 @@ class DummyPM:
         )
         self.parent_seed = "seed"
         self.handle_display_totp_codes = lambda: None
-        self.handle_export_database = lambda path: None
+        self.handle_export_database = lambda path, **kwargs: None
         self.handle_import_database = lambda path: None
         self.change_password = lambda *a, **kw: None
         self.lock_vault = lambda: None
@@ -75,7 +77,7 @@ class DummyPM:
             set_offline_mode=lambda v: None,
             get_secret_mode_enabled=lambda: True,
             get_clipboard_clear_delay=lambda: 30,
-            get_offline_mode=lambda: False,
+            get_offline_mode=lambda: True,
         )
         self.secret_mode_enabled = True
         self.clipboard_clear_delay = 30
@@ -97,13 +99,9 @@ runner = CliRunner()
 
 
 def _setup(monkeypatch):
-    monkeypatch.setattr(cli, "PasswordManager", lambda: DummyPM())
-    monkeypatch.setattr(cli.uvicorn, "run", lambda *a, **kw: None)
-    monkeypatch.setattr(
-        cli.api_module,
-        "start_server",
-        lambda fingerprint=None, token=None: "token",
-    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: DummyPM())
+    monkeypatch.setattr(cli_api.uvicorn, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(cli_api.api_module, "start_server", lambda fp: "token")
     monkeypatch.setitem(
         sys.modules, "requests", SimpleNamespace(post=lambda *a, **kw: None)
     )

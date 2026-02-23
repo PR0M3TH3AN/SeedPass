@@ -50,7 +50,7 @@ Commit early and often:
 - `src/todo/TODO_<timestamp>.md` — tasks (Done / Blocked).
 - `src/decisions/DECISIONS_<timestamp>.md` — design choices & rationale.
 - `src/test_logs/TEST_LOG_<timestamp>.md` — commands, env, outputs, failures.
-- `INITIAL_BASELINE.md` — baseline metrics (login time, decrypt queue size, relay latencies, webtorrent count).
+- `reports/performance/INITIAL_BASELINE.md` — baseline metrics (login time, decrypt queue size, relay latencies, webtorrent count).
 - `perf/` (optional) — scripts and small helpers.
 
 Read `AGENTS.md` and `KNOWN_ISSUES.md` before edits.
@@ -66,7 +66,7 @@ DAILY WORKFLOW (run each day)
 2. **Search & Inventory**
    - Run search patterns (see below).
    - For each hit record: file, function, lines, trigger (load/login/visibility/user), frequency, main-thread? network intensity, user-visible impact.
-   - Produce `perf/hits-YYYY-MM-DD.json`.
+   - Produce `reports/performance/hits-YYYY-MM-DD.json`.
 
 3. **Prioritize**
    - P0: Blocks login/auth or decrypts UX-critical lists.
@@ -83,7 +83,7 @@ DAILY WORKFLOW (run each day)
    - If upload/ingest code or `/content` is touched, run the docs audit workflow (inventory → verify → update → validate → deliver). Always leave `/content` runnable/precise.
 
 6. **Report**
-   - Produce `daily-perf-report-YYYY-MM-DD.md` summarizing findings, PRs/issues, metrics, and blockers.
+   - Produce `reports/performance/daily-perf-report-YYYY-MM-DD.md` summarizing findings, PRs/issues, metrics, and blockers.
 
 -------------------------------------------------------------------------------
 TECHNICAL HEURISTICS & PATTERNS (what to look for & how to fix)
@@ -175,11 +175,11 @@ ESCALATION & RISK POLICY
 
 -------------------------------------------------------------------------------
 FIRST-RUN CHECKLIST (execute now)
-1. Commit files in `src/context/`, `src/todo/`, `src/decisions/`, `src/test_logs/`, `INITIAL_BASELINE.md`.
-2. Run Search Patterns across repo and save `perf/hits-YYYY-MM-DD.json`.
+- Commit files in `src/context/`, `src/todo/`, `src/decisions/`, `src/test_logs/`, `reports/performance/INITIAL_BASELINE.md`.
+2. Run Search Patterns across repo and save `reports/performance/hits-YYYY-MM-DD.json`.
 3. Prioritize P0 findings, open at most 1–3 small PRs (bounded concurrency, worker queue limits, visibility gating).
 4. Audit `/content` upload pages: inventory claims → map to code → verify → open docs PR or issue.
-5. Produce `daily-perf-report-YYYY-MM-DD.md` summarizing results and PR links.
+5. Produce `reports/performance/daily-perf-report-YYYY-MM-DD.md` summarizing results and PR links.
 
 -------------------------------------------------------------------------------
 
@@ -189,7 +189,7 @@ FAILURE MODES
 - If specific resources (files, URLs) are unavailable, log the error and skip.
 
 OUTPUTS (per run)
-- `daily-perf-report-YYYY-MM-DD.md` with:
+- `reports/performance/daily-perf-report-YYYY-MM-DD.md` with:
   - Summary line.
   - P0/P1/P2 findings (file/func/lines/impact/proposed fix/PR/Issue links).
   - Metrics (login-time, queue sizes).
@@ -210,4 +210,4 @@ BEHAVIORAL GUARDRAILS & QUALITY BAR
 FINAL NOTE
 You are a helper, not a helicopter. Make safe, measurable progress daily. Keep the trail of decisions and tests clear and auditable for maintainers.
 
-Begin now: run the Search Patterns, collect hits, and draft the first `daily-perf-report-YYYY-MM-DD.md`.
+Begin now: run the Search Patterns, collect hits, and draft the first `reports/performance/daily-perf-report-YYYY-MM-DD.md`.

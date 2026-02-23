@@ -120,7 +120,7 @@ WORKFLOW
       - line number (when available)
       - snippet (1–2 lines max)
       - category
-  - Produce a remediation report (see “Reporting format required”).
+  - Produce a remediation report at `reports/design-system/design-system-report-YYYY-MM-DD.md` (and PR/Issue body).
 
 4) Auto-fix safe, trivial cases (only if policy allows)
   Allowed examples (only if verified as correct in repo policy):
@@ -151,7 +151,7 @@ WORKFLOW
           `chore(ui): design system audit autofixes (agent)`
       - Open a PR including the remediation report and commands run.
   - If no safe auto-fixes were possible, or remaining violations need manual work:
-      - Open a GitHub issue with the remediation report, suggested owners, and
+      - Open a GitHub issue with the remediation report (linked or inline), suggested owners, and
         next steps.
 
 6) Verification
@@ -232,4 +232,4 @@ Partial success:
 - Issue documenting remaining violations with owners + next steps
 
 Always:
-- A concise remediation report in the PR/issue following the required format
+- A concise remediation report at `reports/design-system/design-system-report-YYYY-MM-DD.md` (and in the PR/issue following the required format)

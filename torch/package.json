@@ -1,20 +1,19 @@
 {
-  "name": "torch",
+  "name": "seedpass-scheduler",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lock:check:weekly": "torch-lock check --cadence weekly --json",
-    "lock:check:daily": "torch-lock check --cadence daily --json",
-    "lock:lock": "torch-lock lock",
-    "lock:complete": "torch-lock complete",
-    "lock:health": "torch-lock health"
+    "lock:check:daily": "node bin/torch-lock.mjs check --cadence daily",
+    "lock:check:weekly": "node bin/torch-lock.mjs check --cadence weekly",
+    "lock:lock": "node bin/torch-lock.mjs lock",
+    "lock:complete": "node bin/torch-lock.mjs complete",
+    "lock:list": "node bin/torch-lock.mjs list",
+    "lock:health": "node bin/torch-lock.mjs health",
+    "dashboard:serve": "node bin/torch-lock.mjs dashboard",
+    "torch:memory:list": "node bin/torch-lock.mjs list-memories",
+    "torch:memory:inspect": "node bin/torch-lock.mjs inspect-memory",
+    "lint": "flake8 --exit-zero"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "torch-lock": "https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz"
   }

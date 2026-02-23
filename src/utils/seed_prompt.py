@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 try:
     import msvcrt  # type: ignore
@@ -14,6 +15,37 @@ except ImportError:  # pragma: no cover - POSIX only
     tty = None  # type: ignore
 
 from utils.terminal_utils import clear_screen
+from utils.logging_utils import pause_console_logging, resume_console_logging
+
+DEFAULT_MAX_ATTEMPTS = 5
+
+
+def _get_max_attempts(override: int | None = None) -> int:
+    """Return the configured maximum number of attempts.
+
+    ``override`` takes precedence, followed by the
+    ``SEEDPASS_MAX_PROMPT_ATTEMPTS`` environment variable. A value of ``0``
+    disables the limit entirely.
+    """
+
+    if override is not None:
+        return override
+    env = os.getenv("SEEDPASS_MAX_PROMPT_ATTEMPTS")
+    if env is not None:
+        try:
+            return int(env)
+        except ValueError:
+            pass
+    return DEFAULT_MAX_ATTEMPTS
+
+
+def _apply_backoff(attempts: int, max_attempts: int) -> None:
+    """Sleep using exponential backoff unless the limit is disabled."""
+
+    if max_attempts == 0:
+        return
+    delay = 2 ** (attempts - 1)
+    time.sleep(delay)
 
 
 def _masked_input_windows(prompt: str) -> str:
@@ -26,6 +58,8 @@ def _masked_input_windows(prompt: str) -> str:
     buffer: list[str] = []
     while True:
         ch = msvcrt.getwch()
+        if ch == "\x03":
+            raise KeyboardInterrupt
         if ch in ("\r", "\n"):
             sys.stdout.write("\n")
             return "".join(buffer)
@@ -53,6 +87,8 @@ def _masked_input_posix(prompt: str) -> str:
         tty.setraw(fd)
         while True:
             ch = sys.stdin.read(1)
+            if ch == "\x03":
+                raise KeyboardInterrupt
             if ch in ("\r", "\n"):
                 sys.stdout.write("\n")
                 return "".join(buffer)
@@ -70,12 +106,19 @@ def _masked_input_posix(prompt: str) -> str:
 
 def masked_input(prompt: str) -> str:
     """Return input from the user while masking typed characters."""
-    if sys.platform == "win32":
-        return _masked_input_windows(prompt)
-    return _masked_input_posix(prompt)
+    func = _masked_input_windows if sys.platform == "win32" else _masked_input_posix
+    pause_console_logging()
+    try:
+        return func(prompt)
+    except KeyboardInterrupt:
+        raise
+    except Exception:  # pragma: no cover - fallback when TTY operations fail
+        return input(prompt)
+    finally:
+        resume_console_logging()
 
 
-def prompt_seed_words(count: int = 12) -> str:
+def prompt_seed_words(count: int = 12, *, max_attempts: int | None = None) -> str:
     """Prompt the user for a BIP-39 seed phrase.
 
     The user is asked for each word one at a time. A numbered list is
@@ -88,6 +131,10 @@ def prompt_seed_words(count: int = 12) -> str:
     ----------
     count:
         Number of words to prompt for. Defaults to ``12``.
+    max_attempts:
+        Maximum number of invalid attempts before aborting. ``0`` disables the
+        limit. Defaults to the ``SEEDPASS_MAX_PROMPT_ATTEMPTS`` environment
+        variable or ``5`` if unset.
 
     Returns
     -------
@@ -105,6 +152,9 @@ def prompt_seed_words(count: int = 12) -> str:
     m = Mnemonic("english")
     words: list[str] = [""] * count
 
+    max_attempts = _get_max_attempts(max_attempts)
+    attempts = 0
+
     idx = 0
     while idx < count:
         clear_screen()
@@ -113,6 +163,10 @@ def prompt_seed_words(count: int = 12) -> str:
         entered = masked_input(f"Enter word number {idx+1}: ").strip().lower()
         if entered not in m.wordlist:
             print("Invalid word, try again.")
+            attempts += 1
+            if max_attempts != 0 and attempts >= max_attempts:
+                raise ValueError("Maximum seed prompt attempts exceeded")
+            _apply_backoff(attempts, max_attempts)
             continue
         words[idx] = entered
         idx += 1
@@ -141,9 +195,17 @@ def prompt_seed_words(count: int = 12) -> str:
                         words[i] = new_word
                         break
                     print("Invalid word, try again.")
+                    attempts += 1
+                    if max_attempts != 0 and attempts >= max_attempts:
+                        raise ValueError("Maximum seed prompt attempts exceeded")
+                    _apply_backoff(attempts, max_attempts)
                 # Ask for confirmation again with the new word
             else:
                 print("Please respond with 'Y' or 'N'.")
+                attempts += 1
+                if max_attempts != 0 and attempts >= max_attempts:
+                    raise ValueError("Maximum seed prompt attempts exceeded")
+                _apply_backoff(attempts, max_attempts)
                 continue
 
     phrase = " ".join(words)

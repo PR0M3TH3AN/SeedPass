@@ -1,29 +1,45 @@
 {
+  "scheduler": {
+    "firstPromptByCadence": {
+      "daily": "ci-health-agent"
+    },
+    "memoryPolicyByCadence": {
+      "daily": {
+        "retrieveCommand": "node scripts/memory/retrieve.mjs",
+        "storeCommand": "node scripts/memory/store.mjs",
+        "retrieveArtifact": "memory_retrieved.marker",
+        "storeArtifact": "memory_stored.marker",
+        "mode": "required"
+      },
+      "weekly": {
+        "mode": "required",
+        "retrieveSuccessMarkers": [
+          "MEMORY_RETRIEVED"
+        ],
+        "storeSuccessMarkers": [
+          "MEMORY_STORED"
+        ],
+        "retrieveArtifacts": [
+          ".scheduler-memory/latest/weekly/retrieve.ok"
+        ],
+        "storeArtifacts": [
+          ".scheduler-memory/latest/weekly/store.ok"
+        ],
+        "retrieveCommand": "node scripts/memory/retrieve.mjs",
+        "storeCommand": "node scripts/memory/store.mjs"
+      }
+    }
+  },
+  "cadence": "daily",
+  "log_dir": "task-logs/daily/",
+  "branch_prefix": "agents/daily/",
+  "prompt_dir": "src/prompts/daily/",
   "nostrLock": {
-    "namespace": "torch-d2c5ea19",
+    "namespace": "torch-seedpass",
     "relays": [
       "wss://relay.damus.io",
       "wss://nos.lol",
       "wss://relay.primal.net"
-    ],
-    "ttlSeconds": 7200,
-    "queryTimeoutMs": 30000,
-    "publishTimeoutMs": 15000,
-    "minSuccessfulRelayPublishes": 2,
-    "minActiveRelayPool": 2,
-    "relayFallbacks": [
-      "wss://relay.snort.social",
-      "wss://relay.nostr.band"
     ]
-  },
-  "dashboard": {
-    "defaultCadenceView": "daily",
-    "defaultStatusView": "active"
-  },
-  "scheduler": {
-    "firstPromptByCadence": {
-      "daily": "scheduler-update-agent",
-      "weekly": "bug-reproducer-agent"
-    }
   }
 }

@@ -1,0 +1,57 @@
+{
+  "timestamp_utc": "20260223T194623Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-5b_un_86",
+  "scenario": "core",
+  "stress_cycles": null,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "invalid_input_resilience",
+    "add_password_quick",
+    "invalid_length_validation",
+    "retrieve_entry",
+    "search_entries",
+    "list_entries",
+    "graceful_exit"
+  ],
+  "duration_sec": 3.148,
+  "seedpass_exit_code": 0,
+  "status": "passed",
+  "failure": null,
+  "steps": [
+    {
+      "step_id": "core_scenario",
+      "description": "Drive deterministic core TUI scenario.",
+      "status": "passed",
+      "duration_sec": 3.0497409279996646,
+      "detail": null
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": false,
+    "add_password_quick": true,
+    "add_totp": false,
+    "archive_restore": false,
+    "graceful_exit": true,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": true,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": false,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "settings_stats": false,
+    "settings_toggles_lock_unlock": false,
+    "startup_onboarding": true,
+    "stress_cycles": false,
+    "totp_codes_view": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T194623Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T194623Z/transcript.raw.txt"
+}

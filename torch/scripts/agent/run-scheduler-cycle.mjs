@@ -3,8 +3,29 @@
 // implemented by this script; step 3 (policy-file read) is best-effort and non-fatal.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+
+import {
+  runCommand,
+  parseJsonFromOutput,
+  readJson,
+  normalizeStringList,
+  parseNonNegativeInt,
+  parseBooleanFlag,
+  excerptText,
+  getRunDateKey,
+  toYamlScalar,
+} from './scheduler-utils.mjs';
+
+import {
+  classifyLockBackendError,
+  buildLockBackendRemediation,
+  runLockHealthPreflight,
+  acquireLockWithRetry,
+  summarizeLockFailureReasons,
+} from './scheduler-lock.mjs';
+
+import { detectPlatform } from '../../src/utils.mjs';
 
 const VALID_CADENCES = new Set(['daily', 'weekly']);
 const ALL_EXCLUDED_REASON = 'All roster tasks currently claimed by other agents';
@@ -15,10 +36,8 @@ const FAILURE_CATEGORY = {
   EXECUTION: 'execution_error',
 };
 
-const LOCK_INCIDENT_LINK = 'docs/agent-handoffs/learnings/2026-02-15-relay-health-preflight-job.md';
-
 function parseArgs(argv) {
-  const args = { cadence: null, platform: process.env.AGENT_PLATFORM || 'codex', model: process.env.AGENT_MODEL || null };
+  const args = { cadence: null, platform: process.env.AGENT_PLATFORM || detectPlatform() || 'unknown', model: process.env.AGENT_MODEL || null };
   for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i];
     if (!value.startsWith('--') && !args.cadence) {
@@ -46,170 +65,11 @@ function ts() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z').replace(/:/g, '-');
 }
 
-function parseJsonFromOutput(text) {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return null;
-  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const line = lines[i];
-    if (!line.startsWith('{') && !line.startsWith('[')) continue;
-    try {
-      return JSON.parse(line);
-    } catch {
-      // Keep scanning from the end.
-    }
-  }
-  return null;
-}
-
-function parseJsonEventsFromOutput(text) {
-  const events = [];
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('{')) continue;
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        events.push(parsed);
-      }
-    } catch {
-      // Ignore non-JSON lines.
-    }
-  }
-  return events;
-}
-
-async function runCommand(command, args = [], options = {}) {
-  return new Promise((resolve) => {
-    const child = spawn(command, args, {
-      cwd: process.cwd(),
-      env: { ...process.env, ...(options.env || {}) },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    const OUTPUT_LIMIT = 20000; // 20KB
-    let stdoutWritten = 0;
-    let stderrWritten = 0;
-    let stdoutTruncated = false;
-    let stderrTruncated = false;
-
-    child.stdout.on('data', (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-
-      if (stdoutWritten < OUTPUT_LIMIT) {
-        const remaining = OUTPUT_LIMIT - stdoutWritten;
-        if (text.length <= remaining) {
-          process.stdout.write(text);
-          stdoutWritten += text.length;
-        } else {
-          process.stdout.write(text.slice(0, remaining));
-          stdoutWritten += remaining;
-        }
-      } else if (!stdoutTruncated) {
-        process.stdout.write('\n...[stdout truncated]...\n');
-        stdoutTruncated = true;
-      }
-    });
-
-    child.stderr.on('data', (chunk) => {
-      const text = chunk.toString();
-      stderr += text;
-
-      if (stderrWritten < OUTPUT_LIMIT) {
-        const remaining = OUTPUT_LIMIT - stderrWritten;
-        if (text.length <= remaining) {
-          process.stderr.write(text);
-          stderrWritten += text.length;
-        } else {
-          process.stderr.write(text.slice(0, remaining));
-          stderrWritten += remaining;
-        }
-      } else if (!stderrTruncated) {
-        process.stderr.write('\n...[stderr truncated]...\n');
-        stderrTruncated = true;
-      }
-    });
-
-    child.on('close', (code) => {
-      resolve({ code: code ?? 1, stdout, stderr });
-    });
-  });
-}
-
-async function readJson(filePath, fallback) {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeStringList(value, fallback = []) {
-  if (!Array.isArray(value)) return fallback;
-  return value.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim());
-}
-
-function parseNonNegativeInt(value, fallback) {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  if (Number.isFinite(parsed) && parsed >= 0) {
-    return parsed;
-  }
-  return fallback;
-}
-
-function parseBooleanFlag(value, fallback = false) {
-  if (value === undefined || value === null || value === '') return fallback;
-  const normalized = String(value).trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
-  return fallback;
-}
-
-function redactSensitive(text) {
-  if (!text) return '';
-  return String(text)
-    .replace(/\b(BEARER\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[REDACTED]')
-    .replace(/\b(token|api[_-]?key|secret(?:[_-]?key)?|password|passwd|authorization)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
-    .replace(/\b(sk|pk|ghp|xoxb|xoxp)_[A-Za-z0-9_-]+\b/g, '[REDACTED]');
-}
-
-function excerptText(text, maxChars = 600) {
-  const clean = redactSensitive(String(text || '').trim());
-  if (!clean) return '';
-  if (clean.length <= maxChars) return clean;
-  return `${clean.slice(0, maxChars)}…`;
-}
-
 function categorizeFailureMetadata(failureCategory, extraMetadata = {}) {
   return {
     failure_category: failureCategory,
     ...extraMetadata,
   };
-}
-
-function formatDurationMs(ms) {
-  if (!Number.isFinite(ms) || ms < 0) return 'unknown';
-  const minutes = Math.round(ms / 60000);
-  return `${minutes} minute(s)`;
-}
-
-function buildLockBackendRemediation({ cadence, retryWindowMs, maxDeferrals, incidentSignalId = null }) {
-  const steps = [
-    'Likely backend/relay connectivity issue during lock acquisition.',
-    `Retry window: ${formatDurationMs(retryWindowMs)} (max deferrals: ${maxDeferrals}).`,
-    `Retry command: npm run scheduler:${cadence}`,
-    `Run health check: npm run lock:health -- --cadence ${cadence}`,
-    `Review incident runbook: ${LOCK_INCIDENT_LINK}`,
-  ];
-  if (incidentSignalId) {
-    steps.push(`Incident signal: ${incidentSignalId}`);
-  }
-  return `Recommended auto-remediation: ${steps.join(' ')}`;
 }
 
 async function validatePromptFile(promptPath) {
@@ -227,57 +87,16 @@ async function validatePromptFile(promptPath) {
 
   const lines = String(content).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const firstLine = lines[0] || '';
-  if (!firstLine.startsWith('#')) {
+  if (!firstLine.startsWith('#') && !firstLine.startsWith('>')) {
     return {
       ok: false,
       category: FAILURE_CATEGORY.PROMPT_SCHEMA,
       reason: 'Prompt file schema validation failed',
-      detail: `Prompt not executed; expected markdown heading on first non-empty line in ${promptPath}.`,
+      detail: `Prompt not executed; expected markdown heading or blockquote on first non-empty line in ${promptPath}.`,
     };
   }
 
   return { ok: true };
-}
-
-function classifyLockBackendError(outputText) {
-  const text = String(outputText || '').toLowerCase();
-  if (!text.trim()) return 'unknown_backend_error';
-
-  const errorCategoryMatch = text.match(/error_category=([a-z0-9_]+)/);
-  if (errorCategoryMatch?.[1]) {
-    return errorCategoryMatch[1];
-  }
-
-  if ((text.includes('relay') || text.includes('query')) && text.includes('timeout')) {
-    return 'relay_query_timeout';
-  }
-
-  if (text.includes('publish failed to all relays') || text.includes('failed to publish to any relay')) {
-    return 'relay_publish_quorum_failure';
-  }
-
-  if (
-    text.includes('connection refused')
-    || text.includes('econnrefused')
-    || text.includes('getaddrinfo')
-    || text.includes('enotfound')
-    || text.includes('eai_again')
-    || (text.includes('websocket') && text.includes('dns'))
-  ) {
-    return 'websocket_connection_refused_or_dns';
-  }
-
-  if (
-    text.includes('invalid url')
-    || text.includes('malformed')
-    || text.includes('unsupported protocol')
-    || text.includes('must start with ws')
-    || text.includes('invalid relay')
-  ) {
-    return 'malformed_relay_url_config';
-  }
-
-  return 'unknown_backend_error';
 }
 
 async function artifactExistsSince(filePath, sinceMs) {
@@ -295,14 +114,8 @@ async function artifactExistsSince(filePath, sinceMs) {
 
 async function verifyMemoryStep({ name, markers, artifacts, outputText, sinceMs }) {
   const markerMatched = markers.some((marker) => outputText.includes(marker));
-  let artifactMatched = false;
-
-  for (const artifact of artifacts) {
-    if (await artifactExistsSince(artifact, sinceMs)) {
-      artifactMatched = true;
-      break;
-    }
-  }
+  const artifactResults = await Promise.all(artifacts.map((artifact) => artifactExistsSince(artifact, sinceMs)));
+  const artifactMatched = artifactResults.some(Boolean);
 
   return {
     name,
@@ -371,22 +184,28 @@ async function getLatestFile(logDir) {
     .filter((filename) => isStrictSchedulerLogFilename(filename))
     .sort((a, b) => b.localeCompare(a));
 
+  const results = await Promise.all(
+    files.map(async (filename) => {
+      const filePath = path.join(logDir, filename);
+      const content = await fs.readFile(filePath, 'utf8').catch(() => '');
+      const createdAtMs = parseDateValue(parseFrontmatterCreatedAt(content));
+      const fileTimestampMs = parseTimestampFromFilename(filename);
+      const effectiveMs = createdAtMs ?? fileTimestampMs;
+
+      if (!effectiveMs) {
+        console.warn(`[scheduler] Ignoring invalid log timestamp in ${filename}; checking next candidate.`);
+        return null;
+      }
+      return { filename, effectiveMs };
+    }),
+  );
+
   let latest = null;
 
-  for (const filename of files) {
-    const filePath = path.join(logDir, filename);
-    const content = await fs.readFile(filePath, 'utf8').catch(() => '');
-    const createdAtMs = parseDateValue(parseFrontmatterCreatedAt(content));
-    const fileTimestampMs = parseTimestampFromFilename(filename);
-    const effectiveMs = createdAtMs ?? fileTimestampMs;
-
-    if (!effectiveMs) {
-      console.warn(`[scheduler] Ignoring invalid log timestamp in ${filename}; checking next candidate.`);
-      continue;
-    }
-
-    if (!latest || effectiveMs > latest.effectiveMs) {
-      latest = { filename, effectiveMs };
+  for (const result of results) {
+    if (!result) continue;
+    if (!latest || result.effectiveMs > latest.effectiveMs) {
+      latest = result;
     }
   }
 
@@ -454,7 +273,7 @@ async function getSchedulerConfig(cadence, { isInteractive }) {
     missingHandoffCommandForMode,
     validationCommands: Array.isArray(scheduler.validationCommandsByCadence?.[cadence])
       ? scheduler.validationCommandsByCadence[cadence].filter((cmd) => typeof cmd === 'string' && cmd.trim())
-      : ['npm', 'run', 'lint'],
+      : ['npm run lint'],
     lockRetry: {
       maxRetries,
       backoffMs,
@@ -485,10 +304,6 @@ async function getSchedulerConfig(cadence, { isInteractive }) {
   };
 }
 
-function getRunDateKey(now = new Date()) {
-  return now.toISOString().slice(0, 10);
-}
-
 async function readRunState(cadence) {
   const statePath = path.resolve(process.cwd(), 'task-logs', cadence, '.scheduler-run-state.json');
   const fallback = { run_date: getRunDateKey(), lock_deferral: null };
@@ -517,122 +332,6 @@ async function writeRunState(statePath, state) {
 
 function createIdempotencyKey({ cadence, selectedAgent, runDate }) {
   return `${cadence}:${selectedAgent}:${runDate}:${randomUUID()}`;
-}
-
-async function runLockHealthPreflight({ cadence, platform }) {
-  const preflight = await runCommand('npm', ['run', 'lock:health', '--', '--cadence', cadence], {
-    env: { AGENT_PLATFORM: platform },
-  });
-  const payload = parseJsonFromOutput(`${preflight.stdout}\n${preflight.stderr}`) || {};
-  const relayList = Array.isArray(payload.relays)
-    ? payload.relays.filter((relay) => typeof relay === 'string' && relay.trim()).map((relay) => relay.trim())
-    : [];
-  const combinedOutput = `${preflight.stderr}\n${preflight.stdout}`;
-  const failureCategory = payload.failureCategory || classifyLockBackendError(combinedOutput);
-
-  return {
-    code: preflight.code,
-    payload,
-    relayList,
-    failureCategory,
-    stderrExcerpt: excerptText(preflight.stderr),
-    stdoutExcerpt: excerptText(preflight.stdout),
-  };
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function acquireLockWithRetry({ selectedAgent, cadence, platform, model, lockRetry, idempotencyKey }) {
-  const lockCommandArgs = ['run', 'lock:lock', '--', '--agent', selectedAgent, '--cadence', cadence];
-  if (model) {
-    lockCommandArgs.push('--model', model);
-  }
-  const backoffScheduleMs = [];
-  let attempts = 0;
-  const correlationId = idempotencyKey || `${cadence}:${selectedAgent}:${getRunDateKey()}`;
-
-  while (true) {
-    attempts += 1;
-    const result = await runCommand('npm', lockCommandArgs, {
-      env: {
-        AGENT_PLATFORM: platform,
-        ...(model ? { AGENT_MODEL: model } : {}),
-        ...(idempotencyKey ? { SCHEDULER_LOCK_IDEMPOTENCY_KEY: idempotencyKey } : {}),
-        SCHEDULER_LOCK_CORRELATION_ID: correlationId,
-        SCHEDULER_LOCK_ATTEMPT_ID: String(attempts),
-      },
-    });
-
-    if (result.code !== 2) {
-      return { result, attempts, backoffScheduleMs, correlationId };
-    }
-
-    if (attempts > lockRetry.maxRetries) {
-      return {
-        result,
-        attempts,
-        backoffScheduleMs,
-        correlationId,
-        finalBackendCategory: classifyLockBackendError(`${result.stderr}\n${result.stdout}`),
-      };
-    }
-
-    const exponentialBase = lockRetry.backoffMs * (2 ** (attempts - 1));
-    const jitter = lockRetry.jitterMs > 0
-      ? Math.floor(Math.random() * (lockRetry.jitterMs + 1))
-      : 0;
-    const delayMs = exponentialBase + jitter;
-    backoffScheduleMs.push(delayMs);
-
-    console.log(JSON.stringify({
-      event: 'scheduler.lock.retry',
-      attempt: attempts,
-      max_retries: lockRetry.maxRetries,
-      delay_ms: delayMs,
-      correlation_id: correlationId,
-      selected_agent: selectedAgent,
-      cadence,
-    }));
-
-    if (delayMs > 0) {
-      await sleep(delayMs);
-    }
-  }
-}
-
-function summarizeLockFailureReasons(outputText) {
-  const events = parseJsonEventsFromOutput(outputText);
-  const quorumFailure = [...events].reverse().find((entry) => entry.event === 'lock_publish_quorum_failed');
-  if (quorumFailure && quorumFailure.reasonDistribution && typeof quorumFailure.reasonDistribution === 'object') {
-    return {
-      reasonDistribution: quorumFailure.reasonDistribution,
-      attemptId: quorumFailure.attemptId || null,
-      correlationId: quorumFailure.correlationId || null,
-      totalElapsedMs: quorumFailure.totalElapsedMs ?? null,
-    };
-  }
-
-  const distribution = {};
-  for (const entry of events) {
-    if (entry.event !== 'lock_publish_failure') continue;
-    const reason = typeof entry.reason === 'string' && entry.reason.trim()
-      ? entry.reason.trim()
-      : 'unknown';
-    distribution[reason] = (distribution[reason] || 0) + 1;
-  }
-  return {
-    reasonDistribution: distribution,
-    attemptId: null,
-    correlationId: null,
-    totalElapsedMs: null,
-  };
-}
-
-function toYamlScalar(value) {
-  const str = String(value ?? '');
-  return `'${str.replace(/'/g, "''")}'`;
 }
 
 async function writeLog({ cadence, agent, status, reason, detail, platform, metadata = {} }) {
@@ -900,9 +599,21 @@ async function main() {
     const runStartMs = Date.parse(runArtifactSince);
     const outputChunks = [];
 
+    const memoryDir = path.resolve(process.cwd(), 'memory-updates');
+    await fs.mkdir(memoryDir, { recursive: true });
+    const memoryFile = path.join(memoryDir, `${ts()}__${selectedAgent}.md`);
+    const schedulerEnv = {
+      AGENT_PLATFORM: platform,
+      ...(model ? { AGENT_MODEL: model } : {}),
+      SCHEDULER_AGENT: selectedAgent,
+      SCHEDULER_CADENCE: cadence,
+      SCHEDULER_PROMPT_PATH: promptPath,
+      SCHEDULER_MEMORY_FILE: memoryFile,
+    };
+
     if (schedulerConfig.memoryPolicy.retrieveCommand) {
       const retrieveResult = await runCommand('bash', ['-lc', schedulerConfig.memoryPolicy.retrieveCommand], {
-        env: { AGENT_PLATFORM: platform, ...(model ? { AGENT_MODEL: model } : {}), SCHEDULER_AGENT: selectedAgent, SCHEDULER_CADENCE: cadence, SCHEDULER_PROMPT_PATH: promptPath },
+        env: schedulerEnv,
       });
       outputChunks.push(retrieveResult.stdout, retrieveResult.stderr);
       if (retrieveResult.code !== 0) {
@@ -921,7 +632,7 @@ async function main() {
 
     if (schedulerConfig.handoffCommand) {
       const handoff = await runCommand('bash', ['-lc', schedulerConfig.handoffCommand], {
-        env: { AGENT_PLATFORM: platform, ...(model ? { AGENT_MODEL: model } : {}), SCHEDULER_AGENT: selectedAgent, SCHEDULER_CADENCE: cadence, SCHEDULER_PROMPT_PATH: promptPath },
+        env: schedulerEnv,
       });
       outputChunks.push(handoff.stdout, handoff.stderr);
       if (handoff.code !== 0) {
@@ -954,7 +665,7 @@ async function main() {
 
     if (schedulerConfig.memoryPolicy.storeCommand) {
       const storeResult = await runCommand('bash', ['-lc', schedulerConfig.memoryPolicy.storeCommand], {
-        env: { AGENT_PLATFORM: platform, ...(model ? { AGENT_MODEL: model } : {}), SCHEDULER_AGENT: selectedAgent, SCHEDULER_CADENCE: cadence, SCHEDULER_PROMPT_PATH: promptPath },
+        env: schedulerEnv,
       });
       outputChunks.push(storeResult.stdout, storeResult.stderr);
       if (storeResult.code !== 0) {

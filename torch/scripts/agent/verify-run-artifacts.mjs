@@ -158,7 +158,8 @@ function extractIdentifiers(content) {
   const ids = new Set();
   const lines = content.split(/\r?\n/);
   for (const line of lines) {
-    if (/(issue|incident|failure)[-_\s]*id/i.test(line)) {
+    // Match "failure id" as a distinct word phrase (ignores "failure identifiers" or "failure IDs")
+    if (/(?:issue|incident|failure)[-_\s]*id\b/i.test(line)) {
       const match = line.match(/([A-Za-z0-9._-]{3,})\s*$/);
       if (match) ids.add(match[1]);
     }
@@ -242,8 +243,19 @@ async function checkFailureTracking({ sinceMs }) {
 
   for (const file of recentTestLogs) {
     const content = await fs.readFile(file.filePath, 'utf8').catch(() => '');
-    if (FAILURE_KEYWORD_RE.test(content)) {
-      const ids = extractIdentifiers(content);
+    // Filter out passing TAP lines, comments, and YAML blocks to avoid false positives on test descriptions
+    const relevantContent = content.split(/\r?\n/)
+      .filter((line) => {
+        const trimmed = line.trim();
+        return !/^ok\s+\d+/.test(trimmed) &&
+               !trimmed.startsWith('#') &&
+               !trimmed.startsWith('>') &&
+               !/^(failureType|code|name|stack|operator|expected|actual):/.test(trimmed);
+      })
+      .join('\n');
+
+    if (FAILURE_KEYWORD_RE.test(relevantContent)) {
+      const ids = extractIdentifiers(content); // Extract from full content to find IDs anywhere
       if (!ids.size) {
         logsWithFailureNoIds.push(path.relative(process.cwd(), file.filePath));
       }

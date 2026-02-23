@@ -1,0 +1,40 @@
+{
+  "timestamp_utc": "20260223T191838Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-dbh0_bk2",
+  "duration_sec": 5.387,
+  "seedpass_exit_code": 0,
+  "status": "passed",
+  "failure": null,
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "passed",
+      "duration_sec": 5.320108566000272,
+      "detail": null
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "add_password_quick": true,
+    "invalid_length_validation": true,
+    "add_totp": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "list_entries": true,
+    "modify_entry": true,
+    "archive_restore": true,
+    "totp_codes_view": true,
+    "settings_stats": true,
+    "graceful_exit": true
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191838Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191838Z/transcript.raw.txt"
+}

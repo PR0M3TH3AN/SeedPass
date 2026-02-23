@@ -60,15 +60,11 @@ def test_handle_add_totp(monkeypatch, capsys):
         out = capsys.readouterr().out
 
         entry = entry_mgr.retrieve_entry(0)
-        assert entry == {
-            "type": "totp",
-            "kind": "totp",
-            "label": "Example",
-            "index": 0,
-            "period": 30,
-            "digits": 6,
-            "archived": False,
-            "notes": "",
-            "tags": [],
-        }
+        assert entry["type"] == "totp"
+        assert entry["kind"] == "totp"
+        assert entry["label"] == "Example"
+        assert entry["deterministic"] is False
+        assert "index" not in entry
+        assert "secret" in entry
+        assert len(entry["secret"]) >= 16
         assert "ID 0" in out

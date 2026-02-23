@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from helpers import create_vault, dummy_nostr_client, TEST_SEED
+from helpers import create_vault, TEST_SEED
 
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
@@ -34,8 +34,8 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_manifest_state_restored(monkeypatch, tmp_path):
-    client, relay = dummy_nostr_client.__wrapped__(tmp_path / "c1", monkeypatch)
+def test_manifest_state_restored(monkeypatch, tmp_path, make_dummy_nostr_client):
+    client, relay = make_dummy_nostr_client(tmp_path / "c1")
     with TemporaryDirectory() as tmpdir:
         fp_dir = Path(tmpdir)
         pm1 = _init_pm(fp_dir, client)
@@ -48,7 +48,7 @@ def test_manifest_state_restored(monkeypatch, tmp_path):
         assert delta_ts > 0
         assert result["manifest_id"] == manifest_id
 
-        client2, _ = dummy_nostr_client.__wrapped__(tmp_path / "c2", monkeypatch)
+        client2, _ = make_dummy_nostr_client(tmp_path / "c2")
         monkeypatch.setattr(
             "seedpass.core.manager.NostrClient", lambda *a, **k: client2
         )

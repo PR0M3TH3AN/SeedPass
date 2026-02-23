@@ -15,6 +15,7 @@ def test_auto_sync_triggers_post(monkeypatch):
         is_dirty=True,
         last_update=time.time() - 0.2,
         last_activity=time.time(),
+        current_fingerprint="fp",
         nostr_client=SimpleNamespace(close_client_pool=lambda: None),
         handle_add_password=lambda: None,
         handle_retrieve_entry=lambda: None,

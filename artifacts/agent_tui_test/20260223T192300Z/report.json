@@ -1,0 +1,43 @@
+{
+  "timestamp_utc": "20260223T192300Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-u_8mekp7",
+  "duration_sec": 29.054,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Select entry type or press Enter to go back:'\nRecent output:\nending deltas: 0\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\nPress Enter to continue.\r\n\r\n\u001bcSeed Profile: 91880BEA7C8182BF > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 99\r\nInvalid choice. Please select a valid option.\r\n\u001bcSeed Profile: 91880BEA7C8182BF > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 1\r\n\u001bcSeed Profile: Main Menu > Add Entry\r\n\r\n\r\nAdd Entry:\r\n1. Password\r\n2. 2FA (TOTP)\r\n3. SSH Key\r\n4. Seed Phrase\r\n5. Nostr Key Pair\r\n6. PGP Key\r\n7. Key/Value\r\n8. Managed Account\r\nSelect entry type or press Enter to go back: ",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 27.54447121299745,
+      "detail": "Timed out waiting for pattern: 'Select entry type or press Enter to go back:'\nRecent output:\nending deltas: 0\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\nPress Enter to continue.\r\n\r\n\u001bcSeed Profile: 91880BEA7C8182BF > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 99\r\nInvalid choice. Please select a valid option.\r\n\u001bcSeed Profile: 91880BEA7C8182BF > Main Menu\r\nOnly 0 relay(s) responded with your latest event. Consider adding more relays via Settings.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 1\r\n\u001bcSeed Profile: Main Menu > Add Entry\r\n\r\n\r\nAdd Entry:\r\n1. Password\r\n2. 2FA (TOTP)\r\n3. SSH Key\r\n4. Seed Phrase\r\n5. Nostr Key Pair\r\n6. PGP Key\r\n7. Key/Value\r\n8. Managed Account\r\nSelect entry type or press Enter to go back: "
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "invalid_input_resilience": false,
+    "add_password_quick": false,
+    "invalid_length_validation": false,
+    "add_totp": false,
+    "add_all_entry_types": false,
+    "retrieve_entry": false,
+    "search_entries": false,
+    "list_entries": false,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_codes_view": false,
+    "settings_toggles_lock_unlock": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192300Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192300Z/transcript.raw.txt"
+}

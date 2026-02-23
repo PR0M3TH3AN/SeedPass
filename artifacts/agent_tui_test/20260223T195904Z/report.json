@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "20260223T195904Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-qky92rjl",
+  "scenario": "stress",
+  "stress_cycles": 2,
+  "stress_seed": 1337,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "add_password_quick",
+    "invalid_input_resilience",
+    "retrieve_entry",
+    "list_entries",
+    "stress_cycles",
+    "seeded_negative_campaign",
+    "graceful_exit"
+  ],
+  "required_post_conditions": [],
+  "duration_sec": 3.391,
+  "seedpass_exit_code": 0,
+  "status": "passed",
+  "failure": null,
+  "steps": [
+    {
+      "step_id": "stress_scenario",
+      "description": "Drive deterministic stress TUI scenario.",
+      "status": "passed",
+      "duration_sec": 3.3109931079998205,
+      "detail": null
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": false,
+    "add_password_quick": true,
+    "add_totp": false,
+    "archive_restore": false,
+    "graceful_exit": true,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": false,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": false,
+    "retrieve_entry": true,
+    "search_entries": false,
+    "seeded_negative_campaign": true,
+    "settings_stats": false,
+    "settings_toggles_lock_unlock": false,
+    "startup_onboarding": true,
+    "stress_cycles": true,
+    "totp_codes_view": false
+  },
+  "post_conditions": {
+    "archive_restore_consistency": false,
+    "lock_unlock_recovers_retrieval": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195904Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195904Z/transcript.raw.txt"
+}

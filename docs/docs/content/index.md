@@ -10,6 +10,10 @@
 
 This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Each vault chunk is limited to 50 KB and SeedPass periodically publishes a new snapshot to keep accumulated deltas small. The security of the program's memory management and logs has not been evaluated and may leak sensitive information. Loss or exposure of the parent seed places all derived passwords, accounts, and other artifacts at risk.
 
+**🚨 Breaking Change**
+
+Recent releases derive passwords and other artifacts using a fully deterministic algorithm that behaves consistently across Python versions. This improvement means artifacts generated with earlier versions of SeedPass will not match those produced now. Regenerate any previously derived data or retain the old version if you need to reproduce older passwords or keys.
+
 ---
 ### Supported OS
 
@@ -46,6 +50,7 @@ maintainable while enabling a consistent experience on multiple platforms.
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
     - [Additional Entry Types](#additional-entry-types)
+  - [Recovery](#recovery)
 - [Security Considerations](#security-considerations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -78,7 +83,7 @@ maintainable while enabling a consistent experience on multiple platforms.
 - **Change Master Password:** Rotate your encryption password at any time.
 - **Checksum Verification Utilities:** Verify or regenerate the script checksum.
 - **Relay Management:** List, add, remove or reset configured Nostr relays.
-- **Offline Mode:** Disable network sync to work entirely locally.
+- **Offline Mode (default):** SeedPass runs without network sync until you explicitly enable it.
 
 ## Prerequisites
 
@@ -115,6 +120,11 @@ isn't on your PATH. If these tools are unavailable you'll see a link to download
 the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
+
+#### Installer Dependency Checks
+
+The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Pass `--no-gui` to skip installing GUI packages. On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
+
 ### Uninstall
 
 Run the matching uninstaller if you need to remove a previous installation or clean up an old `seedpass` command:
@@ -185,19 +195,21 @@ When upgrading pip, use `python -m pip` inside the virtual environment so that p
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install -r src/requirements.txt
+python -m pip install --require-hashes -r requirements.lock
 python -m pip install -e .
 ```
 
 #### Linux Clipboard Support
 
 On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`.
-SeedPass will attempt to install **xclip** automatically if neither tool is
-available. If the automatic installation fails, you can install it manually:
+SeedPass does not install these tools automatically. To use clipboard features
+such as secret mode, install **xclip** manually:
 
 ```bash
-sudo apt-get install xclip
+sudo apt install xclip
 ```
+
+After installing `xclip`, restart SeedPass to enable clipboard support.
 
 ## Quick Start
 
@@ -233,8 +245,8 @@ seedpass list --filter totp
 # on an external drive.
 ```
 
-For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md).
-Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
+For additional command examples, see [01-getting-started/01-advanced_cli.md](01-getting-started/01-advanced_cli.md).
+Details on the REST API can be found in [01-getting-started/02-api_reference.md](01-getting-started/02-api_reference.md).
 
 ### Vault JSON Layout
 
@@ -273,7 +285,7 @@ You can explore other CLI commands using:
 ```bash
 seedpass --help
 ```
-For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
+For a full list of commands see [01-getting-started/01-advanced_cli.md](01-getting-started/01-advanced_cli.md). The REST API is described in [01-getting-started/02-api_reference.md](01-getting-started/02-api_reference.md).
 
 ### Running the Application
 
@@ -403,6 +415,22 @@ SeedPass allows you to manage multiple seed profiles (previously referred to as 
 
 **Note:** The term "seed profile" is used to represent different sets of seeds you can manage within SeedPass. This provides an intuitive way to handle multiple identities or sets of passwords.
 
+
+### Recovery
+
+If you previously backed up your vault to Nostr you can restore it during the
+initial setup. You must provide both your 12 -word master seed and the master
+password that encrypted the vault; without the correct password the retrieved
+data cannot be decrypted.
+
+1. Start SeedPass and choose option **4** when prompted to set up a seed.
+2. Paste your BIP‑85 seed phrase when asked.
+3. Enter the master password associated with that seed.
+4. SeedPass initializes the profile and attempts to download the encrypted
+   vault from the configured relays.
+5. A success message confirms the vault was restored. If no data is found a
+   failure message is shown and a new empty vault is created.
+
 ### Configuration File and Settings
 
 SeedPass keeps per-profile settings in an encrypted file named `seedpass_config.json.enc` inside each profile directory under `~/.seedpass/`. This file stores your chosen Nostr relays and the optional settings PIN. New profiles start with the following default relays:
@@ -444,17 +472,17 @@ Back in the Settings menu you can:
   whether both the encrypted database and the script itself pass checksum
   validation.
 * Choose `14` to toggle Secret Mode and set the clipboard clear delay.
-* Select `15` to toggle Offline Mode and work locally without contacting Nostr.
+* Select `15` to toggle Offline Mode. SeedPass starts offline; disable it here to enable Nostr syncing.
 * Choose `16` to toggle Quick Unlock so subsequent actions skip the password prompt. Startup delay is unchanged.
 * Select `17` to return to the main menu.
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install -r src/requirements.txt` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 pytest -vv
 ```
 
@@ -531,14 +559,14 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
-- **Revealing the Parent Seed:** The `vault reveal-parent-seed` command and `/api/v1/parent-seed` endpoint print your seed in plain text. Run them only in a secure environment.
+- **Backing Up the Parent Seed:** Use the CLI `vault reveal-parent-seed` command or the `/api/v1/vault/backup-parent-seed` endpoint with explicit confirmation to create an encrypted backup. The API does not return the seed directly.
 - **No PBKDF2 Salt Needed:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Use `seedpass config set kdf_iterations` to change this.
-- **Offline Mode:** Disable Nostr sync to keep all operations local until you re-enable networking.
+- **Offline Mode (default):** Nostr sync is disabled until you explicitly enable it via the Settings menu or `seedpass config toggle-offline`.
   - **Quick Unlock:** Store a hashed copy of your password so future actions skip the prompt. Startup delay no longer changes. Use with caution on shared systems.
 
 ## Contributing

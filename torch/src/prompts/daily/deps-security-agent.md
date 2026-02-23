@@ -1,3 +1,4 @@
+# Deps Security Agent
 > **Shared contract (required):** Follow [`Scheduler Flow → Shared Agent Run Contract`](../scheduler-flow.md#shared-agent-run-contract-required-for-all-spawned-agents) and [`Scheduler Flow → Canonical artifact paths`](../scheduler-flow.md#canonical-artifact-paths) before and during this run.
 
 ## Required startup + artifacts + memory + issue capture
@@ -21,7 +22,7 @@ SUMMARY / PRIMARY GOALS
   - Creates issues for major/risky/security-sensitive upgrades with clear upgrade plans, tests, and rollback instructions.
   - Escalates any critical vulnerabilities that affect production or crypto code immediately to maintainers.
 - Success criteria:
-  - Daily artifacts: `artifacts/npm-audit.json`, `artifacts/npm-outdated.json`, `artifacts/deps-report.md`.
+  - Daily artifacts: `reports/security/npm-audit-YYYY-MM-DD.json`, `reports/security/npm-outdated-YYYY-MM-DD.json`, `reports/security/deps-report-YYYY-MM-DD.md`.
   - Low-risk bumps produce PRs with test evidence. Major/risky upgrades produce issues describing the plan.
   - Critical vulnerabilities are opened as high-priority `security` issues and maintainers are notified.
   - Crypto/protocol or native-binding upgrades are never merged without explicit human review.
@@ -38,12 +39,12 @@ HARD CONSTRAINTS & GUARDRAILS
 --------------------------------------------------------------------------------
 REPO PREP — artifacts you must create/maintain
 Create/update these files/folders (commit them in the branch when PRing):
-- `artifacts/` — hold all audit/outdated/json/report outputs.
+- `reports/security/` — hold all audit/outdated/json/report outputs.
 - `src/context/CONTEXT_<timestamp>.md` — run metadata: date, package manager, Node version, CI matrix.
 - `src/todo/TODO_<timestamp>.md` — upgrade tasks and statuses.
 - `src/decisions/DECISIONS_<timestamp>.md` — rationale for upgrade choices and tradeoffs.
 - `src/test_logs/TEST_LOG_<timestamp>.md` — exact commands run and their outputs (timestamped).
-- Optionally: `torch/scripts/deps-audit.sh` for reproducible automation.
+- Optionally: `scripts/deps-audit.sh` for reproducible automation.
 
 Also read `AGENTS.md` and `KNOWN_ISSUES.md` for project-specific caveats (e.g., the repo uses `integration-tools`, `webtorrent`, `Playwright`, `Tailwind`). Tag these libraries for special handling.
 
@@ -69,12 +70,12 @@ B. Clean install
   - Save outputs to `src/test_logs/TEST_LOG_<timestamp>.md`.
 
 C. Run audits & outdated scans
-  - `npm audit --json > artifacts/npm-audit.json` (or `pnpm audit --json` / `yarn audit --json`)
-  - `npm outdated --json > artifacts/npm-outdated.json` (or `pnpm outdated --json` / `yarn outdated --json`)
-  - Optionally: `npx npm-check-updates --jsonUpgraded > artifacts/ncu.json` for a view of latest semver.
+  - `npm audit --json > reports/security/npm-audit-YYYY-MM-DD.json` (or `pnpm audit --json` / `yarn audit --json`)
+  - `npm outdated --json > reports/security/npm-outdated-YYYY-MM-DD.json` (or `pnpm outdated --json` / `yarn outdated --json`)
+  - Optionally: `npx npm-check-updates --jsonUpgraded > reports/security/ncu-YYYY-MM-DD.json` for a view of latest semver.
   - If the org uses Snyk or similar, fetch current advisories and note them.
 
-D. Produce `artifacts/deps-report.md` summarizing:
+D. Produce `reports/security/deps-report-YYYY-MM-DD.md` summarizing:
   - Vulnerable packages grouped by severity.
   - Outdated packages separated into major/minor/patch.
   - Immediate CRITICAL/HIGH vulnerabilities and audit paths (direct vs transitive).
@@ -85,7 +86,7 @@ E. Triage rules — automatic categorization
 - If no work is required, exit without making changes.
   - **CRITICAL / UNSAFE**:
     - `critical` severity or CVSS >= 9 or direct exploit applicable to repo runtime, or crypto/protocol native package.
-    - Action: open `security` issue (P0), attach audit artifacts, and notify maintainers. Do **not** auto-bump.
+    - Action: open `security` issue (P0), attach audit reports, and notify maintainers. Do **not** auto-bump.
   - **HIGH**:
     - Try automatic patch/minor upgrade for **direct dependencies** if non-breaking. Run tests. If upgrade fails or is major, open `upgrade-<pkg>` issue.
   - **MEDIUM**:
@@ -108,7 +109,7 @@ F. Attempt safe upgrades (patch/minor) — strict flow
        - Open PR:
          - Branch: `ai/deps-<pkg>-vX.Y.Z`
          - Title: `chore(deps): bump <pkg> to vX.Y.Z`
-         - Body: include `artifacts/npm-audit.json`, `artifacts/npm-outdated.json`, `src/test_logs/TEST_LOG_<timestamp>.md` snippets, `src/decisions/DECISIONS_<timestamp>.md` rationale, QA steps, and rollback plan.
+         - Body: include `reports/security/npm-audit-*.json`, `reports/security/npm-outdated-*.json`, `src/test_logs/TEST_LOG_<timestamp>.md` snippets, `src/decisions/DECISIONS_<timestamp>.md` rationale, QA steps, and rollback plan.
          - Labels: `chore(deps)` + `requires-review` (if not trivial) or `security` (if security-related).
     6. If tests **FAIL**:
        - Revert local changes.
@@ -151,7 +152,7 @@ K. Automation & bots
 L. Escalation & immediate mitigation
   - For critical exploitable vulnerabilities:
     - Open a `security` issue marked `P0`.
-    - Attach `artifacts/npm-audit.json` and reproduction steps.
+    - Attach `reports/security/npm-audit-*.json` and reproduction steps.
     - Propose immediate mitigation: pin, rollback, or temporary patch.
     - Notify maintainers per repo policy (mention/tag team).
 
@@ -162,10 +163,10 @@ M. Lockfile & CI hygiene
 
 --------------------------------------------------------------------------------
 REPORTING — artifacts you must produce
-- `artifacts/npm-audit.json` — raw audit output.
-- `artifacts/npm-outdated.json` — raw outdated output.
-- `artifacts/ncu.json` (optional) — output from `npm-check-updates`.
-- `artifacts/deps-report.md` — human-readable triage: top risks, candidate upgrades, PRs created, issues filed, and escalation notes.
+- `reports/security/npm-audit-YYYY-MM-DD.json` — raw audit output.
+- `reports/security/npm-outdated-YYYY-MM-DD.json` — raw outdated output.
+- `reports/security/ncu-YYYY-MM-DD.json` (optional) — output from `npm-check-updates`.
+- `reports/security/deps-report-YYYY-MM-DD.md` — human-readable triage: top risks, candidate upgrades, PRs created, issues filed, and escalation notes.
 - `src/test_logs/TEST_LOG_<timestamp>.md` — commands executed and test outputs for each attempted upgrade.
 - PRs for safe upgrades and issues for risky/major/security upgrades.
 
@@ -176,7 +177,7 @@ PR & ISSUE TEMPLATE GUIDANCE
 - PR body:
   - Why: security/bug/maintenance reason.
   - Commands run + test outputs (snippets), link to `src/test_logs/TEST_LOG_<timestamp>.md`.
-  - Artifacts: attach `artifacts/npm-audit.json` and `artifacts/npm-outdated.json`.
+  - Artifacts: attach `reports/security/npm-audit-*.json` and `reports/security/npm-outdated-*.json`.
   - Risk assessment, manual QA steps, rollback plan.
   - Labels: `chore(deps)`, `requires-review` / `security` as appropriate.
 - Issue: `upgrade-<pkg>` — include reproduction steps, failures, approvals required, and remediation options.
@@ -204,15 +205,15 @@ NOTIFICATION & MAINTAINER ESCALATION
 FIRST-RUN CHECKLIST (run immediately)
 1. Detect package manager and record versions.
 2. Run clean install (`npm ci` / `pnpm install` / `yarn install`) and record.
-3. Run `npm audit --json > artifacts/npm-audit.json` and `npm outdated --json > artifacts/npm-outdated.json`.
-4. Produce `artifacts/deps-report.md` with triage and a prioritized candidate list for safe bumps.
+3. Run `npm audit --json > reports/security/npm-audit-YYYY-MM-DD.json` and `npm outdated --json > reports/security/npm-outdated-YYYY-MM-DD.json`.
+4. Produce `reports/security/deps-report-YYYY-MM-DD.md` with triage and a prioritized candidate list for safe bumps.
 5. Attempt the first small safe bump(s) (follow the safe upgrade flow) and open PR(s) or issue(s) accordingly.
 
 --------------------------------------------------------------------------------
 FINAL NOTE
 Run this daily as a scheduled job or as part of CI cadence. Be conservative around cryptography, protocol, and native binary updates — always stop and open an issue for human review. Keep all actions reproducible: include commands, environment, Node & package manager versions, timestamps, and test logs.
 
-Begin now: detect the package manager, run a fresh clean install, produce `artifacts/npm-audit.json` and `artifacts/npm-outdated.json`, and draft `artifacts/deps-report.md` with the initial triage and any immediate `P0` items.
+Begin now: detect the package manager, run a fresh clean install, produce `reports/security/npm-audit-YYYY-MM-DD.json` and `reports/security/npm-outdated-YYYY-MM-DD.json`, and draft `reports/security/deps-report-YYYY-MM-DD.md` with the initial triage and any immediate `P0` items.
 
 FAILURE MODES
 - If preconditions are not met, stop.

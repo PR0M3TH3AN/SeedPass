@@ -18,12 +18,53 @@
   },
   "dashboard": {
     "defaultCadenceView": "daily",
-    "defaultStatusView": "active"
+    "defaultStatusView": "active",
+    "auth": "admin:password"
   },
   "scheduler": {
     "firstPromptByCadence": {
       "daily": "scheduler-update-agent",
       "weekly": "bug-reproducer-agent"
+    },
+    "memoryPolicyByCadence": {
+      "daily": {
+        "mode": "required",
+        "retrieveCommand": "node torch/scripts/memory/retrieve.mjs",
+        "storeCommand": "node torch/scripts/memory/store.mjs",
+        "retrieveSuccessMarkers": [
+          "MEMORY_RETRIEVED"
+        ],
+        "storeSuccessMarkers": [
+          "MEMORY_STORED"
+        ],
+        "retrieveArtifacts": [
+          ".scheduler-memory/latest/daily/retrieve.ok"
+        ],
+        "storeArtifacts": [
+          ".scheduler-memory/latest/daily/store.ok"
+        ]
+      },
+      "weekly": {
+        "mode": "required",
+        "retrieveCommand": "node torch/scripts/memory/retrieve.mjs",
+        "storeCommand": "node torch/scripts/memory/store.mjs",
+        "retrieveSuccessMarkers": [
+          "MEMORY_RETRIEVED"
+        ],
+        "storeSuccessMarkers": [
+          "MEMORY_STORED"
+        ],
+        "retrieveArtifacts": [
+          ".scheduler-memory/latest/weekly/retrieve.ok"
+        ],
+        "storeArtifacts": [
+          ".scheduler-memory/latest/weekly/store.ok"
+        ]
+      }
+    },
+    "paused": {
+      "daily": [],
+      "weekly": []
     }
   }
 }

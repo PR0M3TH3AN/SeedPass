@@ -57,5 +57,5 @@ def test_filter_by_type():
         em = setup_entry_manager(tmp_path)
         em.add_entry("site", 8, "user")
         em.add_totp("Example", TEST_SEED)
-        result = em.list_entries(filter_kind=EntryType.TOTP.value)
+        result = em.list_entries(filter_kinds=[EntryType.TOTP.value])
         assert result == [(1, "Example", None, None, False)]

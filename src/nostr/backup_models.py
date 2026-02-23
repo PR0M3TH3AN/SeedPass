@@ -25,3 +25,4 @@ class Manifest:
     algo: str
     chunks: List[ChunkMeta]
     delta_since: Optional[int] = None
+    nonce: Optional[str] = None

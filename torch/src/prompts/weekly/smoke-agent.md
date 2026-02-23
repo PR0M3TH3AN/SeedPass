@@ -27,7 +27,7 @@ If a higher-level policy or doc conflicts with this prompt, follow the higher-le
 SCOPE
 
 In scope:
-- Implement a small smoke-test harness at `torch/scripts/agent/smoke-test.mjs` (or `.ts`/`.py` if repo prefers), exercising:
+- Implement a small smoke-test harness at `scripts/agent/smoke-test.mjs` (or `.ts`/`.py` if repo prefers), exercising:
   - app start/serve (per README)
   - headless browser/client run (Playwright preferred if available)
   - sharedClient connection to a local/test relay
@@ -35,8 +35,8 @@ In scope:
   - publish `VIDEO_POST` or `VIEW_EVENT` and verify read-back
   - send encrypted DM and verify decryption with `js/dmDecryptor.js`
 - Produce artifacts:
-  - `artifacts/smoke-YYYYMMDD.log` (human-readable)
-  - `artifacts/smoke-YYYYMMDD.json` (structured summary with timestamps)
+  - `reports/smoke-test/smoke-YYYY-MM-DD.log` (human-readable)
+  - `reports/smoke-test/smoke-YYYY-MM-DD.json` (structured summary with timestamps)
   - screenshots for UI flows where applicable
 - Provide run instructions for local and CI use, and open a PR with the test and docs.
 
@@ -83,7 +83,7 @@ PREPARATION (preflight)
 WORKFLOW (implementation & run steps)
 
 1) Create harness file
-   - Path: `torch/scripts/agent/smoke-test.mjs`
+   - Path: `scripts/agent/smoke-test.mjs`
    - Language: follow repo conventions (Node/Playwright preferred). If Playwright is used, the harness should run headless.
    - CLI/ENV options:
      - `--relays` or `RELAY_URLS` (csv) — **required**
@@ -91,7 +91,7 @@ WORKFLOW (implementation & run steps)
      - `--dry-run` — do everything but network/publish
      - `--timeout` — per-step timeout (default 30s)
      - `--burst` — per-publish burst (default 1)
-     - `--out` — artifacts output dir (default `artifacts/`)
+     - `--out` — artifacts output dir (default `reports/smoke-test/`)
      - `--confirm-public` — explicit consent for limited public-relay runs
 
 2) Start local server
@@ -133,9 +133,9 @@ WORKFLOW (implementation & run steps)
 8) Logging & artifacts
    - Log each step with timestamps and outcomes (success/fail)
    - Save:
-     - `artifacts/smoke-YYYYMMDD.log` (text)
-     - `artifacts/smoke-YYYYMMDD.json` (summary: events published, ids, relays, timestamps, verification results)
-     - `artifacts/smoke-YYYYMMDD-screenshots/*` (Playwright screenshots on failure and optionally success)
+     - `reports/smoke-test/smoke-YYYY-MM-DD.log` (text)
+     - `reports/smoke-test/smoke-YYYY-MM-DD.json` (summary: events published, ids, relays, timestamps, verification results)
+     - `reports/smoke-test/screenshots/*` (Playwright screenshots on failure and optionally success)
    - If failures occur, capture:
      - console logs (browser and client)
      - stack traces
@@ -162,12 +162,12 @@ EXAMPLE RUN
 
 > Prompt authors: follow the canonical artifact paths in [Scheduler Flow → Canonical artifact paths](../scheduler-flow.md#canonical-artifact-paths).
 
-RELAY_URLS="ws://localhost:8080" node torch/scripts/agent/smoke-test.mjs \
-  --serve=npx --timeout=30 --burst=1 --out=artifacts/
+RELAY_URLS="ws://localhost:8080" node scripts/agent/smoke-test.mjs \
+  --serve=npx --timeout=30 --burst=1 --out=reports/smoke-test/
 
 # public relays only with explicit confirmation and extreme throttle
-RELAY_URLS="wss://relay.example" node torch/scripts/agent/smoke-test.mjs \
-  --confirm-public --burst=1 --timeout=30 --out=artifacts/
+RELAY_URLS="wss://relay.example" node scripts/agent/smoke-test.mjs \
+  --confirm-public --burst=1 --timeout=30 --out=reports/smoke-test/
 ```
 
 ───────────────────────────────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ FAILURE MODES
 
 - **Startup Failure:** If the application fails to start (e.g., port in use, build error), log the stderr output and abort.
 - **Relay Connection Failure:** If the client cannot connect to the specified relay, retry with backoff. If it still fails, abort and report "Relay Unreachable".
-- **Element Not Found (UI):** If Playwright cannot find a required UI element (e.g., login button, post input), capture a screenshot and dump the DOM state to `artifacts/`. Fail the test step.
+- **Element Not Found (UI):** If Playwright cannot find a required UI element (e.g., login button, post input), capture a screenshot and dump the DOM state to `reports/smoke-test/`. Fail the test step.
 - **Verification Failure:** If the read-back event does not match the published event (content mismatch, signature error), log the diff and fail the test.
 - **Timeout:** If any step exceeds the configured timeout, abort the run and capture a screenshot/log of the current state.
 
@@ -197,9 +197,9 @@ PR & COMMIT CONVENTIONS
 OUTPUTS PER RUN
 
 - **Artifacts:**
-  - `artifacts/smoke-YYYYMMDD.log`: Detailed execution log.
-  - `artifacts/smoke-YYYYMMDD.json`: Structured summary of the test run (steps, duration, result).
-  - `artifacts/smoke-YYYYMMDD-screenshots/`: Directory containing screenshots of failures (and success states if configured).
+  - `reports/smoke-test/smoke-YYYY-MM-DD.log`: Detailed execution log.
+  - `reports/smoke-test/smoke-YYYY-MM-DD.json`: Structured summary of the test run (steps, duration, result).
+  - `reports/smoke-test/screenshots/`: Directory containing screenshots of failures (and success states if configured).
 - **Pull Request:** A PR containing the new or updated smoke test script and any necessary documentation changes.
 - **Console Output:** Real-time progress updates and a final summary (Pass/Fail) printed to stdout.
 
