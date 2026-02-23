@@ -65,5 +65,34 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 // Log when the page is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-copy-target]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const targetId = button.getAttribute('data-copy-target');
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            const text = target.textContent.trim();
+
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (_err) {
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand('copy');
+                document.body.removeChild(temp);
+            }
+
+            const original = button.innerHTML;
+            button.classList.add('copied');
+            button.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> Copied';
+            setTimeout(() => {
+                button.classList.remove('copied');
+                button.innerHTML = original;
+            }, 1800);
+        });
+    });
+
     console.log('SeedPass landing page loaded');
 });

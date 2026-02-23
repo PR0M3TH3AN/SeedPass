@@ -10,6 +10,7 @@ import queue
 import time
 from collections import defaultdict, deque
 from typing import Any, List, Optional
+import hashlib
 
 import logging
 
@@ -48,7 +49,8 @@ async def dynamic_cors_headers(request: Request, call_next):
 
 def _get_pm(request: Request) -> PasswordManager:
     pm = getattr(request.app.state, "pm", None)
-    assert pm is not None
+    if pm is None:
+        raise HTTPException(status_code=503, detail="Server not initialized")
     return pm
 
 
@@ -66,7 +68,8 @@ def _check_token(request: Request, auth: str | None) -> None:
 def _enforce_rate_limit(request: Request, raw_token: str) -> None:
     now = time.monotonic()
     client = request.client.host if request.client else "unknown"
-    key = f"{client}:{raw_token}"
+    token_tag = hashlib.blake2s(raw_token.encode("utf-8"), digest_size=8).hexdigest()
+    key = f"{client}:{token_tag}"
     buckets = getattr(request.app.state, "rate_limit_buckets", None)
     if buckets is None:
         buckets = defaultdict(deque)
