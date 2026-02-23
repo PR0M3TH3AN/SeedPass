@@ -1,6 +1,6 @@
 colorama>=0.4.6,<1
 termcolor>=1.1.0,<4
-cryptography>=40.0.2,<46
+cryptography>=40.0.2,<47
 bip-utils>=2.5.0,<3
 bech32>=1.2,<2
 coincurve>=18.0.0,<22
