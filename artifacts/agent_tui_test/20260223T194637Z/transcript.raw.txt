@@ -1,0 +1,1066 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: 1
+Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): 3
+Your new BIP-85 seed phrase is:
+purpose lend width float mosquito vanish excuse vault advance when recipe only
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Y
+Enter a new password: *************
+Confirm your password: *************
+c
+=== Seed Profile Stats ===
+Total entries: 0
+  password: 0
+  totp: 0
+  ssh: 0
+  seed: 0
+  pgp: 0
+  nostr: 0
+  key_value: 0
+  managed_account: 0
+Relays configured: 3
+Backups: 0 (dir: /tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to continue.
+
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 99
+Invalid choice. Please select a valid option.
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.1
+
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 9
+Invalid choice.
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: F186D62372FF1635 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: abc
+Error: Index must be a number.
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > Password
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Choose mode: [Q]uick or [A]dvanced? q
+Enter the label or website name: agent.example
+Enter the username (optional): agent
+Enter the URL (optional): https://agent.example
+Enter desired password length (default 16): 3
+Error: Password length must be between 8 and 128.
+Enter desired password length (default 16): 12
+Include special characters? (Y/n): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+[+] Entry added successfully at index 0.
+
+[+] Password generated and indexed with ID 0.
+
+Password for agent.example: iy3l^40N:N)N
+
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: F186D62372FF1635 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: 0
+Retrieving password for 'agent.example' with length 12.
+Username: agent
+URL: https://agent.example
+
+[+] Retrieved Password for agent.example:
+
+Password: iy3l^40N:N)N
+Associated Username: agent
+Associated URL: https://agent.example
+Archived Status: Active
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Entry Actions
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entry Actions:
+A. Archive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 3
+cSeed Profile: F186D62372FF1635 > Main Menu > Search Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter search string: agent
+cSeed Profile: F186D62372FF1635 > Main Menu > Search Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Search Results:
+
+0. Password - agent.example (agent)
+Enter index to view details or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 4
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entries:
+
+0. Password - agent.example
+Enter index to view details or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 2
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > 2FA (TOTP)
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+Add TOTP:
+1. Make 2FA
+2. Import 2FA (paste otpauth URI or secret)
+Select option or press Enter to go back: 1
+Label: agent-totp
+Period (default 30): 
+Digits (default 6): 
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+
+[+] TOTP entry added with ID 1.
+
+Add this URI to your authenticator app:
+otpauth://totp/agent-totp?secret=FAW6M5CM42UJDN6A7LN6N77AD4CNH2LQ&period=30&digits=6
+█▀▀▀▀▀▀▀█▀▀█▀███▀▀██▀▀█▀█▀▀████▀▀▀▀▀▀▀█
+█ █▀▀▀█ ██ ▄  ▀█▄▄▀ ▀ ▀▀ █▄   █ █▀▀▀█ █
+█ █   █ █ █ █▀▄█▄▄ ▀▄▀▀ ▀▄  ▀ █ █   █ █
+█ ▀▀▀▀▀ █ █ ▄▀█▀█▀▄ ▄▀█▀█ █ █ █ ▀▀▀▀▀ █
+█▀███▀█▀▀ ▄█▄▄▄▀█ ▄ █▄▄▄▄▄█ ▀█▀▀▀▀▀██▀█
+█▄▀ ▄▄▀▀▄█▄ ▄██▄▀██▄  ▄▄█▄ ▀▀▀█▀▄▀▀ ▄██
+█▄▄▄▄ ▀▀█▀  ▀▄█▀▄▄▀▀██ ▀▀▄█▄▀▄█ ▀███ ▀█
+█▀▄█▄█▀▀█▄▄▀▄███ ▄▀▄█▄█  ▀█▄ ▀██▄ ▀▀▀▄█
+█  ▄▄▀▄▀▀▄▄  ▀ ▀▀▄▄▀▀▄ █▀▄█▀▄  █▀▄█ ▄██
+█  ██▀▀▀▀██ ▀▄ ██   █▄█ ▀▄▄▀▀ ▄ ▄██▀▄██
+█▀█  ██▀▄█▄▄▀▀ ▀▀█▀ ▄█ ▀█▀█▄▀▀▀ █▄▀▄▀▄█
+█▄ ▀ █▄▀▀ ▀▀▄█▀▄▀█▄▀█▀█▀ █ ▄  ▄█▄▄█▀  █
+█▄█  ▄█▀▀  ████▄  ██▀▄ ▄▄▄▄▀▄▀ ▀▀ ▀ ▄ █
+█▄█▀▀▄▄▀ ▀▀▀  ██▀█▀ ▀▄▀▄▄ ▀▀█▄███▄▀▀███
+█▀▀ ▄▄█▀█▄▀▀▀   ▄ ██▀  ▀█▄██▀▀ ▀▀▀▄██▀█
+█▀▀▀▀▀▀▀█  ▄ ▀ █▀█▀▄██▀█ ▀██▄ █▀█ ▄▀ ▀█
+█ █▀▀▀█ █▀  ▀▀ █ █▄  █▀▄ ▄█ █ ▀▀▀ ▀ ▄▄█
+█ █   █ ██▄▄ ▄▄▀█ ▄▀▀ █ ▄▄▄▀▄▄   █▀█▀██
+█ ▀▀▀▀▀ █▀ ███▄ ▀██  █ ▀▄ █▀█▀███▀   ▀█
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+Secret: FAW6M5CM42UJDN6A7LN6N77AD4CNH2LQ
+
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 6
+cSeed Profile: F186D62372FF1635 > Main Menu > 2FA Codes
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to return to the menu.
+cSeed Profile: F186D62372FF1635 > Main Menu > 2FA Codes
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to return to the menu.
+
+Imported 2FA Codes:
+[1] agent-totp: [38;5;208m702485[0m [######--------------] 20s
+
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 3
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > SSH Key
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label (key): agent-ssh
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): y
+
+[+] SSH key entry added with ID 2.
+
+Public Key:
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAvRwQCDpGBXzAOzDuDRPNnkgwapJ7XFtl/GJe6LRrDGE=
+-----END PUBLIC KEY-----
+
+Private Key:
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEILKdTOiOLhSimRJlTBYL+QOCypt++575yybXZ1Jk9eZr
+-----END PRIVATE KEY-----
+
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 4
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > Seed Phrase
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label: agent-seed
+Word count (12 or 24, default 24): 12
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): y
+
+[+] Seed entry 'agent-seed' added with ID 3.
+
+Index: 3
+Label: agent-seed
+Seed Phrase:
+eager creek attitude team buddy check monitor flock fame member prosper elbow
+Show Compact Seed QR? (Y/N): n
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 5
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > Nostr Key Pair
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label: agent-nostr
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+
+[+] Nostr key entry added with ID 4.
+
+npub: npub1maf4p7jskx28x9pkccqrwe792eh0jdp6jxjh8v5hmcagzn42qmuse4zgld
+nsec: nsec1w2hzaqqhyad7dwvpjnn4mwth7yhg7mx3ygcf9yx7d3ly98a8eurqcskz65
+Show QR code for npub? (Y/N): n
+WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): n
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 6
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > PGP Key
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label: agent-pgp
+Key type (ed25519 or rsa, default ed25519): 
+User ID (optional): 
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): y
+
+[+] PGP key entry added with ID 5.
+
+Fingerprint: 167E1BFE50CB439B2324B3AF9FD5BC1C6743DA15
+-----BEGIN PGP PRIVATE KEY BLOCK-----
+
+xVgEOG1DgBYJKwYBBAHaRw8BAQdAokyyWOJgVmKs+IoIxTmtA+gFpPpcZ0khPCxY
+ZV3gCukAAQC4UltFEDg9pWPF2BLRmWY5LLFIgeeAvCpzW9Kolqwnsw9HzQDChAQT
+FggALAUCOG1DgAIbDgILCQIVCAIWAgIeARYhBBZ+G/5Qy0ObIySzr5/VvBxnQ9oV
+AAoJEJ/VvBxnQ9oV1y8A/jne5sHeoOUeldpLo2W2wblVmFLjS1ZaEpI+6DoOwMxN
+AP4zKhDzGbnn3n0bgXjwlQDQhuJgZbkNHyF9xeG6iV+MBg==
+=Rkq4
+-----END PGP PRIVATE KEY BLOCK-----
+
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 7
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > Key/Value
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label: agent-kv
+Key: token
+Value: abc123
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+Add custom field? (y/N): n
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+
+[+] Key/Value entry added with ID 6.
+
+Value: abc123
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 8
+cSeed Profile: F186D62372FF1635 > Main Menu > Add Entry > Managed Account
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Label: agent-managed
+Notes (optional): 
+Enter tags (comma-separated, optional): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+
+[+] Managed account 'agent-managed' added with ID 7.
+
+Reveal seed now? (y/N): n
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 4
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entries:
+
+0. Password - agent.example
+1. Totp - agent-totp
+2. Ssh - agent-ssh
+3. Seed - agent-seed
+4. Nostr - agent-nostr
+5. Pgp - agent-pgp
+6. Key_value - agent-kv
+7. Managed_account - agent-managed
+Enter index to view details or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 5
+cSeed Profile: F186D62372FF1635 > Main Menu > Modify Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to modify: 0
+Modifying entry for 'agent.example' (Index: 0):
+Current Label: agent.example
+Current Username: agent
+Current URL: https://agent.example
+Current Archived Status: Active
+Enter new label (leave blank to keep "agent.example"): 
+Enter new username (leave blank to keep "agent"): agent2
+Enter new URL (leave blank to keep "https://agent.example"): 
+Archive this password? (Y/N, current: N): n
+Enter new notes (leave blank to keep "N/A"): 
+Edit custom fields? (y/N): n
+Enter tags (comma-separated, leave blank to keep current): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876000.json.enc'.
+[+] Entry at index 0 modified successfully.
+Entry updated successfully for index 0.
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: F186D62372FF1635 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: 0
+Retrieving password for 'agent.example' with length 12.
+Username: agent2
+URL: https://agent.example
+
+[+] Retrieved Password for agent.example:
+
+Password: iy3l^40N:N)N
+Associated Username: agent2
+Associated URL: https://agent.example
+Archived Status: Active
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Entry Actions
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entry Actions:
+A. Archive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: A
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876001.json.enc'.
+[+] Entry at index 0 modified successfully.
+cSeed Profile: F186D62372FF1635 > Entry Actions
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entry Actions:
+U. Unarchive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 8
+cSeed Profile: F186D62372FF1635 > Main Menu > Archived Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Archived Entries:
+
+0. agent.example
+Enter index to manage or press Enter to go back: 0
+Enter 'v' to view details, 'r' to restore, or press Enter to go back: r
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups/entries_db_backup_1771876001.json.enc'.
+[+] Entry at index 0 modified successfully.
+Press Enter to continue...
+All entries restored.
+Press Enter to continue...
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 6
+cSeed Profile: F186D62372FF1635 > Main Menu > 2FA Codes
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to return to the menu.
+cSeed Profile: F186D62372FF1635 > Main Menu > 2FA Codes
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to return to the menu.
+
+Imported 2FA Codes:
+[1] agent-totp: [38;5;208m702485[0m [########------------] 17s
+
+cSeed Profile: F186D62372FF1635 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 7
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 15
+Secret mode is currently OFF
+Enable secret mode? (y/n, blank to keep): y
+Clipboard clear delay in seconds [45]: 
+Secret mode enabled.
+Press Enter to continue...
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 16
+Offline mode is currently ON
+Enable offline mode? (y/n, blank to keep): n
+Offline mode disabled.
+Press Enter to continue...
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 17
+Quick Unlock is currently OFF
+Enable Quick Unlock? (y/n, blank to keep): y
+Quick Unlock enabled.
+Press Enter to continue...
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 13
+Vault locked. Please re-enter your password.
+Enter your master password: *************
+Deriving key...
+Decrypting seed...
+Connecting to relays...
+Press Enter to continue...
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 7
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 14
+c
+=== Seed Profile Stats ===
+Total entries: 8
+  password: 1
+  totp: 1
+  ssh: 1
+  seed: 1
+  pgp: 1
+  nostr: 1
+  key_value: 1
+  managed_account: 1
+Relays configured: 3
+Backups: 2 (dir: /tmp/seedpass-agent-home-_qbephpj/.seedpass/F186D62372FF1635/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Press Enter to continue.
+
+cSeed Profile: Main Menu > Settings
+
+
+Settings:
+1. Profiles
+2. Nostr
+3. Change password
+4. Verify Script Checksum
+5. Generate Script Checksum
+6. Backup Parent Seed
+7. Export database
+8. Import database
+9. Export 2FA codes
+10. Set additional backup location
+11. KDF strength & benchmark
+12. Set inactivity timeout
+13. Lock Vault
+14. Stats
+15. Toggle Secret Mode
+16. Toggle Offline Mode (default ON)
+17. Toggle Quick Unlock
+Select an option or press Enter to go back: 
+cSeed Profile: F186D62372FF1635 > Main Menu
+
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 
+Exiting the program.
+[0m

@@ -1,0 +1,39 @@
+{
+  "timestamp_utc": "20260223T185715Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-maymnzvh",
+  "duration_sec": 0.846,
+  "seedpass_exit_code": 0,
+  "status": "failed",
+  "failure": "Process exited before pattern appeared: 'Select entry type or press Enter to go back:'",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 0.8458661840013519,
+      "detail": "Process exited before pattern appeared: 'Select entry type or press Enter to go back:'"
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "add_password_quick": false,
+    "invalid_length_validation": false,
+    "retrieve_entry": false,
+    "search_entries": false,
+    "list_entries": false,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_empty_state": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T185715Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T185715Z/transcript.raw.txt"
+}

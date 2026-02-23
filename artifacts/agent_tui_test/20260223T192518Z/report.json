@@ -1,0 +1,43 @@
+{
+  "timestamp_utc": "20260223T192518Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-trotpeut",
+  "duration_sec": 29.709,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Unable to return to main menu within timeout.",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 28.199055735,
+      "detail": "Unable to return to main menu within timeout."
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "invalid_input_resilience": true,
+    "add_password_quick": true,
+    "invalid_length_validation": true,
+    "add_totp": false,
+    "add_all_entry_types": false,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "list_entries": true,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_codes_view": false,
+    "settings_toggles_lock_unlock": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192518Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T192518Z/transcript.raw.txt"
+}

@@ -1,0 +1,74 @@
+{
+  "timestamp_utc": "20260223T195604Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-gvwg35yq",
+  "scenario": "extended",
+  "stress_cycles": null,
+  "stress_seed": null,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "invalid_input_resilience",
+    "add_password_quick",
+    "invalid_length_validation",
+    "add_totp",
+    "add_all_entry_types",
+    "retrieve_entry",
+    "search_entries",
+    "list_entries",
+    "modify_entry",
+    "archive_restore",
+    "totp_codes_view",
+    "settings_toggles_lock_unlock",
+    "settings_stats",
+    "graceful_exit"
+  ],
+  "required_post_conditions": [
+    "archive_restore_consistency",
+    "lock_unlock_recovers_retrieval"
+  ],
+  "duration_sec": 58.479,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Retrieved Password for agent\\\\.example'\nRecent output:\n...\r\nDecrypting seed...\r\nConnecting to relays...\r\nPress Enter to continue...\r\n\u001bcSeed Profile: Main Menu > Settings\r\n\r\n\r\nSettings:\r\n1. Profiles\r\n2. Nostr\r\n3. Change password\r\n4. Verify Script Checksum\r\n5. Generate Script Checksum\r\n6. Backup Parent Seed\r\n7. Export database\r\n8. Import database\r\n9. Export 2FA codes\r\n10. Set additional backup location\r\n11. KDF strength & benchmark\r\n12. Set inactivity timeout\r\n13. Lock Vault\r\n14. Stats\r\n15. Toggle Secret Mode\r\n16. Toggle Offline Mode (default ON)\r\n17. Toggle Quick Unlock\r\nSelect an option or press Enter to go back: \r\n\u001bcSeed Profile: 2CEE29FCE43AFB18 > Main Menu\r\n\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 2\r\n\u001bcSeed Profile: 2CEE29FCE43AFB18 > Main Menu > Retrieve Entry\r\n\r\nEnter the index number of the entry to retrieve: 0\r\nRetrieving password for 'agent.example' with length 12.\r\nUsername: agent2\r\nURL: https://agent.example\r\n[+] Password for 'agent.example' copied to clipboard. Will clear in 45 seconds.\r\nPress Enter to continue...",
+  "steps": [
+    {
+      "step_id": "extended_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 56.9674957419993,
+      "detail": "Timed out waiting for pattern: 'Retrieved Password for agent\\\\.example'\nRecent output:\n...\r\nDecrypting seed...\r\nConnecting to relays...\r\nPress Enter to continue...\r\n\u001bcSeed Profile: Main Menu > Settings\r\n\r\n\r\nSettings:\r\n1. Profiles\r\n2. Nostr\r\n3. Change password\r\n4. Verify Script Checksum\r\n5. Generate Script Checksum\r\n6. Backup Parent Seed\r\n7. Export database\r\n8. Import database\r\n9. Export 2FA codes\r\n10. Set additional backup location\r\n11. KDF strength & benchmark\r\n12. Set inactivity timeout\r\n13. Lock Vault\r\n14. Stats\r\n15. Toggle Secret Mode\r\n16. Toggle Offline Mode (default ON)\r\n17. Toggle Quick Unlock\r\nSelect an option or press Enter to go back: \r\n\u001bcSeed Profile: 2CEE29FCE43AFB18 > Main Menu\r\n\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: 2\r\n\u001bcSeed Profile: 2CEE29FCE43AFB18 > Main Menu > Retrieve Entry\r\n\r\nEnter the index number of the entry to retrieve: 0\r\nRetrieving password for 'agent.example' with length 12.\r\nUsername: agent2\r\nURL: https://agent.example\r\n[+] Password for 'agent.example' copied to clipboard. Will clear in 45 seconds.\r\nPress Enter to continue..."
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": true,
+    "add_password_quick": true,
+    "add_totp": true,
+    "archive_restore": true,
+    "graceful_exit": false,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": true,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "seeded_negative_campaign": false,
+    "settings_stats": false,
+    "settings_toggles_lock_unlock": true,
+    "startup_onboarding": true,
+    "stress_cycles": false,
+    "totp_codes_view": true
+  },
+  "post_conditions": {
+    "archive_restore_consistency": true,
+    "lock_unlock_recovers_retrieval": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195604Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T195604Z/transcript.raw.txt"
+}

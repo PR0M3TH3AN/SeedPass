@@ -1,0 +1,425 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: 1
+Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): 3
+Your new BIP-85 seed phrase is:
+rack merit rack mosquito tongue photo ordinary biology angle work auto slam
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Y
+Enter a new password: *************
+Confirm your password: *************
+c
+=== Seed Profile Stats ===
+Total entries: 0
+  password: 0
+  totp: 0
+  ssh: 0
+  seed: 0
+  pgp: 0
+  nostr: 0
+  key_value: 0
+  managed_account: 0
+Relays configured: 3
+Backups: 0 (dir: /tmp/seedpass-agent-home-h0n1d15e/.seedpass/8FA75CB2801664A2/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to continue.
+
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > Add Entry > Password
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Choose mode: [Q]uick or [A]dvanced? q
+Enter the label or website name: stress.example
+Enter the username (optional): stress
+Enter the URL (optional): https://stress.example
+Enter desired password length (default 16): 12
+Include special characters? (Y/n): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-h0n1d15e/.seedpass/8FA75CB2801664A2/backups/entries_db_backup_1771875992.json.enc'.
+[+] Entry added successfully at index 0.
+
+[+] Password generated and indexed with ID 0.
+
+Password for stress.example: 49j>9'tU$eRT
+
+Press Enter to continue...
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 99
+Invalid choice. Please select a valid option.
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 9
+Invalid choice.
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: abc
+Error: Index must be a number.
+Press Enter to continue...
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 4
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entries:
+
+0. Password - stress.example
+Enter index to view details or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: 0
+Retrieving password for 'stress.example' with length 12.
+Username: stress
+URL: https://stress.example
+
+[+] Retrieved Password for stress.example:
+
+Password: 49j>9'tU$eRT
+Associated Username: stress
+Associated URL: https://stress.example
+Archived Status: Active
+Press Enter to continue...
+cSeed Profile: 8FA75CB2801664A2 > Entry Actions
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entry Actions:
+A. Archive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 99
+Invalid choice. Please select a valid option.
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+1
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 9
+Invalid choice.
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: abc
+Error: Index must be a number.
+Press Enter to continue...
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 4
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 1
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entries:
+
+0. Password - stress.example
+Enter index to view details or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > List Entries
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 8FA75CB2801664A2 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: 0
+Retrieving password for 'stress.example' with length 12.
+Username: stress
+URL: https://stress.example
+
+[+] Retrieved Password for stress.example:
+
+Password: 49j>9'tU$eRT
+Associated Username: stress
+Associated URL: https://stress.example
+Archived Status: Active
+Press Enter to continue...
+cSeed Profile: 8FA75CB2801664A2 > Entry Actions
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+[+] Entry Actions:
+A. Archive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: 
+cSeed Profile: 8FA75CB2801664A2 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 
+Exiting the program.
+[0m

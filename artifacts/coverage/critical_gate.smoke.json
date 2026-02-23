@@ -1,0 +1,191 @@
+{
+  "status": "passed",
+  "failing_modules": [],
+  "modules": {
+    "src/main.py": {
+      "threshold_percent": 0.0,
+      "actual_percent": 0.0,
+      "meets_threshold": true,
+      "uncovered_functions": [
+        {
+          "name": "_warn_missing_optional_dependencies",
+          "line": 58
+        },
+        {
+          "name": "load_global_config",
+          "line": 71
+        },
+        {
+          "name": "configure_logging",
+          "line": 84
+        },
+        {
+          "name": "confirm_action",
+          "line": 117
+        },
+        {
+          "name": "drain_notifications",
+          "line": 134
+        },
+        {
+          "name": "get_notification_text",
+          "line": 149
+        },
+        {
+          "name": "handle_switch_fingerprint",
+          "line": 166
+        },
+        {
+          "name": "handle_add_new_fingerprint",
+          "line": 210
+        },
+        {
+          "name": "handle_remove_fingerprint",
+          "line": 223
+        },
+        {
+          "name": "_cleanup_and_exit",
+          "line": 247
+        },
+        {
+          "name": "handle_list_fingerprints",
+          "line": 276
+        },
+        {
+          "name": "handle_display_npub",
+          "line": 298
+        },
+        {
+          "name": "_display_live_stats",
+          "line": 316
+        },
+        {
+          "name": "handle_display_stats",
+          "line": 363
+        },
+        {
+          "name": "print_matches",
+          "line": 372
+        },
+        {
+          "name": "handle_post_to_nostr",
+          "line": 408
+        },
+        {
+          "name": "handle_retrieve_from_nostr",
+          "line": 435
+        },
+        {
+          "name": "handle_view_relays",
+          "line": 473
+        },
+        {
+          "name": "_safe_close_client_pool",
+          "line": 490
+        },
+        {
+          "name": "_reload_relays",
+          "line": 501
+        },
+        {
+          "name": "handle_add_relay",
+          "line": 514
+        },
+        {
+          "name": "handle_remove_relay",
+          "line": 545
+        },
+        {
+          "name": "handle_reset_relays",
+          "line": 582
+        },
+        {
+          "name": "handle_set_inactivity_timeout",
+          "line": 601
+        },
+        {
+          "name": "handle_set_kdf_iterations",
+          "line": 635
+        },
+        {
+          "name": "handle_set_additional_backup_location",
+          "line": 684
+        },
+        {
+          "name": "handle_set_profile_name",
+          "line": 733
+        },
+        {
+          "name": "handle_toggle_secret_mode",
+          "line": 752
+        },
+        {
+          "name": "handle_toggle_quick_unlock",
+          "line": 803
+        },
+        {
+          "name": "handle_toggle_offline_mode",
+          "line": 840
+        },
+        {
+          "name": "handle_profiles_menu",
+          "line": 878
+        },
+        {
+          "name": "handle_nostr_menu",
+          "line": 917
+        },
+        {
+          "name": "handle_settings",
+          "line": 971
+        },
+        {
+          "name": "display_menu",
+          "line": 1073
+        },
+        {
+          "name": "main",
+          "line": 1237
+        },
+        {
+          "name": "signal_handler",
+          "line": 1418
+        }
+      ],
+      "error": null
+    },
+    "src/seedpass/core/manager.py": {
+      "threshold_percent": 0.0,
+      "actual_percent": 8.213096559378469,
+      "meets_threshold": true,
+      "uncovered_functions": [
+        {
+          "name": "PasswordManager.cached_derive",
+          "line": 1376
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 1665
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 1702
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 1727
+        },
+        {
+          "name": "PasswordManager._async_worker",
+          "line": 1743
+        },
+        {
+          "name": "PasswordManager._load_archived_entries",
+          "line": 3913
+        }
+      ],
+      "error": null
+    }
+  },
+  "coverage_json": "/home/user/Documents/GitHub/SeedPass/artifacts/coverage/coverage.smoke.json"
+}

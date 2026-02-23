@@ -1,0 +1,18 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: 1
+Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): 3
+Your new BIP-85 seed phrase is:
+tooth furnace range force bicycle rug first frost cherry grab grit stumble
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Y
+Enter a new password: *************
+Confirm your password: AgentPass123!
