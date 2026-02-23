@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: echo "${{ steps.msys.outputs.msys2-location }}/mingw64/bin" >> $GITHUB_PATH
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.lock') }}
