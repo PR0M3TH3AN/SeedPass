@@ -126,6 +126,8 @@ Use the automated installer to download SeedPass and its dependencies in one ste
 The default `tui` mode installs only the text interface, so it runs headlessly and works well in CI or other automation. GUI backends are optional and must be explicitly requested (`--mode gui` or `--mode both` on Linux/macOS, `-IncludeGui` on Windows). If the GTK `gi` bindings are missing, the installer attempts to install the
 necessary system packages using `apt`, `yum`, `pacman`, or Homebrew. When no display server is detected, GUI components are skipped automatically.
 
+For installer validation workflows and local smoke tests, see [Installer Testing](docs/installer_testing.md).
+
 **Linux and macOS:**
 ```bash
 # TUI-only/agent install (headless default)
@@ -442,6 +444,42 @@ which seedpass  # or 'where seedpass' on Windows
 ```
 
 For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
+
+### Agent Mode (Non-Interactive)
+
+SeedPass now includes an additive `agent` command group for automation and CI.
+This does not replace or modify the regular human-facing TUI flow.
+
+1. Initialize a profile non-interactively:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass agent init --generate-seed
+```
+
+Or use an existing seed from a file:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass agent init --seed-file /secure/path/seed.txt --switch-existing
+```
+
+2. Configure agent policy (kind allow-list and private-kind deny-list):
+
+```bash
+seedpass agent policy-set --allow-kind password --allow-kind totp --deny-private-kind seed
+seedpass agent policy-show
+```
+
+3. Retrieve a secret as JSON with lease metadata:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass -f <fingerprint> agent get github --ttl 30
+```
+
+By default, agent policy blocks private key/seed-style entry kinds from being
+revealed through `agent get`.
 
 ### Running the Application
 

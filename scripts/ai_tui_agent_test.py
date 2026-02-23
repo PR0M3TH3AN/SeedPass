@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import pty
+import random
 import re
 import select
 import shutil
@@ -141,6 +142,24 @@ class TUIRunner:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run deterministic, repeatable TUI coverage checks for SeedPass."
+    )
+    parser.add_argument(
+        "--scenario",
+        choices=("core", "extended", "stress"),
+        default="extended",
+        help="Scenario profile to run (default: extended).",
+    )
+    parser.add_argument(
+        "--stress-cycles",
+        type=int,
+        default=6,
+        help="Deterministic menu-stress loops for --scenario stress.",
+    )
+    parser.add_argument(
+        "--stress-seed",
+        type=int,
+        default=1337,
+        help="RNG seed for deterministic invalid-input campaigns in stress scenario.",
     )
     parser.add_argument(
         "--repo-root",
@@ -289,7 +308,7 @@ def _add_entry_menu_open(
         )
 
 
-def _scenario(
+def _complete_initial_seed_setup(
     runner: TUIRunner, timeout: float, password: str, coverage: dict[str, bool]
 ) -> None:
     # First-run onboarding.
@@ -302,34 +321,26 @@ def _scenario(
     coverage["startup_onboarding"] = True
     coverage["main_menu"] = True
 
-    # Invalid input resilience checks.
-    runner.sendline("99")
-    runner.wait_for(r"Invalid choice\. Please select a valid option\.", timeout)
-    _add_entry_menu_open(runner, timeout, "9")
-    runner.wait_for(r"Invalid choice\.", timeout)
-    runner.expect_and_send(r"Select entry type or press Enter to go back:", "", timeout)
-    _drain_to_main_menu(runner, timeout)
-    runner.sendline("2")
-    runner.expect_and_send(
-        r"Enter the index number of the entry to retrieve:", "abc", timeout
-    )
-    runner.wait_for(r"Error: Index must be a number\.", timeout)
-    runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
-    coverage["invalid_input_resilience"] = True
 
-    # Add password in quick mode, including validation checks.
+def _add_quick_password_entry(
+    runner: TUIRunner,
+    timeout: float,
+    *,
+    label: str,
+    username: str,
+    url: str,
+    exercise_invalid_length: bool,
+    coverage: dict[str, bool],
+) -> None:
     _add_entry_menu_open(runner, timeout, "1")
     runner.expect_and_send(r"Choose mode: \[Q\]uick or \[A\]dvanced\?", "q", timeout)
-    runner.expect_and_send(
-        r"Enter the label or website name:", "agent.example", timeout
-    )
-    runner.expect_and_send(r"Enter the username \(optional\):", "agent", timeout)
-    runner.expect_and_send(
-        r"Enter the URL \(optional\):", "https://agent.example", timeout
-    )
-    runner.expect_and_send(r"Enter desired password length .*:", "3", timeout)
-    runner.wait_for(r"Password length must be between 8 and 128", timeout)
-    coverage["invalid_length_validation"] = True
+    runner.expect_and_send(r"Enter the label or website name:", label, timeout)
+    runner.expect_and_send(r"Enter the username \(optional\):", username, timeout)
+    runner.expect_and_send(r"Enter the URL \(optional\):", url, timeout)
+    if exercise_invalid_length:
+        runner.expect_and_send(r"Enter desired password length .*:", "3", timeout)
+        runner.wait_for(r"Password length must be between 8 and 128", timeout)
+        coverage["invalid_length_validation"] = True
     runner.expect_and_send(r"Enter desired password length .*:", "12", timeout)
     runner.expect_and_send(r"Include special characters\? \(Y/n\):", "", timeout)
     runner.wait_for(r"Password generated and indexed with ID 0", timeout)
@@ -337,12 +348,214 @@ def _scenario(
     runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
     _drain_to_main_menu(runner, timeout)
 
+
+def _invalid_input_checks(
+    runner: TUIRunner,
+    timeout: float,
+    *,
+    main_menu_choice: str = "99",
+    add_entry_choice: str = "9",
+    retrieve_index: str = "abc",
+) -> None:
+    runner.sendline(main_menu_choice)
+    runner.wait_for(r"Invalid choice\. Please select a valid option\.", timeout)
+    _add_entry_menu_open(runner, timeout, add_entry_choice)
+    runner.wait_for(r"Invalid choice\.", timeout)
+    runner.expect_and_send(r"Select entry type or press Enter to go back:", "", timeout)
+    _drain_to_main_menu(runner, timeout)
+    runner.sendline("2")
+    runner.expect_and_send(
+        r"Enter the index number of the entry to retrieve:", retrieve_index, timeout
+    )
+    runner.wait_for(r"Error: Index must be a number\.", timeout)
+    runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
+    _drain_to_main_menu(runner, timeout)
+
+
+def _wait_for_retrieve_password_output(
+    runner: TUIRunner, timeout: float, label: str
+) -> None:
+    runner.wait_for(
+        rf"(Retrieved Password for {re.escape(label)}|Retrieving password for '{re.escape(label)}')",
+        timeout,
+    )
+
+
+def _scenario_core(
+    runner: TUIRunner,
+    timeout: float,
+    password: str,
+    coverage: dict[str, bool],
+    post_conditions: dict[str, bool],
+) -> None:
+    _complete_initial_seed_setup(runner, timeout, password, coverage)
+
+    # Invalid input resilience checks.
+    _invalid_input_checks(runner, timeout)
+    coverage["invalid_input_resilience"] = True
+
+    # Add a password and exercise length validation.
+    _add_quick_password_entry(
+        runner,
+        timeout,
+        label="agent.example",
+        username="agent",
+        url="https://agent.example",
+        exercise_invalid_length=True,
+        coverage=coverage,
+    )
+
     # Retrieve and action menu.
     runner.sendline("2")
     runner.expect_and_send(
         r"Enter the index number of the entry to retrieve:", "0", timeout
     )
-    runner.wait_for(r"Retrieved Password for agent\.example", timeout)
+    _wait_for_retrieve_password_output(runner, timeout, "agent.example")
+    if runner.try_wait_for(r"Reveal hidden fields\? \(y/N\):", timeout=0.4):
+        runner.sendline("")
+    runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
+    runner.wait_for(r"Entry Actions:", timeout)
+    coverage["retrieve_entry"] = True
+    runner.expect_and_send(r"Select an action or press Enter to return:", "", timeout)
+    _drain_to_main_menu(runner, timeout)
+
+    # Search.
+    runner.sendline("3")
+    runner.expect_and_send(r"Enter search string:", "agent", timeout)
+    runner.wait_for(r"Search Results", timeout)
+    runner.wait_for(r"0\. Password - agent\.example", timeout)
+    coverage["search_entries"] = True
+    runner.expect_and_send(
+        r"Enter index to view details or press Enter to go back:", "", timeout
+    )
+    _drain_to_main_menu(runner, timeout)
+
+    # List entries.
+    runner.sendline("4")
+    runner.expect_and_send(
+        r"Select entry type or press Enter to go back:", "1", timeout
+    )
+    runner.wait_for(r"\[\+\] Entries:", timeout)
+    runner.wait_for(r"0\. Password - agent\.example", timeout)
+    coverage["list_entries"] = True
+    runner.expect_and_send(
+        r"Enter index to view details or press Enter to go back:", "", timeout
+    )
+    runner.expect_and_send(r"Select entry type or press Enter to go back:", "", timeout)
+    _drain_to_main_menu(runner, timeout)
+
+    # Graceful exit.
+    runner.sendline("")
+    runner.wait_for(r"Exiting the program\.", timeout)
+    coverage["graceful_exit"] = True
+
+
+def _scenario_stress(
+    runner: TUIRunner,
+    timeout: float,
+    password: str,
+    coverage: dict[str, bool],
+    post_conditions: dict[str, bool],
+    *,
+    cycles: int,
+    seed: int,
+) -> None:
+    _complete_initial_seed_setup(runner, timeout, password, coverage)
+
+    _add_quick_password_entry(
+        runner,
+        timeout,
+        label="stress.example",
+        username="stress",
+        url="https://stress.example",
+        exercise_invalid_length=False,
+        coverage=coverage,
+    )
+
+    rng = random.Random(seed)
+    invalid_main_menu_inputs = ["99", "0", "x", "-1", "one", "1x"]
+    invalid_add_entry_inputs = ["9", "0", "x", "-1", "one", "1x"]
+    invalid_retrieve_inputs = ["abc", "!", "one", "1x", "index", "0x1"]
+
+    # Deterministic negative-input + back-navigation stress cycles.
+    for _ in range(cycles):
+        _invalid_input_checks(
+            runner,
+            timeout,
+            main_menu_choice=rng.choice(invalid_main_menu_inputs),
+            add_entry_choice=rng.choice(invalid_add_entry_inputs),
+            retrieve_index=rng.choice(invalid_retrieve_inputs),
+        )
+
+        runner.sendline("4")
+        runner.expect_and_send(
+            r"Select entry type or press Enter to go back:", "1", timeout
+        )
+        runner.wait_for(r"\[\+\] Entries:", timeout)
+        runner.wait_for(r"0\. Password - stress\.example", timeout)
+        runner.expect_and_send(
+            r"Enter index to view details or press Enter to go back:", "", timeout
+        )
+        runner.expect_and_send(
+            r"Select entry type or press Enter to go back:", "", timeout
+        )
+        _drain_to_main_menu(runner, timeout)
+
+        runner.sendline("2")
+        runner.expect_and_send(
+            r"Enter the index number of the entry to retrieve:", "0", timeout
+        )
+        _wait_for_retrieve_password_output(runner, timeout, "stress.example")
+        if runner.try_wait_for(r"Reveal hidden fields\? \(y/N\):", timeout=0.4):
+            runner.sendline("")
+        runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
+        runner.wait_for(r"Entry Actions:", timeout)
+        runner.expect_and_send(
+            r"Select an action or press Enter to return:", "", timeout
+        )
+        _drain_to_main_menu(runner, timeout)
+
+    coverage["invalid_input_resilience"] = True
+    coverage["retrieve_entry"] = True
+    coverage["list_entries"] = True
+    coverage["stress_cycles"] = True
+    coverage["seeded_negative_campaign"] = True
+
+    runner.sendline("")
+    runner.wait_for(r"Exiting the program\.", timeout)
+    coverage["graceful_exit"] = True
+
+
+def _scenario_extended(
+    runner: TUIRunner,
+    timeout: float,
+    password: str,
+    coverage: dict[str, bool],
+    post_conditions: dict[str, bool],
+) -> None:
+    _complete_initial_seed_setup(runner, timeout, password, coverage)
+
+    # Invalid input resilience checks.
+    _invalid_input_checks(runner, timeout)
+    coverage["invalid_input_resilience"] = True
+
+    # Add password in quick mode, including validation checks.
+    _add_quick_password_entry(
+        runner,
+        timeout,
+        label="agent.example",
+        username="agent",
+        url="https://agent.example",
+        exercise_invalid_length=True,
+        coverage=coverage,
+    )
+
+    # Retrieve and action menu.
+    runner.sendline("2")
+    runner.expect_and_send(
+        r"Enter the index number of the entry to retrieve:", "0", timeout
+    )
+    _wait_for_retrieve_password_output(runner, timeout, "agent.example")
     if runner.try_wait_for(r"Reveal hidden fields\? \(y/N\):", timeout=0.4):
         runner.sendline("")
     runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
@@ -541,6 +754,23 @@ def _scenario(
     runner.wait_for(r"Entry at index 0 modified successfully", timeout)
     coverage["archive_restore"] = True
     _drain_to_main_menu(runner, timeout)
+    runner.sendline("8")
+    if runner.try_wait_for(r"Archived Entries", timeout=0.8):
+        if runner.try_wait_for(r"0\. agent\.example", timeout=0.4):
+            raise TUIHarnessError(
+                "Archive/restore post-condition failed: restored entry is still archived."
+            )
+        runner.expect_and_send(
+            r"Enter index to manage or press Enter to go back:", "", timeout
+        )
+    elif runner.try_wait_for(r"Press Enter to continue\.\.\.", timeout=0.8):
+        runner.sendline("")
+    else:
+        raise TUIHarnessError(
+            "Archive/restore post-condition failed: archived view prompt was not recognized."
+        )
+    _drain_to_main_menu(runner, timeout)
+    post_conditions["archive_restore_consistency"] = True
 
     # 2FA codes view remains accessible after mixed operations.
     runner.sendline("6")
@@ -589,6 +819,17 @@ def _scenario(
     runner.expect_and_send(r"Select an option or press Enter to go back:", "", timeout)
     _drain_to_main_menu(runner, timeout)
     coverage["settings_toggles_lock_unlock"] = True
+    runner.sendline("2")
+    runner.expect_and_send(
+        r"Enter the index number of the entry to retrieve:", "0", timeout
+    )
+    _wait_for_retrieve_password_output(runner, timeout, "agent.example")
+    if runner.try_wait_for(r"Reveal hidden fields\? \(y/N\):", timeout=0.4):
+        runner.sendline("")
+    runner.expect_and_send(r"Press Enter to continue\.\.\.", "", timeout)
+    runner.expect_and_send(r"Select an action or press Enter to return:", "", timeout)
+    _drain_to_main_menu(runner, timeout)
+    post_conditions["lock_unlock_recovers_retrieval"] = True
 
     # Settings -> Stats and back.
     runner.sendline("7")
@@ -609,6 +850,10 @@ def _scenario(
 
 def main() -> int:
     args = _parse_args()
+    if args.stress_cycles < 1:
+        print("Error: --stress-cycles must be >= 1", file=sys.stderr)
+        return 2
+
     repo_root = args.repo_root.resolve()
     src_main = repo_root / "src" / "main.py"
     if not src_main.exists():
@@ -640,32 +885,97 @@ def main() -> int:
     runner = TUIRunner(proc, master_fd)
 
     results: list[StepResult] = []
-    coverage = {
-        "startup_onboarding": False,
-        "main_menu": False,
-        "invalid_input_resilience": False,
-        "add_password_quick": False,
-        "invalid_length_validation": False,
-        "add_totp": False,
-        "add_all_entry_types": False,
-        "retrieve_entry": False,
-        "search_entries": False,
-        "list_entries": False,
-        "modify_entry": False,
-        "archive_restore": False,
-        "totp_codes_view": False,
-        "settings_toggles_lock_unlock": False,
-        "settings_stats": False,
-        "graceful_exit": False,
+    scenario_coverage_keys: dict[str, list[str]] = {
+        "core": [
+            "startup_onboarding",
+            "main_menu",
+            "invalid_input_resilience",
+            "add_password_quick",
+            "invalid_length_validation",
+            "retrieve_entry",
+            "search_entries",
+            "list_entries",
+            "graceful_exit",
+        ],
+        "extended": [
+            "startup_onboarding",
+            "main_menu",
+            "invalid_input_resilience",
+            "add_password_quick",
+            "invalid_length_validation",
+            "add_totp",
+            "add_all_entry_types",
+            "retrieve_entry",
+            "search_entries",
+            "list_entries",
+            "modify_entry",
+            "archive_restore",
+            "totp_codes_view",
+            "settings_toggles_lock_unlock",
+            "settings_stats",
+            "graceful_exit",
+        ],
+        "stress": [
+            "startup_onboarding",
+            "main_menu",
+            "add_password_quick",
+            "invalid_input_resilience",
+            "retrieve_entry",
+            "list_entries",
+            "stress_cycles",
+            "seeded_negative_campaign",
+            "graceful_exit",
+        ],
     }
+    scenario_post_condition_keys: dict[str, list[str]] = {
+        "core": [],
+        "extended": [
+            "archive_restore_consistency",
+            "lock_unlock_recovers_retrieval",
+        ],
+        "stress": [],
+    }
+    coverage = {
+        key: False
+        for key in sorted({k for keys in scenario_coverage_keys.values() for k in keys})
+    }
+    post_conditions = {
+        key: False
+        for key in sorted(
+            {k for keys in scenario_post_condition_keys.values() for k in keys}
+        )
+    }
+    required_keys = scenario_coverage_keys[args.scenario]
+    required_post_conditions = scenario_post_condition_keys[args.scenario]
 
     failure: str | None = None
     start_time = time.monotonic()
+    scenario_handlers = {
+        "core": lambda: _scenario_core(
+            runner, args.timeout, args.password, coverage, post_conditions
+        ),
+        "extended": lambda: _scenario_extended(
+            runner, args.timeout, args.password, coverage, post_conditions
+        ),
+        "stress": lambda: _scenario_stress(
+            runner,
+            args.timeout,
+            args.password,
+            coverage,
+            post_conditions,
+            cycles=args.stress_cycles,
+            seed=args.stress_seed,
+        ),
+    }
     try:
         _run_step(
-            "full_scenario",
-            "Drive end-to-end deterministic TUI coverage workflow.",
-            lambda: _scenario(runner, args.timeout, args.password, coverage),
+            f"{args.scenario}_scenario",
+            (
+                "Drive end-to-end deterministic TUI coverage workflow."
+                if args.scenario == "extended"
+                else f"Drive deterministic {args.scenario} TUI scenario."
+            ),
+            scenario_handlers[args.scenario],
             results,
             verbose=args.verbose,
         )
@@ -674,6 +984,8 @@ def main() -> int:
     finally:
         exit_code = runner.close()
         total_duration = time.monotonic() - start_time
+    if failure is None and exit_code != 0:
+        failure = f"SeedPass exited with non-zero code: {exit_code}"
 
     transcript_clean = artifact_dir / "transcript.clean.txt"
     transcript_raw = artifact_dir / "transcript.raw.txt"
@@ -685,12 +997,27 @@ def main() -> int:
         "command": cmd,
         "repo_root": str(repo_root),
         "home_dir": str(temp_home_dir),
+        "scenario": args.scenario,
+        "stress_cycles": args.stress_cycles if args.scenario == "stress" else None,
+        "stress_seed": args.stress_seed if args.scenario == "stress" else None,
+        "required_coverage_keys": required_keys,
+        "required_post_conditions": required_post_conditions,
         "duration_sec": round(total_duration, 3),
         "seedpass_exit_code": exit_code,
-        "status": "passed" if failure is None and all(coverage.values()) else "failed",
+        "status": (
+            "passed"
+            if (
+                failure is None
+                and all(coverage[key] for key in required_keys)
+                and all(post_conditions[key] for key in required_post_conditions)
+                and exit_code == 0
+            )
+            else "failed"
+        ),
         "failure": failure,
         "steps": [asdict(item) for item in results],
         "coverage_points": coverage,
+        "post_conditions": post_conditions,
         "transcript_clean": str(transcript_clean),
         "transcript_raw": str(transcript_raw),
     }
