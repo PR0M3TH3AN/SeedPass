@@ -36,27 +36,30 @@ class EntryService:
                 child_fingerprint=child_fp,
             )
 
-            def prompt_length() -> int | None:
-                length_input = input(
-                    f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
-                ).strip()
-                length = DEFAULT_PASSWORD_LENGTH
-                if length_input:
-                    if not length_input.isdigit():
-                        print(
-                            colored("Error: Password length must be a number.", "red")
-                        )
-                        return None
-                    length = int(length_input)
-                    if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
-                        print(
-                            colored(
-                                f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
-                                "red",
+            def prompt_length() -> int:
+                while True:
+                    length_input = input(
+                        f"Enter desired password length (default {DEFAULT_PASSWORD_LENGTH}): "
+                    ).strip()
+                    length = DEFAULT_PASSWORD_LENGTH
+                    if length_input:
+                        if not length_input.isdigit():
+                            print(
+                                colored(
+                                    "Error: Password length must be a number.", "red"
+                                )
                             )
-                        )
-                        return None
-                return length
+                            continue
+                        length = int(length_input)
+                        if not (MIN_PASSWORD_LENGTH <= length <= MAX_PASSWORD_LENGTH):
+                            print(
+                                colored(
+                                    f"Error: Password length must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH}.",
+                                    "red",
+                                )
+                            )
+                            continue
+                    return length
 
             def finalize_entry(index: int, label: str, length: int) -> None:
                 pm.is_dirty = True
@@ -96,7 +99,17 @@ class EntryService:
                     )
                 pause()
 
-            mode = input("Choose mode: [Q]uick or [A]dvanced? ").strip().lower()
+            while True:
+                mode = input("Choose mode: [Q]uick or [A]dvanced? ").strip().lower()
+                if not mode:
+                    return
+                if mode.startswith("q") or mode.startswith("a"):
+                    break
+                print(
+                    colored(
+                        "Invalid mode. Enter 'q' for quick or 'a' for advanced.", "red"
+                    )
+                )
 
             website_name = input("Enter the label or website name: ").strip()
             if not website_name:
@@ -108,8 +121,6 @@ class EntryService:
 
             if mode.startswith("q"):
                 length = prompt_length()
-                if length is None:
-                    return
                 include_special_input = (
                     input("Include special characters? (Y/n): ").strip().lower()
                 )
@@ -149,8 +160,6 @@ class EntryService:
                 )
 
             length = prompt_length()
-            if length is None:
-                return
 
             include_special_input = (
                 input("Include special characters? (Y/n): ").strip().lower()

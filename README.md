@@ -668,6 +668,11 @@ pip install --require-hashes -r requirements.lock
 pytest -vv
 ```
 
+For AI-agent driven interactive testing and current test command tiers, see:
+
+- `docs/ai_agent_tui_testing.md`
+- `docs/agent_testing_roadmap.md`
+
 ### Exploring Nostr Index Size Limits
 
 `test_nostr_index_size.py` demonstrates how SeedPass rotates snapshots after too many delta events. Each chunk is limited to 50 KB, so the test gradually grows the vault to observe when a new snapshot is triggered. Use the `NOSTR_TEST_DELAY` environment variable to control the delay between publishes when experimenting with large vaults.

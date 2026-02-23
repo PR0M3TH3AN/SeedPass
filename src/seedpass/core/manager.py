@@ -1385,7 +1385,8 @@ class PasswordManager:
 
             self.bip85.derive_entropy = cached_derive
             logging.debug("BIP-85 initialized successfully.")
-            self.clear_bip85_cache()
+            # Reset cache directly so initialization is valid even while locked.
+            self._bip85_cache.clear()
         except Exception as e:
             logging.error(f"Failed to initialize BIP-85: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize BIP-85: {e}", "red"))
@@ -3628,9 +3629,6 @@ class PasswordManager:
                     exc_info=True,
                 )
 
-            updated_entry = self.entry_manager.retrieve_entry(index)
-            if updated_entry:
-                self._prompt_toggle_archive(updated_entry, index)
             pause()
 
         except Exception as e:
@@ -3911,15 +3909,26 @@ class PasswordManager:
     def handle_view_archived_entries(self) -> None:
         """Display archived entries and optionally view or restore them."""
         try:
-            archived = self.entry_manager.list_entries(
-                include_archived=True, verbose=False
-            )
-            archived = [e for e in archived if e[4]]
+
+            def _load_archived_entries() -> (
+                list[tuple[int, str, str | None, str | None, bool]]
+            ):
+                entries = self.entry_manager.list_entries(
+                    include_archived=True, verbose=False
+                )
+                return [e for e in entries if e[4]]
+
+            archived = _load_archived_entries()
             if not archived:
                 self.notify("No archived entries found.", level="WARNING")
                 pause()
                 return
             while True:
+                archived = _load_archived_entries()
+                if not archived:
+                    self.notify("No archived entries found.", level="WARNING")
+                    pause()
+                    return
                 fp, parent_fp, child_fp = self.header_fingerprint_args
                 clear_header_with_notification(
                     self,
@@ -3952,16 +3961,15 @@ class PasswordManager:
                     )
                     if action == "v":
                         self.show_entry_details_by_index(entry_index)
-                        pause()
+                        archived = _load_archived_entries()
+                        if entry_index not in [e[0] for e in archived]:
+                            break
                     elif action == "r":
                         self.entry_manager.restore_entry(entry_index)
                         self.is_dirty = True
                         self.last_update = time.time()
                         pause()
-                        archived = self.entry_manager.list_entries(
-                            include_archived=True, verbose=False
-                        )
-                        archived = [e for e in archived if e[4]]
+                        archived = _load_archived_entries()
                         if not archived:
                             print(colored("All entries restored.", "green"))
                             pause()
