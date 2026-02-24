@@ -1,11 +1,11 @@
 colorama>=0.4.6
 termcolor>=1.1.0
-cryptography>=40.0.2
+cryptography>=46.0.5
 bip-utils>=2.5.0
 bech32==1.2.0
 coincurve>=18.0.0
 mnemonic
-aiohttp>=3.12.14
+aiohttp>=3.13.3
 bcrypt
 pytest>=7.0
 pytest-cov
@@ -27,7 +27,7 @@ qrcode>=8.2
 typer>=0.12.3
 fastapi>=0.116.1
 uvicorn>=0.35.0
-starlette>=0.47.2
+starlette>=0.49.1
 httpx>=0.28.1
 requests>=2.32
 python-multipart

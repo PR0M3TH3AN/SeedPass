@@ -1,7 +1,7 @@
 ---
 agent: style-agent
 cadence: daily
-run-start: 2026-02-15T08:00:00Z
+run-start: 2026-02-15T08-00-00Z
 prompt: src/prompts/daily/style-agent.md
 ---
 

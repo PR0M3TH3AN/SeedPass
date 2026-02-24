@@ -15,7 +15,6 @@ import logging
 import os
 import hashlib
 from typing import Optional, Literal
-import shutil
 import time
 import threading
 import queue
@@ -81,16 +80,14 @@ from constants import (
     initialize_app,
 )
 
-import traceback
 import asyncio
 import gzip
 import bcrypt
 from pathlib import Path
 
 from local_bip85.bip85 import BIP85, Bip85Error
-from bip_utils import Bip39SeedGenerator, Bip39MnemonicGenerator, Bip39Languages
+from bip_utils import Bip39SeedGenerator
 from mnemonic import Mnemonic
-from datetime import datetime
 
 from utils.fingerprint_manager import FingerprintManager
 
@@ -2670,9 +2667,6 @@ class PasswordManager:
                 else:
                     print(color_text(phrase, "deterministic"))
                 if confirm_action("Show derived entropy as hex? (Y/N): "):
-                    from local_bip85.bip85 import BIP85
-                    from bip_utils import Bip39SeedGenerator
-
                     words = int(entry.get("word_count", entry.get("words", 24)))
                     bytes_len = {12: 16, 18: 24, 24: 32}.get(words, 32)
                     seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
