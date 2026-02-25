@@ -2,15 +2,22 @@ import os
 import subprocess
 import sys
 
-def get_all_files(extensions=['.mjs', '.js']):
+
+def get_all_files(extensions=[".mjs", ".js"]):
     files = []
-    for root, dirs, filenames in os.walk('.'):
-        if 'node_modules' in root or '.git' in root or 'artifacts' in root or 'dist' in root:
+    for root, dirs, filenames in os.walk("."):
+        if (
+            "node_modules" in root
+            or ".git" in root
+            or "artifacts" in root
+            or "dist" in root
+        ):
             continue
         for filename in filenames:
             if any(filename.endswith(ext) for ext in extensions):
                 files.append(os.path.join(root, filename))
     return files
+
 
 def grep_file(filepath, all_files):
     filename = os.path.basename(filepath)
@@ -31,16 +38,16 @@ def grep_file(filepath, all_files):
 
         # Search for filename (e.g. "foo.mjs")
         result_full = subprocess.run(
-            ['git', 'grep', '-F', filename, '--', '.'],
-            capture_output=True, text=True
+            ["git", "grep", "-F", filename, "--", "."], capture_output=True, text=True
         )
 
         # Search for name without extension (e.g. "foo") if it's not "index"
         result_no_ext = None
-        if name_no_ext != 'index':
-             result_no_ext = subprocess.run(
-                ['git', 'grep', '-F', name_no_ext, '--', '.'],
-                capture_output=True, text=True
+        if name_no_ext != "index":
+            result_no_ext = subprocess.run(
+                ["git", "grep", "-F", name_no_ext, "--", "."],
+                capture_output=True,
+                text=True,
             )
 
         output = result_full.stdout
@@ -52,14 +59,15 @@ def grep_file(filepath, all_files):
         # Filter out self-references
         count = 0
         for line in lines:
-            if line.startswith(filepath.lstrip('./')):
+            if line.startswith(filepath.lstrip("./")):
                 continue
             count += 1
 
         return count
     except Exception as e:
         print(f"Error grepping {filepath}: {e}")
-        return 1 # Assume used on error
+        return 1  # Assume used on error
+
 
 def main():
     files = get_all_files()
@@ -68,11 +76,11 @@ def main():
     # Known entry points or special files to exclude from "dead" list immediately
     # These might not be imported but are used by scripts or configuration
     exclusions = [
-        './bin/torch-lock.mjs',
-        './src/lib.mjs', # Main entry
-        './src/constants.mjs', # Likely used
-        './build.mjs',
-        './eslint.config.mjs',
+        "./bin/torch-lock.mjs",
+        "./src/lib.mjs",  # Main entry
+        "./src/constants.mjs",  # Likely used
+        "./build.mjs",
+        "./eslint.config.mjs",
     ]
 
     print(f"Scanning {len(files)} files...")
@@ -82,7 +90,7 @@ def main():
             continue
 
         # Skip test files
-        if '.test.' in f or '/test/' in f or '/tests/' in f:
+        if ".test." in f or "/test/" in f or "/tests/" in f:
             continue
 
         count = grep_file(f, files)
@@ -94,9 +102,10 @@ def main():
         print("No candidates found.")
     else:
         print(f"Found {len(candidates)} candidates.")
-        with open('artifacts/candidates.txt', 'w') as f_out:
+        with open("artifacts/candidates.txt", "w") as f_out:
             for c in candidates:
-                f_out.write(c + '\n')
+                f_out.write(c + "\n")
+
 
 if __name__ == "__main__":
     main()
