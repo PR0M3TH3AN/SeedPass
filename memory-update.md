@@ -1,17 +1,25 @@
 # Memory Update (2026-02-25)
 
 ## Security Checklist Progress
-- Item 6 (`Auth, lock/unlock, and access-control hardening`) remains `In Progress` with stronger API-level access control.
+- Item 6 (`Auth, lock/unlock, and access-control hardening`) moved to `Done`.
 
-## Item 6 Work Completed This Pass
-1. Added broader locked-state enforcement in `src/seedpass/api.py`.
-   - Protected/admin API routes now return `423` when the vault is locked.
-2. Added sensitive config-key protection in API.
-   - Generic config API now blocks `password_hash` and `pin_hash` access/updates.
-3. Added lock/unlock/access-control regressions in `src/tests/test_api_new_endpoints.py`:
-   - `test_config_endpoint_blocked_when_vault_locked`
-   - `test_get_config_denies_sensitive_keys`
-   - `test_lock_unlock_cycle_restores_entry_access`
+## Final Item 6 Hardening Completed
+1. Added locked-state API enforcement across protected admin/config/data routes (`423` when locked).
+2. Added explicit API unlock endpoint (`POST /api/v1/vault/unlock`).
+3. Added dedicated unlock-failure throttling in `seedpass/api.py` (returns `429` after repeated failed unlock attempts).
+4. Blocked sensitive config keys in generic config API:
+   - `password_hash`
+   - `pin_hash`
+5. Preserved pre-unlock operational path by keeping fingerprint list/select available while locked.
+
+## Regression Coverage Added
+- `test_vault_unlock_endpoint`
+- `test_vault_unlock_rate_limited_after_failed_attempts`
+- `test_entry_endpoints_blocked_when_vault_locked`
+- `test_generate_password_blocked_when_vault_locked`
+- `test_config_endpoint_blocked_when_vault_locked`
+- `test_get_config_denies_sensitive_keys`
+- `test_lock_unlock_cycle_restores_entry_access`
 
 ## Validation
 - Executed:
@@ -20,9 +28,7 @@
   - `src/tests/test_vault_lock_flag.py`
   - `src/tests/test_inactivity_lock.py`
   - `src/tests/test_unlock_sync.py`
-- Result: `65 passed`.
+- Result: `66 passed`.
 
-## Remaining Item 6 Focus
-1. Evaluate whether fingerprint selection/list should be limited while locked in API mode.
-2. Add explicit unlock-attempt abuse controls beyond general token rate limiting.
-3. Finalize item-6 completion criteria and move to `Done` once remaining policy decisions are resolved.
+## Next Checklist Candidate
+- Item #8 (`Supply chain and release integrity`) is the next major `Not Started` security item.

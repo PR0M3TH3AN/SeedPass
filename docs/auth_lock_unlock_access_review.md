@@ -1,6 +1,6 @@
 # SeedPass Auth, Lock/Unlock & Access-Control Review (Item 6)
 
-Status: `In Progress`  
+Status: `Done`  
 Date: `2026-02-25`
 
 ## Scope Reviewed
@@ -12,7 +12,7 @@ Date: `2026-02-25`
 
 ## Exit Criteria Check (Item 6)
 
-1. Lock/unlock/timeout/quick unlock behavior reviewed with tests: `In Progress`
+1. Lock/unlock/timeout/quick unlock behavior reviewed with tests: `Done`
 
 ## Findings
 
@@ -29,11 +29,13 @@ Date: `2026-02-25`
    - Config, relay, checksum, and selected profile-management routes now require unlocked state.
 5. Restricted sensitive config key exposure/update.
    - `password_hash` and `pin_hash` access/update blocked via generic config API.
+6. Added unlock-attempt throttling on API unlock route.
+   - Repeated failed unlock attempts now return `429` after threshold.
 
 ### Validation
 
 1. `pytest -q src/tests/test_api_new_endpoints.py src/tests/test_api.py src/tests/test_vault_lock_flag.py src/tests/test_inactivity_lock.py src/tests/test_unlock_sync.py`
-2. Result: `62 passed`
+2. Result: `65 passed`
 
 ### Existing posture
 
@@ -41,13 +43,11 @@ Date: `2026-02-25`
 2. Inactivity timeout enforcement exists via `AuthGuard`.
 3. Quick unlock behavior is configurable and covered by existing tests.
 
-### Remaining follow-up
+### Policy decisions
 
-1. Decide whether non-sensitive API routes (config/fingerprint/relays) should also require unlocked state.
-   - Completed for key admin/config routes.
-2. Add API-level test coverage for timeout-triggered lock then unlock flow.
-   - Completed with lock->blocked->unlock->access restoration regression test.
-3. Evaluate rate-limit tuning and brute-force controls for repeated password attempts on unlock endpoints.
+1. Non-sensitive fingerprint list/select routes remain available while locked to support pre-unlock profile selection.
+2. Admin/config/data routes are lock-gated.
+3. Unlock brute-force resistance now combines general API rate limiting with dedicated failed-unlock throttling.
 
 ## Evidence
 

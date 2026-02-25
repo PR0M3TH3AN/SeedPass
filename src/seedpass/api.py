@@ -28,6 +28,8 @@ _RATE_LIMIT = int(os.getenv("SEEDPASS_RATE_LIMIT", "100"))
 _RATE_WINDOW = int(os.getenv("SEEDPASS_RATE_WINDOW", "60"))
 _RATE_LIMIT_STR = f"{_RATE_LIMIT}/{_RATE_WINDOW} seconds"
 _MAX_IMPORT_BYTES = int(os.getenv("SEEDPASS_MAX_IMPORT_BYTES", str(10 * 1024 * 1024)))
+_UNLOCK_ATTEMPT_LIMIT = int(os.getenv("SEEDPASS_UNLOCK_ATTEMPT_LIMIT", "5"))
+_UNLOCK_ATTEMPT_WINDOW = int(os.getenv("SEEDPASS_UNLOCK_ATTEMPT_WINDOW", "300"))
 
 app = FastAPI()
 
@@ -70,9 +72,7 @@ def _check_token(request: Request, auth: str | None) -> None:
 
 def _enforce_rate_limit(request: Request, raw_token: str) -> None:
     now = time.monotonic()
-    client = request.client.host if request.client else "unknown"
-    token_tag = hashlib.blake2s(raw_token.encode("utf-8"), digest_size=8).hexdigest()
-    key = f"{client}:{token_tag}"
+    key = _request_rate_key(request, raw_token)
     buckets = getattr(request.app.state, "rate_limit_buckets", None)
     if buckets is None:
         buckets = defaultdict(deque)
@@ -86,6 +86,42 @@ def _enforce_rate_limit(request: Request, raw_token: str) -> None:
             detail=f"Rate limit exceeded ({_RATE_LIMIT_STR})",
         )
     bucket.append(now)
+
+
+def _request_rate_key(request: Request, raw_token: str) -> str:
+    client = request.client.host if request.client else "unknown"
+    token_tag = hashlib.blake2s(raw_token.encode("utf-8"), digest_size=8).hexdigest()
+    return f"{client}:{token_tag}"
+
+
+def _enforce_unlock_attempt_limit(request: Request, raw_token: str) -> None:
+    """Enforce a stricter rate limit for repeated unlock attempts."""
+    now = time.monotonic()
+    key = _request_rate_key(request, raw_token)
+    buckets = getattr(request.app.state, "unlock_attempt_buckets", None)
+    if buckets is None:
+        buckets = defaultdict(deque)
+        request.app.state.unlock_attempt_buckets = buckets
+    bucket = buckets[key]
+    while bucket and (now - bucket[0]) > _UNLOCK_ATTEMPT_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _UNLOCK_ATTEMPT_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Too many failed unlock attempts. " "Try again after cooldown period."
+            ),
+        )
+
+
+def _record_unlock_failure(request: Request, raw_token: str) -> None:
+    now = time.monotonic()
+    key = _request_rate_key(request, raw_token)
+    buckets = getattr(request.app.state, "unlock_attempt_buckets", None)
+    if buckets is None:
+        buckets = defaultdict(deque)
+        request.app.state.unlock_attempt_buckets = buckets
+    buckets[key].append(now)
 
 
 def _reload_relays(request: Request, relays: list[str]) -> None:
@@ -118,6 +154,7 @@ def start_server(fingerprint: str | None = None) -> str:
     raw_token = secrets.token_urlsafe(32)
     app.state.token_hash = bcrypt.hashpw(raw_token.encode(), bcrypt.gensalt())
     app.state.rate_limit_buckets = defaultdict(deque)
+    app.state.unlock_attempt_buckets = defaultdict(deque)
     return raw_token
 
 
@@ -808,8 +845,14 @@ def unlock_vault(
 ) -> dict[str, float | str]:
     """Unlock the vault using the supplied master password."""
     _check_token(request, authorization)
-    _require_password(request, password)
+    if authorization is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    raw_token = authorization.split(" ", 1)[1]
+    _enforce_unlock_attempt_limit(request, raw_token)
     pm = _get_pm(request)
+    if password is None or not pm.verify_password(password):
+        _record_unlock_failure(request, raw_token)
+        raise HTTPException(status_code=401, detail="Invalid password")
     duration = pm.unlock_vault(password)
     return {"status": "unlocked", "duration": float(duration)}
 

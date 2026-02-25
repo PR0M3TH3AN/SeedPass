@@ -466,6 +466,24 @@ async def test_vault_unlock_endpoint(client):
 
 
 @pytest.mark.anyio
+async def test_vault_unlock_rate_limited_after_failed_attempts(client, monkeypatch):
+    cl, token = client
+    api.app.state.pm.verify_password = lambda _pw: False
+    api.app.state.pm.unlock_vault = lambda _pw: 0.01
+
+    monkeypatch.setattr(api, "_UNLOCK_ATTEMPT_LIMIT", 2)
+    monkeypatch.setattr(api, "_UNLOCK_ATTEMPT_WINDOW", 600)
+
+    headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "bad"}
+    res1 = await cl.post("/api/v1/vault/unlock", headers=headers)
+    assert res1.status_code == 401
+    res2 = await cl.post("/api/v1/vault/unlock", headers=headers)
+    assert res2.status_code == 401
+    res3 = await cl.post("/api/v1/vault/unlock", headers=headers)
+    assert res3.status_code == 429
+
+
+@pytest.mark.anyio
 async def test_entry_endpoints_blocked_when_vault_locked(client):
     cl, token = client
     api.app.state.pm.locked = True
