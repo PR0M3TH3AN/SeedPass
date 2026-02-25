@@ -1775,25 +1775,25 @@ files = [
 
 [[package]]
 name = "nostr-sdk"
-version = "0.43.0"
+version = "0.44.2"
 description = "Nostr protocol implementation, Relay, RelayPool, high-level client library, NWC client and more."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "nostr_sdk-0.43.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:1eff16fac045598472807bee311f3002b0c771beb65e4d8f8e35643db549e9de"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-macosx_11_0_x86_64.whl", hash = "sha256:9434a29a0b6251256f00d7d5040e99678ecedce69c4e1ce43c9303cfd615c53e"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-manylinux_2_17_aarch64.whl", hash = "sha256:dd1af754e8a034d4bb3480d16c8960efe24331a3263886b30b3fec61b8ae5439"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-manylinux_2_17_armv7l.whl", hash = "sha256:b2fbcda409fd1e90ad5a1b59b2b22e61c136a93e1366cc5474e2b1278b692a81"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-manylinux_2_17_i686.whl", hash = "sha256:379566a5b1e742751a9f220636e37d48ba298009a7931086200917315ec02cd9"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-manylinux_2_17_x86_64.whl", hash = "sha256:f0cc358274462d66f81464b5deca6c85ee6837ea54474bcc09fbc09fec522d66"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:910f025b280866199539ccbcc5ec68354b12e939f15340bf532db9c18257ca22"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:a25887e6e5936a6ece76f0aae3ba402689b021b3c496736c8803aabc23195483"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-musllinux_1_2_i686.whl", hash = "sha256:7dd2af2ce071e5f52cf48aaf61630b15a1690e0294913b2f45eff0dd03510d9b"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:c2f7ad6a983e6fe325e276c6e2be07f1a4424e9ac09f61fce792fceb5f92613e"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-win32.whl", hash = "sha256:da45c976f170a3367b9d1764fd40cf0c6915c9ba36c2c18048cca8577aef10bc"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-win_amd64.whl", hash = "sha256:6e9670d0c83e90e337a67cd0f60cee626f9f49b9e941016083c4c2b7e2e7c11b"},
-    {file = "nostr_sdk-0.43.0-cp39-abi3-win_arm64.whl", hash = "sha256:f97a756ed3a90ee903560183505f6c35653c1ace4894525d2944d84c1c685718"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:184075689531e34085bc1e71b62f3a964df2d4aeb15a25f94557e15a4294c584"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-macosx_11_0_x86_64.whl", hash = "sha256:65e85c79295f4e258e5276a82b52e36ffb3f5cf59c2c7c4a959970ed9303cf6f"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-manylinux_2_17_aarch64.whl", hash = "sha256:d1d557aeb8a423dcd054f699bbf7371eb268a6cec5916bf147957cb3f9f7da02"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-manylinux_2_17_armv7l.whl", hash = "sha256:41b1bb050f890f81b4c4edaf4d6cc3054ae9e783911eb4ce7dce6b8e97dfa60e"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-manylinux_2_17_i686.whl", hash = "sha256:db584ba95de5abbb74da77036c3316e9a166bc22d9d2ea3ca38fc09325d9c6a9"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-manylinux_2_17_x86_64.whl", hash = "sha256:4e1dccf29b7ad6eeb44945175a45334d4e45d82881ae5f3a28433899f155831c"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:aa347c6437dc33ae45cc2ed56177f5aeded0fda42285b1b325a840de44e1f708"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:a7a03b35ddbc69f31d79bea17ac60b8d250ef62bcf1d52fc33b9e36e0ecf772b"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-musllinux_1_2_i686.whl", hash = "sha256:e53682dbf192acd137a92ae5d91903fbb22728d55452a8fa2315581f1d8413f2"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:b3e6dd4191997546f157aba4532a995d06ad8b0cf9c17e77c0015553f06a9cf2"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-win32.whl", hash = "sha256:aa94a18eb8f4d77559c0290c0f17d6816c00f4fdddba5f1fcf96ff01b4690b42"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-win_amd64.whl", hash = "sha256:31e609a864c3857cddde70d8a91181e2b2cadf923e562b6a9d82e655edded117"},
+    {file = "nostr_sdk-0.44.2-cp39-abi3-win_arm64.whl", hash = "sha256:3a9d3284af0547e224bf705d90cd6d9ca5a1b48f5becea1021da915de4408310"},
 ]
 
 [[package]]
