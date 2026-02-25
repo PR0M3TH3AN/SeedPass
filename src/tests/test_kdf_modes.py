@@ -1,9 +1,11 @@
 import bcrypt
 import hashlib
 import base64
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+import pytest
 
 from utils.key_derivation import (
     derive_key_from_password,
@@ -15,6 +17,8 @@ from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
+from seedpass.core.errors import DecryptionError
+from seedpass.core.encryption import LegacyFormatRequiresMigrationError
 
 TEST_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 TEST_PASSWORD = "pw"
@@ -168,3 +172,87 @@ def test_derive_seed_key_pbkdf2_respects_iteration_override(monkeypatch):
 
     assert key == b"derived-pbkdf2-key"
     assert captured == {"password": "pw", "fingerprint": "fp", "iterations": 123}
+
+
+def test_derive_seed_key_pbkdf2_enforces_policy_floor(monkeypatch):
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.config_manager = SimpleNamespace(
+        get_kdf_mode=lambda: "pbkdf2",
+        get_argon2_time_cost=lambda: 2,
+        get_kdf_iterations=lambda: 1,
+    )
+
+    captured = {}
+
+    def fake_pbkdf2(password, fingerprint, iterations):
+        captured["password"] = password
+        captured["fingerprint"] = fingerprint
+        captured["iterations"] = iterations
+        return b"derived-pbkdf2-key"
+
+    monkeypatch.setattr("seedpass.core.manager.derive_key_from_password", fake_pbkdf2)
+    key = pm._derive_seed_key("pw", "fp")
+
+    assert key == b"derived-pbkdf2-key"
+    assert captured["iterations"] == ConfigManager.DEFAULT_PBKDF2_ITERATIONS
+
+
+def test_tampered_kdf_wrapper_payload_is_rejected(tmp_path):
+    fp = "profile123"
+    cfg = KdfConfig(
+        name="pbkdf2",
+        params={"iterations": 123_456},
+        salt_b64=base64.b64encode(hashlib.sha256(fp.encode()).digest()[:16]).decode(),
+    )
+    key = derive_key_from_password(TEST_PASSWORD, fp, iterations=123_456)
+    mgr = EncryptionManager(key, tmp_path)
+    mgr.encrypt_parent_seed(TEST_SEED, kdf=cfg)
+
+    seed_file = tmp_path / "parent_seed.enc"
+    wrapper = json.loads(seed_file.read_text())
+    wrapper["ct"] = "!!!not-valid-base64!!!"
+    seed_file.write_text(json.dumps(wrapper))
+
+    wrong_mgr = EncryptionManager(key, tmp_path)
+    with pytest.raises((DecryptionError, LegacyFormatRequiresMigrationError)):
+        wrong_mgr.decrypt_parent_seed()
+
+
+def test_setup_encryption_manager_rejects_wrong_argon2_params(monkeypatch):
+    with TemporaryDirectory() as td:
+        tmp = Path(td)
+        fp = tmp.name
+        cfg = KdfConfig(
+            params={
+                "time_cost": 1,
+                "memory_cost": 64 * 1024,
+                "parallelism": 8,
+            },
+            salt_b64=base64.b64encode(
+                hashlib.sha256(fp.encode()).digest()[:16]
+            ).decode(),
+        )
+        seed_key = derive_key_from_password_argon2(TEST_PASSWORD, cfg)
+        EncryptionManager(seed_key, tmp).encrypt_parent_seed(TEST_SEED, kdf=cfg)
+
+        index_key = derive_index_key(TEST_SEED)
+        enc_mgr = EncryptionManager(index_key, tmp)
+        vault = Vault(enc_mgr, tmp)
+        cfg_mgr = ConfigManager(vault, tmp)
+        profile_cfg = cfg_mgr.load_config(require_pin=False)
+        profile_cfg["password_hash"] = bcrypt.hashpw(
+            TEST_PASSWORD.encode(), bcrypt.gensalt()
+        ).decode()
+        profile_cfg["kdf_mode"] = "argon2"
+        profile_cfg["argon2_time_cost"] = 2
+        cfg_mgr.save_config(profile_cfg)
+
+        pm = _make_pm(tmp, cfg_mgr)
+        monkeypatch.setattr(
+            "seedpass.core.manager.prompt_existing_password",
+            lambda *_: TEST_PASSWORD,
+        )
+        monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
+        monkeypatch.setattr(PasswordManager, "initialize_managers", lambda self: None)
+
+        assert not pm.setup_encryption_manager(tmp, exit_on_fail=False)

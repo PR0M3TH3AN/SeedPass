@@ -1,6 +1,6 @@
 # SeedPass Crypto & Key Management Review (Item 2)
 
-Status: `In Progress (P0 partially implemented)`  
+Status: `In Progress (P0 implemented, P1 remaining)`  
 Date: `2026-02-25`
 
 ## Scope Reviewed
@@ -33,8 +33,8 @@ Date: `2026-02-25`
 ## Exit Criteria Check (Item 2)
 
 1. Primitive/parameter review completed: `In Progress`
-2. Nonce/key lifecycle reviewed: `In Progress`
-3. Negative tests for corruption/tampering/wrong key path: `Partially Done`
+2. Nonce/key lifecycle reviewed: `Done`
+3. Negative tests for corruption/tampering/wrong key path: `Done`
 
 ## Findings
 
@@ -47,20 +47,19 @@ Date: `2026-02-25`
 
 ### Gaps / Risks
 
-1. PBKDF2 default is low for 2026 threat levels:
-   - Config default appears to be `50_000` iterations.
-   - Legacy fallbacks include `50_000` and `100_000`.
+1. PBKDF2 default was low for 2026 threat levels:
+   - Remediated: new-profile default raised to `200_000` iterations.
+   - Legacy fallback compatibility remains via `50_000` and `100_000`.
 2. Argon2 config drift:
    - `argon2_time_cost` exists in config, but active unlock code constructs
      `KdfConfig(salt_b64=...)` without reading configured `time_cost`.
    - This can create false confidence that tuning is active.
-3. AES-GCM nonce reuse guard:
-   - Additional guard uses CRC32 of nonce in-memory.
-   - CRC32 collision can create false positives under high operation counts.
-   - Not persisted across restarts, so not a true global nonce registry.
+3. AES-GCM nonce lifecycle policy:
+   - CRC32 in-memory nonce tracking was removed.
+   - Policy now relies on fresh 96-bit random nonces per encryption call.
 4. Optional plaintext export mode:
-   - `encrypt=False` in portable export intentionally permits plaintext backups.
-   - This is a policy risk if used accidentally in production workflows.
+   - `encrypt=False` capability remains intentionally available.
+   - Interactive export now requires explicit warning + second confirmation.
 5. KDF metadata consistency:
    - File wrapper carries `kdf` metadata, but operational seed-unlock
      parameters are partly config-driven and partly hardcoded/defaulted.
@@ -76,20 +75,20 @@ Date: `2026-02-25`
    - Progress: completed in `PasswordManager._derive_seed_key` and wired across
      seed-key callsites; tests added in `src/tests/test_kdf_modes.py`.
 2. Raise PBKDF2 default for new profiles:
-   - Choose a higher baseline and keep backward compatibility via fallback.
+   - Progress: completed with default baseline `200_000`.
 3. Add explicit warnings for plaintext export mode:
-   - Keep capability, but require clear confirmation and warning text.
+   - Progress: completed in `PasswordManager.handle_export_database`.
 
 ### P1
 
-1. Replace CRC32 nonce tracking with deterministic monotonic counter mode for
-   backup/index encryption or remove CRC guard and rely on 96-bit randomness.
+1. Decide nonce lifecycle strategy:
+   - Completed by removing CRC guard and relying on 96-bit randomness.
 2. Define a single profile KDF policy object:
    - Algorithm + parameters + migration behavior in one place.
 3. Expand negative tests to include:
-   - wrong Argon2 params,
-   - tampered kdf metadata wrapper,
-   - downgraded KDF policy attempts.
+   - Completed in `src/tests/test_kdf_modes.py`.
+   - Coverage includes wrong Argon2 params, tampered KDF wrapper payload, and
+     downgraded KDF policy floor enforcement.
 
 ### P2
 
@@ -101,7 +100,7 @@ Date: `2026-02-25`
 1. Legacy migration and iteration fallback tests exist.
 2. Encryption fuzz and corruption tests exist.
 3. Portable backup corruption/checksum tests exist.
-4. Additional tests needed for active Argon2 parameter usage in unlock paths.
+4. Active Argon2 parameter and KDF downgrade/tamper negatives are now covered.
 
 ## Proposed Completion Criteria for Item 2
 

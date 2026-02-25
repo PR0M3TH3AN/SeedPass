@@ -153,7 +153,7 @@ def agent_init(
         help="Switch to existing profile if the seed fingerprint already exists",
     ),
     kdf_iterations: int = typer.Option(
-        100_000, "--kdf-iterations", help="PBKDF2 iterations for profile setup"
+        200_000, "--kdf-iterations", help="PBKDF2 iterations for profile setup"
     ),
     print_seed: bool = typer.Option(
         False, "--print-seed", help="Include generated seed in JSON output"

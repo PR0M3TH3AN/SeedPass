@@ -25,6 +25,8 @@ class ConfigManager:
     """Manage per-profile configuration encrypted on disk."""
 
     CONFIG_FILENAME = "seedpass_config.json.enc"
+    DEFAULT_PBKDF2_ITERATIONS = 200_000
+    LEGACY_PBKDF2_ITERATION_FALLBACKS = (50_000, 100_000)
 
     def __init__(self, vault: Vault, fingerprint_dir: Path):
         self.vault = vault
@@ -48,7 +50,7 @@ class ConfigManager:
                 "pin_hash": "",
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
-                "kdf_iterations": 50_000,
+                "kdf_iterations": self.DEFAULT_PBKDF2_ITERATIONS,
                 "kdf_mode": "pbkdf2",
                 "argon2_time_cost": 2,
                 "additional_backup_path": "",
@@ -78,7 +80,7 @@ class ConfigManager:
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
-            data.setdefault("kdf_iterations", 50_000)
+            data.setdefault("kdf_iterations", self.DEFAULT_PBKDF2_ITERATIONS)
             data.setdefault("kdf_mode", "pbkdf2")
             data.setdefault("argon2_time_cost", 2)
             data.setdefault("additional_backup_path", "")
@@ -186,7 +188,7 @@ class ConfigManager:
     def get_kdf_iterations(self) -> int:
         """Retrieve the PBKDF2 iteration count."""
         config = self.load_config(require_pin=False)
-        return int(config.get("kdf_iterations", 50_000))
+        return int(config.get("kdf_iterations", self.DEFAULT_PBKDF2_ITERATIONS))
 
     def set_kdf_mode(self, mode: str) -> None:
         """Persist the key derivation function mode."""

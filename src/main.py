@@ -642,11 +642,11 @@ def handle_set_kdf_iterations(password_manager: PasswordManager) -> None:
         print(colored("Configuration manager unavailable.", "red"))
         return
     levels = [
-        ("1", "Very Fast", 10_000),
-        ("2", "Fast", 50_000),
-        ("3", "Balanced", 100_000),
-        ("4", "Slow", 200_000),
-        ("5", "Paranoid", 500_000),
+        ("1", "Baseline", 200_000),
+        ("2", "Balanced", 300_000),
+        ("3", "Strong", 500_000),
+        ("4", "Very Strong", 800_000),
+        ("5", "Hardened", 1_000_000),
     ]
     try:
         current = cfg_mgr.get_kdf_iterations()

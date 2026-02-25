@@ -358,9 +358,17 @@ class PasswordManager:
         return "pbkdf2"
 
     def _get_kdf_iterations(self) -> int:
+        floor = getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
         if getattr(self, "config_manager", None):
-            return self.config_manager.get_kdf_iterations()
-        return 50_000
+            configured = int(self.config_manager.get_kdf_iterations())
+            if configured < floor:
+                logger.warning(
+                    "Configured PBKDF2 iterations (%s) is below policy floor (%s); using floor.",
+                    configured,
+                    floor,
+                )
+            return max(configured, floor)
+        return floor
 
     def _get_argon2_time_cost(self) -> int:
         if getattr(self, "config_manager", None):
@@ -396,6 +404,37 @@ class PasswordManager:
             iterations if iterations is not None else self._get_kdf_iterations()
         )
         return derive_key_from_password(password, fingerprint, iterations=iter_count)
+
+    def _build_seed_kdf_config(
+        self,
+        fingerprint: str,
+        *,
+        mode: str | None = None,
+        iterations: int | None = None,
+    ) -> KdfConfig:
+        """Return the metadata block describing seed-key derivation policy."""
+
+        chosen_mode = mode or self._get_kdf_mode()
+        salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
+        salt_b64 = base64.b64encode(salt).decode()
+        if chosen_mode == "argon2":
+            return KdfConfig(
+                name="argon2id",
+                params={
+                    "time_cost": self._get_argon2_time_cost(),
+                    "memory_cost": 64 * 1024,
+                    "parallelism": 8,
+                },
+                salt_b64=salt_b64,
+            )
+        iter_count = (
+            int(iterations) if iterations is not None else self._get_kdf_iterations()
+        )
+        return KdfConfig(
+            name="pbkdf2",
+            params={"iterations": iter_count},
+            salt_b64=salt_b64,
+        )
 
     def ensure_key_hierarchy(self) -> None:
         """Ensure sub-keys are derived from the current parent seed."""
@@ -766,14 +805,20 @@ class PasswordManager:
                 iterations = (
                     self.config_manager.get_kdf_iterations()
                     if getattr(self, "config_manager", None)
-                    else 50_000
+                    else getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
                 )
                 print("Deriving key...")
                 salt_fp = fingerprint_dir.name
 
                 iter_candidates: list[int] = [iterations]
                 if mode != "argon2":
-                    iter_candidates.extend([50_000, 100_000])
+                    iter_candidates.extend(
+                        getattr(
+                            ConfigManager,
+                            "LEGACY_PBKDF2_ITERATION_FALLBACKS",
+                            (50_000, 100_000),
+                        )
+                    )
 
                 seed_mgr: EncryptionManager | None = None
                 for iter_try in dict.fromkeys(iter_candidates):
@@ -854,7 +899,7 @@ class PasswordManager:
             iterations = (
                 self.config_manager.get_kdf_iterations()
                 if getattr(self, "config_manager", None)
-                else 50_000
+                else getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
             )
             salt_fp = fingerprint_dir.name
             seed_key = self._derive_seed_key(
@@ -1167,7 +1212,10 @@ class PasswordManager:
                     fingerprint_dir=fingerprint_dir,
                 )
 
-                seed_mgr.encrypt_parent_seed(parent_seed)
+                seed_mgr.encrypt_parent_seed(
+                    parent_seed,
+                    kdf=self._build_seed_kdf_config(fingerprint),
+                )
                 logging.info("Parent seed encrypted and saved successfully.")
 
                 self.store_hashed_password(password)
@@ -1364,7 +1412,13 @@ class PasswordManager:
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
-            seed_mgr.encrypt_parent_seed(seed)
+            seed_mgr.encrypt_parent_seed(
+                seed,
+                kdf=self._build_seed_kdf_config(
+                    fingerprint_dir.name,
+                    mode=self._get_kdf_mode(),
+                ),
+            )
             logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
@@ -4212,10 +4266,28 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
-            if encrypt is None:
-                encrypt = not confirm_action(
-                    "Export database without encryption? (Y/N): "
+            if encrypt is False:
+                logger.warning("Exporting database in plaintext mode")
+                self.notify(
+                    "Warning: plaintext export selected; protect and delete the file quickly.",
+                    level="WARNING",
                 )
+            if encrypt is None:
+                if confirm_action("Export database without encryption? (Y/N): "):
+                    print(
+                        colored(
+                            "Warning: plaintext export contains all secrets in clear text.",
+                            "red",
+                        )
+                    )
+                    if not confirm_action(
+                        "Confirm plaintext export (high risk). Continue? (Y/N): "
+                    ):
+                        print(colored("Export cancelled.", "yellow"))
+                        return None
+                    encrypt = False
+                else:
+                    encrypt = True
             path = export_backup(
                 self.vault,
                 self.backup_manager,
@@ -4226,7 +4298,13 @@ class PasswordManager:
             print(colored(f"Database exported to '{path}'.", "green"))
             audit_logger = getattr(self, "audit_logger", None)
             if audit_logger and path is not None:
-                audit_logger.log("backup_export", {"path": str(path)})
+                audit_logger.log(
+                    "backup_export",
+                    {
+                        "path": str(path),
+                        "encryption_mode": "encrypted" if encrypt else "none",
+                    },
+                )
             return path
         except Exception as e:
             logging.error(f"Failed to export database: {e}", exc_info=True)
@@ -4301,7 +4379,10 @@ class PasswordManager:
                 password = prompt_new_password()
                 seed_key = self._derive_seed_key(password, self.current_fingerprint)
                 seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
-                seed_mgr.encrypt_parent_seed(self.parent_seed)
+                seed_mgr.encrypt_parent_seed(
+                    self.parent_seed,
+                    kdf=self._build_seed_kdf_config(self.current_fingerprint),
+                )
                 self.store_hashed_password(password)
             except Exception as e:
                 logging.error(
@@ -4603,7 +4684,10 @@ class PasswordManager:
 
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            seed_mgr.encrypt_parent_seed(self.parent_seed)
+            seed_mgr.encrypt_parent_seed(
+                self.parent_seed,
+                kdf=self._build_seed_kdf_config(self.current_fingerprint),
+            )
             self.vault.set_encryption_manager(new_enc_mgr)
             self.vault.save_index(index_data)
             self.config_manager.vault = self.vault

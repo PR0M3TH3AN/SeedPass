@@ -15,7 +15,7 @@ Each context string keeps derived keys domain separated.
 ## KDF Parameters
 
 Passwords are protected with **PBKDF2-HMAC-SHA256**. The default work factor is
-**50,000 iterations** but may be adjusted via the settings slider. The config
+**200,000 iterations** but may be adjusted via the settings slider. The config
 stores a `KdfConfig` structure with the chosen iteration count, algorithm name,
 and the current spec version (`CURRENT_KDF_VERSION = 1`). Argon2 is available
 with a default `time_cost` of 2 when selected.

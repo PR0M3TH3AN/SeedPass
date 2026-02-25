@@ -16,7 +16,6 @@ except Exception:  # pragma: no cover - fallback for environments without orjson
 import hashlib
 import os
 import base64
-import zlib
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional, Tuple
@@ -93,21 +92,14 @@ class EncryptionManager:
         # Track user preference for handling legacy indexes
         self._legacy_migrate_flag = True
         self.last_migration_performed = False
-        # Track nonces to detect accidental reuse
-        self.nonce_crc_table: set[int] = set()
 
     def encrypt_data(self, data: bytes) -> bytes:
         """
         Encrypt data using AES-GCM, emitting ``b"V3|" + nonce + ciphertext + tag``.
-        A fresh 96-bit nonce is generated for each call and tracked via a CRC
-        table to detect accidental reuse during batch operations.
+        A fresh 96-bit nonce is generated for each call.
         """
         try:
             nonce = os.urandom(12)  # 96-bit nonce is recommended for AES-GCM
-            crc = zlib.crc32(nonce)
-            if crc in self.nonce_crc_table:
-                raise ValueError("Nonce reuse detected")
-            self.nonce_crc_table.add(crc)
             ciphertext = self.cipher.encrypt(nonce, data, None)
             return b"V3|" + nonce + ciphertext
         except Exception as e:

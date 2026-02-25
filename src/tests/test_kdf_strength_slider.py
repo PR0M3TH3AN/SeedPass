@@ -16,4 +16,4 @@ def test_kdf_strength_slider_persists(monkeypatch):
         inputs = iter(["3"])
         monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
         handle_set_kdf_iterations(pm)
-        assert cfg_mgr.get_kdf_iterations() == 100_000
+        assert cfg_mgr.get_kdf_iterations() == 500_000
