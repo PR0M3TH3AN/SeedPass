@@ -85,7 +85,9 @@ def _load_policy(*, strict: bool = False) -> dict:
             raise ValueError(
                 f"agent policy has invalid deny_private_reveal entries: {invalid}"
             )
-        policy["deny_private_reveal"] = [v for v in deny_private if v in ALL_ENTRY_TYPES]
+        policy["deny_private_reveal"] = [
+            v for v in deny_private if v in ALL_ENTRY_TYPES
+        ]
     if isinstance(data.get("allow_export_import"), bool):
         policy["allow_export_import"] = data["allow_export_import"]
     return policy
