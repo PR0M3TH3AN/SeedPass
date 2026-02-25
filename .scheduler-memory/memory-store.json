@@ -17,8 +17,59 @@
       "importance": 0.4,
       "embedding_id": null,
       "created_at": 1772044819690,
-      "last_seen": 1772044819697,
+      "last_seen": 1772047278177,
       "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "644bed42-dcdd-4c86-ab52-6d964177bb12",
+    {
+      "schema_version": 1,
+      "id": "644bed42-dcdd-4c86-ab52-6d964177bb12",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2f72or",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772047278171,
+      "last_seen": 1772047278177,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "2e300fa4-b831-4cc7-b09b-8d4556fbe1d9",
+    {
+      "schema_version": 1,
+      "id": "2e300fa4-b831-4cc7-b09b-8d4556fbe1d9",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2f8599",
+      "type": "batch_window",
+      "content": "### 1. [2026-02-25] (torch, init, reinstall)\nIf `npx --no-install torch-lock init --help` prints initialization prompts, it may be interactive; use `printf '\\n' | npx --no-install torch-lock init --force` to accept defaults non-interactively in CI/agent runs.\n\n### 2. [2026-02-25] (torch, config, verification)\nAfter reinstalling TORCH from the GitHub tarball, run `npx --no-install torch-lock check --cadence daily` to confirm the refreshed `torch-config.json` namespace and relay settings are valid.",
+      "summary": "### 1. [2026-02-25] (torch, init, reinstall)\nIf `npx --no-install torch-lock init --help` prints initialization prompts, it may be interactive; use `printf '\\n' | npx --no-install torch-lock init --force` to accept defaults non-interactively in CI/agent runs.\n\n### 2. [2026-02-25…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772047328158,
+      "last_seen": 1772047328158,
+      "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
       "pinned": false
