@@ -27,7 +27,7 @@ jobs:
             mode: tui
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload installer smoke logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-smoke-logs-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}-pr
           path: artifacts/installer-smoke/*.log
@@ -93,7 +93,7 @@ jobs:
             mode: both
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload installer smoke logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-smoke-logs-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}-full
           path: artifacts/installer-smoke/*.log

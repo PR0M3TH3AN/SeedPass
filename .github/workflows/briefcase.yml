@@ -23,7 +23,7 @@ jobs:
       - name: Build with Briefcase
         run: briefcase build
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: seedpass-gui
           path: dist/**

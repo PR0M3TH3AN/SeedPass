@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'schedule'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Run gitleaks
@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: echo "${{ steps.msys.outputs.msys2-location }}/mingw64/bin" >> $GITHUB_PATH
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.lock') }}
@@ -106,18 +106,18 @@ jobs:
         run: scripts/run_gui_tests.sh
       - name: Upload pytest log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-log-${{ matrix.os }}
           path: pytest.log
       - name: Upload GUI pytest log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gui-pytest-log-${{ matrix.os }}
           path: pytest_gui.log
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-xml-${{ matrix.os }}
           path: coverage.xml
