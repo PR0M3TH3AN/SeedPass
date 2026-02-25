@@ -15,7 +15,7 @@ def validate_totp_secret(secret: str) -> bool:
     try:
         pyotp.TOTP(secret).at(0)
         return True
-    except Exception as e:  # pragma: no cover - pyotp errors vary
+    except Exception as e:
         logger.debug(f"Invalid TOTP secret: {e}")
         return False
 
@@ -33,7 +33,7 @@ def validate_ssh_key_pair(priv_pem: str, pub_pem: str) -> bool:
             .decode()
         )
         return derived == pub_pem
-    except Exception as e:  # pragma: no cover - serialization errors vary
+    except Exception as e:
         logger.debug(f"SSH key validation failed: {e}")
         return False
 
@@ -43,7 +43,7 @@ def validate_pgp_private_key(priv_key: str, fingerprint: str) -> bool:
     try:
         key, _ = PGPKey.from_blob(priv_key)
         return key.fingerprint == fingerprint
-    except Exception as e:  # pragma: no cover - pgpy errors vary
+    except Exception as e:
         logger.debug(f"PGP key validation failed: {e}")
         return False
 
@@ -55,7 +55,7 @@ def validate_nostr_keys(npub: str, nsec: str) -> bool:
         derived = Keys(priv_k=priv_hex)
         encoded = Keys.hex_to_bech32(derived.public_key_hex(), "npub")
         return encoded == npub
-    except Exception as e:  # pragma: no cover - nostr errors vary
+    except Exception as e:
         logger.debug(f"Nostr key validation failed: {e}")
         return False
 
@@ -64,6 +64,6 @@ def validate_seed_phrase(mnemonic: str) -> bool:
     """Return True if ``mnemonic`` is a valid BIP-39 seed phrase."""
     try:
         return Mnemonic("english").check(mnemonic)
-    except Exception as e:  # pragma: no cover - mnemonic errors vary
+    except Exception as e:
         logger.debug(f"Seed phrase validation failed: {e}")
         return False

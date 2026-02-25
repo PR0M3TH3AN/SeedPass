@@ -1,0 +1,243 @@
+/* docs.css - Specific styles for the documentation viewer */
+
+.docs-wrapper {
+    max-width: 1200px;
+    /* Wider for docs */
+}
+
+/* Base Layout */
+.docs-layout {
+    display: flex;
+    flex-direction: row;
+    padding: 20px;
+    gap: 20px;
+    min-height: 70vh;
+}
+
+@media (max-width: 850px) {
+    .docs-layout {
+        flex-direction: column;
+    }
+}
+
+/* Sidebar Navigation */
+.docs-sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    border-right: 1px dotted var(--border-color);
+    padding-right: 20px;
+    padding-bottom: 20px;
+}
+
+@media (max-width: 850px) {
+    .docs-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px dotted var(--border-color);
+    }
+}
+
+.sidebar-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: var(--text-bright);
+    letter-spacing: 1px;
+    padding-bottom: 8px;
+    border-bottom: 1px dotted var(--border-color);
+}
+
+.docs-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.docs-nav-list a {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 5px 8px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    border-left: 2px solid transparent;
+}
+
+.docs-nav-list a:hover {
+    color: var(--text-bright);
+    background: rgba(14, 165, 233, 0.05);
+    /* very light blue hover */
+    border-left-color: var(--accent-secondary);
+}
+
+.docs-nav-list a.active {
+    color: var(--text-primary);
+    font-weight: bold;
+    background: rgba(14, 165, 233, 0.1);
+    border-left-color: var(--accent-primary);
+}
+
+/* Document Content Area */
+.docs-content {
+    flex-grow: 1;
+    margin-bottom: 0;
+    padding-left: 10px;
+    padding-right: 10px;
+    overflow-x: hidden;
+}
+
+/* Loaders / States */
+.loading-state,
+.error-state {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.error-state {
+    color: var(--accent-danger);
+    border: 1px dashed var(--accent-danger);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+/* Markdown Rendering Styles */
+.markdown-body {
+    line-height: 1.7;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    color: var(--text-bright);
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+}
+
+.markdown-body h1 {
+    font-size: 2rem;
+    border-bottom: 1px dotted var(--border-color);
+    padding-bottom: 0.3em;
+    color: var(--accent-primary);
+    margin-top: 0;
+}
+
+.markdown-body h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px dotted var(--border-color);
+    padding-bottom: 0.3em;
+}
+
+.markdown-body h3 {
+    font-size: 1.25rem;
+}
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol {
+    margin-bottom: 1.2em;
+}
+
+.markdown-body a {
+    color: var(--accent-secondary);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+}
+
+.markdown-body a:hover {
+    color: var(--accent-primary);
+    text-decoration-style: solid;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 2em;
+}
+
+.markdown-body li {
+    margin-bottom: 0.5em;
+}
+
+.markdown-body blockquote {
+    margin: 0 0 1.2em 0;
+    padding: 10px 20px;
+    color: var(--text-muted);
+    border-left: 4px solid var(--accent-secondary);
+    background: #0b0f13;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Override default highlight.js to match our theme */
+.markdown-body pre {
+    background: #0b0f13 !important;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    overflow-x: auto;
+    margin-bottom: 1.2em;
+}
+
+.markdown-body pre code {
+    background: transparent !important;
+    padding: 0;
+    font-size: 0.9rem;
+    font-family: var(--font-mono);
+    color: var(--text-bright);
+}
+
+/* Inline code blocks */
+.markdown-body :not(pre)>code {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: var(--accent-secondary);
+    border: 1px solid var(--border-highlight);
+}
+
+/* Tables */
+.markdown-body table {
+    width: 100%;
+    margin-bottom: 1.5em;
+    border-collapse: collapse;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+    padding: 10px 15px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.markdown-body table th {
+    background: rgba(14, 165, 233, 0.05);
+    color: var(--text-bright);
+    font-weight: bold;
+}
+
+/* Horizontal Rule */
+.markdown-body hr {
+    height: 1px;
+    border: none;
+    background: var(--border-color);
+    margin: 2em 0;
+}
+
+/* Images */
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}

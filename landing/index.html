@@ -1,260 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <!-- Meta Tags and Title -->
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>SeedPass - Secure Password Manager</title>
-        <!-- Stylesheets -->
-        <link rel="stylesheet" href="./style.css"> 
-        <!-- Relative path to style.css -->
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-        <!-- Font Awesome for Icons -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"/>
-    </head>
-    <body>
-        <!-- Dark Mode Toggle -->
-        <div class="dark-mode-toggle">
-            <input type="checkbox" id="dark-mode-checkbox" aria-label="Toggle Dark Mode">
-            <label for="dark-mode-checkbox">
-                <i class="fas fa-moon" aria-hidden="true"></i>
-                <i class="fas fa-sun" aria-hidden="true"></i>
-                <span class="toggle-ball"></span>
-            </label>
-        </div>
-        <!-- Header and Navigation -->
-        <header>
-            <nav class="navbar" role="navigation" aria-label="Main Navigation">
-                <div class="container">
-                    <a href="#intro" class="logo-link"> <img src="https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/logo/png/SeedPass-Logo-05.png" alt="SeedPass Logo" class="logo"> </a>
-                    <!-- Hamburger Menu Toggle -->
-                    <button class="menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <ul class="nav-links" role="menubar">
-                        <li role="none"><a href="#intro" role="menuitem">Home</a>
-                        </li>
-                        <li role="none"><a href="#features" role="menuitem">Features</a>
-                        </li>
-                        <li role="none"><a href="#how-it-works" role="menuitem">How It Works</a>
-                        </li>
-                        <li role="none"><a href="#disclaimer" role="menuitem">Disclaimer</a>
-                        </li>
-                        <li role="none"><a href="https://docs.seedpass.me/" role="menuitem">Docs</a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-        </header>
-        <!-- Main Content -->
-        <main>
-            <!-- Intro Section -->
-            <section class="intro" id="intro" aria-labelledby="intro-heading">
-                <div class="container">
-                    <h1 id="intro-heading">One Seed to Rule Them All</h1>
-                    <p>SeedPass deterministically derives every key and password from a single 12‑word phrase.</p>
-                    <pre class="mermaid mini-chart">
----
-config:
-  theme: base
-  themeVariables:
-    primaryColor: '#e94a39'
-    primaryBorderColor: '#e94a39'
-    lineColor: '#e94a39'
-  look: classic
----
-flowchart TB
-    seed["alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima"]
-    seed --> pw["🔑 Passwords"]
-    seed --> totp["📱 2FA Codes"]
-    seed --> ssh["🖧 SSH Keys"]
-    seed --> pgp["🔒 PGP Key"]
-    seed --> mn["🌱 Seed Phrase"]
-    seed --> nostr["⚡ Nostr Keys"]
-    seed --> kv["🔑 Key/Value"]
-    seed --> ma["👥 Managed Account"]
-    classDef default fill:#ffffff,stroke:#e94a39,stroke-width:2px,color:#283c4f;
-                    </pre>
-                    <a href="https://github.com/PR0M3TH3AN/SeedPass" class="btn-primary cta-button"><i class="fas fa-download" aria-hidden="true"></i> Get Started</a>
-                </div>
-        </section>
-        <!-- Architecture Section -->
-        <section class="flow-chart" id="architecture" aria-labelledby="architecture-heading">
-            <div class="container">
-                <h2 class="section-title" id="architecture-heading">Architecture Overview</h2>
-                <pre class="mermaid">
----
-config:
-  layout: fixed
-  theme: base
-  themeVariables:
-    primaryColor: '#e94a39'
-    primaryBorderColor: '#e94a39'
-    lineColor: '#e94a39'
-  look: classic
----
-graph TD
-    core(seedpass.core)
-    cli(CLI/TUI)
-    gui(BeeWare GUI)
-    ext(Browser extension)
-    cli --> core
-    gui --> core
-    ext --> core
-                </pre>
-                <pre class="mermaid">
----
-config:
-  layout: fixed
-  theme: base
-  themeVariables:
-    primaryColor: '#e94a39'
-    primaryBorderColor: '#e94a39'
-    primaryTextColor: '#ffffff'
-    lineColor: '#e94a39'
-  look: classic
----
-flowchart TD
- subgraph subGraph0["Local Storage"]
-    direction TB
-        V["Vault<br>(password_manager.Vault)<br>• encrypted index<br>• config"]
-  end
- subgraph subGraph1["Backup Pipeline"]
-    direction TB
-        BK1["Timestamped Backups<br>(BackupManager)"]
-        BK2["Portable Backup<br>(portable_backup.py)<br>.json.enc"]
-        BK3["Nostr Snapshot<br>(nostr.client)<br>gzip chunks"]
-  end
- subgraph Restore["Restore"]
-    direction TB
-        R1["Local Backup File"]
-        R2["Nostr Snapshot"]
-        R3["Portable Backup"]
-        R4["Vault Restore<br>(Vault / BackupManager)"]
-  end
-    A["Parent Seed<br>(BIP-39 Mnemonic)"] --> B["Seed Bytes<br>(BIP-39 → 512-bit)"]
-    B --> C["BIP-85 Derivation<br>(local_bip85.BIP85)"]
-    C --> D1["Password Entropy<br>(password_generation)"] & D2["TOTP Secret<br>(utils.key_derivation.derive_totp_secret)"] & D3["SSH Key Entropy<br>(password_generation.derive_ssh_key)"] & D4["PGP Key Entropy<br>(entry_management.add_pgp_key)"] & D5["Child Mnemonic<br>(BIP-85 derive_mnemonic)"] & D6["Nostr Key Entropy<br>(nostr.KeyManager)"] & D7["Key/Value Data<br>(entry_management.add_key_value)"] & D8["Managed Account Seed<br>(entry_management.add_managed_account)"]
-    D1 --> E1["Passwords"]
-    D2 --> E2["2FA Codes"]
-    D3 --> E3["SSH Key Pair"]
-    D4 --> E4["PGP Key"]
-    D5 --> E5["Seed Phrase"]
-    D6 --> E6["Nostr Keys<br>(npub / nsec)"]
-    D7 --> E7["Key/Value"]
-    D8 --> E8["Managed Account"]
-    E1 --> V
-    E2 --> V
-    E3 --> V
-    E4 --> V
-    E5 --> V
-    E6 --> V
-    V --> BK1 & BK2 & BK3
-    R1 --> R4
-    R2 --> R4
-    R3 --> R4
-    R4 --> V
-    A -. "Same seed ⇒ re-derive any artifact on demand" .- E1
-    A -.-> E2 & E3 & E4 & E5 & E6 & E7 & E8
-                </pre>
-            </div>
-        </section>
-        <!-- Features Section -->
-            <section class="features" id="features" aria-labelledby="features-heading">
-                <div class="container">
-                    <h2 class="section-title" id="features-heading">Features</h2>
-                    <ul>
-                        <li><i class="fas fa-key" aria-hidden="true"></i> Deterministic password generation using BIP-85</li>
-                        <li><i class="fas fa-lock" aria-hidden="true"></i> Encrypted local storage for seeds and sensitive data</li>
-                        <li><i class="fas fa-network-wired" aria-hidden="true"></i> Nostr relay integration with parameterised replaceable events for chunked snapshots and deltas</li>
-                        <li><i class="fas fa-exchange-alt" aria-hidden="true"></i> Seed/Fingerprint switching for managing multiple profiles</li>
-                        <li><i class="fas fa-check" aria-hidden="true"></i> Checksum verification to ensure script integrity</li>
-                        <li><i class="fas fa-terminal" aria-hidden="true"></i> Interactive TUI for managing entries and settings</li>
-                        <li><i class="fas fa-shield-alt" aria-hidden="true"></i> Issue or import TOTP secrets for 2FA</li>
-                        <li><i class="fas fa-key" aria-hidden="true"></i> Store arbitrary secrets as key/value pairs</li>
-                        <li><i class="fas fa-file-export" aria-hidden="true"></i> Export your 2FA codes to an encrypted file</li>
-                        <li><i class="fas fa-folder-open" aria-hidden="true"></i> Optional external backup location</li>
-                        <li><i class="fas fa-lock" aria-hidden="true"></i> Auto-lock after inactivity</li>
-                        <li><i class="fas fa-users-cog" aria-hidden="true"></i> Derive nested managed account seeds</li>
-                        <li><i class="fas fa-user-secret" aria-hidden="true"></i> Secret Mode copies passwords to your clipboard</li>
-                        <li><i class="fas fa-tags" aria-hidden="true"></i> Group entries using tags for easy cross-type search</li>
-                    </ul>
-                </div>
-            </section>
-            <!-- How It Works Section -->
-            <section class="how-it-works" id="how-it-works" aria-labelledby="how-it-works-heading">
-                <div class="container">
-                    <h2 class="section-title" id="how-it-works-heading">How SeedPass Works</h2>
-                    <p>SeedPass uses Bitcoin's BIP-85 standard for deterministic password generation. This means your passwords are not stored but can be regenerated using your master seed and specific indices.</p>
-                    <h3 class="subsection-title">BIP-85 Derivation Tree</h3>
-                    <p>The BIP-85 standard allows you to derive multiple child seeds from a single master seed. Each child seed can then be used to generate secure passwords. Here's a simplified illustration:</p>
-                    <pre class="directory-tree">
-<span class="parent" data-tooltip="This is your master seed" tabindex="0">Master_Seed</span>
-├── <span class="child" data-tooltip="Derived seed at index 0" tabindex="0">Child_Seed_0</span>
-│   └── <span class="grandchild" data-tooltip="Password for Service A" tabindex="0">Password_A</span>
-├── <span class="child" data-tooltip="Derived seed at index 1" tabindex="0">Child_Seed_1</span>
-│   └── <span class="grandchild" data-tooltip="Password for Service B" tabindex="0">Password_B</span>
-├── <span class="child" data-tooltip="Derived seed at index 2" tabindex="0">Child_Seed_2</span>
-│   └── <span class="grandchild" data-tooltip="Password for Service C" tabindex="0">Password_C</span>
-└── <span class="child" data-tooltip="...and so on" tabindex="0">...</span>
-                </pre>
-                    <h3 class="subsection-title">Seed/Fingerprint Switching</h3>
-                    <p>SeedPass allows you to manage multiple seed profiles (fingerprints). You can switch between different seeds to compartmentalize your passwords.</p>
-                    <h3 class="subsection-title">Nostr Relay Integration</h3>
-                    <p>SeedPass publishes your encrypted vault to Nostr in 50&#8201;KB chunks using parameterised replaceable events. A manifest describes each snapshot while deltas record updates. When too many deltas accumulate, a new snapshot is rotated in automatically.</p>
-                    <h3 class="subsection-title">Recovery from Nostr</h3>
-                    <p>Restoring a vault on a new device requires both your 12&#8201;word master seed and the master password that encrypted the vault. Without the correct password the downloaded archive cannot be decrypted.</p>
-                    <h3 class="subsection-title">Checksum Verification</h3>
-                    <p>Built-in checksum verification ensures your SeedPass installation hasn't been tampered with.</p>
-                    <h3 class="subsection-title">Interactive TUI</h3>
-                    <p>Navigate through menus to manage entries and settings. Example:</p>
-                    <pre class="code-block">
-Select an option:
-1. Add Entry
-2. Retrieve Entry
-3. Search Entries
-4. List Entries
-5. Modify an Existing Entry
-6. 2FA Codes
-7. Settings
 
-Enter your choice (1-7) or press Enter to exit:
-                    </pre>
-                    <h3 class="subsection-title">Secret Mode</h3>
-                    <p>When Secret Mode is enabled, retrieved passwords are copied directly to your clipboard instead of displayed. The clipboard clears automatically after a delay you set.</p>
-                </div>
-            </section>
-            <!-- Disclaimer Section -->
-            <section class="disclaimer" id="disclaimer" aria-labelledby="disclaimer-heading">
-                <div class="container">
-                    <h2 class="section-title" id="disclaimer-heading">Disclaimer</h2>
-                    <p><strong>⚠️ Disclaimer:</strong> This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Additionally, the security of the program's memory management and logs has not been evaluated and may leak sensitive information.</p>
-                    <p>Loss or exposure of the parent seed places all derived passwords, accounts, and other artifacts at risk.</p>
-                    <p>Snapshot chunks are limited to 50&nbsp;KB and rotated when deltas accumulate.</p>
-                </div>
-            </section>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeedPass - Deterministic Identity & Password Manager</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body class="scanlines">
+    <div id="boot-sequence" class="boot-sequence">
+        <div class="terminal-output" id="boot-text"></div>
+    </div>
+
+    <div class="tui-wrapper" id="main-content" style="display: none;">
+        <!-- Nav -->
+        <nav class="tui-nav">
+            <div class="nav-brand glitched" data-text="SeedPass_">SeedPass_</div>
+            <ul class="nav-links">
+                <li><a href="#intro" class="nav-btn">[ HOME ]</a></li>
+                <li><a href="#features" class="nav-btn">[ FEATURES ]</a></li>
+                <li><a href="#architecture" class="nav-btn">[ ARCHITECTURE ]</a></li>
+                <li><a href="./docs.html" class="nav-btn">[ DOCS ]</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Window -->
+        <main class="tui-window">
+            <div class="tui-window-header">
+                <span class="tui-window-title">root@seedpass: ~/vault</span>
+                <span class="tui-window-controls">_ &square; X</span>
+            </div>
+
+            <div class="tui-window-body">
+                <!-- Intro Section -->
+                <section id="intro" class="ascii-box">
+                    <h1 class="hero-title glitch" data-text="One Seed to Rule Them All>">One Seed to Rule Them All></h1>
+                    <p class="typewriter-text">SeedPass deterministically derives every key and password from a single
+                        12-word phrase.</p>
+
+                    <div class="data-flow">
+                        <div class="data-seed">
+                            <span class="highlight">[ALPHA BRAVO CHARLIE DELTA ECHO FOXTROT GOLF HOTEL INDIA JULIET KILO
+                                LIMA]</span>
+                        </div>
+                        <div class="data-arrows">
+                            <div>│</div>
+                            <div>├─► <i class="fas fa-key"></i> Passwords</div>
+                            <div>├─► <i class="fas fa-mobile-alt"></i> 2FA Codes</div>
+                            <div>├─► <i class="fas fa-network-wired"></i> SSH Keys</div>
+                            <div>├─► <i class="fas fa-lock"></i> PGP Key</div>
+                            <div>├─► <i class="fas fa-bolt"></i> Nostr Keys</div>
+                            <div>└─► <i class="fas fa-users-cog"></i> Managed Accounts</div>
+                        </div>
+                    </div>
+
+                    <div class="install-section">
+                        <span class="comment"># Install SeedPass (stable) - Includes checksum verification</span>
+                        <div class="cmd-prompt">
+                            <span class="prompt-symbol">❯</span>
+                            <code class="install-cmd"
+                                id="install-cmd">curl -sSL http://seedpass.me/install/seedpass-main.sh | bash</code>
+                            <button class="copy-btn" id="copy-btn" aria-label="Copy command">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="copy-feedback" id="copy-feedback"></div>
+                    </div>
+                </section>
+
+                <!-- Features Section -->
+                <section id="features" class="ascii-box mt-2">
+                    <h2 class="section-title"><span class="accent">#</span> System_Features</h2>
+                    <div class="grid-features">
+                        <div class="feature-item">
+                            <i class="fas fa-microchip"></i>
+                            <h3>Deterministic Gen</h3>
+                            <p>BIP-85 deterministic password generation. No server needed.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-database"></i>
+                            <h3>Encrypted Vault</h3>
+                            <p>Local storage for seeds and sensitive data, heavily encrypted.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-satellite-dish"></i>
+                            <h3>Nostr Sync</h3>
+                            <p>Relay integration with chunked snapshots (50KB) & deltas.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-fingerprint"></i>
+                            <h3>Profile Switching</h3>
+                            <p>Manage multiple seed profiles & fingerprints securely.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-terminal"></i>
+                            <h3>Interactive TUI</h3>
+                            <p>A fast, keyboard-first terminal interface for advanced users.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-user-secret"></i>
+                            <h3>Secret Mode</h3>
+                            <p>Copy to clipboard directly, clearing automatically after delay.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Architecture & How It Works Section -->
+                <section id="architecture" class="ascii-box mt-2">
+                    <h2 class="section-title"><span class="accent">#</span> Architecture_Overview</h2>
+                    <p class="muted">// The BIP-85 standard derives multiple child seeds from a single master seed.</p>
+                    <div class="tree-view">
+                        <div class="tree-root"><i class="fas fa-folder-open"></i> Master_Seed</div>
+                        <div class="tree-branch">
+                            <div class="tree-node">├── <i class="fas fa-folder"></i> Child_Seed_0 <span
+                                    class="muted">[Index 0]</span></div>
+                            <div class="tree-leaf">│ └── <i class="fas fa-file-code"></i> Password_A</div>
+                            <div class="tree-node">├── <i class="fas fa-folder"></i> Child_Seed_1 <span
+                                    class="muted">[Index 1]</span></div>
+                            <div class="tree-leaf">│ └── <i class="fas fa-file-code"></i> Password_B</div>
+                            <div class="tree-node">└── <i class="fas fa-folder"></i> Child_Seed_2 <span
+                                    class="muted">[Index 2]</span></div>
+                            <div class="tree-leaf"> └── <i class="fas fa-file-code"></i> Password_C</div>
+                        </div>
+                    </div>
+
+                    <div class="info-blocks">
+                        <div class="info-block">
+                            <h3><span class="accent">&gt;</span> Recovery via Nostr</h3>
+                            <p>Restoring a vault on a new device requires the 12-word master seed and the master
+                                password. Without the correct password the downloaded archive is unreadable.</p>
+                        </div>
+                        <div class="info-block">
+                            <h3><span class="accent">&gt;</span> Security Disclaimer</h3>
+                            <p class="warning">[WARNING] Memory management & logs not formally audited. Loss of parent
+                                seed places all derived passwords at risk.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
         </main>
+
         <!-- Footer -->
-        <footer>
-            <div class="container">
-                <div class="social-media">
-                    <!-- Nostr Link with Inline SVG -->
-                    <a href="https://primal.net/p/npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp" target="_blank" aria-label="Nostr Profile" rel="noopener noreferrer"> <!-- SVG code as before --> <svg class="nostr-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 620" fill="currentColor" aria-labelledby="nostrIconTitle" role="img" tabindex="0">
-                            <title id="nostrIconTitle">Nostr Logo</title>
-                            <path d="M620 270.227V597.655C620 609.968 610.081 619.961 597.859 619.961H332.161C319.938 619.961 310.02 609.968 310.02 597.655V536.678C311.23 461.931 319.079 390.332 335.558 357.759C345.438 338.168 361.722 327.506 380.427 321.802C415.768 311.102 477.779 318.419 504.099 317.16C504.099 317.16 583.605 320.346 583.605 274.987C583.605 238.48 548.07 241.352 548.07 241.352C508.902 242.374 479.068 239.699 459.738 232.028C427.365 219.203 426.272 195.678 426.155 187.81C424.554 96.934 291.549 86.0368 174.359 108.579C46.2354 133.127 175.765 318.143 175.765 565.121V598.088C175.531 610.204 165.807 620 153.702 620H22.1415C9.91874 620 0 610.008 0 597.694V31.3934C0 19.08 9.91874 9.08757 22.1415 9.08757H145.813C158.036 9.08757 167.955 19.08 167.955 31.3934C167.955 49.6866 188.378 59.8756 203.139 49.2145C247.617 17.113 304.709 0 368.595 0C511.714 0 619.922 84.0305 619.922 270.227H620ZM382.419 203.782C382.419 177.424 361.214 156.062 335.051 156.062C308.887 156.062 287.683 177.424 287.683 203.782C287.683 230.14 308.887 251.501 335.051 251.501C361.214 251.501 382.419 230.14 382.419 203.782Z"/>
-                        </svg> </a>
-                    <!-- GitHub Link -->
-                    <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank" aria-label="GitHub Repository" rel="noopener noreferrer"> <i class="fab fa-github"></i> </a>
-                    <!-- Leave a Tip Link -->
-                    <a href="https://nostrtipjar.netlify.app/?n=npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp" target="_blank" aria-label="Leave a Tip" rel="noopener noreferrer">Leave a Tip</a>
-                </div>
-                <p>&copy; 2025 SeedPass</p>
+        <footer class="tui-footer">
+            <div class="status-bar">
+                <span class="status-item"><i class="fas fa-circle-notch fa-spin"></i> SYSTEM: ONLINE</span>
+                <span class="status-item">ENCRYPTION: AES-256-GCM</span>
+                <span class="status-item">v1.2.0</span>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/PR0M3TH3AN/SeedPass" target="_blank"><i class="fab fa-github"></i>
+                    GitHub</a>
+                <span class="separator">|</span>
+                <a href="https://primal.net/p/npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp"
+                    target="_blank"><i class="fas fa-bolt"></i> Nostr</a>
+                <span class="separator">|</span>
+                <a href="https://nostrtipjar.netlify.app/?n=npub16y70nhp56rwzljmr8jhrrzalsx5x495l4whlf8n8zsxww204k8eqrvamnp"
+                    target="_blank"><i class="fas fa-coffee"></i> Tip</a>
             </div>
         </footer>
-        <!-- JavaScript -->
-        <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-        <script>mermaid.initialize({ startOnLoad: true });</script>
-        <script src="./script.js"></script>
-        <!-- Relative path to script.js -->
-    </body>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+
 </html>

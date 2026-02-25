@@ -60,6 +60,16 @@ class MenuHandler:
                         filter_kinds, include_archived=False
                     )
                     if not summaries:
+                        if filter_kinds is None:
+                            print(colored("No active entries found.", "yellow"))
+                        else:
+                            entry_label = filter_kinds[0].replace("_", " ").title()
+                            print(
+                                colored(
+                                    f"No active {entry_label} entries found.",
+                                    "yellow",
+                                )
+                            )
                         break
                     fp, parent_fp, child_fp = pm.header_fingerprint_args
                     clear_header_with_notification(

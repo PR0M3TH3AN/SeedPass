@@ -93,6 +93,19 @@ def test_menu_handler_list_entries(monkeypatch, capsys):
         assert "acct" in out
 
 
+def test_menu_handler_list_entries_shows_empty_message(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        pm = _setup_pm(Path(tmpdir), SimpleNamespace())
+        # Keep only an archived password so active listing is empty.
+        idx = pm.entry_manager.add_entry("example.com", 12)
+        pm.entry_manager.archive_entry(idx)
+        inputs = iter(["1", ""])  # list all, then exit
+        monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
+        pm.menu_handler.handle_list_entries()
+        out = capsys.readouterr().out
+        assert "No active entries found." in out
+
+
 def test_profile_service_switch(monkeypatch):
     class DummyFingerprintManager:
         def __init__(self):

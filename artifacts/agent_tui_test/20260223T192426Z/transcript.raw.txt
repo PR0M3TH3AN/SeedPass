@@ -1,0 +1,128 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: 1
+Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): 3
+Your new BIP-85 seed phrase is:
+brand service usual hurdle rack notable dragon crystal stage pottery galaxy worth
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Y
+Enter a new password: *************
+Confirm your password: *************
+c
+=== Seed Profile Stats ===
+Total entries: 0
+  password: 0
+  totp: 0
+  ssh: 0
+  seed: 0
+  pgp: 0
+  nostr: 0
+  key_value: 0
+  managed_account: 0
+Relays configured: 3
+Backups: 0 (dir: /tmp/seedpass-agent-home-gct9v3zu/.seedpass/B6ED75000E224CC1/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Press Enter to continue.
+
+cSeed Profile: B6ED75000E224CC1 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 99
+Invalid choice. Please select a valid option.
+cSeed Profile: B6ED75000E224CC1 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 9
+Invalid choice.
+cSeed Profile: Main Menu > Add Entry
+
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+Select entry type or press Enter to go back: 
+cSeed Profile: B6ED75000E224CC1 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: B6ED75000E224CC1 > Main Menu > Retrieve Entry
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+Enter the index number of the entry to retrieve: abc
+Error: Index must be a number.
+Press Enter to continue...
+cSeed Profile: B6ED75000E224CC1 > Main Menu
+Only 0 relay(s) responded with your latest event. Consider adding more relays via Settings.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 

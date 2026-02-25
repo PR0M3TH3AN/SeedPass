@@ -1,0 +1,39 @@
+{
+  "timestamp_utc": "20260223T191140Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-uc4te8tp",
+  "duration_sec": 26.946,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Confirm your password:'\nRecent output:\nStartup Options:\r\n1. Continue\r\n2. Restore from backup\r\nSelect an option: 1\r\nInitialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.\r\nChoose an option:\r\n1. Paste in an existing seed in full\r\n2. Enter an existing seed one word at a time\r\n3. Generate a new seed\r\n4. Restore from Nostr\r\n5. Restore from local backup\r\nEnter choice (1/2/3/4/5): 3\r\nYour new BIP-85 seed phrase is:\r\nglove climb common before valley gap firm outside consider farm chest broken\r\nPlease write this down and keep it in a safe place!\r\nDo you want to use this generated seed? (Y/N): Y\r\nEnter a new password: AgentPass123!\r\n",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 25.36855878499773,
+      "detail": "Timed out waiting for pattern: 'Confirm your password:'\nRecent output:\nStartup Options:\r\n1. Continue\r\n2. Restore from backup\r\nSelect an option: 1\r\nInitialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.\r\nChoose an option:\r\n1. Paste in an existing seed in full\r\n2. Enter an existing seed one word at a time\r\n3. Generate a new seed\r\n4. Restore from Nostr\r\n5. Restore from local backup\r\nEnter choice (1/2/3/4/5): 3\r\nYour new BIP-85 seed phrase is:\r\nglove climb common before valley gap firm outside consider farm chest broken\r\nPlease write this down and keep it in a safe place!\r\nDo you want to use this generated seed? (Y/N): Y\r\nEnter a new password: AgentPass123!\r\n"
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": false,
+    "main_menu": false,
+    "add_password_quick": false,
+    "invalid_length_validation": false,
+    "retrieve_entry": false,
+    "search_entries": false,
+    "list_entries": false,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_empty_state": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191140Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191140Z/transcript.raw.txt"
+}

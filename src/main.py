@@ -316,10 +316,9 @@ def handle_display_npub(password_manager: PasswordManager):
 def _display_live_stats(
     password_manager: PasswordManager, interval: float = 1.0
 ) -> None:
-    """Continuously refresh stats until the user presses Enter.
+    """Display stats and wait for the user to continue.
 
-    Each refresh also triggers a background sync so the latest stats are
-    displayed if newer data exists on Nostr.
+    A background sync runs before rendering so the latest stats are shown.
     """
 
     stats_mgr = getattr(password_manager, "stats_manager", None)
@@ -346,54 +345,17 @@ def _display_live_stats(
             stats_mgr.reset()
         return
 
-    # Flush any pending input so an accidental newline doesn't exit immediately
-    try:  # pragma: no cover - depends on platform
-        import termios
-
-        termios.tcflush(sys.stdin, termios.TCIFLUSH)
-    except Exception:
-        try:  # pragma: no cover - Windows fallback
-            import msvcrt
-
-            while msvcrt.kbhit():
-                msvcrt.getwch()
-        except Exception:
-            pass
-
-    while True:
-        # Break out immediately if the user has already pressed Enter
-        try:  # pragma: no cover - non-interactive environments
-            import select
-
-            ready, _, _ = select.select([sys.stdin], [], [], 0)
-            if ready:
-                line = sys.stdin.readline().strip()
-                if line == "" or line.lower() == "b":
-                    break
-        except Exception:
-            pass
-
-        if callable(sync_fn):
-            try:
-                sync_fn()
-            except Exception:  # pragma: no cover - sync best effort
-                logging.debug("Background sync failed during stats display")
-        clear_screen()
-        display_fn()
-        note = get_notification_text(password_manager)
-        if note:
-            print(note)
-        print(colored("Press Enter to continue.", "cyan"))
-        sys.stdout.flush()
-        try:
-            user_input = timed_input("", interval)
-            if user_input.strip() == "" or user_input.strip().lower() == "b":
-                break
-        except TimeoutError:
-            pass
-        except KeyboardInterrupt:
-            print()
-            break
+    clear_screen()
+    display_fn()
+    note = get_notification_text(password_manager)
+    if note:
+        print(note)
+    print(colored("Press Enter to continue.", "cyan"))
+    sys.stdout.flush()
+    try:
+        timed_input("", None)
+    except KeyboardInterrupt:
+        print()
     if stats_mgr is not None:
         stats_mgr.reset()
 
@@ -1250,17 +1212,6 @@ def display_menu(
         elif choice == "2":
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
-            fp, parent_fp, child_fp = getattr(
-                password_manager,
-                "header_fingerprint_args",
-                (getattr(password_manager, "current_fingerprint", None), None, None),
-            )
-            clear_header_with_notification(
-                fp,
-                "Main Menu",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
         elif choice == "3":
             password_manager.update_activity()
             password_manager.handle_search_entries()

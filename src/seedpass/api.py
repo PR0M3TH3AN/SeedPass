@@ -7,22 +7,18 @@ import tempfile
 from pathlib import Path
 import secrets
 import queue
+import time
+from collections import defaultdict, deque
 from typing import Any, List, Optional
+import hashlib
 
 import logging
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
-from fastapi.concurrency import run_in_threadpool
 import asyncio
 import sys
-from fastapi.middleware.cors import CORSMiddleware
 
 import bcrypt
-
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
-from slowapi.middleware import SlowAPIMiddleware
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
@@ -31,26 +27,62 @@ from seedpass.core.api import UtilityService
 _RATE_LIMIT = int(os.getenv("SEEDPASS_RATE_LIMIT", "100"))
 _RATE_WINDOW = int(os.getenv("SEEDPASS_RATE_WINDOW", "60"))
 _RATE_LIMIT_STR = f"{_RATE_LIMIT}/{_RATE_WINDOW} seconds"
+_MAX_IMPORT_BYTES = int(os.getenv("SEEDPASS_MAX_IMPORT_BYTES", str(10 * 1024 * 1024)))
 
-limiter = Limiter(key_func=get_remote_address, default_limits=[_RATE_LIMIT_STR])
 app = FastAPI()
 
 logger = logging.getLogger(__name__)
 
 
+@app.middleware("http")
+async def dynamic_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    origins = {
+        o.strip() for o in os.getenv("SEEDPASS_CORS_ORIGINS", "").split(",") if o.strip()
+    }
+    request_origin = request.headers.get("origin")
+    if request_origin and request_origin in origins:
+        response.headers["access-control-allow-origin"] = request_origin
+        response.headers["vary"] = "Origin"
+    return response
+
+
 def _get_pm(request: Request) -> PasswordManager:
     pm = getattr(request.app.state, "pm", None)
-    assert pm is not None
+    if pm is None:
+        raise HTTPException(status_code=503, detail="Server not initialized")
     return pm
 
 
 def _check_token(request: Request, auth: str | None) -> None:
     if auth is None or not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    token = auth.split(" ", 1)[1].encode()
+    raw_token = auth.split(" ", 1)[1]
+    token = raw_token.encode()
     token_hash = getattr(request.app.state, "token_hash", b"")
     if not token_hash or not bcrypt.checkpw(token, token_hash):
         raise HTTPException(status_code=401, detail="Unauthorized")
+    _enforce_rate_limit(request, raw_token)
+
+
+def _enforce_rate_limit(request: Request, raw_token: str) -> None:
+    now = time.monotonic()
+    client = request.client.host if request.client else "unknown"
+    token_tag = hashlib.blake2s(raw_token.encode("utf-8"), digest_size=8).hexdigest()
+    key = f"{client}:{token_tag}"
+    buckets = getattr(request.app.state, "rate_limit_buckets", None)
+    if buckets is None:
+        buckets = defaultdict(deque)
+        request.app.state.rate_limit_buckets = buckets
+    bucket = buckets[key]
+    while bucket and (now - bucket[0]) > _RATE_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded ({_RATE_LIMIT_STR})",
+        )
+    bucket.append(now)
 
 
 def _reload_relays(request: Request, relays: list[str]) -> None:
@@ -82,22 +114,7 @@ def start_server(fingerprint: str | None = None) -> str:
     app.state.pm = pm
     raw_token = secrets.token_urlsafe(32)
     app.state.token_hash = bcrypt.hashpw(raw_token.encode(), bcrypt.gensalt())
-    if not getattr(app.state, "limiter", None):
-        app.state.limiter = limiter
-        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-        app.add_middleware(SlowAPIMiddleware)
-    origins = [
-        o.strip()
-        for o in os.getenv("SEEDPASS_CORS_ORIGINS", "").split(",")
-        if o.strip()
-    ]
-    if origins and app.middleware_stack is None:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origins,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    app.state.rate_limit_buckets = defaultdict(deque)
     return raw_token
 
 
@@ -126,7 +143,7 @@ async def search_entry(
 ) -> List[Any]:
     _check_token(request, authorization)
     pm = _get_pm(request)
-    results = await run_in_threadpool(pm.entry_manager.search_entries, query)
+    results = pm.entry_manager.search_entries(query)
     return [
         {
             "id": idx,
@@ -150,7 +167,7 @@ async def get_entry(
     _check_token(request, authorization)
     _require_password(request, password)
     pm = _get_pm(request)
-    entry = await run_in_threadpool(pm.entry_manager.retrieve_entry, entry_id)
+    entry = pm.entry_manager.retrieve_entry(entry_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Not found")
     return entry
@@ -186,8 +203,7 @@ async def create_entry(
         ]
         kwargs = {k: entry.get(k) for k in policy_keys if entry.get(k) is not None}
 
-        index = await run_in_threadpool(
-            pm.entry_manager.add_entry,
+        index = pm.entry_manager.add_entry(
             entry.get("label"),
             int(entry.get("length", 12)),
             entry.get("username"),
@@ -197,10 +213,9 @@ async def create_entry(
         return {"id": index}
 
     if etype == "totp":
-        index = await run_in_threadpool(pm.entry_manager.get_next_index)
+        index = pm.entry_manager.get_next_index()
 
-        uri = await run_in_threadpool(
-            pm.entry_manager.add_totp,
+        uri = pm.entry_manager.add_totp(
             entry.get("label"),
             pm.KEY_TOTP_DET if entry.get("deterministic", False) else None,
             secret=entry.get("secret"),
@@ -214,8 +229,7 @@ async def create_entry(
         return {"id": index, "uri": uri}
 
     if etype == "ssh":
-        index = await run_in_threadpool(
-            pm.entry_manager.add_ssh_key,
+        index = pm.entry_manager.add_ssh_key(
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -225,8 +239,7 @@ async def create_entry(
         return {"id": index}
 
     if etype == "pgp":
-        index = await run_in_threadpool(
-            pm.entry_manager.add_pgp_key,
+        index = pm.entry_manager.add_pgp_key(
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -238,8 +251,7 @@ async def create_entry(
         return {"id": index}
 
     if etype == "nostr":
-        index = await run_in_threadpool(
-            pm.entry_manager.add_nostr_key,
+        index = pm.entry_manager.add_nostr_key(
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -249,8 +261,7 @@ async def create_entry(
         return {"id": index}
 
     if etype == "key_value":
-        index = await run_in_threadpool(
-            pm.entry_manager.add_key_value,
+        index = pm.entry_manager.add_key_value(
             entry.get("label"),
             entry.get("key"),
             entry.get("value"),
@@ -264,8 +275,7 @@ async def create_entry(
             if etype == "seed"
             else pm.entry_manager.add_managed_account
         )
-        index = await run_in_threadpool(
-            func,
+        index = func(
             entry.get("label"),
             pm.parent_seed,
             index=entry.get("index"),
@@ -638,7 +648,12 @@ async def import_vault(
 
         if file is None:
             raise HTTPException(status_code=400, detail="Missing file")
-        data = await file.read()
+        data = await file.read(_MAX_IMPORT_BYTES + 1)
+        if len(data) > _MAX_IMPORT_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded file exceeds max size of {_MAX_IMPORT_BYTES} bytes",
+            )
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(data)
             tmp_path = Path(tmp.name)

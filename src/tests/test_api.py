@@ -9,6 +9,21 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from seedpass import api
 
 
+def test_get_pm_requires_initialized_state():
+    class DummyState:
+        pass
+
+    class DummyApp:
+        state = DummyState()
+
+    class DummyRequest:
+        app = DummyApp()
+
+    with pytest.raises(api.HTTPException) as exc:
+        api._get_pm(DummyRequest())
+    assert exc.value.status_code == 503
+
+
 @pytest.mark.anyio
 async def test_token_hashed(client):
     _, token = client

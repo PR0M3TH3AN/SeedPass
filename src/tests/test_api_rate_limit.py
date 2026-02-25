@@ -45,3 +45,6 @@ async def test_rate_limit_exceeded(monkeypatch):
 
         res = await client.get("/api/v1/entry", params={"query": "s"}, headers=headers)
         assert res.status_code == 429
+        bucket_keys = list(api.app.state.rate_limit_buckets.keys())
+        assert bucket_keys
+        assert all(token not in key for key in bucket_keys)
