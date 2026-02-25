@@ -443,6 +443,53 @@ async def test_vault_lock_endpoint(client):
 
 
 @pytest.mark.anyio
+async def test_vault_unlock_endpoint(client):
+    cl, token = client
+    called = {}
+
+    def unlock(pw):
+        called["password"] = pw
+        api.app.state.pm.locked = False
+        api.app.state.pm.is_locked = False
+        return 0.123
+
+    api.app.state.pm.verify_password = lambda pw: pw == "pw"
+    api.app.state.pm.unlock_vault = unlock
+    api.app.state.pm.locked = True
+    api.app.state.pm.is_locked = True
+
+    headers = {"Authorization": f"Bearer {token}", "X-SeedPass-Password": "pw"}
+    res = await cl.post("/api/v1/vault/unlock", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["status"] == "unlocked"
+    assert called["password"] == "pw"
+
+
+@pytest.mark.anyio
+async def test_entry_endpoints_blocked_when_vault_locked(client):
+    cl, token = client
+    api.app.state.pm.locked = True
+    api.app.state.pm.is_locked = True
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get("/api/v1/entry", params={"query": "x"}, headers=headers)
+    assert res.status_code == 423
+    assert res.json()["detail"] == "Vault is locked"
+
+
+@pytest.mark.anyio
+async def test_generate_password_blocked_when_vault_locked(client):
+    cl, token = client
+    api.app.state.pm.locked = True
+    api.app.state.pm.is_locked = True
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/password", headers=headers, json={"length": 12})
+    assert res.status_code == 423
+    assert res.json()["detail"] == "Vault is locked"
+
+
+@pytest.mark.anyio
 async def test_secret_mode_endpoint(client):
     cl, token = client
     called = {}

@@ -1,30 +1,29 @@
 # Memory Update (2026-02-25)
 
 ## Security Checklist Progress
-- Item 2 (`Crypto and key management review`) remains `Done`.
-- Item 3 (`Secret handling and local data exposure hardening`) moved to `Done`.
+- Item 6 (`Auth, lock/unlock, and access-control hardening`) moved from `Not Started` to `In Progress`.
+- Added evidence links in `docs/security_readiness_checklist.md` and created a dedicated review doc.
 
-## Item 3 Final Hardening Completed
-1. Log redaction:
-   - Removed seed phrase logging from `utils/fingerprint.py`.
-   - Removed parent-seed plaintext debug logging from `seedpass/core/manager.py`.
-   - Redacted BIP85 debug logs that previously exposed child-key/entropy-derived material in `local_bip85/bip85.py`.
-2. Temp-file hardening:
-   - Upload import path in `seedpass/api.py` now enforces `chmod 0o600` before processing.
-3. Regression coverage added:
-   - `test_generate_fingerprint_does_not_log_seed_phrase`.
-   - `test_vault_import_upload_sets_secure_temp_permissions`.
-   - `test_vault_import_upload_temp_file_removed_on_failure`.
-   - `test_derive_entropy_logs_do_not_expose_key_material`.
+## Item 6 Work Completed This Pass
+1. Added locked-state access control for protected HTTP API routes in `src/seedpass/api.py`.
+   - Protected routes now return `423` with `"Vault is locked"` when lock flags are active.
+2. Added explicit HTTP unlock route:
+   - `POST /api/v1/vault/unlock` using `X-SeedPass-Password`.
+3. Added auth/access regression tests in `src/tests/test_api_new_endpoints.py`:
+   - `test_vault_unlock_endpoint`
+   - `test_entry_endpoints_blocked_when_vault_locked`
+   - `test_generate_password_blocked_when_vault_locked`
 
 ## Validation
 - Executed:
-  - `src/tests/test_bip85_derivation_path.py`
   - `src/tests/test_api_new_endpoints.py`
-  - `src/tests/test_fingerprint_encryption.py`
-  - `src/tests/test_memory_protection.py`
-  - `src/tests/test_clipboard_utils.py`
-- Result: `37 passed`.
+  - `src/tests/test_api.py`
+  - `src/tests/test_vault_lock_flag.py`
+  - `src/tests/test_inactivity_lock.py`
+  - `src/tests/test_unlock_sync.py`
+- Result: `62 passed`.
 
-## Next Checklist Item
-- Next highest-priority `Not Started` item is #6: Auth, lock/unlock, and access-control hardening.
+## Next Item 6 Steps
+1. Decide whether non-sensitive API routes (config/fingerprint/relays) should also require unlocked state.
+2. Add timeout-to-lock to unlock route E2E test path.
+3. Evaluate brute-force resistance/rate-limit behavior specific to unlock attempts.

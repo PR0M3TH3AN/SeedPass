@@ -126,6 +126,13 @@ def _require_password(request: Request, password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Invalid password")
 
 
+def _require_unlocked(request: Request) -> None:
+    """Ensure the active vault is unlocked before accessing protected routes."""
+    pm = _get_pm(request)
+    if bool(getattr(pm, "is_locked", False) or getattr(pm, "locked", False)):
+        raise HTTPException(status_code=423, detail="Vault is locked")
+
+
 def _validate_encryption_path(request: Request, path: Path) -> Path:
     """Validate and normalize ``path`` within the active fingerprint directory.
 
@@ -144,6 +151,7 @@ async def search_entry(
     request: Request, query: str, authorization: str | None = Header(None)
 ) -> List[Any]:
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     results = pm.entry_manager.search_entries(query)
     return [
@@ -168,6 +176,7 @@ async def get_entry(
 ) -> Any:
     _check_token(request, authorization)
     _require_password(request, password)
+    _require_unlocked(request)
     pm = _get_pm(request)
     entry = pm.entry_manager.retrieve_entry(entry_id)
     if entry is None:
@@ -188,6 +197,7 @@ async def create_entry(
     ``password`` the behaviour matches the legacy password-entry API.
     """
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
 
     etype = (entry.get("type") or entry.get("kind") or "password").lower()
@@ -301,6 +311,7 @@ def update_entry(
     specialized entry types (e.g. TOTP or key/value entries).
     """
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     try:
         pm.entry_manager.modify_entry(
@@ -325,6 +336,7 @@ def archive_entry(
 ) -> dict[str, str]:
     """Archive an entry."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.entry_manager.archive_entry(entry_id)
     return {"status": "archived"}
@@ -336,6 +348,7 @@ def unarchive_entry(
 ) -> dict[str, str]:
     """Restore an archived entry."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.entry_manager.restore_entry(entry_id)
     return {"status": "active"}
@@ -464,6 +477,7 @@ def export_totp(
     """Return all stored TOTP entries in JSON format."""
     _check_token(request, authorization)
     _require_password(request, password)
+    _require_unlocked(request)
     pm = _get_pm(request)
     key = getattr(pm, "KEY_TOTP_DET", None) or getattr(pm, "parent_seed", None)
     return pm.entry_manager.export_totp_entries(key)
@@ -478,6 +492,7 @@ def get_totp_codes(
     """Return active TOTP codes with remaining seconds."""
     _check_token(request, authorization)
     _require_password(request, password)
+    _require_unlocked(request)
     pm = _get_pm(request)
     entries = pm.entry_manager.list_entries(
         filter_kinds=[EntryType.TOTP.value], include_archived=False
@@ -501,6 +516,7 @@ def get_profile_stats(
 ) -> dict:
     """Return statistics about the active seed profile."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     return pm.get_profile_stats()
 
@@ -626,6 +642,7 @@ def export_vault(
     """Export the vault and return the encrypted file."""
     _check_token(request, authorization)
     _require_password(request, password)
+    _require_unlocked(request)
     pm = _get_pm(request)
     path = pm.handle_export_database()
     if path is None:
@@ -640,6 +657,7 @@ async def import_vault(
 ) -> dict[str, str]:
     """Import a vault backup from a file upload or a server path."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
 
     ctype = request.headers.get("content-type", "")
@@ -693,6 +711,7 @@ def backup_parent_seed(
     """Create an encrypted backup of the parent seed after confirmation."""
     _check_token(request, authorization)
     _require_password(request, password)
+    _require_unlocked(request)
     pm = _get_pm(request)
 
     if not data.get("confirm"):
@@ -715,6 +734,7 @@ def change_password(
 ) -> dict[str, str]:
     """Change the master password for the active profile."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.change_password(data.get("old", ""), data.get("new", ""))
 
@@ -727,6 +747,7 @@ def generate_password(
 ) -> dict[str, str]:
     """Generate a password using optional policy overrides."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     length = int(data.get("length", 12))
 
@@ -756,6 +777,20 @@ def lock_vault(
     pm = _get_pm(request)
     pm.lock_vault()
     return {"status": "locked"}
+
+
+@app.post("/api/v1/vault/unlock")
+def unlock_vault(
+    request: Request,
+    authorization: str | None = Header(None),
+    password: str | None = Header(None, alias="X-SeedPass-Password"),
+) -> dict[str, float | str]:
+    """Unlock the vault using the supplied master password."""
+    _check_token(request, authorization)
+    _require_password(request, password)
+    pm = _get_pm(request)
+    duration = pm.unlock_vault(password)
+    return {"status": "unlocked", "duration": float(duration)}
 
 
 @app.post("/api/v1/shutdown")
