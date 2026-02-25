@@ -176,5 +176,56 @@
       "merged_into": null,
       "pinned": false
     }
+  ],
+  [
+    "6b410c6a-f1eb-4e5f-b510-c4b92c7fdd58",
+    {
+      "schema_version": 1,
+      "id": "6b410c6a-f1eb-4e5f-b510-c4b92c7fdd58",
+      "agent_id": "known-issues-agent",
+      "session_id": "session-mm2jk9lj",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Known Issues Agent",
+      "summary": "Memory retrieval seed for daily :: Known Issues Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772054612119,
+      "last_seen": 1772054612130,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "834be1dd-10b6-48c4-a4f4-57668c926e14",
+    {
+      "schema_version": 1,
+      "id": "834be1dd-10b6-48c4-a4f4-57668c926e14",
+      "agent_id": "known-issues-agent",
+      "session_id": "session-mm2jog2v",
+      "type": "batch_window",
+      "content": "# Learnings from known-issues-agent run\n\n- Initialized `KNOWN_ISSUES.md` as it was missing.\n- Verified that `npm run --prefix torch lint` requires `npm install --prefix torch` to be run first.\n- Confirmed that `landing/index.html` no longer contains `innerHTML` violations.\n- Confirmed `torch-config.json` correctly defines scheduler handoff commands.\n- Consolidated resolved issues into `KNOWN_ISSUES.md` for historical tracking.",
+      "summary": "# Learnings from known-issues-agent run\n\n- Initialized `KNOWN_ISSUES.md` as it was missing.\n- Verified that `npm run --prefix torch lint` requires `npm install --prefix torch` to be run first.\n- Confirmed that `landing/index.html` no longer contains `innerHTML` violations.\n- Con…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772054807144,
+      "last_seen": 1772054807144,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
   ]
 ]
