@@ -38,7 +38,9 @@ logger = logging.getLogger(__name__)
 async def dynamic_cors_headers(request: Request, call_next):
     response = await call_next(request)
     origins = {
-        o.strip() for o in os.getenv("SEEDPASS_CORS_ORIGINS", "").split(",") if o.strip()
+        o.strip()
+        for o in os.getenv("SEEDPASS_CORS_ORIGINS", "").split(",")
+        if o.strip()
     }
     request_origin = request.headers.get("origin")
     if request_origin and request_origin in origins:

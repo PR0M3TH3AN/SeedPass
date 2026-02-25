@@ -164,6 +164,7 @@ def test_what_preserves_file_position():
     assert res == "png"
     assert f.tell() == original_pos
 
+
 def test_what_with_bytes_io_jpeg_exif():
     """Test what() with a BytesIO object containing JPEG Exif header."""
     # JPEG magic number: FF D8 FF E0 .. .. Exif

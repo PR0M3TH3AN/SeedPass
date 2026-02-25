@@ -82,16 +82,16 @@ def test_modify_entry_invalid_fields(
     """Test that modify_entry raises ValueError for invalid fields based on EntryType."""
     # Setup entry
     if entry_type == EntryType.TOTP:
-         # add_totp returns a URI string, need to fix the index manually or check implementation
-         # Checking implementation: add_totp returns URI string, but index is predictable (0)
-         # However, we should verify the index.
-         # For simplicity, we assume index 0 as it's the first entry.
-         setup_func(entry_manager)
-         index = 0
+        # add_totp returns a URI string, need to fix the index manually or check implementation
+        # Checking implementation: add_totp returns URI string, but index is predictable (0)
+        # However, we should verify the index.
+        # For simplicity, we assume index 0 as it's the first entry.
+        setup_func(entry_manager)
+        index = 0
     elif entry_type == EntryType.PASSWORD:
-         index = setup_func(entry_manager)
+        index = setup_func(entry_manager)
     else:
-         index = setup_func(entry_manager)
+        index = setup_func(entry_manager)
 
     # Verify entry exists and has correct type
     entry = entry_manager.retrieve_entry(index)
