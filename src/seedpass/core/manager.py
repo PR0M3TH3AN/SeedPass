@@ -352,6 +352,51 @@ class PasswordManager:
         self.KEY_PW_DERIVE = kd(master, b"seedpass:v1:pw")
         self.KEY_TOTP_DET = kd(master, b"seedpass:v1:totp")
 
+    def _get_kdf_mode(self) -> str:
+        if getattr(self, "config_manager", None):
+            return self.config_manager.get_kdf_mode()
+        return "pbkdf2"
+
+    def _get_kdf_iterations(self) -> int:
+        if getattr(self, "config_manager", None):
+            return self.config_manager.get_kdf_iterations()
+        return 50_000
+
+    def _get_argon2_time_cost(self) -> int:
+        if getattr(self, "config_manager", None):
+            return self.config_manager.get_argon2_time_cost()
+        return 2
+
+    def _derive_seed_key(
+        self,
+        password: str,
+        fingerprint: str,
+        *,
+        mode: str | None = None,
+        iterations: int | None = None,
+    ) -> bytes:
+        """Derive the profile seed-encryption key from current KDF settings."""
+
+        chosen_mode = mode or self._get_kdf_mode()
+        if chosen_mode == "argon2":
+            salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
+            cfg = KdfConfig(
+                params={
+                    "time_cost": self._get_argon2_time_cost(),
+                    "memory_cost": 64 * 1024,
+                    "parallelism": 8,
+                },
+                salt_b64=base64.b64encode(salt).decode(),
+            )
+            return derive_key_from_password_argon2(password, cfg)
+
+        if chosen_mode != "pbkdf2":
+            logger.warning("Unknown kdf_mode '%s'; falling back to pbkdf2", chosen_mode)
+        iter_count = (
+            iterations if iterations is not None else self._get_kdf_iterations()
+        )
+        return derive_key_from_password(password, fingerprint, iterations=iter_count)
+
     def ensure_key_hierarchy(self) -> None:
         """Ensure sub-keys are derived from the current parent seed."""
         if (
@@ -733,14 +778,12 @@ class PasswordManager:
                 seed_mgr: EncryptionManager | None = None
                 for iter_try in dict.fromkeys(iter_candidates):
                     try:
-                        if mode == "argon2":
-                            salt = hashlib.sha256(salt_fp.encode()).digest()[:16]
-                            cfg = KdfConfig(salt_b64=base64.b64encode(salt).decode())
-                            seed_key = derive_key_from_password_argon2(password, cfg)
-                        else:
-                            seed_key = derive_key_from_password(
-                                password, salt_fp, iterations=iter_try
-                            )
+                        seed_key = self._derive_seed_key(
+                            password,
+                            salt_fp,
+                            mode=mode,
+                            iterations=iter_try if mode != "argon2" else None,
+                        )
                         seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                         print("Decrypting seed...")
                         self.parent_seed = seed_mgr.decrypt_parent_seed()
@@ -814,14 +857,9 @@ class PasswordManager:
                 else 50_000
             )
             salt_fp = fingerprint_dir.name
-            if mode == "argon2":
-                salt = hashlib.sha256(salt_fp.encode()).digest()[:16]
-                cfg = KdfConfig(salt_b64=base64.b64encode(salt).decode())
-                seed_key = derive_key_from_password_argon2(password, cfg)
-            else:
-                seed_key = derive_key_from_password(
-                    password, salt_fp, iterations=iterations
-                )
+            seed_key = self._derive_seed_key(
+                password, salt_fp, mode=mode, iterations=iterations
+            )
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
             self.parent_seed = seed_mgr.decrypt_parent_seed()
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
@@ -948,14 +986,7 @@ class PasswordManager:
                 raise SeedPassError("Seed profile directory not found.")
 
             # Derive encryption key from password using selected fingerprint
-            iterations = (
-                self.config_manager.get_kdf_iterations()
-                if getattr(self, "config_manager", None)
-                else 50_000
-            )
-            key = derive_key_from_password(
-                password, selected_fingerprint, iterations=iterations
-            )
+            key = self._derive_seed_key(password, selected_fingerprint)
 
             seed_mgr = EncryptionManager(key, fingerprint_dir)
             self.vault = Vault(seed_mgr, fingerprint_dir)
@@ -1125,14 +1156,7 @@ class PasswordManager:
                 seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
                 self.derive_key_hierarchy(seed_bytes)
                 index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
-                iterations = (
-                    self.config_manager.get_kdf_iterations()
-                    if getattr(self, "config_manager", None)
-                    else 50_000
-                )
-                seed_key = derive_key_from_password(
-                    password, fingerprint, iterations=iterations
-                )
+                seed_key = self._derive_seed_key(password, fingerprint)
 
                 self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
                 seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
@@ -1323,14 +1347,7 @@ class PasswordManager:
             seed_bytes = Bip39SeedGenerator(seed).Generate()
             self.derive_key_hierarchy(seed_bytes)
             index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
-            iterations = (
-                self.config_manager.get_kdf_iterations()
-                if getattr(self, "config_manager", None)
-                else 50_000
-            )
-            seed_key = derive_key_from_password(
-                password, fingerprint_dir.name, iterations=iterations
-            )
+            seed_key = self._derive_seed_key(password, fingerprint_dir.name)
 
             self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
             seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
@@ -4282,10 +4299,7 @@ class PasswordManager:
         if mode == PortableMode.NONE.value:
             try:
                 password = prompt_new_password()
-                iterations = self.config_manager.get_kdf_iterations()
-                seed_key = derive_key_from_password(
-                    password, self.current_fingerprint, iterations=iterations
-                )
+                seed_key = self._derive_seed_key(password, self.current_fingerprint)
                 seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
                 seed_mgr.encrypt_parent_seed(self.parent_seed)
                 self.store_hashed_password(password)
@@ -4584,10 +4598,7 @@ class PasswordManager:
             # Create a new encryption manager with the new password
             new_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
 
-            iterations = self.config_manager.get_kdf_iterations()
-            seed_key = derive_key_from_password(
-                new_password, self.current_fingerprint, iterations=iterations
-            )
+            seed_key = self._derive_seed_key(new_password, self.current_fingerprint)
             seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
 
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)

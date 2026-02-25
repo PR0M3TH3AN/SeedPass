@@ -28,3 +28,8 @@ PY
 ```
 
 The selected `time_cost` is stored in the profile's configuration and used for subsequent key derivations.
+
+## Readiness Documents
+
+- Production readiness checklist: `docs/security_readiness_checklist.md`
+- Threat model draft: `docs/threat_model.md`

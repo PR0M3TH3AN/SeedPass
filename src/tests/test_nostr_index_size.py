@@ -11,7 +11,6 @@ import uuid
 import pytest
 
 import base64
-import os
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -23,8 +22,18 @@ from seedpass.core.config_manager import ConfigManager
 from nostr.client import NostrClient, Kind, KindStandard
 
 
+def _relays_from_env() -> list[str]:
+    raw = os.getenv("NOSTR_RELAYS", "")
+    relays = [value.strip() for value in raw.split(",") if value.strip()]
+    return relays or ["wss://relay.snort.social"]
+
+
 @pytest.mark.desktop
 @pytest.mark.network
+@pytest.mark.skipif(
+    os.getenv("NOSTR_INDEX_SIZE_E2E") != "1",
+    reason="Set NOSTR_INDEX_SIZE_E2E=1 to run index size E2E test",
+)
 def test_nostr_index_size_limits(pytestconfig: pytest.Config):
     """Manually explore maximum index size for Nostr backups."""
     seed = (
@@ -36,16 +45,22 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
         key = base64.urlsafe_b64encode(os.urandom(32))
         enc_mgr = EncryptionManager(key, Path(tmpdir))
         with patch.object(enc_mgr, "decrypt_parent_seed", return_value=seed):
+            account_index = int(uuid.uuid4().int % (2**31 - 1))
             client = NostrClient(
                 enc_mgr,
                 f"size_test_{uuid.uuid4().hex}",
-                relays=["wss://relay.snort.social"],
+                relays=_relays_from_env(),
+                account_index=account_index,
             )
             npub = client.key_manager.get_npub()
             vault = Vault(enc_mgr, tmpdir)
             cfg_mgr = ConfigManager(vault, Path(tmpdir))
             backup_mgr = BackupManager(Path(tmpdir), cfg_mgr)
             entry_mgr = EntryManager(vault, backup_mgr)
+            # This test targets payload growth and relay round-trip integrity.
+            # Disable per-entry local backup/checksum work to keep runtime bounded.
+            backup_mgr.create_backup = lambda: None
+            entry_mgr.update_checksum = lambda: None
 
             delay = float(os.getenv("NOSTR_TEST_DELAY", "5"))
             max_entries = pytestconfig.getoption("--max-entries")

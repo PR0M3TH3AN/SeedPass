@@ -116,3 +116,55 @@ def test_vault_kdf_migration(tmp_path):
     vault.load_index()
     new_kdf = mgr.get_file_kdf(vault.index_file)
     assert new_kdf.version == KdfConfig().version
+
+
+def test_derive_seed_key_argon2_uses_configured_time_cost(monkeypatch):
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.config_manager = SimpleNamespace(
+        get_kdf_mode=lambda: "argon2",
+        get_argon2_time_cost=lambda: 5,
+        get_kdf_iterations=lambda: 50_000,
+    )
+
+    captured = {}
+
+    def fake_argon2(password, cfg):
+        captured["password"] = password
+        captured["cfg"] = cfg
+        return b"derived-argon2-key"
+
+    monkeypatch.setattr(
+        "seedpass.core.manager.derive_key_from_password_argon2", fake_argon2
+    )
+    key = pm._derive_seed_key("pw", "fingerprint123")
+
+    assert key == b"derived-argon2-key"
+    assert captured["password"] == "pw"
+    assert captured["cfg"].params["time_cost"] == 5
+    assert captured["cfg"].params["memory_cost"] == 64 * 1024
+    assert captured["cfg"].params["parallelism"] == 8
+    expected_salt = hashlib.sha256("fingerprint123".encode()).digest()[:16]
+    assert base64.b64decode(captured["cfg"].salt_b64) == expected_salt
+
+
+def test_derive_seed_key_pbkdf2_respects_iteration_override(monkeypatch):
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.config_manager = SimpleNamespace(
+        get_kdf_mode=lambda: "pbkdf2",
+        get_argon2_time_cost=lambda: 2,
+        get_kdf_iterations=lambda: 777,
+    )
+
+    captured = {}
+
+    def fake_pbkdf2(password, fingerprint, iterations):
+        captured["password"] = password
+        captured["fingerprint"] = fingerprint
+        captured["iterations"] = iterations
+        return b"derived-pbkdf2-key"
+
+    monkeypatch.setattr("seedpass.core.manager.derive_key_from_password", fake_pbkdf2)
+    key = pm._derive_seed_key("pw", "fp", iterations=123)
+
+    assert key == b"derived-pbkdf2-key"
+    assert captured == {"password": "pw", "fingerprint": "fp", "iterations": 123}
