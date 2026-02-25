@@ -490,6 +490,61 @@ async def test_generate_password_blocked_when_vault_locked(client):
 
 
 @pytest.mark.anyio
+async def test_config_endpoint_blocked_when_vault_locked(client):
+    cl, token = client
+    api.app.state.pm.locked = True
+    api.app.state.pm.is_locked = True
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get("/api/v1/config/k", headers=headers)
+    assert res.status_code == 423
+    assert res.json()["detail"] == "Vault is locked"
+
+
+@pytest.mark.anyio
+async def test_get_config_denies_sensitive_keys(client):
+    cl, token = client
+    api.app.state.pm.locked = False
+    api.app.state.pm.is_locked = False
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get("/api/v1/config/password_hash", headers=headers)
+    assert res.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_lock_unlock_cycle_restores_entry_access(client):
+    cl, token = client
+    api.app.state.pm.locked = False
+    api.app.state.pm.is_locked = False
+    api.app.state.pm.verify_password = lambda pw: pw == "pw"
+    api.app.state.pm.lock_vault = lambda: (
+        setattr(api.app.state.pm, "locked", True),
+        setattr(api.app.state.pm, "is_locked", True),
+    )
+    api.app.state.pm.unlock_vault = lambda pw: (
+        setattr(api.app.state.pm, "locked", False),
+        setattr(api.app.state.pm, "is_locked", False),
+        0.01,
+    )[-1]
+
+    auth = {"Authorization": f"Bearer {token}"}
+    locked_res = await cl.post("/api/v1/vault/lock", headers=auth)
+    assert locked_res.status_code == 200
+
+    denied = await cl.get("/api/v1/entry", params={"query": "x"}, headers=auth)
+    assert denied.status_code == 423
+
+    unlocked = await cl.post(
+        "/api/v1/vault/unlock",
+        headers={**auth, "X-SeedPass-Password": "pw"},
+    )
+    assert unlocked.status_code == 200
+
+    allowed = await cl.get("/api/v1/entry", params={"query": "x"}, headers=auth)
+    assert allowed.status_code == 200
+
+
+@pytest.mark.anyio
 async def test_secret_mode_endpoint(client):
     cl, token = client
     called = {}

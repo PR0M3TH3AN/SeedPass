@@ -32,6 +32,7 @@ _MAX_IMPORT_BYTES = int(os.getenv("SEEDPASS_MAX_IMPORT_BYTES", str(10 * 1024 * 1
 app = FastAPI()
 
 logger = logging.getLogger(__name__)
+_SENSITIVE_CONFIG_KEYS = {"password_hash", "pin_hash"}
 
 
 @app.middleware("http")
@@ -359,6 +360,11 @@ def get_config(
     request: Request, key: str, authorization: str | None = Header(None)
 ) -> Any:
     _check_token(request, authorization)
+    _require_unlocked(request)
+    if key in _SENSITIVE_CONFIG_KEYS:
+        raise HTTPException(
+            status_code=403, detail="Access to sensitive config is denied"
+        )
     pm = _get_pm(request)
     value = pm.config_manager.load_config(require_pin=False).get(key)
 
@@ -376,6 +382,11 @@ def update_config(
 ) -> dict[str, str]:
     """Update a configuration setting."""
     _check_token(request, authorization)
+    _require_unlocked(request)
+    if key in _SENSITIVE_CONFIG_KEYS:
+        raise HTTPException(
+            status_code=403, detail="Updating sensitive config keys is not allowed"
+        )
     pm = _get_pm(request)
     cfg = pm.config_manager
     mapping = {
@@ -407,6 +418,7 @@ def set_secret_mode(
 ) -> dict[str, str]:
     """Enable/disable secret mode and set the clipboard delay."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     enabled = data.get("enabled")
 
@@ -437,6 +449,7 @@ def add_fingerprint(
 ) -> dict[str, str]:
     """Create a new seed profile."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.add_new_fingerprint()
     return {"status": "ok"}
@@ -448,6 +461,7 @@ def remove_fingerprint(
 ) -> dict[str, str]:
     """Remove a seed profile."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.fingerprint_manager.remove_fingerprint(fingerprint)
     return {"status": "deleted"}
@@ -541,6 +555,7 @@ def get_notifications(
 @app.get("/api/v1/nostr/pubkey")
 def get_nostr_pubkey(request: Request, authorization: str | None = Header(None)) -> Any:
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     return {"npub": pm.nostr_client.key_manager.get_npub()}
 
@@ -549,6 +564,7 @@ def get_nostr_pubkey(request: Request, authorization: str | None = Header(None))
 def list_relays(request: Request, authorization: str | None = Header(None)) -> dict:
     """Return the configured Nostr relays."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     cfg = pm.config_manager.load_config(require_pin=False)
     return {"relays": cfg.get("relays", [])}
@@ -560,6 +576,7 @@ def add_relay(
 ) -> dict[str, str]:
     """Add a relay URL to the configuration."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     url = data.get("url")
 
@@ -582,6 +599,7 @@ def remove_relay(
 ) -> dict[str, str]:
     """Remove a relay by its index (1-based)."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     cfg = pm.config_manager.load_config(require_pin=False)
     relays = cfg.get("relays", [])
@@ -602,6 +620,7 @@ def reset_relays(
 ) -> dict[str, str]:
     """Reset relay list to defaults."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     from nostr.client import DEFAULT_RELAYS
 
@@ -617,6 +636,7 @@ def verify_checksum(
 ) -> dict[str, str]:
     """Verify the SeedPass script checksum."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.handle_verify_checksum()
     return {"status": "ok"}
@@ -628,6 +648,7 @@ def update_checksum(
 ) -> dict[str, str]:
     """Regenerate the script checksum file."""
     _check_token(request, authorization)
+    _require_unlocked(request)
     pm = _get_pm(request)
     pm.handle_update_script_checksum()
     return {"status": "ok"}

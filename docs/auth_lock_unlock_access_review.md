@@ -25,6 +25,10 @@ Date: `2026-02-25`
 3. Added API regression tests for lock enforcement and unlock flow.
    - Entry/password endpoints blocked while locked.
    - Unlock endpoint clears locked state path.
+4. Tightened admin/config access controls while locked.
+   - Config, relay, checksum, and selected profile-management routes now require unlocked state.
+5. Restricted sensitive config key exposure/update.
+   - `password_hash` and `pin_hash` access/update blocked via generic config API.
 
 ### Validation
 
@@ -40,7 +44,9 @@ Date: `2026-02-25`
 ### Remaining follow-up
 
 1. Decide whether non-sensitive API routes (config/fingerprint/relays) should also require unlocked state.
+   - Completed for key admin/config routes.
 2. Add API-level test coverage for timeout-triggered lock then unlock flow.
+   - Completed with lock->blocked->unlock->access restoration regression test.
 3. Evaluate rate-limit tuning and brute-force controls for repeated password attempts on unlock endpoints.
 
 ## Evidence
