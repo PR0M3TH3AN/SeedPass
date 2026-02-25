@@ -17,7 +17,7 @@
       "importance": 0.4,
       "embedding_id": null,
       "created_at": 1772044819690,
-      "last_seen": 1772047278177,
+      "last_seen": 1772050577262,
       "source": "scheduler-retrieve",
       "ttl_days": null,
       "merged_into": null,
@@ -42,7 +42,7 @@
       "importance": 0.4,
       "embedding_id": null,
       "created_at": 1772047278171,
-      "last_seen": 1772047278177,
+      "last_seen": 1772050577262,
       "source": "scheduler-retrieve",
       "ttl_days": null,
       "merged_into": null,
@@ -68,7 +68,109 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772047328158,
-      "last_seen": 1772047328158,
+      "last_seen": 1772050577262,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "d350210c-a52a-4c82-ad5c-fad18d39ac1d",
+    {
+      "schema_version": 1,
+      "id": "d350210c-a52a-4c82-ad5c-fad18d39ac1d",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2gkvfj",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772049601567,
+      "last_seen": 1772049601573,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "ec2677b4-bc04-4ca9-8272-f3a8f8350d64",
+    {
+      "schema_version": 1,
+      "id": "ec2677b4-bc04-4ca9-8272-f3a8f8350d64",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2gkx2b",
+      "type": "batch_window",
+      "content": "### 1. [2026-02-25] (torch, scheduler, host-mode)\nWhen running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.\n\n### 2. [2026-02-25] (torch, scheduler, handoff)\nA non-interactive scheduler run now requires `scheduler.handoffCommandByCadence.<cadence>` in the active torch config; missing it hard-fails after lock acquisition.\n\n### 3. [2026-02-25] (torch, scheduler, lint)\nAfter `torch-lock update --force`, `torch/eslint.config.mjs` is restored and `npm run --prefix torch lint` passes when `torch/node_modules` is installed.",
+      "summary": "### 1. [2026-02-25] (torch, scheduler, host-mode)\nWhen running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.\n\n### 2. [2026-02-25] (torch, scheduler, handoff)\nA non-inter…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772049603683,
+      "last_seen": 1772050577262,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "9fba4af5-cd7f-491a-a066-8142a5af72e3",
+    {
+      "schema_version": 1,
+      "id": "9fba4af5-cd7f-491a-a066-8142a5af72e3",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2h5s9z",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772050577255,
+      "last_seen": 1772050577262,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "99de2c9c-d7ef-45de-81f2-331199a8abef",
+    {
+      "schema_version": 1,
+      "id": "99de2c9c-d7ef-45de-81f2-331199a8abef",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm2h5twt",
+      "type": "batch_window",
+      "content": "### 1. [2026-02-25] (torch, scheduler, host-mode)\nWhen running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.\n\n### 2. [2026-02-25] (torch, scheduler, handoff)\nA non-interactive scheduler run now requires `scheduler.handoffCommandByCadence.<cadence>` in the active torch config; missing it hard-fails after lock acquisition.\n\n### 3. [2026-02-25] (torch, scheduler, lint)\nAfter `torch-lock update --force`, `torch/eslint.config.mjs` is restored and `npm run --prefix torch lint` passes when `torch/node_modules` is installed.",
+      "summary": "### 1. [2026-02-25] (torch, scheduler, host-mode)\nWhen running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.\n\n### 2. [2026-02-25] (torch, scheduler, handoff)\nA non-inter…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772050579374,
+      "last_seen": 1772050579374,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,

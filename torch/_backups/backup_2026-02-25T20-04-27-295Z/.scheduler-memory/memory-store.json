@@ -1,0 +1,152 @@
+[
+  [
+    "c2a9da3d-42ca-4edc-a20e-5c7e21835d18",
+    {
+      "schema_version": 1,
+      "id": "c2a9da3d-42ca-4edc-a20e-5c7e21835d18",
+      "agent_id": "content-audit-agent",
+      "session_id": "session-mm2fvrf8",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Content Audit Agent",
+      "summary": "Memory retrieval seed for daily :: Content Audit Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772048429972,
+      "last_seen": 1772048429981,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "600ab31d-749b-4698-ac28-a0bb44bf6425",
+    {
+      "schema_version": 1,
+      "id": "600ab31d-749b-4698-ac28-a0bb44bf6425",
+      "agent_id": "decompose-agent",
+      "session_id": "session-mm2fw9k1",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "summary": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772048453473,
+      "last_seen": 1772048453480,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "abe27a9d-862c-45a1-ab07-55a0427c29d8",
+    {
+      "schema_version": 1,
+      "id": "abe27a9d-862c-45a1-ab07-55a0427c29d8",
+      "agent_id": "deps-security-agent",
+      "session_id": "session-mm2fx7b0",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Deps Security Agent",
+      "summary": "Memory retrieval seed for daily :: Deps Security Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772048497212,
+      "last_seen": 1772048497221,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "b0840bb7-90e4-4c90-a366-132e7abd062e",
+    {
+      "schema_version": 1,
+      "id": "b0840bb7-90e4-4c90-a366-132e7abd062e",
+      "agent_id": "design-system-audit-agent",
+      "session_id": "session-mm2fxx18",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "summary": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772048530556,
+      "last_seen": 1772048530563,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "07c9ed12-d936-4eb0-b7f6-a2ad4cd5b80f",
+    {
+      "schema_version": 1,
+      "id": "07c9ed12-d936-4eb0-b7f6-a2ad4cd5b80f",
+      "agent_id": "docs-alignment-agent",
+      "session_id": "session-mm2gelke",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "summary": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772049308847,
+      "last_seen": 1772049308853,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "95772277-734d-4f8f-ad85-7f329e1d1c03",
+    {
+      "schema_version": 1,
+      "id": "95772277-734d-4f8f-ad85-7f329e1d1c03",
+      "agent_id": "docs-code-investigator",
+      "session_id": "session-mm2gfdkf",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "summary": "Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772049345136,
+      "last_seen": 1772049345145,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ]
+]

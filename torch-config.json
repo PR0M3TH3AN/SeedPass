@@ -1,6 +1,6 @@
 {
   "nostrLock": {
-    "namespace": "torch-6201b750",
+    "namespace": "torch-8d2e221a",
     "relays": [
       "wss://relay.damus.io",
       "wss://nos.lol",
@@ -20,12 +20,16 @@
     "defaultCadenceView": "daily",
     "defaultStatusView": "active",
     "auth": "admin:password",
-    "hashtag": "torch-6201b750-agent-lock"
+    "hashtag": "torch-8d2e221a-agent-lock"
   },
   "scheduler": {
     "firstPromptByCadence": {
       "daily": "scheduler-update-agent",
       "weekly": "bug-reproducer-agent"
+    },
+    "handoffCommandByCadence": {
+      "daily": "node torch/scripts/agent/run-selected-prompt.mjs",
+      "weekly": "node torch/scripts/agent/run-selected-prompt.mjs"
     },
     "memoryPolicyByCadence": {
       "daily": {
