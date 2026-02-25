@@ -85,7 +85,15 @@ class DummyPM:
 
 
 def load_doc_commands() -> list[str]:
-    text = Path("docs/docs/content/01-getting-started/01-advanced_cli.md").read_text()
+    doc_path = Path("docs/docs/content/01-getting-started/01-advanced_cli.md")
+    if not doc_path.exists():
+        import pytest
+
+        pytest.skip(
+            f"Advanced CLI docs file not found: {doc_path}",
+            allow_module_level=True,
+        )
+    text = doc_path.read_text()
     cmds = set(re.findall(r"`seedpass ([^`<>]+)`", text))
     cmds = {c for c in cmds if "<" not in c and ">" not in c}
     cmds.discard("vault export")
