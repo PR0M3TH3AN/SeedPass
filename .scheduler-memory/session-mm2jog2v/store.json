@@ -1,0 +1,20 @@
+{
+  "cadence": "daily",
+  "operation": "store",
+  "runId": "session-mm2jog2v",
+  "servicePath": "src/services/memory/index.js#ingestEvents",
+  "inputs": {
+    "agentId": "known-issues-agent",
+    "promptPath": "torch/src/prompts/daily/known-issues-agent.md",
+    "promptIntent": "Known Issues Agent",
+    "events": 1,
+    "sourceFile": "memory-update.md"
+  },
+  "outputs": {
+    "storedCount": 1,
+    "summaries": [
+      "# Learnings from known-issues-agent run\n\n- Initialized `KNOWN_ISSUES.md` as it was missing.\n- Verified that `npm run --prefix torch lint` requires `npm install --prefix torch` to be run first.\n- Confirmed that `landing/index.html` no longer contains `innerHTML` violations.\n- Con…"
+    ]
+  },
+  "status": "ok"
+}
