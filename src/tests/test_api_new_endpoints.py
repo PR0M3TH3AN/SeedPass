@@ -285,6 +285,78 @@ async def test_vault_import_via_upload(client, tmp_path):
 
 
 @pytest.mark.anyio
+async def test_vault_import_upload_sets_secure_temp_permissions(client, monkeypatch):
+    cl, token = client
+    called = {}
+    chmod_calls = []
+    unlink_calls = []
+
+    def import_db(path):
+        called["path"] = path
+
+    api.app.state.pm.handle_import_database = import_db
+    api.app.state.pm.sync_vault = lambda: called.setdefault("sync", True)
+
+    real_chmod = api.os.chmod
+    real_unlink = api.os.unlink
+
+    def tracking_chmod(path, mode):
+        chmod_calls.append((Path(path), mode))
+        return real_chmod(path, mode)
+
+    def tracking_unlink(path):
+        unlink_calls.append(Path(path))
+        return real_unlink(path)
+
+    monkeypatch.setattr(api.os, "chmod", tracking_chmod)
+    monkeypatch.setattr(api.os, "unlink", tracking_unlink)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post(
+        "/api/v1/vault/import",
+        files={"file": ("c.json.enc", b"{}")},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+    tmp_path_used = called["path"]
+    assert any(path == tmp_path_used and mode == 0o600 for path, mode in chmod_calls)
+    assert tmp_path_used in unlink_calls
+
+
+@pytest.mark.anyio
+async def test_vault_import_upload_temp_file_removed_on_failure(client, monkeypatch):
+    cl, token = client
+    called = {}
+    unlink_calls = []
+
+    def import_db(path):
+        called["path"] = path
+        raise ValueError("boom")
+
+    api.app.state.pm.handle_import_database = import_db
+    api.app.state.pm.sync_vault = lambda: called.setdefault("sync", True)
+
+    real_unlink = api.os.unlink
+
+    def tracking_unlink(path):
+        unlink_calls.append(Path(path))
+        return real_unlink(path)
+
+    monkeypatch.setattr(api.os, "unlink", tracking_unlink)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    with pytest.raises(ValueError):
+        await cl.post(
+            "/api/v1/vault/import",
+            files={"file": ("c.json.enc", b"{}")},
+            headers=headers,
+        )
+    assert called["path"] in unlink_calls
+    assert not called.get("sync", False)
+
+
+@pytest.mark.anyio
 async def test_vault_import_upload_too_large(client):
     cl, token = client
     called = {}

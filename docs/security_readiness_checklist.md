@@ -5,8 +5,8 @@ Status legend: `Not Started`, `In Progress`, `Blocked`, `Done`
 | # | Area | Status | Owner | Evidence / Link |
 |---|------|--------|-------|-----------------|
 | 1 | Threat model (attacker profiles, trust boundaries, assumptions) | Done | Security / Core | `docs/threat_model.md` (provisional approvals recorded 2026-02-25) |
-| 2 | Crypto and key management review | In Progress | Security / Core | `docs/crypto_key_management_review.md`, `src/tests/test_kdf_modes.py`, `src/tests/test_export_plaintext_policy.py` |
-| 3 | Secret handling and local data exposure hardening | Not Started | Core | |
+| 2 | Crypto and key management review | Done | Security / Core | `docs/crypto_key_management_review.md`, `src/tests/test_kdf_modes.py`, `src/tests/test_export_plaintext_policy.py` |
+| 3 | Secret handling and local data exposure hardening | Done | Core | `docs/secret_handling_local_exposure_review.md`, `src/tests/test_memory_protection.py`, `src/tests/test_clipboard_utils.py`, `src/tests/test_fingerprint_encryption.py`, `src/tests/test_api_new_endpoints.py`, `src/tests/test_bip85_derivation_path.py` |
 | 4 | Backup and restore integrity validation | In Progress | Core / QA | `src/tests/test_account_roundtrip_restore.py`, `src/tests/test_portable_backup.py` |
 | 5 | Nostr sync security and resilience validation | In Progress | Core / QA | `src/tests/test_nostr_real.py`, `src/tests/test_nostr_index_size.py` |
 | 6 | Auth, lock/unlock, and access-control hardening | Not Started | Core | |

@@ -96,11 +96,10 @@ class BIP85:
         try:
             child_key = self.bip32_ctx.DerivePath(path)
             k = child_key.PrivateKey().Raw().ToBytes()
-            logging.debug(f"Derived child key at path {path}: {k.hex()}")
+            logging.debug("Derived child key at path %s", path)
 
             hmac_key = b"bip-entropy-from-k"
             hmac_result = hmac.new(hmac_key, k, hashlib.sha512).digest()
-            logging.debug(f"HMAC-SHA512 result: {hmac_result.hex()}")
 
             entropy = hmac_result[:entropy_bytes]
 
@@ -115,7 +114,7 @@ class BIP85:
                     f"Derived entropy length is {len(entropy)} bytes; expected {entropy_bytes} bytes."
                 )
 
-            logging.debug(f"Derived entropy: {entropy.hex()}")
+            logging.debug("Derived entropy successfully.")
             return entropy
         except Exception as e:
             logging.error(f"Error deriving entropy: {e}", exc_info=True)
@@ -139,7 +138,7 @@ class BIP85:
             mnemonic = Bip39MnemonicGenerator(Bip39Languages.ENGLISH).FromEntropy(
                 entropy
             )
-            logging.debug(f"Derived mnemonic: {mnemonic}")
+            logging.debug("Derived mnemonic successfully.")
             return mnemonic.ToStr()
         except Exception as e:
             logging.error(f"Error generating mnemonic: {e}", exc_info=True)
@@ -150,7 +149,7 @@ class BIP85:
         """Derive 32 bytes of entropy for symmetric key usage."""
         try:
             key = self.derive_entropy(index=index, entropy_bytes=32, app_no=app_no)
-            logging.debug(f"Derived symmetric key: {key.hex()}")
+            logging.debug("Derived symmetric key successfully.")
             return key
         except Exception as e:
             logging.error(f"Error deriving symmetric key: {e}", exc_info=True)

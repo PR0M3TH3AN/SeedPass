@@ -1,6 +1,6 @@
 # SeedPass Crypto & Key Management Review (Item 2)
 
-Status: `In Progress (P0 implemented, P1 remaining)`  
+Status: `Done`  
 Date: `2026-02-25`
 
 ## Scope Reviewed
@@ -32,11 +32,11 @@ Date: `2026-02-25`
 
 ## Exit Criteria Check (Item 2)
 
-1. Primitive/parameter review completed: `In Progress`
+1. Primitive/parameter review completed: `Done`
 2. Nonce/key lifecycle reviewed: `Done`
 3. Negative tests for corruption/tampering/wrong key path: `Done`
 
-## Findings
+## Findings (Final)
 
 ### Strong / Acceptable
 
@@ -65,7 +65,7 @@ Date: `2026-02-25`
      parameters are partly config-driven and partly hardcoded/defaulted.
    - Clear authoritative KDF policy per profile is not yet centralized.
 
-## Recommended Remediation Plan
+## Recommended Remediation Plan (Completed / Follow-up)
 
 ### P0 (Do Next)
 
@@ -104,10 +104,12 @@ Date: `2026-02-25`
 
 ## Proposed Completion Criteria for Item 2
 
-Item 2 can move to `Done` when:
+Item 2 completion check:
 
 1. Argon2 config is verifiably wired into unlock path and covered by tests.
 2. PBKDF2 policy baseline is explicitly set and documented for new profiles.
 3. Plaintext export policy is documented with explicit user safeguards.
 4. One nonce-lifecycle decision is implemented (improved guard or rationale for removal).
 5. Checklist evidence links are updated to include merged PR/tests.
+
+Result: all criteria met on 2026-02-25.

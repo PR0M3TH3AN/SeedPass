@@ -1,35 +1,30 @@
 # Memory Update (2026-02-25)
 
-## Security Item 2 Progress
-- Raised PBKDF2 default policy for new profiles from `50_000` to `200_000` via `ConfigManager.DEFAULT_PBKDF2_ITERATIONS`.
-- Added policy-floor enforcement in `PasswordManager._get_kdf_iterations()` so downgraded configured values are ignored during normal seed-key derivation.
-- Kept unlock backward compatibility for legacy profiles by preserving fallback attempts for `50_000` and `100_000` iterations.
+## Security Checklist Progress
+- Item 2 (`Crypto and key management review`) remains `Done`.
+- Item 3 (`Secret handling and local data exposure hardening`) moved to `Done`.
 
-## KDF Metadata Consistency
-- Added `PasswordManager._build_seed_kdf_config(...)` and wired all seed re-encryption callsites to persist explicit KDF metadata (`pbkdf2` or `argon2id`) matching active derivation policy.
-
-## Plaintext Export Safeguard
-- Hardened `handle_export_database` interactive flow: plaintext export now requires explicit warning + second confirmation.
-- Added audit metadata for backup exports (`encryption_mode` field).
-
-## Nonce Lifecycle Decision
-- Removed CRC32 nonce tracking from `EncryptionManager.encrypt_data`.
-- Policy now relies on fresh random 96-bit AES-GCM nonces per encryption call to avoid CRC false positives and in-memory collision bookkeeping.
-
-## Added/Updated Tests
-- Expanded `src/tests/test_kdf_modes.py` with negatives for:
-  - wrong Argon2 params on unlock,
-  - tampered KDF wrapper payload,
-  - downgraded KDF policy attempt (floor enforcement).
-- Added `src/tests/test_export_plaintext_policy.py` for double-confirm plaintext export guard.
-- Updated expectations in `test_config_manager.py` and `test_kdf_strength_slider.py` for new PBKDF2 baseline.
+## Item 3 Final Hardening Completed
+1. Log redaction:
+   - Removed seed phrase logging from `utils/fingerprint.py`.
+   - Removed parent-seed plaintext debug logging from `seedpass/core/manager.py`.
+   - Redacted BIP85 debug logs that previously exposed child-key/entropy-derived material in `local_bip85/bip85.py`.
+2. Temp-file hardening:
+   - Upload import path in `seedpass/api.py` now enforces `chmod 0o600` before processing.
+3. Regression coverage added:
+   - `test_generate_fingerprint_does_not_log_seed_phrase`.
+   - `test_vault_import_upload_sets_secure_temp_permissions`.
+   - `test_vault_import_upload_temp_file_removed_on_failure`.
+   - `test_derive_entropy_logs_do_not_expose_key_material`.
 
 ## Validation
-- Ran targeted suite:
-  - `src/tests/test_kdf_modes.py`
-  - `src/tests/test_export_plaintext_policy.py`
-  - `src/tests/test_config_manager.py`
-  - `src/tests/test_kdf_strength_slider.py`
-  - `src/tests/test_noninteractive_init_unlock.py`
-  - `src/tests/test_password_unlock_after_change.py`
-- Result: `28 passed`.
+- Executed:
+  - `src/tests/test_bip85_derivation_path.py`
+  - `src/tests/test_api_new_endpoints.py`
+  - `src/tests/test_fingerprint_encryption.py`
+  - `src/tests/test_memory_protection.py`
+  - `src/tests/test_clipboard_utils.py`
+- Result: `37 passed`.
+
+## Next Checklist Item
+- Next highest-priority `Not Started` item is #6: Auth, lock/unlock, and access-control hardening.

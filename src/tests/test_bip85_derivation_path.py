@@ -1,3 +1,5 @@
+import logging
+
 from local_bip85.bip85 import BIP85
 
 
@@ -50,3 +52,15 @@ def test_default_word_count_from_entropy_bytes():
     bip85.derive_entropy(index=5, entropy_bytes=20, app_no=39)
 
     assert ctx.last_path == "m/83696968'/39'/0'/20'/5'"
+
+
+def test_derive_entropy_logs_do_not_expose_key_material(caplog):
+    bip85 = BIP85(b"\x00" * 64)
+    ctx = DummyCtx()
+    bip85.bip32_ctx = ctx
+
+    sensitive_hex = "00" * 32
+    with caplog.at_level(logging.DEBUG):
+        bip85.derive_entropy(index=0, entropy_bytes=16, app_no=39, word_count=12)
+
+    assert sensitive_hex not in caplog.text

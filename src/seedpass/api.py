@@ -659,6 +659,7 @@ async def import_vault(
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(data)
             tmp_path = Path(tmp.name)
+        os.chmod(tmp_path, 0o600)
         try:
             pm.handle_import_database(tmp_path)
         finally:

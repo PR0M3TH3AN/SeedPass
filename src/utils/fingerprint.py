@@ -30,15 +30,13 @@ def generate_fingerprint(seed_phrase: str, length: int = 16) -> Optional[str]:
     try:
         # Normalize the seed phrase
         normalized_seed = seed_phrase.strip().lower()
-        logger.debug(f"Normalized seed: {normalized_seed}")
 
         # Compute SHA-256 hash
         sha256_hash = hashlib.sha256(normalized_seed.encode("utf-8")).hexdigest()
-        logger.debug(f"SHA-256 Hash: {sha256_hash}")
 
         # Truncate to desired length
         fingerprint = sha256_hash[:length].upper()
-        logger.debug(f"Generated Fingerprint: {fingerprint}")
+        logger.debug("Generated seed fingerprint successfully.")
 
         return fingerprint
     except Exception as e:

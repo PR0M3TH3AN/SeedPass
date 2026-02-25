@@ -1042,10 +1042,7 @@ class PasswordManager:
             self.encryption_manager = EncryptionManager(key_b64, fingerprint_dir)
             self.vault = Vault(self.encryption_manager, fingerprint_dir)
 
-            # Log the type and content of parent_seed
-            logger.debug(
-                f"Decrypted parent_seed: {self.parent_seed} (type: {type(self.parent_seed)})"
-            )
+            logger.debug("Parent seed decrypted successfully.")
 
             # Validate the decrypted seed
             if not self.validate_bip85_seed(self.parent_seed):
@@ -1222,9 +1219,7 @@ class PasswordManager:
                 logging.info("User password hashed and stored successfully.")
 
                 self.parent_seed = parent_seed
-                logger.debug(
-                    f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
-                )
+                logger.debug("Parent seed initialized successfully.")
 
                 self.initialize_bip85()
                 self.initialize_managers()
@@ -1422,9 +1417,7 @@ class PasswordManager:
             logging.info("Parent seed encrypted and saved successfully.")
 
             self.parent_seed = seed  # Ensure this is a string
-            logger.debug(
-                f"parent_seed set to: {self.parent_seed} (type: {type(self.parent_seed)})"
-            )
+            logger.debug("Parent seed initialized successfully.")
 
             self.initialize_bip85()
             self.initialize_managers()

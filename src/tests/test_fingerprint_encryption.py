@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,6 +22,13 @@ def test_generate_fingerprint_deterministic():
     fp2 = generate_fingerprint(seed.upper())
     assert fp1 == expected
     assert fp1 == fp2
+
+
+def test_generate_fingerprint_does_not_log_seed_phrase(caplog):
+    seed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    with caplog.at_level(logging.DEBUG):
+        generate_fingerprint(seed)
+    assert seed not in caplog.text
 
 
 def test_encryption_round_trip():
