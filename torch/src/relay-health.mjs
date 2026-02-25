@@ -138,6 +138,8 @@ async function probePublishRead(relayUrl, namespace, timeoutMs) {
       try {
         message = JSON.parse(raw.toString());
       } catch {
+        // Ignore malformed messages. The relay might be sending non-JSON data
+        // or we might have a protocol mismatch. We only care about valid JSON.
         return;
       }
       if (!Array.isArray(message) || message.length < 2) return;
@@ -194,14 +196,21 @@ async function appendHistory(historyPath, entry) {
 export async function runRelayHealthCheck(options = {}) {
   const {
     cadence = 'daily',
-    relays = getRelays(),
-    namespace = getNamespace(),
     timeoutMs = 6000,
-    historyPath = path.resolve(process.cwd(), 'task-logs', 'relay-health', `${cadence}.jsonl`),
     allRelaysDownMinutes = 10,
     minSuccessRate = 0.7,
     windowMinutes = 60,
   } = options;
+
+  let {
+    relays,
+    namespace,
+    historyPath,
+  } = options;
+
+  if (!relays) relays = await getRelays();
+  if (!namespace) namespace = await getNamespace();
+  if (!historyPath) historyPath = path.resolve(process.cwd(), 'task-logs', 'relay-health', `${cadence}.jsonl`);
 
   const relayResults = [];
   for (const relay of relays) {

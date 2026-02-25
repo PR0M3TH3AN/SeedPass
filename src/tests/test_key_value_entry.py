@@ -37,10 +37,30 @@ def test_add_and_modify_key_value():
             "tags": [],
         }
 
+        # Appears in listing
+        assert em.list_entries() == [(idx, "API entry", None, None, False)]
+
+        # Modify key and value
         em.modify_entry(idx, key="api_key2", value="def456")
         updated = em.retrieve_entry(idx)
         assert updated["key"] == "api_key2"
         assert updated["value"] == "def456"
 
+        # Archive and ensure it disappears from the default listing
+        em.archive_entry(idx)
+        archived = em.retrieve_entry(idx)
+        assert archived["archived"] is True
+        assert em.list_entries() == []
+        assert em.list_entries(include_archived=True) == [
+            (idx, "API entry", None, None, True)
+        ]
+
+        # Restore and ensure it reappears
+        em.restore_entry(idx)
+        restored = em.retrieve_entry(idx)
+        assert restored["archived"] is False
+        assert em.list_entries() == [(idx, "API entry", None, None, False)]
+
+        # Values are not searchable
         results = em.search_entries("def456")
         assert results == []

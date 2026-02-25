@@ -27,7 +27,7 @@ Use `excluded` from the JSON output as the canonical exclusion set.
 If `excluded` is unavailable, fallback to the union of `locked`, `paused`, and `completed`.
 
 MUST 3: Run these commands in this order:
-1) test -f AGENTS.md && cat AGENTS.md || echo "No AGENTS.md found; continuing" (missing AGENTS.md is non-fatal)
+1) test -f TORCH.md && cat TORCH.md || echo "No TORCH.md found; continuing" (missing TORCH.md is non-fatal)
 2) mkdir -p task-logs/daily task-logs/weekly
 3) ls -1 task-logs/daily/ | sort | tail -n 1
 4) Select next roster agent using this exact algorithm:
@@ -111,7 +111,7 @@ Use `excluded` from the JSON output as the canonical exclusion set.
 If `excluded` is unavailable, fallback to the union of `locked`, `paused`, and `completed`.
 
 MUST 3: Run these commands in this order:
-1) test -f AGENTS.md && cat AGENTS.md || echo "No AGENTS.md found; continuing" (missing AGENTS.md is non-fatal)
+1) test -f TORCH.md && cat TORCH.md || echo "No TORCH.md found; continuing" (missing TORCH.md is non-fatal)
 2) mkdir -p task-logs/daily task-logs/weekly
 3) ls -1 task-logs/weekly/ | sort | tail -n 1
 4) Select next roster agent using this exact algorithm:

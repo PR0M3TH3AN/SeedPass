@@ -31,17 +31,20 @@ function computeRecencyDecay(timestamp, now, halfLifeMs) {
   return Math.exp(-(age / halfLifeMs));
 }
 
-function textMatchSimilarity(query, memory) {
-  const normalizedQuery = String(query ?? '').trim().toLowerCase();
-  if (!normalizedQuery) return 0;
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-  const haystack = `${memory.summary} ${memory.content}`.toLowerCase();
-  if (haystack.includes(normalizedQuery)) return 1;
+function textMatchSimilarity(queryTerms, queryRegexes, memory) {
+  if (!queryTerms || queryTerms.length === 0) return 0;
 
-  const queryTerms = normalizedQuery.split(/\s+/).filter(Boolean);
-  if (queryTerms.length === 0) return 0;
+  let matchedTerms = 0;
+  for (const regex of queryRegexes) {
+    if (regex.test(memory.summary) || regex.test(memory.content)) {
+      matchedTerms++;
+    }
+  }
 
-  const matchedTerms = queryTerms.filter((term) => haystack.includes(term)).length;
   return matchedTerms / queryTerms.length;
 }
 
@@ -102,8 +105,11 @@ async function buildSimilarityIndex(memories, params) {
     }
   }
 
+  const queryTerms = normalizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
+  const queryRegexes = queryTerms.map((t) => new RegExp(escapeRegExp(t), 'i'));
+
   for (const memory of memories) {
-    const lexicalScore = textMatchSimilarity(normalizedQuery, memory);
+    const lexicalScore = textMatchSimilarity(queryTerms, queryRegexes, memory);
     if (lexicalScore > 0) {
       similarityById.set(memory.id, lexicalScore);
     }

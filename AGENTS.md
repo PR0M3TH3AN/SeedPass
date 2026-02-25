@@ -2,6 +2,60 @@
 
 This project is written in **Python**. Follow these instructions when working with the code base.
 
+## Installation Quickstart for AI Agents
+
+### Prerequisites
+
+Ensure the system has the required build tools and Python headers. Examples:
+
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install -y \
+    build-essential \
+    libffi-dev \
+    pkg-config \
+    python3.11-dev \
+    curl \
+    git
+
+# CentOS/RHEL
+sudo yum install -y gcc gcc-c++ libffi-devel pkgconfig python3-devel curl git
+
+# macOS
+brew install python@3.11 libffi pkg-config git
+```
+
+### Installation
+
+Run the installer script to fetch the latest release:
+
+```bash
+# Stable release
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+
+# Beta branch
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
+```
+
+### Environment Layout
+
+- Virtual environment: `~/.seedpass/app/venv/`
+- Entry point: `~/.seedpass/app/src/main.py`
+
+### Verification
+
+```bash
+cd ~/.seedpass/app && source venv/bin/activate
+cd src && python main.py --version  # Expected: SeedPass v[version]
+```
+
+### Running SeedPass
+
+```bash
+cd ~/.seedpass/app && source venv/bin/activate
+cd src && python main.py
+```
+
 ## Running Tests
 
 1. Set up a virtual environment and install dependencies:
@@ -9,7 +63,7 @@ This project is written in **Python**. Follow these instructions when working wi
    ```bash
    python3 -m venv venv
    source venv/bin/activate
-   pip install -r src/requirements.txt
+   pip install --require-hashes -r requirements.lock
    ```
 
 2. Run the test suite using **pytest**:
@@ -38,6 +92,19 @@ This project is written in **Python**. Follow these instructions when working wi
 - Review code for potential information leaks (e.g., verbose logging) before submitting.
 
 Following these practices helps keep the code base consistent and secure.
+
+## Deterministic Artifact Generation
+
+- All generated artifacts (passwords, keys, TOTP secrets, etc.) must be fully deterministic across runs and platforms.
+- Randomness is only permitted for security primitives (e.g., encryption nonces, in-memory keys) and must never influence derived artifacts.
+
+## Legacy Index Migration
+
+- Always provide a migration path for index archives and import/export routines.
+- Support older SeedPass versions whose indexes lacked salts or password-based encryption by detecting legacy formats and upgrading them to the current schema.
+- Ensure migrations unlock older account indexes and allow Nostr synchronization.
+- Add regression tests covering these migrations whenever the index format or encryption changes.
+
 
 ## Integrating New Entry Types
 

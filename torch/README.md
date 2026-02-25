@@ -21,6 +21,18 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz
 
 > TORCH is distributed from GitHub tarballs and is not currently published to the npm registry.
 
+## Development
+
+For instructions on how to contribute to TORCH, including building, testing, and linting, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Quick start:
+
+```bash
+npm install
+npm run build
+npm test
+```
+
 ## Usage
 
 ### CLI
@@ -91,9 +103,15 @@ Configuration options:
 The dashboard provides a live view of lock events.
 
 ```bash
-npx --no-install torch-lock dashboard --port 4173
+npx --no-install torch-lock dashboard --port 4173 --host 127.0.0.1
 # Open http://localhost:4173/dashboard/
 ```
+
+By default, the dashboard binds to `127.0.0.1`. To allow external access, you can set `--host 0.0.0.0`. It is highly recommended to enable authentication if the dashboard is exposed to a network.
+
+#### Authentication
+
+The dashboard supports Basic Authentication. You can enable it by setting the `TORCH_DASHBOARD_AUTH` environment variable or the `dashboard.auth` field in `torch-config.json` with the format `username:password`.
 
 ## Environment variables
 
@@ -107,6 +125,7 @@ You can override configuration using environment variables:
 - `NOSTR_LOCK_DAILY_ROSTER` (comma-separated list of agents)
 - `NOSTR_LOCK_WEEKLY_ROSTER` (comma-separated list of agents)
 - `TORCH_CONFIG_PATH` (path to config file)
+- `TORCH_DASHBOARD_AUTH` (Basic Auth `user:pass` for the dashboard)
 - `AGENT_PLATFORM` (platform identifier, e.g. `codex`)
 - `TORCH_MEMORY_ENABLED` (`true`/`false`; global memory kill switch, defaults to enabled)
 - `TORCH_MEMORY_INGEST_ENABLED` (`true`/`false` or comma-separated canary `agent_id` allow list)
@@ -125,7 +144,7 @@ The lock CLI resolves roster names in this order:
 ## Included Resources
 
 - `src/lib.mjs` — Core library logic (can be imported in scripts)
-- `src/docs/TORCH.md` — Protocol summary and usage
+- `TORCH.md` — Protocol summary and usage
 - `src/prompts/` — Generic scheduler prompts and flow
 - `skills/` — Repository-local skill guides for agent onboarding and repeatable workflows
 - `dashboard/` — Static lock dashboard assets

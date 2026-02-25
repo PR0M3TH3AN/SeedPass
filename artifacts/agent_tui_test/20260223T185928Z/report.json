@@ -1,0 +1,39 @@
+{
+  "timestamp_utc": "20260223T185928Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-rs93rbie",
+  "duration_sec": 30.029,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Enter your choice \\\\(1-8\\\\) or press Enter to exit:'\nRecent output:\ntries: 1\r\n  password: 1\r\n  totp: 0\r\n  ssh: 0\r\n  seed: 0\r\n  pgp: 0\r\n  nostr: 0\r\n  key_value: 0\r\n  managed_account: 0\r\nRelays configured: 3\r\nBackups: 1 (dir: /tmp/seedpass-agent-home-rs93rbie/.seedpass/225E9E8635B1BEA4/backups)\r\nSchema version: 4\r\nDatabase checksum ok: no\r\nScript checksum ok: yes\r\nSnapshot chunks: 0\r\nPending deltas: 0\r\nNo 2FA entries found.\r\nPress Enter to continue.\r\n\r\n\u001bcSeed Profile: Main Menu > Settings\r\n\r\n\r\nSettings:\r\n1. Profiles\r\n2. Nostr\r\n3. Change password\r\n4. Verify Script Checksum\r\n5. Generate Script Checksum\r\n6. Backup Parent Seed\r\n7. Export database\r\n8. Import database\r\n9. Export 2FA codes\r\n10. Set additional backup location\r\n11. KDF strength & benchmark\r\n12. Set inactivity timeout\r\n13. Lock Vault\r\n14. Stats\r\n15. Toggle Secret Mode\r\n16. Toggle Offline Mode (default ON)\r\n17. Toggle Quick Unlock\r\nSelect an option or press Enter to go back: \r\n\u001bcSeed Profile: 225E9E8635B1BEA4 > Main Menu\r\nNo 2FA entries found.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: ",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 28.518274590001965,
+      "detail": "Timed out waiting for pattern: 'Enter your choice \\\\(1-8\\\\) or press Enter to exit:'\nRecent output:\ntries: 1\r\n  password: 1\r\n  totp: 0\r\n  ssh: 0\r\n  seed: 0\r\n  pgp: 0\r\n  nostr: 0\r\n  key_value: 0\r\n  managed_account: 0\r\nRelays configured: 3\r\nBackups: 1 (dir: /tmp/seedpass-agent-home-rs93rbie/.seedpass/225E9E8635B1BEA4/backups)\r\nSchema version: 4\r\nDatabase checksum ok: no\r\nScript checksum ok: yes\r\nSnapshot chunks: 0\r\nPending deltas: 0\r\nNo 2FA entries found.\r\nPress Enter to continue.\r\n\r\n\u001bcSeed Profile: Main Menu > Settings\r\n\r\n\r\nSettings:\r\n1. Profiles\r\n2. Nostr\r\n3. Change password\r\n4. Verify Script Checksum\r\n5. Generate Script Checksum\r\n6. Backup Parent Seed\r\n7. Export database\r\n8. Import database\r\n9. Export 2FA codes\r\n10. Set additional backup location\r\n11. KDF strength & benchmark\r\n12. Set inactivity timeout\r\n13. Lock Vault\r\n14. Stats\r\n15. Toggle Secret Mode\r\n16. Toggle Offline Mode (default ON)\r\n17. Toggle Quick Unlock\r\nSelect an option or press Enter to go back: \r\n\u001bcSeed Profile: 225E9E8635B1BEA4 > Main Menu\r\nNo 2FA entries found.\r\n\r\n    Select an option:\r\n    1. Add Entry\r\n    2. Retrieve Entry\r\n    3. Search Entries\r\n    4. List Entries\r\n    5. Modify an Existing Entry\r\n    6. 2FA Codes\r\n    7. Settings\r\n    8. List Archived\r\n    \r\nEnter your choice (1-8) or press Enter to exit: "
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "add_password_quick": true,
+    "invalid_length_validation": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "list_entries": true,
+    "modify_entry": true,
+    "archive_restore": true,
+    "totp_empty_state": true,
+    "settings_stats": true,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T185928Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T185928Z/transcript.raw.txt"
+}

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
+mkdir -p artifacts/coverage
+
 pytest_args=(-vv)
 if [[ -n "${STRESS_ARGS:-}" ]]; then
     pytest_args+=(${STRESS_ARGS})
@@ -8,7 +10,14 @@ fi
 if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
     pytest_args+=(-n 1)
 fi
-pytest_args+=(--cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=20 src/tests)
+pytest_args+=(
+    --cov=src
+    --cov-report=xml
+    --cov-report=term-missing
+    --cov-report=json:artifacts/coverage/coverage.json
+    --cov-fail-under=20
+    src/tests
+)
 
 timeout_bin="timeout"
 if ! command -v "$timeout_bin" >/dev/null 2>&1; then
@@ -32,5 +41,8 @@ if [[ $status -eq 124 ]]; then
     echo "::error::Tests exceeded 15-minute limit"
     tail -n 20 pytest.log
     exit 1
+fi
+if [[ $status -eq 0 && "${CRITICAL_COVERAGE_GATE:-0}" == "1" ]]; then
+    python scripts/check_critical_coverage.py artifacts/coverage/coverage.json
 fi
 exit $status

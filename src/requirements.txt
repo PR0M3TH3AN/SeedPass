@@ -14,12 +14,12 @@ portalocker>=2.8
 nostr-sdk>=0.43
 websocket-client==1.7.0
 
-websockets>=15.0.0
-tomli
-hypothesis
-mutmut==2.4.4
-pgpy==0.6.0
-pyotp>=2.8.0
+websockets>=15,<16
+tomli>=2,<3
+hypothesis>=6,<7
+mutmut>=2.4.4,<4
+pgpy>=0.6,<1
+pyotp>=2.8,<3
 
 freezegun
 pyperclip

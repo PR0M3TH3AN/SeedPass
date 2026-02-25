@@ -1,3 +1,4 @@
+# Load Test Agent
 > **Shared contract (required):** Follow [`Scheduler Flow → Shared Agent Run Contract`](../scheduler-flow.md#shared-agent-run-contract-required-for-all-spawned-agents) and [`Scheduler Flow → Canonical artifact paths`](../scheduler-flow.md#canonical-artifact-paths) before and during this run.
 
 ## Required startup + artifacts + memory + issue capture
@@ -27,12 +28,12 @@ policy and open an issue rather than improvising.
 SCOPE
 
 In scope:
-  - Creating/maintaining a load test script under `torch/scripts/agent/` (only if that
+  - Creating/maintaining a load test script under `scripts/agent/` (only if that
     directory exists in repo; verify first).
   - Simulating many clients connecting to a relay and publishing configurable
     mixes of events at configurable rates.
   - Measuring latency, throughput, error rates, and basic resource usage.
-  - Producing machine-readable reports under `artifacts/` (only if repo
+  - Producing machine-readable reports under `reports/load-test/` (only if repo
     conventions permit committing artifacts).
   - Opening issues for bottlenecks or unsafe behaviors.
 
@@ -97,12 +98,12 @@ WORKFLOW
       - existing event schema builders (e.g., integration event schema utilities)
       - existing relay interaction clients/helpers
       - docs describing playback fallback and relay write safety
-  - Confirm whether `torch/scripts/agent/` and `artifacts/` are established patterns.
+  - Confirm whether `scripts/agent/` and `reports/load-test/` are established patterns.
     If not, do not invent directory conventions—open an issue proposing layout.
 
 2) Implement load harness (minimal, configurable)
   Target file (only if verified appropriate in repo):
-  - `torch/scripts/agent/load-test.mjs`
+  - `scripts/agent/load-test.mjs`
 
   The harness must support configuration via env vars and/or CLI flags:
   - `RELAY_URL` (required)
@@ -142,8 +143,9 @@ WORKFLOW
       - resource snapshots at intervals
 
 4) Report generation
-  Output file (follow repo conventions; if allowed):
-  - `artifacts/load-report-YYYYMMDD.json`
+  Output files (follow repo conventions; if allowed):
+  - `reports/load-test/load-report-YYYY-MM-DD.json`
+  - `reports/load-test/load-test-report-YYYY-MM-DD.md` (human summary)
 
   The report should include:
   - Config used (relay URL redacted to hostname if needed, N, duration, rate, mix)
@@ -194,7 +196,7 @@ Open an issue instead of proceeding when:
 ───────────────────────────────────────────────────────────────────────────────
 OUTPUTS PER RUN
 
-- `torch/scripts/agent/load-test.mjs` (or repo-approved equivalent)
-- A load report (JSON) produced locally (and committed only if repo allows)
+- `scripts/agent/load-test.mjs` (or repo-approved equivalent)
+- A load report (JSON + Markdown) produced locally (and committed only if repo allows)
 - A prioritized list of bottlenecks tied to measured evidence
 - 0–N issues for non-trivial bottlenecks, especially security-sensitive ones

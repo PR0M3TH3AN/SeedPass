@@ -9,7 +9,7 @@ from seedpass_gui.app import MainWindow
 
 
 class DummyEntries:
-    def list_entries(self, sort_by="index", filter_kind=None, include_archived=False):
+    def list_entries(self, sort_by="index", filter_kinds=None, include_archived=False):
         return []
 
     def search_entries(self, q):

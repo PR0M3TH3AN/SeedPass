@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { DEFAULT_RELAYS } from './constants.mjs';
+import { ensureDir } from './utils.mjs';
 
 const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -24,7 +25,7 @@ const EVOLVING_DIRS = ['daily', 'weekly'];
 
 // New constants for full application install
 const APP_DIRS = ['src', 'bin', 'dashboard', 'landing', 'assets', 'scripts'];
-const APP_FILES = ['package.json', 'build.mjs', 'README.md', 'torch-config.example.json'];
+const APP_FILES = ['package.json', 'build.mjs', 'README.md', 'torch-config.example.json', 'TORCH.md'];
 
 function getPaths(root, installDirName) {
     const torchDir = path.resolve(root, installDirName);
@@ -34,12 +35,6 @@ function getPaths(root, installDirName) {
         promptsDir: path.join(torchDir, 'prompts'),
         roster: path.join(torchDir, 'roster.json'),
     };
-}
-
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
 }
 
 function copyDir(src, dest) {
@@ -65,7 +60,8 @@ function transformContent(content, installDirName) {
     .replace(/src\/prompts\/daily\//g, `${prefix}prompts/daily/`)
     .replace(/src\/prompts\/weekly\//g, `${prefix}prompts/weekly/`)
     .replace(/src\/prompts\/roster\.json/g, `${prefix}roster.json`)
-    .replace(/src\/prompts\/scheduler-flow\.md/g, `${prefix}scheduler-flow.md`);
+    .replace(/src\/prompts\/scheduler-flow\.md/g, `${prefix}scheduler-flow.md`)
+    .replace(/TORCH\.md/g, `${prefix}TORCH.md`);
 }
 
 function copyFile(src, dest, transform = false, overwrite = true, installDirName = 'torch') {
@@ -78,6 +74,41 @@ function copyFile(src, dest, transform = false, overwrite = true, installDirName
   const finalContent = transform ? transformContent(content, installDirName) : content;
   fs.writeFileSync(dest, finalContent, 'utf8');
   return true; // Copied/Overwritten
+}
+
+function syncAppDirectories(torchDir, verb = 'Copied') {
+  console.log(`${verb === 'Copied' ? 'Copying' : 'Updating'} application directories...`);
+  for (const dir of APP_DIRS) {
+    const src = path.join(PKG_ROOT, dir);
+    const dest = path.join(torchDir, dir);
+    if (fs.existsSync(src)) {
+      copyDir(src, dest);
+      console.log(`  ${verb} ${dir}/`);
+    }
+  }
+}
+
+function syncAppFiles(torchDir, installDir, verb = 'Copied') {
+  console.log(`${verb === 'Copied' ? 'Copying' : 'Updating'} application files...`);
+  for (const file of APP_FILES) {
+    const src = path.join(PKG_ROOT, file);
+    const dest = path.join(torchDir, file);
+    if (fs.existsSync(src)) {
+      if (installDir === '.' && file === 'package.json') {
+        if (verb === 'Copied' && fs.existsSync(dest)) {
+          console.warn('  Skipping package.json to avoid overwriting host package.json (installing to root).');
+          continue;
+        }
+        if (verb === 'Updated') {
+          console.log('  Skipping package.json update (installed in root).');
+          continue;
+        }
+      }
+
+      fs.copyFileSync(src, dest);
+      console.log(`  ${verb} ${file}`);
+    }
+  }
 }
 
 async function interactiveInit(cwd) {
@@ -116,68 +147,60 @@ async function interactiveInit(cwd) {
   }
 }
 
-export async function cmdInit(force = false, cwd = process.cwd(), mockAnswers = null) {
-  // Use interactive mode to get configuration unless mock answers are provided
+function validateInstallDir(dir) {
+  if (dir === '.') return;
+
+  // Strict validation to prevent command injection
+  // Only allow alphanumeric, hyphens, underscores, slashes, and periods.
+  if (!/^[a-zA-Z0-9_\-./]+$/.test(dir)) {
+    throw new Error(`Invalid directory name: "${dir}". Only alphanumeric characters, hyphens, underscores, slashes, and periods are allowed.`);
+  }
+}
+
+async function resolveConfiguration(cwd, mockAnswers) {
   let config;
   if (mockAnswers) {
     config = mockAnswers;
   } else {
     config = await interactiveInit(cwd);
   }
-  const { installDir, namespace, relays } = config;
 
-  const paths = getPaths(cwd, installDir);
-  console.log(`\nInitializing torch in ${paths.torchDir}...`);
+  validateInstallDir(config.installDir);
+  return config;
+}
 
-  // Check if directory exists and is not empty (unless force is used or we are installing to .)
+function ensureInstallDirectory(paths, force, installDir) {
   if (fs.existsSync(paths.torchDir) && !force) {
      const entries = fs.readdirSync(paths.torchDir);
      if (entries.length > 0 && installDir !== '.') {
-         // If installing to current dir, we might expect some files, but warn anyway?
-         // Simpler: just throw if strictly not empty and not forced.
-         // But usually we don't want to fail if just re-running init.
-         console.warn(`Warning: ${paths.torchDir} already exists.`);
+         throw new Error(`Directory ${paths.torchDir} already exists and is not empty. Use --force to overwrite.`);
      }
   }
-
   ensureDir(paths.torchDir);
   ensureDir(paths.promptsDir);
 
+  // Ensure governance directories
+  // We assume standard structure src/proposals and .torch/prompt-history
+  // even if installed in a subdirectory, these are usually repo-level.
+  // But if installed in 'torch', maybe they should be in 'torch/src/proposals'?
+  // For now, we follow the pattern that prompts are managed where the scheduler expects them.
+  // If we are in this repo, it's src/prompts.
+  // If torch is initializing a new repo, it might put prompts in installDir/prompts.
+  // However, governance service currently hardcodes 'src/proposals'.
+  // So we ensure 'src/proposals' relative to root.
+  ensureDir(path.join(paths.root, 'src', 'proposals'));
+  ensureDir(path.join(paths.root, '.torch', 'prompt-history'));
+}
+
+function installAppAssets(torchDir, installDir) {
   // 1. Copy App Directories
-  console.log('Copying application directories...');
-  for (const dir of APP_DIRS) {
-      const src = path.join(PKG_ROOT, dir);
-      const dest = path.join(paths.torchDir, dir);
-      // If installing to '.', src/bin maps to ./bin, which is fine.
-      if (fs.existsSync(src)) {
-          copyDir(src, dest);
-          console.log(`  Copied ${dir}/`);
-      }
-  }
+  syncAppDirectories(torchDir, 'Copied');
 
   // 2. Copy App Files
-  console.log('Copying application files...');
-  for (const file of APP_FILES) {
-      const src = path.join(PKG_ROOT, file);
-      const dest = path.join(paths.torchDir, file);
-      if (fs.existsSync(src)) {
-          // Careful not to overwrite critical files if they exist in root?
-          // e.g. package.json.
-          // If installing to '.', we definitely don't want to overwrite package.json unless it's the torch one?
-          // But torch is "vendored", so it has its own package.json.
-          // If installing to '.', we are overwriting the USER's package.json?
-          // That is dangerous.
+  syncAppFiles(torchDir, installDir, 'Copied');
+}
 
-          if (installDir === '.' && file === 'package.json' && fs.existsSync(dest)) {
-              console.warn('  Skipping package.json to avoid overwriting host package.json (installing to root).');
-              continue;
-          }
-
-          fs.copyFileSync(src, dest);
-          console.log(`  Copied ${file}`);
-      }
-  }
-
+function installTorchAssets(paths, installDir) {
   // 3. Copy Roster
   const srcRoster = path.join(SRC_PROMPTS_DIR, 'roster.json');
   if (fs.existsSync(srcRoster)) {
@@ -211,7 +234,9 @@ export async function cmdInit(force = false, cwd = process.cwd(), mockAnswers = 
       console.log(`Created ${files.length} files in ${path.relative(paths.root, destDir)}/`);
     }
   }
+}
 
+function configureTorch(cwd, paths, installDir, namespace, relays) {
   // 6. Create/Update torch-config.json
   const configPath = path.join(paths.root, 'torch-config.json');
 
@@ -237,14 +262,61 @@ export async function cmdInit(force = false, cwd = process.cwd(), mockAnswers = 
   configData.nostrLock.namespace = namespace;
   configData.nostrLock.relays = relays;
 
+  // Configure memory policy with correct paths
+  if (!configData.scheduler) configData.scheduler = {};
+  // Always ensure memory policy exists and points to the correct scripts
+  // We use the installDir to construct the path
+  const scriptPrefix = installDir === '.' ? '' : `${installDir}/`;
+
+  if (!configData.scheduler.memoryPolicyByCadence) {
+    configData.scheduler.memoryPolicyByCadence = {};
+  }
+
+  // Populate or update daily/weekly memory policy
+  // We force update the command paths to match the install directory,
+  // while preserving other settings if they exist.
+  ['daily', 'weekly'].forEach(cadence => {
+    if (!configData.scheduler.memoryPolicyByCadence[cadence]) {
+      configData.scheduler.memoryPolicyByCadence[cadence] = {
+        mode: "required",
+        retrieveSuccessMarkers: ["MEMORY_RETRIEVED"],
+        storeSuccessMarkers: ["MEMORY_STORED"],
+        retrieveArtifacts: [`.scheduler-memory/latest/${cadence}/retrieve.ok`],
+        storeArtifacts: [`.scheduler-memory/latest/${cadence}/store.ok`]
+      };
+    }
+
+    // Always ensure commands point to the correct script location
+    const policy = configData.scheduler.memoryPolicyByCadence[cadence];
+    policy.retrieveCommand = `node ${scriptPrefix}scripts/memory/retrieve.mjs`;
+    policy.storeCommand = `node ${scriptPrefix}scripts/memory/store.mjs`;
+  });
+
   fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8');
   console.log(`Saved configuration to ${path.relative(cwd, configPath)}`);
+}
 
+function injectHostScriptsIfNeeded(paths, installDir) {
   // 7. Inject Scripts into Host Package.json
   // If we are NOT installing to '.', the host package.json is in paths.root
   if (installDir !== '.') {
       injectScriptsIntoHost(paths.root, installDir);
   }
+}
+
+export async function cmdInit(force = false, cwd = process.cwd(), mockAnswers = null) {
+  const config = await resolveConfiguration(cwd, mockAnswers);
+  const { installDir, namespace, relays } = config;
+
+  const paths = getPaths(cwd, installDir);
+  console.log(`\nInitializing torch in ${paths.torchDir}...`);
+
+  ensureInstallDirectory(paths, force, installDir);
+
+  installAppAssets(paths.torchDir, installDir);
+  installTorchAssets(paths, installDir);
+  configureTorch(cwd, paths, installDir, namespace, relays);
+  injectHostScriptsIfNeeded(paths, installDir);
 
   console.log('\nInitialization complete.');
   console.log('You can now customize the files in ' + path.relative(cwd, paths.torchDir) + '/');
@@ -266,6 +338,8 @@ function injectScriptsIntoHost(hostRoot, installDirName) {
             'torch:check': `npm run --prefix ${installDirName} lock:check:daily`, // Default to daily check
             'torch:lock': `npm run --prefix ${installDirName} lock:lock`,
             'torch:health': `npm run --prefix ${installDirName} lock:health`,
+            'torch:memory:list': `node ${installDirName === '.' ? '' : installDirName + '/'}bin/torch-lock.mjs list-memories`,
+            'torch:memory:inspect': `node ${installDirName === '.' ? '' : installDirName + '/'}bin/torch-lock.mjs inspect-memory`,
         };
 
         let modified = false;
@@ -338,30 +412,10 @@ export function cmdUpdate(force = false, cwd = process.cwd()) {
   }
 
   // 2. Update App Directories (Overwrite)
-  console.log('Updating application directories...');
-  for (const dir of APP_DIRS) {
-      const src = path.join(PKG_ROOT, dir);
-      const dest = path.join(paths.torchDir, dir);
-      if (fs.existsSync(src)) {
-          copyDir(src, dest);
-          console.log(`  Updated ${dir}/`);
-      }
-  }
+  syncAppDirectories(paths.torchDir, 'Updated');
 
   // 3. Update App Files (Overwrite)
-  console.log('Updating application files...');
-  for (const file of APP_FILES) {
-      const src = path.join(PKG_ROOT, file);
-      const dest = path.join(paths.torchDir, file);
-      if (fs.existsSync(src)) {
-          if (installDirName === '.' && file === 'package.json') {
-             console.log('  Skipping package.json update (installed in root).');
-             continue;
-          }
-          fs.copyFileSync(src, dest);
-          console.log(`  Updated ${file}`);
-      }
-  }
+  syncAppFiles(paths.torchDir, installDirName, 'Updated');
 
   // 4. Update Static Files (Always Overwrite)
   console.log('Updating static files...');

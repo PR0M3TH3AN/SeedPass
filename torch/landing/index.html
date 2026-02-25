@@ -7,10 +7,6 @@
     <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
     <link rel="stylesheet" href="../dashboard/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
-    </script>
     <style>
         /* Landing Page Specific Overrides & Additions */
         body {
@@ -159,6 +155,12 @@
             width: 100%;
         }
 
+        @media (max-width: 640px) {
+            .meta-prompts {
+                padding: 0 1rem;
+            }
+        }
+
         .meta-prompts h2 {
             text-align: center;
             font-size: 2rem;
@@ -168,7 +170,7 @@
 
         .prompts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 2rem;
         }
 
@@ -518,30 +520,6 @@
             --danger: #ef4444;
         }
 
-        /* Agent Flow Section */
-        .agent-flow {
-            max-width: 1200px;
-            margin: 0 auto 4rem;
-            padding: 0 2rem;
-            text-align: center;
-        }
-
-        .agent-flow h2 {
-            font-size: 2rem;
-            margin-bottom: 2rem;
-            color: var(--text-strong);
-        }
-
-        .mermaid {
-            background: var(--surface-alt);
-            padding: 2rem;
-            border-radius: 1rem;
-            border: 1px solid var(--border);
-            display: flex;
-            justify-content: center;
-            overflow-x: auto;
-        }
-
         /* Core Capabilities Section */
         .core-capabilities {
             max-width: 1200px;
@@ -621,6 +599,170 @@
             line-height: 1.6;
             font-size: 1rem;
         }
+
+        /* Agent Showcase Section */
+        .agent-showcase {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .agent-showcase h2 {
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            color: var(--text-strong);
+        }
+
+        .agent-category-title {
+            font-size: 1.5rem;
+            color: var(--accent);
+            margin: 2rem 0 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .functional-agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .functional-agent-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .functional-agent-card:hover {
+            border-color: var(--accent);
+            background: rgba(79, 140, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .functional-agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .functional-agent-title {
+            font-weight: 700;
+            color: var(--text-strong);
+            font-size: 1.1rem;
+        }
+
+        .functional-agent-title-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .functional-agent-icon {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        .functional-agent-schedule {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: var(--surface-alt);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .functional-agent-desc {
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+
+        .view-prompt-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .view-prompt-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(79, 140, 255, 0.05);
+        }
+
+        /* Prompt Modal */
+        #promptModal .modal-content {
+            max-width: 900px;
+            width: 90%;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            background: var(--surface);
+        }
+
+        #promptModal .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface-alt);
+        }
+
+        #promptModal .modal-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-strong);
+        }
+
+        #promptModal .modal-body {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+            background: #0d1117;
+        }
+
+        #promptModal .modal-body pre {
+            margin: 0;
+            padding: 1.5rem;
+        }
+
+        #promptModal .modal-body code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+            color: #e6edf3;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+
+        #promptModal .close-prompt {
+            color: var(--muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        #promptModal .close-prompt:hover {
+            color: var(--text-strong);
+        }
     </style>
 </head>
 <body>
@@ -648,7 +790,7 @@
         </section>
 
         <div class="install-container">
-            <h2 style="font-size: 2rem; margin-bottom: 2rem; color: var(--text-strong);">Choose Your Agent</h2>
+            <h2 class="mb-8 text-text-strong" style="font-size: 2rem;">Choose Your Agent</h2>
 
             <div class="agent-selector">
                 <a href="https://jules.google/" target="_blank" class="agent-card active">
@@ -688,6 +830,31 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
                     </svg>
                     Copy
                 </button>
+            </div>
+
+            <div class="text-center w-full border-t border-border" style="margin-top: 4rem; padding-top: 2rem; max-width: 600px;">
+                <h3 class="mb-2 text-text-strong" style="font-size: 1.25rem;">Running Offline or Air-Gapped?</h3>
+                <p class="text-muted mb-6" style="font-size: 0.95rem;">Download the standalone bundle and install it directly without registry access.</p>
+
+                <a href="{{OFFLINE_BUNDLE_FILENAME}}" download class="cta-button secondary mb-6">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 0.5rem;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download Bundle
+                </a>
+
+                <div class="install-code-wrapper mx-auto" style="max-width: 450px;">
+                    <code id="offline-cmd">npm install ./{{OFFLINE_BUNDLE_FILENAME}}</code>
+                    <button class="copy-install-btn" onclick="copyToClipboard('offline-cmd', this)">
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -735,6 +902,14 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
         </section>
 
+        <section class="agent-showcase" id="agent-showcase">
+            <h2>Functional Agents</h2>
+            <div id="functional-agent-list">
+                <!-- Populated by JS -->
+                <p class="text-center text-muted">Loading agents...</p>
+            </div>
+        </section>
+
         <section class="meta-prompts">
             <h2>Scheduler Meta Prompts</h2>
             <div class="prompts-grid">
@@ -759,30 +934,6 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             </div>
         </section>
 
-        <section class="agent-flow">
-            <h2>Autonomous Improvement Cycle</h2>
-            <div class="mermaid">
-                flowchart TD
-                    %% Nodes
-                    S[Scheduler<br/>Daily & Weekly]
-                    C[Candidate Loop<br/>Audit & Check Agents]
-                    F[Fixer Agents<br/>Code Correction]
-                    P[Prompt Maintenance<br/>Self-Evolution]
-
-                    %% Edge Connections
-                    S -->|Orchestrates| C
-                    C -->|Identifies Gaps| F
-                    F -->|Resolves Issues| P
-                    P -->|Refines Prompts| S
-
-                    %% Styles
-                    classDef box fill:#151b2f,stroke:#2a3456,color:#dbe4ff,stroke-width:1px;
-                    classDef accent fill:#4f8cff,stroke:#2f6be5,color:#ffffff,stroke-width:2px;
-
-                    class S,P accent;
-                    class C,F box;
-            </div>
-        </section>
     </main>
 
     <footer>
@@ -798,6 +949,22 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             <span class="close-modal">&times;</span>
             <div id="markdown-content">
                 <p class="text-muted">Loading documentation...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Prompt Modal -->
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="promptModalTitle">Agent Prompt</span>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button class="copy-btn" id="copyPromptBtn">Copy</button>
+                    <span class="close-prompt">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <pre><code id="promptModalCode">Loading...</code></pre>
             </div>
         </div>
     </div>
@@ -842,12 +1009,32 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
             modal.classList.remove("show");
         }
 
+        // Agent Prompt Modal Logic
+        const promptModal = document.getElementById("promptModal");
+        const closePromptBtn = document.querySelector("#promptModal .close-prompt");
+        const copyPromptBtn = document.getElementById("copyPromptBtn");
+
+        if (closePromptBtn) {
+            closePromptBtn.onclick = function() {
+                promptModal.classList.remove("show");
+            }
+        }
+
+        if (copyPromptBtn) {
+            copyPromptBtn.onclick = function() {
+                copyToClipboard('promptModalCode', copyPromptBtn);
+            }
+        }
+
         window.onclick = function(event) {
             if (event.target == modal) {
                 modal.classList.remove("show");
             }
             if (event.target == ackModal) {
                 dismissAckModal();
+            }
+            if (event.target == promptModal) {
+                promptModal.classList.remove("show");
             }
         }
 
@@ -862,11 +1049,15 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
 
                 // Configure marked options if needed (e.g., highlighting)
                 // Using simple rendering for now
+                // TRUSTED SOURCE: The content comes from a local file (../src/docs/TORCH.md) and is required to be rendered as HTML.
                 contentDiv.innerHTML = marked.parse(text);
                 docsLoaded = true;
             } catch (error) {
                 console.error(error);
-                contentDiv.innerHTML = `<p class="text-danger">Error loading documentation: ${error.message}</p>`;
+                const p = document.createElement('p');
+                p.className = 'text-danger';
+                p.textContent = `Error loading documentation: ${error.message}`;
+                contentDiv.replaceChildren(p);
             }
         }
 
@@ -928,13 +1119,15 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
 
             const code = document.getElementById(elementId).textContent;
             navigator.clipboard.writeText(code).then(() => {
-                const originalContent = btn.innerHTML;
+                // Capture child nodes to avoid innerHTML
+                const originalChildren = Array.from(btn.childNodes).map(n => n.cloneNode(true));
+
                 btn.textContent = 'Copied!';
                 btn.style.borderColor = 'var(--success)';
                 btn.style.color = 'var(--success)';
 
                 setTimeout(() => {
-                    btn.innerHTML = originalContent;
+                    btn.replaceChildren(...originalChildren);
                     btn.style.borderColor = '';
                     btn.style.color = '';
                 }, 2000);
@@ -945,6 +1138,223 @@ npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz &
 
         // Initialize Meta Prompts
         fetchMetaPrompts();
+
+        // Initialize Agent Showcase
+        fetchAgents();
+
+        // Store agent data globally
+        window.agentData = {};
+
+        const AGENT_ICONS = {
+            'audit-agent': '🕵️',
+            'ci-health-agent': '🏥',
+            'const-refactor-agent': '🧹',
+            'content-audit-agent': '📝',
+            'decompose-agent': '🧩',
+            'deps-security-agent': '🛡️',
+            'design-system-audit-agent': '🎨',
+            'docs-agent': '📚',
+            'docs-alignment-agent': '📐',
+            'docs-code-investigator': '🧐',
+            'innerhtml-migration-agent': '🔐',
+            'known-issues-agent': '📋',
+            'load-test-agent': '🏋️',
+            'log-fixer-agent': '📜',
+            'onboarding-audit-agent': '🧭',
+            'perf-agent': '🚀',
+            'protocol-research-agent': '🔬',
+            'scheduler-update-agent': '⏰',
+            'style-agent': '💅',
+            'test-audit-agent': '🧪',
+            'todo-triage-agent': '📥',
+            'torch-garbage-collection-agent': '♻️',
+            'bug-reproducer-agent': '🕷️',
+            'changelog-agent': '📰',
+            'dead-code-agent': '⚰️',
+            'feature-proposer-agent': '💡',
+            'frontend-console-debug-agent': '🕹️',
+            'fuzz-agent': '🎲',
+            'perf-deepdive-agent': '🤿',
+            'perf-optimization-agent': '🏎️',
+            'pr-review-agent': '👓',
+            'prompt-fixer-agent': '✏️',
+            'prompt-gap-analysis-agent': '🗺️',
+            'prompt-maintenance-agent': '🧼',
+            'prompt-safety-agent': '🦺',
+            'race-condition-agent': '🏁',
+            'refactor-agent': '🔨',
+            'repo-fit-agent': '🧘',
+            'smoke-agent': '💨',
+            'telemetry-agent': '📡',
+            'test-coverage-agent': '☔',
+            'ui-ux-agent': '🖼️',
+            'weekly-synthesis-agent': '🧠'
+        };
+
+        const AGENT_CATEGORIES = {
+            'scheduler-update-agent': 'TORCH Maintenance & Agent Evolution',
+            'torch-garbage-collection-agent': 'TORCH Maintenance & Agent Evolution',
+            'repo-fit-agent': 'TORCH Maintenance & Agent Evolution',
+            'weekly-synthesis-agent': 'TORCH Maintenance & Agent Evolution',
+            'prompt-fixer-agent': 'TORCH Maintenance & Agent Evolution',
+            'prompt-gap-analysis-agent': 'TORCH Maintenance & Agent Evolution',
+            'prompt-maintenance-agent': 'TORCH Maintenance & Agent Evolution',
+            'prompt-safety-agent': 'TORCH Maintenance & Agent Evolution',
+            // Default: 'Repo Development'
+        };
+
+        async function fetchAgents() {
+            const container = document.getElementById('functional-agent-list');
+            try {
+                const response = await fetch('../src/prompts/roster.json');
+                if (!response.ok) throw new Error('Failed to load roster');
+                const roster = await response.json();
+
+                container.innerHTML = ''; // Clear loading state
+
+                // Flatten roster into a single list with schedule info
+                const allAgents = [];
+                for (const schedule of ['daily', 'weekly']) {
+                    if (roster[schedule]) {
+                        for (const agentName of roster[schedule]) {
+                            allAgents.push({ agentName, schedule });
+                        }
+                    }
+                }
+
+                // Process all agents in parallel
+                const agentPromises = allAgents.map(async ({ agentName, schedule }) => {
+                    try {
+                        const mdResponse = await fetch(`../src/prompts/${schedule}/${agentName}.md`);
+                        if (!mdResponse.ok) return null;
+                        const content = await mdResponse.text();
+
+                        // Extract Metadata
+                        const meta = extractAgentMetadata(content, agentName);
+
+                        // Determine functional category
+                        const functionalCategory = AGENT_CATEGORIES[agentName] || 'Repo Development';
+
+                        return { ...meta, content, agentName, schedule, functionalCategory };
+                    } catch (e) {
+                        console.error(`Failed to load ${agentName}`, e);
+                        return null;
+                    }
+                });
+
+                const agents = (await Promise.all(agentPromises)).filter(Boolean);
+
+                // Group agents by functional category
+                const groups = {
+                    'TORCH Maintenance & Agent Evolution': [],
+                    'Repo Development': []
+                };
+
+                agents.forEach(agent => {
+                    if (!groups[agent.functionalCategory]) {
+                        groups[agent.functionalCategory] = [];
+                    }
+                    groups[agent.functionalCategory].push(agent);
+                });
+
+                // Render each group
+                for (const categoryName of Object.keys(groups)) {
+                    const categoryAgents = groups[categoryName];
+                    if (categoryAgents.length === 0) continue;
+
+                    // Sort alphabetically within category
+                    categoryAgents.sort((a, b) => a.agentName.localeCompare(b.agentName));
+
+                    // Category Title
+                    const categoryTitle = document.createElement('div');
+                    categoryTitle.className = 'agent-category-title';
+                    categoryTitle.textContent = categoryName;
+                    container.appendChild(categoryTitle);
+
+                    // Grid
+                    const grid = document.createElement('div');
+                    grid.className = 'functional-agent-grid';
+
+                    categoryAgents.forEach(agent => {
+                        // Store in global map
+                        window.agentData[agent.agentName] = agent;
+
+                        const icon = AGENT_ICONS[agent.agentName] || '🤖';
+
+                        const card = document.createElement('div');
+                        card.className = 'functional-agent-card';
+
+                        card.innerHTML = `
+                            <div class="functional-agent-header">
+                                <div class="functional-agent-title-group">
+                                    <span class="functional-agent-icon">${icon}</span>
+                                    <span class="functional-agent-title">${escapeHtml(agent.title)}</span>
+                                </div>
+                                <span class="functional-agent-schedule">${agent.schedule}</span>
+                            </div>
+                            <div class="functional-agent-desc">${escapeHtml(agent.description)}</div>
+                            <button class="view-prompt-btn" onclick="openAgentModal('${agent.agentName}')">View Prompt</button>
+                        `;
+                        grid.appendChild(card);
+                    });
+
+                    container.appendChild(grid);
+                }
+
+            } catch (error) {
+                console.error('Error fetching agents:', error);
+                container.innerHTML = `<p class="text-center" style="color: var(--danger)">Error loading agents: ${error.message}</p>`;
+            }
+        }
+
+        function extractAgentMetadata(content, agentName) {
+            let title = agentName;
+            let description = "No description available.";
+
+            // Normalize newlines
+            content = content.replace(/\r\n/g, '\n');
+
+            // Title extraction
+            const titleMatch = content.match(/You are:\s*\*\*?([^\*\n,.]+)\*\*?/i);
+            if (titleMatch) {
+                title = titleMatch[1].trim();
+                // Ensure Title Case if it looks like kebab-case
+                if (title.includes('-') && title.toLowerCase() === title) {
+                    title = title.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                }
+            } else {
+                title = agentName.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+
+            // Description extraction
+            const missionRegex = /(?:\bYour single-purpose mission\b|\bMission\b|\bYour mission\b):?\s*(?:\*\*)?([^\n]+)/i;
+            const missionMatch = content.match(missionRegex);
+
+            if (missionMatch) {
+                description = missionMatch[1].replace(/\*\*/g, '').trim();
+            }
+
+            return { title, description };
+        }
+
+        // Expose to window for onclick
+        window.openAgentModal = function(agentName) {
+            const agent = window.agentData[agentName];
+            if (!agent) return;
+
+            document.getElementById('promptModalTitle').textContent = agent.title;
+            document.getElementById('promptModalCode').textContent = agent.content;
+            document.getElementById('promptModal').classList.add('show');
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
     </script>
 </body>
 </html>

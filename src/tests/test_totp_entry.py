@@ -28,22 +28,18 @@ def test_add_totp_and_get_code():
         assert uri.startswith("otpauth://totp/")
 
         entry = entry_mgr.retrieve_entry(0)
-        assert entry == {
-            "type": "totp",
-            "kind": "totp",
-            "label": "Example",
-            "index": 0,
-            "period": 30,
-            "digits": 6,
-            "archived": False,
-            "notes": "",
-            "tags": [],
-        }
+        assert entry["deterministic"] is False
+        assert "secret" in entry
 
-        code = entry_mgr.get_totp_code(0, TEST_SEED, timestamp=0)
+        code = entry_mgr.get_totp_code(0, timestamp=0)
 
-        expected = TotpManager.current_code(TEST_SEED, 0, timestamp=0)
+        expected = pyotp.TOTP(entry["secret"]).at(0)
         assert code == expected
+
+        # second entry should have different secret
+        entry_mgr.add_totp("Other", TEST_SEED)
+        entry2 = entry_mgr.retrieve_entry(1)
+        assert entry["secret"] != entry2["secret"]
 
 
 def test_totp_time_remaining(monkeypatch):
@@ -68,17 +64,8 @@ def test_add_totp_imported(tmp_path):
     secret = "JBSWY3DPEHPK3PXP"
     em.add_totp("Imported", TEST_SEED, secret=secret)
     entry = em.retrieve_entry(0)
-    assert entry == {
-        "type": "totp",
-        "kind": "totp",
-        "label": "Imported",
-        "secret": secret,
-        "period": 30,
-        "digits": 6,
-        "archived": False,
-        "notes": "",
-        "tags": [],
-    }
+    assert entry["secret"] == secret
+    assert entry["deterministic"] is False
     code = em.get_totp_code(0, timestamp=0)
     assert code == pyotp.TOTP(secret).at(0)
 
@@ -92,3 +79,23 @@ def test_add_totp_with_notes(tmp_path):
     em.add_totp("NoteLabel", TEST_SEED, notes="some note")
     entry = em.retrieve_entry(0)
     assert entry["notes"] == "some note"
+
+
+def test_legacy_deterministic_entry(tmp_path):
+    vault, enc = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    cfg_mgr = ConfigManager(vault, tmp_path)
+    backup_mgr = BackupManager(tmp_path, cfg_mgr)
+    em = EntryManager(vault, backup_mgr)
+
+    em.add_totp("Legacy", TEST_SEED, deterministic=True)
+    data = em._load_index()
+    entry = data["entries"]["0"]
+    entry.pop("deterministic", None)
+    em._save_index(data)
+
+    code = em.get_totp_code(0, TEST_SEED, timestamp=0)
+    expected = TotpManager.current_code(TEST_SEED, 0, timestamp=0)
+    assert code == expected
+
+    exported = em.export_totp_entries(TEST_SEED)
+    assert exported["entries"][0]["secret"] == TotpManager.derive_secret(TEST_SEED, 0)

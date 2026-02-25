@@ -1,0 +1,40 @@
+{
+  "timestamp_utc": "20260223T191611Z",
+  "command": [
+    "/home/user/Documents/GitHub/SeedPass/.venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-gty9bhbq",
+  "duration_sec": 28.369,
+  "seedpass_exit_code": -9,
+  "status": "failed",
+  "failure": "Timed out waiting for pattern: 'Generated 2FA Codes:'\nRecent output:\n---] 30s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [--------------------] 29s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [#-------------------] 28s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [##------------------] 27s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [##------------------] 26s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [###-----------------] 25s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [####----------------] 24s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [####----------------] 23s\r\n",
+  "steps": [
+    {
+      "step_id": "full_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "failed",
+      "duration_sec": 26.85835266199865,
+      "detail": "Timed out waiting for pattern: 'Generated 2FA Codes:'\nRecent output:\n---] 30s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [--------------------] 29s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [#-------------------] 28s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [##------------------] 27s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [##------------------] 26s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [###-----------------] 25s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [####----------------] 24s\r\n\u001bcSeed Profile: FB55576035C58E02 > Main Menu > 2FA Codes\r\n\r\nPress Enter to return to the menu.\r\n\r\nImported 2FA Codes:\r\n[1] agent-totp: 108964 [####----------------] 23s\r\n"
+    }
+  ],
+  "coverage_points": {
+    "startup_onboarding": true,
+    "main_menu": true,
+    "add_password_quick": true,
+    "invalid_length_validation": true,
+    "add_totp": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "list_entries": true,
+    "modify_entry": false,
+    "archive_restore": false,
+    "totp_codes_view": false,
+    "settings_stats": false,
+    "graceful_exit": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191611Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260223T191611Z/transcript.raw.txt"
+}

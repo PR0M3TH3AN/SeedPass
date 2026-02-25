@@ -1,0 +1,125 @@
+name: Installer Smoke
+
+on:
+  pull_request:
+    paths:
+      - "scripts/install.sh"
+      - "scripts/install.ps1"
+      - "scripts/installer_smoke_unix.sh"
+      - "scripts/installer_smoke_windows.ps1"
+      - ".github/workflows/installer-smoke.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+jobs:
+  smoke_pr:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            branch: beta
+            mode: tui
+          - os: windows-latest
+            branch: beta
+            mode: tui
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Unix installer smoke
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/installer-smoke
+          bash scripts/installer_smoke_unix.sh "${{ matrix.branch }}" "${{ matrix.mode }}" 2>&1 | tee "artifacts/installer-smoke/${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}.log"
+
+      - name: Windows installer smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/installer-smoke | Out-Null
+          $log = "artifacts/installer-smoke/${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}.log"
+          & ./scripts/installer_smoke_windows.ps1 -Branch "${{ matrix.branch }}" -Mode "${{ matrix.mode }}" *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload installer smoke logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-smoke-logs-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}-pr
+          path: artifacts/installer-smoke/*.log
+          if-no-files-found: warn
+
+  smoke_full:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            branch: main
+            mode: tui
+          - os: ubuntu-latest
+            branch: beta
+            mode: tui
+          - os: ubuntu-latest
+            branch: beta
+            mode: both
+          - os: macos-latest
+            branch: main
+            mode: tui
+          - os: macos-latest
+            branch: beta
+            mode: tui
+          - os: macos-latest
+            branch: beta
+            mode: both
+          - os: windows-latest
+            branch: main
+            mode: tui
+          - os: windows-latest
+            branch: beta
+            mode: tui
+          - os: windows-latest
+            branch: beta
+            mode: both
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Unix installer smoke
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/installer-smoke
+          bash scripts/installer_smoke_unix.sh "${{ matrix.branch }}" "${{ matrix.mode }}" 2>&1 | tee "artifacts/installer-smoke/${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}.log"
+
+      - name: Windows installer smoke
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/installer-smoke | Out-Null
+          $log = "artifacts/installer-smoke/${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}.log"
+          & ./scripts/installer_smoke_windows.ps1 -Branch "${{ matrix.branch }}" -Mode "${{ matrix.mode }}" *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload installer smoke logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-smoke-logs-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.mode }}-full
+          path: artifacts/installer-smoke/*.log
+          if-no-files-found: warn

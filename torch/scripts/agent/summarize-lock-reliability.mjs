@@ -182,10 +182,16 @@ async function main() {
       continue;
     }
 
-    for (const entry of entries) {
+    const promises = entries.map(async (entry) => {
       const fullPath = path.join(cadenceDir, entry);
-      logsScanned += 1;
       const record = await readLogFile(fullPath, cadence, cutoffMs);
+      return record;
+    });
+
+    const results = await Promise.all(promises);
+    logsScanned += entries.length;
+
+    for (const record of results) {
       if (!record) continue;
 
       records.push(record);

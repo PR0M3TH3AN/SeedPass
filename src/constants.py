@@ -34,13 +34,9 @@ def initialize_app() -> None:
     """Ensure the application directory exists."""
     try:
         APP_DIR.mkdir(exist_ok=True, parents=True)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.info(f"Application directory created at {APP_DIR}")
+        logger.debug("Application directory created at %s", APP_DIR)
     except Exception as exc:
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.error(
-                f"Failed to create application directory: {exc}", exc_info=True
-            )
+        logger.error("Failed to create application directory: %s", exc, exc_info=True)
 
 
 # -----------------------------------

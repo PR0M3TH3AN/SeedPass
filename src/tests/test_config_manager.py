@@ -23,7 +23,7 @@ def test_config_defaults_and_round_trip():
         assert cfg["pin_hash"] == ""
         assert cfg["password_hash"] == ""
         assert cfg["additional_backup_path"] == ""
-        assert cfg["quick_unlock"] is False
+        assert cfg["quick_unlock_enabled"] is False
         assert cfg["kdf_iterations"] == 50_000
 
         cfg_mgr.set_pin("1234")

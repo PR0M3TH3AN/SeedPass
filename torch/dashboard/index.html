@@ -77,6 +77,13 @@
           <div class="flex items-center gap-2 ml-auto">
             <span id="eventCount" class="text-xs text-muted mono">0 events</span>
             <button
+              id="settingsBtn"
+              type="button"
+              class="rounded-md bg-surface border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-alt focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
+            >
+              Settings
+            </button>
+            <button
               id="refreshBtn"
               type="button"
               class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-strong focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
@@ -164,6 +171,65 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeSettings">&times;</span>
+            <h2 class="text-xl font-semibold mb-4 text-text-strong">Dashboard Settings</h2>
+
+            <form id="settingsForm" class="space-y-4">
+              <div>
+                <label for="settingHashtag" class="block text-sm font-medium text-text mb-1">Hashtag (Required)</label>
+                <input
+                  type="text"
+                  id="settingHashtag"
+                  class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="e.g. my-project-lock"
+                  required
+                >
+                <p class="text-xs text-muted mt-1">Unique identifier for this project's locks.</p>
+              </div>
+
+              <div>
+                <label for="settingNamespace" class="block text-sm font-medium text-text mb-1">Namespace</label>
+                <input
+                  type="text"
+                  id="settingNamespace"
+                  class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="torch"
+                >
+                <p class="text-xs text-muted mt-1">Default: torch</p>
+              </div>
+
+              <div>
+                <label for="settingRelays" class="block text-sm font-medium text-text mb-1">Relays (Comma-separated)</label>
+                <input
+                  type="text"
+                  id="settingRelays"
+                  class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="wss://relay.damus.io, wss://nos.lol"
+                >
+              </div>
+
+              <div class="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  id="cancelSettings"
+                  class="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-surface-alt"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-strong"
+                >
+                  Save & Reload
+                </button>
+              </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
       import { KIND_APP_DATA } from '../src/constants.mjs';
       import { createElement, escapeHtml } from './domUtils.js';
@@ -171,31 +237,95 @@
       // -----------------------------------------------------------------------
       // Modal Logic
       // -----------------------------------------------------------------------
-      const modal = document.getElementById("docsModal");
-      const btn = document.getElementById("openDocs");
-      const span = document.getElementsByClassName("close-modal")[0];
+      const docsModal = document.getElementById("docsModal");
+      const settingsModal = document.getElementById("settingsModal");
+      const openDocsBtn = document.getElementById("openDocs");
+      const openSettingsBtn = document.getElementById("settingsBtn");
+      const closeDocsBtn = document.getElementsByClassName("close-modal")[0];
+      const closeSettingsBtn = document.getElementById("closeSettings");
       const contentDiv = document.getElementById("markdown-content");
       let docsLoaded = false;
 
-      if (btn) {
-        btn.onclick = function(e) {
+      // Docs Modal
+      if (openDocsBtn) {
+        openDocsBtn.onclick = function(e) {
             e.preventDefault();
-            modal.classList.add("show");
+            docsModal.classList.add("show");
             if (!docsLoaded) {
                 fetchDocs();
             }
         }
       }
 
-      if (span) {
-        span.onclick = function() {
-            modal.classList.remove("show");
+      if (closeDocsBtn) {
+        closeDocsBtn.onclick = function() {
+            docsModal.classList.remove("show");
         }
       }
 
+      // Settings Modal
+      if (openSettingsBtn) {
+        openSettingsBtn.onclick = function(e) {
+            e.preventDefault();
+
+            // Pre-fill values
+            document.getElementById('settingHashtag').value = HASHTAG;
+            document.getElementById('settingNamespace').value = DASHBOARD_CONFIG.namespace;
+            document.getElementById('settingRelays').value = RELAYS.join(', ');
+
+            settingsModal.classList.add("show");
+        }
+      }
+
+      if (closeSettingsBtn) {
+        closeSettingsBtn.onclick = function() {
+            settingsModal.classList.remove("show");
+        }
+      }
+
+      document.getElementById('cancelSettings').onclick = function() {
+        settingsModal.classList.remove("show");
+      }
+
+      // Handle Settings Save
+      document.getElementById('settingsForm').onsubmit = function(e) {
+        e.preventDefault();
+
+        const newHashtag = document.getElementById('settingHashtag').value.trim();
+        const newNamespace = document.getElementById('settingNamespace').value.trim();
+        const newRelays = document.getElementById('settingRelays').value.split(',').map(r => r.trim()).filter(Boolean);
+
+        if (!newHashtag) {
+          alert('Hashtag is required.');
+          return;
+        }
+
+        const prefs = {
+          hashtag: newHashtag,
+          namespace: newNamespace,
+          relays: newRelays
+        };
+
+        // Save to LocalStorage
+        localStorage.setItem('torch_dashboard_prefs', JSON.stringify(prefs));
+
+        // Update URL to reflect new settings (so link is shareable)
+        const url = new URL(window.location);
+        url.searchParams.set('hashtag', newHashtag);
+        url.searchParams.set('namespace', newNamespace);
+        url.searchParams.set('relays', newRelays.join(','));
+        window.history.pushState({}, '', url);
+
+        // Reload to apply
+        window.location.reload();
+      }
+
       window.onclick = function(event) {
-          if (event.target == modal) {
-              modal.classList.remove("show");
+          if (event.target == docsModal) {
+              docsModal.classList.remove("show");
+          }
+          if (event.target == settingsModal) {
+              settingsModal.classList.remove("show");
           }
       }
 
@@ -263,23 +393,46 @@
 
       function parseDashboardConfig(torchConfig = {}) {
         const params = new URLSearchParams(window.location.search);
+
+        // 1. LocalStorage Preferences
+        let localPrefs = {};
+        try {
+          localPrefs = JSON.parse(localStorage.getItem('torch_dashboard_prefs')) || {};
+        } catch {}
+
         const dashboardConfig = torchConfig.dashboard || {};
         const lockConfig = torchConfig.nostrLock || {};
 
-        const configuredNamespace =
-          (dashboardConfig.namespace || lockConfig.namespace || DASHBOARD_DEFAULTS.namespace);
-        const namespace =
-          (params.get('namespace') || configuredNamespace).trim() || DASHBOARD_DEFAULTS.namespace;
-        const hashtag =
-          (params.get('hashtag') || dashboardConfig.hashtag || DASHBOARD_DEFAULTS.hashtag).trim() ||
-          `${namespace}-agent-lock`;
-        const relaysParam = (params.get('relays') || '').trim();
-        const relays = relaysParam
-          ? relaysParam
-              .split(',')
-              .map((relay) => relay.trim())
-              .filter(Boolean)
-          : [...(dashboardConfig.relays || lockConfig.relays || DASHBOARD_DEFAULTS.relays)];
+        // Hierarchy: URL Param > LocalStorage > Config File > Default
+
+        // Namespace
+        const configNamespace = dashboardConfig.namespace || lockConfig.namespace || DASHBOARD_DEFAULTS.namespace;
+        const namespace = (
+          params.get('namespace') ||
+          localPrefs.namespace ||
+          configNamespace
+        ).trim() || DASHBOARD_DEFAULTS.namespace;
+
+        // Hashtag
+        const configHashtag = dashboardConfig.hashtag || DASHBOARD_DEFAULTS.hashtag;
+        const hashtag = (
+          params.get('hashtag') ||
+          localPrefs.hashtag ||
+          configHashtag ||
+          `${namespace}-agent-lock`
+        ).trim();
+
+        // Relays
+        const paramsRelays = params.get('relays') ? params.get('relays').split(',') : null;
+        const localRelays = localPrefs.relays;
+        const configRelays = dashboardConfig.relays || lockConfig.relays || DASHBOARD_DEFAULTS.relays;
+
+        let relays = (paramsRelays || localRelays || configRelays)
+          .map(r => r.trim())
+          .filter(Boolean);
+
+        if (relays.length === 0) relays = DASHBOARD_DEFAULTS.relays;
+
         const defaultCadenceView = normalizeCadence(dashboardConfig.defaultCadenceView);
         const defaultStatusView = normalizeStatus(dashboardConfig.defaultStatusView);
 
@@ -814,10 +967,16 @@
       // Periodic TTL refresh
       // -----------------------------------------------------------------------
       refreshIntervalId = setInterval(() => {
-        if (isAlive()) {
+        if (isAlive() && !document.hidden) {
           renderLocks();
         }
       }, 30_000);
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && isAlive()) {
+          renderLocks();
+        }
+      });
 
       // -----------------------------------------------------------------------
       // Event handlers

@@ -4,6 +4,7 @@ node_modules/
 
 # Ignore virtual environment directory
 venv/
+.venv/
 
 # Ignore context tool directory
 context_tool/
@@ -48,3 +49,5 @@ src/seedpass.egg-info/top_level.txt
 
 # Allow vendored dependencies to be committed
 !src/vendor/
+torch/node_modules
+torch/torch/

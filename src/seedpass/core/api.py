@@ -148,7 +148,9 @@ class VaultService:
         """Restore a profile from ``data`` and sync."""
 
         with self._lock:
-            decrypted = self._manager.vault.encryption_manager.decrypt_data(data)
+            decrypted = self._manager.vault.encryption_manager.decrypt_data(
+                data, context="profile"
+            )
             index = json.loads(decrypted.decode("utf-8"))
             self._manager.vault.save_index(index)
             self._manager.sync_vault()
@@ -263,13 +265,13 @@ class EntryService:
     def list_entries(
         self,
         sort_by: str = "index",
-        filter_kind: str | None = None,
+        filter_kinds: list[str] | None = None,
         include_archived: bool = False,
     ):
         with self._lock:
             return self._manager.entry_manager.list_entries(
                 sort_by=sort_by,
-                filter_kind=filter_kind,
+                filter_kinds=filter_kinds,
                 include_archived=include_archived,
             )
 
@@ -303,9 +305,10 @@ class EntryService:
 
     def get_totp_code(self, entry_id: int) -> str:
         with self._lock:
-            return self._manager.entry_manager.get_totp_code(
-                entry_id, self._manager.parent_seed
+            key = getattr(self._manager, "KEY_TOTP_DET", None) or getattr(
+                self._manager, "parent_seed", None
             )
+            return self._manager.entry_manager.get_totp_code(entry_id, key)
 
     def get_totp_secret(self, entry_id: int) -> str:
         """Return the TOTP secret (base32) for the given entry."""
@@ -367,15 +370,18 @@ class EntryService:
         secret: str | None = None,
         period: int = 30,
         digits: int = 6,
+        deterministic: bool = False,
     ) -> str:
         with self._lock:
+            key = self._manager.KEY_TOTP_DET if deterministic else None
             uri = self._manager.entry_manager.add_totp(
                 label,
-                self._manager.parent_seed,
+                key,
                 index=index,
                 secret=secret,
                 period=period,
                 digits=digits,
+                deterministic=deterministic,
             )
             self._manager.start_background_vault_sync()
             return uri
@@ -520,9 +526,10 @@ class EntryService:
 
     def export_totp_entries(self) -> dict:
         with self._lock:
-            return self._manager.entry_manager.export_totp_entries(
-                self._manager.parent_seed
+            key = getattr(self._manager, "KEY_TOTP_DET", None) or getattr(
+                self._manager, "parent_seed", None
             )
+            return self._manager.entry_manager.export_totp_entries(key)
 
     def display_totp_codes(self) -> None:
         with self._lock:

@@ -3,6 +3,8 @@
 SeedPass stores its password index in an encrypted JSON file. Each index contains
 a `schema_version` field so the application knows how to upgrade older files.
 
+> **Note:** Recent releases derive passwords and other artifacts using a new deterministic algorithm that works consistently across Python versions. Artifacts produced with older versions will not match outputs from this release and must be regenerated.
+
 ## How migrations work
 
 When the vault loads the index, `Vault.load_index()` checks the version and

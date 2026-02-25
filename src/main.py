@@ -11,20 +11,25 @@ import os
 import logging
 import signal
 import time
+import queue
 import argparse
-import asyncio
-import gzip
 import tomli
+from tomli import TOMLDecodeError
 from colorama import init as colorama_init
 from termcolor import colored
 from utils.color_scheme import color_text
-import traceback
+import importlib
 
-from seedpass.core.manager import PasswordManager
+from seedpass.core.manager import PasswordManager, restore_backup_index
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
+from seedpass.core.config_manager import ConfigManager
 from constants import INACTIVITY_TIMEOUT, initialize_app
-from utils.password_prompt import PasswordPromptError
+from utils.password_prompt import (
+    PasswordPromptError,
+    prompt_existing_password,
+    prompt_new_password,
+)
 from utils import (
     timed_input,
     copy_to_clipboard,
@@ -32,10 +37,35 @@ from utils import (
     pause,
     clear_header_with_notification,
 )
-import queue
+from utils.clipboard import ClipboardUnavailableError
+from utils.atomic_write import atomic_write
+from utils.logging_utils import (
+    ConsolePauseFilter,
+    ChecksumWarningFilter,
+    pause_logging_for_ui,
+)
 from local_bip85.bip85 import Bip85Error
 
 colorama_init()
+
+OPTIONAL_DEPENDENCIES = {
+    "pyperclip": "clipboard support for secret mode",
+    "qrcode": "QR code generation for TOTP setup",
+    "toga": "desktop GUI features",
+}
+
+
+def _warn_missing_optional_dependencies() -> None:
+    """Log warnings for any optional packages that are not installed."""
+    for module, feature in OPTIONAL_DEPENDENCIES.items():
+        try:
+            importlib.import_module(module)
+        except ModuleNotFoundError:
+            logging.debug(
+                "Optional dependency '%s' is not installed; %s will be unavailable.",
+                module,
+                feature,
+            )
 
 
 def load_global_config() -> dict:
@@ -46,48 +76,44 @@ def load_global_config() -> dict:
     try:
         with open(config_path, "rb") as f:
             return tomli.load(f)
-    except Exception as exc:
+    except (OSError, TOMLDecodeError) as exc:
         logging.warning(f"Failed to read {config_path}: {exc}")
         return {}
 
 
-def configure_logging():
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)  # Keep this as DEBUG to capture all logs
+def configure_logging() -> None:
+    """Configure application-wide logging handlers."""
 
-    # Remove all handlers associated with the root logger object
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-
-    # Ensure the 'logs' directory exists
     log_directory = Path("logs")
-    if not log_directory.exists():
-        log_directory.mkdir(parents=True, exist_ok=True)
+    log_directory.mkdir(parents=True, exist_ok=True)
 
-    # Create handlers
-    c_handler = logging.StreamHandler(sys.stdout)
-    f_handler = logging.FileHandler(log_directory / "main.log")
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(logging.WARNING)
+    console_handler.addFilter(ConsolePauseFilter())
+    console_handler.addFilter(ChecksumWarningFilter())
 
-    # Set levels: only errors and critical messages will be shown in the console
-    c_handler.setLevel(logging.ERROR)
-    f_handler.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(log_directory / "main.log")
+    file_handler.setLevel(logging.DEBUG)
 
-    # Create formatters and add them to handlers
     formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]"
+        "%(asctime)s [%(levelname)s] %(message)s [%(filename)s:%(lineno)d]",
     )
-    c_handler.setFormatter(formatter)
-    f_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
 
-    # Add handlers to the logger
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers.clear()
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
 
-    # Set logging level for third-party libraries to WARNING to suppress their debug logs
-    logging.getLogger("monstr").setLevel(logging.WARNING)
-    logging.getLogger("nostr").setLevel(logging.WARNING)
+    logging.captureWarnings(True)
+
+    logging.getLogger("monstr").setLevel(logging.ERROR)
+    logging.getLogger("nostr").setLevel(logging.ERROR)
 
 
+@pause_logging_for_ui
 def confirm_action(prompt: str) -> bool:
     """
     Prompts the user for confirmation.
@@ -136,6 +162,7 @@ def get_notification_text(pm: PasswordManager) -> str:
     return color_text(getattr(note, "message", ""), category)
 
 
+@pause_logging_for_ui
 def handle_switch_fingerprint(password_manager: PasswordManager):
     """
     Handles switching the active fingerprint.
@@ -164,6 +191,13 @@ def handle_switch_fingerprint(password_manager: PasswordManager):
             return
 
         selected_fingerprint = fingerprints[int(choice) - 1]
+        if selected_fingerprint == password_manager.current_fingerprint:
+            print(
+                colored(
+                    f"Seed profile {selected_fingerprint} is already active.", "yellow"
+                )
+            )
+            return
         if password_manager.select_fingerprint(selected_fingerprint):
             print(colored(f"Switched to seed profile {selected_fingerprint}.", "green"))
         else:
@@ -187,11 +221,7 @@ def handle_add_new_fingerprint(password_manager: PasswordManager):
 
 
 def handle_remove_fingerprint(password_manager: PasswordManager):
-    """
-    Handles removing an existing seed profile.
-
-    :param password_manager: An instance of PasswordManager.
-    """
+    """Handle removing an existing seed profile."""
     try:
         fingerprints = password_manager.fingerprint_manager.list_fingerprints()
         if not fingerprints:
@@ -210,12 +240,24 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
 
         selected_fingerprint = fingerprints[int(choice) - 1]
         confirm = confirm_action(
-            f"Are you sure you want to remove seed profile {selected_fingerprint}? This will delete all associated data. (Y/N): "
+            f"Are you sure you want to remove seed profile {selected_fingerprint}? This will delete all associated data. (Y/N):"
         )
         if confirm:
+
+            def _cleanup_and_exit() -> None:
+                password_manager.current_fingerprint = None
+                password_manager.is_dirty = False
+                getattr(password_manager, "cleanup", lambda: None)()
+                print(colored("All seed profiles removed. Exiting.", "yellow"))
+                sys.exit(0)
+
             if password_manager.fingerprint_manager.remove_fingerprint(
-                selected_fingerprint
+                selected_fingerprint, _cleanup_and_exit
             ):
+                password_manager.current_fingerprint = (
+                    password_manager.fingerprint_manager.current_fingerprint
+                )
+                password_manager.is_dirty = False
                 print(
                     colored(
                         f"Seed profile {selected_fingerprint} removed successfully.",
@@ -274,10 +316,9 @@ def handle_display_npub(password_manager: PasswordManager):
 def _display_live_stats(
     password_manager: PasswordManager, interval: float = 1.0
 ) -> None:
-    """Continuously refresh stats until the user presses Enter.
+    """Display stats and wait for the user to continue.
 
-    Each refresh also triggers a background sync so the latest stats are
-    displayed if newer data exists on Nostr.
+    A background sync runs before rendering so the latest stats are shown.
     """
 
     stats_mgr = getattr(password_manager, "stats_manager", None)
@@ -304,28 +345,17 @@ def _display_live_stats(
             stats_mgr.reset()
         return
 
-    while True:
-        if callable(sync_fn):
-            try:
-                sync_fn()
-            except Exception:  # pragma: no cover - sync best effort
-                logging.debug("Background sync failed during stats display")
-        clear_screen()
-        display_fn()
-        note = get_notification_text(password_manager)
-        if note:
-            print(note)
-        print(colored("Press Enter to continue.", "cyan"))
-        sys.stdout.flush()
-        try:
-            user_input = timed_input("", interval)
-            if user_input.strip() == "" or user_input.strip().lower() == "b":
-                break
-        except TimeoutError:
-            pass
-        except KeyboardInterrupt:
-            print()
-            break
+    clear_screen()
+    display_fn()
+    note = get_notification_text(password_manager)
+    if note:
+        print(note)
+    print(colored("Press Enter to continue.", "cyan"))
+    sys.stdout.flush()
+    try:
+        timed_input("", None)
+    except KeyboardInterrupt:
+        print()
     if stats_mgr is not None:
         stats_mgr.reset()
 
@@ -403,34 +433,36 @@ def handle_post_to_nostr(
 
 
 def handle_retrieve_from_nostr(password_manager: PasswordManager):
-    """
-    Handles the action of retrieving the encrypted password index from Nostr.
-    """
+    """Retrieve the encrypted password index from Nostr."""
     try:
-        password_manager.nostr_client.fingerprint = password_manager.current_fingerprint
-        result = asyncio.run(password_manager.nostr_client.fetch_latest_snapshot())
-        if result:
-            manifest, chunks = result
-            encrypted = gzip.decompress(b"".join(chunks))
-            if manifest.delta_since:
-                version = int(manifest.delta_since)
-                deltas = asyncio.run(
-                    password_manager.nostr_client.fetch_deltas_since(version)
-                )
-                if deltas:
-                    encrypted = deltas[-1]
-            password_manager.encryption_manager.decrypt_and_save_index_from_nostr(
-                encrypted
-            )
-            print(colored("Encrypted index retrieved and saved successfully.", "green"))
-            logging.info("Encrypted index retrieved and saved successfully from Nostr.")
-        else:
+        password_manager.sync_index_from_nostr()
+        if password_manager.nostr_client.last_error:
             msg = (
                 f"No Nostr events found for fingerprint"
                 f" {password_manager.current_fingerprint}."
+                if "Snapshot not found" in password_manager.nostr_client.last_error
+                else password_manager.nostr_client.last_error
             )
             print(colored(msg, "red"))
             logging.error(msg)
+        else:
+            try:
+                legacy_pub = (
+                    password_manager.nostr_client.key_manager.generate_legacy_nostr_keys().public_key_hex()
+                )
+                if password_manager.nostr_client.keys.public_key_hex() == legacy_pub:
+                    note = "Restored index from legacy Nostr backup."
+                    print(colored(note, "yellow"))
+                    logging.info(note)
+            except Exception:
+                pass
+            print(
+                colored(
+                    "Encrypted index retrieved and saved successfully.",
+                    "green",
+                )
+            )
+            logging.info("Encrypted index retrieved and saved successfully from Nostr.")
     except Exception as e:
         logging.error(f"Failed to retrieve from Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to retrieve from Nostr: {e}", "red"))
@@ -601,33 +633,49 @@ def handle_set_inactivity_timeout(password_manager: PasswordManager) -> None:
 
 
 def handle_set_kdf_iterations(password_manager: PasswordManager) -> None:
-    """Change the PBKDF2 iteration count."""
+    """Interactive slider for PBKDF2 iteration strength with benchmarking."""
+    import hashlib
+    import time
+
     cfg_mgr = password_manager.config_manager
     if cfg_mgr is None:
         print(colored("Configuration manager unavailable.", "red"))
         return
+    levels = [
+        ("1", "Very Fast", 10_000),
+        ("2", "Fast", 50_000),
+        ("3", "Balanced", 100_000),
+        ("4", "Slow", 200_000),
+        ("5", "Paranoid", 500_000),
+    ]
     try:
         current = cfg_mgr.get_kdf_iterations()
-        print(colored(f"Current iterations: {current}", "cyan"))
     except Exception as e:
         logging.error(f"Error loading iterations: {e}")
         print(colored(f"Error: {e}", "red"))
         return
-    value = input("Enter new iteration count: ").strip()
-    if not value:
-        print(colored("No iteration count entered.", "yellow"))
+    print(colored(f"Current iterations: {current}", "cyan"))
+    for key, label, iters in levels:
+        marker = "*" if iters == current else " "
+        print(colored(f"{key}. {label} ({iters}) {marker}", "menu"))
+    print(colored("b. Benchmark current setting", "menu"))
+    choice = input("Select strength or 'b' to benchmark: ").strip().lower()
+    if not choice:
+        print(colored("No change made.", "yellow"))
+        return
+    if choice == "b":
+        start = time.perf_counter()
+        hashlib.pbkdf2_hmac("sha256", b"bench", b"salt", current)
+        elapsed = time.perf_counter() - start
+        print(colored(f"{current} iterations took {elapsed:.2f}s", "green"))
+        return
+    selected = {k: v for k, _, v in levels}.get(choice)
+    if not selected:
+        print(colored("Invalid choice.", "red"))
         return
     try:
-        iterations = int(value)
-        if iterations <= 0:
-            print(colored("Iterations must be positive.", "red"))
-            return
-    except ValueError:
-        print(colored("Invalid number.", "red"))
-        return
-    try:
-        cfg_mgr.set_kdf_iterations(iterations)
-        print(colored("KDF iteration count updated.", "green"))
+        cfg_mgr.set_kdf_iterations(selected)
+        print(colored(f"KDF iteration count set to {selected}.", "green"))
     except Exception as e:
         logging.error(f"Error saving iterations: {e}")
         print(colored(f"Error: {e}", "red"))
@@ -666,8 +714,7 @@ def handle_set_additional_backup_location(pm: PasswordManager) -> None:
         path = Path(value).expanduser()
         path.mkdir(parents=True, exist_ok=True)
         test_file = path / ".seedpass_write_test"
-        with open(test_file, "w") as f:
-            f.write("test")
+        atomic_write(test_file, lambda f: f.write("test"))
         test_file.unlink()
     except Exception as e:
         print(colored(f"Path not writable: {e}", "red"))
@@ -706,8 +753,18 @@ def handle_toggle_secret_mode(pm: PasswordManager) -> None:
     """Toggle secret mode and adjust clipboard delay."""
     cfg = pm.config_manager
     if cfg is None:
-        print(colored("Configuration manager unavailable.", "red"))
-        return
+        vault = getattr(pm, "vault", None)
+        fingerprint_dir = getattr(pm, "fingerprint_dir", None)
+        if vault is not None and fingerprint_dir is not None:
+            try:
+                cfg = pm.config_manager = ConfigManager(vault, fingerprint_dir)
+            except Exception as exc:
+                logging.error(f"Failed to initialize ConfigManager: {exc}")
+                print(colored("Configuration manager unavailable.", "red"))
+                return
+        else:
+            print(colored("Configuration manager unavailable.", "red"))
+            return
     try:
         enabled = cfg.get_secret_mode_enabled()
         delay = cfg.get_clipboard_clear_delay()
@@ -747,8 +804,18 @@ def handle_toggle_quick_unlock(pm: PasswordManager) -> None:
     """Enable or disable Quick Unlock."""
     cfg = pm.config_manager
     if cfg is None:
-        print(colored("Configuration manager unavailable.", "red"))
-        return
+        vault = getattr(pm, "vault", None)
+        fingerprint_dir = getattr(pm, "fingerprint_dir", None)
+        if vault is not None and fingerprint_dir is not None:
+            try:
+                cfg = pm.config_manager = ConfigManager(vault, fingerprint_dir)
+            except Exception as exc:
+                logging.error(f"Failed to initialize ConfigManager: {exc}")
+                print(colored("Configuration manager unavailable.", "red"))
+                return
+        else:
+            print(colored("Configuration manager unavailable.", "red"))
+            return
     try:
         enabled = cfg.get_quick_unlock()
     except Exception as exc:
@@ -774,8 +841,18 @@ def handle_toggle_offline_mode(pm: PasswordManager) -> None:
     """Enable or disable offline mode."""
     cfg = pm.config_manager
     if cfg is None:
-        print(colored("Configuration manager unavailable.", "red"))
-        return
+        vault = getattr(pm, "vault", None)
+        fingerprint_dir = getattr(pm, "fingerprint_dir", None)
+        if vault is not None and fingerprint_dir is not None:
+            try:
+                cfg = pm.config_manager = ConfigManager(vault, fingerprint_dir)
+            except Exception as exc:
+                logging.error(f"Failed to initialize ConfigManager: {exc}")
+                print(colored("Configuration manager unavailable.", "red"))
+                return
+        else:
+            print(colored("Configuration manager unavailable.", "red"))
+            return
     try:
         enabled = cfg.get_offline_mode()
     except Exception as exc:
@@ -916,12 +993,12 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("8. Import database", "menu"))
         print(color_text("9. Export 2FA codes", "menu"))
         print(color_text("10. Set additional backup location", "menu"))
-        print(color_text("11. Set KDF iterations", "menu"))
+        print(color_text("11. KDF strength & benchmark", "menu"))
         print(color_text("12. Set inactivity timeout", "menu"))
         print(color_text("13. Lock Vault", "menu"))
         print(color_text("14. Stats", "menu"))
         print(color_text("15. Toggle Secret Mode", "menu"))
-        print(color_text("16. Toggle Offline Mode", "menu"))
+        print(color_text("16. Toggle Offline Mode (default ON)", "menu"))
         print(color_text("17. Toggle Quick Unlock", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         if choice == "1":
@@ -929,7 +1006,16 @@ def handle_settings(password_manager: PasswordManager) -> None:
         elif choice == "2":
             handle_nostr_menu(password_manager)
         elif choice == "3":
-            password_manager.change_password()
+            try:
+                old_pw = prompt_existing_password("Enter your current password: ")
+                new_pw = prompt_new_password()
+                password_manager.change_password(old_pw, new_pw)
+            except ValueError:
+                print(colored("Incorrect password.", "red"))
+            except PasswordPromptError:
+                pass
+            except Exception as e:
+                print(colored(f"Error: {e}", "red"))
             pause()
         elif choice == "4":
             password_manager.handle_verify_checksum()
@@ -1007,6 +1093,7 @@ def display_menu(
     getattr(password_manager, "start_background_relay_check", lambda: None)()
     _display_live_stats(password_manager)
     while True:
+        getattr(password_manager, "poll_background_errors", lambda: None)()
         fp, parent_fp, child_fp = getattr(
             password_manager,
             "header_fingerprint_args",
@@ -1027,11 +1114,15 @@ def display_menu(
             getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
         # Periodically push updates to Nostr
-        if (
-            password_manager.is_dirty
-            and time.time() - password_manager.last_update >= sync_interval
-        ):
-            handle_post_to_nostr(password_manager)
+        current_fp = getattr(password_manager, "current_fingerprint", None)
+        if current_fp:
+            if (
+                password_manager.is_dirty
+                and time.time() - password_manager.last_update >= sync_interval
+            ):
+                handle_post_to_nostr(password_manager)
+                password_manager.is_dirty = False
+        else:
             password_manager.is_dirty = False
 
         # Flush logging handlers
@@ -1121,17 +1212,6 @@ def display_menu(
         elif choice == "2":
             password_manager.update_activity()
             password_manager.handle_retrieve_entry()
-            fp, parent_fp, child_fp = getattr(
-                password_manager,
-                "header_fingerprint_args",
-                (getattr(password_manager, "current_fingerprint", None), None, None),
-            )
-            clear_header_with_notification(
-                fp,
-                "Main Menu",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
         elif choice == "3":
             password_manager.update_activity()
             password_manager.handle_search_entries()
@@ -1165,6 +1245,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         Optional seed profile fingerprint to select automatically.
     """
     configure_logging()
+    _warn_missing_optional_dependencies()
     initialize_app()
     logger = logging.getLogger(__name__)
     logger.info("Starting SeedPass Password Manager")
@@ -1172,10 +1253,35 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     load_global_config()
     parser = argparse.ArgumentParser()
     parser.add_argument("--fingerprint")
+    parser.add_argument(
+        "--restore-backup",
+        help="Restore index from backup file before starting",
+    )
+    parser.add_argument(
+        "--no-clipboard",
+        action="store_true",
+        help="Disable clipboard support and print secrets",
+    )
+    parser.add_argument(
+        "--deterministic-totp",
+        action="store_true",
+        help="Derive TOTP secrets deterministically",
+    )
+    parser.add_argument(
+        "--max-prompt-attempts",
+        type=int,
+        default=None,
+        help="Maximum number of password/seed prompt attempts (0 to disable)",
+    )
     sub = parser.add_subparsers(dest="command")
 
     exp = sub.add_parser("export")
     exp.add_argument("--file")
+    exp.add_argument(
+        "--unencrypted",
+        action="store_true",
+        help="Export without encryption",
+    )
 
     imp = sub.add_parser("import")
     imp.add_argument("--file")
@@ -1191,6 +1297,44 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
 
     args = parser.parse_args(argv)
 
+    if args.restore_backup:
+        fp_target = args.fingerprint or fingerprint
+        if fp_target is None:
+            print(
+                colored(
+                    "Error: --fingerprint is required when using --restore-backup.",
+                    "red",
+                )
+            )
+            return 1
+        try:
+            restore_backup_index(Path(args.restore_backup), fp_target)
+            logger.info("Restored backup from %s", args.restore_backup)
+        except Exception as e:
+            logger.error(f"Failed to restore backup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to restore backup: {e}", "red"))
+            return 1
+    elif args.command is None:
+        print("Startup Options:")
+        print("1. Continue")
+        print("2. Restore from backup")
+        choice = input("Select an option: ").strip()
+        if choice == "2":
+            path = input("Enter backup file path: ").strip()
+            fp_target = args.fingerprint or fingerprint
+            if fp_target is None:
+                fp_target = input("Enter fingerprint for restore: ").strip()
+            try:
+                restore_backup_index(Path(path), fp_target)
+                logger.info("Restored backup from %s", path)
+            except Exception as e:
+                logger.error(f"Failed to restore backup: {e}", exc_info=True)
+                print(colored(f"Error: Failed to restore backup: {e}", "red"))
+                return 1
+
+    if args.max_prompt_attempts is not None:
+        os.environ["SEEDPASS_MAX_PROMPT_ATTEMPTS"] = str(args.max_prompt_attempts)
+
     try:
         password_manager = PasswordManager(fingerprint=args.fingerprint or fingerprint)
         logger.info("PasswordManager initialized successfully.")
@@ -1203,8 +1347,15 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         print(colored(f"Error: Failed to initialize PasswordManager: {e}", "red"))
         return 1
 
+    if args.no_clipboard:
+        password_manager.secret_mode_enabled = False
+    if args.deterministic_totp:
+        password_manager.deterministic_totp = True
+
     if args.command == "export":
-        password_manager.handle_export_database(Path(args.file))
+        password_manager.handle_export_database(
+            Path(args.file), encrypt=not args.unencrypted
+        )
         return 0
     if args.command == "import":
         password_manager.handle_import_database(Path(args.file))
@@ -1246,15 +1397,22 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         if entry.get("type") != EntryType.TOTP.value:
             print(colored("Entry is not a TOTP entry.", "red"))
             return 1
-        code = password_manager.entry_manager.get_totp_code(
-            idx, password_manager.parent_seed
+        key = getattr(password_manager, "KEY_TOTP_DET", None) or getattr(
+            password_manager, "parent_seed", None
         )
+        code = password_manager.entry_manager.get_totp_code(idx, key)
         print(code)
         try:
-            copy_to_clipboard(code, password_manager.clipboard_clear_delay)
-            print(colored("Code copied to clipboard", "green"))
-        except Exception as exc:
-            logging.warning(f"Clipboard copy failed: {exc}")
+            if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
+                print(colored("Code copied to clipboard", "green"))
+        except ClipboardUnavailableError as exc:
+            print(
+                colored(
+                    f"Clipboard unavailable: {exc}\n"
+                    "Re-run with '--no-clipboard' to print codes instead.",
+                    "yellow",
+                )
+            )
         return 0
 
     def signal_handler(sig, _frame):

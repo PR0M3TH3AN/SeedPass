@@ -4,7 +4,6 @@ import threading
 import time
 from websocket import create_connection
 
-import asyncio
 import websockets
 from nostr.key_manager import KeyManager
 from nostr_sdk import nostr_sdk as sdk

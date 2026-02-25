@@ -67,22 +67,29 @@ function evaluateCandidate(memory, policy) {
  * @param {{ getEmbedding?: (memory: import('./schema.js').MemoryRecord) => number[] | null | undefined, similarityThreshold: number, duplicateWindowMs: number }} options
  */
 function groupNearDuplicates(memories, options) {
+  // Sort by created_at to enable early exit in the inner loop
+  const sortedMemories = [...memories].sort((a, b) => a.created_at - b.created_at);
+
   const groups = [];
   const consumed = new Set();
 
-  for (let i = 0; i < memories.length; i += 1) {
-    const base = memories[i];
+  for (let i = 0; i < sortedMemories.length; i += 1) {
+    const base = sortedMemories[i];
     if (consumed.has(base.id) || base.merged_into) continue;
 
     const baseEmbedding = options.getEmbedding?.(base);
     const group = [base];
 
-    for (let j = i + 1; j < memories.length; j += 1) {
-      const probe = memories[j];
+    for (let j = i + 1; j < sortedMemories.length; j += 1) {
+      const probe = sortedMemories[j];
+
+      // Optimization: Since sorted by created_at, if the time difference exceeds the window,
+      // all subsequent items will also be outside the window.
+      if (probe.created_at - base.created_at > options.duplicateWindowMs) break;
+
       if (consumed.has(probe.id) || probe.merged_into || probe.id === base.id) continue;
 
-      const withinWindow = Math.abs(base.created_at - probe.created_at) <= options.duplicateWindowMs;
-      if (!withinWindow || !hasTagOverlap(base.tags, probe.tags)) continue;
+      if (!hasTagOverlap(base.tags, probe.tags)) continue;
 
       const similarity = cosineSimilarity(baseEmbedding, options.getEmbedding?.(probe));
       if (similarity >= options.similarityThreshold) {
@@ -189,12 +196,13 @@ export async function createLifecyclePlan(memories, options) {
   });
 
   const templates = loadMemoryPromptTemplates({ templateDir: options.templateDir });
-  const condensedGroups = [];
+  const condensedGroups = await Promise.all(
+    groups.map((group) => condenseGroup(group, options.generateSummary, templates.condense))
+  );
+
   const mergedIntoMap = new Map();
 
-  for (const group of groups) {
-    const condensed = await condenseGroup(group, options.generateSummary, templates.condense);
-    condensedGroups.push(condensed);
+  for (const condensed of condensedGroups) {
     for (const mergedId of condensed.mergedIds) {
       mergedIntoMap.set(mergedId, condensed.merged.id);
     }
@@ -265,9 +273,7 @@ export async function createLifecyclePlan(memories, options) {
  * @param {Awaited<ReturnType<typeof createLifecyclePlan>>} plan
  */
 export async function applyLifecycleActions(repository, plan) {
-  const results = [];
-
-  for (const decision of plan.actions) {
+  const results = await Promise.all(plan.actions.map(async (decision) => {
     if (decision.merged_into && typeof repository.markMerged === 'function') {
       await repository.markMerged(decision.id, decision.merged_into);
     }
@@ -280,8 +286,8 @@ export async function applyLifecycleActions(repository, plan) {
       await repository.keepMemory?.(decision.id, decision.reason);
     }
 
-    results.push(decision);
-  }
+    return decision;
+  }));
 
   return {
     applied: results,

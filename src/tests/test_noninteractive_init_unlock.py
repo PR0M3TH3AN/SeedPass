@@ -7,7 +7,7 @@ import constants
 import seedpass.core.manager as manager_module
 from utils.fingerprint_manager import FingerprintManager
 from seedpass.core.config_manager import ConfigManager
-from tests.helpers import TEST_SEED, TEST_PASSWORD, create_vault
+from helpers import TEST_SEED, TEST_PASSWORD, create_vault
 
 
 def test_init_with_password(monkeypatch):

@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "failing_modules": [],
+  "modules": {
+    "src/main.py": {
+      "threshold_percent": 50.0,
+      "actual_percent": 54.170571696344894,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    },
+    "src/seedpass/core/encryption.py": {
+      "threshold_percent": 80.0,
+      "actual_percent": 83.09037900874635,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    },
+    "src/seedpass/core/manager.py": {
+      "threshold_percent": 60.0,
+      "actual_percent": 61.59822419533851,
+      "meets_threshold": true,
+      "uncovered_functions": [
+        {
+          "name": "PasswordManager._worker",
+          "line": 1727
+        },
+        {
+          "name": "PasswordManager._async_worker",
+          "line": 1743
+        }
+      ],
+      "error": null
+    },
+    "src/seedpass/core/migrations.py": {
+      "threshold_percent": 90.0,
+      "actual_percent": 96.55172413793103,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    }
+  },
+  "coverage_json": "/home/user/Documents/GitHub/SeedPass/artifacts/coverage/coverage.full.json"
+}

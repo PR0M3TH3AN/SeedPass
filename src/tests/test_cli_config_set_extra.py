@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from typer.testing import CliRunner
 
 from seedpass.cli import app
-from seedpass import cli
+from seedpass.cli import common as cli_common
 
 runner = CliRunner()
 
@@ -39,7 +39,7 @@ def test_config_set_variants(monkeypatch, key, value, method, expected):
         config_manager=SimpleNamespace(**{method: func}),
         select_fingerprint=lambda fp: None,
     )
-    monkeypatch.setattr(cli, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
 
     result = runner.invoke(app, ["config", "set", key, value])
 

@@ -12,6 +12,14 @@
 
 This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Each vault chunk is limited to 50 KB and SeedPass periodically publishes a new snapshot to keep accumulated deltas small. The security of the program's memory management and logs has not been evaluated and may leak sensitive information. Loss or exposure of the parent seed places all derived passwords, accounts, and other artifacts at risk.
 
+**🚨 Breaking Change**
+
+Recent releases derive passwords and other artifacts using a fully deterministic algorithm that behaves consistently across Python versions. This improvement means artifacts generated with earlier versions of SeedPass will not match those produced now. Regenerate any previously derived data or retain the old version if you need to reproduce older passwords or keys.
+
+**⚠️ First Run Warning**
+
+Use a dedicated BIP-39 seed phrase exclusively for SeedPass. Offline Mode is **ON by default**, keeping all Nostr syncing disabled until you explicitly opt in. To synchronize with Nostr, disable offline mode through the Settings menu or by running `seedpass config toggle-offline` and choosing to turn syncing on.
+
 ---
 ### Supported OS
 
@@ -28,6 +36,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
   - [2. Create a Virtual Environment](#2-create-a-virtual-environment)
   - [3. Activate the Virtual Environment](#3-activate-the-virtual-environment)
   - [4. Install Dependencies](#4-install-dependencies)
+  - [Optional GUI](#optional-gui)
 - [Usage](#usage)
   - [Running the Application](#running-the-application)
   - [Managing Multiple Seeds](#managing-multiple-seeds)
@@ -36,6 +45,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - [Building a standalone executable](#building-a-standalone-executable)
 - [Packaging with Briefcase](#packaging-with-briefcase)
 - [Security Considerations](#security-considerations)
+- [Dependency Updates](#dependency-updates)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -44,7 +54,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 - **Deterministic Password Generation:** Utilize BIP-85 for generating deterministic and secure passwords.
 - **Encrypted Storage:** All seeds, login passwords, and sensitive index data are encrypted locally.
-- **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network.
+- **Nostr Integration:** Post and retrieve your encrypted password index to/from the Nostr network. See [Nostr Setup](docs/nostr_setup.md) for relay configuration and event details.
 - **Chunked Snapshots:** Encrypted vaults are compressed and split into 50 KB chunks published as `kind 30071` events with a `kind 30070` manifest and `kind 30072` deltas. The manifest's `delta_since` field stores the UNIX timestamp of the latest delta event.
 - **Automatic Checksum Generation:** The script generates and verifies a SHA-256 checksum to detect tampering.
 - **Multiple Seed Profiles:** Manage separate seed profiles and switch between them seamlessly.
@@ -77,32 +87,31 @@ before fading.
 
 SeedPass follows a layered design. The **`seedpass.core`** package exposes the
 `PasswordManager` along with service classes (e.g. `VaultService` and
-`EntryService`) that implement the main API used across interfaces.
-The command line tool in **`seedpass.cli`** is a thin adapter built with Typer
-that delegates operations to this API layer.
+`EntryService`) that implement the main API used across interfaces. Both the
+command line tool in **`seedpass.cli`** and the FastAPI server in
+**`seedpass.api`** delegate operations to this core. The BeeWare desktop
+interface (`seedpass_gui.app`) and an optional browser extension reuse these
+services, with the extension communicating through the API layer.
 
-The BeeWare desktop interface lives in **`seedpass_gui.app`** and can be
-started with either `seedpass-gui` or `python -m seedpass_gui`. It reuses the
-same service objects to unlock the vault, list entries and search through them.
-
-An optional browser extension can communicate with the FastAPI server exposed by
-`seedpass.api` to manage entries from within the browser.
+Nostr synchronisation lives in the **`nostr`** modules. The core services call
+into these modules to publish or retrieve encrypted snapshots and deltas from
+configured relays.
 
 ```mermaid
 graph TD
-    core["seedpass.core"]
     cli["CLI"]
     api["FastAPI server"]
-    gui["BeeWare GUI"]
-    ext["Browser Extension"]
+    core["seedpass.core"]
+    nostr["Nostr client"]
+    relays["Nostr relays"]
 
     cli --> core
-    gui --> core
     api --> core
-    ext --> api
+    core --> nostr
+    nostr --> relays
 ```
 
-See `docs/ARCHITECTURE.md` for details.
+See `docs/ARCHITECTURE.md` and [Nostr Setup](docs/nostr_setup.md) for details.
 
 ## Prerequisites
 
@@ -114,28 +123,43 @@ See `docs/ARCHITECTURE.md` for details.
 ### Quick Installer
 
 Use the automated installer to download SeedPass and its dependencies in one step.
-The scripts also install the correct BeeWare backend for your platform automatically.
-If the GTK `gi` bindings are missing, the installer attempts to install the
-necessary system packages using `apt`, `yum`, `pacman`, or Homebrew.
+The default `tui` mode installs only the text interface, so it runs headlessly and works well in CI or other automation. GUI backends are optional and must be explicitly requested (`--mode gui` or `--mode both` on Linux/macOS, `-IncludeGui` on Windows). If the GTK `gi` bindings are missing, the installer attempts to install the
+necessary system packages using `apt`, `yum`, `pacman`, or Homebrew. When no display server is detected, GUI components are skipped automatically.
+
+For installer validation workflows and local smoke tests, see [Installer Testing](docs/installer_testing.md).
 
 **Linux and macOS:**
 ```bash
-SEEDPASS_HEADLESS=1 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"
+# TUI-only/agent install (headless default)
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ --mode tui
 ```
 *Install the beta branch:*
 ```bash
 bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta
 ```
 Make sure the command ends right after `-b beta` with **no trailing parenthesis**.
+*Install with GUI support:*
+```bash
+bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ --mode gui
+```
 
 **Windows (PowerShell):**
 ```powershell
+# TUI-only/agent install (default)
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent))
+```
+*Install with the optional GUI:*
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; $scriptContent = (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.ps1'); & ([scriptblock]::create($scriptContent)) -IncludeGui
 ```
 Before running the script, install **Python 3.11** or **3.12** from [python.org](https://www.python.org/downloads/windows/) and tick **"Add Python to PATH"**. You should also install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **C++ build tools** workload so dependencies compile correctly.  
 The Windows installer will attempt to install Git automatically if it is not already available. It also tries to install Python 3 using `winget`, `choco`, or `scoop` when Python is missing and recognizes the `py` launcher if `python` isn't on your PATH. If these tools are unavailable you'll see a link to download Python directly from <https://www.python.org/downloads/windows/>. When Python 3.13 or newer is detected without the Microsoft C++ build tools, the installer now attempts to download Python 3.12 automatically so you don't have to compile packages from source.
 
 **Note:** If this fallback fails, install Python 3.12 manually or install the [Microsoft Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and rerun the installer.
+
+#### Installer Dependency Checks
+
+The installer verifies that core build tooling—C/C++ build tools, Rust, CMake, and the imaging/GTK libraries—are available before completing. Use `--mode gui` to install only the graphical interface or `--mode both` to install both interfaces (default: `tui`). On Linux, ensure `xclip` or `wl-clipboard` is installed for clipboard support.
 
 #### Windows Nostr Sync Troubleshooting
 
@@ -197,18 +221,64 @@ Follow these steps to set up SeedPass on your local machine.
 
    ```bash
    python -m pip install --upgrade pip
-   python -m pip install -r src/requirements.txt
+   python -m pip install --require-hashes -r requirements.lock
    python -m pip install -e .
    ```
-// 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
 After reinstalling, run `which seedpass` on Linux/macOS or `where seedpass` on Windows to confirm the command resolves to your virtual environment's `seedpass` executable.
 
 #### Linux Clipboard Support
 
-On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`. SeedPass will attempt to install **xclip** automatically if neither tool is available. If the automatic installation fails, you can install it manually:
+On Linux, `pyperclip` relies on external utilities like `xclip` or `xsel`. SeedPass no longer installs these tools automatically. To enable clipboard features such as secret mode, install **xclip** manually:
 
 ```bash
-sudo apt-get install xclip
+sudo apt install xclip
+```
+
+After installing `xclip`, restart SeedPass to enable clipboard support.
+
+### Optional GUI
+
+SeedPass ships with a GTK-based desktop interface that is still in development
+and not currently functional. GUI backends are optional—run the installer with
+`--mode gui` or install the Python extras below to add them. Install the packages
+for your platform before adding the Python GUI dependencies.
+
+- **Debian/Ubuntu**
+  ```bash
+  sudo apt install libgirepository1.0-dev libcairo2-dev libpango1.0-dev libwebkit2gtk-4.0-dev
+  ```
+- **Fedora**
+  ```bash
+  sudo dnf install gobject-introspection-devel cairo-devel pango-devel webkit2gtk4.0-devel
+  ```
+- **Arch Linux**
+  ```bash
+  sudo pacman -S gobject-introspection cairo pango webkit2gtk
+  ```
+- **macOS (Homebrew)**
+  ```bash
+  brew install pygobject3 gtk+3 adwaita-icon-theme librsvg webkitgtk
+  ```
+
+With the system requirements in place, install the Python GUI extras for your
+platform:
+
+```bash
+# Linux
+pip install .[gui-gtk]
+
+# Windows
+pip install .[gui-win]
+
+# macOS
+pip install .[gui-mac]
+```
+
+CLI-only users can skip these steps and install just the core package for a
+lightweight, headless setup compatible with CI/automation:
+
+```bash
+pip install .
 ```
 
 ## Quick Start
@@ -227,10 +297,10 @@ You can then launch SeedPass and create a backup:
 seedpass
 
 # Export your index
-seedpass export --file "~/seedpass_backup.json"
+seedpass vault export --file "~/seedpass_backup.json"
 
 # Later you can restore it
-seedpass import --file "~/seedpass_backup.json"
+seedpass vault import --file "~/seedpass_backup.json"
 
 # Quickly find or retrieve entries
 seedpass search "github"
@@ -251,7 +321,7 @@ seedpass util generate-password --length 20 --special-mode safe --exclude-ambigu
 # on an external drive.
 ```
 
-For additional command examples, see [docs/advanced_cli.md](docs/advanced_cli.md). Details on the REST API can be found in [docs/api_reference.md](docs/api_reference.md).
+For additional command examples, see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). Details on the REST API can be found in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
 
 ### Getting Started with the GUI
 
@@ -264,24 +334,30 @@ python -m seedpass_gui
 seedpass-gui
 ```
 
-Only `toga-core` and the headless `toga-dummy` backend are included by default.
-The quick installer automatically installs the correct BeeWare backend so the
-GUI works out of the box. If you set up SeedPass manually, install the backend
-for your platform:
+GUI dependencies are optional. Install them alongside SeedPass with the
+extra for your platform:
 
 ```bash
 # Linux
-pip install toga-gtk
-
-# If you see build errors about "cairo" on Linux, install the cairo
-# development headers using your package manager, e.g.:
-sudo apt-get install libcairo2 libcairo2-dev
+pip install "seedpass[gui-gtk]"
 
 # Windows
-pip install toga-winforms
+pip install "seedpass[gui-win]"
 
 # macOS
-pip install toga-cocoa
+pip install "seedpass[gui-mac]"
+
+# or when working from a local checkout
+pip install -e ".[gui-gtk]"  # Linux
+pip install -e ".[gui-win]"  # Windows
+pip install -e ".[gui-mac]"  # macOS
+```
+
+If you see build errors about "cairo" on Linux, install the cairo development
+headers using your package manager, e.g.:
+
+```bash
+sudo apt-get install libcairo2 libcairo2-dev
 ```
 
 The GUI works with the same vault and configuration files as the CLI.
@@ -359,14 +435,49 @@ If this command displays `usage: main.py` instead of the Typer help output, an o
 ```bash
 python -m pip install -e .
 ```
-// 🔧 merged conflicting changes from codex/locate-command-usage-issue-in-seedpass vs beta
 You can confirm which executable will run with:
 
 ```bash
 which seedpass  # or 'where seedpass' on Windows
 ```
 
-For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). The REST API is described in [docs/api_reference.md](docs/api_reference.md).
+For a full list of commands see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). The REST API is described in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
+
+### Agent Mode (Non-Interactive)
+
+SeedPass now includes an additive `agent` command group for automation and CI.
+This does not replace or modify the regular human-facing TUI flow.
+
+1. Initialize a profile non-interactively:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass agent init --generate-seed
+```
+
+Or use an existing seed from a file:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass agent init --seed-file /secure/path/seed.txt --switch-existing
+```
+
+2. Configure agent policy (kind allow-list and private-kind deny-list):
+
+```bash
+seedpass agent policy-set --allow-kind password --allow-kind totp --deny-private-kind seed
+seedpass agent policy-show
+```
+
+3. Retrieve a secret as JSON with lease metadata:
+
+```bash
+export SEEDPASS_PASSWORD='your-strong-password'
+seedpass -f <fingerprint> agent get github --ttl 30
+```
+
+By default, agent policy blocks private key/seed-style entry kinds from being
+revealed through `agent get`.
 
 ### Running the Application
 
@@ -376,6 +487,16 @@ For a full list of commands see [docs/advanced_cli.md](docs/advanced_cli.md). Th
    seedpass
    ```
    *(or `python src/main.py` when running directly from the repository)*
+
+   To restore a previously backed up index at launch, provide the backup path
+   and fingerprint:
+
+   ```bash
+   seedpass --restore-backup /path/to/backup.json.enc --fingerprint <fp>
+   ```
+
+   Without the flag, the startup prompt offers a **Restore from backup** option
+   before the vault is initialized.
 
 2. **Follow the Prompts:**
 
@@ -558,23 +679,35 @@ The default configuration uses **50,000** PBKDF2 iterations. Increase this value
 ### Recovery
 
 If you previously backed up your vault to Nostr you can restore it during the
-initial setup:
+initial setup. You must provide both your 12‑word master seed and the master
+password that encrypted the vault; without the correct password the retrieved
+data cannot be decrypted.
+
+Alternatively, a local backup file can be loaded at startup. Launch the
+application with `--restore-backup <file> --fingerprint <fp>` or choose the
+**Restore from backup** option presented before the vault initializes.
 
 1. Start SeedPass and choose option **4** when prompted to set up a seed.
-2. Paste your BIP-85 seed phrase when asked.
-3. SeedPass initializes the profile and attempts to download the encrypted vault
-   from the configured relays.
-4. A success message confirms the vault was restored. If no data is found a
+2. Paste your BIP‑85 seed phrase when asked.
+3. Enter the master password associated with that seed.
+4. SeedPass initializes the profile and attempts to download the encrypted
+   vault from the configured relays.
+5. A success message confirms the vault was restored. If no data is found a
    failure message is shown and a new empty vault is created.
 
 ## Running Tests
 
-SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install -r src/requirements.txt` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
+SeedPass includes a small suite of unit tests located under `src/tests`. **Before running `pytest`, be sure to install the test requirements.** Activate your virtual environment and run `pip install --require-hashes -r requirements.lock` to ensure all testing dependencies are available. Then run the tests with **pytest**. Use `-vv` to see INFO-level log messages from each passing test:
 
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 pytest -vv
 ```
+
+For AI-agent driven interactive testing and current test command tiers, see:
+
+- `docs/ai_agent_tui_testing.md`
+- `docs/agent_testing_roadmap.md`
 
 ### Exploring Nostr Index Size Limits
 
@@ -636,7 +769,7 @@ Mutation testing is disabled in the GitHub workflow due to reliability issues an
 
 1. Install all development dependencies:
 ```bash
-pip install -r src/requirements.txt
+pip install --require-hashes -r requirements.lock
 ```
 
 2. When `src/runtime_requirements.txt` changes, rerun:
@@ -706,16 +839,61 @@ You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
 - **Backup Your Data:** Regularly back up your encrypted data and checksum files to prevent data loss.
 - **Backup the Settings PIN:** Your settings PIN is stored in the encrypted configuration file. Keep a copy of this file or remember the PIN, as losing it will require deleting the file and reconfiguring your relays.
 - **Protect Your Passwords:** Do not share your master password or seed phrases with anyone and ensure they are strong and unique.
-- **Revealing the Parent Seed:** The `vault reveal-parent-seed` command and `/api/v1/parent-seed` endpoint print your seed in plain text. Run them only in a secure environment.
+- **Backing Up the Parent Seed:** Use the CLI `vault reveal-parent-seed` command or the `/api/v1/vault/backup-parent-seed` endpoint with explicit confirmation to create an encrypted backup. The API does not return the seed directly.
 - **No PBKDF2 Salt Needed:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Checksum Verification:** Always verify the script's checksum to ensure its integrity and protect against unauthorized modifications.
 - **Potential Bugs and Limitations:** Be aware that the software may contain bugs and lacks certain features. Snapshot chunks are capped at 50 KB and the client rotates snapshots after enough delta events accumulate. The security of memory management and logs has not been thoroughly evaluated and may pose risks of leaking sensitive information.
+- **Best-Effort Memory Zeroization:** Sensitive data is wiped from memory when possible, but Python may retain copies of decrypted values.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
 - **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Adjust this with `seedpass config set kdf_iterations`.
 - **KDF Iteration Caution:** Lowering `kdf_iterations` makes password cracking easier, while a high `backup_interval` leaves fewer recent backups.
 - **Offline Mode:** When enabled, SeedPass skips all Nostr operations so your vault stays local until syncing is turned back on.
 - **Quick Unlock:** Stores a hashed copy of your password in the encrypted config so you only need to enter it once per session. Avoid this on shared computers.
+- **Prompt Rate Limiting:** Seed and password prompts enforce a configurable attempt limit with exponential backoff to slow brute-force attacks. Adjust or disable the limit for testing via the `--max-prompt-attempts` CLI option or the `SEEDPASS_MAX_PROMPT_ATTEMPTS` environment variable.
+
+### Secure Deployment
+
+Always deploy SeedPass behind HTTPS. Place a TLS‑terminating reverse proxy such as Nginx in front of the FastAPI server or configure Uvicorn with certificate files. Example Nginx snippet:
+
+```
+server {
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+For local testing, Uvicorn can run with TLS directly:
+
+```
+uvicorn seedpass.api:app --ssl-certfile=cert.pem --ssl-keyfile=key.pem
+```
+
+## Dependency Updates
+
+Automated dependency updates are handled by [Dependabot](https://docs.github.com/en/code-security/dependabot).
+Every week, Dependabot checks Python packages and GitHub Actions used by this repository and opens pull requests when updates are available.
+
+To review and merge these updates:
+
+1. Review the changelog and release notes in the Dependabot pull request.
+2. Run the test suite locally:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install --require-hashes -r requirements.lock
+   pytest
+   ```
+3. Merge the pull request once all checks pass.
+
+A scheduled **Dependency Audit** workflow also runs [`pip-audit`](https://github.com/pypa/pip-audit) weekly to detect vulnerable packages. Address any reported issues promptly to keep dependencies secure.
 
 ## Contributing
 

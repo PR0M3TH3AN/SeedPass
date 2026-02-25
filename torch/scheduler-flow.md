@@ -20,8 +20,7 @@ Prompt authors: do not use legacy unprefixed paths (`context/`, `todo/`, `decisi
 Every agent prompt invoked by the schedulers (daily/weekly) MUST enforce this contract:
 
 1. **Read baseline policy files before implementation**:
-   - `AGENTS.md`
-   - `CLAUDE.md`
+   - `TORCH.md`
    - `KNOWN_ISSUES.md`
    - Canonical path note: active issues are tracked in root `KNOWN_ISSUES.md` (not `docs/KNOWN_ISSUES.md`)
    - `docs/agent-handoffs/README.md`
@@ -36,9 +35,13 @@ Every agent prompt invoked by the schedulers (daily/weekly) MUST enforce this co
    - Retrieval command MUST write cadence-scoped evidence artifacts:
      - `.scheduler-memory/retrieve-<cadence>.ok`
      - `.scheduler-memory/retrieve-<cadence>.json` containing operation inputs/outputs (`agentId`, `query`, seeded event count, ingested count, retrieved count).
+   - **Agent Action**: Review `.scheduler-memory/latest/<cadence>/memories.md` for relevant context.
+
 5. **Store memory after implementation and before completion publish**:
+   - **Agent Action**: Write any new insights, learnings, or patterns to the file specified by `$SCHEDULER_MEMORY_FILE` (defaulting to `memory-updates/<timestamp>__<agent>.md`).
    - Run configured memory storage workflow after prompt execution (for example via `scheduler.memoryPolicyByCadence.<cadence>.storeCommand`)
    - Storage command MUST call real memory services (`src/services/memory/index.js#ingestEvents`, which uses ingestor/summarizer pipeline) and MUST emit deterministic marker `MEMORY_STORED`.
+   - Storage command MUST ingest content from the file at `$SCHEDULER_MEMORY_FILE` (or fallback to `memory-update.md` if present).
    - Storage command MUST write cadence-scoped evidence artifacts:
      - `.scheduler-memory/store-<cadence>.ok`
      - `.scheduler-memory/store-<cadence>.json` containing operation inputs/outputs (`agentId`, input event count, stored count, generated summaries).
@@ -68,10 +71,10 @@ Every agent prompt invoked by the schedulers (daily/weekly) MUST enforce this co
 
    Goose Desktop note: `npm run lock:check:<cadence>` can emit large hermit wrapper logs. Use `--json --quiet` (as documented above). If the command still fails due to Goose hermit issues, apply the PATH workaround in `KNOWN_ISSUES.md` before rerunning.
 
-3. Read policy file(s) once before the run loop. This step is conditional: if `AGENTS.md` is missing, continue without failing.
+3. Read policy file(s) once before the run loop. This step is conditional: if `TORCH.md` is missing, continue without failing.
 
    ```bash
-   test -f AGENTS.md && cat AGENTS.md || echo "No AGENTS.md found; continuing"
+   test -f TORCH.md && cat TORCH.md || echo "No TORCH.md found; continuing"
    ```
 
 4. Bootstrap log directories before listing files:

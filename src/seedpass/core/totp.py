@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
+import base64
+from typing import Union
 from urllib.parse import quote
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -14,17 +17,24 @@ import pyotp
 from utils import key_derivation
 
 
+def random_totp_secret(length: int = 20) -> str:
+    """Return a random Base32 encoded TOTP secret."""
+    return base64.b32encode(os.urandom(length)).decode("ascii").rstrip("=")
+
+
 class TotpManager:
     """Helper methods for TOTP secrets and codes."""
 
     @staticmethod
-    def derive_secret(seed: str, index: int) -> str:
-        """Derive a TOTP secret from a BIP39 seed and index."""
+    def derive_secret(seed: Union[str, bytes], index: int) -> str:
+        """Derive a TOTP secret from a seed or raw key and index."""
         return key_derivation.derive_totp_secret(seed, index)
 
     @classmethod
-    def current_code(cls, seed: str, index: int, timestamp: int | None = None) -> str:
-        """Return the TOTP code for the given seed and index."""
+    def current_code(
+        cls, seed: Union[str, bytes], index: int, timestamp: int | None = None
+    ) -> str:
+        """Return the TOTP code for the given seed/key and index."""
         secret = cls.derive_secret(seed, index)
         totp = pyotp.TOTP(secret)
         if timestamp is None:

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import main
-from helpers import create_vault, dummy_nostr_client, TEST_SEED, TEST_PASSWORD
+from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
@@ -28,8 +28,8 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     return pm
 
 
-def test_restore_flow_from_snapshot(monkeypatch, tmp_path):
-    client, relay = dummy_nostr_client.__wrapped__(tmp_path / "srv", monkeypatch)
+def test_restore_flow_from_snapshot(monkeypatch, tmp_path, make_dummy_nostr_client):
+    client, relay = make_dummy_nostr_client(tmp_path / "srv")
 
     dir_a = tmp_path / "A"
     dir_b = tmp_path / "B"

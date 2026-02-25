@@ -10,6 +10,7 @@
     "docs-agent",
     "docs-alignment-agent",
     "docs-code-investigator",
+    "governance-agent",
     "innerhtml-migration-agent",
     "known-issues-agent",
     "load-test-agent",

@@ -1,0 +1,18 @@
+app-id: io.seedpass.SeedPass
+runtime: org.gnome.Platform
+runtime-version: '46'
+sdk: org.gnome.Sdk
+command: seedpass-gui
+modules:
+  - name: seedpass
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/bin
+      - cp -r ../../build/seedpass-gui/ubuntu/noble/* /app/bin/
+    sources:
+      - type: dir
+        path: ../../
+finish-args:
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland

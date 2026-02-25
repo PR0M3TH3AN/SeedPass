@@ -21,6 +21,7 @@ def setup_password_manager():
     pm.fingerprint_manager = manager_module.FingerprintManager(constants.APP_DIR)
     pm.current_fingerprint = None
     pm.save_and_encrypt_seed = lambda seed, fingerprint_dir: None
+    pm.state_manager = manager_module.StateManager(constants.APP_DIR)
     return pm, constants
 
 

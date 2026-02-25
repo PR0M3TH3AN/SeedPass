@@ -27,7 +27,8 @@ class Keys:
 
     @staticmethod
     def hex_to_bech32(key_str: str, prefix: str = "npub") -> str:
-        data = convertbits(bytes.fromhex(key_str), 8, 5)
+        # Pad to align with 5-bit groups as expected for Bech32 encoding
+        data = convertbits(bytes.fromhex(key_str), 8, 5, True)
         return bech32_encode(prefix, data)
 
     @staticmethod

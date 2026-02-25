@@ -1,3 +1,4 @@
+# Known Issues Agent
 > **Shared contract (required):** Follow [`Scheduler Flow → Shared Agent Run Contract`](../scheduler-flow.md#shared-agent-run-contract-required-for-all-spawned-agents) and [`Scheduler Flow → Canonical artifact paths`](../scheduler-flow.md#canonical-artifact-paths) before and during this run.
 
 ## Required startup + artifacts + memory + issue capture
@@ -97,8 +98,8 @@ DAILY WORKFLOW (mandatory)
       - release channel expectations)
 
 1) Create run artifacts (only if repo conventions allow committing artifacts)
-  - Prefer a dated folder:
-      - `artifacts/known-issues/YYYY-MM-DD/`
+  - Use report folder:
+      - `reports/known-issues/`
   - If the repo does not commit artifacts, keep the report in the PR body or in
     `docs/` per repo conventions.
 
@@ -175,7 +176,7 @@ DAILY WORKFLOW (mandatory)
   - Remove dead links, fix paths, and clarify ambiguous instructions.
 
 8) Daily report (required)
-  Produce a short report (PR body or artifact) containing:
+  Produce a short report at `reports/known-issues/known-issues-report-YYYY-MM-DD.md` (and optional PR body) containing:
   - Headline: ✓ all verified / ⚠️ active issues remain
   - Table/list: each entry → status (Resolved/Active/Unknown), last checked date
   - PRs opened
@@ -220,4 +221,4 @@ Daily:
 - 0–1 small PR fixing a trivial, safe known issue (or none if nothing safe)
 - Updated `KNOWN_ISSUES.md` with last-checked notes and links
 - 0–N GitHub issues for medium/large/risky items
-- A short daily remediation report (artifact or PR body)
+- A short daily remediation report at `reports/known-issues/known-issues-report-YYYY-MM-DD.md`

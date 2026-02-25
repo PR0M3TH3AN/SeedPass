@@ -6,8 +6,11 @@ import { startScheduler } from './scheduler.js';
 import { getMemoryPruneMode, isMemoryIngestEnabled } from './feature-flags.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import util from 'node:util';
+import { ensureDir } from '../../utils.mjs';
 
 const MEMORY_FILE_PATH = path.join(process.cwd(), '.scheduler-memory', 'memory-store.json');
+const debug = util.debuglog('torch-memory');
 
 function loadMemoryStore() {
   try {
@@ -24,17 +27,43 @@ function loadMemoryStore() {
   return new Map();
 }
 
-function saveMemoryStore(store) {
+let currentSavePromise = null;
+let pendingSavePromise = null;
+let pendingSaveResolve = null;
+
+async function performSave(store) {
   try {
     const dir = path.dirname(MEMORY_FILE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await fs.promises.mkdir(dir, { recursive: true });
     const entries = [...store.entries()];
-    fs.writeFileSync(MEMORY_FILE_PATH, JSON.stringify(entries, null, 2), 'utf8');
+    await fs.promises.writeFile(MEMORY_FILE_PATH, JSON.stringify(entries, null, 2), 'utf8');
   } catch (err) {
     console.error('Failed to save memory store:', err);
+  } finally {
+    currentSavePromise = null;
+    if (pendingSavePromise) {
+      const resolve = pendingSaveResolve;
+      pendingSavePromise = null;
+      pendingSaveResolve = null;
+      currentSavePromise = performSave(store).then(() => resolve());
+    }
   }
+}
+
+async function saveMemoryStore(store) {
+  if (pendingSavePromise) {
+    return pendingSavePromise;
+  }
+
+  if (currentSavePromise) {
+    pendingSavePromise = new Promise((resolve) => {
+      pendingSaveResolve = resolve;
+    });
+    return pendingSavePromise;
+  }
+
+  currentSavePromise = performSave(store);
+  return currentSavePromise;
 }
 
 const memoryStore = loadMemoryStore();
@@ -43,7 +72,7 @@ const cache = createMemoryCache();
 const memoryRepository = {
   async insertMemory(memory) {
     memoryStore.set(memory.id, memory);
-    saveMemoryStore(memoryStore);
+    await saveMemoryStore(memoryStore);
     return memory;
   },
   async updateMemoryUsage(id, lastSeen = Date.now()) {
@@ -51,7 +80,7 @@ const memoryRepository = {
     if (!existing) return null;
     const updated = { ...existing, last_seen: lastSeen };
     memoryStore.set(id, updated);
-    saveMemoryStore(memoryStore);
+    await saveMemoryStore(memoryStore);
     return updated;
   },
   async listPruneCandidates({ cutoff }) {
@@ -61,7 +90,7 @@ const memoryRepository = {
     const existing = memoryStore.get(id);
     if (!existing) return false;
     memoryStore.set(id, { ...existing, merged_into: mergedInto, last_seen: Date.now() });
-    saveMemoryStore(memoryStore);
+    await saveMemoryStore(memoryStore);
     return true;
   },
   async setPinned(id, pinned) {
@@ -69,7 +98,7 @@ const memoryRepository = {
     if (!existing) return null;
     const updated = { ...existing, pinned, last_seen: Date.now() };
     memoryStore.set(id, updated);
-    saveMemoryStore(memoryStore);
+    await saveMemoryStore(memoryStore);
     return updated;
   },
   async getMemoryById(id) {
@@ -113,7 +142,7 @@ function buildTelemetryEmitter(options = {}) {
   }
 
   return (event, payload) => {
-    console.log('memory_telemetry', {
+    debug('memory_telemetry', {
       event,
       payload: toSafeTelemetryPayload(payload),
       ts: Date.now(),
@@ -132,7 +161,7 @@ function emitMetric(options = {}, metric, payload) {
     return;
   }
 
-  console.log('memory_metric', { metric, payload, ts: Date.now() });
+  debug('memory_metric', { metric, payload, ts: Date.now() });
 }
 
 function applyMemoryFilters(memories, filters = {}) {
@@ -196,10 +225,15 @@ export async function ingestEvents(events, options = {}) {
  * @returns {Promise<import('./schema.js').MemoryRecord[]>} Sorted list of relevant memories.
  */
 export async function getRelevantMemories(params) {
-  const { repository = memoryRepository, ...queryParams } = params;
+  const {
+    repository = memoryRepository,
+    ranker = filterAndRankMemories,
+    cache: cacheProvider = cache,
+    ...queryParams
+  } = params;
   const telemetry = buildTelemetryEmitter(params);
   const cacheKey = JSON.stringify(queryParams);
-  const cached = cache.get(cacheKey);
+  const cached = cacheProvider.get(cacheKey);
   if (cached) {
     telemetry('memory:retrieved', {
       agent_id: queryParams.agent_id,
@@ -214,9 +248,13 @@ export async function getRelevantMemories(params) {
     return cached;
   }
 
-  const ranked = await filterAndRankMemories([...memoryStore.values()], queryParams);
+  const source = typeof repository.listMemories === 'function'
+    ? await repository.listMemories(queryParams)
+    : [...memoryStore.values()];
+
+  const ranked = await ranker(source, queryParams);
   await updateMemoryUsage(repository, ranked.map((memory) => memory.id));
-  cache.set(cacheKey, ranked);
+  cacheProvider.set(cacheKey, ranked);
 
   telemetry('memory:retrieved', {
     agent_id: queryParams.agent_id,
@@ -275,7 +313,7 @@ export async function runPruneCycle(options = {}) {
   }
 
   if (prunable.length > 0) {
-    saveMemoryStore(memoryStore);
+    await saveMemoryStore(memoryStore);
   }
 
   memoryStatsState.deleted += prunable.length;
@@ -330,8 +368,9 @@ export async function unpinMemory(id, options = {}) {
  * @param {string} id
  * @param {string} mergedInto
  */
-export async function markMemoryMerged(id, mergedInto) {
-  const merged = await memoryRepository.markMerged(id, mergedInto);
+export async function markMemoryMerged(id, mergedInto, options = {}) {
+  const repository = options.repository ?? memoryRepository;
+  const merged = await repository.markMerged(id, mergedInto);
   cache.clear();
   return merged;
 }

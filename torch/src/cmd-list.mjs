@@ -1,18 +1,29 @@
 import {
-  getRelays,
-  getNamespace,
+  getRelays as _getRelays,
+  getNamespace as _getNamespace,
 } from './torch-config.mjs';
-import { getRoster } from './roster.mjs';
-import { queryLocks } from './lock-ops.mjs';
-import { todayDateStr, nowUnix } from './utils.mjs';
+import { getRoster as _getRoster } from './roster.mjs';
+import { queryLocks as _queryLocks } from './lock-ops.mjs';
+import { todayDateStr as _todayDateStr, nowUnix as _nowUnix } from './utils.mjs';
 
-export async function cmdList(cadence) {
-  const relays = getRelays();
-  const namespace = getNamespace();
+export async function cmdList(cadence, deps = {}) {
+  const {
+      getRelays = _getRelays,
+      getNamespace = _getNamespace,
+      getRoster = _getRoster,
+      queryLocks = _queryLocks,
+      todayDateStr = _todayDateStr,
+      nowUnix = _nowUnix,
+      log = console.log,
+      error = console.error,
+  } = deps;
+
+  const relays = await getRelays();
+  const namespace = await getNamespace();
   const dateStr = todayDateStr();
   const cadences = cadence ? [cadence] : ['daily', 'weekly'];
 
-  console.error(`Listing active locks: namespace=${namespace}, cadences=${cadences.join(', ')}`);
+  error(`Listing active locks: namespace=${namespace}, cadences=${cadences.join(', ')}`);
 
   const results = await Promise.all(
     cadences.map(async (c) => {
@@ -22,12 +33,12 @@ export async function cmdList(cadence) {
   );
 
   for (const { c, locks } of results) {
-    console.log(`\n${'='.repeat(72)}`);
-    console.log(`Active ${namespace} ${c} locks (${dateStr})`);
-    console.log('='.repeat(72));
+    log(`\n${'='.repeat(72)}`);
+    log(`Active ${namespace} ${c} locks (${dateStr})`);
+    log('='.repeat(72));
 
     if (locks.length === 0) {
-      console.log('  (no active locks)');
+      log('  (no active locks)');
       continue;
     }
 
@@ -38,7 +49,7 @@ export async function cmdList(cadence) {
       const remaining = lock.expiresAt ? lock.expiresAt - nowUnix() : null;
       const remainMin = remaining ? Math.round(remaining / 60) : '?';
 
-      console.log(
+      log(
         `  ${(lock.agent ?? 'unknown').padEnd(30)} ` +
           `age: ${String(ageMin).padStart(4)}m  ` +
           `ttl: ${String(remainMin).padStart(4)}m  ` +
@@ -47,16 +58,17 @@ export async function cmdList(cadence) {
       );
     }
 
-    const roster = getRoster(c);
+    const roster = await getRoster(c);
+    const rosterSet = new Set(roster);
     const lockedAgents = new Set(locks.map((l) => l.agent).filter(Boolean));
-    const unknownLockedAgents = [...lockedAgents].filter((agent) => !roster.includes(agent));
+    const unknownLockedAgents = [...lockedAgents].filter((agent) => !rosterSet.has(agent));
     const available = roster.filter((a) => !lockedAgents.has(a));
 
     if (unknownLockedAgents.length > 0) {
-      console.log(`  Warning: lock events found with non-roster agent names: ${unknownLockedAgents.join(', ')}`);
+      log(`  Warning: lock events found with non-roster agent names: ${unknownLockedAgents.join(', ')}`);
     }
 
-    console.log(`\n  Locked: ${lockedAgents.size}/${roster.length}`);
-    console.log(`  Available: ${available.join(', ') || '(none)'}`);
+    log(`\n  Locked: ${lockedAgents.size}/${roster.length}`);
+    log(`  Available: ${available.join(', ') || '(none)'}`);
   }
 }

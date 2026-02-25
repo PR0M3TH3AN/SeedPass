@@ -11,14 +11,18 @@ Ensure that all dependencies are installed and properly configured in your envir
 
 Never ever ever use Random Salt. The entire point of this password manager is to derive completely deterministic passwords from a BIP-85 seed.
 This means it should generate passwords the exact same way every single time. Salts would break this functionality and is not appropriate for this software's use case.
+To keep behaviour stable across Python versions, the shuffling logic uses an
+HMAC-SHA256-based Fisher–Yates shuffle instead of ``random.Random``. The HMAC
+is keyed with the derived password bytes, providing deterministic yet
+cryptographically strong pseudo-randomness without relying on Python's
+non-stable random implementation.
 """
 
 import os
 import logging
 import hashlib
 import string
-import random
-import traceback
+import hmac
 import base64
 from typing import Optional
 from dataclasses import dataclass
@@ -109,10 +113,12 @@ class PasswordGenerator:
             self.bip85 = bip85
             self.policy = policy or PasswordPolicy()
 
-            # Derive seed bytes from parent_seed using BIP39 (handled by EncryptionManager)
-            self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(
-                self.parent_seed
-            )
+            if isinstance(parent_seed, (bytes, bytearray)):
+                self.seed_bytes = bytes(parent_seed)
+            else:
+                self.seed_bytes = self.encryption_manager.derive_seed_from_mnemonic(
+                    self.parent_seed
+                )
 
             logger.debug("PasswordGenerator initialized successfully.")
         except Exception as e:
@@ -122,8 +128,8 @@ class PasswordGenerator:
 
     def _derive_password_entropy(self, index: int) -> bytes:
         """Derive deterministic entropy for password generation."""
-        entropy = self.bip85.derive_entropy(index=index, bytes_len=64, app_no=32)
-        logger.debug(f"Derived entropy: {entropy.hex()}")
+        entropy = self.bip85.derive_entropy(index=index, entropy_bytes=64, app_no=32)
+        logger.debug("Entropy derived for password generation.")
 
         hkdf = HKDF(
             algorithm=hashes.SHA256(),
@@ -133,26 +139,43 @@ class PasswordGenerator:
             backend=default_backend(),
         )
         hkdf_derived = hkdf.derive(entropy)
-        logger.debug(f"Derived key using HKDF: {hkdf_derived.hex()}")
+        logger.debug("Derived key using HKDF.")
 
         dk = hashlib.pbkdf2_hmac("sha256", entropy, b"", 100000)
-        logger.debug(f"Derived key using PBKDF2: {dk.hex()}")
+        logger.debug("Derived key using PBKDF2.")
         return dk
 
     def _map_entropy_to_chars(self, dk: bytes, alphabet: str) -> str:
         """Map derived bytes to characters from the provided alphabet."""
         password = "".join(alphabet[byte % len(alphabet)] for byte in dk)
-        logger.debug(f"Password after mapping to all allowed characters: {password}")
+        logger.debug("Mapped entropy to allowed characters.")
         return password
 
+    def _fisher_yates_hmac(self, items: list[str], key: bytes) -> list[str]:
+        """Shuffle ``items`` in a deterministic yet cryptographically sound manner.
+
+        A Fisher–Yates shuffle is driven by an HMAC-SHA256 based
+        pseudo-random number generator seeded with ``key``.  Unlike
+        :class:`random.Random`, this approach is stable across Python
+        versions while still deriving all of its entropy from ``key``.
+        """
+
+        counter = 0
+        for i in range(len(items) - 1, 0, -1):
+            msg = counter.to_bytes(4, "big")
+            digest = hmac.new(key, msg, hashlib.sha256).digest()
+            j = int.from_bytes(digest, "big") % (i + 1)
+            items[i], items[j] = items[j], items[i]
+            counter += 1
+        return items
+
     def _shuffle_deterministically(self, password: str, dk: bytes) -> str:
-        """Deterministically shuffle characters using derived bytes."""
-        shuffle_seed = int.from_bytes(dk, "big")
-        rng = random.Random(shuffle_seed)
+        """Deterministically shuffle characters using an HMAC-based PRNG."""
+
         password_chars = list(password)
-        rng.shuffle(password_chars)
-        shuffled = "".join(password_chars)
-        logger.debug("Shuffled password deterministically.")
+        shuffled_chars = self._fisher_yates_hmac(password_chars, dk)
+        shuffled = "".join(shuffled_chars)
+        logger.debug("Shuffled password deterministically using HMAC-Fisher-Yates.")
         return shuffled
 
     def generate_password(
@@ -226,7 +249,7 @@ class PasswordGenerator:
                     extra = self._map_entropy_to_chars(dk, all_allowed)
                     password += extra
                     password = self._shuffle_deterministically(password, dk)
-                    logger.debug(f"Extended password: {password}")
+                    logger.debug("Extended password to meet length requirement.")
 
             # Trim the password to the desired length and enforce complexity on
             # the final result. Complexity enforcement is repeated here because
@@ -239,7 +262,7 @@ class PasswordGenerator:
             )
             password = self._shuffle_deterministically(password, dk)
             logger.debug(
-                f"Final password (trimmed to {length} chars with complexity enforced): {password}"
+                f"Generated final password of length {length} with complexity enforced."
             )
 
             return password
@@ -311,34 +334,28 @@ class PasswordGenerator:
                     index = get_dk_value() % len(password_chars)
                     char = uppercase[get_dk_value() % len(uppercase)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added uppercase letter '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added uppercase letter at position {index}.")
 
             if current_lower < min_lower:
                 for _ in range(min_lower - current_lower):
                     index = get_dk_value() % len(password_chars)
                     char = lowercase[get_dk_value() % len(lowercase)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added lowercase letter '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added lowercase letter at position {index}.")
 
             if current_digits < min_digits:
                 for _ in range(min_digits - current_digits):
                     index = get_dk_value() % len(password_chars)
                     char = digits[get_dk_value() % len(digits)]
                     password_chars[index] = char
-                    logger.debug(f"Added digit '{char}' at position {index}.")
+                    logger.debug(f"Added digit at position {index}.")
 
             if special and current_special < min_special:
                 for _ in range(min_special - current_special):
                     index = get_dk_value() % len(password_chars)
                     char = special[get_dk_value() % len(special)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added special character '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added special character at position {index}.")
 
             # Additional deterministic inclusion of symbols to increase score
             if special:
@@ -352,9 +369,7 @@ class PasswordGenerator:
                     index = get_dk_value() % len(password_chars)
                     char = special[get_dk_value() % len(special)]
                     password_chars[index] = char
-                    logger.debug(
-                        f"Added additional symbol '{char}' at position {index}."
-                    )
+                    logger.debug(f"Added additional symbol at position {index}.")
 
             # Ensure balanced distribution by assigning different character types to specific segments
             # Example: Divide password into segments and assign different types
@@ -372,19 +387,15 @@ class PasswordGenerator:
                         if i == 0 and password_chars[j] not in uppercase:
                             char = uppercase[get_dk_value() % len(uppercase)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned uppercase letter '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned uppercase letter to position {j}.")
                         elif i == 1 and password_chars[j] not in lowercase:
                             char = lowercase[get_dk_value() % len(lowercase)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned lowercase letter '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned lowercase letter to position {j}.")
                         elif i == 2 and password_chars[j] not in digits:
                             char = digits[get_dk_value() % len(digits)]
                             password_chars[j] = char
-                            logger.debug(f"Assigned digit '{char}' to position {j}.")
+                            logger.debug(f"Assigned digit to position {j}.")
                         elif (
                             special
                             and i == len(char_types) - 1
@@ -392,17 +403,18 @@ class PasswordGenerator:
                         ):
                             char = special[get_dk_value() % len(special)]
                             password_chars[j] = char
-                            logger.debug(
-                                f"Assigned special character '{char}' to position {j}."
-                            )
+                            logger.debug(f"Assigned special character to position {j}.")
 
-            # Shuffle again to distribute the characters more evenly
-            shuffle_seed = (
-                int.from_bytes(dk, "big") + dk_index
-            )  # Modify seed to vary shuffle
-            rng = random.Random(shuffle_seed)
-            rng.shuffle(password_chars)
-            logger.debug(f"Shuffled password characters for balanced distribution.")
+            # Shuffle again to distribute the characters more evenly.  The key is
+            # tweaked with the current ``dk_index`` so that each call produces a
+            # unique but deterministic ordering.
+            shuffle_key = hmac.new(
+                dk, dk_index.to_bytes(4, "big"), hashlib.sha256
+            ).digest()
+            password_chars = self._fisher_yates_hmac(password_chars, shuffle_key)
+            logger.debug(
+                "Shuffled password characters for balanced distribution using HMAC-Fisher-Yates."
+            )
 
             # Final counts after modifications
             final_upper = sum(1 for c in password_chars if c in uppercase)
@@ -423,7 +435,7 @@ class PasswordGenerator:
 
 def derive_ssh_key(bip85: BIP85, idx: int) -> bytes:
     """Derive 32 bytes of entropy suitable for an SSH key."""
-    return bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+    return bip85.derive_entropy(index=idx, entropy_bytes=32, app_no=32)
 
 
 def derive_ssh_key_pair(parent_seed: str, index: int) -> tuple[str, str]:
@@ -457,7 +469,13 @@ def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
 def derive_pgp_key(
     bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
 ) -> tuple[str, str]:
-    """Derive a deterministic PGP private key and return it with its fingerprint."""
+    """Derive a deterministic PGP private key and return it with its fingerprint.
+
+    For RSA keys the randomness required during key generation is provided by
+    an HMAC-SHA256 based deterministic generator seeded from the BIP-85
+    entropy. This avoids use of Python's ``random`` module while ensuring the
+    output remains stable across Python versions.
+    """
 
     from pgpy import PGPKey, PGPUID
     from pgpy.packet.packets import PrivKeyV4
@@ -483,20 +501,24 @@ def derive_pgp_key(
     import hashlib
     import datetime
 
-    entropy = bip85.derive_entropy(index=idx, bytes_len=32, app_no=32)
+    entropy = bip85.derive_entropy(index=idx, entropy_bytes=32, app_no=32)
     created = datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
 
     if key_type.lower() == "rsa":
 
         class DRNG:
+            """HMAC-SHA256 based deterministic random generator."""
+
             def __init__(self, seed: bytes) -> None:
-                self.seed = seed
+                self.key = seed
+                self.counter = 0
 
             def __call__(self, n: int) -> bytes:  # pragma: no cover - deterministic
                 out = b""
                 while len(out) < n:
-                    self.seed = hashlib.sha256(self.seed).digest()
-                    out += self.seed
+                    msg = self.counter.to_bytes(4, "big")
+                    out += hmac.new(self.key, msg, hashlib.sha256).digest()
+                    self.counter += 1
                 return out[:n]
 
         rsa_key = RSA.generate(2048, randfunc=DRNG(entropy))

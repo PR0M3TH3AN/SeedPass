@@ -29,11 +29,11 @@ REPO PREP (create/update these artifacts)
 - `src/todo/TODO_<timestamp>.md` — checklist for the audit run and follow-ups.
 - `src/decisions/DECISIONS_<timestamp>.md` — any decisions or tradeoffs (e.g., what qualifies as grandfathered).
 - `src/test_logs/TEST_LOG_<timestamp>.md` — exact commands run + raw outputs (timestamped).
-- `artifacts/audit/YYYY-MM-DD/` — store raw reports and parsed summaries:
+- `reports/audit/` — store raw reports and parsed summaries:
   - `file-size-report.json` (script raw output + parsed)
   - `innerhtml-report.json`
   - `lint-report.json`
-  - `summary.md` (human readable)
+  - `audit-report-YYYY-MM-DD.md` (human readable summary)
 - `audit/` helper scripts (optional): parsing helpers, one-off scripts.
 
 Commit these artifacts only if your process requires saving them to the repo; otherwise store them in a workspace and attach to GitHub items.
@@ -46,15 +46,15 @@ PRIMARY WORKFLOW (end-to-end)
    - Read `AGENTS.md` and `CLAUDE.md`.
    - Record environment:
      - `node -v`, `npm -v` (or `pnpm`/`yarn`), OS, current `git rev-parse HEAD`
-   - Create the artifact directory: `artifacts/audit/$(date +%F)/`
+   - Create the artifact directory: `reports/audit/`
 
 2. **Run audit scripts (report mode)**
    - Run the three audit commands as stated:
-     - `node torch/scripts/check-file-size.mjs --report 2>&1 | tee artifacts/audit/$(date +%F)/raw-check-file-size.log`
-     - `node torch/scripts/check-innerhtml.mjs --report 2>&1 | tee artifacts/audit/$(date +%F)/raw-check-innerhtml.log`
-     - `npm run lint 2>&1 | tee artifacts/audit/$(date +%F)/raw-lint.log`
+     - `node scripts/check-file-size.mjs --report 2>&1 | tee reports/audit/raw-check-file-size-$(date +%F).log`
+     - `node scripts/check-innerhtml.mjs --report 2>&1 | tee reports/audit/raw-check-innerhtml-$(date +%F).log`
+     - `npm run lint 2>&1 | tee reports/audit/raw-lint-$(date +%F).log`
    - If the repository uses `pnpm`/`yarn`, run lint with the repo’s recommended command from `package.json`.
-   - Save raw outputs in `artifacts/audit/YYYY-MM-DD/`.
+   - Save raw outputs in `reports/audit/`.
 
 3. **Parse and compute metrics**
    - **File-size script parsing**:
@@ -78,8 +78,8 @@ PRIMARY WORKFLOW (end-to-end)
        - `files_with_errors`
        - Examples / first N errors per file
      - If the lint runner produces machine-readable JSON, prefer that for reliable parsing.
-   - Save parsed JSONs in `artifacts/audit/YYYY-MM-DD/`:
-     - `file-size-report.json`, `innerhtml-report.json`, `lint-report.json`.
+   - Save parsed JSONs in `reports/audit/`:
+     - `file-size-report-YYYY-MM-DD.json`, `innerhtml-report-YYYY-MM-DD.json`, `lint-report-YYYY-MM-DD.json`.
 
 4. **Compare with previous week**
    - Try to find last week’s audit report:
@@ -92,7 +92,7 @@ PRIMARY WORKFLOW (end-to-end)
    - If not found, note this is the first report.
 
 5. **Synthesize summary**
-   - Create `artifacts/audit/YYYY-MM-DD/summary.md` with:
+   - Create `reports/audit/audit-report-YYYY-MM-DD.md` with:
      - Header: Date, branch, commit SHA, environment.
      - Metrics:
        - `Grandfathered oversized files`: N files, sum of excess lines M.
@@ -134,9 +134,9 @@ ADDITIONAL GUIDANCE & BEST PRACTICES
 ===============================================================================
 SEARCH / PARSING HELPER SCRIPTS (examples)
 - Parse file-size raw log into JSON:
-  - `node torch/scripts/parse-file-size-report.js artifacts/audit/YYYY-MM-DD/raw-check-file-size.log > artifacts/audit/YYYY-MM-DD/file-size-report.json`
+  - `node scripts/parse-file-size-report.js reports/audit/raw-check-file-size-YYYY-MM-DD.log > reports/audit/file-size-report-YYYY-MM-DD.json`
 - Parse innerHTML log similarly:
-  - `node torch/scripts/parse-innerhtml-report.js ...`
+  - `node scripts/parse-innerhtml-report.js ...`
 - If the repo’s scripts support `--json` or `--output`, prefer those flags.
 
 If such parsers do not exist, implement tiny Node scripts that reliably parse the scripts’ expected output.
@@ -220,16 +220,16 @@ FIRST-RUN CHECKLIST (do this now)
 1. Checkout and update:
    - `git checkout <default-branch> && git pull --ff-only --ff-only`
 2. Create artifacts directory:
-   - `mkdir -p artifacts/audit/$(date +%F)`
+   - `mkdir -p reports/audit/`
 3. Run the 3 audit scripts in report mode:
-   - `node torch/scripts/check-file-size.mjs --report`
-   - `node torch/scripts/check-innerhtml.mjs --report`
+   - `node scripts/check-file-size.mjs --report`
+   - `node scripts/check-innerhtml.mjs --report`
    - `npm run lint`
-   - Save raw outputs to `artifacts/audit/$(date +%F)/`
+   - Save raw outputs to `reports/audit/`
    - Record commands & outputs in `src/test_logs/TEST_LOG_<timestamp>.md`
 4. Parse outputs into JSON (use existing script or small Node parser).
 5. Compute metrics and compare with the last report (search issues/PRs).
-6. Create `artifacts/audit/$(date +%F)/summary.md`.
+6. Create `reports/audit/audit-report-YYYY-MM-DD.md`.
 7. Post summary comment on existing audit issue/PR or open a new `Audit Report — YYYY-MM-DD` issue (label `audit-report`) with artifacts attached.
 8. If thresholds exceeded, open follow-up issues and tag maintainers.
 
@@ -241,14 +241,14 @@ FAILURE MODES
 - If specific resources (files, URLs) are unavailable, log the error and skip.
 
 OUTPUTS (what you must produce each run)
-- `artifacts/audit/YYYY-MM-DD/` containing:
-  - `raw-check-file-size.log`
-  - `raw-check-innerhtml.log`
-  - `raw-lint.log`
-  - `file-size-report.json`
-  - `innerhtml-report.json`
-  - `lint-report.json`
-  - `summary.md`
+- `reports/audit/` containing:
+  - `raw-check-file-size-YYYY-MM-DD.log`
+  - `raw-check-innerhtml-YYYY-MM-DD.log`
+  - `raw-lint-YYYY-MM-DD.log`
+  - `file-size-report-YYYY-MM-DD.json`
+  - `innerhtml-report-YYYY-MM-DD.json`
+  - `lint-report-YYYY-MM-DD.json`
+  - `audit-report-YYYY-MM-DD.md`
 - `src/test_logs/TEST_LOG_<timestamp>.md` updated with commands, environment, and outputs.
 - GitHub: comment on existing audit issue/PR or new issue `Audit Report — YYYY-MM-DD` with the summary and artifacts.
 - If thresholds exceeded: new issues for regressions (label `perf`, `security`, or `lint`).

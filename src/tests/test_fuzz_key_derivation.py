@@ -3,12 +3,17 @@ from pathlib import Path
 
 from hypothesis import given, strategies as st, settings, HealthCheck
 from mnemonic import Mnemonic
+import hashlib
+import base64
+import os
 
 from utils.key_derivation import (
     derive_key_from_password,
     derive_key_from_password_argon2,
     derive_index_key,
+    KdfConfig,
 )
+from utils.fingerprint import generate_fingerprint
 from seedpass.core.encryption import EncryptionManager
 
 cfg_values = st.one_of(
@@ -32,17 +37,29 @@ cfg_values = st.one_of(
 def test_fuzz_key_round_trip(password, seed_bytes, config, mode, tmp_path: Path):
     """Ensure EncryptionManager round-trips arbitrary data."""
     seed_phrase = Mnemonic("english").to_mnemonic(seed_bytes)
+    fp = generate_fingerprint(seed_phrase)
     if mode == "argon2":
-        key = derive_key_from_password_argon2(
-            password, time_cost=1, memory_cost=8, parallelism=1
+        cfg = KdfConfig(
+            params={"time_cost": 1, "memory_cost": 8, "parallelism": 1},
+            salt_b64=base64.b64encode(
+                hashlib.sha256(fp.encode()).digest()[:16]
+            ).decode(),
         )
+        key = derive_key_from_password_argon2(password, cfg)
     else:
-        key = derive_key_from_password(password, iterations=1)
+        key = derive_key_from_password(password, fp, iterations=1)
+        cfg = KdfConfig(
+            name="pbkdf2",
+            params={"iterations": 1},
+            salt_b64=base64.b64encode(
+                hashlib.sha256(fp.encode()).digest()[:16]
+            ).decode(),
+        )
 
     enc_mgr = EncryptionManager(key, tmp_path)
 
     # Parent seed round trip
-    enc_mgr.encrypt_parent_seed(seed_phrase)
+    enc_mgr.encrypt_parent_seed(seed_phrase, kdf=cfg)
     assert enc_mgr.decrypt_parent_seed() == seed_phrase
 
     # JSON data round trip

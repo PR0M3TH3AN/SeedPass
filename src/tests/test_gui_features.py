@@ -30,8 +30,8 @@ class DummyEntries:
         self.data = [(1, "Example", None, None, False)]
         self.code = "111111"
 
-    def list_entries(self, sort_by="index", filter_kind=None, include_archived=False):
-        if filter_kind:
+    def list_entries(self, sort_by="index", filter_kinds=None, include_archived=False):
+        if filter_kinds:
             return [(idx, label, None, None, False) for idx, label, *_ in self.data]
         return self.data
 

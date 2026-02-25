@@ -30,7 +30,7 @@ In scope:
 - Collect CI/test run failures, smoke-test artifacts, and agent job errors (only from sources that have opted-in).
 - Sanitize logs to remove PII, secrets, IPs, keys, and any sensitive identifiers.
 - Fingerprint/cluster errors by normalized stack trace, count occurrences, compute recency and severity.
-- Produce `artifacts/error-aggregates-YYYYMMDD.json` and `ai/reports/telemetry-YYYYMMDD.md`.
+- Produce `reports/telemetry/error-aggregates-YYYY-MM-DD.json` and `reports/telemetry/telemetry-report-YYYY-MM-DD.md`.
 - Suggest owners (via CODEOWNERS / module owners when available) and prioritized next actions.
 
 Out of scope:
@@ -134,7 +134,7 @@ WORKFLOW (detailed)
    - Keep only sanitized sample traces (max length), counts and metadata.
 
 5) Generate artifacts
-   - `artifacts/error-aggregates-YYYYMMDD.json` (structured):
+   - `reports/telemetry/error-aggregates-YYYY-MM-DD.json` (structured):
      ```json
      {
        "generated_at": "...",
@@ -154,7 +154,7 @@ WORKFLOW (detailed)
        ]
      }
      ```
-   - `ai/reports/telemetry-YYYYMMDD.md` (human summary):
+   - `reports/telemetry/telemetry-report-YYYY-MM-DD.md` (human summary):
      - Headline: total errors, total groups
      - Top-10 groups table: fingerprint, severity, count, owner, sample sanitized trace
      - Prioritized Top-5 recommended human actions
@@ -170,11 +170,11 @@ WORKFLOW (detailed)
 
 7) Commit / PR (if allowed)
    - If committing artifacts is permitted:
-     - Branch: `ai/telemetry-YYYYMMDD`
+     - Branch: `ai/telemetry-YYYY-MM-DD`
      - Commit message: `chore(ai): telemetry error aggregates (YYYY-MM-DD)`
      - PR title: `docs(ai): telemetry report — YYYY-MM-DD`
      - PR body: include the telemetry report summary and privacy audit
-   - If not permitted, attach `artifacts/error-aggregates-*.json` and the report to the PR body.
+   - If not permitted, attach `reports/telemetry/error-aggregates-*.json` and the report to the PR body.
 
 ───────────────────────────────────────────────────────────────────────────────
 FAILURE MODES & GUARDRAILS (when to stop)
@@ -189,7 +189,7 @@ FAILURE MODES & GUARDRAILS (when to stop)
 ───────────────────────────────────────────────────────────────────────────────
 REPORT FORMAT (required)
 
-`ai/reports/telemetry-YYYYMMDD.md` should include:
+`reports/telemetry/telemetry-report-YYYY-MM-DD.md` should include:
 
 1. **Headline**
    - `Total sanitized errors: N — Groups: M — Top severity: S`
@@ -224,10 +224,10 @@ PR & COMMIT CONVENTIONS
 ─────────────────────────────────────────────────────────────────────────────
 OUTPUTS PER RUN
 
-- `artifacts/error-aggregates-YYYYMMDD.json` (sanitized, structured)
-- `ai/reports/telemetry-YYYYMMDD.md` (human-ready)
+- `reports/telemetry/error-aggregates-YYYY-MM-DD.json` (sanitized, structured)
+- `reports/telemetry/telemetry-report-YYYY-MM-DD.md` (human-ready)
 - 0–N issues suggested for top errors (only if policy allows automation)
-- If permitted: a PR `ai/telemetry-YYYYMMDD` with artifacts and privacy audit
+- If permitted: a PR `ai/telemetry-YYYY-MM-DD` with artifacts and privacy audit
 
 ─────────────────────────────────────────────────────────────────────────────
 BEGIN
@@ -236,7 +236,7 @@ BEGIN
 2. Discover opt-in artifacts (CI runs with `TELEMETRY=1`, `artifacts/telemetry-optin/`, agent-run logs).
 3. Sanitize each artifact (apply PII/key/IP/email redaction and log an audit of replacements).
 4. Normalize & fingerprint stack traces; aggregate counts and compute severity.
-5. Produce `artifacts/error-aggregates-YYYYMMDD.json` and `ai/reports/telemetry-YYYYMMDD.md`.
-6. If artifacts are permitted to be committed, open `ai/telemetry-YYYYMMDD` PR with the report. Otherwise, attach in PR body and open issue(s) for human triage.
+5. Produce `reports/telemetry/error-aggregates-YYYY-MM-DD.json` and `reports/telemetry/telemetry-report-YYYY-MM-DD.md`.
+6. If artifacts are permitted to be committed, open `ai/telemetry-YYYY-MM-DD` PR with the report. Otherwise, attach in PR body and open issue(s) for human triage.
 
 **Privacy-first rule:** If you cannot guarantee all PII/keys are redacted from every artifact, stop and request maintainer review — do not commit or publish raw logs.
