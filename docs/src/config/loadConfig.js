@@ -30,7 +30,7 @@ function loadConfig(configPath = path.join(process.cwd(), 'config.yaml')) {
 
   const defaults = {
     site: {
-      title: 'Archivox',
+      title: 'SeedPass Docs',
       description: '',
       logo: '',
       favicon: ''

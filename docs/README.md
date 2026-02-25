@@ -1,55 +1,26 @@
-# Archivox
+# SeedPass Docs
 
-Archivox is a lightweight static site generator aimed at producing documentation sites similar to "Read the Docs". Write your content in Markdown, run the generator, and deploy the static files anywhere.
+This directory contains SeedPass project documentation.
 
-[![Build Status](https://github.com/PR0M3TH3AN/Archivox/actions/workflows/ci.yml/badge.svg)](https://github.com/PR0M3TH3AN/Archivox/actions/workflows/ci.yml)
+## Core Security Docs
 
-## Features
-- Markdown based pages with automatic navigation
-- Responsive layout with sidebar and search powered by Lunr.js
-- Simple configuration through `config.yaml`
-- Extensible via plugins and custom templates
+- `security_readiness_checklist.md`
+- `threat_model.md`
+- `crypto_key_management_review.md`
+- `secret_handling_local_exposure_review.md`
+- `auth_lock_unlock_access_review.md`
 
-## Getting Started
-Install the dependencies and start the development server:
+## Architecture and Product Docs
 
-```bash
-npm install
-npm run dev
-```
+- `ARCHITECTURE.md`
+- `SPEC.md`
+- `security.md`
+- `nostr_setup.md`
+- `packaging.md`
 
-The site will be available at `http://localhost:8080`. Edit files inside the `content/` directory to update pages.
+## QA and Testing Docs
 
-To create a new project from the starter template you can run:
-
-```bash
-npx create-archivox my-docs --install
-```
-
-## Building
-When you are ready to publish your documentation run:
-
-```bash
-npm run build
-```
-
-The generated site is placed in the `_site/` folder.
-
-## Customization
-- **`config.yaml`** – change the site title, theme options and other settings.
-- **`plugins/`** – add JavaScript files exporting hook functions such as `onPageRendered` to extend the build process.
-- **`templates/`** – modify or replace the Nunjucks templates for full control over the HTML.
-
-## Hosting
-Upload the contents of `_site/` to any static host. For Netlify you can use the provided `netlify.toml`:
-
-```toml
-[build]
-  command = "npm run build"
-  publish = "_site"
-```
-
-## Documentation
-See the files under the `docs/` directory for a full guide to Archivox including an integration tutorial for existing projects.
-
-Archivox is released under the MIT License.
+- `agent_testing_roadmap.md`
+- `ai_agent_tui_testing.md`
+- `installer_testing.md`
+- `ci-health-2026-02-19.md`
