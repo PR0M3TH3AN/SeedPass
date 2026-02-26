@@ -2782,174 +2782,204 @@ class PasswordManager:
 
     def _entry_actions_menu(self, index: int, entry: dict) -> None:
         """Provide actions for a retrieved entry."""
-        while True:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Entry Actions",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
+
+        # Keep entry dict updated in closure scope
+        current_entry = entry
+
+        def refresh_entry():
+            nonlocal current_entry
+            refreshed = self.entry_manager.retrieve_entry(index)
+            if refreshed:
+                current_entry = refreshed
+
+        def toggle_archive():
+            archived = current_entry.get(
+                "archived", current_entry.get("blacklisted", False)
             )
-            archived = entry.get("archived", entry.get("blacklisted", False))
-            entry_type = self._entry_type_str(entry)
-            print(colored("\n[+] Entry Actions:", "green"))
             if archived:
-                print(colored("U. Unarchive", "cyan"))
+                self.entry_manager.restore_entry(index)
             else:
-                print(colored("A. Archive", "cyan"))
-            print(colored("N. Add Note", "cyan"))
-            print(colored("C. Add Custom Field", "cyan"))
-            print(colored("H. Add Hidden Field", "cyan"))
-            print(colored("E. Edit", "cyan"))
-            print(colored("T. Edit Tags", "cyan"))
+                self.entry_manager.archive_entry(index)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
+
+        def add_note():
+            note = input("Enter note: ").strip()
+            if note:
+                notes = current_entry.get("notes", "")
+                notes = f"{notes}\n{note}" if notes else note
+                self.entry_manager.modify_entry(index, notes=notes)
+                self.is_dirty = True
+                self.last_update = time.time()
+                refresh_entry()
+
+        def add_custom_field(hidden: bool):
+            label = input("  Field label: ").strip()
+            if not label:
+                print(colored("Field label cannot be empty.", "red"))
+            else:
+                value = input("  Field value: ").strip()
+                custom_fields = current_entry.get("custom_fields", [])
+                custom_fields.append(
+                    {"label": label, "value": value, "is_hidden": hidden}
+                )
+                self.entry_manager.modify_entry(index, custom_fields=custom_fields)
+                self.is_dirty = True
+                self.last_update = time.time()
+                refresh_entry()
+
+        def edit_tags():
+            current_tags = current_entry.get("tags", [])
+            print(
+                colored(
+                    f"Current tags: {', '.join(current_tags) if current_tags else 'None'}",
+                    "cyan",
+                )
+            )
+            tags_input = input(
+                "Enter tags (comma-separated, leave blank to remove all tags): "
+            ).strip()
+            tags = (
+                [t.strip() for t in tags_input.split(",") if t.strip()]
+                if tags_input
+                else []
+            )
+            self.entry_manager.modify_entry(index, tags=tags)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
+
+        def edit_entry():
+            self._entry_edit_menu(index, current_entry)
+            refresh_entry()
+
+        def show_qr():
+            self._entry_qr_menu(index, current_entry)
+            pause()
+            refresh_entry()
+
+        def get_options():
+            archived = current_entry.get(
+                "archived", current_entry.get("blacklisted", False)
+            )
+            entry_type = self._entry_type_str(current_entry)
+            options = []
+
+            if archived:
+                options.append(("u", "Unarchive", toggle_archive))
+            else:
+                options.append(("a", "Archive", toggle_archive))
+
+            options.append(("n", "Add Note", add_note))
+            options.append(("c", "Add Custom Field", lambda: add_custom_field(False)))
+            options.append(("h", "Add Hidden Field", lambda: add_custom_field(True)))
+            options.append(("e", "Edit", edit_entry))
+            options.append(("t", "Edit Tags", edit_tags))
+
             if entry_type in {
                 EntryType.SEED.value,
                 EntryType.MANAGED_ACCOUNT.value,
                 EntryType.NOSTR.value,
             }:
-                print(colored("Q. Show QR codes", "cyan"))
+                options.append(("q", "Show QR codes", show_qr))
 
-            choice = (
-                input("Select an action or press Enter to return: ").strip().lower()
-            )
-            if not choice:
-                break
-            if choice == "a" and not archived:
-                self.entry_manager.archive_entry(index)
-                self.is_dirty = True
-                self.last_update = time.time()
-            elif choice == "u" and archived:
-                self.entry_manager.restore_entry(index)
-                self.is_dirty = True
-                self.last_update = time.time()
-            elif choice == "n":
-                note = input("Enter note: ").strip()
-                if note:
-                    notes = entry.get("notes", "")
-                    notes = f"{notes}\n{note}" if notes else note
-                    self.entry_manager.modify_entry(index, notes=notes)
-                    self.is_dirty = True
-                    self.last_update = time.time()
-            elif choice in {"c", "h"}:
-                label = input("  Field label: ").strip()
-                if not label:
-                    print(colored("Field label cannot be empty.", "red"))
-                else:
-                    value = input("  Field value: ").strip()
-                    hidden = choice == "h"
-                    custom_fields = entry.get("custom_fields", [])
-                    custom_fields.append(
-                        {"label": label, "value": value, "is_hidden": hidden}
-                    )
-                    self.entry_manager.modify_entry(index, custom_fields=custom_fields)
-                    self.is_dirty = True
-                    self.last_update = time.time()
-            elif choice == "t":
-                current_tags = entry.get("tags", [])
-                print(
-                    colored(
-                        f"Current tags: {', '.join(current_tags) if current_tags else 'None'}",
-                        "cyan",
-                    )
-                )
-                tags_input = input(
-                    "Enter tags (comma-separated, leave blank to remove all tags): "
-                ).strip()
-                tags = (
-                    [t.strip() for t in tags_input.split(",") if t.strip()]
-                    if tags_input
-                    else []
-                )
-                self.entry_manager.modify_entry(index, tags=tags)
-                self.is_dirty = True
-                self.last_update = time.time()
-            elif choice == "e":
-                self._entry_edit_menu(index, entry)
-            elif choice == "q":
-                self._entry_qr_menu(index, entry)
-                pause()
-            else:
-                print(colored("Invalid choice.", "red"))
-            entry = self.entry_manager.retrieve_entry(index) or entry
+            return options
+
+        self.menu_handler.run_menu("Entry Actions", get_options)
 
     def _entry_edit_menu(self, index: int, entry: dict) -> None:
         """Sub-menu for editing common entry fields."""
-        entry_type = self._entry_type_str(entry)
-        while True:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Edit Entry",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
-            print(colored("\n[+] Edit Menu:", "green"))
-            print(colored("L. Edit Label", "cyan"))
-            if entry_type == EntryType.KEY_VALUE.value:
-                print(colored("K. Edit Key", "cyan"))
-                print(
-                    colored("V. Edit Value", "cyan")
-                )  # 🔧 merged conflicting changes from feature-X vs main
-            if entry_type == EntryType.PASSWORD.value:
-                print(colored("U. Edit Username", "cyan"))
-                print(colored("R. Edit URL", "cyan"))
-            elif entry_type == EntryType.TOTP.value:
-                print(colored("P. Edit Period", "cyan"))
-                print(colored("D. Edit Digits", "cyan"))
-            choice = input("Select option or press Enter to go back: ").strip().lower()
-            if not choice:
-                break
-            if choice == "l":
-                new_label = input("New label: ").strip()
-                if new_label:
-                    self.entry_manager.modify_entry(index, label=new_label)
-                    self.is_dirty = True
-                    self.last_update = time.time()
-            elif entry_type == EntryType.KEY_VALUE.value and choice == "k":
-                new_key = input("New key: ").strip()
-                if new_key:
-                    self.entry_manager.modify_entry(index, key=new_key)
-                    self.is_dirty = True
-                    self.last_update = time.time()
-            elif entry_type == EntryType.KEY_VALUE.value and choice == "v":
-                new_value = input("New value: ").strip()
-                if new_value:
-                    self.entry_manager.modify_entry(index, value=new_value)
-                    self.is_dirty = True
-                    self.last_update = (
-                        time.time()
-                    )  # 🔧 merged conflicting changes from feature-X vs main
-            elif entry_type == EntryType.PASSWORD.value and choice == "u":
-                new_username = input("New username: ").strip()
-                self.entry_manager.modify_entry(index, username=new_username)
+
+        # Keep entry dict updated in closure scope
+        current_entry = entry
+
+        def refresh_entry():
+            nonlocal current_entry
+            refreshed = self.entry_manager.retrieve_entry(index)
+            if refreshed:
+                current_entry = refreshed
+
+        def edit_label():
+            new_label = input("New label: ").strip()
+            if new_label:
+                self.entry_manager.modify_entry(index, label=new_label)
                 self.is_dirty = True
                 self.last_update = time.time()
-            elif entry_type == EntryType.PASSWORD.value and choice == "r":
-                new_url = input("New URL: ").strip()
-                self.entry_manager.modify_entry(index, url=new_url)
+                refresh_entry()
+
+        def edit_key():
+            new_key = input("New key: ").strip()
+            if new_key:
+                self.entry_manager.modify_entry(index, key=new_key)
                 self.is_dirty = True
                 self.last_update = time.time()
-            elif entry_type == EntryType.TOTP.value and choice == "p":
-                period_str = input("New period (seconds): ").strip()
-                if period_str.isdigit():
-                    self.entry_manager.modify_entry(index, period=int(period_str))
-                    self.is_dirty = True
-                    self.last_update = time.time()
-                else:
-                    print(colored("Invalid period value.", "red"))
-            elif entry_type == EntryType.TOTP.value and choice == "d":
-                digits_str = input("New digits: ").strip()
-                if digits_str.isdigit():
-                    self.entry_manager.modify_entry(index, digits=int(digits_str))
-                    self.is_dirty = True
-                    self.last_update = time.time()
-                else:
-                    print(colored("Invalid digits value.", "red"))
+                refresh_entry()
+
+        def edit_value():
+            new_value = input("New value: ").strip()
+            if new_value:
+                self.entry_manager.modify_entry(index, value=new_value)
+                self.is_dirty = True
+                self.last_update = time.time()
+                refresh_entry()
+
+        def edit_username():
+            new_username = input("New username: ").strip()
+            self.entry_manager.modify_entry(index, username=new_username)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
+
+        def edit_url():
+            new_url = input("New URL: ").strip()
+            self.entry_manager.modify_entry(index, url=new_url)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
+
+        def edit_period():
+            period_str = input("New period (seconds): ").strip()
+            if period_str.isdigit():
+                self.entry_manager.modify_entry(index, period=int(period_str))
+                self.is_dirty = True
+                self.last_update = time.time()
+                refresh_entry()
             else:
-                print(colored("Invalid choice.", "red"))
-            entry = self.entry_manager.retrieve_entry(index) or entry
+                print(colored("Invalid period value.", "red"))
+
+        def edit_digits():
+            digits_str = input("New digits: ").strip()
+            if digits_str.isdigit():
+                self.entry_manager.modify_entry(index, digits=int(digits_str))
+                self.is_dirty = True
+                self.last_update = time.time()
+                refresh_entry()
+            else:
+                print(colored("Invalid digits value.", "red"))
+
+        def get_options():
+            entry_type = self._entry_type_str(current_entry)
+            options = [("l", "Edit Label", edit_label)]
+
+            if entry_type == EntryType.KEY_VALUE.value:
+                options.append(("k", "Edit Key", edit_key))
+                options.append(("v", "Edit Value", edit_value))
+
+            if entry_type == EntryType.PASSWORD.value:
+                options.append(("u", "Edit Username", edit_username))
+                options.append(("r", "Edit URL", edit_url))
+            elif entry_type == EntryType.TOTP.value:
+                options.append(("p", "Edit Period", edit_period))
+                options.append(("d", "Edit Digits", edit_digits))
+
+            return options
+
+        self.menu_handler.run_menu(
+            "Edit Entry",
+            get_options,
+            prompt="Select option or press Enter to go back: "
+        )
 
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
         """Display QR codes for the given ``entry``."""
@@ -2973,40 +3003,39 @@ class PasswordManager:
                 return
 
             if entry_type == EntryType.NOSTR.value:
-                while True:
-                    fp, parent_fp, child_fp = self.header_fingerprint_args
-                    clear_header_with_notification(
-                        self,
-                        fp,
-                        "QR Codes",
-                        parent_fingerprint=parent_fp,
-                        child_fingerprint=child_fp,
-                    )
-                    print(colored("\n[+] QR Codes:", "green"))
-                    print(colored("P. Public key", "cyan"))
-                    print(colored("K. Private key", "cyan"))
-                    choice = (
-                        input("Select option or press Enter to return: ")
-                        .strip()
-                        .lower()
-                    )
-                    if not choice:
-                        break
+                current_entry = entry
 
-                    npub, nsec = self.entry_manager.get_nostr_key_pair(
-                        index, self.parent_seed
-                    )
+                def refresh_entry():
+                    nonlocal current_entry
+                    refreshed = self.entry_manager.retrieve_entry(index)
+                    if refreshed:
+                        current_entry = refreshed
 
-                    if choice == "p":
-                        print(colored(f"npub: {npub}", "cyan"))
-                        TotpManager.print_qr_code(f"nostr:{npub}")
-                    elif choice == "k":
-                        print(color_text(f"nsec: {nsec}", "deterministic"))
-                        TotpManager.print_qr_code(nsec)
-                    else:
-                        print(colored("Invalid choice.", "red"))
+                def show_public_key():
+                    npub, _ = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+                    print(colored(f"npub: {npub}", "cyan"))
+                    TotpManager.print_qr_code(f"nostr:{npub}")
                     pause()
-                    entry = self.entry_manager.retrieve_entry(index) or entry
+                    refresh_entry()
+
+                def show_private_key():
+                    _, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+                    print(color_text(f"nsec: {nsec}", "deterministic"))
+                    TotpManager.print_qr_code(nsec)
+                    pause()
+                    refresh_entry()
+
+                def get_options():
+                    return [
+                        ("p", "Public key", show_public_key),
+                        ("k", "Private key", show_private_key),
+                    ]
+
+                self.menu_handler.run_menu(
+                    "QR Codes",
+                    get_options,
+                    prompt="Select option or press Enter to return: "
+                )
                 return
 
             self.notify("No QR codes available for this entry.", level="WARNING")
