@@ -36,6 +36,7 @@ def test_add_and_delete_entry(monkeypatch):
 
         pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY
+        # Initialize fingerprint_manager with the monkeypatched APP_DIR
         pm.fingerprint_manager = FingerprintManager(constants.APP_DIR)
         pm.current_fingerprint = None
         pm.save_and_encrypt_seed = lambda seed, fingerprint_dir: None
