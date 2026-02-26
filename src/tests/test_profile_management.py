@@ -9,18 +9,18 @@ from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
-from utils.fingerprint_manager import FingerprintManager
-import utils.password_prompt
-import constants
-import seedpass.core.manager as manager_module
-from seedpass.core.vault import Vault
-from seedpass.core.entry_management import EntryManager
-from seedpass.core.backup import BackupManager
-from seedpass.core.manager import EncryptionMode
-from seedpass.core.config_manager import ConfigManager
+from utils.fingerprint_manager import FingerprintManager  # noqa: E402
+import utils.password_prompt  # noqa: E402
+import constants  # noqa: E402
+import seedpass.core.manager as manager_module  # noqa: E402
+from seedpass.core.entry_management import EntryManager  # noqa: E402
+from seedpass.core.backup import BackupManager  # noqa: E402
+from seedpass.core.manager import EncryptionMode  # noqa: E402
+from seedpass.core.config_manager import ConfigManager  # noqa: E402
 
 
 def test_add_and_delete_entry(monkeypatch):
+    """Test adding and deleting an entry with mocked input and confirmation."""
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         app_dir = tmp_path / ".seedpass"
@@ -50,10 +50,21 @@ def test_add_and_delete_entry(monkeypatch):
         monkeypatch.setattr(
             manager_module.PasswordManager, "generate_bip85_seed", lambda self: seed
         )
+        # Mock confirm_action in both locations to be safe against reload issues
         monkeypatch.setattr(manager_module, "confirm_action", lambda *_a, **_k: True)
-        # Ensure masked_input uses builtins.input (mocked below) instead of msvcrt on Windows
-        monkeypatch.setattr(utils.password_prompt, "masked_input", lambda p: input(p))
-        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "3")
+        monkeypatch.setattr(
+            utils.password_prompt, "confirm_action", lambda *_a, **_k: True
+        )
+
+        # Robust input mock:
+        # 1. "3" -> Select "Generate a new seed"
+        # 2. "y" -> Confirm action (fallback if confirm_action mock missed)
+        # 3. "y" -> Confirm again (fallback)
+        # 4. "y" -> Confirm again (fallback)
+        # 5. "y" -> Confirm again (fallback)
+        # Using "y" breaks the loop in confirm_action if it gets called.
+        input_values = iter(["3", "y", "y", "y", "y"])
+        monkeypatch.setattr("builtins.input", lambda *_a, **_k: next(input_values))
 
         pm.add_new_fingerprint()
 

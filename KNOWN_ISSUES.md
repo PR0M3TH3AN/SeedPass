@@ -32,3 +32,11 @@ It is updated daily by the `known-issues-agent`.
 - **Root Cause**: Unsafe DOM manipulation.
 - **Status**: Resolved (verified file content on 2026-02-25).
 - **Last Checked**: 2026-02-25
+
+### [Active] BIP85 Non-Standard Derivation Path
+- **Symptoms**: `BIP85` uses `app_no=2` for symmetric key derivation instead of `128` (Hex) or `0` (BIP32).
+- **Repro**: `src/local_bip85/bip85.py:derive_symmetric_key` uses default `app_no=2`.
+- **Workaround**: None required; internal consistency is maintained.
+- **Root Cause**: Implementation choice or legacy behavior.
+- **Status**: Active (Documented in `PROTOCOL_INVENTORY.md` and `reports/protocol/protocol-report-2026-02-26.md`).
+- **Last Checked**: 2026-02-26

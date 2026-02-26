@@ -1,11 +1,1 @@
-# Memory Update (2026-02-26)
-
-## Performance Agent
-- Initialized performance baseline in `reports/performance/INITIAL_BASELINE.md`.
-- Ran daily pattern search across codebase (`perf_agent.py`), finding 0 hits for JS patterns in Python-centric codebase.
-- Created `src/context/CONTEXT_2026-02-26T02-59-27Z.md` for audit trail.
-
-## Outcome
-- Baseline established.
-- Confirmed that current `perf-agent` patterns (JS-focused) yield no hits in this repo.
-- No code changes made to source files.
+**Protocol Research Findings**: The codebase uses `bip_utils` and `nostr_sdk` correctly. However, `BIP85` implementation uses `app_no=2` for symmetric key derivation, which is non-standard (usually `128` or `0`). A regression test `src/tests/test_bip85_compliance.py` was added to document and monitor this behavior.
