@@ -27,9 +27,7 @@ def test_add_and_delete_entry(monkeypatch):
         app_dir = tmp_path / ".seedpass"
         monkeypatch.setattr(constants, "APP_DIR", app_dir)
         monkeypatch.setattr(manager_module, "APP_DIR", app_dir)
-        monkeypatch.setattr(
-            constants, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
-        )
+        monkeypatch.setattr(constants, "PARENT_SEED_FILE", app_dir / "parent_seed.enc")
         monkeypatch.setattr(
             manager_module, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
         )
