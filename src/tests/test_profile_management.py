@@ -20,6 +20,7 @@ from seedpass.core.config_manager import ConfigManager  # noqa: E402
 
 
 def test_add_and_delete_entry(monkeypatch):
+    """Test adding and deleting an entry with mocked input and confirmation."""
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
