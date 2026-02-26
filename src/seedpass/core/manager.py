@@ -25,6 +25,7 @@ import threading
 import queue
 from dataclasses import dataclass
 import dataclasses
+from contextlib import contextmanager
 from functools import wraps
 from termcolor import colored
 from utils.color_scheme import color_text
@@ -2190,6 +2191,43 @@ class PasswordManager:
             self.notify("Starting with a new, empty vault.", level="INFO")
             return
 
+    def _clear_header_add_entry(self, subtitle: str) -> None:
+        fp, parent_fp, child_fp = self.header_fingerprint_args
+        clear_header_with_notification(
+            self,
+            fp,
+            f"Main Menu > Add Entry > {subtitle}",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
+        )
+
+    def _mark_dirty(self) -> None:
+        """Mark the database as modified."""
+        self.is_dirty = True
+        self.last_update = time.time()
+
+    def _sync_and_pause(self, pause_after: bool = True) -> None:
+        """Sync to Nostr and optionally pause."""
+        try:
+            self.start_background_vault_sync()
+        except Exception as nostr_error:  # pragma: no cover - best effort
+            logging.error(
+                f"Failed to post updated index to Nostr: {nostr_error}",
+                exc_info=True,
+            )
+        if pause_after:
+            pause()
+
+    @contextmanager
+    def _entry_op_context(self, operation_name: str):
+        """Standardized context for add entry operations."""
+        try:
+            yield
+        except Exception as e:
+            logging.error(f"Error during {operation_name} setup: {e}", exc_info=True)
+            print(colored(f"Error: Failed to add {operation_name}: {e}", "red"))
+            pause()
+
     @pause_logging_for_ui
     def handle_add_password(self) -> None:
         self.entry_service.handle_add_password()
@@ -2197,16 +2235,9 @@ class PasswordManager:
     @pause_logging_for_ui
     def handle_add_totp(self) -> None:
         """Add a TOTP entry either derived from the seed or imported."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
+        with self._entry_op_context("TOTP"):
             while True:
-                clear_header_with_notification(
-                    self,
-                    fp,
-                    "Main Menu > Add Entry > 2FA (TOTP)",
-                    parent_fingerprint=parent_fp,
-                    child_fingerprint=child_fp,
-                )
+                self._clear_header_add_entry("2FA (TOTP)")
                 print("\nAdd TOTP:")
                 print("1. Make 2FA")
                 print("2. Import 2FA (paste otpauth URI or secret)")
@@ -2255,8 +2286,7 @@ class PasswordManager:
                     else:
                         _lbl, secret, _, _ = TotpManager.parse_otpauth(uri)
                         color_cat = "default"
-                    self.is_dirty = True
-                    self.last_update = time.time()
+                        self._mark_dirty()
                     print(
                         colored(
                             f"\n[+] TOTP entry added with ID {entry_id}.\n", "green"
@@ -2266,14 +2296,7 @@ class PasswordManager:
                     print(colored(uri, "yellow"))
                     TotpManager.print_qr_code(uri)
                     print(color_text(f"Secret: {secret}\n", color_cat))
-                    try:
-                        self.start_background_vault_sync()
-                    except Exception as nostr_error:
-                        logging.error(
-                            f"Failed to post updated index to Nostr: {nostr_error}",
-                            exc_info=True,
-                        )
-                    pause()
+                    self._sync_and_pause()
                     break
                 elif choice == "2":
                     raw = input("Paste otpauth URI or secret: ").strip()
@@ -2307,8 +2330,7 @@ class PasswordManager:
                             tags=tags,
                             deterministic=False,
                         )
-                        self.is_dirty = True
-                        self.last_update = time.time()
+                        self._mark_dirty()
                         print(
                             colored(
                                 f"\nImported \u2714  Codes for {label} are now stored in SeedPass at ID {entry_id}.",
@@ -2316,14 +2338,7 @@ class PasswordManager:
                             )
                         )
                         TotpManager.print_qr_code(uri)
-                        try:
-                            self.start_background_vault_sync()
-                        except Exception as nostr_error:
-                            logging.error(
-                                f"Failed to post updated index to Nostr: {nostr_error}",
-                                exc_info=True,
-                            )
-                        pause()
+                        self._sync_and_pause()
                         break
                     except ValueError as err:
                         print(colored(f"Error: {err}", "red"))
@@ -2331,23 +2346,12 @@ class PasswordManager:
                     return
                 else:
                     print(colored("Invalid choice.", "red"))
-        except Exception as e:
-            logging.error(f"Error during TOTP setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add TOTP: {e}", "red"))
-            pause()
 
     @pause_logging_for_ui
     def handle_add_ssh_key(self) -> None:
         """Add an SSH key pair entry and display the derived keys."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > SSH Key",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("SSH key"):
+            self._clear_header_add_entry("SSH Key")
             label = input("Label (key): ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2365,8 +2369,7 @@ class PasswordManager:
             priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
                 index, self.parent_seed
             )
-            self.is_dirty = True
-            self.last_update = time.time()
+            self._mark_dirty()
 
             if not confirm_action(
                 "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
@@ -2381,31 +2384,13 @@ class PasswordManager:
             print(color_text(pub_pem, "default"))
             print(colored("Private Key:", "cyan"))
             print(color_text(priv_pem, "deterministic"))
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during SSH key setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add SSH key: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     @pause_logging_for_ui
     def handle_add_seed(self) -> None:
         """Add a derived BIP-39 seed phrase entry."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > Seed Phrase",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("seed phrase"):
+            self._clear_header_add_entry("Seed Phrase")
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2426,8 +2411,7 @@ class PasswordManager:
                 label, self.parent_seed, words_num=words, notes=notes, tags=tags
             )
             phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
-            self.is_dirty = True
-            self.last_update = time.time()
+            self._mark_dirty()
 
             if not confirm_action(
                 "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
@@ -2451,31 +2435,13 @@ class PasswordManager:
                 from .seedqr import encode_seedqr
 
                 TotpManager.print_qr_code(encode_seedqr(phrase))
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during seed phrase setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add seed phrase: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     @pause_logging_for_ui
     def handle_add_pgp(self) -> None:
         """Add a PGP key entry and display the generated key."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > PGP Key",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("PGP key"):
+            self._clear_header_add_entry("PGP Key")
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2503,8 +2469,7 @@ class PasswordManager:
             priv_key, fingerprint = self.entry_manager.get_pgp_key(
                 index, self.parent_seed
             )
-            self.is_dirty = True
-            self.last_update = time.time()
+            self._mark_dirty()
 
             if not confirm_action(
                 "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
@@ -2519,31 +2484,13 @@ class PasswordManager:
                 print(colored(f"Notes: {notes}", "cyan"))
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             print(color_text(priv_key, "deterministic"))
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:  # pragma: no cover - best effort
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during PGP key setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add PGP key: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     @pause_logging_for_ui
     def handle_add_nostr_key(self) -> None:
         """Add a Nostr key entry and display the derived keys."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > Nostr Key Pair",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("Nostr key"):
+            self._clear_header_add_entry("Nostr Key Pair")
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2559,8 +2506,8 @@ class PasswordManager:
                 label, self.parent_seed, notes=notes, tags=tags
             )
             npub, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
-            self.is_dirty = True
-            self.last_update = time.time()
+            self._mark_dirty()
+
             print(colored(f"\n[+] Nostr key entry added with ID {index}.\n", "green"))
             print(colored(f"npub: {npub}", "cyan"))
             if self.secret_mode_enabled:
@@ -2579,31 +2526,13 @@ class PasswordManager:
                 "WARNING: Displaying the nsec QR reveals your private key. Continue? (Y/N): "
             ):
                 TotpManager.print_qr_code(nsec)
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:  # pragma: no cover - best effort
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during Nostr key setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add Nostr key: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     @pause_logging_for_ui
     def handle_add_key_value(self) -> None:
         """Add a generic key/value entry."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > Key/Value",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("key/value"):
+            self._clear_header_add_entry("Key/Value")
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2645,8 +2574,7 @@ class PasswordManager:
                 custom_fields=custom_fields,
                 tags=tags,
             )
-            self.is_dirty = True
-            self.last_update = time.time()
+            self._mark_dirty()
 
             print(colored(f"\n[+] Key/Value entry added with ID {index}.\n", "green"))
             if notes:
@@ -2661,31 +2589,13 @@ class PasswordManager:
                     )
             else:
                 print(color_text(f"Value: {value}", "deterministic"))
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:  # pragma: no cover - best effort
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during key/value setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add key/value entry: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     @pause_logging_for_ui
     def handle_add_managed_account(self) -> None:
         """Add a managed account seed entry."""
-        try:
-            fp, parent_fp, child_fp = self.header_fingerprint_args
-            clear_header_with_notification(
-                self,
-                fp,
-                "Main Menu > Add Entry > Managed Account",
-                parent_fingerprint=parent_fp,
-                child_fingerprint=child_fp,
-            )
+        with self._entry_op_context("managed account"):
+            self._clear_header_add_entry("Managed Account")
             label = input("Label: ").strip()
             if not label:
                 print(colored("Error: Label cannot be empty.", "red"))
@@ -2700,9 +2610,9 @@ class PasswordManager:
             index = self.entry_manager.add_managed_account(
                 label, self.parent_seed, notes=notes, tags=tags
             )
+            self._mark_dirty()
+
             seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
-            self.is_dirty = True
-            self.last_update = time.time()
             print(
                 colored(
                     f"\n[+] Managed account '{label}' added with ID {index}.\n",
@@ -2724,18 +2634,7 @@ class PasswordManager:
                     from .seedqr import encode_seedqr
 
                     TotpManager.print_qr_code(encode_seedqr(seed))
-            try:
-                self.start_background_vault_sync()
-            except Exception as nostr_error:  # pragma: no cover - best effort
-                logging.error(
-                    f"Failed to post updated index to Nostr: {nostr_error}",
-                    exc_info=True,
-                )
-            pause()
-        except Exception as e:
-            logging.error(f"Error during managed account setup: {e}", exc_info=True)
-            print(colored(f"Error: Failed to add managed account: {e}", "red"))
-            pause()
+            self._sync_and_pause()
 
     def show_entry_details_by_index(self, index: int) -> None:
         """Display details for entry ``index`` and offer actions."""
