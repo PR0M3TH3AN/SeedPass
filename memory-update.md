@@ -59,3 +59,18 @@
 - Added regression tests for these cases in:
   - `src/tests/test_settings_menu.py`
   - `src/tests/test_cli_export_import.py`
+
+## Installer Dependency Resolution Fix (2026-02-26)
+- Root cause of installer failures was a stale `requirements.lock` pin (`cffi==1.17.1`) conflicting with `pynacl==1.6.2` (requires `cffi>=2.0.0` on Python >=3.9).
+- A second hidden source issue blocked clean lock regeneration: `starlette>=0.49.1` was incompatible with `fastapi>=0.110` resolution path (current fastapi metadata requires `starlette<0.48`).
+- Updated dependency sources to consistent constraints:
+  - `src/requirements.txt`: `starlette>=0.40,<0.48`
+  - `src/runtime_requirements.txt`: `starlette>=0.40,<0.48`
+  - `pyproject.toml`: `starlette = ">=0.40,<0.48"`
+- Regenerated `requirements.lock` with hashes; key resolved pins now include:
+  - `cffi==2.0.0`
+  - `pynacl==1.6.2`
+  - `fastapi==0.116.1`
+  - `starlette==0.47.3`
+- Verified the installer-critical step succeeds in a fresh virtualenv:
+  - `python -m pip install --require-hashes -r requirements.lock`
