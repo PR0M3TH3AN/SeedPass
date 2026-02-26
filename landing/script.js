@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const installCommands = {
+        main: 'bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"',
+        beta: 'bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)" _ -b beta'
+    };
+
     // --- Boot Sequence Animation ---
     const bootLines = [
         "INITIALIZING SYSTEM MODULES...",
@@ -49,6 +54,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyBtn = document.getElementById('copy-btn');
     const installCmd = document.getElementById('install-cmd');
     const copyFeedback = document.getElementById('copy-feedback');
+    const branchButtons = document.querySelectorAll('.branch-btn');
+
+    function setInstallBranch(branch) {
+        if (!installCmd || !installCommands[branch]) {
+            return;
+        }
+        installCmd.textContent = installCommands[branch];
+        branchButtons.forEach((btn) => {
+            const isActive = btn.dataset.branch === branch;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    if (branchButtons.length > 0) {
+        branchButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const selectedBranch = btn.dataset.branch;
+                setInstallBranch(selectedBranch);
+                if (copyFeedback) {
+                    copyFeedback.textContent = '';
+                }
+            });
+        });
+        setInstallBranch('main');
+    }
 
     if (copyBtn && installCmd && copyFeedback) {
         copyBtn.addEventListener('click', () => {

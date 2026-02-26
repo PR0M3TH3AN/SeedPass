@@ -373,6 +373,37 @@ a:hover {
     margin-bottom: 10px;
 }
 
+.branch-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.branch-btn {
+    border: 1px solid var(--border-highlight);
+    background: #080a0c;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.branch-btn:hover {
+    border-color: var(--accent-secondary);
+    color: var(--text-bright);
+}
+
+.branch-btn.active {
+    color: var(--bg-main);
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    font-weight: 700;
+}
+
 .cmd-prompt {
     display: flex;
     align-items: center;

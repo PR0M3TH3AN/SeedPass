@@ -67,11 +67,15 @@
                     </div>
 
                     <div class="install-section">
-                        <span class="comment"># Install SeedPass (stable) - Includes checksum verification</span>
+                        <span class="comment"># Install SeedPass - Includes checksum verification</span>
+                        <div class="branch-toggle" role="group" aria-label="Install branch selector">
+                            <button class="branch-btn active" id="branch-main" data-branch="main" type="button">main</button>
+                            <button class="branch-btn" id="branch-beta" data-branch="beta" type="button">beta</button>
+                        </div>
                         <div class="cmd-prompt">
                             <span class="prompt-symbol">❯</span>
                             <code class="install-cmd"
-                                id="install-cmd">curl -sSL http://seedpass.me/install/seedpass-main.sh | bash</code>
+                                id="install-cmd">bash -c "$(curl -sSL https://raw.githubusercontent.com/PR0M3TH3AN/SeedPass/main/scripts/install.sh)"</code>
                             <button class="copy-btn" id="copy-btn" aria-label="Copy command">
                                 <i class="far fa-copy"></i>
                             </button>
