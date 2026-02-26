@@ -69,15 +69,15 @@
 
 .docs-nav-list a:hover {
     color: var(--text-bright);
-    background: rgba(14, 165, 233, 0.05);
-    /* very light blue hover */
+    background: rgba(88, 242, 157, 0.06);
+    /* very light green hover */
     border-left-color: var(--accent-secondary);
 }
 
 .docs-nav-list a.active {
     color: var(--text-primary);
     font-weight: bold;
-    background: rgba(14, 165, 233, 0.1);
+    background: rgba(88, 242, 157, 0.12);
     border-left-color: var(--accent-primary);
 }
 
@@ -221,7 +221,7 @@
 }
 
 .markdown-body table th {
-    background: rgba(14, 165, 233, 0.05);
+    background: rgba(88, 242, 157, 0.08);
     color: var(--text-bright);
     font-weight: bold;
 }

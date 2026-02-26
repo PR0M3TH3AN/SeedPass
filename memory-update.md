@@ -32,3 +32,15 @@
 - `bitvid` is a different project Adam is working on.
 - If a prompt context references `bitvid` instead of `SeedPass`, treat it as a likely working-directory mismatch.
 - In that case, ask Adam to confirm whether the active directory/repo is correct before making changes.
+
+## Follow-up (warnings cleanup)
+- Added pytest `markers` registration for `network` under `[tool.pytest.ini_options]` to remove `PytestUnknownMarkWarning`.
+- Added narrow pytest warning filters for known third-party GUI deprecation noise (`Pack.padding*`).
+- For `imghdr` deprecation triggered during `test_imghdr_stub` import, added a local `warnings.filterwarnings(...)` at top of that test module to suppress import-time warning deterministically.
+- Verified final suite status: `766 passed, 11 skipped`, no warnings.
+
+## UI update (landing favicon)
+- Added a new `landing/favicon.svg` with a lock/keyhole glyph in SeedPass terminal-green colors.
+- Wired favicon metadata into both `landing/index.html` and `landing/docs.html` (`rel="icon"`, `rel="alternate icon"`, and `theme-color`) so tab/icon branding is consistent across the landing site.
+- Landing theme accent system was centralized in `landing/style.css` CSS variables; changing `--accent-primary/secondary` propagated icon color updates (Font Awesome `<i>` styles) across both home and docs pages.
+- `landing/docs.css` had a few hardcoded blue RGBA backgrounds for hover/active/table headers that needed manual conversion to green to fully complete a palette swap.
