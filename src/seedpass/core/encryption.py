@@ -34,10 +34,12 @@ from .errors import DecryptionError
 logger = logging.getLogger(__name__)
 
 
-def _derive_legacy_key_from_password(password: str, iterations: int = 100_000) -> bytes:
-    """Derive legacy Fernet key using password only (no fingerprint)."""
+def _derive_legacy_key_from_password(
+    password: str, iterations: int = 100_000, salt: bytes = b""
+) -> bytes:
+    """Derive legacy Fernet key using password and optional salt."""
     normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
-    key = hashlib.pbkdf2_hmac("sha256", normalized, b"", iterations, dklen=32)
+    key = hashlib.pbkdf2_hmac("sha256", normalized, salt, iterations, dklen=32)
     return base64.urlsafe_b64encode(key)
 
 
@@ -202,33 +204,38 @@ class EncryptionManager:
 
         ctx = f" {context}" if context else ""
         last_exc: Optional[Exception] = None
-        for iter_count in [50_000, 100_000]:
-            try:
-                legacy_key = _derive_legacy_key_from_password(
-                    password, iterations=iter_count
-                )
-                legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
-                legacy_mgr._legacy_migrate_flag = False
-                result = legacy_mgr.decrypt_data(encrypted_data, context=context)
-                try:  # record iteration count for future runs
-                    from .vault import Vault
-                    from .config_manager import ConfigManager
 
-                    cfg_mgr = ConfigManager(
-                        Vault(self, self.fingerprint_dir), self.fingerprint_dir
+        # Try both user-specific fingerprint salt and legacy empty salt
+        salts = [self.fingerprint_dir.name.encode(), b""]
+
+        for salt in salts:
+            for iter_count in [50_000, 100_000]:
+                try:
+                    legacy_key = _derive_legacy_key_from_password(
+                        password, iterations=iter_count, salt=salt
                     )
-                    cfg_mgr.set_kdf_iterations(iter_count)
-                except Exception:  # pragma: no cover - best effort
-                    logger.error(
-                        "Failed to record PBKDF2 iteration count in config",
-                        exc_info=True,
+                    legacy_mgr = EncryptionManager(legacy_key, self.fingerprint_dir)
+                    legacy_mgr._legacy_migrate_flag = False
+                    result = legacy_mgr.decrypt_data(encrypted_data, context=context)
+                    try:  # record iteration count for future runs
+                        from .vault import Vault
+                        from .config_manager import ConfigManager
+
+                        cfg_mgr = ConfigManager(
+                            Vault(self, self.fingerprint_dir), self.fingerprint_dir
+                        )
+                        cfg_mgr.set_kdf_iterations(iter_count)
+                    except Exception:  # pragma: no cover - best effort
+                        logger.error(
+                            "Failed to record PBKDF2 iteration count in config",
+                            exc_info=True,
+                        )
+                    logger.warning(
+                        "Data decrypted using legacy password-only key derivation."
                     )
-                logger.warning(
-                    "Data decrypted using legacy password-only key derivation."
-                )
-                return result
-            except Exception as e2:  # pragma: no cover - try next iteration
-                last_exc = e2
+                    return result
+                except Exception as e2:  # pragma: no cover - try next iteration
+                    last_exc = e2
         logger.error(f"Failed legacy decryption attempt: {last_exc}", exc_info=True)
         raise DecryptionError(
             f"Failed to decrypt{ctx}: invalid key or corrupt file"
