@@ -68,7 +68,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772047328158,
-      "last_seen": 1772132692957,
+      "last_seen": 1772140346779,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -119,7 +119,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772049603683,
-      "last_seen": 1772132692957,
+      "last_seen": 1772140346779,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -170,7 +170,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772050579374,
-      "last_seen": 1772132692957,
+      "last_seen": 1772140346779,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -272,7 +272,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772073865813,
-      "last_seen": 1772132692957,
+      "last_seen": 1772140346779,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -401,6 +401,57 @@
       "created_at": 1772132692943,
       "last_seen": 1772132692957,
       "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "b798b068-8903-4459-ac9d-692d75f053d3",
+    {
+      "schema_version": 1,
+      "id": "b798b068-8903-4459-ac9d-692d75f053d3",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm3yluve",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772140346762,
+      "last_seen": 1772140346779,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "1b45514d-04f1-4fc3-9175-f58361cc23a2",
+    {
+      "schema_version": 1,
+      "id": "1b45514d-04f1-4fc3-9175-f58361cc23a2",
+      "agent_id": "todo-triage-agent",
+      "session_id": "session-mm3ymzdv",
+      "type": "batch_window",
+      "content": "# Memory Update — codex — 2026-02-26\n\n## Key findings\n- Full test suite now passes: `766 passed, 11 skipped`.\n- `DisplayService` had diverged from `seedpass.core.manager` interactive helpers, causing test monkeypatches to miss and resulting in flaky behavior.\n\n## Bugs fixed\n- Fixed TOTP retrieve/edit regression where `test_edit_totp_period_from_retrieve` could fail in-suite because TOTP screen consumed input via unpatched `display_service.timed_input`.\n- Fixed suite hang at `test_show_seed_entry_details` caused by `display_service.confirm_action` bypassing patched `manager.confirm_action`, leading to infinite prompt loop on empty input.\n\n## Patterns / reusable knowledge\n- In this codebase, interactive helpers should be called through `seedpass.core.manager` symbols (`confirm_action`, `timed_input`, `copy_to_clipboard`) to keep behavior and tests consistent.\n\n## Follow-up (warnings cleanup)\n- Added pytest `markers` registration for `network` under `[tool.pytest.ini_options]` to remove `PytestUnknownMarkWarning`.\n- Added narrow pytest warning filters for known third-party GUI deprecation noise (`Pack.padding*`).\n- For `imghdr` deprecation triggered during `test_imghdr_stub` import, added a local `warnings.filterwarnings(...)` at top of that test module to suppress import-time warning deterministically.\n- Verified final suite status: `766 passed, 11 skipped`, no warnings.",
+      "summary": "# Memory Update — codex — 2026-02-26\n\n## Key findings\n- Full test suite now passes: `766 passed, 11 skipped`.\n- `DisplayService` had diverged from `seedpass.core.manager` interactive helpers, causing test monkeypatches to miss and resulting in flaky behavior.\n\n## Bugs fixed\n- Fi…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772140399268,
+      "last_seen": 1772140399268,
+      "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
       "pinned": false
