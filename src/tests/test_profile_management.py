@@ -23,29 +23,23 @@ from seedpass.core.config_manager import ConfigManager
 def test_add_and_delete_entry(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
         app_dir = tmp_path / ".seedpass"
+        parent_seed_file = app_dir / "parent_seed.enc"
+        checksum_file = app_dir / "seedpass_script_checksum.txt"
+
         monkeypatch.setattr(constants, "APP_DIR", app_dir)
+        monkeypatch.setattr(constants, "PARENT_SEED_FILE", parent_seed_file)
+        monkeypatch.setattr(constants, "SCRIPT_CHECKSUM_FILE", checksum_file)
+
         monkeypatch.setattr(manager_module, "APP_DIR", app_dir)
-        monkeypatch.setattr(constants, "PARENT_SEED_FILE", app_dir / "parent_seed.enc")
-        monkeypatch.setattr(
-            manager_module, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
-        )
-        monkeypatch.setattr(
-            constants,
-            "SCRIPT_CHECKSUM_FILE",
-            app_dir / "seedpass_script_checksum.txt",
-        )
-        monkeypatch.setattr(
-            manager_module,
-            "SCRIPT_CHECKSUM_FILE",
-            app_dir / "seedpass_script_checksum.txt",
-        )
+        monkeypatch.setattr(manager_module, "PARENT_SEED_FILE", parent_seed_file)
+        monkeypatch.setattr(manager_module, "SCRIPT_CHECKSUM_FILE", checksum_file)
 
         pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY
-        pm.fingerprint_manager = FingerprintManager(constants.APP_DIR)
+        # Initialize fingerprint_manager with the monkeypatched APP_DIR
+        # Use manager_module.APP_DIR to ensure consistency within the manager module context
+        pm.fingerprint_manager = FingerprintManager(manager_module.APP_DIR)
         pm.current_fingerprint = None
         pm.save_and_encrypt_seed = lambda seed, fingerprint_dir: None
         pm.initialize_bip85 = lambda: None
