@@ -1102,12 +1102,20 @@ def handle_settings(password_manager: PasswordManager) -> None:
                 except PasswordPromptError as exc:
                     print(colored(f"Unlock cancelled: {exc}", "yellow"))
                 except Exception as exc:
-                    logging.error(
-                        "Failed to unlock vault from settings: %s",
-                        exc,
-                        exc_info=True,
-                    )
-                    print(colored(f"Failed to unlock vault: {exc}", "red"))
+                    # Some environments can surface cancellation through a
+                    # different exception class; treat the message as cancel.
+                    if "cancelled by user" in str(exc).lower():
+                        logging.warning(
+                            "Unlock cancelled during settings lock flow: %s", exc
+                        )
+                        print(colored(f"Unlock cancelled: {exc}", "yellow"))
+                    else:
+                        logging.error(
+                            "Failed to unlock vault from settings: %s",
+                            exc,
+                            exc_info=True,
+                        )
+                        print(colored(f"Failed to unlock vault: {exc}", "red"))
                 else:
                     password_manager.start_background_sync()
                     getattr(

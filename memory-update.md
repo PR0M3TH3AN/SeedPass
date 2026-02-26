@@ -109,3 +109,8 @@
 - CI `test (ubuntu-latest, 3.10)` failed during test collection because `datetime.UTC` is unavailable on Python 3.10.
 - Replaced `datetime.UTC` usage with `timezone.utc` in `src/seedpass/cli/agent.py` and `scripts/ai_tui_agent_test.py`.
 - Verified with targeted tests: `src/tests/test_cli_agent_mode.py` and `src/tests/test_ai_tui_agent_harness.py`.
+
+## Settings Unlock Cancellation Robustness (2026-02-26)
+- CI showed `test_settings_lock_unlock_cancelled_is_graceful` intermittently receiving a generic exception path instead of `PasswordPromptError` during Settings -> Lock Vault unlock.
+- Hardened `handle_settings()` lock flow to treat any exception containing "cancelled by user" as cancellation, printing `Unlock cancelled: ...` instead of a hard failure message.
+- Verified with targeted pytest for the failing test.
