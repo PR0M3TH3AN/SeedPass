@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 from utils.fingerprint_manager import FingerprintManager
+import utils.password_prompt
 import constants
 import seedpass.core.manager as manager_module
 from seedpass.core.vault import Vault
@@ -50,6 +51,8 @@ def test_add_and_delete_entry(monkeypatch):
             manager_module.PasswordManager, "generate_bip85_seed", lambda self: seed
         )
         monkeypatch.setattr(manager_module, "confirm_action", lambda *_a, **_k: True)
+        # Ensure masked_input uses builtins.input (mocked below) instead of msvcrt on Windows
+        monkeypatch.setattr(utils.password_prompt, "masked_input", lambda p: input(p))
         monkeypatch.setattr("builtins.input", lambda *_a, **_k: "3")
 
         pm.add_new_fingerprint()
