@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 from utils.fingerprint_manager import FingerprintManager
+import utils.password_prompt
 import constants
 import seedpass.core.manager as manager_module
 from seedpass.core.vault import Vault
@@ -40,8 +41,16 @@ def test_add_and_delete_entry(monkeypatch):
         monkeypatch.setattr(
             manager_module.PasswordManager, "generate_bip85_seed", lambda self: seed
         )
+        # Mock confirm_action in both locations to be safe against reload issues
         monkeypatch.setattr(manager_module, "confirm_action", lambda *_a, **_k: True)
-        monkeypatch.setattr("builtins.input", lambda *_a, **_k: "3")
+        monkeypatch.setattr(utils.password_prompt, "confirm_action", lambda *_a, **_k: True)
+
+        # Use an iterator for input to prevent infinite loops if logic fails
+        # Expectation:
+        # 1. "3" for add_new_fingerprint choice
+        # 2. (confirm_action shouldn't ask input if mocked)
+        input_values = iter(["3", "3", "3", "3", "3"]) # Buffer for safety
+        monkeypatch.setattr("builtins.input", lambda *_a, **_k: next(input_values))
 
         pm.add_new_fingerprint()
 
