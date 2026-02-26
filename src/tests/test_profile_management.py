@@ -24,8 +24,25 @@ def test_add_and_delete_entry(monkeypatch):
         tmp_path = Path(tmpdir)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-        importlib.reload(constants)
-        importlib.reload(manager_module)
+        app_dir = tmp_path / ".seedpass"
+        monkeypatch.setattr(constants, "APP_DIR", app_dir)
+        monkeypatch.setattr(manager_module, "APP_DIR", app_dir)
+        monkeypatch.setattr(
+            constants, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
+        )
+        monkeypatch.setattr(
+            manager_module, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
+        )
+        monkeypatch.setattr(
+            constants,
+            "SCRIPT_CHECKSUM_FILE",
+            app_dir / "seedpass_script_checksum.txt",
+        )
+        monkeypatch.setattr(
+            manager_module,
+            "SCRIPT_CHECKSUM_FILE",
+            app_dir / "seedpass_script_checksum.txt",
+        )
 
         pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY
