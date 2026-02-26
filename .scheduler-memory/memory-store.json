@@ -68,7 +68,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772047328158,
-      "last_seen": 1772132692957,
+      "last_seen": 1772147520745,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -119,7 +119,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772049603683,
-      "last_seen": 1772132692957,
+      "last_seen": 1772147520745,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -170,7 +170,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772050579374,
-      "last_seen": 1772132692957,
+      "last_seen": 1772147520745,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -272,7 +272,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772073865813,
-      "last_seen": 1772132692957,
+      "last_seen": 1772147520745,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -401,6 +401,83 @@
       "created_at": 1772132692943,
       "last_seen": 1772132692957,
       "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "85bd4d02-e489-4337-9930-6da18d8749b7",
+    {
+      "schema_version": 1,
+      "id": "85bd4d02-e489-4337-9930-6da18d8749b7",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm42vmce",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772147520734,
+      "last_seen": 1772147520745,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "51bc321d-caf5-4887-a72e-743a987593f1",
+    {
+      "schema_version": 1,
+      "id": "51bc321d-caf5-4887-a72e-743a987593f1",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm42wrc2",
+      "type": "batch_window",
+      "content": "# Memory Update — codex — 2026-02-26\n\n## Key findings\n- Full test suite now passes: `766 passed, 11 skipped`.\n- `DisplayService` had diverged from `seedpass.core.manager` interactive helpers, causing test monkeypatches to miss and resulting in flaky behavior.\n\n## Bugs fixed\n- Fixed TOTP retrieve/edit regression where `test_edit_totp_period_from_retrieve` could fail in-suite because TOTP screen consumed input via unpatched `display_service.timed_input`.\n- Fixed suite hang at `test_show_seed_entry_details` caused by `display_service.confirm_action` bypassing patched `manager.confirm_action`, leading to infinite prompt loop on empty input.\n\n## Patterns / reusable knowledge\n- In this codebase, interactive helpers should be called through `seedpass.core.manager` symbols (`confirm_action`, `timed_input`, `copy_to_clipboard`) to keep behavior and tests consistent.\n\n## Follow-up (warnings cleanup)\n- Added pytest `markers` registration for `network` under `[tool.pytest.ini_options]` to remove `PytestUnknownMarkWarning`.\n- Added narrow pytest warning filters for known third-party GUI deprecation noise (`Pack.padding*`).\n- For `imghdr` deprecation triggered during `test_imghdr_stub` import, added a local `warnings.filterwarnings(...)` at top of that test module to suppress import-time warning deterministically.\n- Verified final suite status: `766 passed, 11 skipped`, no warnings.\n\n## UI update (landing favicon)\n- Added a new `landing/favicon.svg` with a lock/keyhole glyph in SeedPass terminal-green colors.\n- Wired favicon metadata into both `landing/index.html` and `landing/docs.html` (`rel=\"icon\"`, `rel=\"alternate icon\"`, and `theme-color`) so tab/icon branding is consistent across the landing site.\n- Landing theme accent system was centralized in `landing/style.css` CSS variables; changing `--accent-primary/secondary` propagated icon color updates (Font Awesome `<i>` styles) across both home and docs pages.\n- `landing/docs.css` had a few hardcoded blue RGBA backgrounds for hover/active/table headers that needed manual conversion to green to fully complete a palette swap.",
+      "summary": "# Memory Update — codex — 2026-02-26\n\n## Key findings\n- Full test suite now passes: `766 passed, 11 skipped`.\n- `DisplayService` had diverged from `seedpass.core.manager` interactive helpers, causing test monkeypatches to miss and resulting in flaky behavior.\n\n## Bugs fixed\n- Fi…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772147573859,
+      "last_seen": 1772147573859,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "943cb2d7-985f-464d-a24d-52bcd632879a",
+    {
+      "schema_version": 1,
+      "id": "943cb2d7-985f-464d-a24d-52bcd632879a",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm430xcj",
+      "type": "batch_window",
+      "content": "# Memory Update — test-audit-agent — 2026-02-26\n\n## Summary\nTest audit tools (flaky check, static analysis) ran but found no issues. However, the test suite itself is broken due to a missing dependency file (`test/scheduler-lock-failure-schema.contract.test.mjs`), causing `npm run test` to fail.\n\n## Decisions\n- No changes made to tests as audit tools reported no issues.\n- Marked run as failed due to missing test file.\n\n## Follow-up\n- Restore `test/scheduler-lock-failure-schema.contract.test.mjs` to fix the test suite.",
+      "summary": "# Memory Update — test-audit-agent — 2026-02-26\n\n## Summary\nTest audit tools (flaky check, static analysis) ran but found no issues. However, the test suite itself is broken due to a missing dependency file (`test/scheduler-lock-failure-schema.contract.test.mjs`), causing `npm r…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772147768276,
+      "last_seen": 1772147768276,
+      "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
       "pinned": false
