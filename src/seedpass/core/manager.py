@@ -113,6 +113,7 @@ from .stats_manager import StatsManager
 from .menu_handler import MenuHandler
 from .profile_service import ProfileService
 from .entry_service import EntryService
+from .display_service import DisplayService
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -304,11 +305,13 @@ class PasswordManager:
         self._menu_handler: MenuHandler | None = None
         self._profile_service: ProfileService | None = None
         self._entry_service: EntryService | None = None
+        self._display_service: DisplayService | None = None
 
         # Initialize service instances
         self.menu_handler
         self.profile_service
         self.entry_service
+        self.display_service
 
         # Initialize the fingerprint manager first
         self.initialize_fingerprint_manager()
@@ -605,6 +608,14 @@ class PasswordManager:
         if getattr(self, "_entry_service", None) is None:
             self._entry_service = EntryService(self)
         return self._entry_service
+
+    @property
+    def display_service(self) -> DisplayService:
+        if getattr(self, "is_locked", False):
+            raise VaultLockedError("Vault is locked")
+        if getattr(self, "_display_service", None) is None:
+            self._display_service = DisplayService(self)
+        return self._display_service
 
     def lock_vault(self) -> None:
         """Clear sensitive information from memory."""
@@ -1677,127 +1688,13 @@ class PasswordManager:
             # Derive sub-keys if needed
             self.ensure_key_hierarchy()
 
-            # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
-            self.config_manager = ConfigManager(
-                vault=self.vault,
-                fingerprint_dir=self.fingerprint_dir,
+            self._initialize_config_and_state()
+            migrated, last_migration_performed, index_exists = (
+                self._initialize_entry_manager()
             )
-            self.state_manager = StateManager(self.fingerprint_dir)
-            self.backup_manager = BackupManager(
-                fingerprint_dir=self.fingerprint_dir,
-                config_manager=self.config_manager,
-            )
-
-            migrated = False
-            last_migration_performed = False
-            index_exists = (
-                self.vault.index_file.exists()
-                or (
-                    self.vault.fingerprint_dir / "seedpass_passwords_db.json.enc"
-                ).exists()
-            )
-            try:
-                _, migrated, last_migration_performed = self.vault.load_index(
-                    return_migration_flags=True
-                )
-            except RuntimeError as exc:
-                print(colored(str(exc), "red"))
-                raise SeedPassError(str(exc))
-
-            self.entry_manager = EntryManager(
-                vault=self.vault,
-                backup_manager=self.backup_manager,
-            )
-
-            pw_bip85 = BIP85(self.KEY_PW_DERIVE)
-            self.password_generator = PasswordGenerator(
-                encryption_manager=self.encryption_manager,
-                parent_seed=self.KEY_PW_DERIVE,
-                bip85=pw_bip85,
-                policy=self.config_manager.get_password_policy(),
-            )
-
-            # Load relay configuration and initialize NostrClient
-            config = self.config_manager.load_config()
-            if getattr(self, "state_manager", None) is not None:
-                state = self.state_manager.state
-                relay_list = state.get("relays", list(DEFAULT_RELAYS))
-                self.last_bip85_idx = state.get("last_bip85_idx", 0)
-                self.last_sync_ts = state.get("last_sync_ts", 0)
-                self.manifest_id = state.get("manifest_id")
-                self.delta_since = state.get("delta_since", 0)
-                self.nostr_account_idx = state.get("nostr_account_idx", 0)
-            else:
-                relay_list = list(DEFAULT_RELAYS)
-                self.last_bip85_idx = 0
-                self.last_sync_ts = 0
-                self.manifest_id = None
-                self.delta_since = 0
-                self.nostr_account_idx = 0
-            self.offline_mode = bool(config.get("offline_mode", True))
-            self.inactivity_timeout = config.get(
-                "inactivity_timeout", INACTIVITY_TIMEOUT
-            )
-            self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
-            self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
-            self.verbose_timing = bool(config.get("verbose_timing", False))
-            if not self.offline_mode:
-                print("Connecting to relays...")
-            self.nostr_client = NostrClient(
-                encryption_manager=self.encryption_manager,
-                fingerprint=self.current_fingerprint,
-                relays=relay_list,
-                offline_mode=self.offline_mode,
-                config_manager=self.config_manager,
-                parent_seed=getattr(self, "parent_seed", None),
-                key_index=self.KEY_INDEX,
-                account_index=self.nostr_account_idx,
-            )
-
-            if getattr(self, "manifest_id", None) and hasattr(
-                self.nostr_client, "_state_lock"
-            ):
-                from nostr.backup_models import Manifest
-
-                with self.nostr_client._state_lock:
-                    self.nostr_client.current_manifest_id = self.manifest_id
-                    self.nostr_client.current_manifest = Manifest(
-                        ver=1,
-                        algo="gzip",
-                        chunks=[],
-                        delta_since=self.delta_since or None,
-                    )
-
-            if migrated and index_exists:
-                print(colored("Local database migration successful.", "green"))
-                if self.encryption_manager is not None:
-                    self.encryption_manager.last_migration_performed = False
-                if last_migration_performed and not self.offline_mode:
-                    if confirm_action(
-                        "Do you want to sync the migrated profile to Nostr now?"
-                    ):
-                        result = self.sync_vault()
-                        if result:
-                            print(
-                                colored(
-                                    "Profile synchronized to Nostr successfully.",
-                                    "green",
-                                )
-                            )
-                        else:
-                            print(
-                                colored(
-                                    "Error: Failed to sync profile to Nostr.",
-                                    "red",
-                                )
-                            )
-                    else:
-                        print(
-                            colored(
-                                "You can sync the migrated profile later from the main menu.",
-                                "yellow",
-                            )
-                        )
+            self._initialize_password_generator()
+            self._initialize_nostr_client()
+            self._handle_migration(migrated, last_migration_performed, index_exists)
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
@@ -1805,6 +1702,140 @@ class PasswordManager:
             logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             raise SeedPassError(f"Failed to initialize managers: {e}") from e
+
+    def _initialize_config_and_state(self) -> None:
+        """Initialize configuration, state, and backup managers."""
+        self.config_manager = ConfigManager(
+            vault=self.vault,
+            fingerprint_dir=self.fingerprint_dir,
+        )
+        self.state_manager = StateManager(self.fingerprint_dir)
+        self.backup_manager = BackupManager(
+            fingerprint_dir=self.fingerprint_dir,
+            config_manager=self.config_manager,
+        )
+
+    def _initialize_entry_manager(self) -> tuple[bool, bool, bool]:
+        """
+        Initialize the entry manager and load the vault index.
+
+        Returns:
+            tuple: (migrated, last_migration_performed, index_exists)
+        """
+        migrated = False
+        last_migration_performed = False
+        index_exists = (
+            self.vault.index_file.exists()
+            or (self.vault.fingerprint_dir / "seedpass_passwords_db.json.enc").exists()
+        )
+        try:
+            _, migrated, last_migration_performed = self.vault.load_index(
+                return_migration_flags=True
+            )
+        except RuntimeError as exc:
+            print(colored(str(exc), "red"))
+            raise SeedPassError(str(exc))
+
+        self.entry_manager = EntryManager(
+            vault=self.vault,
+            backup_manager=self.backup_manager,
+        )
+        return migrated, last_migration_performed, index_exists
+
+    def _initialize_password_generator(self) -> None:
+        """Initialize the password generator."""
+        pw_bip85 = BIP85(self.KEY_PW_DERIVE)
+        self.password_generator = PasswordGenerator(
+            encryption_manager=self.encryption_manager,
+            parent_seed=self.KEY_PW_DERIVE,
+            bip85=pw_bip85,
+            policy=self.config_manager.get_password_policy(),
+        )
+
+    def _initialize_nostr_client(self) -> None:
+        """Load relay configuration and initialize NostrClient."""
+        config = self.config_manager.load_config()
+        if getattr(self, "state_manager", None) is not None:
+            state = self.state_manager.state
+            relay_list = state.get("relays", list(DEFAULT_RELAYS))
+            self.last_bip85_idx = state.get("last_bip85_idx", 0)
+            self.last_sync_ts = state.get("last_sync_ts", 0)
+            self.manifest_id = state.get("manifest_id")
+            self.delta_since = state.get("delta_since", 0)
+            self.nostr_account_idx = state.get("nostr_account_idx", 0)
+        else:
+            relay_list = list(DEFAULT_RELAYS)
+            self.last_bip85_idx = 0
+            self.last_sync_ts = 0
+            self.manifest_id = None
+            self.delta_since = 0
+            self.nostr_account_idx = 0
+        self.offline_mode = bool(config.get("offline_mode", True))
+        self.inactivity_timeout = config.get("inactivity_timeout", INACTIVITY_TIMEOUT)
+        self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
+        self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
+        self.verbose_timing = bool(config.get("verbose_timing", False))
+        if not self.offline_mode:
+            print("Connecting to relays...")
+        self.nostr_client = NostrClient(
+            encryption_manager=self.encryption_manager,
+            fingerprint=self.current_fingerprint,
+            relays=relay_list,
+            offline_mode=self.offline_mode,
+            config_manager=self.config_manager,
+            parent_seed=getattr(self, "parent_seed", None),
+            key_index=self.KEY_INDEX,
+            account_index=self.nostr_account_idx,
+        )
+
+        if getattr(self, "manifest_id", None) and hasattr(
+            self.nostr_client, "_state_lock"
+        ):
+            from nostr.backup_models import Manifest
+
+            with self.nostr_client._state_lock:
+                self.nostr_client.current_manifest_id = self.manifest_id
+                self.nostr_client.current_manifest = Manifest(
+                    ver=1,
+                    algo="gzip",
+                    chunks=[],
+                    delta_since=self.delta_since or None,
+                )
+
+    def _handle_migration(
+        self, migrated: bool, last_migration_performed: bool, index_exists: bool
+    ) -> None:
+        """Handle database migration notifications and sync."""
+        if migrated and index_exists:
+            print(colored("Local database migration successful.", "green"))
+            if self.encryption_manager is not None:
+                self.encryption_manager.last_migration_performed = False
+            if last_migration_performed and not self.offline_mode:
+                if confirm_action(
+                    "Do you want to sync the migrated profile to Nostr now?"
+                ):
+                    result = self.sync_vault()
+                    if result:
+                        print(
+                            colored(
+                                "Profile synchronized to Nostr successfully.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(
+                            colored(
+                                "Error: Failed to sync profile to Nostr.",
+                                "red",
+                            )
+                        )
+                else:
+                    print(
+                        colored(
+                            "You can sync the migrated profile later from the main menu.",
+                            "yellow",
+                        )
+                    )
 
     async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
@@ -3025,414 +3056,7 @@ class PasswordManager:
             Index of the entry being displayed.
         """
 
-        self._suppress_entry_actions_menu = False
-
-        entry_type = self._entry_type_str(entry)
-
-        if entry_type == EntryType.TOTP.value:
-            label = entry.get("label", "")
-            period = int(entry.get("period", 30))
-            notes = entry.get("notes", "")
-            print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
-            print(colored("Press Enter to return to the menu.", "cyan"))
-            try:
-                key = self.KEY_TOTP_DET or getattr(self, "parent_seed", None)
-                secret = self.entry_manager.get_totp_secret(index, key)
-                while True:
-                    code = TotpManager.current_code_from_secret(secret)
-                    if self.secret_mode_enabled:
-                        if copy_to_clipboard(code, self.clipboard_clear_delay):
-                            print(
-                                colored(
-                                    f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                    "green",
-                                )
-                            )
-                    else:
-                        print(colored("\n[+] Retrieved 2FA Code:\n", "green"))
-                        print(colored(f"Label: {label}", "cyan"))
-                        imported = "secret" in entry
-                        category = "imported" if imported else "deterministic"
-                        print(color_text(f"Code: {code}", category))
-                    if notes:
-                        print(colored(f"Notes: {notes}", "cyan"))
-                    tags = entry.get("tags", [])
-                    if tags:
-                        print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                    remaining = self.entry_manager.get_totp_time_remaining(index)
-                    exit_loop = False
-                    while remaining > 0:
-                        filled = int(20 * (period - remaining) / period)
-                        bar = "[" + "#" * filled + "-" * (20 - filled) + "]"
-                        sys.stdout.write(f"\r{bar} {remaining:2d}s")
-                        sys.stdout.flush()
-                        try:
-                            user_input = timed_input("", 1)
-                            if (
-                                user_input.strip() == ""
-                                or user_input.strip().lower() == "b"
-                            ):
-                                exit_loop = True
-                                break
-                        except TimeoutError:
-                            pass
-                        except KeyboardInterrupt:
-                            exit_loop = True
-                            print()
-                            break
-                        remaining -= 1
-                    sys.stdout.write("\n")
-                    sys.stdout.flush()
-                    if exit_loop:
-                        break
-            except Exception as e:  # pragma: no cover - best effort
-                logging.error(f"Error generating TOTP code: {e}", exc_info=True)
-                print(colored(f"Error: Failed to generate TOTP code: {e}", "red"))
-            return
-
-        if entry_type == EntryType.SSH.value:
-            notes = entry.get("notes", "")
-            label = entry.get("label", "")
-            if not confirm_action(
-                "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
-            ):
-                self.notify("SSH key display cancelled.", level="WARNING")
-                return
-            try:
-                priv_pem, pub_pem = self.entry_manager.get_ssh_key_pair(
-                    index, self.parent_seed
-                )
-                print(colored("\n[+] Retrieved SSH Key Pair:\n", "green"))
-                if label:
-                    print(colored(f"Label: {label}", "cyan"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                print(colored("Public Key:", "cyan"))
-                print(color_text(pub_pem, "default"))
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(priv_pem, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] SSH private key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(colored("Private Key:", "cyan"))
-                    print(color_text(priv_pem, "deterministic"))
-            except Exception as e:  # pragma: no cover - best effort
-                logging.error(f"Error deriving SSH key pair: {e}", exc_info=True)
-                print(colored(f"Error: Failed to derive SSH keys: {e}", "red"))
-            return
-
-        if entry_type == EntryType.SEED.value:
-            notes = entry.get("notes", "")
-            label = entry.get("label", "")
-            if not confirm_action(
-                "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
-            ):
-                self.notify("Seed phrase display cancelled.", level="WARNING")
-                return
-            try:
-                phrase = self.entry_manager.get_seed_phrase(index, self.parent_seed)
-                print(colored("\n[+] Retrieved Seed Phrase:\n", "green"))
-                print(colored(f"Index: {index}", "cyan"))
-                if label:
-                    print(colored(f"Label: {label}", "cyan"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(phrase, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(color_text(phrase, "deterministic"))
-                if confirm_action("Show derived entropy as hex? (Y/N): "):
-                    from local_bip85.bip85 import BIP85
-                    from bip_utils import Bip39SeedGenerator
-
-                    words = int(entry.get("word_count", entry.get("words", 24)))
-                    entropy_bytes = {12: 16, 18: 24, 24: 32}.get(words, 32)
-                    seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
-                    bip85 = BIP85(seed_bytes)
-                    entropy = bip85.derive_entropy(
-                        index=int(entry.get("index", index)),
-                        entropy_bytes=entropy_bytes,
-                        app_no=39,
-                        word_count=words,
-                    )
-                    print(color_text(f"Entropy: {entropy.hex()}", "deterministic"))
-            except Exception as e:  # pragma: no cover - best effort
-                logging.error(f"Error deriving seed phrase: {e}", exc_info=True)
-                print(colored(f"Error: Failed to derive seed phrase: {e}", "red"))
-            return
-
-        if entry_type == EntryType.PGP.value:
-            notes = entry.get("notes", "")
-            label = entry.get("user_id", "")
-            if not confirm_action(
-                "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
-            ):
-                self.notify("PGP key display cancelled.", level="WARNING")
-                return
-            try:
-                priv_key, fingerprint = self.entry_manager.get_pgp_key(
-                    index, self.parent_seed
-                )
-                print(colored("\n[+] Retrieved PGP Key:\n", "green"))
-                if label:
-                    print(colored(f"User ID: {label}", "cyan"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                print(colored(f"Fingerprint: {fingerprint}", "cyan"))
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(priv_key, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] PGP key copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(color_text(priv_key, "deterministic"))
-            except Exception as e:  # pragma: no cover - best effort
-                logging.error(f"Error deriving PGP key: {e}", exc_info=True)
-                print(colored(f"Error: Failed to derive PGP key: {e}", "red"))
-            return
-
-        if entry_type == EntryType.NOSTR.value:
-            label = entry.get("label", "")
-            notes = entry.get("notes", "")
-            try:
-                npub, nsec = self.entry_manager.get_nostr_key_pair(
-                    index, self.parent_seed
-                )
-                print(colored("\n[+] Retrieved Nostr Keys:\n", "green"))
-                print(colored(f"Label: {label}", "cyan"))
-                print(colored(f"npub: {npub}", "cyan"))
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(nsec, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] nsec copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(color_text(f"nsec: {nsec}", "deterministic"))
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-            except Exception as e:  # pragma: no cover - best effort
-                logging.error(f"Error deriving Nostr keys: {e}", exc_info=True)
-                print(colored(f"Error: Failed to derive Nostr keys: {e}", "red"))
-            return
-
-        if entry_type == EntryType.KEY_VALUE.value:
-            label = entry.get("label", "")
-            value = entry.get("value", "")
-            notes = entry.get("notes", "")
-            archived = entry.get("archived", False)
-            print(colored(f"Retrieving value for key '{label}'.", "cyan"))
-            if notes:
-                print(colored(f"Notes: {notes}", "cyan"))
-            tags = entry.get("tags", [])
-            if tags:
-                print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-            print(
-                colored(
-                    f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
-                )
-            )
-            if self.secret_mode_enabled:
-                if copy_to_clipboard(value, self.clipboard_clear_delay):
-                    print(
-                        colored(
-                            f"[+] Value copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
-                        )
-                    )
-            else:
-                print(color_text(f"Value: {value}", "deterministic"))
-
-            custom_fields = entry.get("custom_fields", [])
-            if custom_fields:
-                print(colored("Additional Fields:", "cyan"))
-                hidden_fields = []
-                for field in custom_fields:
-                    f_label = field.get("label", "")
-                    f_value = field.get("value", "")
-                    if field.get("is_hidden"):
-                        hidden_fields.append((f_label, f_value))
-                        print(colored(f"  {f_label}: [hidden]", "cyan"))
-                    else:
-                        print(colored(f"  {f_label}: {f_value}", "cyan"))
-                if hidden_fields:
-                    show = input("Reveal hidden fields? (y/N): ").strip().lower()
-                    if show == "y":
-                        for f_label, f_value in hidden_fields:
-                            if self.secret_mode_enabled:
-                                if copy_to_clipboard(
-                                    f_value, self.clipboard_clear_delay
-                                ):
-                                    print(
-                                        colored(
-                                            f"[+] {f_label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                            "green",
-                                        )
-                                    )
-                            else:
-                                print(colored(f"  {f_label}: {f_value}", "cyan"))
-            return
-
-        if entry_type == EntryType.MANAGED_ACCOUNT.value:
-            label = entry.get("label", "")
-            notes = entry.get("notes", "")
-            archived = entry.get("archived", False)
-            fingerprint = entry.get("fingerprint", "")
-            print(colored(f"Managed account '{label}'.", "cyan"))
-            if notes:
-                print(colored(f"Notes: {notes}", "cyan"))
-            if fingerprint:
-                print(colored(f"Fingerprint: {fingerprint}", "cyan"))
-            tags = entry.get("tags", [])
-            if tags:
-                print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-            print(
-                colored(
-                    f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
-                )
-            )
-            action = (
-                input(
-                    "Enter 'r' to reveal seed, 'l' to load account, or press Enter to go back: "
-                )
-                .strip()
-                .lower()
-            )
-            if action == "r":
-                seed = self.entry_manager.get_managed_account_seed(
-                    index, self.parent_seed
-                )
-                if self.secret_mode_enabled:
-                    if copy_to_clipboard(seed, self.clipboard_clear_delay):
-                        print(
-                            colored(
-                                f"[+] Seed phrase copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                "green",
-                            )
-                        )
-                else:
-                    print(color_text(seed, "deterministic"))
-                return
-            if action == "l":
-                self._suppress_entry_actions_menu = True
-                self.load_managed_account(index)
-                return
-            return
-
-        # Default: PASSWORD
-        website_name = entry.get("label", entry.get("website"))
-        length = entry.get("length")
-        username = entry.get("username")
-        url = entry.get("url")
-        blacklisted = entry.get("archived", entry.get("blacklisted"))
-        notes = entry.get("notes", "")
-
-        print(
-            colored(
-                f"Retrieving password for '{website_name}' with length {length}.",
-                "cyan",
-            )
-        )
-        if username:
-            print(colored(f"Username: {username}", "cyan"))
-        if url:
-            print(colored(f"URL: {url}", "cyan"))
-        if blacklisted:
-            self.notify(
-                "Warning: This password is archived and should not be used.",
-                level="WARNING",
-            )
-
-        password = self._generate_password_for_entry(entry, index, length)
-
-        if password:
-            if self.secret_mode_enabled:
-                if copy_to_clipboard(password, self.clipboard_clear_delay):
-                    print(
-                        colored(
-                            f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                            "green",
-                        )
-                    )
-            else:
-                print(
-                    colored(
-                        f"\n[+] Retrieved Password for {website_name}:\n",
-                        "green",
-                    )
-                )
-                print(color_text(f"Password: {password}", "deterministic"))
-                print(colored(f"Associated Username: {username or 'N/A'}", "cyan"))
-                print(colored(f"Associated URL: {url or 'N/A'}", "cyan"))
-                print(
-                    colored(
-                        f"Archived Status: {'Archived' if blacklisted else 'Active'}",
-                        "cyan",
-                    )
-                )
-                if notes:
-                    print(colored(f"Notes: {notes}", "cyan"))
-                tags = entry.get("tags", [])
-                if tags:
-                    print(colored(f"Tags: {', '.join(tags)}", "cyan"))
-                custom_fields = entry.get("custom_fields", [])
-                if custom_fields:
-                    print(colored("Additional Fields:", "cyan"))
-                    hidden_fields = []
-                    for field in custom_fields:
-                        label = field.get("label", "")
-                        value = field.get("value", "")
-                        if field.get("is_hidden"):
-                            hidden_fields.append((label, value))
-                            print(colored(f"  {label}: [hidden]", "cyan"))
-                        else:
-                            print(colored(f"  {label}: {value}", "cyan"))
-                    if hidden_fields:
-                        show = input("Reveal hidden fields? (y/N): ").strip().lower()
-                        if show == "y":
-                            for label, value in hidden_fields:
-                                if self.secret_mode_enabled:
-                                    if copy_to_clipboard(
-                                        value, self.clipboard_clear_delay
-                                    ):
-                                        print(
-                                            colored(
-                                                f"[+] {label} copied to clipboard. Will clear in {self.clipboard_clear_delay} seconds.",
-                                                "green",
-                                            )
-                                        )
-                                else:
-                                    print(colored(f"  {label}: {value}", "cyan"))
-        else:
-            print(colored("Error: Failed to retrieve the password.", "red"))
-        return
+        self.display_service.display_sensitive_entry_info(entry, index)
 
     @pause_logging_for_ui
     def handle_retrieve_entry(self) -> None:

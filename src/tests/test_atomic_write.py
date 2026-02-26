@@ -1,4 +1,5 @@
 import json
+import pytest
 from multiprocessing import Process
 from pathlib import Path
 
@@ -28,3 +29,49 @@ def test_atomic_write_concurrent(tmp_path: Path) -> None:
     final_text = file_path.read_text()
     final_obj = json.loads(final_text)
     assert final_obj in contents
+
+
+def test_atomic_write_cleanup_on_failure(tmp_path: Path) -> None:
+    """Temporary file should be cleaned up if write fails."""
+    dest_path = tmp_path / "dest.txt"
+
+    # Ensure directory is empty initially
+    assert list(tmp_path.iterdir()) == []
+
+    def failing_writer(f) -> None:
+        # Verify temp file exists while writing
+        # There should be exactly one file in the dir now
+        files = list(tmp_path.iterdir())
+        assert len(files) == 1
+        f.write("partial data")
+        raise RuntimeError("Write failed")
+
+    with pytest.raises(RuntimeError, match="Write failed"):
+        atomic_write(dest_path, failing_writer)
+
+    # Verify directory is empty again (temp file deleted)
+    assert list(tmp_path.iterdir()) == []
+
+    # Verify destination file was NOT created
+    assert not dest_path.exists()
+
+
+def test_atomic_write_preserves_existing_on_failure(tmp_path: Path) -> None:
+    """Existing file should not be overwritten if write fails."""
+    dest_path = tmp_path / "existing.txt"
+    dest_path.write_text("original content")
+
+    # There should be 1 file initially
+    assert len(list(tmp_path.iterdir())) == 1
+
+    def failing_writer(f) -> None:
+        # There should be 2 files now (original + temp)
+        assert len(list(tmp_path.iterdir())) == 2
+        raise RuntimeError("Write failed")
+
+    with pytest.raises(RuntimeError):
+        atomic_write(dest_path, failing_writer)
+
+    # Should revert to 1 file
+    assert len(list(tmp_path.iterdir())) == 1
+    assert dest_path.read_text() == "original content"
