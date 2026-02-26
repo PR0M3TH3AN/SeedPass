@@ -94,6 +94,9 @@ jobs:
       - name: Enable Nostr network tests on main branch or nightly
         if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
         run: echo "NOSTR_E2E=1" >> $GITHUB_ENV
+      - name: Run deterministic regression tests
+        shell: bash
+        run: pytest -q src/tests/test_deterministic_artifact_regression.py
       - name: Run tests with coverage
         timeout-minutes: 16
         shell: bash

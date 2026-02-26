@@ -8,6 +8,8 @@ import pytest
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import main
+from seedpass.core.errors import SeedPassError
+from utils.password_prompt import PasswordPromptError
 
 
 def _make_pm(called, locked=None):
@@ -102,3 +104,65 @@ def test_inactivity_timeout_loop(monkeypatch, capsys):
     assert locked["lock"] == 1
     assert locked["unlock"] == 1
     assert not any(called.values())
+
+
+def test_inactivity_timeout_unlock_cancelled_stays_in_menu(monkeypatch, capsys):
+    called = {"add": False, "retrieve": False, "modify": False}
+    pm, locked = _make_pm(called)
+    pm.last_activity = 0
+
+    def unlock_fail():
+        locked["unlock"] += 1
+        pm.last_activity = 100.0
+        raise PasswordPromptError("Operation cancelled by user")
+
+    pm.unlock_vault = unlock_fail
+
+    # First iteration: timeout + cancelled unlock. Second: exit cleanly.
+    now = iter([100.0, 100.0, 100.0])
+    monkeypatch.setattr(time, "time", lambda: next(now))
+    monkeypatch.setattr(main, "timed_input", lambda *_: "")
+
+    with pytest.raises(SystemExit):
+        main.display_menu(pm, sync_interval=1000, inactivity_timeout=0.1)
+
+    out = capsys.readouterr().out
+    assert "Vault remains locked: Operation cancelled by user" in out
+    assert locked["lock"] == 1
+    assert locked["unlock"] == 1
+
+
+def test_menu_action_seedpass_error_does_not_crash(monkeypatch, capsys):
+    called = {"add": False, "retrieve": False, "modify": False}
+    pm, _ = _make_pm(called)
+
+    def fail_retrieve():
+        raise SeedPassError("simulated retrieve failure")
+
+    pm.handle_retrieve_entry = fail_retrieve
+    inputs = iter(["2", ""])
+    monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
+
+    with pytest.raises(SystemExit):
+        main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
+
+    out = capsys.readouterr().out
+    assert "Action failed: simulated retrieve failure" in out
+
+
+def test_menu_action_password_prompt_error_does_not_crash(monkeypatch, capsys):
+    called = {"add": False, "retrieve": False, "modify": False}
+    pm, _ = _make_pm(called)
+
+    def fail_retrieve():
+        raise PasswordPromptError("Operation cancelled by user")
+
+    pm.handle_retrieve_entry = fail_retrieve
+    inputs = iter(["2", ""])
+    monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
+
+    with pytest.raises(SystemExit):
+        main.display_menu(pm, sync_interval=1000, inactivity_timeout=1000)
+
+    out = capsys.readouterr().out
+    assert "Action cancelled: Operation cancelled by user" in out

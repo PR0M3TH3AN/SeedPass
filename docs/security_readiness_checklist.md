@@ -11,7 +11,7 @@ Status legend: `Not Started`, `In Progress`, `Blocked`, `Done`
 | 5 | Nostr sync security and resilience validation | In Progress | Core / QA | `src/tests/test_nostr_real.py`, `src/tests/test_nostr_index_size.py` |
 | 6 | Auth, lock/unlock, and access-control hardening | Done | Core | `docs/auth_lock_unlock_access_review.md`, `src/tests/test_api_new_endpoints.py`, `src/tests/test_vault_lock_flag.py`, `src/tests/test_inactivity_lock.py`, `src/tests/test_unlock_sync.py` |
 | 7 | Testing gates and quality thresholds | In Progress | QA | `scripts/check_critical_coverage.py`, CI workflows |
-| 8 | Supply chain and release integrity | Not Started | DevOps | |
+| 8 | Supply chain and release integrity | In Progress | DevOps | `docs/supply_chain_release_integrity.md`, `.github/workflows/release-integrity.yml`, `scripts/release_integrity.py`, `src/tests/test_release_integrity_utils.py` |
 | 9 | Operational readiness and incident runbooks | Not Started | Security / Ops | |
 | 10 | External audit and staged production rollout | Not Started | Maintainers | |
 

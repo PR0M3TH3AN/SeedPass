@@ -4,6 +4,11 @@ This file tracks the remaining work from the latest bug search and security eval
 
 ## Security
 
+- [ ] Complete checklist item #8 (Supply chain and release integrity):
+  - run one tagged release through `.github/workflows/release-integrity.yml` and link evidence in `docs/security_readiness_checklist.md`
+  - resolve or formally time-box/own the `GHSA-wj6h-64fc-37mp` exception
+  - enforce release/tag protections requiring `Release Integrity` + dependency audit checks
+  - publish maintainer/consumer verification runbook (checksum + cosign verification with expected issuer/identity)
 - [ ] Upgrade vulnerable runtime dependencies in lockfiles and packaging inputs:
   - `aiohttp` -> `>=3.13.3`
   - `cryptography` -> `>=46.0.5`
@@ -26,6 +31,10 @@ This file tracks the remaining work from the latest bug search and security eval
   - `src/seedpass/core/manager.py`
   - `src/seedpass/core/menu_handler.py`
 - [ ] Add telemetry-safe logs for swallowed error paths without exposing secrets.
+- [ ] Harden startup/restore prompt flows against `EOFError` / cancellation loops:
+  - startup options (`Continue` / `Restore from backup`)
+  - restore-backup fingerprint/path prompts
+  - ensure graceful return-to-menu instead of process-level failure.
 
 ## Tests To Add
 

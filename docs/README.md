@@ -9,6 +9,7 @@ This directory contains SeedPass project documentation.
 - `crypto_key_management_review.md`
 - `secret_handling_local_exposure_review.md`
 - `auth_lock_unlock_access_review.md`
+- `supply_chain_release_integrity.md`
 
 ## Architecture and Product Docs
 

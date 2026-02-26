@@ -18,7 +18,9 @@ from nostr.client import DEFAULT_RELAYS
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import Notification, PasswordManager
 from seedpass.core.vault import Vault
+from seedpass.core.errors import SeedPassError
 from utils.fingerprint_manager import FingerprintManager
+from utils.password_prompt import PasswordPromptError
 
 
 def setup_pm(tmp_path, monkeypatch):
@@ -170,3 +172,94 @@ def test_settings_menu_without_nostr_client(monkeypatch):
 
     assert pm.error_queue.empty()
     assert pm.notifications.empty()
+
+
+def test_settings_menu_missing_handler_is_graceful(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        # Option 4 calls this method directly in settings.
+        if hasattr(pm, "handle_verify_checksum"):
+            delattr(pm, "handle_verify_checksum")
+
+        inputs = iter(["4", ""])
+        monkeypatch.setattr(main, "pause", lambda: None)
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        out = capsys.readouterr().out
+        assert "Unexpected settings error:" in out
+
+
+def test_settings_lock_unlock_cancelled_is_graceful(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        pm.lock_vault = lambda: None
+
+        def unlock_fail():
+            raise PasswordPromptError("Operation cancelled by user")
+
+        pm.unlock_vault = unlock_fail
+        pm.start_background_sync = lambda: None
+        pm.start_background_relay_check = lambda: None
+
+        inputs = iter(["13", ""])
+        monkeypatch.setattr(main, "pause", lambda: None)
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        out = capsys.readouterr().out
+        assert "Unlock cancelled: Operation cancelled by user" in out
+
+
+def test_profiles_submenu_action_error_is_graceful(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, fp_mgr = setup_pm(tmp_path, monkeypatch)
+        pm.update_activity = lambda: None
+        pm.handle_switch_fingerprint = lambda: (_ for _ in ()).throw(
+            SeedPassError("switch failure")
+        )
+
+        inputs = iter(["1", ""])
+        monkeypatch.setattr(main, "pause", lambda: None)
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_profiles_menu(pm)
+
+        out = capsys.readouterr().out
+        assert "Action failed: switch failure" in out
+
+
+def test_settings_export_failure_message(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        pm.handle_export_database = lambda: (_ for _ in ()).throw(
+            RuntimeError("export boom")
+        )
+
+        inputs = iter(["7", ""])
+        monkeypatch.setattr(main, "pause", lambda: None)
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        out = capsys.readouterr().out
+        assert "Export failed: export boom" in out
+
+
+def test_settings_import_missing_path_message(monkeypatch, capsys):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        pm.handle_import_database = lambda _path: (_ for _ in ()).throw(
+            FileNotFoundError
+        )
+
+        inputs = iter(["8", "missing.json.enc", ""])
+        monkeypatch.setattr(main, "pause", lambda: None)
+        with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+            main.handle_settings(pm)
+
+        out = capsys.readouterr().out
+        assert "Import failed: file 'missing.json.enc' not found." in out

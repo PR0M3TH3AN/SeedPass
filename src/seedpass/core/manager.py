@@ -665,37 +665,65 @@ class PasswordManager:
         try:
             fingerprints = self.fingerprint_manager.list_fingerprints()
             current = self.fingerprint_manager.current_fingerprint
+            while True:
+                # Auto-select when only one fingerprint exists
+                if len(fingerprints) == 1 and self.select_fingerprint(fingerprints[0]):
+                    return
 
-            # Auto-select when only one fingerprint exists
-            if len(fingerprints) == 1:
-                self.select_fingerprint(fingerprints[0])
-                return
+                print(colored("\nAvailable Seed Profiles:", "cyan"))
+                for idx, fp in enumerate(fingerprints, start=1):
+                    label = (
+                        self.fingerprint_manager.display_name(fp)
+                        if hasattr(self.fingerprint_manager, "display_name")
+                        else fp
+                    )
+                    marker = " *" if fp == current else ""
+                    print(colored(f"{idx}. {label}{marker}", "cyan"))
 
-            print(colored("\nAvailable Seed Profiles:", "cyan"))
-            for idx, fp in enumerate(fingerprints, start=1):
-                label = (
-                    self.fingerprint_manager.display_name(fp)
-                    if hasattr(self.fingerprint_manager, "display_name")
-                    else fp
+                add_idx = len(fingerprints) + 1
+                recover_idx = len(fingerprints) + 2
+                print(colored(f"{add_idx}. Add a new seed profile", "cyan"))
+                print(
+                    colored(
+                        f"{recover_idx}. Recover existing profile with blank local index",
+                        "cyan",
+                    )
                 )
-                marker = " *" if fp == current else ""
-                print(colored(f"{idx}. {label}{marker}", "cyan"))
+                print(colored("Q. Exit", "cyan"))
 
-            print(colored(f"{len(fingerprints)+1}. Add a new seed profile", "cyan"))
+                choice = input("Select a seed profile by number: ").strip()
+                if choice.lower() in {"q", "quit", "exit"}:
+                    raise SeedPassError("Operation cancelled by user")
+                if not choice.isdigit() or not (
+                    1 <= int(choice) <= len(fingerprints) + 2
+                ):
+                    print(colored("Invalid selection. Please try again.", "red"))
+                    continue
 
-            choice = input("Select a seed profile by number: ").strip()
-            if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints) + 1):
-                print(colored("Invalid selection. Exiting.", "red"))
-                raise SeedPassError("Invalid selection.")
+                choice_num = int(choice)
+                if choice_num == add_idx:
+                    # Add a new seed profile
+                    self.add_new_fingerprint()
+                    if getattr(self, "encryption_manager", None) is not None:
+                        return
+                elif choice_num == recover_idx:
+                    if self.recover_profile_with_blank_index():
+                        return
+                else:
+                    # Select existing seed profile
+                    selected_fingerprint = fingerprints[choice_num - 1]
+                    if self.select_fingerprint(selected_fingerprint):
+                        return
+                    print(
+                        colored(
+                            "Profile unlock failed or cancelled. You can retry or use recovery.",
+                            "yellow",
+                        )
+                    )
 
-            choice = int(choice)
-            if choice == len(fingerprints) + 1:
-                # Add a new seed profile
-                self.add_new_fingerprint()
-            else:
-                # Select existing seed profile
-                selected_fingerprint = fingerprints[choice - 1]
-                self.select_fingerprint(selected_fingerprint)
+                # refresh profile list if new profiles were added/removed
+                fingerprints = self.fingerprint_manager.list_fingerprints()
+                current = self.fingerprint_manager.current_fingerprint
 
         except Exception as e:
             logger.error(f"Error during seed profile selection: {e}", exc_info=True)
@@ -739,7 +767,13 @@ class PasswordManager:
 
             # Ensure managers are initialized for the newly created profile
             if getattr(self, "config_manager", None) is None:
-                self.initialize_managers()
+                if getattr(self, "encryption_manager", None) is None:
+                    if hasattr(self.fingerprint_manager, "select_fingerprint"):
+                        self.select_fingerprint(fingerprint)
+                    else:
+                        self.initialize_managers()
+                else:
+                    self.initialize_managers()
 
             return fingerprint
 
@@ -750,7 +784,7 @@ class PasswordManager:
 
     def select_fingerprint(
         self, fingerprint: str, *, password: Optional[str] = None
-    ) -> None:
+    ) -> bool:
         if self.fingerprint_manager.select_fingerprint(fingerprint):
             self.current_fingerprint = fingerprint  # Add this line
             self.fingerprint_dir = (
@@ -767,7 +801,12 @@ class PasswordManager:
                     f"Seed profile directory for {fingerprint} not found."
                 )
             # Setup the encryption manager and load parent seed
-            self.setup_encryption_manager(self.fingerprint_dir, password)
+            if not self.setup_encryption_manager(
+                self.fingerprint_dir,
+                password,
+                exit_on_fail=False,
+            ):
+                return False
             # Initialize BIP85 and other managers
             self.initialize_bip85()
             self.initialize_managers()
@@ -777,9 +816,130 @@ class PasswordManager:
                     "green",
                 )
             )
+            return True
         else:
             print(colored(f"Error: Seed profile {fingerprint} not found.", "red"))
             raise SeedPassError(f"Seed profile {fingerprint} not found.")
+
+    def recover_profile_with_blank_index(self) -> bool:
+        """Reinitialize an existing profile with the same seed and blank local index."""
+        fingerprints = self.fingerprint_manager.list_fingerprints()
+        if not fingerprints:
+            print(colored("No existing profiles available for recovery.", "red"))
+            return False
+
+        print(colored("\nRecover Existing Profile", "cyan"))
+        for idx, fp in enumerate(fingerprints, start=1):
+            label = (
+                self.fingerprint_manager.display_name(fp)
+                if hasattr(self.fingerprint_manager, "display_name")
+                else fp
+            )
+            print(colored(f"{idx}. {label}", "cyan"))
+
+        choice = input("Select profile to recover by number: ").strip()
+        if not choice.isdigit() or not (1 <= int(choice) <= len(fingerprints)):
+            print(colored("Invalid selection.", "red"))
+            return False
+        fingerprint = fingerprints[int(choice) - 1]
+        fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
+            fingerprint
+        )
+        if not fingerprint_dir:
+            print(colored("Profile directory not found.", "red"))
+            return False
+
+        print(
+            colored(
+                "This will overwrite the encrypted seed file and reset local entries to a blank index.",
+                "yellow",
+            )
+        )
+        if not confirm_action("Continue recovery for this profile? (Y/N): "):
+            return False
+
+        method = input(
+            "Seed entry method:\n"
+            "1. Paste in an existing seed in full\n"
+            "2. Enter existing seed one word at a time\n"
+            "Enter choice (1/2): "
+        ).strip()
+        if method == "1":
+            parent_seed = masked_input("Enter your 12-word BIP-85 seed: ").strip()
+        elif method == "2":
+            parent_seed = prompt_seed_words()
+        else:
+            print(colored("Invalid choice.", "red"))
+            return False
+
+        if not self.validate_bip85_seed(parent_seed):
+            print(colored("Error: Invalid BIP-85 seed phrase.", "red"))
+            return False
+
+        computed_fp = generate_fingerprint(parent_seed)
+        if computed_fp != fingerprint:
+            print(
+                colored(
+                    "Error: Seed does not match selected profile fingerprint.",
+                    "red",
+                )
+            )
+            return False
+
+        try:
+            password = prompt_for_password()
+            self.current_fingerprint = fingerprint
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            self.fingerprint_dir = fingerprint_dir
+            self.parent_seed = parent_seed
+
+            seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
+            index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
+            seed_key = self._derive_seed_key(password, fingerprint)
+
+            self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
+
+            seed_mgr.encrypt_parent_seed(
+                parent_seed,
+                kdf=self._build_seed_kdf_config(
+                    fingerprint,
+                    mode=self._get_kdf_mode(),
+                ),
+            )
+            self.store_hashed_password(password)
+
+            for stale_file in (
+                fingerprint_dir / "seedpass_entries_db.json.enc",
+                fingerprint_dir / "seedpass_passwords_db.json.enc",
+                fingerprint_dir / "seedpass_entries_db_checksum.txt",
+                fingerprint_dir / "seedpass_passwords_db_checksum.txt",
+            ):
+                try:
+                    stale_file.unlink()
+                except FileNotFoundError:
+                    pass
+
+            self.initialize_bip85()
+            self.initialize_managers()
+            self.start_background_sync()
+            print(
+                colored(
+                    "Profile recovered successfully with a blank local index.",
+                    "green",
+                )
+            )
+            return True
+        except Exception as exc:
+            logger.error("Profile recovery failed: %s", exc, exc_info=True)
+            print(colored(f"Error: Profile recovery failed: {exc}", "red"))
+            return False
 
     def setup_encryption_manager(
         self,

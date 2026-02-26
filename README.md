@@ -895,6 +895,8 @@ To review and merge these updates:
 
 A scheduled **Dependency Audit** workflow also runs [`pip-audit`](https://github.com/pypa/pip-audit) weekly to detect vulnerable packages. Address any reported issues promptly to keep dependencies secure.
 
+For tagged releases, SeedPass also runs the `Release Integrity` workflow, which validates lockfile drift, runs `pip-audit`, builds distributables, generates `SHA256SUMS`, and signs the checksum manifest with keyless `cosign` before publishing release assets.
+
 ## Contributing
 
 Contributions are welcome! If you have suggestions for improvements, bug fixes, or new features, please follow these steps:

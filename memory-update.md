@@ -6,3 +6,56 @@
 
 ## Outcome
 - Removed stale Archivox branding from the docs README and default docs title so the correct SeedPass README/content is displayed.
+
+## Supply Chain and Release Integrity (Checklist #8)
+- Added a dedicated release integrity workflow at `.github/workflows/release-integrity.yml`.
+- Workflow now enforces lockfile drift checks, runs `pip-audit`, builds release artifacts, generates `SHA256SUMS`, signs checksum manifest with keyless `cosign`, and publishes signatures/certs with release assets.
+- Added `scripts/release_integrity.py` CLI with `check-lockfile`, `generate`, and `verify` subcommands.
+- Added reusable checksum logic in `src/seedpass/release_integrity.py` and regression tests in `src/tests/test_release_integrity_utils.py`.
+- Updated `docs/security_readiness_checklist.md` item #8 from `Not Started` to `In Progress` with evidence links.
+- Added process documentation in `docs/supply_chain_release_integrity.md` and linked it from `docs/README.md` and `README.md`.
+
+## Determinism Regression Guardrail
+- Added `src/tests/test_deterministic_artifact_regression.py` to lock deterministic vectors at index `352` for password, SSH, seed phrase, TOTP, PGP (fingerprint + armored hash), and Nostr keys.
+- Added repeatability assertions for same-seed/same-index derivation in the same run.
+- Logged explicit remaining tasks to finish checklist item #8 in both `docs/supply_chain_release_integrity.md` and `TODO.md`.
+
+## CI Determinism Enforcement
+- Expanded deterministic regression vectors to cover indices `0`, `1`, `352`, and `1024` across password, SSH, seed phrase, TOTP, and Nostr outputs.
+- Added pinned PGP vectors for both `ed25519` and `rsa` at index `352` (fingerprints + armored key hashes).
+- Added explicit deterministic regression steps to push CI workflows:
+  - `.github/workflows/python-ci.yml`
+  - `.github/workflows/tests.yml`
+
+## Profile Unlock Failure Recovery
+- Hardened startup profile selection to avoid fatal crash loops when unlock/decryption fails or is cancelled.
+- `select_fingerprint(...)` now returns `False` on unlock/setup failure instead of always raising; selection menu now keeps the user in-flow.
+- Added profile recovery flow `recover_profile_with_blank_index()` reachable from seed-profile selection menu.
+- Recovery flow verifies that user-provided seed matches selected fingerprint, then re-encrypts seed and resets local entry index/checksum files to a blank state.
+- Fixed "switch to existing profile" path during add-new-seed so it does not call `initialize_managers()` without an initialized `EncryptionManager`.
+- Added regression tests in `src/tests/test_profile_recovery_flow.py` for these paths.
+
+## TUI Crash Hardening
+- Hardened `display_menu()` to catch per-action `PasswordPromptError`, `SeedPassError`, and generic exceptions so failures no longer terminate the whole TUI session.
+- Added graceful timeout-lock recovery messaging when unlock is cancelled/failed after inactivity timeout.
+- Fixed incorrect call signature in Add Entry submenu header rendering (`clear_header_with_notification(...)` now receives `password_manager`).
+- Added crash-regression coverage in `src/tests/test_cli_invalid_input.py` for action failures and timeout-unlock cancellation handling.
+
+## Settings/Relay Submenu Hardening
+- Added local exception guards in `handle_settings`, `handle_profiles_menu`, and `handle_nostr_menu` so submenu actions report failures and return control instead of crashing the TUI.
+- Added explicit graceful handling for Settings -> Lock Vault unlock cancellations/failures.
+- Corrected `clear_header_with_notification(...)` call signatures in settings-related submenus to pass `password_manager` as first argument.
+- Added regression tests in `src/tests/test_settings_menu.py` for:
+  - missing settings handler method
+  - lock/unlock cancellation
+  - profiles submenu action failure
+
+## Import/Export + Nostr Workflow Guardrails
+- Hardened settings menu options for export/import/TOTP export with explicit error messaging (`Export failed`, `Import failed`, `2FA export failed`) instead of generic crashes.
+- Added graceful no-path handling for Settings -> Import (`No path entered.`).
+- Hardened CLI subcommand entrypoints in `main.py`:
+  - require `--file` for `export`/`import`
+  - catch and report failures for `export`, `import`, `search`, `get`, and `totp` commands.
+- Added regression tests for these cases in:
+  - `src/tests/test_settings_menu.py`
+  - `src/tests/test_cli_export_import.py`

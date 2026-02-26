@@ -1,0 +1,73 @@
+name: Release Integrity
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  verify-and-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate lockfile and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools pip-audit build
+          python scripts/release_integrity.py check-lockfile --lockfile requirements.lock
+          pip-compile --generate-hashes --output-file=requirements.lock src/requirements.txt
+          git diff --exit-code requirements.lock
+          pip install --require-hashes -r requirements.lock
+
+      - name: Run CVE audit
+        run: pip-audit -r requirements.lock --ignore-vuln GHSA-wj6h-64fc-37mp
+
+      - name: Build release artifacts
+        run: python -m build
+
+      - name: Generate and verify checksums
+        run: |
+          python scripts/release_integrity.py generate --artifact dist --base-dir . --output SHA256SUMS
+          python scripts/release_integrity.py verify --checksum-file SHA256SUMS --base-dir .
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign checksum manifest (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem \
+            SHA256SUMS
+
+      - name: Upload release assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
+            SHA256SUMS
+            SHA256SUMS.sig
+            SHA256SUMS.pem
+
+      - name: Upload integrity artifacts (manual runs)
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-integrity
+          path: |
+            dist/*
+            SHA256SUMS
+            SHA256SUMS.sig
+            SHA256SUMS.pem

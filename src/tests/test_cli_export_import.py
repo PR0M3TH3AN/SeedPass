@@ -124,3 +124,36 @@ def test_cli_export_import_unencrypted(monkeypatch, tmp_path):
     rc = main.main(["import", "--file", str(export_path)])
     assert rc == 0
     assert vault.load_index() == data
+
+
+def test_cli_export_requires_file(monkeypatch, tmp_path, capsys):
+    pm, _vault = _setup_pm(tmp_path)
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+
+    rc = main.main(["export"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "--file is required for export" in out
+
+
+def test_cli_import_handler_exception_returns_error(monkeypatch, tmp_path, capsys):
+    pm, _vault = _setup_pm(tmp_path)
+    pm = SimpleNamespace(
+        handle_export_database=pm.handle_export_database,
+        handle_import_database=lambda _p: (_ for _ in ()).throw(
+            RuntimeError("bad import")
+        ),
+        nostr_client=SimpleNamespace(close_client_pool=lambda: None),
+    )
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: pm)
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+
+    rc = main.main(["import", "--file", str(tmp_path / "in.json")])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "Error: Import failed: bad import" in out

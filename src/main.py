@@ -21,6 +21,7 @@ from utils.color_scheme import color_text
 import importlib
 
 from seedpass.core.manager import PasswordManager, restore_backup_index
+from seedpass.core.errors import SeedPassError
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
 from seedpass.core.config_manager import ConfigManager
@@ -884,6 +885,7 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
         clear_header_with_notification(
+            password_manager,
             fp,
             "Main Menu > Settings > Profiles",
             parent_fingerprint=parent_fp,
@@ -897,21 +899,34 @@ def handle_profiles_menu(password_manager: PasswordManager) -> None:
         print(color_text("5. Set Seed Profile Name", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
-        if choice == "1":
-            if not password_manager.handle_switch_fingerprint():
-                print(colored("Failed to switch seed profile.", "red"))
-        elif choice == "2":
-            handle_add_new_fingerprint(password_manager)
-        elif choice == "3":
-            handle_remove_fingerprint(password_manager)
-        elif choice == "4":
-            handle_list_fingerprints(password_manager)
-        elif choice == "5":
-            handle_set_profile_name(password_manager)
-        elif not choice:
-            break
-        else:
-            print(colored("Invalid choice.", "red"))
+        try:
+            if choice == "1":
+                if not password_manager.handle_switch_fingerprint():
+                    print(colored("Failed to switch seed profile.", "red"))
+            elif choice == "2":
+                handle_add_new_fingerprint(password_manager)
+            elif choice == "3":
+                handle_remove_fingerprint(password_manager)
+            elif choice == "4":
+                handle_list_fingerprints(password_manager)
+            elif choice == "5":
+                handle_set_profile_name(password_manager)
+            elif not choice:
+                break
+            else:
+                print(colored("Invalid choice.", "red"))
+        except PasswordPromptError as exc:
+            logging.warning("Profiles submenu action cancelled: %s", exc)
+            print(colored(f"Action cancelled: {exc}", "yellow"))
+            pause()
+        except SeedPassError as exc:
+            logging.error("Profiles submenu action failed: %s", exc, exc_info=True)
+            print(colored(f"Action failed: {exc}", "red"))
+            pause()
+        except Exception as exc:
+            logging.error("Unexpected profiles submenu error: %s", exc, exc_info=True)
+            print(colored(f"Unexpected profiles submenu error: {exc}", "red"))
+            pause()
 
 
 def handle_nostr_menu(password_manager: PasswordManager) -> None:
@@ -933,6 +948,7 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
         clear_header_with_notification(
+            password_manager,
             fp,
             "Main Menu > Settings > Nostr",
             parent_fingerprint=parent_fp,
@@ -948,24 +964,37 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         print(color_text("7. Display Nostr Public Key", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
-        if choice == "1":
-            handle_post_to_nostr(password_manager)
-        elif choice == "2":
-            handle_retrieve_from_nostr(password_manager)
-        elif choice == "3":
-            handle_view_relays(cfg_mgr)
-        elif choice == "4":
-            handle_add_relay(password_manager)
-        elif choice == "5":
-            handle_remove_relay(password_manager)
-        elif choice == "6":
-            handle_reset_relays(password_manager)
-        elif choice == "7":
-            handle_display_npub(password_manager)
-        elif not choice:
-            break
-        else:
-            print(colored("Invalid choice.", "red"))
+        try:
+            if choice == "1":
+                handle_post_to_nostr(password_manager)
+            elif choice == "2":
+                handle_retrieve_from_nostr(password_manager)
+            elif choice == "3":
+                handle_view_relays(cfg_mgr)
+            elif choice == "4":
+                handle_add_relay(password_manager)
+            elif choice == "5":
+                handle_remove_relay(password_manager)
+            elif choice == "6":
+                handle_reset_relays(password_manager)
+            elif choice == "7":
+                handle_display_npub(password_manager)
+            elif not choice:
+                break
+            else:
+                print(colored("Invalid choice.", "red"))
+        except PasswordPromptError as exc:
+            logging.warning("Nostr submenu action cancelled: %s", exc)
+            print(colored(f"Action cancelled: {exc}", "yellow"))
+            pause()
+        except SeedPassError as exc:
+            logging.error("Nostr submenu action failed: %s", exc, exc_info=True)
+            print(colored(f"Action failed: {exc}", "red"))
+            pause()
+        except Exception as exc:
+            logging.error("Unexpected Nostr submenu error: %s", exc, exc_info=True)
+            print(colored(f"Unexpected Nostr submenu error: {exc}", "red"))
+            pause()
 
 
 def handle_settings(password_manager: PasswordManager) -> None:
@@ -977,6 +1006,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
             (getattr(password_manager, "current_fingerprint", None), None, None),
         )
         clear_header_with_notification(
+            password_manager,
             fp,
             "Main Menu > Settings",
             parent_fingerprint=parent_fp,
@@ -1001,73 +1031,116 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("16. Toggle Offline Mode (default ON)", "menu"))
         print(color_text("17. Toggle Quick Unlock", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
-        if choice == "1":
-            handle_profiles_menu(password_manager)
-        elif choice == "2":
-            handle_nostr_menu(password_manager)
-        elif choice == "3":
-            try:
-                old_pw = prompt_existing_password("Enter your current password: ")
-                new_pw = prompt_new_password()
-                password_manager.change_password(old_pw, new_pw)
-            except ValueError:
-                print(colored("Incorrect password.", "red"))
-            except PasswordPromptError:
-                pass
-            except Exception as e:
-                print(colored(f"Error: {e}", "red"))
+        try:
+            if choice == "1":
+                handle_profiles_menu(password_manager)
+            elif choice == "2":
+                handle_nostr_menu(password_manager)
+            elif choice == "3":
+                try:
+                    old_pw = prompt_existing_password("Enter your current password: ")
+                    new_pw = prompt_new_password()
+                    password_manager.change_password(old_pw, new_pw)
+                except ValueError:
+                    print(colored("Incorrect password.", "red"))
+                except PasswordPromptError:
+                    pass
+                except Exception as e:
+                    print(colored(f"Error: {e}", "red"))
+                pause()
+            elif choice == "4":
+                password_manager.handle_verify_checksum()
+                pause()
+            elif choice == "5":
+                password_manager.handle_update_script_checksum()
+                pause()
+            elif choice == "6":
+                password_manager.handle_backup_reveal_parent_seed()
+                pause()
+            elif choice == "7":
+                try:
+                    password_manager.handle_export_database()
+                except Exception as exc:
+                    logging.error("Export database failed: %s", exc, exc_info=True)
+                    print(colored(f"Export failed: {exc}", "red"))
+                pause()
+            elif choice == "8":
+                path = input("Enter path to backup file: ").strip()
+                if not path:
+                    print(colored("No path entered.", "yellow"))
+                    pause()
+                    continue
+                try:
+                    password_manager.handle_import_database(Path(path))
+                except FileNotFoundError:
+                    print(colored(f"Import failed: file '{path}' not found.", "red"))
+                except Exception as exc:
+                    logging.error("Import database failed: %s", exc, exc_info=True)
+                    print(colored(f"Import failed: {exc}", "red"))
+                pause()
+            elif choice == "9":
+                try:
+                    password_manager.handle_export_totp_codes()
+                except Exception as exc:
+                    logging.error("Export 2FA codes failed: %s", exc, exc_info=True)
+                    print(colored(f"2FA export failed: {exc}", "red"))
+                pause()
+            elif choice == "10":
+                handle_set_additional_backup_location(password_manager)
+                pause()
+            elif choice == "11":
+                handle_set_kdf_iterations(password_manager)
+                pause()
+            elif choice == "12":
+                handle_set_inactivity_timeout(password_manager)
+                pause()
+            elif choice == "13":
+                password_manager.lock_vault()
+                print(colored("Vault locked. Please re-enter your password.", "yellow"))
+                try:
+                    password_manager.unlock_vault()
+                except PasswordPromptError as exc:
+                    print(colored(f"Unlock cancelled: {exc}", "yellow"))
+                except Exception as exc:
+                    logging.error(
+                        "Failed to unlock vault from settings: %s",
+                        exc,
+                        exc_info=True,
+                    )
+                    print(colored(f"Failed to unlock vault: {exc}", "red"))
+                else:
+                    password_manager.start_background_sync()
+                    getattr(
+                        password_manager, "start_background_relay_check", lambda: None
+                    )()
+                pause()
+            elif choice == "14":
+                handle_display_stats(password_manager)
+            elif choice == "15":
+                handle_toggle_secret_mode(password_manager)
+                pause()
+            elif choice == "16":
+                handle_toggle_offline_mode(password_manager)
+                pause()
+            elif choice == "17":
+                handle_toggle_quick_unlock(password_manager)
+                pause()
+            elif not choice:
+                break
+            else:
+                print(colored("Invalid choice.", "red"))
+        except PasswordPromptError as exc:
+            logging.warning("Settings action cancelled: %s", exc)
+            print(colored(f"Action cancelled: {exc}", "yellow"))
             pause()
-        elif choice == "4":
-            password_manager.handle_verify_checksum()
+        except SeedPassError as exc:
+            logging.error("Settings action failed: %s", exc, exc_info=True)
+            print(colored(f"Action failed: {exc}", "red"))
             pause()
-        elif choice == "5":
-            password_manager.handle_update_script_checksum()
+        except Exception as exc:
+            logging.error("Unexpected settings error: %s", exc, exc_info=True)
+            print(colored(f"Unexpected settings error: {exc}", "red"))
             pause()
-        elif choice == "6":
-            password_manager.handle_backup_reveal_parent_seed()
-            pause()
-        elif choice == "7":
-            password_manager.handle_export_database()
-            pause()
-        elif choice == "8":
-            path = input("Enter path to backup file: ").strip()
-            if path:
-                password_manager.handle_import_database(Path(path))
-            pause()
-        elif choice == "9":
-            password_manager.handle_export_totp_codes()
-            pause()
-        elif choice == "10":
-            handle_set_additional_backup_location(password_manager)
-            pause()
-        elif choice == "11":
-            handle_set_kdf_iterations(password_manager)
-            pause()
-        elif choice == "12":
-            handle_set_inactivity_timeout(password_manager)
-            pause()
-        elif choice == "13":
-            password_manager.lock_vault()
-            print(colored("Vault locked. Please re-enter your password.", "yellow"))
-            password_manager.unlock_vault()
-            password_manager.start_background_sync()
-            getattr(password_manager, "start_background_relay_check", lambda: None)()
-            pause()
-        elif choice == "14":
-            handle_display_stats(password_manager)
-        elif choice == "15":
-            handle_toggle_secret_mode(password_manager)
-            pause()
-        elif choice == "16":
-            handle_toggle_offline_mode(password_manager)
-            pause()
-        elif choice == "17":
-            handle_toggle_quick_unlock(password_manager)
-            pause()
-        elif not choice:
-            break
-        else:
-            print(colored("Invalid choice.", "red"))
 
 
 def display_menu(
@@ -1109,7 +1182,25 @@ def display_menu(
         if time.time() - password_manager.last_activity > inactivity_timeout:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
-            password_manager.unlock_vault()
+            try:
+                password_manager.unlock_vault()
+            except PasswordPromptError as exc:
+                print(
+                    colored(
+                        f"Vault remains locked: {exc}. Return to menu to retry unlock.",
+                        "yellow",
+                    )
+                )
+                continue
+            except Exception as exc:
+                logging.error("Failed to unlock after timeout: %s", exc, exc_info=True)
+                print(
+                    colored(
+                        f"Unable to unlock vault after timeout: {exc}",
+                        "red",
+                    )
+                )
+                continue
             password_manager.start_background_sync()
             getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
@@ -1137,7 +1228,25 @@ def display_menu(
         except TimeoutError:
             print(colored("Session timed out. Vault locked.", "yellow"))
             password_manager.lock_vault()
-            password_manager.unlock_vault()
+            try:
+                password_manager.unlock_vault()
+            except PasswordPromptError as exc:
+                print(
+                    colored(
+                        f"Vault remains locked: {exc}. Return to menu to retry unlock.",
+                        "yellow",
+                    )
+                )
+                continue
+            except Exception as exc:
+                logging.error("Failed to unlock after timeout: %s", exc, exc_info=True)
+                print(
+                    colored(
+                        f"Unable to unlock vault after timeout: {exc}",
+                        "red",
+                    )
+                )
+                continue
             password_manager.start_background_sync()
             getattr(password_manager, "start_background_relay_check", lambda: None)()
             continue
@@ -1151,87 +1260,101 @@ def display_menu(
             getattr(password_manager, "cleanup", lambda: None)()
             _safe_close_client_pool(password_manager)
             sys.exit(0)
-        if choice == "1":
-            while True:
-                fp, parent_fp, child_fp = getattr(
-                    password_manager,
-                    "header_fingerprint_args",
-                    (
-                        getattr(password_manager, "current_fingerprint", None),
-                        None,
-                        None,
-                    ),
-                )
-                clear_header_with_notification(
-                    fp,
-                    "Main Menu > Add Entry",
-                    parent_fingerprint=parent_fp,
-                    child_fingerprint=child_fp,
-                )
-                print(color_text("\nAdd Entry:", "menu"))
-                print(color_text("1. Password", "menu"))
-                print(color_text("2. 2FA (TOTP)", "menu"))
-                print(color_text("3. SSH Key", "menu"))
-                print(color_text("4. Seed Phrase", "menu"))
-                print(color_text("5. Nostr Key Pair", "menu"))
-                print(color_text("6. PGP Key", "menu"))
-                print(color_text("7. Key/Value", "menu"))
-                print(color_text("8. Managed Account", "menu"))
-                sub_choice = input(
-                    "Select entry type or press Enter to go back: "
-                ).strip()
+        try:
+            if choice == "1":
+                while True:
+                    fp, parent_fp, child_fp = getattr(
+                        password_manager,
+                        "header_fingerprint_args",
+                        (
+                            getattr(password_manager, "current_fingerprint", None),
+                            None,
+                            None,
+                        ),
+                    )
+                    clear_header_with_notification(
+                        password_manager,
+                        fp,
+                        "Main Menu > Add Entry",
+                        parent_fingerprint=parent_fp,
+                        child_fingerprint=child_fp,
+                    )
+                    print(color_text("\nAdd Entry:", "menu"))
+                    print(color_text("1. Password", "menu"))
+                    print(color_text("2. 2FA (TOTP)", "menu"))
+                    print(color_text("3. SSH Key", "menu"))
+                    print(color_text("4. Seed Phrase", "menu"))
+                    print(color_text("5. Nostr Key Pair", "menu"))
+                    print(color_text("6. PGP Key", "menu"))
+                    print(color_text("7. Key/Value", "menu"))
+                    print(color_text("8. Managed Account", "menu"))
+                    sub_choice = input(
+                        "Select entry type or press Enter to go back: "
+                    ).strip()
+                    password_manager.update_activity()
+                    if sub_choice == "1":
+                        password_manager.handle_add_password()
+                        break
+                    elif sub_choice == "2":
+                        password_manager.handle_add_totp()
+                        break
+                    elif sub_choice == "3":
+                        password_manager.handle_add_ssh_key()
+                        break
+                    elif sub_choice == "4":
+                        password_manager.handle_add_seed()
+                        break
+                    elif sub_choice == "5":
+                        password_manager.handle_add_nostr_key()
+                        break
+                    elif sub_choice == "6":
+                        password_manager.handle_add_pgp()
+                        break
+                    elif sub_choice == "7":
+                        password_manager.handle_add_key_value()
+                        break
+                    elif sub_choice == "8":
+                        password_manager.handle_add_managed_account()
+                        break
+                    elif not sub_choice:
+                        break
+                    else:
+                        print(colored("Invalid choice.", "red"))
+            elif choice == "2":
                 password_manager.update_activity()
-                if sub_choice == "1":
-                    password_manager.handle_add_password()
-                    break
-                elif sub_choice == "2":
-                    password_manager.handle_add_totp()
-                    break
-                elif sub_choice == "3":
-                    password_manager.handle_add_ssh_key()
-                    break
-                elif sub_choice == "4":
-                    password_manager.handle_add_seed()
-                    break
-                elif sub_choice == "5":
-                    password_manager.handle_add_nostr_key()
-                    break
-                elif sub_choice == "6":
-                    password_manager.handle_add_pgp()
-                    break
-                elif sub_choice == "7":
-                    password_manager.handle_add_key_value()
-                    break
-                elif sub_choice == "8":
-                    password_manager.handle_add_managed_account()
-                    break
-                elif not sub_choice:
-                    break
-                else:
-                    print(colored("Invalid choice.", "red"))
-        elif choice == "2":
-            password_manager.update_activity()
-            password_manager.handle_retrieve_entry()
-        elif choice == "3":
-            password_manager.update_activity()
-            password_manager.handle_search_entries()
-        elif choice == "4":
-            password_manager.update_activity()
-            password_manager.handle_list_entries()
-        elif choice == "5":
-            password_manager.update_activity()
-            password_manager.handle_modify_entry()
-        elif choice == "6":
-            password_manager.update_activity()
-            password_manager.handle_display_totp_codes()
-        elif choice == "7":
-            password_manager.update_activity()
-            handle_settings(password_manager)
-        elif choice == "8":
-            password_manager.update_activity()
-            password_manager.handle_view_archived_entries()
-        else:
-            print(colored("Invalid choice. Please select a valid option.", "red"))
+                password_manager.handle_retrieve_entry()
+            elif choice == "3":
+                password_manager.update_activity()
+                password_manager.handle_search_entries()
+            elif choice == "4":
+                password_manager.update_activity()
+                password_manager.handle_list_entries()
+            elif choice == "5":
+                password_manager.update_activity()
+                password_manager.handle_modify_entry()
+            elif choice == "6":
+                password_manager.update_activity()
+                password_manager.handle_display_totp_codes()
+            elif choice == "7":
+                password_manager.update_activity()
+                handle_settings(password_manager)
+            elif choice == "8":
+                password_manager.update_activity()
+                password_manager.handle_view_archived_entries()
+            else:
+                print(colored("Invalid choice. Please select a valid option.", "red"))
+        except PasswordPromptError as exc:
+            logging.warning("Action cancelled by user: %s", exc)
+            print(colored(f"Action cancelled: {exc}", "yellow"))
+            pause()
+        except SeedPassError as exc:
+            logging.error("Menu action failed: %s", exc, exc_info=True)
+            print(colored(f"Action failed: {exc}", "red"))
+            pause()
+        except Exception as exc:
+            logging.error("Unhandled menu action error: %s", exc, exc_info=True)
+            print(colored(f"Unexpected menu error: {exc}", "red"))
+            pause()
 
 
 def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> int:
@@ -1353,67 +1476,98 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         password_manager.deterministic_totp = True
 
     if args.command == "export":
-        password_manager.handle_export_database(
-            Path(args.file), encrypt=not args.unencrypted
-        )
-        return 0
-    if args.command == "import":
-        password_manager.handle_import_database(Path(args.file))
-        return 0
-    if args.command == "search":
-        matches = password_manager.entry_manager.search_entries(args.query)
-        if matches:
-            print_matches(password_manager, matches)
-        else:
-            print(colored("No matching entries found.", "yellow"))
-        return 0
-    if args.command == "get":
-        matches = password_manager.entry_manager.search_entries(args.query)
-        if len(matches) != 1:
-            if not matches:
-                print(colored("No matching entries found.", "yellow"))
-            else:
-                print_matches(password_manager, matches)
+        if not args.file:
+            print(colored("Error: --file is required for export.", "red"))
             return 1
-        idx = matches[0][0]
-        entry = password_manager.entry_manager.retrieve_entry(idx)
-        if entry.get("type", EntryType.PASSWORD.value) != EntryType.PASSWORD.value:
-            print(colored("Entry is not a password entry.", "red"))
-            return 1
-        length = int(entry.get("length", 0))
-        pw = password_manager.password_generator.generate_password(length, idx)
-        print(pw)
-        return 0
-    if args.command == "totp":
-        matches = password_manager.entry_manager.search_entries(args.query)
-        if len(matches) != 1:
-            if not matches:
-                print(colored("No matching entries found.", "yellow"))
-            else:
-                print_matches(password_manager, matches)
-            return 1
-        idx = matches[0][0]
-        entry = password_manager.entry_manager.retrieve_entry(idx)
-        if entry.get("type") != EntryType.TOTP.value:
-            print(colored("Entry is not a TOTP entry.", "red"))
-            return 1
-        key = getattr(password_manager, "KEY_TOTP_DET", None) or getattr(
-            password_manager, "parent_seed", None
-        )
-        code = password_manager.entry_manager.get_totp_code(idx, key)
-        print(code)
         try:
-            if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
-                print(colored("Code copied to clipboard", "green"))
-        except ClipboardUnavailableError as exc:
-            print(
-                colored(
-                    f"Clipboard unavailable: {exc}\n"
-                    "Re-run with '--no-clipboard' to print codes instead.",
-                    "yellow",
-                )
+            password_manager.handle_export_database(
+                Path(args.file), encrypt=not args.unencrypted
             )
-        return 0
+            return 0
+        except Exception as exc:
+            logger.error("Export command failed: %s", exc, exc_info=True)
+            print(colored(f"Error: Export failed: {exc}", "red"))
+            return 1
+    if args.command == "import":
+        if not args.file:
+            print(colored("Error: --file is required for import.", "red"))
+            return 1
+        try:
+            password_manager.handle_import_database(Path(args.file))
+            return 0
+        except Exception as exc:
+            logger.error("Import command failed: %s", exc, exc_info=True)
+            print(colored(f"Error: Import failed: {exc}", "red"))
+            return 1
+    if args.command == "search":
+        try:
+            matches = password_manager.entry_manager.search_entries(args.query)
+            if matches:
+                print_matches(password_manager, matches)
+            else:
+                print(colored("No matching entries found.", "yellow"))
+            return 0
+        except Exception as exc:
+            logger.error("Search command failed: %s", exc, exc_info=True)
+            print(colored(f"Error: Search failed: {exc}", "red"))
+            return 1
+    if args.command == "get":
+        try:
+            matches = password_manager.entry_manager.search_entries(args.query)
+            if len(matches) != 1:
+                if not matches:
+                    print(colored("No matching entries found.", "yellow"))
+                else:
+                    print_matches(password_manager, matches)
+                return 1
+            idx = matches[0][0]
+            entry = password_manager.entry_manager.retrieve_entry(idx)
+            if entry.get("type", EntryType.PASSWORD.value) != EntryType.PASSWORD.value:
+                print(colored("Entry is not a password entry.", "red"))
+                return 1
+            length = int(entry.get("length", 0))
+            pw = password_manager.password_generator.generate_password(length, idx)
+            print(pw)
+            return 0
+        except Exception as exc:
+            logger.error("Get command failed: %s", exc, exc_info=True)
+            print(colored(f"Error: Get failed: {exc}", "red"))
+            return 1
+    if args.command == "totp":
+        try:
+            matches = password_manager.entry_manager.search_entries(args.query)
+            if len(matches) != 1:
+                if not matches:
+                    print(colored("No matching entries found.", "yellow"))
+                else:
+                    print_matches(password_manager, matches)
+                return 1
+            idx = matches[0][0]
+            entry = password_manager.entry_manager.retrieve_entry(idx)
+            if entry.get("type") != EntryType.TOTP.value:
+                print(colored("Entry is not a TOTP entry.", "red"))
+                return 1
+            key = getattr(password_manager, "KEY_TOTP_DET", None) or getattr(
+                password_manager, "parent_seed", None
+            )
+            code = password_manager.entry_manager.get_totp_code(idx, key)
+            print(code)
+            try:
+                if copy_to_clipboard(code, password_manager.clipboard_clear_delay):
+                    print(colored("Code copied to clipboard", "green"))
+            except ClipboardUnavailableError as exc:
+                print(
+                    colored(
+                        f"Clipboard unavailable: {exc}\n"
+                        "Re-run with '--no-clipboard' to print codes instead.",
+                        "yellow",
+                    )
+                )
+            return 0
+        except Exception as exc:
+            logger.error("TOTP command failed: %s", exc, exc_info=True)
+            print(colored(f"Error: TOTP retrieval failed: {exc}", "red"))
+            return 1
 
     def signal_handler(sig, _frame):
         print(colored("\nReceived shutdown signal. Exiting gracefully...", "yellow"))
