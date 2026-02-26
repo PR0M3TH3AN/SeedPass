@@ -2908,7 +2908,7 @@ class PasswordManager:
         self.menu_handler.run_menu(
             "Edit Entry",
             get_options,
-            prompt="Select option or press Enter to go back: "
+            prompt="Select option or press Enter to go back: ",
         )
 
     def _entry_qr_menu(self, index: int, entry: dict) -> None:
@@ -2942,14 +2942,18 @@ class PasswordManager:
                         current_entry = refreshed
 
                 def show_public_key():
-                    npub, _ = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+                    npub, _ = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
                     print(colored(f"npub: {npub}", "cyan"))
                     TotpManager.print_qr_code(f"nostr:{npub}")
                     pause()
                     refresh_entry()
 
                 def show_private_key():
-                    _, nsec = self.entry_manager.get_nostr_key_pair(index, self.parent_seed)
+                    _, nsec = self.entry_manager.get_nostr_key_pair(
+                        index, self.parent_seed
+                    )
                     print(color_text(f"nsec: {nsec}", "deterministic"))
                     TotpManager.print_qr_code(nsec)
                     pause()
@@ -2964,7 +2968,7 @@ class PasswordManager:
                 self.menu_handler.run_menu(
                     "QR Codes",
                     get_options,
-                    prompt="Select option or press Enter to return: "
+                    prompt="Select option or press Enter to return: ",
                 )
                 return
 
