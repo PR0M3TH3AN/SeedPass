@@ -732,14 +732,18 @@ async def import_vault(
                 status_code=413,
                 detail=f"Uploaded file exceeds max size of {_MAX_IMPORT_BYTES} bytes",
             )
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(data)
-            tmp_path = Path(tmp.name)
-        os.chmod(tmp_path, 0o600)
-        try:
-            pm.handle_import_database(tmp_path)
-        finally:
-            os.unlink(tmp_path)
+
+        def _handle_upload(file_data: bytes) -> None:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(file_data)
+                tmp_path = Path(tmp.name)
+            os.chmod(tmp_path, 0o600)
+            try:
+                pm.handle_import_database(tmp_path)
+            finally:
+                os.unlink(tmp_path)
+
+        await asyncio.to_thread(_handle_upload, data)
     else:
         body = await request.json()
         path_str = body.get("path")
@@ -754,8 +758,13 @@ async def import_vault(
                 detail="Selected file must be a '.json.enc' backup",
             )
 
-        pm.handle_import_database(path)
-    pm.sync_vault()
+        await asyncio.to_thread(pm.handle_import_database, path)
+
+    if hasattr(pm, "sync_vault_async"):
+        await pm.sync_vault_async()
+    else:
+        # Fallback for older PM implementations or mocks
+        await asyncio.to_thread(pm.sync_vault)
     return {"status": "ok"}
 
 
