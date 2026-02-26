@@ -9,10 +9,7 @@ from termcolor import colored
 
 from seedpass.core.entry_types import EntryType
 from seedpass.core.totp import TotpManager
-from utils.clipboard import copy_to_clipboard
 from utils.color_scheme import color_text
-from utils.input_utils import timed_input
-from utils.password_prompt import confirm_action
 
 if TYPE_CHECKING:
     from seedpass.core.manager import PasswordManager
@@ -25,6 +22,25 @@ class DisplayService:
 
     def __init__(self, manager: PasswordManager) -> None:
         self.manager = manager
+
+    @staticmethod
+    def _manager_module():
+        # Route interactive helpers through seedpass.core.manager so tests
+        # can monkeypatch one module surface consistently.
+        from seedpass.core import manager as manager_module
+
+        return manager_module
+
+    def _confirm_action(self, prompt_message: str) -> bool:
+        return self._manager_module().confirm_action(prompt_message)
+
+    def _copy_to_clipboard(self, value: str) -> bool:
+        return self._manager_module().copy_to_clipboard(
+            value, self.manager.clipboard_clear_delay
+        )
+
+    def _timed_input(self, prompt: str, timeout: float) -> str:
+        return self._manager_module().timed_input(prompt, timeout)
 
     def display_sensitive_entry_info(self, entry: dict, index: int) -> None:
         """Display information for a sensitive entry.
@@ -70,7 +86,7 @@ class DisplayService:
             while True:
                 code = TotpManager.current_code_from_secret(secret)
                 if self.manager.secret_mode_enabled:
-                    if copy_to_clipboard(code, self.manager.clipboard_clear_delay):
+                    if self._copy_to_clipboard(code):
                         print(
                             colored(
                                 f"[+] 2FA code for '{label}' copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -96,7 +112,7 @@ class DisplayService:
                     sys.stdout.write(f"\r{bar} {remaining:2d}s")
                     sys.stdout.flush()
                     try:
-                        user_input = timed_input("", 1)
+                        user_input = self._timed_input("", 1)
                         if (
                             user_input.strip() == ""
                             or user_input.strip().lower() == "b"
@@ -121,7 +137,7 @@ class DisplayService:
     def _display_ssh(self, entry: dict, index: int) -> None:
         notes = entry.get("notes", "")
         label = entry.get("label", "")
-        if not confirm_action(
+        if not self._confirm_action(
             "WARNING: Displaying SSH keys reveals sensitive information. Continue? (Y/N): "
         ):
             self.manager.notify("SSH key display cancelled.", level="WARNING")
@@ -141,7 +157,7 @@ class DisplayService:
             print(colored("Public Key:", "cyan"))
             print(color_text(pub_pem, "default"))
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(priv_pem, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(priv_pem):
                     print(
                         colored(
                             f"[+] SSH private key copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -158,7 +174,7 @@ class DisplayService:
     def _display_seed(self, entry: dict, index: int) -> None:
         notes = entry.get("notes", "")
         label = entry.get("label", "")
-        if not confirm_action(
+        if not self._confirm_action(
             "WARNING: Displaying the seed phrase reveals sensitive information. Continue? (Y/N): "
         ):
             self.manager.notify("Seed phrase display cancelled.", level="WARNING")
@@ -177,7 +193,7 @@ class DisplayService:
             if tags:
                 print(colored(f"Tags: {', '.join(tags)}", "cyan"))
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(phrase, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(phrase):
                     print(
                         colored(
                             f"[+] Seed phrase copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -186,7 +202,7 @@ class DisplayService:
                     )
             else:
                 print(color_text(phrase, "deterministic"))
-            if confirm_action("Show derived entropy as hex? (Y/N): "):
+            if self._confirm_action("Show derived entropy as hex? (Y/N): "):
                 from local_bip85.bip85 import BIP85
                 from bip_utils import Bip39SeedGenerator
 
@@ -208,7 +224,7 @@ class DisplayService:
     def _display_pgp(self, entry: dict, index: int) -> None:
         notes = entry.get("notes", "")
         label = entry.get("user_id", "")
-        if not confirm_action(
+        if not self._confirm_action(
             "WARNING: Displaying the PGP key reveals sensitive information. Continue? (Y/N): "
         ):
             self.manager.notify("PGP key display cancelled.", level="WARNING")
@@ -227,7 +243,7 @@ class DisplayService:
                 print(colored(f"Tags: {', '.join(tags)}", "cyan"))
             print(colored(f"Fingerprint: {fingerprint}", "cyan"))
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(priv_key, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(priv_key):
                     print(
                         colored(
                             f"[+] PGP key copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -251,7 +267,7 @@ class DisplayService:
             print(colored(f"Label: {label}", "cyan"))
             print(colored(f"npub: {npub}", "cyan"))
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(nsec, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(nsec):
                     print(
                         colored(
                             f"[+] nsec copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -286,7 +302,7 @@ class DisplayService:
             )
         )
         if self.manager.secret_mode_enabled:
-            if copy_to_clipboard(value, self.manager.clipboard_clear_delay):
+            if self._copy_to_clipboard(value):
                 print(
                     colored(
                         f"[+] Value copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -313,9 +329,7 @@ class DisplayService:
                 if show == "y":
                     for f_label, f_value in hidden_fields:
                         if self.manager.secret_mode_enabled:
-                            if copy_to_clipboard(
-                                f_value, self.manager.clipboard_clear_delay
-                            ):
+                            if self._copy_to_clipboard(f_value):
                                 print(
                                     colored(
                                         f"[+] {f_label} copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -355,7 +369,7 @@ class DisplayService:
                 index, self.manager.parent_seed
             )
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(seed, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(seed):
                     print(
                         colored(
                             f"[+] Seed phrase copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -398,7 +412,7 @@ class DisplayService:
 
         if password:
             if self.manager.secret_mode_enabled:
-                if copy_to_clipboard(password, self.manager.clipboard_clear_delay):
+                if self._copy_to_clipboard(password):
                     print(
                         colored(
                             f"[+] Password for '{website_name}' copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
@@ -443,9 +457,7 @@ class DisplayService:
                         if show == "y":
                             for label, value in hidden_fields:
                                 if self.manager.secret_mode_enabled:
-                                    if copy_to_clipboard(
-                                        value, self.manager.clipboard_clear_delay
-                                    ):
+                                    if self._copy_to_clipboard(value):
                                         print(
                                             colored(
                                                 f"[+] {label} copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",

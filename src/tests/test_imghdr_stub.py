@@ -1,5 +1,12 @@
 import pytest
 import io
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="'imghdr' is deprecated and will be removed in Python 3.13",
+    category=DeprecationWarning,
+)
 from utils.imghdr_stub import what
 
 

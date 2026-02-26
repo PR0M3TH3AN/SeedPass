@@ -72,6 +72,18 @@ python_version = "3.11"
 strict = true
 mypy_path = "src"
 
+[tool.pytest.ini_options]
+markers = [
+    "network: tests that require network access",
+]
+filterwarnings = [
+    "ignore:'imghdr' is deprecated and slated for removal in Python 3.13:DeprecationWarning:pgpy.constants",
+    "ignore:'imghdr' is deprecated and will be removed in Python 3.13:DeprecationWarning:src.tests.test_imghdr_stub",
+    "ignore:'imghdr' is deprecated and will be removed in Python 3.13:DeprecationWarning",
+    "ignore:Pack.padding_top is deprecated. Use Pack.margin_top instead.:DeprecationWarning",
+    "ignore:Pack.padding is deprecated. Use Pack.margin instead.:DeprecationWarning",
+]
+
 [tool.briefcase]
 project_name = "SeedPass"
 bundle = "io.seedpass"
