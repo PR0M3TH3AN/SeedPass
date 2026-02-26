@@ -1,0 +1,18 @@
+{
+  "cadence": "daily",
+  "operation": "store",
+  "runId": "session-mm2fxxx0",
+  "servicePath": "src/services/memory/index.js#ingestEvents",
+  "inputs": {
+    "agentId": "design-system-audit-agent",
+    "promptPath": "/home/user/Documents/GitHub/SeedPass/torch/src/prompts/daily/design-system-audit-agent.md",
+    "promptIntent": "Required startup + artifacts + memory + issue capture",
+    "events": 0,
+    "sourceFile": "none"
+  },
+  "outputs": {
+    "storedCount": 0,
+    "summaries": []
+  },
+  "status": "ok"
+}
