@@ -56,6 +56,27 @@ INACTIVITY_TIMEOUT = 15 * 60  # 15 minutes
 NOTIFICATION_DURATION = 10
 
 # -----------------------------------
+# GUI Backend Configuration
+# -----------------------------------
+GUI_BACKEND_CONFIG = {
+    "linux": {
+        "pkg": "toga-gtk",
+        "version": "0.5.2",
+        "sha256": "15b346ac1a2584de5effe5e73a3888f055c68c93300aeb111db9d64186b31646",
+    },
+    "win32": {
+        "pkg": "toga-winforms",
+        "version": "0.5.2",
+        "sha256": "83181309f204bcc4a34709d23fdfd68467ae8ecc39c906d13c661cb9a0ef581b",
+    },
+    "darwin": {
+        "pkg": "toga-cocoa",
+        "version": "0.5.2",
+        "sha256": "a4d5d1546bf92372a6fb1b450164735fb107b2ee69d15bf87421fec3c78465f9",
+    },
+}
+
+# -----------------------------------
 # Additional Constants (if any)
 # -----------------------------------
 # Add any other constants here as your project expands
