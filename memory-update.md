@@ -74,3 +74,9 @@
   - `starlette==0.47.3`
 - Verified the installer-critical step succeeds in a fresh virtualenv:
   - `python -m pip install --require-hashes -r requirements.lock`
+
+## TORCH Windows Checkout Fix (2026-02-26)
+- Root cause: tracked TORCH artifact filenames used `:` in timestamps (e.g. `CONTEXT_2026-02-15T01:03:31Z.md`), which Windows cannot checkout.
+- Confirmed scheduler/runtime already emits Windows-safe scheduler/memory filenames (`HH-mm-ss`), and backup folder names were already sanitized.
+- Removed all tracked colon-variant duplicates under `torch/src/*` and `torch/_backups/*` where matching dash-variant files already existed.
+- Validation: `git ls-files | rg ':'` now returns no results.
