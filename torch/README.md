@@ -23,7 +23,7 @@ Prerequisites:
 First 5 minutes:
 
 ```bash
-npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz \
+npm install https://github.com/PR0M3TH3AN/TORCH/archive/<commit-sha>.tar.gz --force \
   && npx --no-install torch-lock init
 
 # sanity check (optional, but recommended)
@@ -33,14 +33,17 @@ npx --no-install torch-lock check --cadence daily
 npx --no-install torch-lock dashboard --port 4173 --host 127.0.0.1
 ```
 
+`torch-lock init` and `torch-lock update` now auto-upsert the `## TORCH Memory Integration` block into root-level `AGENTS.md` and `CLAUDE.md` (and create `AGENTS.md` if neither file exists).
+
 > TORCH is distributed from GitHub tarballs and is not currently published to the npm registry.
+> Use pinned commit tarballs (`archive/<commit-sha>.tar.gz`) for repeatable installs. Avoid `refs/heads/main.tar.gz` for production rollouts.
 
 ### Upgrade TORCH In An Existing Repository
 
 Use this when the repository already has a `torch/` directory:
 
 ```bash
-npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz
+npm install https://github.com/PR0M3TH3AN/TORCH/archive/<commit-sha>.tar.gz --force
 npx --no-install torch-lock update --force
 npm install --prefix torch
 npm run --prefix torch lock:check:daily -- --json --quiet
@@ -49,7 +52,7 @@ npm run --prefix torch lock:check:daily -- --json --quiet
 Use this for first-time setup in a repository without `torch/`:
 
 ```bash
-npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz
+npm install https://github.com/PR0M3TH3AN/TORCH/archive/<commit-sha>.tar.gz --force
 npx --no-install torch-lock init --force
 npm install --prefix torch
 npm run --prefix torch lock:check:daily -- --json --quiet
@@ -58,7 +61,7 @@ npm run --prefix torch lock:check:daily -- --json --quiet
 One-liner (auto-detect existing vs new install):
 
 ```bash
-npm install https://github.com/PR0M3TH3AN/TORCH/archive/refs/heads/main.tar.gz && \
+npm install https://github.com/PR0M3TH3AN/TORCH/archive/<commit-sha>.tar.gz --force && \
 if [ -d torch ]; then npx --no-install torch-lock update --force; else npx --no-install torch-lock init --force; fi && \
 npm install --prefix torch && \
 npm run --prefix torch lock:check:daily -- --json --quiet
@@ -71,6 +74,9 @@ Post-upgrade validation checklist:
 3. Confirm host install dependencies exist: `test -d torch/node_modules`.
 4. Run one scheduler cycle (expected to fail on Linux simulation due to artifact checks, but not due to missing config/handoff):
    - `AGENT_PLATFORM=linux npm run --prefix torch scheduler:daily`
+5. Verify installed package matches expected resolver behavior:
+   - `rg -n "cwdBaseName === 'torch' && fs.existsSync\\(parentPath\\)" node_modules/torch-lock/src/torch-config.mjs`
+   - `rg -n "cwdBaseName === 'torch' && fs.existsSync\\(parentPath\\)" torch/src/torch-config.mjs`
 
 ## Development
 
@@ -114,6 +120,9 @@ npx --no-install torch-lock init
 
 # Update TORCH configuration and scripts
 npx --no-install torch-lock update
+
+# Validate setup and print actionable fixes
+npx --no-install torch-lock doctor
 
 # Remove TORCH completely from this project
 npx --no-install torch-lock remove

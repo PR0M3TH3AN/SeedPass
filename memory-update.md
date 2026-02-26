@@ -80,3 +80,8 @@
 - Confirmed scheduler/runtime already emits Windows-safe scheduler/memory filenames (`HH-mm-ss`), and backup folder names were already sanitized.
 - Removed all tracked colon-variant duplicates under `torch/src/*` and `torch/_backups/*` where matching dash-variant files already existed.
 - Validation: `git ls-files | rg ':'` now returns no results.
+
+## TORCH Update + Windows Filename Validation (2026-02-26)
+- Updated TORCH package to `1e3f88e` via tarball install, then ran `torch-lock update --force` and `npm install --prefix torch`.
+- Quick validation passed: `npm run --prefix torch lock:check:daily -- --json --quiet` returned `lockCount: 0` with a full available roster.
+- Windows compatibility check passed: `git ls-files | rg ':'` returned no tracked paths.

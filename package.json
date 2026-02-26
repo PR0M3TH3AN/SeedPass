@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "torch-lock": "https://github.com/PR0M3TH3AN/TORCH/archive/8894d40.tar.gz"
+    "torch-lock": "https://github.com/PR0M3TH3AN/TORCH/archive/1e3f88e.tar.gz"
   },
   "scripts": {
     "torch:dashboard": "npm run --prefix torch dashboard:serve",
