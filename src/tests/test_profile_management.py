@@ -10,6 +10,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 from utils.fingerprint_manager import FingerprintManager
+import utils.password_prompt
 import constants
 import seedpass.core.manager as manager_module
 from seedpass.core.vault import Vault
@@ -24,8 +25,23 @@ def test_add_and_delete_entry(monkeypatch):
         tmp_path = Path(tmpdir)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-        importlib.reload(constants)
-        importlib.reload(manager_module)
+        app_dir = tmp_path / ".seedpass"
+        monkeypatch.setattr(constants, "APP_DIR", app_dir)
+        monkeypatch.setattr(manager_module, "APP_DIR", app_dir)
+        monkeypatch.setattr(constants, "PARENT_SEED_FILE", app_dir / "parent_seed.enc")
+        monkeypatch.setattr(
+            manager_module, "PARENT_SEED_FILE", app_dir / "parent_seed.enc"
+        )
+        monkeypatch.setattr(
+            constants,
+            "SCRIPT_CHECKSUM_FILE",
+            app_dir / "seedpass_script_checksum.txt",
+        )
+        monkeypatch.setattr(
+            manager_module,
+            "SCRIPT_CHECKSUM_FILE",
+            app_dir / "seedpass_script_checksum.txt",
+        )
 
         pm = manager_module.PasswordManager.__new__(manager_module.PasswordManager)
         pm.encryption_mode = EncryptionMode.SEED_ONLY
@@ -41,6 +57,8 @@ def test_add_and_delete_entry(monkeypatch):
             manager_module.PasswordManager, "generate_bip85_seed", lambda self: seed
         )
         monkeypatch.setattr(manager_module, "confirm_action", lambda *_a, **_k: True)
+        # Ensure masked_input uses builtins.input (mocked below) instead of msvcrt on Windows
+        monkeypatch.setattr(utils.password_prompt, "masked_input", lambda p: input(p))
         monkeypatch.setattr("builtins.input", lambda *_a, **_k: "3")
 
         pm.add_new_fingerprint()
