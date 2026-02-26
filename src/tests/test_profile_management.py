@@ -47,11 +47,14 @@ def test_add_and_delete_entry(monkeypatch):
             utils.password_prompt, "confirm_action", lambda *_a, **_k: True
         )
 
-        # Use an iterator for input to prevent infinite loops if logic fails
-        # Expectation:
-        # 1. "3" for add_new_fingerprint choice
-        # 2. (confirm_action shouldn't ask input if mocked)
-        input_values = iter(["3", "3", "3", "3", "3"])  # Buffer for safety
+        # Robust input mock:
+        # 1. "3" -> Select "Generate a new seed"
+        # 2. "y" -> Confirm action (fallback if confirm_action mock missed)
+        # 3. "y" -> Confirm again (fallback)
+        # 4. "y" -> Confirm again (fallback)
+        # 5. "y" -> Confirm again (fallback)
+        # Using "y" breaks the loop in confirm_action if it gets called.
+        input_values = iter(["3", "y", "y", "y", "y"])
         monkeypatch.setattr("builtins.input", lambda *_a, **_k: next(input_values))
 
         pm.add_new_fingerprint()
