@@ -1677,127 +1677,13 @@ class PasswordManager:
             # Derive sub-keys if needed
             self.ensure_key_hierarchy()
 
-            # Reinitialize the managers with the updated EncryptionManager and current fingerprint context
-            self.config_manager = ConfigManager(
-                vault=self.vault,
-                fingerprint_dir=self.fingerprint_dir,
+            self._initialize_config_and_state()
+            migrated, last_migration_performed, index_exists = (
+                self._initialize_entry_manager()
             )
-            self.state_manager = StateManager(self.fingerprint_dir)
-            self.backup_manager = BackupManager(
-                fingerprint_dir=self.fingerprint_dir,
-                config_manager=self.config_manager,
-            )
-
-            migrated = False
-            last_migration_performed = False
-            index_exists = (
-                self.vault.index_file.exists()
-                or (
-                    self.vault.fingerprint_dir / "seedpass_passwords_db.json.enc"
-                ).exists()
-            )
-            try:
-                _, migrated, last_migration_performed = self.vault.load_index(
-                    return_migration_flags=True
-                )
-            except RuntimeError as exc:
-                print(colored(str(exc), "red"))
-                raise SeedPassError(str(exc))
-
-            self.entry_manager = EntryManager(
-                vault=self.vault,
-                backup_manager=self.backup_manager,
-            )
-
-            pw_bip85 = BIP85(self.KEY_PW_DERIVE)
-            self.password_generator = PasswordGenerator(
-                encryption_manager=self.encryption_manager,
-                parent_seed=self.KEY_PW_DERIVE,
-                bip85=pw_bip85,
-                policy=self.config_manager.get_password_policy(),
-            )
-
-            # Load relay configuration and initialize NostrClient
-            config = self.config_manager.load_config()
-            if getattr(self, "state_manager", None) is not None:
-                state = self.state_manager.state
-                relay_list = state.get("relays", list(DEFAULT_RELAYS))
-                self.last_bip85_idx = state.get("last_bip85_idx", 0)
-                self.last_sync_ts = state.get("last_sync_ts", 0)
-                self.manifest_id = state.get("manifest_id")
-                self.delta_since = state.get("delta_since", 0)
-                self.nostr_account_idx = state.get("nostr_account_idx", 0)
-            else:
-                relay_list = list(DEFAULT_RELAYS)
-                self.last_bip85_idx = 0
-                self.last_sync_ts = 0
-                self.manifest_id = None
-                self.delta_since = 0
-                self.nostr_account_idx = 0
-            self.offline_mode = bool(config.get("offline_mode", True))
-            self.inactivity_timeout = config.get(
-                "inactivity_timeout", INACTIVITY_TIMEOUT
-            )
-            self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
-            self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
-            self.verbose_timing = bool(config.get("verbose_timing", False))
-            if not self.offline_mode:
-                print("Connecting to relays...")
-            self.nostr_client = NostrClient(
-                encryption_manager=self.encryption_manager,
-                fingerprint=self.current_fingerprint,
-                relays=relay_list,
-                offline_mode=self.offline_mode,
-                config_manager=self.config_manager,
-                parent_seed=getattr(self, "parent_seed", None),
-                key_index=self.KEY_INDEX,
-                account_index=self.nostr_account_idx,
-            )
-
-            if getattr(self, "manifest_id", None) and hasattr(
-                self.nostr_client, "_state_lock"
-            ):
-                from nostr.backup_models import Manifest
-
-                with self.nostr_client._state_lock:
-                    self.nostr_client.current_manifest_id = self.manifest_id
-                    self.nostr_client.current_manifest = Manifest(
-                        ver=1,
-                        algo="gzip",
-                        chunks=[],
-                        delta_since=self.delta_since or None,
-                    )
-
-            if migrated and index_exists:
-                print(colored("Local database migration successful.", "green"))
-                if self.encryption_manager is not None:
-                    self.encryption_manager.last_migration_performed = False
-                if last_migration_performed and not self.offline_mode:
-                    if confirm_action(
-                        "Do you want to sync the migrated profile to Nostr now?"
-                    ):
-                        result = self.sync_vault()
-                        if result:
-                            print(
-                                colored(
-                                    "Profile synchronized to Nostr successfully.",
-                                    "green",
-                                )
-                            )
-                        else:
-                            print(
-                                colored(
-                                    "Error: Failed to sync profile to Nostr.",
-                                    "red",
-                                )
-                            )
-                    else:
-                        print(
-                            colored(
-                                "You can sync the migrated profile later from the main menu.",
-                                "yellow",
-                            )
-                        )
+            self._initialize_password_generator()
+            self._initialize_nostr_client()
+            self._handle_migration(migrated, last_migration_performed, index_exists)
 
             logger.debug("Managers re-initialized for the new fingerprint.")
 
@@ -1805,6 +1691,140 @@ class PasswordManager:
             logger.error(f"Failed to initialize managers: {e}", exc_info=True)
             print(colored(f"Error: Failed to initialize managers: {e}", "red"))
             raise SeedPassError(f"Failed to initialize managers: {e}") from e
+
+    def _initialize_config_and_state(self) -> None:
+        """Initialize configuration, state, and backup managers."""
+        self.config_manager = ConfigManager(
+            vault=self.vault,
+            fingerprint_dir=self.fingerprint_dir,
+        )
+        self.state_manager = StateManager(self.fingerprint_dir)
+        self.backup_manager = BackupManager(
+            fingerprint_dir=self.fingerprint_dir,
+            config_manager=self.config_manager,
+        )
+
+    def _initialize_entry_manager(self) -> tuple[bool, bool, bool]:
+        """
+        Initialize the entry manager and load the vault index.
+
+        Returns:
+            tuple: (migrated, last_migration_performed, index_exists)
+        """
+        migrated = False
+        last_migration_performed = False
+        index_exists = (
+            self.vault.index_file.exists()
+            or (self.vault.fingerprint_dir / "seedpass_passwords_db.json.enc").exists()
+        )
+        try:
+            _, migrated, last_migration_performed = self.vault.load_index(
+                return_migration_flags=True
+            )
+        except RuntimeError as exc:
+            print(colored(str(exc), "red"))
+            raise SeedPassError(str(exc))
+
+        self.entry_manager = EntryManager(
+            vault=self.vault,
+            backup_manager=self.backup_manager,
+        )
+        return migrated, last_migration_performed, index_exists
+
+    def _initialize_password_generator(self) -> None:
+        """Initialize the password generator."""
+        pw_bip85 = BIP85(self.KEY_PW_DERIVE)
+        self.password_generator = PasswordGenerator(
+            encryption_manager=self.encryption_manager,
+            parent_seed=self.KEY_PW_DERIVE,
+            bip85=pw_bip85,
+            policy=self.config_manager.get_password_policy(),
+        )
+
+    def _initialize_nostr_client(self) -> None:
+        """Load relay configuration and initialize NostrClient."""
+        config = self.config_manager.load_config()
+        if getattr(self, "state_manager", None) is not None:
+            state = self.state_manager.state
+            relay_list = state.get("relays", list(DEFAULT_RELAYS))
+            self.last_bip85_idx = state.get("last_bip85_idx", 0)
+            self.last_sync_ts = state.get("last_sync_ts", 0)
+            self.manifest_id = state.get("manifest_id")
+            self.delta_since = state.get("delta_since", 0)
+            self.nostr_account_idx = state.get("nostr_account_idx", 0)
+        else:
+            relay_list = list(DEFAULT_RELAYS)
+            self.last_bip85_idx = 0
+            self.last_sync_ts = 0
+            self.manifest_id = None
+            self.delta_since = 0
+            self.nostr_account_idx = 0
+        self.offline_mode = bool(config.get("offline_mode", True))
+        self.inactivity_timeout = config.get("inactivity_timeout", INACTIVITY_TIMEOUT)
+        self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
+        self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
+        self.verbose_timing = bool(config.get("verbose_timing", False))
+        if not self.offline_mode:
+            print("Connecting to relays...")
+        self.nostr_client = NostrClient(
+            encryption_manager=self.encryption_manager,
+            fingerprint=self.current_fingerprint,
+            relays=relay_list,
+            offline_mode=self.offline_mode,
+            config_manager=self.config_manager,
+            parent_seed=getattr(self, "parent_seed", None),
+            key_index=self.KEY_INDEX,
+            account_index=self.nostr_account_idx,
+        )
+
+        if getattr(self, "manifest_id", None) and hasattr(
+            self.nostr_client, "_state_lock"
+        ):
+            from nostr.backup_models import Manifest
+
+            with self.nostr_client._state_lock:
+                self.nostr_client.current_manifest_id = self.manifest_id
+                self.nostr_client.current_manifest = Manifest(
+                    ver=1,
+                    algo="gzip",
+                    chunks=[],
+                    delta_since=self.delta_since or None,
+                )
+
+    def _handle_migration(
+        self, migrated: bool, last_migration_performed: bool, index_exists: bool
+    ) -> None:
+        """Handle database migration notifications and sync."""
+        if migrated and index_exists:
+            print(colored("Local database migration successful.", "green"))
+            if self.encryption_manager is not None:
+                self.encryption_manager.last_migration_performed = False
+            if last_migration_performed and not self.offline_mode:
+                if confirm_action(
+                    "Do you want to sync the migrated profile to Nostr now?"
+                ):
+                    result = self.sync_vault()
+                    if result:
+                        print(
+                            colored(
+                                "Profile synchronized to Nostr successfully.",
+                                "green",
+                            )
+                        )
+                    else:
+                        print(
+                            colored(
+                                "Error: Failed to sync profile to Nostr.",
+                                "red",
+                            )
+                        )
+                else:
+                    print(
+                        colored(
+                            "You can sync the migrated profile later from the main menu.",
+                            "yellow",
+                        )
+                    )
 
     async def sync_index_from_nostr_async(self) -> None:
         """Always fetch the latest vault data from Nostr and update the local index."""
