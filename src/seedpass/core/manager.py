@@ -353,14 +353,18 @@ class PasswordManager:
         self.KEY_TOTP_DET = kd(master, b"seedpass:v1:totp")
 
     def _get_kdf_mode(self) -> str:
-        if getattr(self, "config_manager", None):
-            return self.config_manager.get_kdf_mode()
+        cfg_mgr = getattr(self, "config_manager", None)
+        getter = getattr(cfg_mgr, "get_kdf_mode", None) if cfg_mgr else None
+        if callable(getter):
+            return getter()
         return "pbkdf2"
 
     def _get_kdf_iterations(self) -> int:
         floor = getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
-        if getattr(self, "config_manager", None):
-            configured = int(self.config_manager.get_kdf_iterations())
+        cfg_mgr = getattr(self, "config_manager", None)
+        getter = getattr(cfg_mgr, "get_kdf_iterations", None) if cfg_mgr else None
+        if callable(getter):
+            configured = int(getter())
             if configured < floor:
                 logger.warning(
                     "Configured PBKDF2 iterations (%s) is below policy floor (%s); using floor.",
@@ -371,8 +375,10 @@ class PasswordManager:
         return floor
 
     def _get_argon2_time_cost(self) -> int:
-        if getattr(self, "config_manager", None):
-            return self.config_manager.get_argon2_time_cost()
+        cfg_mgr = getattr(self, "config_manager", None)
+        getter = getattr(cfg_mgr, "get_argon2_time_cost", None) if cfg_mgr else None
+        if callable(getter):
+            return getter()
         return 2
 
     def _derive_seed_key(
@@ -435,6 +441,28 @@ class PasswordManager:
             params={"iterations": iter_count},
             salt_b64=salt_b64,
         )
+
+    def _encrypt_parent_seed_compat(
+        self,
+        seed_mgr: EncryptionManager,
+        seed: str,
+        fingerprint: str,
+        *,
+        mode: str | None = None,
+    ) -> None:
+        """Encrypt parent seed with metadata, falling back for legacy implementations."""
+
+        try:
+            seed_mgr.encrypt_parent_seed(
+                seed,
+                kdf=self._build_seed_kdf_config(fingerprint, mode=mode),
+            )
+        except TypeError:
+            logger.warning(
+                "EncryptionManager.encrypt_parent_seed does not accept kdf metadata; "
+                "falling back to legacy call signature."
+            )
+            seed_mgr.encrypt_parent_seed(seed)
 
     def ensure_key_hierarchy(self) -> None:
         """Ensure sub-keys are derived from the current parent seed."""
@@ -768,9 +796,39 @@ class PasswordManager:
             # Ensure managers are initialized for the newly created profile
             if getattr(self, "config_manager", None) is None:
                 if getattr(self, "encryption_manager", None) is None:
-                    if hasattr(self.fingerprint_manager, "select_fingerprint"):
-                        self.select_fingerprint(fingerprint)
+                    has_select = hasattr(self.fingerprint_manager, "select_fingerprint")
+                    if hasattr(self.fingerprint_manager, "list_fingerprints"):
+                        fingerprints = set(
+                            self.fingerprint_manager.list_fingerprints()
+                        )
                     else:
+                        fingerprints = set()
+                    if (
+                        fingerprint in fingerprints
+                        and has_select
+                    ):
+                        self.select_fingerprint(fingerprint)
+                    elif has_select and not fingerprints:
+                        # If state is already staged for the new profile, initialize
+                        # directly; otherwise prefer selecting.
+                        if getattr(self, "fingerprint_dir", None) is not None:
+                            self.current_fingerprint = fingerprint
+                            self.initialize_managers()
+                        else:
+                            self.select_fingerprint(fingerprint)
+                    else:
+                        # Some flows can pre-populate current profile state before
+                        # persistence catches up; initialize managers from current state.
+                        self.current_fingerprint = fingerprint
+                        if getattr(self, "fingerprint_dir", None) is None:
+                            if hasattr(self.fingerprint_manager, "get_fingerprint_dir"):
+                                self.fingerprint_dir = (
+                                    self.fingerprint_manager.get_fingerprint_dir(
+                                        fingerprint
+                                    )
+                                )
+                            else:
+                                self.fingerprint_dir = None
                         self.initialize_managers()
                 else:
                     self.initialize_managers()
@@ -906,12 +964,11 @@ class PasswordManager:
                 fingerprint_dir=fingerprint_dir,
             )
 
-            seed_mgr.encrypt_parent_seed(
+            self._encrypt_parent_seed_compat(
+                seed_mgr,
                 parent_seed,
-                kdf=self._build_seed_kdf_config(
-                    fingerprint,
-                    mode=self._get_kdf_mode(),
-                ),
+                fingerprint,
+                mode=self._get_kdf_mode(),
             )
             self.store_hashed_password(password)
 
@@ -1369,10 +1426,7 @@ class PasswordManager:
                     fingerprint_dir=fingerprint_dir,
                 )
 
-                seed_mgr.encrypt_parent_seed(
-                    parent_seed,
-                    kdf=self._build_seed_kdf_config(fingerprint),
-                )
+                self._encrypt_parent_seed_compat(seed_mgr, parent_seed, fingerprint)
                 logging.info("Parent seed encrypted and saved successfully.")
 
                 self.store_hashed_password(password)
@@ -1567,12 +1621,11 @@ class PasswordManager:
             self.store_hashed_password(password)
             logging.info("User password hashed and stored successfully.")
 
-            seed_mgr.encrypt_parent_seed(
+            self._encrypt_parent_seed_compat(
+                seed_mgr,
                 seed,
-                kdf=self._build_seed_kdf_config(
-                    fingerprint_dir.name,
-                    mode=self._get_kdf_mode(),
-                ),
+                fingerprint_dir.name,
+                mode=self._get_kdf_mode(),
             )
             logging.info("Parent seed encrypted and saved successfully.")
 
@@ -4532,9 +4585,8 @@ class PasswordManager:
                 password = prompt_new_password()
                 seed_key = self._derive_seed_key(password, self.current_fingerprint)
                 seed_mgr = EncryptionManager(seed_key, self.fingerprint_dir)
-                seed_mgr.encrypt_parent_seed(
-                    self.parent_seed,
-                    kdf=self._build_seed_kdf_config(self.current_fingerprint),
+                self._encrypt_parent_seed_compat(
+                    seed_mgr, self.parent_seed, self.current_fingerprint
                 )
                 self.store_hashed_password(password)
             except Exception as e:
@@ -4837,9 +4889,8 @@ class PasswordManager:
 
             new_enc_mgr = EncryptionManager(new_key, self.fingerprint_dir)
 
-            seed_mgr.encrypt_parent_seed(
-                self.parent_seed,
-                kdf=self._build_seed_kdf_config(self.current_fingerprint),
+            self._encrypt_parent_seed_compat(
+                seed_mgr, self.parent_seed, self.current_fingerprint
             )
             self.vault.set_encryption_manager(new_enc_mgr)
             self.vault.save_index(index_data)
