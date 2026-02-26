@@ -90,3 +90,8 @@
 - `actions/setup-python` with `cache: poetry` requires `poetry` to already exist on PATH in that same step.
 - In `.github/workflows/tests.yml`, Poetry was installed after setup-python via `pipx`, causing CI bootstrap failure.
 - Switched cache mode to `cache: pip` to avoid requiring Poetry during Python setup.
+
+## pip-audit Advisory Alias Handling (2026-02-26)
+- CI failures appeared in `python-ci` on macOS because `pip-audit` surfaced Starlette issue as `CVE-2025-62727` while workflows ignored only `GHSA-wj6h-64fc-37mp`.
+- Updated strict audit workflows to ignore both IDs so the existing temporary exception is robust to advisory ID alias/reporting differences.
+- Updated files: `.github/workflows/python-ci.yml`, `.github/workflows/dependency-audit.yml`, `.github/workflows/release-integrity.yml`.

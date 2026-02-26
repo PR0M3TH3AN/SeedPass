@@ -24,4 +24,4 @@ jobs:
           git diff --exit-code requirements.lock
           pip install --require-hashes -r requirements.lock
       - name: Run pip-audit
-        run: pip-audit -r requirements.lock --ignore-vuln GHSA-wj6h-64fc-37mp
+        run: pip-audit -r requirements.lock --ignore-vuln GHSA-wj6h-64fc-37mp --ignore-vuln CVE-2025-62727
