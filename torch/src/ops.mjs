@@ -85,9 +85,15 @@ function getPaths(root, installDirName) {
  * @param {string} dest - Destination directory path.
  */
 function copyDir(src, dest) {
-    if (fs.existsSync(src)) {
-        fs.cpSync(src, dest, { recursive: true });
+    if (!fs.existsSync(src)) return false;
+
+    // Guard self-hosted installs where source and target resolve to the same path.
+    if (path.resolve(src) === path.resolve(dest)) {
+      return false;
     }
+
+    fs.cpSync(src, dest, { recursive: true });
+    return true;
 }
 
 /**
@@ -126,6 +132,10 @@ function transformContent(content, installDirName) {
  * @returns {boolean} - True if copied/overwritten, false if skipped or source missing.
  */
 function copyFile(src, dest, transform = false, overwrite = true, installDirName = 'torch') {
+  if (path.resolve(src) === path.resolve(dest)) {
+    return false; // Skip no-op self-copy
+  }
+
   if (fs.existsSync(dest) && !overwrite) {
     return false; // Skipped
   }
