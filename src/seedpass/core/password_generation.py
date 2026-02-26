@@ -83,6 +83,24 @@ class PasswordPolicy:
     exclude_ambiguous: bool = False
 
 
+class DeterministicStream:
+    """Helper class to manage deterministic stream of values from a derived key."""
+
+    def __init__(self, dk: bytes):
+        self.dk = dk
+        self.index = 0
+        self.length = len(dk)
+
+    def get_value(self) -> int:
+        value = self.dk[self.index % self.length]
+        self.index += 1
+        return value
+
+    @property
+    def current_index(self) -> int:
+        return self.index
+
+
 class PasswordGenerator:
     """
     PasswordGenerator Class
@@ -272,6 +290,126 @@ class PasswordGenerator:
             print(colored(f"Error: Failed to generate password: {e}", "red"))
             raise
 
+    def _count_char_types(
+        self, password_chars: list[str], uppercase: str, lowercase: str, digits: str, special: str
+    ) -> tuple[int, int, int, int]:
+        """Count the occurrences of each character type in the password."""
+        upper = sum(1 for c in password_chars if c in uppercase)
+        lower = sum(1 for c in password_chars if c in lowercase)
+        digs = sum(1 for c in password_chars if c in digits)
+        specs = sum(1 for c in password_chars if c in special)
+        return upper, lower, digs, specs
+
+    def _enforce_minimum_counts(
+        self,
+        password_chars: list[str],
+        stream: DeterministicStream,
+        uppercase: str,
+        lowercase: str,
+        digits: str,
+        special: str,
+        counts: tuple[int, int, int, int],
+    ):
+        """Replace characters to meet minimum counts."""
+        current_upper, current_lower, current_digits, current_special = counts
+        min_upper = self.policy.min_uppercase
+        min_lower = self.policy.min_lowercase
+        min_digits = self.policy.min_digits
+        min_special = self.policy.min_special if special else 0
+
+        if current_upper < min_upper:
+            for _ in range(min_upper - current_upper):
+                index = stream.get_value() % len(password_chars)
+                char = uppercase[stream.get_value() % len(uppercase)]
+                password_chars[index] = char
+                logger.debug(f"Added uppercase letter at position {index}.")
+
+        if current_lower < min_lower:
+            for _ in range(min_lower - current_lower):
+                index = stream.get_value() % len(password_chars)
+                char = lowercase[stream.get_value() % len(lowercase)]
+                password_chars[index] = char
+                logger.debug(f"Added lowercase letter at position {index}.")
+
+        if current_digits < min_digits:
+            for _ in range(min_digits - current_digits):
+                index = stream.get_value() % len(password_chars)
+                char = digits[stream.get_value() % len(digits)]
+                password_chars[index] = char
+                logger.debug(f"Added digit at position {index}.")
+
+        if special and current_special < min_special:
+            for _ in range(min_special - current_special):
+                index = stream.get_value() % len(password_chars)
+                char = special[stream.get_value() % len(special)]
+                password_chars[index] = char
+                logger.debug(f"Added special character at position {index}.")
+
+    def _add_additional_symbols(
+        self, password_chars: list[str], stream: DeterministicStream, special: str
+    ):
+        """Additional deterministic inclusion of symbols to increase score."""
+        if special:
+            symbol_target = 3  # Increase target number of symbols
+            current_symbols = sum(1 for c in password_chars if c in special)
+            additional_symbols_needed = max(symbol_target - current_symbols, 0)
+
+            for _ in range(additional_symbols_needed):
+                # Avoid exceeding the derived key length (stream handles modulo internally,
+                # but we respect the original logic's intent if it was length-bound,
+                # however, stream wraps around naturally based on DK length.
+                # Original code broke loop if index >= length.
+                # We can check stream.current_index relative to stream.length.
+                if stream.current_index >= stream.length:
+                    break
+                index = stream.get_value() % len(password_chars)
+                char = special[stream.get_value() % len(special)]
+                password_chars[index] = char
+                logger.debug(f"Added additional symbol at position {index}.")
+
+    def _balance_distribution(
+        self,
+        password_chars: list[str],
+        stream: DeterministicStream,
+        uppercase: str,
+        lowercase: str,
+        digits: str,
+        special: str,
+    ):
+        """Ensure balanced distribution by assigning different character types to specific segments."""
+        char_types = [uppercase, lowercase, digits]
+        if special:
+            char_types.append(special)
+
+        segment_length = len(password_chars) // len(char_types)
+        if segment_length > 0:
+            for i, char_type in enumerate(char_types):
+                segment_start = i * segment_length
+                segment_end = segment_start + segment_length
+                if segment_end > len(password_chars):
+                    segment_end = len(password_chars)
+                for j in range(segment_start, segment_end):
+                    if i == 0 and password_chars[j] not in uppercase:
+                        char = uppercase[stream.get_value() % len(uppercase)]
+                        password_chars[j] = char
+                        logger.debug(f"Assigned uppercase letter to position {j}.")
+                    elif i == 1 and password_chars[j] not in lowercase:
+                        char = lowercase[stream.get_value() % len(lowercase)]
+                        password_chars[j] = char
+                        logger.debug(f"Assigned lowercase letter to position {j}.")
+                    elif i == 2 and password_chars[j] not in digits:
+                        char = digits[stream.get_value() % len(digits)]
+                        password_chars[j] = char
+                        logger.debug(f"Assigned digit to position {j}.")
+                    elif (
+                        special
+                        and i == len(char_types) - 1
+                        and password_chars[j] not in special
+                    ):
+                        char = special[stream.get_value() % len(special)]
+                        password_chars[j] = char
+                        logger.debug(f"Assigned special character to position {j}.")
+
     def _enforce_complexity(
         self, password: str, alphabet: str, allowed_special: str, dk: bytes
     ) -> str:
@@ -302,114 +440,33 @@ class PasswordGenerator:
 
             password_chars = list(password)
 
-            # Current counts
-            current_upper = sum(1 for c in password_chars if c in uppercase)
-            current_lower = sum(1 for c in password_chars if c in lowercase)
-            current_digits = sum(1 for c in password_chars if c in digits)
-            current_special = sum(1 for c in password_chars if c in special)
-
+            # Count initial character types
+            counts = self._count_char_types(password_chars, uppercase, lowercase, digits, special)
             logger.debug(
-                f"Current character counts - Upper: {current_upper}, Lower: {current_lower}, Digits: {current_digits}, Special: {current_special}"
+                f"Current character counts - Upper: {counts[0]}, Lower: {counts[1]}, Digits: {counts[2]}, Special: {counts[3]}"
             )
 
-            # Set minimum counts from policy
-            min_upper = self.policy.min_uppercase
-            min_lower = self.policy.min_lowercase
-            min_digits = self.policy.min_digits
-            min_special = self.policy.min_special if special else 0
+            # Initialize deterministic stream
+            stream = DeterministicStream(dk)
 
-            # Initialize derived key index
-            dk_index = 0
-            dk_length = len(dk)
+            # Enforce minimum counts
+            self._enforce_minimum_counts(
+                password_chars, stream, uppercase, lowercase, digits, special, counts
+            )
 
-            def get_dk_value() -> int:
-                nonlocal dk_index
-                value = dk[dk_index % dk_length]
-                dk_index += 1
-                return value
+            # Add additional symbols
+            self._add_additional_symbols(password_chars, stream, special)
 
-            # Replace characters to meet minimum counts
-            if current_upper < min_upper:
-                for _ in range(min_upper - current_upper):
-                    index = get_dk_value() % len(password_chars)
-                    char = uppercase[get_dk_value() % len(uppercase)]
-                    password_chars[index] = char
-                    logger.debug(f"Added uppercase letter at position {index}.")
-
-            if current_lower < min_lower:
-                for _ in range(min_lower - current_lower):
-                    index = get_dk_value() % len(password_chars)
-                    char = lowercase[get_dk_value() % len(lowercase)]
-                    password_chars[index] = char
-                    logger.debug(f"Added lowercase letter at position {index}.")
-
-            if current_digits < min_digits:
-                for _ in range(min_digits - current_digits):
-                    index = get_dk_value() % len(password_chars)
-                    char = digits[get_dk_value() % len(digits)]
-                    password_chars[index] = char
-                    logger.debug(f"Added digit at position {index}.")
-
-            if special and current_special < min_special:
-                for _ in range(min_special - current_special):
-                    index = get_dk_value() % len(password_chars)
-                    char = special[get_dk_value() % len(special)]
-                    password_chars[index] = char
-                    logger.debug(f"Added special character at position {index}.")
-
-            # Additional deterministic inclusion of symbols to increase score
-            if special:
-                symbol_target = 3  # Increase target number of symbols
-                current_symbols = sum(1 for c in password_chars if c in special)
-                additional_symbols_needed = max(symbol_target - current_symbols, 0)
-
-                for _ in range(additional_symbols_needed):
-                    if dk_index >= dk_length:
-                        break  # Avoid exceeding the derived key length
-                    index = get_dk_value() % len(password_chars)
-                    char = special[get_dk_value() % len(special)]
-                    password_chars[index] = char
-                    logger.debug(f"Added additional symbol at position {index}.")
-
-            # Ensure balanced distribution by assigning different character types to specific segments
-            # Example: Divide password into segments and assign different types
-            char_types = [uppercase, lowercase, digits]
-            if special:
-                char_types.append(special)
-            segment_length = len(password_chars) // len(char_types)
-            if segment_length > 0:
-                for i, char_type in enumerate(char_types):
-                    segment_start = i * segment_length
-                    segment_end = segment_start + segment_length
-                    if segment_end > len(password_chars):
-                        segment_end = len(password_chars)
-                    for j in range(segment_start, segment_end):
-                        if i == 0 and password_chars[j] not in uppercase:
-                            char = uppercase[get_dk_value() % len(uppercase)]
-                            password_chars[j] = char
-                            logger.debug(f"Assigned uppercase letter to position {j}.")
-                        elif i == 1 and password_chars[j] not in lowercase:
-                            char = lowercase[get_dk_value() % len(lowercase)]
-                            password_chars[j] = char
-                            logger.debug(f"Assigned lowercase letter to position {j}.")
-                        elif i == 2 and password_chars[j] not in digits:
-                            char = digits[get_dk_value() % len(digits)]
-                            password_chars[j] = char
-                            logger.debug(f"Assigned digit to position {j}.")
-                        elif (
-                            special
-                            and i == len(char_types) - 1
-                            and password_chars[j] not in special
-                        ):
-                            char = special[get_dk_value() % len(special)]
-                            password_chars[j] = char
-                            logger.debug(f"Assigned special character to position {j}.")
+            # Balance distribution
+            self._balance_distribution(
+                password_chars, stream, uppercase, lowercase, digits, special
+            )
 
             # Shuffle again to distribute the characters more evenly.  The key is
-            # tweaked with the current ``dk_index`` so that each call produces a
+            # tweaked with the current ``stream.current_index`` so that each call produces a
             # unique but deterministic ordering.
             shuffle_key = hmac.new(
-                dk, dk_index.to_bytes(4, "big"), hashlib.sha256
+                dk, stream.current_index.to_bytes(4, "big"), hashlib.sha256
             ).digest()
             password_chars = self._fisher_yates_hmac(password_chars, shuffle_key)
             logger.debug(
@@ -417,12 +474,9 @@ class PasswordGenerator:
             )
 
             # Final counts after modifications
-            final_upper = sum(1 for c in password_chars if c in uppercase)
-            final_lower = sum(1 for c in password_chars if c in lowercase)
-            final_digits = sum(1 for c in password_chars if c in digits)
-            final_special = sum(1 for c in password_chars if c in special)
+            final_counts = self._count_char_types(password_chars, uppercase, lowercase, digits, special)
             logger.debug(
-                f"Final character counts - Upper: {final_upper}, Lower: {final_lower}, Digits: {final_digits}, Special: {final_special}"
+                f"Final character counts - Upper: {final_counts[0]}, Lower: {final_counts[1]}, Digits: {final_counts[2]}, Special: {final_counts[3]}"
             )
 
             return "".join(password_chars)
