@@ -95,3 +95,8 @@
 - CI failures appeared in `python-ci` on macOS because `pip-audit` surfaced Starlette issue as `CVE-2025-62727` while workflows ignored only `GHSA-wj6h-64fc-37mp`.
 - Updated strict audit workflows to ignore both IDs so the existing temporary exception is robust to advisory ID alias/reporting differences.
 - Updated files: `.github/workflows/python-ci.yml`, `.github/workflows/dependency-audit.yml`, `.github/workflows/release-integrity.yml`.
+
+## Poetry Lock Sync for Tests Workflow (2026-02-26)
+- `tests.yml` uses Poetry (`poetry install`), and the job failed because `pyproject.toml` had drifted from `poetry.lock`.
+- Regenerated `poetry.lock` with Poetry 2.3.2 so lock metadata/dependency graph matches the current project file.
+- Result: CI should no longer fail with "pyproject.toml changed significantly since poetry.lock was last generated".
