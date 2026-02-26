@@ -10,9 +10,9 @@ SeedPass follows a layered design that keeps the security-critical logic isolate
 
 ## Adapters
 
-- **CLI/TUI** – implemented in [`seedpass.cli`](src/seedpass/cli.py). The [Advanced CLI](docs/docs/content/01-getting-started/01-advanced_cli.md) guide details all commands.
-- **FastAPI server** – defined in [`seedpass.api`](src/seedpass/api.py). See the [API Reference](docs/docs/content/01-getting-started/02-api_reference.md) for endpoints.
-- **BeeWare GUI** – located in [`seedpass_gui`](src/seedpass_gui/app.py) and explained in the [GUI Adapter](docs/docs/content/01-getting-started/06-gui_adapter.md) page.
+- **CLI/TUI** – implemented in [`seedpass.cli`](../src/seedpass/cli/__init__.py). Use `seedpass --help` and `seedpass <command-group> --help` for command-level docs.
+- **FastAPI server** – defined in [`seedpass.api`](../src/seedpass/api.py).
+- **BeeWare GUI** – located in [`seedpass_gui`](../src/seedpass_gui/app.py). Packaging and install notes are in [packaging.md](packaging.md).
 
 ## Planned Extensions
 
@@ -20,7 +20,7 @@ SeedPass is built to support additional adapters. Planned or experimental option
 
 - A browser extension communicating with the API
 - Automation scripts using the CLI
-- Additional vault import/export helpers described in [JSON Entries](docs/docs/content/01-getting-started/03-json_entries.md)
+- Additional vault import/export helpers are available through the CLI (`seedpass vault --help`) and implemented in [`seedpass.cli.vault`](../src/seedpass/cli/vault.py).
 
 ## Overview Diagram
 

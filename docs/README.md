@@ -25,3 +25,4 @@ This directory contains SeedPass project documentation.
 - `ai_agent_tui_testing.md`
 - `installer_testing.md`
 - `ci-health-2026-02-19.md`
+- `agent-handoffs/README.md`

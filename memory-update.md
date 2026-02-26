@@ -114,3 +114,8 @@
 - CI showed `test_settings_lock_unlock_cancelled_is_graceful` intermittently receiving a generic exception path instead of `PasswordPromptError` during Settings -> Lock Vault unlock.
 - Hardened `handle_settings()` lock flow to treat any exception containing "cancelled by user" as cancellation, printing `Unlock cancelled: ...` instead of a hard failure message.
 - Verified with targeted pytest for the failing test.
+
+## Docs Alignment Agent Memory (2026-02-26)
+- Root README drift to code can hide in security/prereq sections; verify against `pyproject.toml` and `ConfigManager` constants before editing.
+- Dead-link checks across `README.md` + `docs/**/*.md` quickly expose stale internal docs references and are safe to run in CI/local.
+- If scheduler prompts require `docs/agent-handoffs/*`, ensure the path exists in-repo (not only under `node_modules/torch-lock`).

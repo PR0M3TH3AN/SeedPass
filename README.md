@@ -115,7 +115,7 @@ See `docs/ARCHITECTURE.md` and [Nostr Setup](docs/nostr_setup.md) for details.
 
 ## Prerequisites
 
-- **Python 3.8+** (3.11 or 3.12 recommended): Install Python from [python.org](https://www.python.org/downloads/) and be sure to check **"Add Python to PATH"** during setup. Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.  
+- **Python 3.10+** (3.11 or 3.12 recommended): Install Python from [python.org](https://www.python.org/downloads/) and be sure to check **"Add Python to PATH"** during setup. Using Python 3.13 is currently discouraged because some dependencies do not ship wheels for it yet, which can cause build failures on Windows unless you install the Visual C++ Build Tools.  
   *Windows only:* Install the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and select the **C++ build tools** workload.
 
 ## Installation
@@ -321,7 +321,7 @@ seedpass util generate-password --length 20 --special-mode safe --exclude-ambigu
 # on an external drive.
 ```
 
-For additional command examples, see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). Details on the REST API can be found in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
+For additional command examples, run `seedpass --help` plus `seedpass <command-group> --help`. The FastAPI routes live in [`src/seedpass/api.py`](src/seedpass/api.py), and relay workflow details are documented in [docs/nostr_setup.md](docs/nostr_setup.md).
 
 ### Getting Started with the GUI
 
@@ -441,7 +441,7 @@ You can confirm which executable will run with:
 which seedpass  # or 'where seedpass' on Windows
 ```
 
-For a full list of commands see [docs/docs/content/01-getting-started/01-advanced_cli.md](docs/docs/content/01-getting-started/01-advanced_cli.md). The REST API is described in [docs/docs/content/01-getting-started/02-api_reference.md](docs/docs/content/01-getting-started/02-api_reference.md).
+For a full list of commands, use `seedpass --help` and `seedpass <command-group> --help`. The REST API implementation is in [`src/seedpass/api.py`](src/seedpass/api.py).
 
 ### Agent Mode (Non-Interactive)
 
@@ -516,7 +516,7 @@ revealed through `agent get`.
    6. 2FA Codes
    7. Settings
 
-   Enter your choice (1-7) or press Enter to exit:
+   Enter your choice (1-8) or press Enter to exit:
    ```
 
 When choosing **Add Entry**, you can now select from:
@@ -813,7 +813,7 @@ The standalone executable will appear in the `dist/` directory. This process wor
 
 ## Packaging with Briefcase
 
-For step-by-step instructions see [docs/docs/content/01-getting-started/05-briefcase.md](docs/docs/content/01-getting-started/05-briefcase.md).
+For step-by-step packaging notes see [docs/packaging.md](docs/packaging.md).
 
 Install Briefcase and create a platform-specific scaffold:
 
@@ -846,7 +846,7 @@ You can also launch the GUI directly with `seedpass gui` or `seedpass-gui`.
 - **Best-Effort Memory Zeroization:** Sensitive data is wiped from memory when possible, but Python may retain copies of decrypted values.
 - **Multiple Seeds Management:** While managing multiple seeds adds flexibility, it also increases the responsibility to secure each seed and its associated password.
 - **No PBKDF2 Salt Required:** SeedPass deliberately omits an explicit PBKDF2 salt. Every password is derived from a unique 512-bit BIP-85 child seed, which already provides stronger per-password uniqueness than a conventional 128-bit salt.
-- **Default KDF Iterations:** New profiles start with 50,000 PBKDF2 iterations. Adjust this with `seedpass config set kdf_iterations`.
+- **Default KDF Iterations:** New profiles start with 200,000 PBKDF2 iterations. Adjust this with `seedpass config set kdf_iterations`.
 - **KDF Iteration Caution:** Lowering `kdf_iterations` makes password cracking easier, while a high `backup_interval` leaves fewer recent backups.
 - **Offline Mode:** When enabled, SeedPass skips all Nostr operations so your vault stays local until syncing is turned back on.
 - **Quick Unlock:** Stores a hashed copy of your password in the encrypted config so you only need to enter it once per session. Avoid this on shared computers.
