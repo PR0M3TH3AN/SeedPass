@@ -798,15 +798,10 @@ class PasswordManager:
                 if getattr(self, "encryption_manager", None) is None:
                     has_select = hasattr(self.fingerprint_manager, "select_fingerprint")
                     if hasattr(self.fingerprint_manager, "list_fingerprints"):
-                        fingerprints = set(
-                            self.fingerprint_manager.list_fingerprints()
-                        )
+                        fingerprints = set(self.fingerprint_manager.list_fingerprints())
                     else:
                         fingerprints = set()
-                    if (
-                        fingerprint in fingerprints
-                        and has_select
-                    ):
+                    if fingerprint in fingerprints and has_select:
                         self.select_fingerprint(fingerprint)
                     elif has_select and not fingerprints:
                         # If state is already staged for the new profile, initialize

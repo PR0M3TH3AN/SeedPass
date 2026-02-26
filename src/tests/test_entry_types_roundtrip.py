@@ -91,7 +91,9 @@ def test_each_entry_type_roundtrip_retrieve_and_filter(tmp_path, entry_type: Ent
         filter_kinds=[entry_type.value], include_archived=True, verbose=False
     )
     assert len(entries) == 1
-    listed_index, listed_label, listed_username, listed_url, listed_archived = entries[0]
+    listed_index, listed_label, listed_username, listed_url, listed_archived = entries[
+        0
+    ]
     assert listed_index == index
     assert listed_label == entry["label"]
     assert listed_archived is False

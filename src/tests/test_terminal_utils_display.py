@@ -32,7 +32,10 @@ def test_clear_and_print_fingerprint_parent_child_breadcrumb(monkeypatch, capsys
     )
 
     out = capsys.readouterr().out
-    assert "Seed Profile: Parent Name (parent) > Managed Account > Child Name (child)" in out
+    assert (
+        "Seed Profile: Parent Name (parent) > Managed Account > Child Name (child)"
+        in out
+    )
     assert "> Settings" in out
 
 
@@ -46,7 +49,10 @@ def test_clear_and_print_profile_chain_with_breadcrumb(monkeypatch, capsys):
     )
 
     out = capsys.readouterr().out
-    assert "Seed Profile: Parent Name (parent) > Managed Account > Child Name (child)" in out
+    assert (
+        "Seed Profile: Parent Name (parent) > Managed Account > Child Name (child)"
+        in out
+    )
     assert "> Retrieve Entry" in out
 
 
@@ -62,7 +68,9 @@ def test_clear_header_with_notification_invalid_level_falls_back_to_info(
     monkeypatch.setattr(terminal_utils, "clear_screen", lambda: None)
     monkeypatch.setattr(terminal_utils, "colored", lambda text, _color: text)
     monkeypatch.setattr(
-        terminal_utils, "color_text", lambda message, category: f"[{category}] {message}"
+        terminal_utils,
+        "color_text",
+        lambda message, category: f"[{category}] {message}",
     )
 
     terminal_utils.clear_header_with_notification(pm, fingerprint="parent")

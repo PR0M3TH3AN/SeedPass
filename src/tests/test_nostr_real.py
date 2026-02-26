@@ -145,7 +145,9 @@ def test_account_roundtrip_sync_delete_restore_real_relays():
         assert restored is True
 
         pm_restore.entry_manager.clear_cache()
-        labels = [item[1] for item in pm_restore.entry_manager.list_entries(verbose=False)]
+        labels = [
+            item[1] for item in pm_restore.entry_manager.list_entries(verbose=False)
+        ]
         assert sorted(labels) == ["roundtrip-kv", "roundtrip-site", "roundtrip-totp"]
 
         pw = pm_restore.entry_manager.retrieve_entry(0)
@@ -231,7 +233,11 @@ def test_real_relays_with_portable_export_import_roundtrip():
         imported_labels = [
             item[1] for item in pm_import.entry_manager.list_entries(verbose=False)
         ]
-        assert sorted(imported_labels) == ["portable-kv", "portable-site", "portable-totp"]
+        assert sorted(imported_labels) == [
+            "portable-kv",
+            "portable-site",
+            "portable-totp",
+        ]
 
         resync = pm_import.sync_vault()
         assert resync is not None
@@ -256,7 +262,8 @@ def test_real_relays_with_portable_export_import_roundtrip():
 
         pm_relay_restore.entry_manager.clear_cache()
         relay_labels = [
-            item[1] for item in pm_relay_restore.entry_manager.list_entries(verbose=False)
+            item[1]
+            for item in pm_relay_restore.entry_manager.list_entries(verbose=False)
         ]
         assert sorted(relay_labels) == ["portable-kv", "portable-site", "portable-totp"]
 

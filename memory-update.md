@@ -100,3 +100,7 @@
 - `tests.yml` uses Poetry (`poetry install`), and the job failed because `pyproject.toml` had drifted from `poetry.lock`.
 - Regenerated `poetry.lock` with Poetry 2.3.2 so lock metadata/dependency graph matches the current project file.
 - Result: CI should no longer fail with "pyproject.toml changed significantly since poetry.lock was last generated".
+
+## CI Black Check Failure Fix (2026-02-26)
+- `tests.yml` failed at `poetry run black --check .` on 9 files (SeedPass tests/core file plus TORCH script/backups).
+- Applied Black formatting to all reported files and verified `poetry run black --check .` passes locally.
