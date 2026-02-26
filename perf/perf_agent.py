@@ -9,8 +9,9 @@ PATTERNS = {
     "Workers": r"new Worker|Worker\(|postMessage\(|getDmDecryptWorkerQueueSize|decryptDmInWorker",
     "WebTorrent": r"new WebTorrent|WebTorrent|torrent|magnet|torrentHash|magnetValidators",
     "Nostr/Relays": r"integrationClient\.pool|publishEventToRelays|pool\.list|queueSignEvent|relayManager|authService|hydrateFromStorage",
-    "Visibility": r"document\.hidden|visibilitychange"
+    "Visibility": r"document\.hidden|visibilitychange",
 }
+
 
 def search_files(directory):
     hits = []
@@ -31,22 +32,25 @@ def search_files(directory):
                     for i, line in enumerate(lines):
                         for category, pattern in PATTERNS.items():
                             if re.search(pattern, line):
-                                hits.append({
-                                    "file": filepath,
-                                    "line": i + 1,
-                                    "category": category,
-                                    "snippet": line.strip()
-                                })
+                                hits.append(
+                                    {
+                                        "file": filepath,
+                                        "line": i + 1,
+                                        "category": category,
+                                        "snippet": line.strip(),
+                                    }
+                                )
             except Exception as e:
                 print(f"Error reading {filepath}: {e}")
     return hits
+
 
 def main():
     timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%SZ")
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
 
     print("Running Perf Agent Search...")
-    hits = search_files("src") # Assuming source is in src/
+    hits = search_files("src")  # Assuming source is in src/
 
     # Also search torch/src if needed? The prompt says "Repo: this repository".
     # Assuming 'src' is the main code.
@@ -77,8 +81,10 @@ Found {len(hits)} performance-relevant code patterns.
 
     for cat, items in categories.items():
         report_content += f"\n### {cat} ({len(items)} hits)\n"
-        for item in items[:5]: # Limit to 5 examples
-            report_content += f"- `{item['file']}:{item['line']}`: `{item['snippet']}`\n"
+        for item in items[:5]:  # Limit to 5 examples
+            report_content += (
+                f"- `{item['file']}:{item['line']}`: `{item['snippet']}`\n"
+            )
         if len(items) > 5:
             report_content += f"- ... and {len(items)-5} more.\n"
 
@@ -127,6 +133,7 @@ Daily measurable improvement of app responsiveness.
         with open(baseline_file, "w") as f:
             f.write("# Initial Performance Baseline\n\nNo historical data available.\n")
         print(f"Baseline saved to {baseline_file}")
+
 
 if __name__ == "__main__":
     main()
