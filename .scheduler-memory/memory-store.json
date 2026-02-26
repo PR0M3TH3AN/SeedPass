@@ -278,5 +278,81 @@
       "merged_into": null,
       "pinned": false
     }
+  ],
+  [
+    "0eb1542b-5b60-431c-8179-576b38681ced",
+    {
+      "schema_version": 1,
+      "id": "0eb1542b-5b60-431c-8179-576b38681ced",
+      "agent_id": "load-test-agent",
+      "session_id": "2026-02-26T02-50-34Z",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Load Test Agent",
+      "summary": "Memory retrieval seed for daily :: Load Test Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772074239257,
+      "last_seen": 1772074239265,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "4d159c94-e4c7-42bf-bcfc-eaf59fa4dc0f",
+    {
+      "schema_version": 1,
+      "id": "4d159c94-e4c7-42bf-bcfc-eaf59fa4dc0f",
+      "agent_id": "log-fixer-agent",
+      "session_id": "2026-02-26T02-52-10Z",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Log Fixer Agent",
+      "summary": "Memory retrieval seed for daily :: Log Fixer Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772074334410,
+      "last_seen": 1772074334420,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "fc83d4e8-9eda-473b-b7be-7f0bd4c4a466",
+    {
+      "schema_version": 1,
+      "id": "fc83d4e8-9eda-473b-b7be-7f0bd4c4a466",
+      "agent_id": "log-fixer-agent",
+      "session_id": "2026-02-26T02-52-10Z",
+      "type": "batch_window",
+      "content": "# Memory Update (2026-02-25)\n\n## Docs Cleanup\n- Replaced `docs/README.md` content that referenced Archivox with a SeedPass-focused docs index.\n- Updated docs-site default title in `docs/src/config/loadConfig.js` from `Archivox` to `SeedPass Docs`.\n\n## Outcome\n- Removed stale Archivox branding from the docs README and default docs title so the correct SeedPass README/content is displayed.\n\n## Supply Chain and Release Integrity (Checklist #8)\n- Added a dedicated release integrity workflow at `.github/workflows/release-integrity.yml`.\n- Workflow now enforces lockfile drift checks, runs `pip-audit`, builds release artifacts, generates `SHA256SUMS`, signs checksum manifest with keyless `cosign`, and publishes signatures/certs with release assets.\n- Added `scripts/release_integrity.py` CLI with `check-lockfile`, `generate`, and `verify` subcommands.\n- Added reusable checksum logic in `src/seedpass/release_integrity.py` and regression tests in `src/tests/test_release_integrity_utils.py`.\n- Updated `docs/security_readiness_checklist.md` item #8 from `Not Started` to `In Progress` with evidence links.\n- Added process documentation in `docs/supply_chain_release_integrity.md` and linked it from `docs/README.md` and `README.md`.\n\n## Determinism Regression Guardrail\n- Added `src/tests/test_deterministic_artifact_regression.py` to lock deterministic vectors at index `352` for password, SSH, seed phrase, TOTP, PGP (fingerprint + armored hash), and Nostr keys.\n- Added repeatability assertions for same-seed/same-index derivation in the same run.\n- Logged explicit remaining tasks to finish checklist item #8 in both `docs/supply_chain_release_integrity.md` and `TODO.md`.\n\n## CI Determinism Enforcement\n- Expanded deterministic regression vectors to cover indices `0`, `1`, `352`, and `1024` across password, SSH, seed phrase, TOTP, and Nostr outputs.\n- Added pinned PGP vectors for both `ed25519` and `rsa` at index `352` (fingerprints + armored key hashes).\n- Added explicit deterministic regression steps to push CI workflows:\n  - `.github/workflows/python-ci.yml`\n  - `.github/workflows/tests.yml`\n\n## Profile Unlock Failure Recovery\n- Hardened startup profile selection to avoid fatal crash loops when unlock/decryption fails or is cancelled.\n- `select_fingerprint(...)` now returns `False` on unlock/setup failure instead of always raising; selection menu now keeps the user in-flow.\n- Added profile recovery flow `recover_profile_with_blank_index()` reachable from seed-profile selection menu.\n- Recovery flow verifies that user-provided seed matches selected fingerprint, then re-encrypts seed and resets local entry index/checksum files to a blank state.\n- Fixed \"switch to existing profile\" path during add-new-seed so it does not call `initialize_managers()` without an initialized `EncryptionManager`.\n- Added regression tests in `src/tests/test_profile_recovery_flow.py` for these paths.\n\n## TUI Crash Hardening\n- Hardened `display_menu()` to catch per-action `PasswordPromptError`, `SeedPassError`, and generic exceptions so failures no longer terminate the whole TUI session.\n- Added graceful timeout-lock recovery messaging when unlock is cancelled/failed after inactivity timeout.\n- Fixed incorrect call signature in Add Entry submenu header rendering (`clear_header_with_notification(...)` now receives `password_manager`).\n- Added crash-regression coverage in `src/tests/test_cli_invalid_input.py` for action failures and timeout-unlock cancellation handling.\n\n## Settings/Relay Submenu Hardening\n- Added local exception guards in `handle_settings`, `handle_profiles_menu`, and `handle_nostr_menu` so submenu actions report failures and return control instead of crashing the TUI.\n- Added explicit graceful handling for Settings -> Lock Vault unlock cancellations/failures.\n- Corrected `clear_header_with_notification(...)` call signatures in settings-related submenus to pass `password_manager` as first argument.\n- Added regression tests in `src/tests/test_settings_menu.py` for:\n  - missing settings handler method\n  - lock/unlock cancellation\n  - profiles submenu action failure\n\n## Import/Export + Nostr Workflow Guardrails\n- Hardened settings menu options for export/import/TOTP export with explicit error messaging (`Export failed`, `Import failed`, `2FA export failed`) instead of generic crashes.\n- Added graceful no-path handling for Settings -> Import (`No path entered.`).\n- Hardened CLI subcommand entrypoints in `main.py`:\n  - require `--file` for `export`/`import`\n  - catch and report failures for `export`, `import`, `search`, `get`, and `totp` commands.\n- Added regression tests for these cases in:\n  - `src/tests/test_settings_menu.py`\n  - `src/tests/test_cli_export_import.py`\n\n## Installer Dependency Resolution Fix (2026-02-26)\n- Root cause of installer failures was a stale `requirements.lock` pin (`cffi==1.17.1`) conflicting with `pynacl==1.6.2` (requires `cffi>=2.0.0` on Python >=3.9).\n- A second hidden source issue blocked clean lock regeneration: `starlette>=0.49.1` was incompatible with `fastapi>=0.110` resolution path (current fastapi metadata requires `starlette<0.48`).\n- Updated dependency sources to consistent constraints:\n  - `src/requirements.txt`: `starlette>=0.40,<0.48`\n  - `src/runtime_requirements.txt`: `starlette>=0.40,<0.48`\n  - `pyproject.toml`: `starlette = \">=0.40,<0.48\"`\n- Regenerated `requirements.lock` with hashes; key resolved pins now include:\n  - `cffi==2.0.0`\n  - `pynacl==1.6.2`\n  - `fastapi==0.116.1`\n  - `starlette==0.47.3`\n- Verified the installer-critical step succeeds in a fresh virtualenv:\n  - `python -m pip install --require-hashes -r requirements.lock`\n\n## TORCH Windows Checkout Fix (2026-02-26)\n- Root cause: tracked TORCH artifact filenames used `:` in timestamps (e.g. `CONTEXT_2026-02-15T01:03:31Z.md`), which Windows cannot checkout.\n- Confirmed scheduler/runtime already emits Windows-safe scheduler/memory filenames (`HH-mm-ss`), and backup folder names were already sanitized.\n- Removed all tracked colon-variant duplicates under `torch/src/*` and `torch/_backups/*` where matching dash-variant files already existed.\n- Validation: `git ls-files | rg ':'` now returns no results.\n\n## TORCH Update + Windows Filename Validation (2026-02-26)\n- Updated TORCH package to `1e3f88e` via tarball install, then ran `torch-lock update --force` and `npm install --prefix torch`.\n- Quick validation passed: `npm run --prefix torch lock:check:daily -- --json --quiet` returned `lockCount: 0` with a full available roster.\n- Windows compatibility check passed: `git ls-files | rg ':'` returned no tracked paths.\n\n## GitHub Actions Poetry Cache Bootstrap Fix (2026-02-26)\n- `actions/setup-python` with `cache: poetry` requires `poetry` to already exist on PATH in that same step.\n- In `.github/workflows/tests.yml`, Poetry was installed after setup-python via `pipx`, causing CI bootstrap failure.\n- Switched cache mode to `cache: pip` to avoid requiring Poetry during Python setup.\n\n## pip-audit Advisory Alias Handling (2026-02-26)\n- CI failures appeared in `python-ci` on macOS because `pip-audit` surfaced Starlette issue as `CVE-2025-62727` while workflows ignored only `GHSA-wj6h-64fc-37mp`.\n- Updated strict audit workflows to ignore both IDs so the existing temporary exception is robust to advisory ID alias/reporting differences.\n- Updated files: `.github/workflows/python-ci.yml`, `.github/workflows/dependency-audit.yml`, `.github/workflows/release-integrity.yml`.\n\n## Poetry Lock Sync for Tests Workflow (2026-02-26)\n- `tests.yml` uses Poetry (`poetry install`), and the job failed because `pyproject.toml` had drifted from `poetry.lock`.\n- Regenerated `poetry.lock` with Poetry 2.3.2 so lock metadata/dependency graph matches the current project file.\n- Result: CI should no longer fail with \"pyproject.toml changed significantly since poetry.lock was last generated\".\n\n## CI Black Check Failure Fix (2026-02-26)\n- `tests.yml` failed at `poetry run black --check .` on 9 files (SeedPass tests/core file plus TORCH script/backups).\n- Applied Black formatting to all reported files and verified `poetry run black --check .` passes locally.\n\n## Python 3.10 datetime.UTC Compatibility Fix (2026-02-26)\n- CI `test (ubuntu-latest, 3.10)` failed during test collection because `datetime.UTC` is unavailable on Python 3.10.\n- Replaced `datetime.UTC` usage with `timezone.utc` in `src/seedpass/cli/agent.py` and `scripts/ai_tui_agent_test.py`.\n- Verified with targeted tests: `src/tests/test_cli_agent_mode.py` and `src/tests/test_ai_tui_agent_harness.py`.\n\n## Settings Unlock Cancellation Robustness (2026-02-26)\n- CI showed `test_settings_lock_unlock_cancelled_is_graceful` intermittently receiving a generic exception path instead of `PasswordPromptError` during Settings -> Lock Vault unlock.\n- Hardened `handle_settings()` lock flow to treat any exception containing \"cancelled by user\" as cancellation, printing `Unlock cancelled: ...` instead of a hard failure message.\n- Verified with targeted pytest for the failing test.\n\n## Docs Alignment Agent Memory (2026-02-26)\n- Root README drift to code can hide in security/prereq sections; verify against `pyproject.toml` and `ConfigManager` constants before editing.\n- Dead-link checks across `README.md` + `docs/**/*.md` quickly expose stale internal docs references and are safe to run in CI/local.\n- If scheduler prompts require `docs/agent-handoffs/*`, ensure the path exists in-repo (not only under `node_modules/torch-lock`).",
+      "summary": "# Memory Update (2026-02-25)\n\n## Docs Cleanup\n- Replaced `docs/README.md` content that referenced Archivox with a SeedPass-focused docs index.\n- Updated docs-site default title in `docs/src/config/loadConfig.js` from `Archivox` to `SeedPass Docs`.\n\n## Outcome\n- Removed stale Arc…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772074335554,
+      "last_seen": 1772074335554,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
   ]
 ]
