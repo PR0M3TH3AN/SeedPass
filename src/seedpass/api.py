@@ -781,7 +781,9 @@ def backup_parent_seed(
     if not path_str:
         raise HTTPException(status_code=400, detail="Missing path")
     path = Path(path_str)
-    _validate_encryption_path(request, path)
+    resolved_path = _validate_encryption_path(request, path)
+    if resolved_path.exists():
+        raise HTTPException(status_code=409, detail="File already exists")
     pm.encryption_manager.encrypt_and_save_file(pm.parent_seed.encode("utf-8"), path)
     return {"status": "saved", "path": str(path)}
 
