@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from utils import checksum
 
 
@@ -45,3 +46,11 @@ def test_initialize_checksum(tmp_path):
     assert checksum.initialize_checksum(str(data), str(chk_file))
     expected = hashlib.sha256("payload".encode()).hexdigest()
     assert chk_file.read_text() == expected
+
+
+def test_verify_checksum_missing(tmp_path, caplog):
+    missing_file = tmp_path / "missing_chk.txt"
+    with pytest.raises(FileNotFoundError):
+        checksum.verify_checksum("abc", str(missing_file))
+
+    assert f"Checksum file '{missing_file}' not found." in caplog.text
