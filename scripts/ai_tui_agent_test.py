@@ -27,7 +27,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, asdict
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Pattern
 
@@ -860,7 +860,7 @@ def main() -> int:
         print(f"Error: cannot find {src_main}", file=sys.stderr)
         return 2
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     artifact_dir = args.output_dir.resolve() / timestamp
     artifact_dir.mkdir(parents=True, exist_ok=True)
 

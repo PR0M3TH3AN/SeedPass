@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -365,7 +365,7 @@ def agent_get(
         )
         raise typer.Exit(1)
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     payload = {
         "status": "ok",
         "fingerprint": fingerprint,

@@ -104,3 +104,8 @@
 ## CI Black Check Failure Fix (2026-02-26)
 - `tests.yml` failed at `poetry run black --check .` on 9 files (SeedPass tests/core file plus TORCH script/backups).
 - Applied Black formatting to all reported files and verified `poetry run black --check .` passes locally.
+
+## Python 3.10 datetime.UTC Compatibility Fix (2026-02-26)
+- CI `test (ubuntu-latest, 3.10)` failed during test collection because `datetime.UTC` is unavailable on Python 3.10.
+- Replaced `datetime.UTC` usage with `timezone.utc` in `src/seedpass/cli/agent.py` and `scripts/ai_tui_agent_test.py`.
+- Verified with targeted tests: `src/tests/test_cli_agent_mode.py` and `src/tests/test_ai_tui_agent_harness.py`.
