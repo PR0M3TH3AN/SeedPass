@@ -17,9 +17,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import pty
 import random
 import re
+
+try:
+    import pty
+except ImportError:
+    pty = None
 import select
 import shutil
 import subprocess
@@ -871,6 +875,10 @@ def main() -> int:
     env.setdefault("TERM", "xterm")
 
     cmd = [args.python_bin, str(src_main), "--no-clipboard"]
+    if pty is None:
+        print("Error: pty module not available (POSIX environment required).", file=sys.stderr)
+        return 2
+
     master_fd, slave_fd = pty.openpty()
     proc = subprocess.Popen(
         cmd,
