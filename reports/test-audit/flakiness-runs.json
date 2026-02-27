@@ -1,0 +1,32 @@
+[
+  {
+    "run": 1,
+    "code": 0,
+    "tapOutputPath": "reports/test-audit/flaky-run-01.tap",
+    "observed": 0
+  },
+  {
+    "run": 2,
+    "code": 0,
+    "tapOutputPath": "reports/test-audit/flaky-run-02.tap",
+    "observed": 0
+  },
+  {
+    "run": 3,
+    "code": 0,
+    "tapOutputPath": "reports/test-audit/flaky-run-03.tap",
+    "observed": 0
+  },
+  {
+    "run": 4,
+    "code": 0,
+    "tapOutputPath": "reports/test-audit/flaky-run-04.tap",
+    "observed": 0
+  },
+  {
+    "run": 5,
+    "code": 0,
+    "tapOutputPath": "reports/test-audit/flaky-run-05.tap",
+    "observed": 0
+  }
+]
