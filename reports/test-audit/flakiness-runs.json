@@ -1,0 +1,47 @@
+[
+  {
+    "run": 1,
+    "code": 4,
+    "duration": 0.46581602096557617,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "run": 2,
+    "code": 4,
+    "duration": 0.3375401496887207,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "run": 3,
+    "code": 4,
+    "duration": 0.333873987197876,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "run": 4,
+    "code": 4,
+    "duration": 0.3381078243255615,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "run": 5,
+    "code": 4,
+    "duration": 0.3272981643676758,
+    "passed": 0,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  }
+]

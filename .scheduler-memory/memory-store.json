@@ -68,7 +68,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772047328158,
-      "last_seen": 1772132692957,
+      "last_seen": 1772136208925,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -119,7 +119,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772049603683,
-      "last_seen": 1772132692957,
+      "last_seen": 1772136208925,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -170,7 +170,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772050579374,
-      "last_seen": 1772132692957,
+      "last_seen": 1772136208925,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -272,7 +272,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772073865813,
-      "last_seen": 1772132692957,
+      "last_seen": 1772136208925,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
@@ -401,6 +401,57 @@
       "created_at": 1772132692943,
       "last_seen": 1772132692957,
       "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "c5cecbbf-c220-4684-a168-6595a9e71406",
+    {
+      "schema_version": 1,
+      "id": "c5cecbbf-c220-4684-a168-6595a9e71406",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm3w5633",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772136208911,
+      "last_seen": 1772136208925,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "67f350fa-e0bb-4997-9375-f884950713fd",
+    {
+      "schema_version": 1,
+      "id": "67f350fa-e0bb-4997-9375-f884950713fd",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm3w6j6s",
+      "type": "batch_window",
+      "content": "# Memory Update — scheduler-update-agent — 2026-02-26\n\n## Key findings\n- Roster json is perfectly synced with prompt directories.\n- No discrepancies found in daily or weekly rosters.\n\n## Patterns / reusable knowledge\n- Always verify file existence before assuming roster drift.\n\n## Warnings / gotchas\n- Ensure correct path prefix when running in host-repo mode.",
+      "summary": "# Memory Update — scheduler-update-agent — 2026-02-26\n\n## Key findings\n- Roster json is perfectly synced with prompt directories.\n- No discrepancies found in daily or weekly rosters.\n\n## Patterns / reusable knowledge\n- Always verify file existence before assuming roster drift.\n\n…",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772136272549,
+      "last_seen": 1772136272549,
+      "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
       "pinned": false
