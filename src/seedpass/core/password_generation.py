@@ -291,7 +291,12 @@ class PasswordGenerator:
             raise
 
     def _count_char_types(
-        self, password_chars: list[str], uppercase: str, lowercase: str, digits: str, special: str
+        self,
+        password_chars: list[str],
+        uppercase: str,
+        lowercase: str,
+        digits: str,
+        special: str,
     ) -> tuple[int, int, int, int]:
         """Count the occurrences of each character type in the password."""
         upper = sum(1 for c in password_chars if c in uppercase)
@@ -441,7 +446,9 @@ class PasswordGenerator:
             password_chars = list(password)
 
             # Count initial character types
-            counts = self._count_char_types(password_chars, uppercase, lowercase, digits, special)
+            counts = self._count_char_types(
+                password_chars, uppercase, lowercase, digits, special
+            )
             logger.debug(
                 f"Current character counts - Upper: {counts[0]}, Lower: {counts[1]}, Digits: {counts[2]}, Special: {counts[3]}"
             )
@@ -474,7 +481,9 @@ class PasswordGenerator:
             )
 
             # Final counts after modifications
-            final_counts = self._count_char_types(password_chars, uppercase, lowercase, digits, special)
+            final_counts = self._count_char_types(
+                password_chars, uppercase, lowercase, digits, special
+            )
             logger.debug(
                 f"Final character counts - Upper: {final_counts[0]}, Lower: {final_counts[1]}, Digits: {final_counts[2]}, Special: {final_counts[3]}"
             )

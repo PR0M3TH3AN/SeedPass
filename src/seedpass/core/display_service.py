@@ -81,7 +81,9 @@ class DisplayService:
         print(colored(f"Retrieving 2FA code for '{label}'.", "cyan"))
         print(colored("Press Enter to return to the menu.", "cyan"))
         try:
-            key = self.manager.KEY_TOTP_DET or getattr(self.manager, "parent_seed", None)
+            key = self.manager.KEY_TOTP_DET or getattr(
+                self.manager, "parent_seed", None
+            )
             secret = self.manager.entry_manager.get_totp_secret(index, key)
             while True:
                 code = TotpManager.current_code_from_secret(secret)
@@ -297,9 +299,7 @@ class DisplayService:
         if tags:
             print(colored(f"Tags: {', '.join(tags)}", "cyan"))
         print(
-            colored(
-                f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
-            )
+            colored(f"Archived Status: {'Archived' if archived else 'Active'}", "cyan")
         )
         if self.manager.secret_mode_enabled:
             if self._copy_to_clipboard(value):
@@ -353,9 +353,7 @@ class DisplayService:
         if tags:
             print(colored(f"Tags: {', '.join(tags)}", "cyan"))
         print(
-            colored(
-                f"Archived Status: {'Archived' if archived else 'Active'}", "cyan"
-            )
+            colored(f"Archived Status: {'Archived' if archived else 'Active'}", "cyan")
         )
         action = (
             input(

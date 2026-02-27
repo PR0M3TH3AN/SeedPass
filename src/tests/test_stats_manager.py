@@ -2,6 +2,7 @@ from unittest.mock import Mock
 import pytest
 from seedpass.core.stats_manager import StatsManager
 
+
 def test_stats_manager_reset():
     """Test that StatsManager.reset correctly resets the displayed flag."""
     stats_manager = StatsManager()

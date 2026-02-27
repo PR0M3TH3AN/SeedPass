@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 
@@ -8,6 +7,7 @@ sys.path.append(str(Path("src/utils").resolve()))
 from atomic_write import atomic_write
 import os
 import stat
+
 
 def test_atomic_write_permissions():
     test_file = Path("test_permissions.txt")
@@ -29,6 +29,7 @@ def test_atomic_write_permissions():
         print(f"FAILURE: Permissions are {oct(mode)}")
 
     test_file.unlink()
+
 
 if __name__ == "__main__":
     test_atomic_write_permissions()
