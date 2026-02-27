@@ -507,5 +507,56 @@
       "merged_into": null,
       "pinned": false
     }
+  ],
+  [
+    "0dab145c-2792-4f6d-a52d-faaaaab161de",
+    {
+      "schema_version": 1,
+      "id": "0dab145c-2792-4f6d-a52d-faaaaab161de",
+      "agent_id": "deps-security-agent",
+      "session_id": "session-mm5ekywg",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Deps Security Agent",
+      "summary": "Memory retrieval seed for daily :: Deps Security Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772227645361,
+      "last_seen": 1772227645373,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "d95dd159-0aca-4f66-8d6a-cdbbb138f0b2",
+    {
+      "schema_version": 1,
+      "id": "d95dd159-0aca-4f66-8d6a-cdbbb138f0b2",
+      "agent_id": "deps-security-agent",
+      "session_id": "session-mm5ela2k",
+      "type": "batch_window",
+      "content": "Prompt failed: missing runner codex",
+      "summary": "Prompt failed: missing runner codex",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772227659837,
+      "last_seen": 1772227659837,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
   ]
 ]
