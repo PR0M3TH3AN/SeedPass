@@ -3719,4 +3719,4 @@ gui-win = ["toga-winforms"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "b037019d3cc2a21bd827d1612f4bf29120934847e42a86a0fb94e3246a7d5bd2"
+content-hash = "b6da34d26fc00e96e647e6378654ae84c21fa5d4b3a01c989ef43ca2ace70849"
