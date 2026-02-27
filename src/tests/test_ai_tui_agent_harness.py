@@ -18,6 +18,24 @@ def _load_harness_module():
     return module
 
 
+# Skip entire module on Windows or if termios/pty are missing
+if sys.platform.startswith("win"):
+    pytest.skip(
+        "AI TUI agent harness tests require pty/termios (Unix-only)",
+        allow_module_level=True,
+    )
+
+try:
+    import termios
+    import pty
+    import tty
+except ImportError:
+    pytest.skip(
+        "AI TUI agent harness tests require pty/termios/tty modules",
+        allow_module_level=True,
+    )
+
+# Only load the harness if we haven't skipped
 harness = _load_harness_module()
 
 
