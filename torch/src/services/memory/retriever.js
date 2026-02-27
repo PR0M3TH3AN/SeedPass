@@ -1,11 +1,14 @@
+import { WEEK_MS } from './constants/time.js';
+import { DEFAULT_IMPORTANCE_SCORE } from './constants/scoring.js';
+
 const DEFAULT_WEIGHTS = {
   w_sim: 0.6,
-  w_imp: 0.25,
+  w_imp: DEFAULT_IMPORTANCE_SCORE,
   w_rec: 0.15,
   pinBoost: 0.15,
 };
 
-const DEFAULT_RECENCY_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
+const DEFAULT_RECENCY_HALF_LIFE_MS = WEEK_MS;
 
 function cosineSimilarity(left = [], right = []) {
   const size = Math.max(left.length, right.length);

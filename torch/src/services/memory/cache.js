@@ -1,3 +1,5 @@
+import { MINUTE_MS } from './constants/time.js';
+
 const DEFAULT_MAX_NAMESPACES = 128;
 const DEFAULT_MAX_EVENTS_PER_NAMESPACE = 200;
 const DEFAULT_MAX_TOTAL_EVENTS = 5000;
@@ -150,11 +152,11 @@ export function createMemoryCache(options = {}) {
       runtimeNamespaces.clear();
       totalRuntimeEvents = 0;
     },
-    setRuntimeEvent(scope, event, ttlMs = 60_000) {
+    setRuntimeEvent(scope, event, ttlMs = MINUTE_MS) {
       const now = Date.now();
       removeExpired(now);
 
-      const safeTtlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 60_000;
+      const safeTtlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : MINUTE_MS;
       const expiresAt = now + safeTtlMs;
       const namespaceKey = getNamespaceKey(scope);
       const bucket = runtimeNamespaces.get(namespaceKey) ?? { events: [] };
