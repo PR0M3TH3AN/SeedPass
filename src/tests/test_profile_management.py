@@ -71,6 +71,10 @@ def test_add_and_delete_entry(monkeypatch):
         # Using "y" breaks the loop in confirm_action if it gets called.
         input_values = iter(["3", "y", "y", "y", "y"])
         monkeypatch.setattr("builtins.input", lambda *_a, **_k: next(input_values))
+        # Patch masked_input to avoid OSError on Windows CI non-interactive envs
+        monkeypatch.setattr(
+            utils.password_prompt, "masked_input", lambda p: next(input_values)
+        )
 
         pm.add_new_fingerprint()
 
