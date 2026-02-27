@@ -1,20 +1,13 @@
-# Memory Update — style-agent — 2026-02-27
+# Memory Update — bug-reproducer-agent — 2026-02-27
 
 ## Key findings
-- Codebase formatting was generally consistent, but `black` identified and reformatted 5 files.
-- JS/TS formatting and linting checks passed without issues.
-- `pytest` suite (766 tests) passed, confirming no regressions from formatting changes.
-
-## Work performed
-- Ran `black .` to enforce Python code style.
-- Reformatted:
-  - `src/seedpass/core/display_service.py`
-  - `src/seedpass/core/manager.py`
-  - `src/seedpass/core/password_generation.py`
-  - `src/tests/test_stats_manager.py`
-  - `test_atomic_write_perms.py`
-- Verified repository integrity with `npm run --prefix torch lint`, `npm run --prefix torch lint:inline-styles`, and `pytest`.
+- The `scheduler-flow.md` script execution failed due to a missing runner (`codex`).
+- The automated `bug-reproducer-agent` prompt execution failed.
+- Fallback manual investigation identified one active issue: `BIP85 Non-Standard Derivation Path` (using `app_no=2` instead of standard). This is documented in `KNOWN_ISSUES.md`.
 
 ## Patterns / reusable knowledge
-- The `style-agent` should strictly follow the `black` formatter configuration and not attempt manual style fixes unless necessary.
-- Pre-commit checks must include `pytest` to ensure formatting tools didn't inadvertently break logic (e.g., string concatenation issues).
+- Future runs should verify the runner environment variables (`SCHEDULER_PROMPT_PATH`, `SCHEDULER_AGENT`, `SCHEDULER_CADENCE`) are set correctly before invoking `run-selected-prompt.mjs`.
+- If the runner fails, manual fallback or alternative automation (e.g., Python script) is required.
+
+## Warnings / gotchas
+- `torch/scripts/agent/run-selected-prompt.mjs` depends on an external runner (`codex` or similar) which may not be available in all environments.
