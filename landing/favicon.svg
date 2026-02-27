@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SeedPass favicon">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f12" />
+      <stop offset="100%" stop-color="#1a2a21" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#58f29d" />
+      <stop offset="100%" stop-color="#2abf75" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="12" fill="url(#bg)" />
+  <path d="M16 22h32v18a16 16 0 0 1-32 0V22z" fill="none" stroke="url(#glow)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M22 22v-3a10 10 0 0 1 20 0v3" fill="none" stroke="url(#glow)" stroke-width="4" stroke-linecap="round" />
+  <circle cx="32" cy="34" r="3.2" fill="#58f29d" />
+  <rect x="30.6" y="37.2" width="2.8" height="7.5" rx="1.4" fill="#58f29d" />
+</svg>

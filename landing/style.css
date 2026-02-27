@@ -1,19 +1,19 @@
 :root {
     --bg-main: #080a0c;
     --bg-secondary: #0d1114;
-    --text-primary: #94a3b8;
-    --text-bright: #cbd5e1;
-    --text-muted: #475569;
-    --accent-primary: #38bdf8;
-    /* Muted vibrant blue */
-    --accent-secondary: #0ea5e9;
-    /* Slate blue */
+    --text-primary: #97b8a6;
+    --text-bright: #daf2e5;
+    --text-muted: #4f6c5e;
+    --accent-primary: #58f29d;
+    /* Favicon mint green */
+    --accent-secondary: #2abf75;
+    /* Deeper supporting green */
     --accent-danger: #ef4444;
     /* Muted red */
-    --accent-glow: rgba(56, 189, 248, 0.15);
+    --accent-glow: rgba(88, 242, 157, 0.2);
     --font-mono: 'JetBrains Mono', monospace;
-    --border-color: #1e293b;
-    --border-highlight: #334155;
+    --border-color: #1a3024;
+    --border-highlight: #274533;
 }
 
 * {
@@ -31,7 +31,7 @@ body {
     overflow-x: hidden;
     position: relative;
     /* Subtle radial gradient */
-    background-image: radial-gradient(circle at 50% 10%, #0d1218 0%, var(--bg-main) 80%);
+    background-image: radial-gradient(circle at 50% 10%, #0c1812 0%, var(--bg-main) 80%);
 }
 
 a {
@@ -476,7 +476,7 @@ a:hover {
 
 .feature-item:hover {
     border-color: var(--border-highlight);
-    background: #0d1218;
+    background: #0c1812;
 }
 
 .feature-item i {
