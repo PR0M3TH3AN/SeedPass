@@ -1,1 +1,60 @@
-[]
+[
+  {
+    "file": "src/tests/test_unlock_sync.py",
+    "issues": [
+      "Found time.sleep()"
+    ]
+  },
+  {
+    "file": "src/tests/test_nostr_real.py",
+    "issues": [
+      "Found time.sleep()",
+      "Found @pytest.mark.skip"
+    ]
+  },
+  {
+    "file": "src/tests/test_nostr_sdk_workflow.py",
+    "issues": [
+      "Found time.sleep()"
+    ]
+  },
+  {
+    "file": "src/tests/test_nostr_index_size.py",
+    "issues": [
+      "Found time.sleep()",
+      "Found @pytest.mark.skip",
+      "No obvious assertions found"
+    ]
+  },
+  {
+    "file": "src/tests/test_file_lock.py",
+    "issues": [
+      "Found time.sleep()",
+      "Found @pytest.mark.skip"
+    ]
+  },
+  {
+    "file": "src/tests/test_background_relay_check.py",
+    "issues": [
+      "Found time.sleep()"
+    ]
+  },
+  {
+    "file": "src/tests/test_portable_backup.py",
+    "issues": [
+      "Found @pytest.mark.skip"
+    ]
+  },
+  {
+    "file": "src/tests/test_offline_mode_behavior.py",
+    "issues": [
+      "Found time.sleep()"
+    ]
+  },
+  {
+    "file": "src/tests/test_file_locking.py",
+    "issues": [
+      "Found @pytest.mark.skip"
+    ]
+  }
+]
