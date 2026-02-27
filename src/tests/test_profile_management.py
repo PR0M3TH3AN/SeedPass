@@ -11,6 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.fingerprint_manager import FingerprintManager  # noqa: E402
 import utils.password_prompt  # noqa: E402
+import utils.seed_prompt  # noqa: E402
 import constants  # noqa: E402
 import seedpass.core.manager as manager_module  # noqa: E402
 from seedpass.core.entry_management import EntryManager  # noqa: E402
@@ -55,6 +56,11 @@ def test_add_and_delete_entry(monkeypatch):
         monkeypatch.setattr(
             utils.password_prompt, "confirm_action", lambda *_a, **_k: True
         )
+
+        # Monkeypatch masked_input to prevent msvcrt errors on Windows CI
+        monkeypatch.setattr(utils.seed_prompt, "masked_input", lambda p: input(p))
+        monkeypatch.setattr(manager_module, "masked_input", lambda p: input(p))
+        monkeypatch.setattr(utils.password_prompt, "masked_input", lambda p: input(p))
 
         # Robust input mock:
         # 1. "3" -> Select "Generate a new seed"
