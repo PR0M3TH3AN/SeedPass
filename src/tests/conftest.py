@@ -28,6 +28,7 @@ from seedpass.core.config_manager import ConfigManager
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.manager import EncryptionMode, PasswordManager
 from seedpass.core.encryption import EncryptionManager as EncMgr
+from seedpass.core.pubsub import bus
 
 
 @pytest.fixture(
@@ -40,6 +41,14 @@ def anyio_backend(request):
 @pytest.fixture(autouse=True)
 def mute_logging():
     logging.getLogger().setLevel(logging.WARNING)
+
+
+@pytest.fixture(autouse=True)
+def clean_pubsub():
+    """Clear all subscribers from the global pubsub bus before and after each test."""
+    bus._subscribers.clear()
+    yield
+    bus._subscribers.clear()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
