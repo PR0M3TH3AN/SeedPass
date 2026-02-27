@@ -876,7 +876,10 @@ def main() -> int:
 
     cmd = [args.python_bin, str(src_main), "--no-clipboard"]
     if pty is None:
-        print("Error: pty module not available (POSIX environment required).", file=sys.stderr)
+        print(
+            "Error: pty module not available (POSIX environment required).",
+            file=sys.stderr,
+        )
         return 2
 
     master_fd, slave_fd = pty.openpty()
