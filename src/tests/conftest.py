@@ -2,9 +2,9 @@ import importlib.util
 import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from types import SimpleNamespace
 from httpx import ASGITransport, AsyncClient
 import bcrypt
 
@@ -33,9 +33,11 @@ from seedpass.core.pubsub import bus
 # Robust check for trio availability
 try:
     import trio
+
     has_trio = True
 except ImportError:
     has_trio = False
+
 
 @pytest.fixture(
     params=["asyncio"] + (["trio"] if has_trio else [])
