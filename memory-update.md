@@ -1,24 +1,20 @@
-# Memory Update — codex — 2026-02-26
+# Memory Update — style-agent — 2026-02-27
 
 ## Key findings
-- Full test suite now passes: `766 passed, 11 skipped`.
-- `DisplayService` had diverged from `seedpass.core.manager` interactive helpers, causing test monkeypatches to miss and resulting in flaky behavior.
+- Codebase formatting was generally consistent, but `black` identified and reformatted 5 files.
+- JS/TS formatting and linting checks passed without issues.
+- `pytest` suite (766 tests) passed, confirming no regressions from formatting changes.
 
-## Bugs fixed
-- Fixed TOTP retrieve/edit regression where `test_edit_totp_period_from_retrieve` could fail in-suite because TOTP screen consumed input via unpatched `display_service.timed_input`.
-- Fixed suite hang at `test_show_seed_entry_details` caused by `display_service.confirm_action` bypassing patched `manager.confirm_action`, leading to infinite prompt loop on empty input.
+## Work performed
+- Ran `black .` to enforce Python code style.
+- Reformatted:
+  - `src/seedpass/core/display_service.py`
+  - `src/seedpass/core/manager.py`
+  - `src/seedpass/core/password_generation.py`
+  - `src/tests/test_stats_manager.py`
+  - `test_atomic_write_perms.py`
+- Verified repository integrity with `npm run --prefix torch lint`, `npm run --prefix torch lint:inline-styles`, and `pytest`.
 
 ## Patterns / reusable knowledge
-- In this codebase, interactive helpers should be called through `seedpass.core.manager` symbols (`confirm_action`, `timed_input`, `copy_to_clipboard`) to keep behavior and tests consistent.
-
-## Follow-up (warnings cleanup)
-- Added pytest `markers` registration for `network` under `[tool.pytest.ini_options]` to remove `PytestUnknownMarkWarning`.
-- Added narrow pytest warning filters for known third-party GUI deprecation noise (`Pack.padding*`).
-- For `imghdr` deprecation triggered during `test_imghdr_stub` import, added a local `warnings.filterwarnings(...)` at top of that test module to suppress import-time warning deterministically.
-- Verified final suite status: `766 passed, 11 skipped`, no warnings.
-
-## UI update (landing favicon)
-- Added a new `landing/favicon.svg` with a lock/keyhole glyph in SeedPass terminal-green colors.
-- Wired favicon metadata into both `landing/index.html` and `landing/docs.html` (`rel="icon"`, `rel="alternate icon"`, and `theme-color`) so tab/icon branding is consistent across the landing site.
-- Landing theme accent system was centralized in `landing/style.css` CSS variables; changing `--accent-primary/secondary` propagated icon color updates (Font Awesome `<i>` styles) across both home and docs pages.
-- `landing/docs.css` had a few hardcoded blue RGBA backgrounds for hover/active/table headers that needed manual conversion to green to fully complete a palette swap.
+- The `style-agent` should strictly follow the `black` formatter configuration and not attempt manual style fixes unless necessary.
+- Pre-commit checks must include `pytest` to ensure formatting tools didn't inadvertently break logic (e.g., string concatenation issues).
