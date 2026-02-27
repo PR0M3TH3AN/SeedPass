@@ -39,9 +39,7 @@ except ImportError:
     has_trio = False
 
 
-@pytest.fixture(
-    params=["asyncio"] + (["trio"] if has_trio else [])
-)
+@pytest.fixture(params=["asyncio"] + (["trio"] if has_trio else []))
 def anyio_backend(request):
     return request.param
 
