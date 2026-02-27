@@ -20,26 +20,31 @@ If `npx --no-install torch-lock init --help` prints initialization prompts, it m
 
 ---
 
-### 3. [2026-02-25] (scheduler, daily, store, insight)
+### 3. [2026-02-26] (scheduler, daily, store, insight)
 
-### 1. [2026-02-25] (torch, scheduler, host-mode)
-When running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.
+# Memory Update — scheduler-update-agent — 2026-02-26
 
-### 2. [2026-02-25] (torch, scheduler, handoff)
-A non-inter…
+## Key findings
+- Roster json is perfectly synced with prompt directories.
+- No discrepancies found in daily or weekly rosters.
 
----
+## Patterns / reusable knowledge
+- Always verify file existence before assuming roster drift.
 
-### 4. [2026-02-25] (scheduler, daily, store, insight)
-
-### 1. [2026-02-25] (torch, scheduler, host-mode)
-When running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.
-
-### 2. [2026-02-25] (torch, scheduler, handoff)
-A non-inter…
+…
 
 ---
 
-### 5. [2026-02-26] (scheduler, daily, retrieve)
+### 4. [2026-02-27] (scheduler, daily, retrieve)
 
 Memory retrieval seed for daily :: scheduler memory retrieval
+
+---
+
+### 5. [2026-02-25] (scheduler, daily, store, insight)
+
+### 1. [2026-02-25] (torch, scheduler, host-mode)
+When running `npm run --prefix torch scheduler:daily`, the scheduler resolves config from `torch/torch-config.json` (cwd-scoped), not the repo-root `torch-config.json`.
+
+### 2. [2026-02-25] (torch, scheduler, handoff)
+A non-inter…
