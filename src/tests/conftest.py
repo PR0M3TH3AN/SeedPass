@@ -30,9 +30,15 @@ from seedpass.core.manager import EncryptionMode, PasswordManager
 from seedpass.core.encryption import EncryptionManager as EncMgr
 from seedpass.core.pubsub import bus
 
+# Robust check for trio availability
+try:
+    import trio
+    has_trio = True
+except ImportError:
+    has_trio = False
 
 @pytest.fixture(
-    params=["asyncio"] + (["trio"] if importlib.util.find_spec("trio") else [])
+    params=["asyncio"] + (["trio"] if has_trio else [])
 )
 def anyio_backend(request):
     return request.param
