@@ -6,6 +6,9 @@ import sys
 
 import pytest
 
+pytest.importorskip("pty")
+pytest.importorskip("termios")
+
 
 def _load_harness_module():
     repo_root = Path(__file__).resolve().parents[2]
