@@ -2,9 +2,9 @@ import importlib.util
 import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from types import SimpleNamespace
 from httpx import ASGITransport, AsyncClient
 import bcrypt
 
@@ -28,11 +28,18 @@ from seedpass.core.config_manager import ConfigManager
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.manager import EncryptionMode, PasswordManager
 from seedpass.core.encryption import EncryptionManager as EncMgr
+from seedpass.core.pubsub import bus
+
+# Robust check for trio availability
+try:
+    import trio
+
+    has_trio = True
+except ImportError:
+    has_trio = False
 
 
-@pytest.fixture(
-    params=["asyncio"] + (["trio"] if importlib.util.find_spec("trio") else [])
-)
+@pytest.fixture(params=["asyncio"] + (["trio"] if has_trio else []))
 def anyio_backend(request):
     return request.param
 
@@ -40,6 +47,14 @@ def anyio_backend(request):
 @pytest.fixture(autouse=True)
 def mute_logging():
     logging.getLogger().setLevel(logging.WARNING)
+
+
+@pytest.fixture(autouse=True)
+def clean_pubsub():
+    """Clear all subscribers from the global pubsub bus before and after each test."""
+    bus._subscribers.clear()
+    yield
+    bus._subscribers.clear()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

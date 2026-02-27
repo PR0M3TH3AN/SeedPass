@@ -187,7 +187,11 @@ class MainWindow(toga.Window):
         self.status.text = f"Last sync: {self.last_sync}"
 
     def vault_locked(self, *args: object, **kwargs: object) -> None:
-        self.close()
+        try:
+            self.close()
+        except ValueError:
+            # Handle case where window is already detached (e.g. in tests)
+            pass
         self.controller.main_window = None
         self.controller.lock_window.show()
 
@@ -391,7 +395,7 @@ class TotpViewerWindow(toga.Window):
             self.refresh_codes()
             await asyncio.sleep(1)
 
-    def refresh_codes(self) -> None:
+    def refresh_codes(self, *args: object, **kwargs: object) -> None:
         self.table.data = []
         for idx, label, *_rest in self.entries.list_entries(
             filter_kinds=[EntryType.TOTP.value]
