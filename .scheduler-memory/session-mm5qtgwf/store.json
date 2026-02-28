@@ -1,0 +1,20 @@
+{
+  "cadence": "daily",
+  "operation": "store",
+  "runId": "session-mm5qtgwf",
+  "servicePath": "src/services/memory/index.js#ingestEvents",
+  "inputs": {
+    "agentId": "content-audit-agent",
+    "promptPath": "torch/src/prompts/daily/content-audit-agent.md",
+    "promptIntent": "Content Audit Agent",
+    "events": 1,
+    "sourceFile": "torch/reports/audit/content-audit-report-2026-02-28.md"
+  },
+  "outputs": {
+    "storedCount": 1,
+    "summaries": [
+      "# Content Audit Report 2026-02-28\n\nNo changes required. All documentation is accurate and aligned with the current TORCH product surface."
+    ]
+  },
+  "status": "ok"
+}

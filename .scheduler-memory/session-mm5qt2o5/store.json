@@ -1,0 +1,20 @@
+{
+  "cadence": "weekly",
+  "operation": "store",
+  "runId": "session-mm5qt2o5",
+  "servicePath": "src/services/memory/index.js#ingestEvents",
+  "inputs": {
+    "agentId": "changelog-agent",
+    "promptPath": "torch/src/prompts/weekly/changelog-agent.md",
+    "promptIntent": "Required startup + artifacts + memory + issue capture",
+    "events": 1,
+    "sourceFile": "memory-update.md"
+  },
+  "outputs": {
+    "storedCount": 1,
+    "summaries": [
+      "# Memory Update: changelog-agent run 2026-02-28\n\n## Learnings\n* The default branch is `beta`. `git log` should target `beta` instead of `main` when reading history for this repository.\n* A `CHANGELOG.md` file exists and we append changes. Since no existing release notes dir was …"
+    ]
+  },
+  "status": "ok"
+}
