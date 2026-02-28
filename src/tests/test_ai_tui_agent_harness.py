@@ -10,6 +10,10 @@ pytest.importorskip("pty")
 pytest.importorskip("termios")
 
 
+pytest.importorskip("pty")
+pytest.importorskip("termios")
+
+
 def _load_harness_module():
     repo_root = Path(__file__).resolve().parents[2]
     script_path = repo_root / "scripts" / "ai_tui_agent_test.py"

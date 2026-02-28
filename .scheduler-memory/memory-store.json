@@ -509,12 +509,12 @@
     }
   ],
   [
-    "b7d694f0-b2be-4ef1-b67c-d4d9ffbadea2",
+    "599e3af9-e566-4580-b647-c28022808740",
     {
       "schema_version": 1,
-      "id": "b7d694f0-b2be-4ef1-b67c-d4d9ffbadea2",
+      "id": "599e3af9-e566-4580-b647-c28022808740",
       "agent_id": "content-audit-agent",
-      "session_id": "session-mm5qscb6",
+      "session_id": "session-mm5j6tzh",
       "type": "batch_window",
       "content": "Memory retrieval seed for daily :: Content Audit Agent",
       "summary": "Memory retrieval seed for daily :: Content Audit Agent",
@@ -525,8 +525,8 @@
       ],
       "importance": 0.4,
       "embedding_id": null,
-      "created_at": 1772248144722,
-      "last_seen": 1772248144734,
+      "created_at": 1772235383885,
+      "last_seen": 1772235383900,
       "source": "scheduler-retrieve",
       "ttl_days": null,
       "merged_into": null,
@@ -534,15 +534,15 @@
     }
   ],
   [
-    "7a033099-4973-47d1-999e-bc56ccc0a070",
+    "703cda2e-2d85-473a-a3d9-7bba2a7f44e9",
     {
       "schema_version": 1,
-      "id": "7a033099-4973-47d1-999e-bc56ccc0a070",
+      "id": "703cda2e-2d85-473a-a3d9-7bba2a7f44e9",
       "agent_id": "content-audit-agent",
-      "session_id": "session-mm5qtgwf",
+      "session_id": "session-mm5jchxp",
       "type": "batch_window",
-      "content": "# Content Audit Report 2026-02-28\n\nNo changes required. All documentation is accurate and aligned with the current TORCH product surface.",
-      "summary": "# Content Audit Report 2026-02-28\n\nNo changes required. All documentation is accurate and aligned with the current TORCH product surface.",
+      "content": "# Memory Update — bug-reproducer-agent — 2026-02-27\n\n## Key findings\n- The `scheduler-flow.md` script execution failed due to a missing runner (`codex`).\n- The automated `bug-reproducer-agent` prompt execution failed.\n- Fallback manual investigation identified one active issue: `BIP85 Non-Standard Derivation Path` (using `app_no=2` instead of standard). This is documented in `KNOWN_ISSUES.md`.\n\n## Patterns / reusable knowledge\n- Future runs should verify the runner environment variables (`SCHEDULER_PROMPT_PATH`, `SCHEDULER_AGENT`, `SCHEDULER_CADENCE`) are set correctly before invoking `run-selected-prompt.mjs`.\n- If the runner fails, manual fallback or alternative automation (e.g., Python script) is required.\n\n## Warnings / gotchas\n- `torch/scripts/agent/run-selected-prompt.mjs` depends on an external runner (`codex` or similar) which may not be available in all environments.",
+      "summary": "# Memory Update — bug-reproducer-agent — 2026-02-27\n\n## Key findings\n- The `scheduler-flow.md` script execution failed due to a missing runner (`codex`).\n- The automated `bug-reproducer-agent` prompt execution failed.\n- Fallback manual investigation identified one active issue: …",
       "tags": [
         "scheduler",
         "daily",
@@ -551,8 +551,8 @@
       ],
       "importance": 0.8,
       "embedding_id": null,
-      "created_at": 1772248197328,
-      "last_seen": 1772248197328,
+      "created_at": 1772235648205,
+      "last_seen": 1772235648205,
       "source": "agent-output",
       "ttl_days": null,
       "merged_into": null,
