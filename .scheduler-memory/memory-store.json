@@ -507,5 +507,56 @@
       "merged_into": null,
       "pinned": false
     }
+  ],
+  [
+    "73a7d367-18b2-4755-831b-9d46566cf8dd",
+    {
+      "schema_version": 1,
+      "id": "73a7d367-18b2-4755-831b-9d46566cf8dd",
+      "agent_id": "changelog-agent",
+      "session_id": "session-mm5ql8f7",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for weekly :: Required startup + artifacts + memory + issue capture",
+      "summary": "Memory retrieval seed for weekly :: Required startup + artifacts + memory + issue capture",
+      "tags": [
+        "scheduler",
+        "weekly",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772247813091,
+      "last_seen": 1772247813102,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "844d3bd1-a719-49b3-b579-0973ae060825",
+    {
+      "schema_version": 1,
+      "id": "844d3bd1-a719-49b3-b579-0973ae060825",
+      "agent_id": "changelog-agent",
+      "session_id": "session-mm5qt2o5",
+      "type": "batch_window",
+      "content": "# Memory Update: changelog-agent run 2026-02-28\n\n## Learnings\n* The default branch is `beta`. `git log` should target `beta` instead of `main` when reading history for this repository.\n* A `CHANGELOG.md` file exists and we append changes. Since no existing release notes dir was found, I created `releases/draft-YYYYMMDD.md`.\n* We use `poetry run black .` for formatting tests properly, but I reverted the changes to `torch/scripts` formatting since they were not meant to be changed by this agent.",
+      "summary": "# Memory Update: changelog-agent run 2026-02-28\n\n## Learnings\n* The default branch is `beta`. `git log` should target `beta` instead of `main` when reading history for this repository.\n* A `CHANGELOG.md` file exists and we append changes. Since no existing release notes dir was …",
+      "tags": [
+        "scheduler",
+        "weekly",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772248178886,
+      "last_seen": 1772248178886,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
   ]
 ]
