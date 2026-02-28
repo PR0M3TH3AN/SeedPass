@@ -20,29 +20,33 @@ PATTERNS = [
     (r"# todo", "Found '# todo' comment"),
 ]
 
+
 def scan_file(filepath):
     """Scan a single file for suspicious patterns."""
     issues = []
     try:
         content = filepath.read_text(encoding="utf-8")
     except Exception:
-        return # Skip non-text files
+        return  # Skip non-text files
 
     for pattern, message in PATTERNS:
         if re.search(pattern, content):
             issues.append(message)
 
     # Check for lack of assertions (very naive)
-    if "test_" in filepath.name and "assert" not in content and "expect" not in content and "raise" not in content:
+    if (
+        "test_" in filepath.name
+        and "assert" not in content
+        and "expect" not in content
+        and "raise" not in content
+    ):
         # Exclude conftest or helpers
         if "conftest" not in filepath.name and "helper" not in filepath.name:
-             issues.append("No obvious assertions found")
+            issues.append("No obvious assertions found")
 
     if issues:
-        SUSPICIOUS.append({
-            "file": str(filepath),
-            "issues": issues
-        })
+        SUSPICIOUS.append({"file": str(filepath), "issues": issues})
+
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -61,6 +65,7 @@ def main():
 
     print(f"Found {len(SUSPICIOUS)} suspicious files.")
     print(f"Report written to {OUTPUT_DIR / 'suspicious-tests.json'}.")
+
 
 if __name__ == "__main__":
     main()
