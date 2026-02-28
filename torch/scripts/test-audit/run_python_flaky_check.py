@@ -11,6 +11,7 @@ TEST_PATTERN = "src/tests"
 RESULTS = {}
 RUN_DIAGNOSTICS = []
 
+
 def run_tests(run_index):
     """Run pytest and parse output for pass/fail counts."""
     print(f"Run {run_index + 1}/{RUNS}...")
@@ -19,11 +20,13 @@ def run_tests(run_index):
     # -q: quiet
     # --no-header --no-summary: minimal output
     cmd = [
-        sys.executable, "-m", "pytest",
+        sys.executable,
+        "-m",
+        "pytest",
         TEST_PATTERN,
         "-q",
         "--no-header",
-        "--no-summary"
+        "--no-summary",
     ]
 
     start_time = time.time()
@@ -33,7 +36,7 @@ def run_tests(run_index):
             cmd,
             capture_output=True,
             text=True,
-            env={"PYTHONPATH": "src"}  # Ensure src is in path
+            env={"PYTHONPATH": "src"},  # Ensure src is in path
         )
         output = result.stdout
         exit_code = result.returncode
@@ -45,10 +48,10 @@ def run_tests(run_index):
 
     # Parse output character by character for status
     # . = pass, F = fail, E = error, s = skip, x = xfail, X = xpass
-    passed = output.count('.')
-    failed = output.count('F')
-    errors = output.count('E')
-    skipped = output.count('s')
+    passed = output.count(".")
+    failed = output.count("F")
+    errors = output.count("E")
+    skipped = output.count("s")
 
     # Store aggregate results (naive mapping, ideally we'd parse node ids)
     # Since we can't easily map node IDs without -v or --junitxml, we track totals for flakiness *rates* at suite level first.
@@ -56,26 +59,36 @@ def run_tests(run_index):
 
     junit_path = OUTPUT_DIR / f"flaky-run-{run_index + 1}.xml"
     subprocess.run(
-        [sys.executable, "-m", "pytest", TEST_PATTERN, f"--junitxml={junit_path}", "-q"],
-        capture_output=True, # We only care about the XML file
-        env={"PYTHONPATH": "src"}
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            TEST_PATTERN,
+            f"--junitxml={junit_path}",
+            "-q",
+        ],
+        capture_output=True,  # We only care about the XML file
+        env={"PYTHONPATH": "src"},
     )
 
-    RUN_DIAGNOSTICS.append({
-        "run": run_index + 1,
-        "code": exit_code,
-        "duration": duration,
-        "passed": passed,
-        "failed": failed,
-        "errors": errors,
-        "skipped": skipped
-    })
+    RUN_DIAGNOSTICS.append(
+        {
+            "run": run_index + 1,
+            "code": exit_code,
+            "duration": duration,
+            "passed": passed,
+            "failed": failed,
+            "errors": errors,
+            "skipped": skipped,
+        }
+    )
+
 
 def parse_junit_xmls():
     """Parse generated JUnit XML files to detect per-test flakiness."""
     import xml.etree.ElementTree as ET
 
-    test_stats = {} # "test_id": {pass: 0, fail: 0, error: 0, skip: 0}
+    test_stats = {}  # "test_id": {pass: 0, fail: 0, error: 0, skip: 0}
 
     for i in range(RUNS):
         xml_path = OUTPUT_DIR / f"flaky-run-{i + 1}.xml"
@@ -108,6 +121,7 @@ def parse_junit_xmls():
 
     return test_stats
 
+
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -128,6 +142,7 @@ def main():
         json.dump(RUN_DIAGNOSTICS, f, indent=2)
 
     print(f"Flakiness matrix written to {OUTPUT_DIR / 'flakiness-matrix.json'}")
+
 
 if __name__ == "__main__":
     main()
