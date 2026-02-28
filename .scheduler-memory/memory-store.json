@@ -507,5 +507,56 @@
       "merged_into": null,
       "pinned": false
     }
+  ],
+  [
+    "b7d694f0-b2be-4ef1-b67c-d4d9ffbadea2",
+    {
+      "schema_version": 1,
+      "id": "b7d694f0-b2be-4ef1-b67c-d4d9ffbadea2",
+      "agent_id": "content-audit-agent",
+      "session_id": "session-mm5qscb6",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: Content Audit Agent",
+      "summary": "Memory retrieval seed for daily :: Content Audit Agent",
+      "tags": [
+        "scheduler",
+        "daily",
+        "retrieve"
+      ],
+      "importance": 0.4,
+      "embedding_id": null,
+      "created_at": 1772248144722,
+      "last_seen": 1772248144734,
+      "source": "scheduler-retrieve",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
+  ],
+  [
+    "7a033099-4973-47d1-999e-bc56ccc0a070",
+    {
+      "schema_version": 1,
+      "id": "7a033099-4973-47d1-999e-bc56ccc0a070",
+      "agent_id": "content-audit-agent",
+      "session_id": "session-mm5qtgwf",
+      "type": "batch_window",
+      "content": "# Content Audit Report 2026-02-28\n\nNo changes required. All documentation is accurate and aligned with the current TORCH product surface.",
+      "summary": "# Content Audit Report 2026-02-28\n\nNo changes required. All documentation is accurate and aligned with the current TORCH product surface.",
+      "tags": [
+        "scheduler",
+        "daily",
+        "store",
+        "insight"
+      ],
+      "importance": 0.8,
+      "embedding_id": null,
+      "created_at": 1772248197328,
+      "last_seen": 1772248197328,
+      "source": "agent-output",
+      "ttl_days": null,
+      "merged_into": null,
+      "pinned": false
+    }
   ]
 ]
