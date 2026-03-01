@@ -39,6 +39,7 @@ deterministic_totp_option = typer.Option(
 
 # Sub command groups
 from . import entry, vault, nostr, config, fingerprint, util, api, agent
+from .capabilities import register_capabilities_command
 
 app.add_typer(entry.app, name="entry")
 app.add_typer(vault.app, name="vault")
@@ -48,6 +49,7 @@ app.add_typer(fingerprint.app, name="fingerprint")
 app.add_typer(util.app, name="util")
 app.add_typer(api.app, name="api")
 app.add_typer(agent.app, name="agent")
+register_capabilities_command(app)
 
 
 def run() -> None:
