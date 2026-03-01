@@ -63,7 +63,7 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 - [x] Feature parity checklist against legacy TUI.
 - [x] UX/perf pass for large vaults.
 - [x] Error messaging and recovery flows.
-- [ ] Decide default switch timing (`seedpass` -> `tui2`).
+- [x] Decide default switch timing (`seedpass` -> `tui2`).
 
 ## Test Strategy
 

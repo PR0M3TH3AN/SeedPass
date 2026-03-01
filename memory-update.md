@@ -188,3 +188,5 @@
 - TUI v2 large-vault UX/perf pass: entry list pagination (200/page, `p`/`n`, palette `page-next/page-prev/page <n>`) and document detail preview truncation (`content_truncated`) to avoid rendering extremely large payloads in the detail pane.
 - 2026-03-01: TUI v2 error/recovery pass added unified failure recording (`_record_failure`) and retry workflow (`x` key + palette `retry`) across init/search/select/link/save/archive paths.
 - Recovery hints are now included in status messages (for example, "Press 'x' to retry") and Phase 4 docs mark error/recovery flow work complete.
+- 2026-03-01: Added `docs/tui_v2_cutover_decision.md` with explicit recommendation to keep legacy default for next release, required cutover gates, staged rollout, and rollback plan for switching `seedpass` default to TUI v2.
+- Updated phase tracking docs to mark the cutover timing decision item complete and linked the memo in docs indexes.

@@ -25,6 +25,7 @@ This directory contains SeedPass project documentation.
 - `entry_graph.md`
 - `tui_v2_plan.md`
 - `tui_v2_parity_checklist.md`
+- `tui_v2_cutover_decision.md`
 - `security.md`
 - `nostr_setup.md`
 - `nostr_namespace_reset.md`

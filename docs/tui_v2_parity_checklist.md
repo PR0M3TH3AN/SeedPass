@@ -33,7 +33,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 - [x] Error messaging and recovery flow review.
   - unified failure status messaging
   - retry shortcut (`x`) and palette `retry` command
-- [ ] Cutover decision memo (`seedpass` default switch timing).
+- [x] Cutover decision memo (`seedpass` default switch timing).
 
 ## Risks Remaining
 
