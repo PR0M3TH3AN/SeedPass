@@ -259,6 +259,7 @@ def launch_tui2(
             self._focus_pane = "center"
             self._doc_dirty = False
             self._doc_snapshot: dict[str, Any] = {}
+            self._last_status_message = ""
             try:
                 self._service = (
                     entry_service_factory() if callable(entry_service_factory) else None
@@ -281,6 +282,9 @@ def launch_tui2(
             self._load_entries()
 
         def _set_status(self, message: str) -> None:
+            if message == self._last_status_message:
+                return
+            self._last_status_message = message
             mode = (
                 "PALETTE"
                 if self.palette_open
