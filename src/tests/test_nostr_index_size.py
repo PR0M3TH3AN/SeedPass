@@ -84,25 +84,37 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
                     encrypted = vault.get_encrypted_index()
                     payload_size = len(encrypted) if encrypted else 0
                     asyncio.run(client.publish_snapshot(encrypted or b""))
-                    time.sleep(delay)
-                    result = asyncio.run(client.fetch_latest_snapshot())
-                    retrieved = gzip.decompress(b"".join(result[1])) if result else None
-                    retrieved_ok = retrieved == encrypted
+
+                    async def fetch_with_retry(
+                        client, expected_data, timeout, interval=1.0
+                    ):
+                        start_time = time.time()
+                        while time.time() - start_time < timeout:
+                            result = await client.fetch_latest_snapshot()
+                            retrieved = (
+                                gzip.decompress(b"".join(result[1])) if result else None
+                            )
+                            if retrieved == expected_data:
+                                return True
+                            await asyncio.sleep(interval)
+                        return False
+
+                    retrieved_ok = asyncio.run(
+                        fetch_with_retry(client, encrypted, delay)
+                    )
+
                     if not retrieved_ok:
                         print(f"Initial retrieve failed: {client.last_error}")
-                        result = asyncio.run(client.fetch_latest_snapshot())
-                        retrieved = (
-                            gzip.decompress(b"".join(result[1])) if result else None
+                        retrieved_ok = asyncio.run(
+                            fetch_with_retry(client, encrypted, delay)
                         )
-                        retrieved_ok = retrieved == encrypted
+
                     if not retrieved_ok:
                         print("Trying alternate relay")
                         client.update_relays(["wss://relay.damus.io"])
-                        result = asyncio.run(client.fetch_latest_snapshot())
-                        retrieved = (
-                            gzip.decompress(b"".join(result[1])) if result else None
+                        retrieved_ok = asyncio.run(
+                            fetch_with_retry(client, encrypted, delay)
                         )
-                        retrieved_ok = retrieved == encrypted
                     results.append((entry_count, payload_size, True, retrieved_ok))
                     if max_entries is not None:
                         if entry_count >= max_entries:
@@ -127,3 +139,5 @@ def test_nostr_index_size_limits(pytestconfig: pytest.Config):
 
     synced = sum(1 for _, _, pub, ret in results if pub and ret)
     print(f"Successfully synced entries: {synced}")
+
+    assert len(results) > 0

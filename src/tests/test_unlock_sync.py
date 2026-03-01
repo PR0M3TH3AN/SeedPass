@@ -27,7 +27,7 @@ def test_unlock_triggers_sync(monkeypatch, tmp_path):
 
     pm.unlock_vault("pw")
     pm.start_background_sync()
-    time.sleep(0.05)
+    pm._sync_task.join(timeout=1.0)
     pm.cleanup()
 
     assert called["sync"]

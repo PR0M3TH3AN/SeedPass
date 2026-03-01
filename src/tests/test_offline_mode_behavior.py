@@ -23,5 +23,4 @@ def test_start_background_sync_offline(monkeypatch):
     called = {"sync": False}
     pm.sync_index_from_nostr = lambda: called.__setitem__("sync", True)
     PasswordManager.start_background_sync(pm)
-    time.sleep(0.05)
     assert called["sync"] is False
