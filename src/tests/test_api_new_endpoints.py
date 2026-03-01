@@ -5,6 +5,7 @@ import base64
 import pytest
 
 from seedpass import api
+import seedpass.core.agent_export_policy as export_policy
 import string
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 from seedpass.core.encryption import EncryptionManager
@@ -462,6 +463,7 @@ async def test_vault_unlock_endpoint(client):
     res = await cl.post("/api/v1/vault/unlock", headers=headers)
     assert res.status_code == 200
     assert res.json()["status"] == "unlocked"
+    assert "help_hint" in res.json()
     assert called["password"] == "pw"
 
 
@@ -608,6 +610,42 @@ async def test_vault_export_endpoint(client, tmp_path):
         "/api/v1/vault/export", headers={"Authorization": f"Bearer {token}"}
     )
     assert res.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_vault_export_endpoint_denied_for_agent_profile(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+    }
+    res = await cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 403
+    assert "Policy denied full vault export" in res.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_totp_export_endpoint_denied_for_agent_profile(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        '{"allow_kinds":["password"],"allow_export_import":false}',
+        encoding="utf-8",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+    }
+    res = await cl.get("/api/v1/totp/export", headers=headers)
+    assert res.status_code == 403
+    assert "Policy denied TOTP export" in res.json()["detail"]
 
 
 @pytest.mark.anyio
