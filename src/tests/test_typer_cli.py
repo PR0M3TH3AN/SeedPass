@@ -11,6 +11,7 @@ from seedpass.cli import common as cli_common
 from seedpass.cli import api as cli_api
 from seedpass import cli
 from seedpass.core.entry_types import EntryType
+import seedpass.core.agent_export_policy as export_policy
 
 runner = CliRunner()
 
@@ -83,6 +84,18 @@ def test_vault_export(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert called.get("export") is True
     assert out_path.read_bytes() == b"data"
+
+
+def test_vault_export_denied_for_agent_profile_by_default(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(cli_common.VaultService, "export_profile", lambda self: b"data")
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: SimpleNamespace())
+    out_path = tmp_path / "out.json"
+    result = runner.invoke(
+        app, ["vault", "export", "--file", str(out_path), "--agent-profile"]
+    )
+    assert result.exit_code == 1
+    assert "Policy denied full vault export" in result.stdout
 
 
 def test_vault_import(monkeypatch, tmp_path):
@@ -386,6 +399,24 @@ def test_generate_password(monkeypatch):
     assert "secretpw" in result.stdout
 
 
+def test_capabilities_text():
+    result = runner.invoke(app, ["capabilities"])
+    assert result.exit_code == 0
+    assert "SeedPass Capabilities" in result.stdout
+    assert "Auth brokers" in result.stdout
+
+
+def test_capabilities_json():
+    result = runner.invoke(app, ["capabilities", "--format", "json"])
+    assert result.exit_code == 0
+    import json
+
+    payload = json.loads(result.stdout)
+    assert payload["schema_version"] == 1
+    assert "cli" in payload["interfaces"]
+    assert "agent" in payload["interfaces"]["cli"]["root_commands"]
+
+
 def test_api_start_passes_fingerprint(monkeypatch):
     """Ensure the API start command forwards the selected fingerprint."""
     called = {}
@@ -400,6 +431,41 @@ def test_api_start_passes_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc", "api", "start"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_api_start_unlock_uses_env_broker(monkeypatch):
+    called = {}
+    broker_called = {}
+
+    def fake_start(fingerprint=None, unlock_password=None):
+        called["fp"] = fingerprint
+        called["pw"] = unlock_password
+        return "tok"
+
+    monkeypatch.setattr(cli_api.api_module, "start_server", fake_start)
+    monkeypatch.setattr(cli_api, "uvicorn", SimpleNamespace(run=lambda *a, **k: None))
+    monkeypatch.setattr(
+        cli_api,
+        "resolve_broker_password",
+        lambda **kwargs: broker_called.update(kwargs) or "broker-pw",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--fingerprint",
+            "abc",
+            "api",
+            "start",
+            "--unlock",
+            "--auth-broker",
+            "env",
+        ],
+    )
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert called.get("pw") == "broker-pw"
+    assert broker_called.get("broker") == "env"
 
 
 def test_entry_list_passes_fingerprint(monkeypatch):
@@ -562,6 +628,26 @@ def test_entry_export_totp(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert out.exists()
     assert called.get("called") is True
+
+
+def test_entry_export_totp_denied_for_agent_profile(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        '{"allow_kinds":["password"],"allow_export_import":false}',
+        encoding="utf-8",
+    )
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(export_totp_entries=lambda seed: {"entries": []}),
+        parent_seed="seed",
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    out = tmp_path / "t.json"
+    result = runner.invoke(
+        app, ["entry", "export-totp", "--file", str(out), "--agent-profile"]
+    )
+    assert result.exit_code == 1
+    assert "Policy denied TOTP export" in result.stdout
 
 
 def test_entry_totp_codes(monkeypatch):

@@ -1,4 +1,4 @@
-### 1. [2026-02-26] (scheduler, daily, store, insight)
+### 1. [2026-02-28] (scheduler, daily, retrieve)
 
 # Memory Update (2026-02-25)
 
@@ -48,3 +48,4 @@ When running `npm run --prefix torch scheduler:daily`, the scheduler resolves co
 
 ### 2. [2026-02-25] (torch, scheduler, handoff)
 A non-inter…
+Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture
