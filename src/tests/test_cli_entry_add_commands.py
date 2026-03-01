@@ -247,7 +247,7 @@ def test_entry_export_document_command(monkeypatch):
         ],
     )
     assert result.exit_code == 0
-    assert "/tmp/doc.txt" in result.stdout
+    assert str(Path("/tmp/doc.txt")) in result.stdout
     assert called["args"] == (9, "/tmp/outdir")
     assert called["kwargs"] == {"overwrite": True}
 

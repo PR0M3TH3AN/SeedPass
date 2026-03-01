@@ -191,7 +191,7 @@ async def test_document_import_export_endpoints(client):
         headers=headers,
     )
     assert exported.status_code == 200
-    assert exported.json() == {"path": "/tmp/exported.md"}
+    assert exported.json() == {"path": str(Path("/tmp/exported.md"))}
     assert calls["export"] == (33, {"output_path": "/tmp/out", "overwrite": True})
 
 
