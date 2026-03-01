@@ -3128,14 +3128,14 @@ files = [
 
 [[package]]
 name = "starlette"
-version = "0.47.3"
+version = "0.52.1"
 description = "The little ASGI library that shines."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "starlette-0.47.3-py3-none-any.whl", hash = "sha256:89c0778ca62a76b826101e7c709e70680a1699ca7da6b44d38eb0a7e61fe4b51"},
-    {file = "starlette-0.47.3.tar.gz", hash = "sha256:6bc94f839cc176c4858894f1f8908f0ab79dfec1a6b8402f6da9be26ebea52e9"},
+    {file = "starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74"},
+    {file = "starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933"},
 ]
 
 [package.dependencies]
@@ -3189,7 +3189,7 @@ files = [
     {file = "toga_core-0.5.2-py3-none-any.whl", hash = "sha256:e872cebd2d899e9138f73393e8cd834a55a057aa269608ff7314a853ab33cb4e"},
     {file = "toga_core-0.5.2.tar.gz", hash = "sha256:bdd3760146b74c8d315cb901392c2b645ab3e5d4cd90114f3e36e0e7dad3d6d1"},
 ]
-markers = {main = "extra == \"gui\" or extra == \"gui-gtk\" or extra == \"gui-win\" or extra == \"gui-mac\""}
+markers = {main = "extra == \"gui-mac\" or extra == \"gui\" or extra == \"gui-gtk\" or extra == \"gui-win\""}
 
 [package.dependencies]
 travertino = "0.5.2"
@@ -3315,7 +3315,7 @@ files = [
     {file = "travertino-0.5.2-py3-none-any.whl", hash = "sha256:fd69ac3b14f2847e4c972198588b8a86ca3b437aaa0c8ce7259bbe5dab17aff1"},
     {file = "travertino-0.5.2.tar.gz", hash = "sha256:5afcc673e14e16c3c04c0e3fe387062633e6bc88e87bc0bbd214a04b4dfbbcd4"},
 ]
-markers = {main = "extra == \"gui\" or extra == \"gui-gtk\" or extra == \"gui-win\" or extra == \"gui-mac\""}
+markers = {main = "extra == \"gui-mac\" or extra == \"gui\" or extra == \"gui-gtk\" or extra == \"gui-win\""}
 
 [package.extras]
 dev = ["coverage-conditional-plugin (==0.9.0)", "coverage[toml] (==7.9.2)", "pytest (==8.4.1)", "tox (==4.27.0)", "typing-extensions (==4.12.2) ; python_version < \"3.10\""]
@@ -3717,4 +3717,4 @@ gui-win = ["toga-winforms"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "b6da34d26fc00e96e647e6378654ae84c21fa5d4b3a01c989ef43ca2ace70849"
+content-hash = "74af225fd71cf607b93a03a5c691b4d1f681add9b6fe5698c5fed65239e75e3b"
