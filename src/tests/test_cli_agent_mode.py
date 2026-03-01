@@ -1810,8 +1810,9 @@ def test_agent_secret_lease_issue_consume_and_exhaust(monkeypatch, tmp_path):
             "ABC123",
             "agent",
             "lease-consume",
-            lease_id,
             "--reveal",
+            "--",
+            lease_id,
         ],
     )
     assert first.exit_code == 0
@@ -1827,8 +1828,9 @@ def test_agent_secret_lease_issue_consume_and_exhaust(monkeypatch, tmp_path):
             "ABC123",
             "agent",
             "lease-consume",
-            lease_id,
             "--reveal",
+            "--",
+            lease_id,
         ],
     )
     assert second.exit_code == 1
@@ -1913,8 +1915,9 @@ def test_agent_lease_consume_hydrates_partitioned_private_entry(monkeypatch, tmp
             "ABC123",
             "agent",
             "lease-consume",
-            "lease-1",
             "--reveal",
+            "--",
+            "lease-1",
         ],
     )
     assert result.exit_code == 0
