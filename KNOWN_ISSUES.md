@@ -40,3 +40,11 @@ It is updated daily by the `known-issues-agent`.
 - **Root Cause**: Implementation choice or legacy behavior.
 - **Status**: Active (Documented in `PROTOCOL_INVENTORY.md` and `reports/protocol/protocol-report-2026-02-26.md`).
 - **Last Checked**: 2026-02-26
+
+### [Active] Replace Python AESGCM Implementation with Rust/WASM
+- **Symptoms**: The memory protection implementation in `src/utils/memory_protection.py` is currently in Python and relies on Python's memory management, offering only best-effort zeroization.
+- **Repro**: `cat src/utils/memory_protection.py | grep TODO`
+- **Workaround**: Currently relies on best-effort zeroization in Python.
+- **Root Cause**: Deferred integration of a native/WASM cryptography module.
+- **Status**: Active (Security-sensitive, logged by `todo-triage-agent`).
+- **Last Checked**: 2026-03-01
