@@ -186,3 +186,5 @@
 - Link panel now tracks selection state and displays active relation filter + selected link position to support KB-style navigation in large graphs.
 - 2026-03-01: Phase 4 kickoff added `docs/tui_v2_parity_checklist.md` and linked it in docs indexes (`docs/README.md`, `landing/docs.html`) to track legacy-vs-v2 cutover readiness.
 - TUI v2 large-vault UX/perf pass: entry list pagination (200/page, `p`/`n`, palette `page-next/page-prev/page <n>`) and document detail preview truncation (`content_truncated`) to avoid rendering extremely large payloads in the detail pane.
+- 2026-03-01: TUI v2 error/recovery pass added unified failure recording (`_record_failure`) and retry workflow (`x` key + palette `retry`) across init/search/select/link/save/archive paths.
+- Recovery hints are now included in status messages (for example, "Press 'x' to retry") and Phase 4 docs mark error/recovery flow work complete.

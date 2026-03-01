@@ -92,6 +92,7 @@ def launch_tui2(
         BINDINGS = [
             ("q", "quit", "Quit"),
             ("r", "refresh", "Refresh"),
+            ("x", "retry_last_error", "Retry"),
             ("slash", "focus_search", "Search"),
             ("f", "cycle_filter", "Filter"),
             ("p", "prev_page", "Prev Page"),
@@ -121,7 +122,7 @@ def launch_tui2(
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
                     "link-filter <relation|all> | link-next | link-prev | link-open | "
-                    "page-next | page-prev | page <n>"
+                    "page-next | page-prev | page <n> | retry"
                 ),
                 id="command-palette",
                 classes="hidden",
@@ -171,13 +172,20 @@ def launch_tui2(
             self._result_page = 0
             self._current_links: list[dict[str, Any]] = []
             self._current_link_cursor = 0
+            self._last_error: str | None = None
+            self._retry_action: Any | None = None
             try:
                 self._service = (
                     entry_service_factory() if callable(entry_service_factory) else None
                 )
             except Exception as exc:
                 self._service = None
-                self._set_status(f"Unable to initialize entry service: {exc}")
+                self._record_failure(
+                    "Unable to initialize entry service",
+                    exc,
+                    retry=self._retry_initialize_service,
+                    hint="Press 'x' to retry initialization.",
+                )
                 self.query_one("#entry-detail", Static).update(
                     f"Unable to initialize entry service: {exc}"
                 )
@@ -186,6 +194,40 @@ def launch_tui2(
 
         def _set_status(self, message: str) -> None:
             self.query_one("#status", Static).update(message)
+
+        def _record_failure(
+            self,
+            context: str,
+            exc: Exception,
+            *,
+            retry: Any | None = None,
+            hint: str = "",
+        ) -> None:
+            self._last_error = f"{context}: {exc}"
+            self._retry_action = retry
+            suffix = f" {hint}" if hint else ""
+            self._set_status(f"{self._last_error}.{suffix}")
+
+        def _clear_failure(self) -> None:
+            self._last_error = None
+            self._retry_action = None
+
+        def _retry_initialize_service(self) -> None:
+            try:
+                self._service = (
+                    entry_service_factory() if callable(entry_service_factory) else None
+                )
+            except Exception as exc:
+                self._record_failure(
+                    "Unable to initialize entry service",
+                    exc,
+                    retry=self._retry_initialize_service,
+                    hint="Press 'x' to retry initialization.",
+                )
+                return
+            self._clear_failure()
+            self._set_status("Entry service initialized")
+            self._load_entries(self._last_query, reset_page=False)
 
         def _current_filter_kinds(self) -> list[str] | None:
             if self.filter_kind == "all":
@@ -214,6 +256,7 @@ def launch_tui2(
                     "- f cycle kind filter",
                     "- p/n prev/next page",
                     "- r refresh",
+                    "- x retry last error",
                     "",
                     "Actions:",
                     "- a archive/restore",
@@ -327,10 +370,18 @@ def launch_tui2(
                 self._current_links = []
                 self._current_link_cursor = 0
                 self._update_filters_panel()
-                self._set_status("Failed to load entries")
+                self._record_failure(
+                    "Failed to load entries",
+                    exc,
+                    retry=lambda: self._load_entries(
+                        self._last_query, reset_page=False
+                    ),
+                    hint="Press 'x' to retry.",
+                )
                 return
 
             self._all_results = list(results)
+            self._clear_failure()
             if reset_page:
                 self._result_page = 0
             self._render_current_page(preserve_selected=not reset_page)
@@ -362,7 +413,12 @@ def launch_tui2(
                 self.query_one("#link-detail", Static).update("Links unavailable.")
                 self._current_links = []
                 self._current_link_cursor = 0
-                self._set_status(f"Failed to load entry {entry_index}")
+                self._record_failure(
+                    f"Failed to load entry {entry_index}",
+                    exc,
+                    retry=lambda: self._show_entry(entry_index),
+                    hint="Press 'x' to retry.",
+                )
 
         def _update_links_panel(self) -> None:
             if self._service is None or self._selected_entry_id is None:
@@ -380,6 +436,12 @@ def launch_tui2(
                 )
                 self._current_links = []
                 self._current_link_cursor = 0
+                self._record_failure(
+                    "Failed to load entry links",
+                    exc,
+                    retry=self._update_links_panel,
+                    hint="Press 'x' to retry.",
+                )
                 return
 
             if self.link_relation_filter == "all":
@@ -433,6 +495,7 @@ def launch_tui2(
                 else:
                     lines.append(f"{prefix} {relation} -> {target}")
             self.query_one("#link-detail", Static).update("\n".join(lines))
+            self._clear_failure()
 
         def _is_selected_document(self) -> bool:
             if not isinstance(self._selected_entry, dict):
@@ -501,8 +564,11 @@ def launch_tui2(
                     "Palette commands: help, open, search, filter, archive, "
                     "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
                     "link-filter, link-next, link-prev, link-open, page-next, "
-                    "page-prev, page <n>"
+                    "page-prev, page <n>, retry"
                 )
+                return
+            if cmd == "retry":
+                self.action_retry_last_error()
                 return
 
             if cmd == "open":
@@ -549,9 +615,15 @@ def launch_tui2(
                     self._load_entries(self._last_query, reset_page=False)
                     if current_id in self._entry_ids_in_view:
                         self._show_entry(current_id)
+                    self._clear_failure()
                     self._set_status(f"Entry {current_id} {action}")
                 except Exception as exc:
-                    self._set_status(f"{cmd} failed: {exc}")
+                    self._record_failure(
+                        f"{cmd} failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(cmd),
+                        hint="Press 'x' to retry.",
+                    )
                 return
 
             if cmd == "edit-doc":
@@ -590,11 +662,17 @@ def launch_tui2(
                         note=note,
                     )
                     self._update_links_panel()
+                    self._clear_failure()
                     self._set_status(
                         f"Link added: {self._selected_entry_id} {relation} {target}"
                     )
                 except Exception as exc:
-                    self._set_status(f"link-add failed: {exc}")
+                    self._record_failure(
+                        "link-add failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
                 return
 
             if cmd == "link-rm":
@@ -617,11 +695,17 @@ def launch_tui2(
                         relation=relation,
                     )
                     self._update_links_panel()
+                    self._clear_failure()
                     self._set_status(
                         f"Link removed: {self._selected_entry_id} -> {target}"
                     )
                 except Exception as exc:
-                    self._set_status(f"link-rm failed: {exc}")
+                    self._record_failure(
+                        "link-rm failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
                 return
 
             if cmd == "refresh":
@@ -677,6 +761,21 @@ def launch_tui2(
             search = self.query_one("#search", Input).value
             self._update_filters_panel()
             self._load_entries(query=search, reset_page=False)
+
+        def action_retry_last_error(self) -> None:
+            retry = self._retry_action
+            if retry is None:
+                self._set_status("No retry action available")
+                return
+            try:
+                retry()
+            except Exception as exc:
+                self._record_failure(
+                    "Retry failed",
+                    exc,
+                    retry=retry,
+                    hint="Press 'x' to retry again.",
+                )
 
         def action_focus_search(self) -> None:
             if self.editing_document:
@@ -821,9 +920,15 @@ def launch_tui2(
                 self._load_entries(self._last_query)
                 if current_id in self._entry_ids_in_view:
                     self._show_entry(current_id)
+                self._clear_failure()
                 self._set_status(f"Entry {current_id} {action}")
             except Exception as exc:
-                self._set_status(f"Archive/restore failed: {exc}")
+                self._record_failure(
+                    "Archive/restore failed",
+                    exc,
+                    retry=self.action_toggle_archive,
+                    hint="Press 'x' to retry.",
+                )
 
         def action_edit_document(self) -> None:
             if self._service is None:
@@ -884,9 +989,15 @@ def launch_tui2(
                 self._load_entries(self._last_query, reset_page=False)
                 if current_id in self._entry_ids_in_view:
                     self._show_entry(current_id)
+                self._clear_failure()
                 self._set_status(f"Saved document {current_id}")
             except Exception as exc:
-                self._set_status(f"Failed to save document: {exc}")
+                self._record_failure(
+                    "Failed to save document",
+                    exc,
+                    retry=self.action_save_document,
+                    hint="Press 'x' to retry.",
+                )
 
         def action_cancel_document_edit(self) -> None:
             if self.palette_open:
