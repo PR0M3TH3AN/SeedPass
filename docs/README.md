@@ -24,6 +24,9 @@ This directory contains SeedPass project documentation.
 - `entry_types.md`
 - `entry_graph.md`
 - `tui_v2_plan.md`
+- `tui_v2_parity_checklist.md`
+- `tui_v2_cutover_decision.md`
+- `tui_v2_large_vault_validation.md`
 - `security.md`
 - `nostr_setup.md`
 - `nostr_namespace_reset.md`
@@ -40,6 +43,9 @@ This directory contains SeedPass project documentation.
 ## Discoverability Commands
 
 - `seedpass --help`
+- `seedpass --legacy-tui`
 - `seedpass <group> --help`
+- `seedpass tui2 --help`
+- `seedpass tui2 --check`
 - `seedpass capabilities --format json`
 - `seedpass agent bootstrap-context`

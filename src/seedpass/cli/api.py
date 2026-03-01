@@ -7,10 +7,7 @@ import typer
 import uvicorn
 
 from .. import api as api_module
-from seedpass.core.auth_broker import (
-    AuthBrokerError,
-    resolve_password as resolve_broker_password,
-)
+from seedpass.core.auth_broker import AuthBrokerError, resolve_password as resolve_broker_password
 
 app = typer.Typer(help="Run the API server")
 
@@ -21,22 +18,16 @@ def api_start(
     host: str = "127.0.0.1",
     port: int = 8000,
     unlock: bool = typer.Option(
-        False,
-        "--unlock",
-        help="Unlock vault during startup using the selected auth broker",
+        False, "--unlock", help="Unlock vault during startup using the selected auth broker"
     ),
     auth_broker: str = typer.Option(
         "prompt",
         "--auth-broker",
         help="Password source when --unlock is used (prompt|env|keyring|command)",
-        click_type=click.Choice(
-            ["prompt", "env", "keyring", "command"], case_sensitive=False
-        ),
+        click_type=click.Choice(["prompt", "env", "keyring", "command"], case_sensitive=False),
     ),
     password_env: str = typer.Option(
-        "SEEDPASS_PASSWORD",
-        "--password-env",
-        help="Env var used when --auth-broker=env",
+        "SEEDPASS_PASSWORD", "--password-env", help="Env var used when --auth-broker=env"
     ),
     broker_service: str = typer.Option(
         "seedpass",
@@ -60,9 +51,7 @@ def api_start(
         if auth_broker.lower() == "prompt":
             unlock_password = typer.prompt("Master password", hide_input=True)
         else:
-            account = broker_account or str(
-                (ctx.obj or {}).get("fingerprint") or "default"
-            )
+            account = broker_account or str((ctx.obj or {}).get("fingerprint") or "default")
             try:
                 unlock_password = resolve_broker_password(
                     broker=auth_broker,

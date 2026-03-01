@@ -1409,10 +1409,9 @@ class EntryManager:
         filtered = []
         for link in links:
             matches_target = int(link.get("target_id", -1)) == int(target_id)
-            matches_relation = (
-                relation_norm is None
-                or str(link.get("relation", "")).lower() == relation_norm
-            )
+            matches_relation = relation_norm is None or str(
+                link.get("relation", "")
+            ).lower() == relation_norm
             if matches_target and matches_relation:
                 continue
             filtered.append(link)
@@ -1420,7 +1419,9 @@ class EntryManager:
             src["links"] = filtered
             src.setdefault(
                 "date_added",
-                self._iso_from_unix(int(src.get("modified_ts", 0) or self._now_unix())),
+                self._iso_from_unix(
+                    int(src.get("modified_ts", 0) or self._now_unix())
+                ),
             )
             src["modified_ts"] = self._now_unix()
             src["date_modified"] = self._iso_from_unix(src["modified_ts"])

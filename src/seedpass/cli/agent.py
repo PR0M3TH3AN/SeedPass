@@ -3676,9 +3676,7 @@ def agent_export_manifest_verify(
 def agent_document_import(
     ctx: typer.Context,
     file: Path = typer.Option(..., "--file", help="Input file path"),
-    label: Optional[str] = typer.Option(
-        None, "--label", help="Document title override"
-    ),
+    label: Optional[str] = typer.Option(None, "--label", help="Document title override"),
     notes: str = typer.Option("", "--notes", help="Entry notes"),
     tag: list[str] = typer.Option(
         [], "--tag", help="Tag to attach (repeatable)", show_default=False

@@ -45,9 +45,7 @@ def test_cli_vault_unlock_with_env_broker(monkeypatch):
     monkeypatch.setattr(
         cli.typer,
         "prompt",
-        lambda *a, **k: (_ for _ in ()).throw(
-            AssertionError("prompt should not be called")
-        ),
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("prompt should not be called")),
     )
     result = runner.invoke(app, ["vault", "unlock", "--auth-broker", "env"])
     assert result.exit_code == 0

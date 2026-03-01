@@ -44,6 +44,12 @@ deterministic_totp_option = typer.Option(
     help="Derive TOTP secrets deterministically",
 )
 
+legacy_tui_option = typer.Option(
+    False,
+    "--legacy-tui",
+    help="Use legacy interactive TUI (temporary fallback during TUI v2 cutover)",
+)
+
 # Sub command groups
 from . import entry, vault, nostr, config, fingerprint, util, api, agent
 from .capabilities import register_capabilities_command
@@ -82,6 +88,7 @@ def main(
     fingerprint: Optional[str] = fingerprint_option,
     no_clipboard: bool = no_clipboard_option,
     deterministic_totp: bool = deterministic_totp_option,
+    legacy_tui: bool = legacy_tui_option,
 ) -> None:
     """SeedPass CLI entry point.
 
@@ -93,8 +100,24 @@ def main(
         "fingerprint": fingerprint,
         "no_clipboard": no_clipboard,
         "deterministic_totp": deterministic_totp,
+        "legacy_tui": legacy_tui,
     }
     if ctx.invoked_subcommand is None:
+        if legacy_tui:
+            tui = importlib.import_module("main")
+            raise typer.Exit(tui.main(fingerprint=fingerprint))
+
+        launched = launch_tui2(
+            fingerprint=fingerprint,
+            entry_service_factory=lambda: _get_entry_service(ctx),
+        )
+        if launched:
+            return
+
+        typer.echo(
+            "TUI v2 runtime unavailable; falling back to legacy TUI. "
+            "Run `seedpass tui2 --check` for diagnostics."
+        )
         tui = importlib.import_module("main")
         raise typer.Exit(tui.main(fingerprint=fingerprint))
 
@@ -121,7 +144,7 @@ def tui2(
         help="Fall back to legacy TUI when TUI v2 runtime is unavailable",
     ),
 ) -> None:
-    """Launch experimental TUI v2 scaffold."""
+    """Launch the Textual-based TUI v2 (search/edit/graph workflows)."""
     if check:
         typer.echo(json.dumps(check_tui2_runtime(), indent=2, sort_keys=True))
         return

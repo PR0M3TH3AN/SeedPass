@@ -972,8 +972,23 @@ def test_update_checksum_command(monkeypatch):
     assert called.get("called") is True
 
 
-def test_tui_forward_fingerprint(monkeypatch):
-    """Ensure --fingerprint is forwarded when launching the TUI."""
+def test_root_tui2_forward_fingerprint(monkeypatch):
+    """Ensure --fingerprint is forwarded when launching default TUI v2."""
+    called = {}
+
+    def fake_launch(**kwargs):
+        called["fp"] = kwargs.get("fingerprint")
+        called["factory"] = kwargs.get("entry_service_factory")
+        return True
+
+    monkeypatch.setattr(cli, "launch_tui2", fake_launch)
+    result = runner.invoke(app, ["--fingerprint", "abc"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert callable(called.get("factory"))
+
+
+def test_root_legacy_tui_flag_forwards_fingerprint(monkeypatch):
     called = {}
 
     def fake_main(*, fingerprint=None):
@@ -985,7 +1000,7 @@ def test_tui_forward_fingerprint(monkeypatch):
         cli, "importlib", SimpleNamespace(import_module=lambda n: fake_mod)
     )
 
-    result = runner.invoke(app, ["--fingerprint", "abc"])
+    result = runner.invoke(app, ["--legacy-tui", "--fingerprint", "abc"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
 
@@ -1024,6 +1039,25 @@ def test_tui2_fallback_legacy(monkeypatch):
         SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
     )
     result = runner.invoke(app, ["--fingerprint", "abc", "tui2"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert "falling back to legacy TUI" in result.stdout
+
+
+def test_root_fallback_legacy_when_tui2_unavailable(monkeypatch):
+    called = {}
+    monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    monkeypatch.setattr(
+        cli,
+        "importlib",
+        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+    )
+    result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
     assert "falling back to legacy TUI" in result.stdout
