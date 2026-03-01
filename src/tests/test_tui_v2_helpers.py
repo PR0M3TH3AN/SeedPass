@@ -5,6 +5,7 @@ import pytest
 from seedpass.tui_v2.app import (
     pagination_window,
     parse_palette_command,
+    render_qr_ascii,
     truncate_entry_for_display,
 )
 
@@ -59,6 +60,13 @@ def test_truncate_entry_for_display_truncates_content() -> None:
     payload = truncate_entry_for_display({"content": "A" * 25, "kind": "document"}, 10)
     assert payload["content"].startswith("A" * 10)
     assert payload["content_truncated"] is True
+
+
+def test_render_qr_ascii_nonempty() -> None:
+    rendered = render_qr_ascii("otpauth://totp/example?secret=JBSWY3DPEHPK3PXP")
+    lines = [line for line in rendered.splitlines() if line.strip()]
+    assert len(lines) > 4
+    assert any("##" in line for line in lines)
 
 
 @pytest.mark.parametrize("rows", [1000, 10000, 50000])

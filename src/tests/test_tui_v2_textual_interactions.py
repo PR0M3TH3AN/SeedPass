@@ -18,6 +18,9 @@ class FakeEntryService:
             for entry in entries
         }
         self.fail_search_times = fail_search_times
+        self.secret_mode_enabled = False
+        self.clipboard_delay = 30
+        self.clipboard_values: list[str] = []
 
     def search_entries(self, query: str, kinds: list[str] | None = None):
         if self.fail_search_times > 0:
@@ -55,6 +58,61 @@ class FakeEntryService:
             if value is None:
                 continue
             entry[key] = value
+
+    def generate_password(self, length: int, entry_id: int) -> str:
+        return f"pw-{entry_id}-{length}"
+
+    def get_seed_phrase(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(entry.get("seed_phrase", "abandon " * 11 + "about")).strip()
+
+    def get_managed_account_seed(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(
+            entry.get(
+                "seed_phrase",
+                "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            )
+        ).strip()
+
+    def get_totp_secret(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(entry.get("secret", "JBSWY3DPEHPK3PXP"))
+
+    def get_totp_code(self, entry_id: int) -> str:
+        _ = entry_id
+        return "123456"
+
+    def get_ssh_key_pair(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("private_key", "SSH_PRIVATE")),
+            str(entry.get("public_key", "ssh-ed25519 AAAA...")),
+        )
+
+    def get_pgp_key(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("private_key", "-----BEGIN PGP PRIVATE KEY BLOCK-----")),
+            str(entry.get("fingerprint", "DEADBEEF")),
+        )
+
+    def get_nostr_key_pair(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("npub", "npub1example")),
+            str(entry.get("nsec", "nsec1example")),
+        )
+
+    def get_secret_mode_enabled(self) -> bool:
+        return self.secret_mode_enabled
+
+    def get_clipboard_clear_delay(self) -> int:
+        return self.clipboard_delay
+
+    def copy_to_clipboard(self, value: str) -> bool:
+        self.clipboard_values.append(value)
+        return True
 
     def archive_entry(self, entry_id: int) -> None:
         self._entries[int(entry_id)]["archived"] = True
@@ -223,6 +281,101 @@ async def test_tui2_textual_link_commands_and_neighbor_open() -> None:
         await _run_palette(app, pilot, "link-rm 2 references")
         links_text = _widget_text(app, "#link-detail")
         assert "No graph links" in links_text
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_reveal_and_qr_flow() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {
+                "id": 2,
+                "kind": "seed",
+                "label": "Seed 2",
+                "seed_phrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+            },
+            {
+                "id": 3,
+                "kind": "totp",
+                "label": "TOTP 3",
+                "secret": "JBSWY3DPEHPK3PXP",
+                "period": 30,
+                "digits": 6,
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        app.action_reveal_selected()
+        await pilot.pause()
+        assert "Password : pw-1-16" in _widget_text(app, "#secret-detail")
+
+        app._run_palette_command("open 2")
+        app.action_show_qr()
+        await pilot.pause()
+        qr_text = _widget_text(app, "#secret-detail")
+        assert "Seed #2 QR" in qr_text
+        assert "Payload:" in qr_text
+
+        app._run_palette_command("open 3")
+        app._run_palette_command("reveal")
+        await pilot.pause()
+        assert "Secret : JBSWY3DPEHPK3PXP" in _widget_text(app, "#secret-detail")
+
+        app._run_palette_command("qr")
+        await pilot.pause()
+        assert "TOTP #3 QR" in _widget_text(app, "#secret-detail")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_sensitive_confirm_and_secret_mode_clipboard() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "ssh",
+                "label": "SSH 1",
+                "private_key": "SSH_PRIVATE_1",
+                "public_key": "ssh-ed25519 AAAA-1",
+            },
+            {
+                "id": 2,
+                "kind": "nostr",
+                "label": "Nostr 2",
+                "npub": "npub1abc",
+                "nsec": "nsec1abc",
+            },
+        ]
+    )
+    service.secret_mode_enabled = True
+    service.clipboard_delay = 45
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        app._run_palette_command("reveal")
+        await pilot.pause()
+        assert "requires confirmation" in _status_text(app)
+
+        app._run_palette_command("reveal confirm")
+        await pilot.pause()
+        assert "copied to clipboard" in _widget_text(app, "#secret-detail")
+        assert service.clipboard_values[-1] == "SSH_PRIVATE_1"
+
+        app._run_palette_command("open 2")
+        app._run_palette_command("qr private")
+        await pilot.pause()
+        assert "requires confirmation" in _status_text(app)
+
+        app._run_palette_command("qr private confirm")
+        await pilot.pause()
+        assert "Nostr #2 QR" in _widget_text(app, "#secret-detail")
 
 
 @pytest.mark.anyio

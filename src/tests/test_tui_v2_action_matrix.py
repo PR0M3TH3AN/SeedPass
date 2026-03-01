@@ -35,6 +35,9 @@ class MatrixEntryService:
         self.fail_modify = fail_modify
         self.fail_add_link = fail_add_link
         self.fail_remove_link = fail_remove_link
+        self.secret_mode_enabled = False
+        self.clipboard_delay = 30
+        self.clipboard_values: list[str] = []
 
     def search_entries(self, query: str, kinds: list[str] | None = None):
         if self.fail_search:
@@ -73,6 +76,61 @@ class MatrixEntryService:
         for key, value in kwargs.items():
             if value is not None:
                 entry[key] = value
+
+    def generate_password(self, length: int, entry_id: int) -> str:
+        return f"pw-{entry_id}-{length}"
+
+    def get_seed_phrase(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(entry.get("seed_phrase", "abandon " * 11 + "about")).strip()
+
+    def get_managed_account_seed(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(
+            entry.get(
+                "seed_phrase",
+                "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            )
+        ).strip()
+
+    def get_totp_secret(self, entry_id: int) -> str:
+        entry = self._entries[int(entry_id)]
+        return str(entry.get("secret", "JBSWY3DPEHPK3PXP"))
+
+    def get_totp_code(self, entry_id: int) -> str:
+        _ = entry_id
+        return "123456"
+
+    def get_ssh_key_pair(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("private_key", "SSH_PRIVATE")),
+            str(entry.get("public_key", "ssh-ed25519 AAAA...")),
+        )
+
+    def get_pgp_key(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("private_key", "-----BEGIN PGP PRIVATE KEY BLOCK-----")),
+            str(entry.get("fingerprint", "DEADBEEF")),
+        )
+
+    def get_nostr_key_pair(self, entry_id: int):
+        entry = self._entries[int(entry_id)]
+        return (
+            str(entry.get("npub", "npub1example")),
+            str(entry.get("nsec", "nsec1example")),
+        )
+
+    def get_secret_mode_enabled(self) -> bool:
+        return self.secret_mode_enabled
+
+    def get_clipboard_clear_delay(self) -> int:
+        return self.clipboard_delay
+
+    def copy_to_clipboard(self, value: str) -> bool:
+        self.clipboard_values.append(value)
+        return True
 
     def archive_entry(self, entry_id: int) -> None:
         if self.fail_archive:
@@ -244,6 +302,14 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("open 1")
         app._run_palette_command("jump 2")
         await pilot.pause()
+
+        app._run_palette_command("open 2")
+        app.action_reveal_selected()
+        await pilot.pause()
+        assert "pw-2-" in str(app.query_one("#secret-detail").render())
+        app.action_show_qr()
+        await pilot.pause()
+        assert "QR not supported" in str(app.query_one("#secret-detail").render())
 
         app.action_focus_left()
         app.action_focus_center()

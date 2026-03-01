@@ -69,6 +69,20 @@ def truncate_entry_for_display(
     return payload
 
 
+def render_qr_ascii(data: str) -> str:
+    """Render ``data`` as an ASCII QR code."""
+    import qrcode
+
+    qr = qrcode.QRCode(border=1)
+    qr.add_data(data)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    lines: list[str] = []
+    for row in matrix:
+        lines.append("".join("##" if cell else "  " for cell in row))
+    return "\n".join(lines)
+
+
 def launch_tui2(
     *,
     fingerprint: str | None = None,
@@ -103,35 +117,82 @@ def launch_tui2(
         DETAIL_CONTENT_PREVIEW_LIMIT = 4000
 
         CSS = """
+        Screen {
+            background: #080a0c;
+            color: #97b8a6;
+        }
+        Header {
+            background: #0b0f13;
+            color: #daf2e5;
+            text-style: bold;
+            border-bottom: solid #274533;
+        }
+        Footer {
+            background: #0b0f13;
+            color: #97b8a6;
+            border-top: solid #274533;
+        }
+        Input {
+            background: #0d1114;
+            color: #daf2e5;
+            border: solid #1a3024;
+        }
+        Input:focus {
+            border: heavy #58f29d;
+        }
+        ListView {
+            background: #0d1114;
+            border: solid #1a3024;
+        }
+        ListItem {
+            color: #97b8a6;
+        }
+        ListItem.-highlight {
+            background: #122019;
+            color: #daf2e5;
+            text-style: bold;
+        }
+        Static {
+            color: #97b8a6;
+        }
         #command-palette {
             height: 2;
             margin: 0 1 1 1;
-            border: solid $secondary;
-            background: $panel;
+            border: solid #2abf75;
+            background: #0d1114;
+            color: #daf2e5;
         }
         #body { height: 1fr; }
         #status {
             height: 1;
             padding: 0 1;
-            border: heavy $primary;
-            background: $panel;
+            border: heavy #58f29d;
+            background: #0d1114;
+            color: #daf2e5;
         }
-        #left { width: 34; border: solid $primary; padding: 1; background: $panel; }
-        #center { width: 1fr; border: solid $primary; padding: 1; background: $panel; }
-        #right { width: 1fr; border: solid $primary; padding: 1; background: $panel; }
+        #left { width: 34; border: solid #1a3024; padding: 1; background: #0d1114; }
+        #center { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
+        #right { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
         #search { margin-bottom: 1; }
         #quick-jump { margin-bottom: 1; }
         #entry-list { height: 1fr; }
         #entry-detail {
             height: 1fr;
             overflow: auto;
-            border: solid $boost;
+            border: solid #274533;
             padding: 1;
         }
         #link-detail {
             height: 12;
             overflow: auto;
-            border: solid $accent;
+            border: solid #2abf75;
+            padding: 1;
+            margin-top: 1;
+        }
+        #secret-detail {
+            height: 12;
+            overflow: auto;
+            border: solid #58f29d;
             padding: 1;
             margin-top: 1;
         }
@@ -147,18 +208,19 @@ def launch_tui2(
             layer: overlay;
             dock: top;
             margin: 1 2;
-            border: solid $warning;
+            border: solid #58f29d;
             padding: 1;
-            background: $surface;
+            background: #0d1114;
+            color: #daf2e5;
         }
         #activity {
             height: 12;
-            border: solid $secondary;
+            border: solid #274533;
             padding: 1;
             margin-top: 1;
             overflow: auto;
         }
-        .pane-focus { border: heavy $success; }
+        .pane-focus { border: heavy #58f29d; }
         .hidden { display: none; }
         """
         BINDINGS = [
@@ -178,6 +240,8 @@ def launch_tui2(
             ("[", "prev_link", "Prev Link"),
             ("]", "next_link", "Next Link"),
             ("o", "open_link_target", "Open Link"),
+            ("v", "reveal_selected", "Reveal"),
+            ("g", "show_qr", "QR"),
             ("a", "toggle_archive", "Archive/Restore"),
             ("e", "edit_document", "Edit Document"),
             ("ctrl+s", "save_document", "Save"),
@@ -199,6 +263,7 @@ def launch_tui2(
                     "filter <kind> | archive | restore | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
+                    "reveal [confirm] | qr [public|private] [confirm] | "
                     "link-filter <relation|all> | link-next | link-prev | link-open | "
                     "page-next | page-prev | page <n> | retry"
                 ),
@@ -220,6 +285,7 @@ def launch_tui2(
                     with Vertical(id="right-view"):
                         yield Static("", id="entry-detail")
                         yield Static("", id="link-detail")
+                        yield Static("", id="secret-detail")
                     with Vertical(id="right-editor", classes="hidden"):
                         yield Input(placeholder="Document title", id="doc-edit-label")
                         yield Input(
@@ -279,6 +345,9 @@ def launch_tui2(
             self._update_help_overlay()
             self._update_activity_panel()
             self._apply_focus_style()
+            self._set_secret_panel(
+                "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
+            )
             self._load_entries()
 
         def _set_status(self, message: str) -> None:
@@ -313,6 +382,9 @@ def launch_tui2(
                 text = "\n".join(lines)
             self.query_one("#activity", Static).update(text)
 
+        def _set_secret_panel(self, text: str) -> None:
+            self.query_one("#secret-detail", Static).update(text)
+
         def _update_help_overlay(self) -> None:
             box = self.query_one("#help-overlay", Static)
             if not self.help_open:
@@ -325,12 +397,13 @@ def launch_tui2(
                     "",
                     "Core      : / search   j jump-id   p/n page   r refresh",
                     "Modes     : Ctrl+P palette   e edit-doc   Ctrl+S save   Esc cancel/close",
-                    "Graph     : l relation filter   brackets link select   o open link target",
+                    "Graph ⚯   : l relation filter   brackets link select   o open link target",
+                    "Secrets 🔑: v reveal selected secret   g QR for selected entry",
                     "Resilience: x retry last error",
                     "Pane Focus: 1 left   2 center   3 right",
                     "",
                     "Palette examples",
-                    "help | filter document | open 12 | link-add 7 references note",
+                    "help | filter document | open 12 | reveal confirm | qr private confirm",
                 ]
             )
             box.update(text)
@@ -410,7 +483,7 @@ def launch_tui2(
             )
             text = "\n".join(
                 [
-                    "SeedPass TUI v2",
+                    "SeedPass ◈ TUI v2",
                     fp_line,
                     "",
                     self._selected_summary(),
@@ -421,7 +494,7 @@ def launch_tui2(
                         f"Page: {self._result_page + 1}/{self._total_pages()}"
                     ),
                     "",
-                    "Nav",
+                    "Nav ⌘",
                     "- / search",
                     "- j jump to id",
                     "- f cycle kind filter",
@@ -431,7 +504,7 @@ def launch_tui2(
                     "- r refresh",
                     "- x retry last error",
                     "",
-                    "Actions",
+                    "Actions ⚡",
                     "- a archive/restore",
                     "- e edit document",
                     "- Ctrl+S save doc",
@@ -439,6 +512,8 @@ def launch_tui2(
                     "- l cycle link relation",
                     "- [ / ] select link",
                     "- o open link target",
+                    "- v reveal selected secret",
+                    "- g show selected QR",
                     "- Esc cancel/close",
                 ]
             )
@@ -467,6 +542,9 @@ def launch_tui2(
                 self.query_one("#entry-detail", Static).update("No entries match.")
                 self.query_one("#link-detail", Static).update(
                     "Links: select an entry first."
+                )
+                self._set_secret_panel(
+                    "Sensitive data hidden. Select an entry, then use 'v' (reveal) or 'g' (QR)."
                 )
                 self._current_links = []
                 self._current_link_cursor = 0
@@ -516,6 +594,9 @@ def launch_tui2(
                     "Entry service unavailable in this runtime."
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._set_secret_panel(
+                    "Sensitive data unavailable: entry service missing."
+                )
                 self._all_results = []
                 self._result_page = 0
                 self._current_links = []
@@ -532,6 +613,9 @@ def launch_tui2(
                     f"Failed to load entries: {exc}"
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._set_secret_panel(
+                    "Sensitive data unavailable: failed to load entries."
+                )
                 self._all_results = []
                 self._result_page = 0
                 self._current_links = []
@@ -571,6 +655,9 @@ def launch_tui2(
                 self._selected_entry = dict(entry)
                 body = self._entry_detail_text(entry)
                 self.query_one("#entry-detail", Static).update(body)
+                self._set_secret_panel(
+                    "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
+                )
                 self._update_links_panel()
                 self._set_status(f"Selected entry {entry_index}")
             except Exception as exc:
@@ -578,6 +665,9 @@ def launch_tui2(
                     f"Failed to load entry {entry_index}: {exc}"
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._set_secret_panel(
+                    "Sensitive data unavailable: failed to load selected entry."
+                )
                 self._current_links = []
                 self._current_link_cursor = 0
                 self._record_failure(
@@ -672,6 +762,278 @@ def launch_tui2(
             )
             return kind == "document"
 
+        def _selected_kind(self) -> str:
+            if not isinstance(self._selected_entry, dict):
+                return ""
+            return (
+                str(
+                    self._selected_entry.get("kind")
+                    or self._selected_entry.get("type")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
+
+        @staticmethod
+        def _kind_icon(kind: str) -> str:
+            return {
+                "password": "🗝",
+                "totp": "📱",
+                "ssh": "🖧",
+                "pgp": "🔒",
+                "nostr": "⚡",
+                "document": "📄",
+                "managed_account": "👥",
+                "seed": "🌱",
+            }.get(kind, "•")
+
+        def _is_secret_mode_enabled(self) -> bool:
+            if self._service is None:
+                return False
+            getter = getattr(self._service, "get_secret_mode_enabled", None)
+            if not callable(getter):
+                return False
+            try:
+                return bool(getter())
+            except Exception:
+                return False
+
+        def _clipboard_clear_delay(self) -> int:
+            if self._service is None:
+                return 30
+            getter = getattr(self._service, "get_clipboard_clear_delay", None)
+            if not callable(getter):
+                return 30
+            try:
+                return int(getter())
+            except Exception:
+                return 30
+
+        def _copy_to_clipboard(self, value: str) -> bool:
+            if self._service is None:
+                return False
+            copier = getattr(self._service, "copy_to_clipboard", None)
+            if not callable(copier):
+                return False
+            try:
+                return bool(copier(value))
+            except Exception:
+                return False
+
+        def _resolve_selected_sensitive_payload(
+            self, *, qr_mode: str = "default"
+        ) -> tuple[str, str, str | None, str | None, str]:
+            if self._service is None:
+                raise ValueError("Entry service unavailable")
+            if self._selected_entry_id is None:
+                raise ValueError("No entry selected")
+
+            entry = self._selected_entry or self._service.retrieve_entry(
+                self._selected_entry_id
+            )
+            if not isinstance(entry, dict) or not entry:
+                raise ValueError("Selected entry not found")
+
+            kind = (
+                self._selected_kind()
+                or str(entry.get("kind") or entry.get("type") or "").strip().lower()
+            )
+            label = str(entry.get("label", f"entry-{self._selected_entry_id}"))
+            icon = self._kind_icon(kind)
+
+            if kind == "password":
+                length = int(entry.get("length", 16))
+                password = self._service.generate_password(
+                    length, self._selected_entry_id
+                )
+                return (
+                    f"Sensitive {icon}: Password #{self._selected_entry_id}",
+                    f"Label : {label}\nPassword : {password}",
+                    None,
+                    password,
+                    kind,
+                )
+
+            if kind == "seed":
+                phrase = self._service.get_seed_phrase(self._selected_entry_id)
+                from seedpass.core.seedqr import encode_seedqr
+
+                seedqr = encode_seedqr(phrase)
+                return (
+                    f"Sensitive {icon}: Seed #{self._selected_entry_id}",
+                    f"Label : {label}\nSeed Phrase : {phrase}",
+                    seedqr,
+                    phrase,
+                    kind,
+                )
+
+            if kind == "managed_account":
+                phrase = self._service.get_managed_account_seed(self._selected_entry_id)
+                from seedpass.core.seedqr import encode_seedqr
+
+                seedqr = encode_seedqr(phrase)
+                return (
+                    f"Sensitive {icon}: Managed Account Seed #{self._selected_entry_id}",
+                    f"Label : {label}\nSeed Phrase : {phrase}",
+                    seedqr,
+                    phrase,
+                    kind,
+                )
+
+            if kind == "totp":
+                secret = self._service.get_totp_secret(self._selected_entry_id)
+                code = self._service.get_totp_code(self._selected_entry_id)
+                period = int(entry.get("period", 30))
+                digits = int(entry.get("digits", 6))
+                from seedpass.core.totp import TotpManager
+
+                uri = TotpManager.make_otpauth_uri(
+                    label, secret, period=period, digits=digits
+                )
+                return (
+                    f"Sensitive {icon}: TOTP #{self._selected_entry_id}",
+                    (
+                        f"Label : {label}\n"
+                        f"Code : {code}\n"
+                        f"Secret : {secret}\n"
+                        f"Period : {period}s\n"
+                        f"Digits : {digits}"
+                    ),
+                    uri,
+                    code,
+                    kind,
+                )
+
+            if kind == "ssh":
+                priv_key, pub_key = self._service.get_ssh_key_pair(
+                    self._selected_entry_id
+                )
+                return (
+                    f"Sensitive {icon}: SSH #{self._selected_entry_id}",
+                    f"Label : {label}\nPublic Key : {pub_key}\nPrivate Key : {priv_key}",
+                    None,
+                    priv_key,
+                    kind,
+                )
+
+            if kind == "pgp":
+                priv_key, fingerprint_text = self._service.get_pgp_key(
+                    self._selected_entry_id
+                )
+                return (
+                    f"Sensitive {icon}: PGP #{self._selected_entry_id}",
+                    (
+                        f"Label : {label}\n"
+                        f"Fingerprint : {fingerprint_text}\n"
+                        f"Private Key :\n{priv_key}"
+                    ),
+                    None,
+                    priv_key,
+                    kind,
+                )
+
+            if kind == "nostr":
+                npub, nsec = self._service.get_nostr_key_pair(self._selected_entry_id)
+                if qr_mode == "private":
+                    qr_payload = nsec
+                else:
+                    qr_payload = f"nostr:{npub}"
+                return (
+                    f"Sensitive {icon}: Nostr #{self._selected_entry_id}",
+                    f"Label : {label}\nnpub : {npub}\nnsec : {nsec}",
+                    qr_payload,
+                    nsec,
+                    kind,
+                )
+
+            raise ValueError(
+                "Reveal unsupported for kind "
+                f"'{kind or 'unknown'}'. Supported: password, seed, managed_account, "
+                "totp, ssh, pgp, nostr."
+            )
+
+        def _requires_confirm(
+            self, *, kind: str, include_qr: bool, qr_mode: str
+        ) -> bool:
+            if include_qr:
+                return kind == "nostr" and qr_mode == "private"
+            return kind in {"seed", "managed_account", "ssh", "pgp"}
+
+        def _show_sensitive_panel(
+            self, *, include_qr: bool, qr_mode: str = "default", confirm: bool = False
+        ) -> None:
+            try:
+                title, body, qr_data, secret_value, kind = (
+                    self._resolve_selected_sensitive_payload(qr_mode=qr_mode)
+                )
+            except Exception as exc:
+                self._record_failure(
+                    "Sensitive reveal failed",
+                    exc,
+                    retry=(
+                        (lambda: self.action_show_qr(mode=qr_mode, confirm=confirm))
+                        if include_qr
+                        else (lambda: self.action_reveal_selected(confirm=confirm))
+                    ),
+                    hint="Press 'x' to retry.",
+                )
+                return
+
+            if (
+                self._requires_confirm(
+                    kind=kind, include_qr=include_qr, qr_mode=qr_mode
+                )
+                and not confirm
+            ):
+                if include_qr:
+                    self._set_status(
+                        "Sensitive QR requires confirmation. Run: qr private confirm"
+                    )
+                else:
+                    self._set_status(
+                        "Sensitive reveal requires confirmation. Run: reveal confirm"
+                    )
+                return
+
+            if include_qr:
+                if not qr_data:
+                    self._set_secret_panel(
+                        f"{title}\n\nQR not supported for this entry."
+                    )
+                    self._clear_failure()
+                    self._set_status("QR not available for selected entry")
+                    return
+                try:
+                    qr_ascii = render_qr_ascii(qr_data)
+                except Exception as exc:
+                    self._record_failure(
+                        "QR render failed",
+                        exc,
+                        retry=self.action_show_qr,
+                        hint="Press 'x' to retry.",
+                    )
+                    return
+                self._set_secret_panel(
+                    f"{title} QR\n\n{qr_ascii}\n\nPayload: {qr_data}"
+                )
+                self._clear_failure()
+                self._set_status("Rendered QR for selected entry")
+                return
+
+            self._set_secret_panel(f"{title}\n\n{body}")
+            self._clear_failure()
+            if self._is_secret_mode_enabled() and secret_value:
+                if self._copy_to_clipboard(secret_value):
+                    delay = self._clipboard_clear_delay()
+                    self._set_secret_panel(
+                        f"{title}\n\nSecret mode is enabled.\n"
+                        f"Sensitive value copied to clipboard (auto-clear in {delay}s)."
+                    )
+                    self._set_status("Sensitive value copied to clipboard")
+                    return
+            self._set_status("Revealed selected sensitive data")
+
         def _set_document_editor_visible(self, visible: bool) -> None:
             view = self.query_one("#right-view", Vertical)
             editor = self.query_one("#right-editor", Vertical)
@@ -732,8 +1094,9 @@ def launch_tui2(
                 self._set_status(
                     "Palette commands: help, open, search, filter, archive, "
                     "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
-                    "link-filter, link-next, link-prev, link-open, page-next, "
-                    "page-prev, page <n>, retry, jump <id>"
+                    "reveal [confirm], qr [public|private] [confirm], link-filter, "
+                    "link-next, link-prev, link-open, page-next, page-prev, page <n>, "
+                    "retry, jump <id>"
                 )
                 return
             if cmd == "retry":
@@ -816,6 +1179,28 @@ def launch_tui2(
 
             if cmd == "cancel-edit":
                 self.action_cancel_document_edit()
+                return
+            if cmd == "reveal":
+                if len(args) > 1 or (len(args) == 1 and args[0].lower() != "confirm"):
+                    self._set_status("Usage: reveal [confirm]")
+                    return
+                confirm = len(args) == 1 and args[0].lower() == "confirm"
+                self.action_reveal_selected(confirm=confirm)
+                return
+            if cmd == "qr":
+                mode = "default"
+                confirm = False
+                for token in args:
+                    value = token.strip().lower()
+                    if value in {"public", "private"}:
+                        mode = value
+                        continue
+                    if value == "confirm":
+                        confirm = True
+                        continue
+                    self._set_status("Usage: qr [public|private] [confirm]")
+                    return
+                self.action_show_qr(mode=mode, confirm=confirm)
                 return
 
             if cmd == "link-add":
@@ -1118,6 +1503,12 @@ def launch_tui2(
                 self._set_status("Palette opened")
             else:
                 self._set_status("Palette closed")
+
+        def action_reveal_selected(self, confirm: bool = False) -> None:
+            self._show_sensitive_panel(include_qr=False, confirm=confirm)
+
+        def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
+            self._show_sensitive_panel(include_qr=True, qr_mode=mode, confirm=confirm)
 
         def action_toggle_archive(self) -> None:
             if self._service is None or self._selected_entry_id is None:

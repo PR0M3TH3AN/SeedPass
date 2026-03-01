@@ -249,3 +249,38 @@
   - `seedpass tui2 --no-fallback-legacy`: preflight failures now return exit code 1 with a clear error.
 - Updated installer `scripts/install.sh` to run `seedpass tui2 --check` after install and warn when Textual runtime is unavailable, plus print a legacy fallback hint for users seeing blank/gray startup.
 - Added regression coverage in `src/tests/test_typer_cli.py` for preflight behavior and adapted existing TUI launch tests to mock preflight service creation.
+
+## 2026-03-01 TUI v2 parity slice: reveal + QR integration
+- Added Textual TUI v2 sensitive-data actions:
+  - Keybindings: `v` reveal selected secret, `g` show QR.
+  - Palette commands: `reveal`, `qr`.
+- Implemented reveal support for entry kinds: `password`, `seed`, `managed_account`, `totp`.
+- Implemented QR rendering in-app (ASCII QR panel) for:
+  - TOTP (`otpauth://` payload)
+  - Seed / managed account seed (SeedQR digit payload)
+- Added a dedicated `#secret-detail` panel in the right pane and reset-on-selection behavior to avoid stale secret display.
+- Extended core `EntryService` API with deterministic seed retrieval methods used by TUI v2:
+  - `get_seed_phrase(entry_id)`
+  - `get_managed_account_seed(entry_id)`
+- Added/updated tests for helper QR rendering, TUI reveal/QR workflows, and service wrappers; targeted suite passed.
+
+## 2026-03-01 TUI v2 parity slice: SSH/PGP/Nostr + secret mode behavior
+- Extended TUI v2 sensitive reveal support to additional kinds: `ssh`, `pgp`, and `nostr`.
+- Added legacy-aligned confirmation semantics in TUI v2:
+  - `reveal confirm` required for high-risk reveals (`seed`, `managed_account`, `ssh`, `pgp`).
+  - `qr private confirm` required for Nostr private-key QR rendering.
+- Added `qr` mode parsing (`qr [public|private] [confirm]`) and retained default safe behavior (`public` for Nostr).
+- Integrated secret-mode behavior into TUI reveal flow:
+  - when secret mode is enabled, reveal copies sensitive value to clipboard and avoids on-screen plaintext output for that reveal.
+- Expanded `EntryService` API for TUI parity and safe abstraction from manager internals:
+  - `get_ssh_key_pair`, `get_pgp_key`, `get_nostr_key_pair`
+  - `get_secret_mode_enabled`, `get_clipboard_clear_delay`, `copy_to_clipboard`
+- Added/updated tests covering confirmation-gated flows, Nostr private QR confirmation, and secret-mode clipboard behavior.
+
+## 2026-03-01 TUI v2 visual alignment with landing page
+- Updated Textual TUI v2 default styling to mirror landing-page palette tokens:
+  - background: `#080a0c` / panel: `#0d1114`
+  - primary text: `#97b8a6` / bright text: `#daf2e5`
+  - accent borders/focus: `#58f29d`, `#2abf75`, `#274533`, `#1a3024`
+- Styled Header/Footer/Input/ListView/ListItem focus/selection states to reduce default Textual blue and align with SeedPass mint-green terminal aesthetic.
+- Added website-style icon semantics into TUI copy and sensitive panel titles (key/mobile/network/lock/bolt/document/users/seed mappings) to improve visual continuity between landing and app.

@@ -286,6 +286,62 @@ class TestEntryService:
         mock_manager.entry_manager.get_totp_code.assert_called_once_with(1, b"key")
         assert code == "123456"
 
+    def test_get_seed_phrase(self, service, mock_manager):
+        mock_manager.entry_manager.get_seed_phrase.return_value = "seed words"
+        phrase = service.get_seed_phrase(7)
+        mock_manager.entry_manager.get_seed_phrase.assert_called_once_with(
+            7, mock_manager.parent_seed
+        )
+        assert phrase == "seed words"
+
+    def test_get_managed_account_seed(self, service, mock_manager):
+        mock_manager.entry_manager.get_managed_account_seed.return_value = (
+            "managed words"
+        )
+        phrase = service.get_managed_account_seed(8)
+        mock_manager.entry_manager.get_managed_account_seed.assert_called_once_with(
+            8, mock_manager.parent_seed
+        )
+        assert phrase == "managed words"
+
+    def test_get_ssh_key_pair(self, service, mock_manager):
+        mock_manager.entry_manager.get_ssh_key_pair.return_value = ("priv", "pub")
+        result = service.get_ssh_key_pair(3)
+        mock_manager.entry_manager.get_ssh_key_pair.assert_called_once_with(
+            3, mock_manager.parent_seed
+        )
+        assert result == ("priv", "pub")
+
+    def test_get_pgp_key(self, service, mock_manager):
+        mock_manager.entry_manager.get_pgp_key.return_value = ("priv", "fp")
+        result = service.get_pgp_key(4)
+        mock_manager.entry_manager.get_pgp_key.assert_called_once_with(
+            4, mock_manager.parent_seed
+        )
+        assert result == ("priv", "fp")
+
+    def test_get_nostr_key_pair(self, service, mock_manager):
+        mock_manager.entry_manager.get_nostr_key_pair.return_value = ("npub", "nsec")
+        result = service.get_nostr_key_pair(5)
+        mock_manager.entry_manager.get_nostr_key_pair.assert_called_once_with(
+            5, mock_manager.parent_seed
+        )
+        assert result == ("npub", "nsec")
+
+    def test_get_secret_mode_enabled(self, service, mock_manager):
+        mock_manager.config_manager.get_secret_mode_enabled.return_value = True
+        assert service.get_secret_mode_enabled() is True
+
+    def test_get_clipboard_clear_delay(self, service, mock_manager):
+        mock_manager.config_manager.get_clipboard_clear_delay.return_value = 40
+        assert service.get_clipboard_clear_delay() == 40
+
+    def test_copy_to_clipboard(self, service, mock_manager):
+        mock_manager.config_manager.get_clipboard_clear_delay.return_value = 35
+        with patch("seedpass.core.api.copy_to_clipboard", return_value=True) as patched:
+            assert service.copy_to_clipboard("secret-value") is True
+            patched.assert_called_once_with("secret-value", 35)
+
     def test_add_entry(self, service, mock_manager):
         mock_manager.entry_manager.add_entry.return_value = 1
 

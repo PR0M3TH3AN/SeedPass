@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from .manager import PasswordManager
 from .pubsub import bus
 from .entry_types import EntryType
+from utils import copy_to_clipboard
 
 
 class VaultExportRequest(BaseModel):
@@ -316,6 +317,76 @@ class EntryService:
             return self._manager.entry_manager.get_totp_secret(
                 entry_id, self._manager.parent_seed
             )
+
+    def get_seed_phrase(self, entry_id: int) -> str:
+        """Return the derived seed phrase for a seed entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_seed_phrase(
+                entry_id, self._manager.parent_seed
+            )
+
+    def get_managed_account_seed(self, entry_id: int) -> str:
+        """Return the derived seed phrase for a managed account entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_managed_account_seed(
+                entry_id, self._manager.parent_seed
+            )
+
+    def get_ssh_key_pair(self, entry_id: int) -> tuple[str, str]:
+        """Return ``(private_key_pem, public_key_pem)`` for an SSH entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_ssh_key_pair(
+                entry_id, self._manager.parent_seed
+            )
+
+    def get_pgp_key(self, entry_id: int) -> tuple[str, str]:
+        """Return ``(private_key_armored, fingerprint)`` for a PGP entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_pgp_key(
+                entry_id, self._manager.parent_seed
+            )
+
+    def get_nostr_key_pair(self, entry_id: int) -> tuple[str, str]:
+        """Return ``(npub, nsec)`` for a Nostr entry."""
+        with self._lock:
+            return self._manager.entry_manager.get_nostr_key_pair(
+                entry_id, self._manager.parent_seed
+            )
+
+    def get_secret_mode_enabled(self) -> bool:
+        """Return whether secret mode is currently enabled."""
+        with self._lock:
+            cfg = getattr(self._manager, "config_manager", None)
+            if cfg is not None:
+                try:
+                    return bool(cfg.get_secret_mode_enabled())
+                except Exception:
+                    pass
+            return bool(getattr(self._manager, "secret_mode_enabled", False))
+
+    def get_clipboard_clear_delay(self) -> int:
+        """Return clipboard clear delay in seconds."""
+        with self._lock:
+            cfg = getattr(self._manager, "config_manager", None)
+            if cfg is not None:
+                try:
+                    return int(cfg.get_clipboard_clear_delay())
+                except Exception:
+                    pass
+            return int(getattr(self._manager, "clipboard_clear_delay", 30))
+
+    def copy_to_clipboard(self, value: str) -> bool:
+        """Copy ``value`` to clipboard using configured clear delay."""
+        with self._lock:
+            cfg = getattr(self._manager, "config_manager", None)
+            if cfg is not None:
+                try:
+                    delay = int(cfg.get_clipboard_clear_delay())
+                except Exception:
+                    delay = int(getattr(self._manager, "clipboard_clear_delay", 30))
+            else:
+                delay = int(getattr(self._manager, "clipboard_clear_delay", 30))
+            return copy_to_clipboard(value, delay)
 
     def add_entry(
         self,
