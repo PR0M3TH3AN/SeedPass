@@ -1,0 +1,1 @@
+Decision: Defer the replacement of the Python implementation of AESGCM in `src/utils/memory_protection.py` with a Rust/WASM module due to it being security-sensitive. Added issue to `KNOWN_ISSUES.md`.

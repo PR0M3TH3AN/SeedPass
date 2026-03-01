@@ -1,0 +1,1 @@
+Context: The todo-triage-agent ran and identified a security-sensitive TODO in `src/utils/memory_protection.py`. No code changes were made as the change is security-sensitive.

@@ -1,0 +1,1 @@
+TODO: Replace the Python implementation of AESGCM in `src/utils/memory_protection.py` with a Rust/WASM module to support native zeroization.
