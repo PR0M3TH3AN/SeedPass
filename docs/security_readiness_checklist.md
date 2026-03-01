@@ -56,6 +56,32 @@ Status legend: `Not Started`, `In Progress`, `Blocked`, `Done`
    - Independent audit completed.
    - Critical findings resolved before broad production use.
 
+## Agent Autonomy Control Track (15-Item Plan)
+
+Status legend: `Not Started`, `In Progress`, `Implemented`, `Validated`
+
+| # | Control | Status | Evidence |
+|---|---------|--------|----------|
+| 1 | Native non-interactive auth brokers | Implemented | `src/seedpass/core/auth_broker.py`, `src/seedpass/cli/agent.py` (`--auth-broker` flows) |
+| 2 | Fine-grained RBAC per profile | In Progress | `agent_policy.json` rule model (`operations`, `kinds`, `label_regex`, `path_regex`, `fields`) in `src/seedpass/cli/agent.py` |
+| 3 | Short-lived scoped tokens | Implemented | `agent token-issue/list/revoke`, token TTL/use constraints in `src/seedpass/cli/agent.py` |
+| 4 | One-time secret leases | Implemented | `agent get --lease-only`, `agent lease-consume/list/revoke` |
+| 5 | Policy-enforced redaction | Implemented | `safe_output_default` and redaction fields in policy + agent output paths |
+| 6 | Auditable event log | Implemented | `~/.seedpass/agent_audit.log` chained records, `agent audit-verify` |
+| 7 | Approval gates | Implemented | `agent approval-issue/list/revoke`; enforced for export/reveal high-risk actions |
+| 8 | Secret-class isolation | Implemented | `agent high-risk-factor-set/unlock/status/lock`, partition migration/store modules |
+| 9 | Agent identities | Implemented | `agent identity-create/list/revoke`; token identity binding |
+| 10 | Safer automation primitives | Implemented | `agent job-run`, job profiles, signed cron/systemd/API templates |
+| 11 | Recovery hardening | Implemented | `agent recovery-split/recover/drill/drill-list` |
+| 12 | Conflict-safe sync primitives | Implemented | deterministic merge + tombstones in `src/seedpass/core/sync_conflict.py` |
+| 13 | Policy as code | Implemented | `agent policy-lint/review/apply` + `docs/policy_as_code.md` |
+| 14 | Deterministic export controls | Implemented | policy-filtered export manifests + `agent export-check/export-manifest-verify` |
+| 15 | Security posture tooling | Implemented | `agent posture-check/posture-remediate` with runtime config checks |
+
+Notes:
+- `Implemented` indicates feature availability in CLI/API paths and tests.
+- `Validated` should be used after broader integration soak + external security review.
+
 ## How To Use
 
 1. Update each row with current status and owner.

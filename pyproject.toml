@@ -39,6 +39,7 @@ pynacl = ">=1.6.2"
 pyasn1 = ">=0.6.2"
 starlette = ">=0.40,<0.48"
 urllib3 = ">=2.6.0"
+pycryptodome = ">=3.20.0,<4"
 toga-core = { version = ">=0.5.2", optional = true }
 pillow = { version = ">=12.1.1", optional = true }
 toga-gtk = { version = ">=0.5.2", optional = true }
@@ -70,6 +71,18 @@ seedpass-gui = "seedpass_gui.app:main"
 python_version = "3.11"
 strict = true
 mypy_path = "src"
+
+[tool.pytest.ini_options]
+markers = [
+    "network: tests that require network access",
+]
+filterwarnings = [
+    "ignore:'imghdr' is deprecated and slated for removal in Python 3.13:DeprecationWarning:pgpy.constants",
+    "ignore:'imghdr' is deprecated and will be removed in Python 3.13:DeprecationWarning:src.tests.test_imghdr_stub",
+    "ignore:'imghdr' is deprecated and will be removed in Python 3.13:DeprecationWarning",
+    "ignore:Pack.padding_top is deprecated. Use Pack.margin_top instead.:DeprecationWarning",
+    "ignore:Pack.padding is deprecated. Use Pack.margin instead.:DeprecationWarning",
+]
 
 [tool.briefcase]
 project_name = "SeedPass"
@@ -108,6 +121,7 @@ requires = [
     "python-multipart>=0.0.22",
     "orjson>=3.11.5",
     "argon2-cffi",
+    "pycryptodome>=3.20.0,<4",
 ]
 icon = "logo/png/SeedPass-Logo-24.png"
 license = { file = "LICENSE" }

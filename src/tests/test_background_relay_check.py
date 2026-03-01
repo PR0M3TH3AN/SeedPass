@@ -21,7 +21,7 @@ def test_background_relay_check_runs_async(monkeypatch):
     )
 
     pm.start_background_relay_check()
-    time.sleep(0.05)
+    pm._relay_thread.join(timeout=1.0)
 
     assert called["args"] == MIN_HEALTHY_RELAYS
 
@@ -34,7 +34,7 @@ def test_background_relay_check_warns_when_unhealthy(monkeypatch):
     pm.nostr_client = SimpleNamespace(check_relay_health=lambda mr: mr - 1)
 
     pm.start_background_relay_check()
-    time.sleep(0.05)
+    pm._relay_thread.join(timeout=1.0)
 
     note = pm.notifications.get_nowait()
     assert note.level == "WARNING"

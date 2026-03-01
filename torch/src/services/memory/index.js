@@ -42,7 +42,9 @@ let currentSavePromise = null;
 let pendingSavePromise = null;
 let pendingSaveResolve = null;
 let lastSaveTime = 0;
-const MIN_SAVE_INTERVAL_MS = 1000;
+import { SECOND_MS, MONTH_MS, MINUTE_MS } from './constants/time.js';
+
+const MIN_SAVE_INTERVAL_MS = SECOND_MS;
 
 async function performSave(store) {
   try {
@@ -326,7 +328,7 @@ export async function getRelevantMemories(params) {
 export async function runPruneCycle(options = {}) {
   const repository = options.repository ?? memoryRepository;
   const telemetry = buildTelemetryEmitter(options);
-  const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);
+  const retentionMs = options.retentionMs ?? MONTH_MS;
   const pruneMode = options.pruneMode ?? getMemoryPruneMode(options.env);
   const dbCandidates = await listPruneCandidates(repository, {
     retentionMs,
@@ -492,7 +494,7 @@ export async function inspectMemory(id, options = {}) {
  */
 export async function triggerPruneDryRun(options = {}) {
   const repository = options.repository ?? memoryRepository;
-  const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);
+  const retentionMs = options.retentionMs ?? MONTH_MS;
   const dbCandidates = await listPruneCandidates(repository, {
     retentionMs,
     now: options.now,
@@ -532,7 +534,7 @@ export async function triggerPruneDryRun(options = {}) {
 export async function memoryStats(options = {}) {
   const repository = options.repository ?? memoryRepository;
   const now = options.now ?? Date.now();
-  const windowMs = Number.isFinite(options.windowMs) ? Math.max(1, Number(options.windowMs)) : (60 * 60 * 1000);
+  const windowMs = Number.isFinite(options.windowMs) ? Math.max(1, Number(options.windowMs)) : (60 * MINUTE_MS);
   const memories = await listMemories({}, { repository });
 
   const countsByType = memories.reduce((acc, memory) => {
@@ -545,7 +547,7 @@ export async function memoryStats(options = {}) {
   const archivedRate = archivedCount / Math.max(1, memories.length);
 
   const ingestedInWindow = memoryStatsState.ingested.filter((timestamp) => timestamp >= (now - windowMs)).length;
-  const ingestThroughputPerMinute = ingestedInWindow / Math.max(1, (windowMs / 60_000));
+  const ingestThroughputPerMinute = ingestedInWindow / Math.max(1, (windowMs / MINUTE_MS));
 
   return {
     countsByType,

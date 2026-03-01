@@ -11,6 +11,7 @@ from utils.seed_prompt import masked_input
 import bcrypt
 
 from .vault import Vault
+from .entry_types import EntryType
 from nostr.client import DEFAULT_RELAYS as DEFAULT_NOSTR_RELAYS
 
 from constants import INACTIVITY_TIMEOUT, MAX_RETRIES, RETRY_DELAY
@@ -27,6 +28,29 @@ class ConfigManager:
     CONFIG_FILENAME = "seedpass_config.json.enc"
     DEFAULT_PBKDF2_ITERATIONS = 200_000
     LEGACY_PBKDF2_ITERATION_FALLBACKS = (50_000, 100_000)
+
+    SECRET_CLASS_PARTITIONS_DEFAULT = {
+        "standard": {
+            "kinds": [
+                EntryType.PASSWORD.value,
+                EntryType.TOTP.value,
+                EntryType.KEY_VALUE.value,
+            ],
+            "unlocked": True,
+            "separate_factor_required": False,
+        },
+        "high_risk": {
+            "kinds": [
+                EntryType.SEED.value,
+                EntryType.SSH.value,
+                EntryType.PGP.value,
+                EntryType.NOSTR.value,
+                EntryType.MANAGED_ACCOUNT.value,
+            ],
+            "unlocked": False,
+            "separate_factor_required": True,
+        },
+    }
 
     def __init__(self, vault: Vault, fingerprint_dir: Path):
         self.vault = vault
@@ -69,6 +93,7 @@ class ConfigManager:
                 "special_mode": "standard",
                 "exclude_ambiguous": False,
                 "verbose_timing": False,
+                "secret_class_partitions": dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
             }
         try:
             data = self.vault.load_config()
@@ -99,6 +124,10 @@ class ConfigManager:
             data.setdefault("special_mode", "standard")
             data.setdefault("exclude_ambiguous", False)
             data.setdefault("verbose_timing", False)
+            data.setdefault(
+                "secret_class_partitions",
+                dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
+            )
 
             # Migrate legacy hashed_password.enc if present and password_hash is missing
             legacy_file = self.fingerprint_dir / "hashed_password.enc"
@@ -382,3 +411,41 @@ class ConfigManager:
     def get_verbose_timing(self) -> bool:
         cfg = self.load_config(require_pin=False)
         return bool(cfg.get("verbose_timing", False))
+
+    def get_secret_class_partitions(self) -> dict:
+        """Return partition metadata for secret classes."""
+        cfg = self.load_config(require_pin=False)
+        value = cfg.get("secret_class_partitions")
+        if not isinstance(value, dict):
+            value = dict(self.SECRET_CLASS_PARTITIONS_DEFAULT)
+        return value
+
+    def set_secret_class_partitions(self, partitions: dict) -> None:
+        """Persist partition metadata for secret classes."""
+        if not isinstance(partitions, dict):
+            raise ValueError("partitions must be a dictionary")
+        cfg = self.load_config(require_pin=False)
+        cfg["secret_class_partitions"] = partitions
+        self.save_config(cfg)
+
+    def set_partition_unlock_state(self, partition: str, unlocked: bool) -> None:
+        """Persist unlock state for one partition."""
+        cfg = self.load_config(require_pin=False)
+        partitions = cfg.get("secret_class_partitions")
+        if not isinstance(partitions, dict):
+            partitions = dict(self.SECRET_CLASS_PARTITIONS_DEFAULT)
+        p = partitions.get(partition)
+        if not isinstance(p, dict):
+            p = {"kinds": [], "separate_factor_required": False}
+        p["unlocked"] = bool(unlocked)
+        partitions[partition] = p
+        cfg["secret_class_partitions"] = partitions
+        self.save_config(cfg)
+
+    def is_partition_unlocked(self, partition: str) -> bool:
+        """Return unlock state for one partition."""
+        partitions = self.get_secret_class_partitions()
+        p = partitions.get(partition)
+        if not isinstance(p, dict):
+            return False
+        return bool(p.get("unlocked", False))

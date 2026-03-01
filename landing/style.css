@@ -458,6 +458,20 @@ a:hover {
     opacity: 0.8;
 }
 
+/* Agent Section */
+.agent-quickstart {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    background: #0b0f13;
+    padding: 16px;
+    border-left: 2px solid var(--accent-secondary);
+    border-radius: 0 4px 4px 0;
+}
+
+.agent-grid .feature-item code {
+    color: var(--text-bright);
+}
+
 /* Features Grid */
 .grid-features {
     display: grid;

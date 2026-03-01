@@ -1313,6 +1313,41 @@ class EntryManager:
         try:
             data = self._load_index()
             if "entries" in data and str(index) in data["entries"]:
+                entry = data["entries"][str(index)]
+                deleted_ts = int(time.time())
+                entry_hash = hashlib.sha256(
+                    canonical_json_dumps(entry).encode("utf-8")
+                ).hexdigest()
+                tombstone_payload = {
+                    "kind": "tombstone",
+                    "index": str(index),
+                    "deleted_ts": deleted_ts,
+                    "entry_hash": entry_hash,
+                }
+                event_hash = hashlib.sha256(
+                    canonical_json_dumps(tombstone_payload).encode("utf-8")
+                ).hexdigest()
+                sync_meta = data.setdefault("_sync_meta", {})
+                if not isinstance(sync_meta, dict):
+                    sync_meta = {}
+                    data["_sync_meta"] = sync_meta
+                tombstones = sync_meta.setdefault("tombstones", {})
+                if not isinstance(tombstones, dict):
+                    tombstones = {}
+                    sync_meta["tombstones"] = tombstones
+                current = tombstones.get(str(index), {})
+                current_ts = (
+                    int(current.get("deleted_ts", 0))
+                    if isinstance(current, dict)
+                    else 0
+                )
+                if deleted_ts >= current_ts:
+                    tombstones[str(index)] = {
+                        "deleted_ts": deleted_ts,
+                        "entry_hash": entry_hash,
+                        "event_hash": event_hash,
+                        "source": "local-delete",
+                    }
                 del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self._save_index(data)

@@ -1,4 +1,5 @@
 import sys
+import json
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -11,6 +12,9 @@ from seedpass.cli import common as cli_common
 from seedpass.cli import api as cli_api
 from seedpass import cli
 from seedpass.core.entry_types import EntryType
+import seedpass.core.agent_export_policy as export_policy
+import seedpass.core.agent_approval as approval_core
+import seedpass.core.agent_secret_isolation as isolation_core
 
 runner = CliRunner()
 
@@ -26,7 +30,7 @@ def test_entry_list(monkeypatch):
         entry_manager=SimpleNamespace(list_entries=list_entries),
         select_fingerprint=lambda fp: None,
     )
-    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda *a, **k: pm)
     result = runner.invoke(app, ["entry", "list"])
     assert result.exit_code == 0
     assert "Site" in result.stdout
@@ -82,6 +86,145 @@ def test_vault_export(monkeypatch, tmp_path):
     result = runner.invoke(app, ["vault", "export", "--file", str(out_path)])
     assert result.exit_code == 0
     assert called.get("export") is True
+    assert out_path.read_bytes() == b"data"
+
+
+def test_vault_export_denied_for_agent_profile_by_default(monkeypatch, tmp_path):
+    events = {}
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(cli_common.VaultService, "export_profile", lambda self: b"data")
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "seedpass.cli.vault.record_export_policy_event",
+        lambda event, details: events.setdefault("event", (event, details)),
+    )
+    out_path = tmp_path / "out.json"
+    result = runner.invoke(
+        app, ["vault", "export", "--file", str(out_path), "--agent-profile"]
+    )
+    assert result.exit_code == 1
+    assert "policy_deny:full_export_blocked" in result.stdout
+    assert events["event"][0] == "export_denied"
+
+
+def test_vault_export_policy_filtered_includes_manifest(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_kinds": ["password"],
+                "allow_export_import": False,
+                "output": {"safe_output_default": True, "redact_fields": ["value"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class Enc:
+        def encrypt_data(self, payload):
+            return payload
+
+    index_data = {
+        "schema_version": 4,
+        "entries": {
+            "0": {"kind": "password", "label": "ok"},
+            "1": {"kind": "totp", "label": "skip"},
+        },
+    }
+    pm = SimpleNamespace(
+        vault=SimpleNamespace(load_index=lambda: index_data, encryption_manager=Enc()),
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    out_path = tmp_path / "filtered.enc"
+    result = runner.invoke(
+        app,
+        [
+            "vault",
+            "export",
+            "--file",
+            str(out_path),
+            "--agent-profile",
+            "--policy-filtered",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(out_path.read_text(encoding="utf-8"))
+    manifest = payload["_export_manifest"]
+    assert manifest["mode"] == "policy_filtered"
+    assert manifest["allow_kinds"] == ["password"]
+    assert manifest["included_entry_indexes"] == ["0"]
+
+
+def test_vault_export_agent_requires_approval_for_full_export(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_kinds": ["password"],
+                "allow_export_import": True,
+                "export": {"allow_full_vault": True},
+                "approvals": {"require_for": ["export"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli_common.VaultService, "export_profile", lambda self: b"data")
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: SimpleNamespace())
+
+    out_path = tmp_path / "needs-approval.enc"
+    result = runner.invoke(
+        app,
+        [
+            "vault",
+            "export",
+            "--file",
+            str(out_path),
+            "--agent-profile",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "policy_deny:approval_required" in result.stdout
+
+
+def test_vault_export_agent_full_succeeds_with_approval(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_kinds": ["password"],
+                "allow_export_import": True,
+                "export": {"allow_full_vault": True},
+                "approvals": {"require_for": ["export"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli_common.VaultService, "export_profile", lambda self: b"data")
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: SimpleNamespace())
+    approval = approval_core.issue_approval(
+        action="export",
+        ttl_seconds=300,
+        uses=1,
+        resource="vault:full",
+    )
+
+    out_path = tmp_path / "approved.enc"
+    result = runner.invoke(
+        app,
+        [
+            "vault",
+            "export",
+            "--file",
+            str(out_path),
+            "--agent-profile",
+            "--approval-id",
+            approval["id"],
+        ],
+    )
+    assert result.exit_code == 0
     assert out_path.read_bytes() == b"data"
 
 
@@ -186,11 +329,121 @@ def test_vault_reveal_parent_seed(monkeypatch, tmp_path):
     pm = SimpleNamespace(
         handle_backup_reveal_parent_seed=reveal, select_fingerprint=lambda fp: None
     )
-    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda *a, **k: pm)
     out_path = tmp_path / "seed.enc"
     result = runner.invoke(
         app,
         ["vault", "reveal-parent-seed", "--file", str(out_path)],
+        input="pw\n",
+    )
+    assert result.exit_code == 0
+    assert called["path"] == out_path
+
+
+def test_vault_reveal_parent_seed_agent_requires_approval(monkeypatch, tmp_path):
+    called = {}
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"approvals": {"require_for": ["reveal_parent_seed"]}}),
+        encoding="utf-8",
+    )
+
+    def reveal(path=None, **_):
+        called["path"] = path
+
+    pm = SimpleNamespace(
+        handle_backup_reveal_parent_seed=reveal, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda *a, **k: pm)
+    out_path = tmp_path / "seed.enc"
+    result = runner.invoke(
+        app,
+        [
+            "vault",
+            "reveal-parent-seed",
+            "--file",
+            str(out_path),
+            "--agent-profile",
+        ],
+        input="pw\n",
+    )
+    assert result.exit_code == 1
+    assert "policy_deny:approval_required" in result.stdout
+    assert "path" not in called
+
+
+def test_vault_reveal_parent_seed_blocked_when_high_risk_locked(monkeypatch, tmp_path):
+    called = {}
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(isolation_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {"secret_isolation": {"enabled": True, "high_risk_kinds": ["seed"]}}
+        ),
+        encoding="utf-8",
+    )
+    isolation_core.set_high_risk_factor("factor-1")
+
+    def reveal(path=None, **_):
+        called["path"] = path
+
+    pm = SimpleNamespace(
+        handle_backup_reveal_parent_seed=reveal, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda *a, **k: pm)
+    out_path = tmp_path / "seed.enc"
+    result = runner.invoke(
+        app,
+        [
+            "--fingerprint",
+            "ABC123",
+            "vault",
+            "reveal-parent-seed",
+            "--file",
+            str(out_path),
+        ],
+        input="pw\n",
+    )
+    assert result.exit_code == 1
+    assert "policy_deny:high_risk_locked" in result.stdout
+    assert "path" not in called
+
+
+def test_vault_reveal_parent_seed_agent_approval_allows(monkeypatch, tmp_path):
+    called = {}
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"approvals": {"require_for": ["reveal_parent_seed"]}}),
+        encoding="utf-8",
+    )
+
+    def reveal(path=None, **_):
+        called["path"] = path
+
+    pm = SimpleNamespace(
+        handle_backup_reveal_parent_seed=reveal, select_fingerprint=lambda fp: None
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    approval = approval_core.issue_approval(
+        action="reveal_parent_seed",
+        ttl_seconds=300,
+        uses=1,
+        resource="vault:parent-seed",
+    )
+    out_path = tmp_path / "seed.enc"
+    result = runner.invoke(
+        app,
+        [
+            "vault",
+            "reveal-parent-seed",
+            "--file",
+            str(out_path),
+            "--agent-profile",
+            "--approval-id",
+            approval["id"],
+        ],
         input="pw\n",
     )
     assert result.exit_code == 0
@@ -386,6 +639,65 @@ def test_generate_password(monkeypatch):
     assert "secretpw" in result.stdout
 
 
+def test_capabilities_text():
+    result = runner.invoke(app, ["capabilities"])
+    assert result.exit_code == 0
+    assert "SeedPass Capabilities" in result.stdout
+    assert "Auth brokers" in result.stdout
+    assert "Sync safety" in result.stdout
+    assert "Security posture checks" in result.stdout
+
+
+def test_capabilities_json():
+    result = runner.invoke(app, ["capabilities", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["schema_version"] == 1
+    assert "cli" in payload["interfaces"]
+    assert "agent" in payload["interfaces"]["cli"]["root_commands"]
+    assert (
+        "/api/v1/agent/job-profiles/{job_id}/template/verify"
+        in payload["interfaces"]["api"]["discovery"]
+    )
+    assert "/api/v1/agent/recovery/split" in payload["interfaces"]["api"]["discovery"]
+    assert (
+        "/api/v1/agent/recovery/drills/verify"
+        in payload["interfaces"]["api"]["discovery"]
+    )
+    assert "leases" in payload["security_features"]
+    assert "automation" in payload["security_features"]
+    assert "sync" in payload["security_features"]
+    assert "policy" in payload["security_features"]
+    assert payload["security_features"]["policy"]["supports_change_review"]
+    assert (
+        payload["security_features"]["sync"]["deterministic_conflict_resolution"]
+        == "modified_ts_hash_tombstone_v2"
+    )
+    assert "export_controls" in payload["security_features"]
+    assert payload["security_features"]["export_controls"][
+        "supports_manifest_entry_hash_verification"
+    ]
+    assert "posture" in payload["security_features"]
+    assert (
+        "agent posture-remediate" in payload["security_features"]["posture"]["commands"]
+    )
+    assert payload["security_features"]["automation"][
+        "supports_persistent_job_profiles"
+    ]
+    assert payload["security_features"]["automation"]["supports_api_templates"]
+    assert (
+        payload["security_features"]["automation"]["template_manifest_signing"]
+        == "hmac-sha256"
+    )
+    assert payload["security_features"]["automation"]["enforces_policy_stamp_on_run"]
+    assert payload["security_features"]["automation"]["supports_host_binding"]
+    assert payload["security_features"]["recovery"]["supports_shamir_split_recover"]
+    assert payload["security_features"]["recovery"]["supports_signed_drill_reports"]
+    assert "identities" in payload["security_features"]
+    assert "secret_isolation" in payload["security_features"]
+    assert any("After unlock/login" in h for h in payload["help_hints"])
+
+
 def test_api_start_passes_fingerprint(monkeypatch):
     """Ensure the API start command forwards the selected fingerprint."""
     called = {}
@@ -400,6 +712,41 @@ def test_api_start_passes_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc", "api", "start"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_api_start_unlock_uses_env_broker(monkeypatch):
+    called = {}
+    broker_called = {}
+
+    def fake_start(fingerprint=None, unlock_password=None):
+        called["fp"] = fingerprint
+        called["pw"] = unlock_password
+        return "tok"
+
+    monkeypatch.setattr(cli_api.api_module, "start_server", fake_start)
+    monkeypatch.setattr(cli_api, "uvicorn", SimpleNamespace(run=lambda *a, **k: None))
+    monkeypatch.setattr(
+        cli_api,
+        "resolve_broker_password",
+        lambda **kwargs: broker_called.update(kwargs) or "broker-pw",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--fingerprint",
+            "abc",
+            "api",
+            "start",
+            "--unlock",
+            "--auth-broker",
+            "env",
+        ],
+    )
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert called.get("pw") == "broker-pw"
+    assert broker_called.get("broker") == "env"
 
 
 def test_entry_list_passes_fingerprint(monkeypatch):
@@ -562,6 +909,26 @@ def test_entry_export_totp(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert out.exists()
     assert called.get("called") is True
+
+
+def test_entry_export_totp_denied_for_agent_profile(monkeypatch, tmp_path):
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        '{"allow_kinds":["password"],"allow_export_import":false}',
+        encoding="utf-8",
+    )
+    pm = SimpleNamespace(
+        entry_manager=SimpleNamespace(export_totp_entries=lambda seed: {"entries": []}),
+        parent_seed="seed",
+        select_fingerprint=lambda fp: None,
+    )
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    out = tmp_path / "t.json"
+    result = runner.invoke(
+        app, ["entry", "export-totp", "--file", str(out), "--agent-profile"]
+    )
+    assert result.exit_code == 1
+    assert "policy_deny:kind_not_allowed" in result.stdout
 
 
 def test_entry_totp_codes(monkeypatch):

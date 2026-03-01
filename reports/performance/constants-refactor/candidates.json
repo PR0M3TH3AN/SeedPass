@@ -1,0 +1,58 @@
+[
+  {
+    "value": 1000,
+    "semantic": "one second in ms",
+    "occurrences": [
+      {"file": "torch/src/services/memory/index.js", "line": 45, "context": "const MIN_SAVE_INTERVAL_MS = 1000;"},
+      {"file": "torch/src/services/memory/pruner.js", "line": 3, "context": "const DAY_MS = 24 * 60 * 60 * 1000;"},
+      {"file": "torch/src/services/memory/retriever.js", "line": 8, "context": "const DEFAULT_RECENCY_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;"},
+      {"file": "torch/src/services/memory/formatter.js", "line": 3, "context": "const DEFAULT_TOKEN_BUDGET = 1000;"}
+    ]
+  },
+  {
+    "value": 60000,
+    "semantic": "one minute in ms (or 60_000)",
+    "occurrences": [
+      {"file": "torch/src/services/memory/index.js", "line": 548, "context": "windowMs / 60_000"},
+      {"file": "torch/src/services/memory/ingestor.js", "line": 6, "context": "const WINDOW_BUCKET_MS = 60_000;"},
+      {"file": "torch/src/services/memory/cache.js", "line": 153, "context": "setRuntimeEvent(scope, event, ttlMs = 60_000) {"},
+      {"file": "torch/src/services/memory/cache.js", "line": 157, "context": "const safeTtlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 60_000;"},
+      {"file": "torch/src/services/memory/scheduler.js", "line": 2, "context": "const MINUTE_MS = 60_000;"}
+    ]
+  },
+  {
+    "value": "24 * 60 * 60 * 1000",
+    "semantic": "one day in ms",
+    "occurrences": [
+      {"file": "torch/src/services/memory/pruner.js", "line": 3, "context": "const DAY_MS = 24 * 60 * 60 * 1000;"},
+      {"file": "torch/src/services/memory/index.js", "line": 329, "context": "const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);"},
+      {"file": "torch/src/services/memory/index.js", "line": 495, "context": "const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);"}
+    ]
+  },
+  {
+    "value": 280,
+    "semantic": "max summary chars length",
+    "occurrences": [
+      {"file": "torch/src/services/memory/pruner.js", "line": 116, "context": ".slice(0, 280)"},
+      {"file": "torch/src/services/memory/summarizer.js", "line": 116, "context": "const maxSummaryLength = options.maxSummaryLength ?? 280;"},
+      {"file": "torch/src/services/memory/ingestor.js", "line": 92, "context": "function compactContextExcerpt(text, maxChars = 280) {"}
+    ]
+  },
+  {
+    "value": 0.25,
+    "semantic": "default importance score",
+    "occurrences": [
+      {"file": "torch/src/services/memory/summarizer.js", "line": 64, "context": "Math.min(1, Math.max(0, rawImportance)) : 0.25;"},
+      {"file": "torch/src/services/memory/summarizer.js", "line": 72, "context": "return { summary: bounded, importance: 0.25 };"},
+      {"file": "torch/src/services/memory/retriever.js", "line": 3, "context": "w_imp: 0.25,"}
+    ]
+  },
+  {
+    "value": 0.35,
+    "semantic": "low importance / semantic overlap threshold",
+    "occurrences": [
+      {"file": "torch/src/services/memory/summarizer.js", "line": 89, "context": "return overlap / summaryTokens.length >= 0.35;"},
+      {"file": "torch/src/services/memory/pruner.js", "line": 184, "context": "lowImportanceThreshold: options.lowImportanceThreshold ?? 0.35,"}
+    ]
+  }
+]

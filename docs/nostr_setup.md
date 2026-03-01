@@ -24,6 +24,19 @@ Backups are published as parameterised replaceable events:
 
 When restoring, SeedPass downloads the most recent manifest and applies any newer delta events.
 
+## Deterministic Merge and Replay Behavior
+
+Delta application uses deterministic conflict resolution so multiple devices
+converge on the same state even when updates arrive out of order:
+
+- newer `modified_ts` wins
+- equal timestamp conflicts use deterministic hash tie-breaks
+- deletions are tracked via tombstones in `_sync_meta.tombstones`
+- stale payload replay does not override newer state
+
+For the detailed merge contract, see
+[sync_conflict_contract.md](sync_conflict_contract.md).
+
 ## Troubleshooting
 
 - **No events found:** ensure the relays are reachable and that the correct fingerprint is selected.

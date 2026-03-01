@@ -10,9 +10,14 @@ import typer
 
 from .common import _get_services
 from seedpass.core.errors import SeedPassError
+from constants import GUI_BACKEND_CONFIG
 
 app = typer.Typer(
-    help="SeedPass command line interface",
+    help=(
+        "SeedPass command line interface. "
+        "Run `seedpass capabilities` for a deterministic feature map "
+        "and `seedpass <group> --help` for group-specific commands."
+    ),
     invoke_without_command=True,
 )
 
@@ -38,6 +43,7 @@ deterministic_totp_option = typer.Option(
 
 # Sub command groups
 from . import entry, vault, nostr, config, fingerprint, util, api, agent
+from .capabilities import register_capabilities_command
 
 app.add_typer(entry.app, name="entry")
 app.add_typer(vault.app, name="vault")
@@ -47,6 +53,7 @@ app.add_typer(fingerprint.app, name="fingerprint")
 app.add_typer(util.app, name="util")
 app.add_typer(api.app, name="api")
 app.add_typer(agent.app, name="agent")
+register_capabilities_command(app)
 
 
 def run() -> None:
@@ -76,6 +83,8 @@ def main(
     """SeedPass CLI entry point.
 
     When called without a subcommand this launches the interactive TUI.
+    Use ``seedpass capabilities --format json`` for machine-readable command
+    and security feature discovery.
     """
     ctx.obj = {
         "fingerprint": fingerprint,
@@ -110,24 +119,19 @@ def gui(
     confirmation.
     """
     if not _gui_backend_available():
-        if sys.platform.startswith("linux"):
-            pkg = "toga-gtk"
-            version = "0.5.2"
-            sha256 = "15b346ac1a2584de5effe5e73a3888f055c68c93300aeb111db9d64186b31646"
-        elif sys.platform == "win32":
-            pkg = "toga-winforms"
-            version = "0.5.2"
-            sha256 = "83181309f204bcc4a34709d23fdfd68467ae8ecc39c906d13c661cb9a0ef581b"
-        elif sys.platform == "darwin":
-            pkg = "toga-cocoa"
-            version = "0.5.2"
-            sha256 = "a4d5d1546bf92372a6fb1b450164735fb107b2ee69d15bf87421fec3c78465f9"
-        else:
+        platform_key = "linux" if sys.platform.startswith("linux") else sys.platform
+        backend_info = GUI_BACKEND_CONFIG.get(platform_key)
+
+        if not backend_info:
             typer.echo(
                 f"Unsupported platform '{sys.platform}' for BeeWare GUI.",
                 err=True,
             )
             raise typer.Exit(1)
+
+        pkg = backend_info["pkg"]
+        version = backend_info["version"]
+        sha256 = backend_info["sha256"]
 
         if not install:
             typer.echo(

@@ -29,6 +29,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 ## Table of Contents
 
 - [Features](#features)
+- [Agent and Automation Security Features](#agent-and-automation-security-features)
 - [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -82,6 +83,30 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 
 A small on-screen notification area now shows queued messages for 10 seconds
 before fading.
+
+## Agent and Automation Security Features
+
+SeedPass includes an agent-focused CLI surface for non-interactive automation
+with policy and security guardrails:
+
+- **Auth brokers (no plaintext env required):** `env`, `keyring`, `command`, `prompt` providers for `agent init/get`, `vault unlock`, and `api start --unlock`.
+- **Policy as code:** `agent policy-lint`, `agent policy-review`, and `agent policy-apply` for validated, diffable, risk-gated policy updates.
+- **Scoped tokens + identities:** `agent token-issue/list/revoke` and `agent identity-create/list/revoke` with TTL, use limits, and revocation.
+- **One-time/N-use secret leases:** `agent get --lease-only`, `agent lease-consume`, `agent lease-list`, `agent lease-revoke`.
+- **Approval gates for risky actions:** `agent approval-issue/list/revoke` gates export, parent-seed reveal, and sensitive private-key retrieval flows.
+- **Secret-class isolation:** dedicated high-risk unlock factor and lock state via `agent high-risk-factor-set`, `agent high-risk-unlock/status/lock`.
+- **Safer automation primitives:** `agent job-run`, `agent job-template`, and job profiles with policy-stamp checks and signed template manifests.
+- **Recovery hardening:** `agent recovery-split/recover/drill/drill-list` for Shamir split/recover and signed drill evidence.
+- **Deterministic export controls:** policy-filtered exports plus manifest integrity checks with `agent export-check` and `agent export-manifest-verify`.
+- **Security posture tooling:** `agent posture-check` and `agent posture-remediate` for drift detection and remediation bundles.
+- **Auditable access chain:** append-only HMAC-chained audit records with verification support.
+
+For machine-readable discovery, run:
+
+```bash
+seedpass capabilities --format json
+seedpass agent bootstrap-context
+```
 
 ## Architecture Overview
 

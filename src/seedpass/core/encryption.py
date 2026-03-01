@@ -29,6 +29,7 @@ from mnemonic import Mnemonic
 from utils.password_prompt import prompt_existing_password
 from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 from .errors import DecryptionError
+from .sync_conflict import merge_index_payloads
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -481,18 +482,8 @@ class EncryptionManager:
             existing_file = self.resolve_relative_path(relative_path)
             if merge and existing_file.exists():
                 current = self.load_json_data(relative_path)
-                current_entries = current.get("entries", {})
-                for idx, entry in data.get("entries", {}).items():
-                    cur_ts = current_entries.get(idx, {}).get("modified_ts", 0)
-                    new_ts = entry.get("modified_ts", 0)
-                    if idx not in current_entries or new_ts >= cur_ts:
-                        current_entries[idx] = entry
-                current["entries"] = current_entries
-                if "schema_version" in data:
-                    current["schema_version"] = max(
-                        current.get("schema_version", 0), data.get("schema_version", 0)
-                    )
-                data = current
+                source_tag = hashlib.sha256(encrypted_data).hexdigest()[:16]
+                data = merge_index_payloads(current, data, source_tag=source_tag)
             return data
 
         try:

@@ -2,8 +2,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createMemoryRecord, normalizeEvent, validateMemoryItem } from './schema.js';
 import { embedText, getDefaultEmbedderAdapter } from './embedder.js';
 import { summarizeEvents } from './summarizer.js';
+import { MINUTE_MS } from './constants/time.js';
+import { MAX_SUMMARY_LENGTH } from './constants/text.js';
 
-const WINDOW_BUCKET_MS = 60_000;
+const WINDOW_BUCKET_MS = MINUTE_MS;
 const MAX_DEDUPE_KEYS = 2000;
 const dedupeWindow = new Map();
 
@@ -89,7 +91,7 @@ async function rememberWindowFingerprint(repository, dedupeKey, payload) {
 }
 
 
-function compactContextExcerpt(text, maxChars = 280) {
+function compactContextExcerpt(text, maxChars = MAX_SUMMARY_LENGTH) {
   if (typeof text !== 'string' || text.length === 0) return '';
   const compact = text.replace(/\s+/g, ' ').trim();
   if (compact.length <= maxChars) return compact;

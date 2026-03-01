@@ -100,6 +100,49 @@ class MenuHandler:
             print(colored(f"Error: Failed to list entries: {e}", "red"))
 
     @pause_logging_for_ui
+    def run_menu(
+        self,
+        title: str,
+        options_generator: Callable[[], list[tuple[str, str, Callable[[], Any]]]],
+        prompt: str = "Select an action or press Enter to return: ",
+    ) -> None:
+        """
+        Generic menu loop handler.
+
+        :param title: The title of the menu to display in the header.
+        :param options_generator: A function that returns a list of tuples (key, label, action).
+                                  It is called at the start of each loop iteration to allow dynamic options.
+        :param prompt: The input prompt to display.
+        """
+        pm = self.manager
+        while True:
+            fp, parent_fp, child_fp = pm.header_fingerprint_args
+            clear_header_with_notification(
+                pm,
+                fp,
+                title,
+                parent_fingerprint=parent_fp,
+                child_fingerprint=child_fp,
+            )
+
+            options = options_generator()
+            print(colored(f"\n[+] {title}:", "green"))
+
+            key_map = {}
+            for key, label, action in options:
+                print(colored(f"{key.upper()}. {label}", "cyan"))
+                key_map[key.lower()] = action
+
+            choice = input(prompt).strip().lower()
+            if not choice:
+                break
+
+            if choice in key_map:
+                key_map[choice]()
+            else:
+                print(colored("Invalid choice.", "red"))
+
+    @pause_logging_for_ui
     def handle_display_totp_codes(self) -> None:
         """Display all stored TOTP codes with a countdown progress bar."""
         pm = self.manager

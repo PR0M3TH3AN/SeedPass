@@ -108,8 +108,12 @@ def test_totp_viewer_refresh_on_sync(monkeypatch):
     viewer = seedpass_gui.app.TotpViewerWindow(ctrl, entries)
     bus.subscribe("sync_finished", viewer.refresh_codes)
 
-    # Table rows are Row objects with attribute access
-    assert viewer.table.data[0].code == "111111"
-    entries.code = "222222"
-    bus.publish("sync_finished")
-    assert viewer.table.data[0].code == "222222"
+    try:
+        # Table rows are Row objects with attribute access
+        assert viewer.table.data[0].code == "111111"
+        entries.code = "222222"
+        bus.publish("sync_finished")
+        assert viewer.table.data[0].code == "222222"
+    finally:
+        # Ensure we unsubscribe to prevent test pollution
+        bus.unsubscribe("sync_finished", viewer.refresh_codes)

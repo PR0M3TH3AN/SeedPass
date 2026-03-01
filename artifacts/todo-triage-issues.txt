@@ -1,0 +1,9 @@
+Title: todo: Replace this Python implementation with a Rust/WASM module for
+Body:
+File: src/utils/memory_protection.py:6
+Excerpt: # TODO: Replace this Python implementation with a Rust/WASM module for critical cryptographic operations.
+Intent: Enhance security and performance by moving critical crypto operations to a compiled Rust/WASM module to avoid Python memory management issues.
+Effort: Large
+Risk: High
+Next Step: Research Rust bindings for Python (PyO3) or WASM integration strategies compatible with the current environment.
+Note: Security-sensitive -> human review required.
