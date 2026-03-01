@@ -399,7 +399,7 @@ Validation behavior:
 - Interpret `relay_publish_quorum_failure` (derived from `lock_publish_quorum_failed` telemetry) as quorum not met even after retries/fallbacks. Expected operator actions:
   1. Run `npm run lock:health -- --cadence <daily|weekly>` to confirm relay readiness and identify failing relays/reasons.
   2. Review task log metadata (`lock_failure_reason_distribution`, `backend_category`, `lock_correlation_id`) for dominant failure modes (timeouts, DNS, auth, malformed relay URL).
-  3. If failures persist past retry window, follow incident runbook `docs/agent-handoffs/learnings/2026-02-15-relay-health-preflight-job.md` and escalate relay/network remediation.
+  3. If failures persist past retry window, follow incident runbook `docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md` and escalate relay/network remediation.
 - Relay health snapshots are emitted periodically and whenever lock publish/query fails; snapshots include success rate, timeout rate, rolling latency, and quarantine state per relay.
 
 ## Scheduler Usage
@@ -519,7 +519,7 @@ Files captured per snapshot:
 - `.scheduler-memory/memory-store.json` (agent long-term memory)
 - `task-logs/daily/.scheduler-run-state.json` (scheduler deferral state)
 
-See [docs/prompt-versioning.md](docs/prompt-versioning.md) for the full reference including restore steps and storage layout.
+See `torch/src/docs/` or relevant documentation sections for the full reference including restore steps and storage layout.
 
 
 ## Offline & Air-Gapped Installation

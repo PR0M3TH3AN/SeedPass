@@ -1,4 +1,4 @@
-### 1. [2026-02-26] (scheduler, daily, store, insight)
+### 1. [2026-02-28] (scheduler, daily, retrieve)
 
 # Memory Update (2026-02-25)
 
@@ -39,6 +39,18 @@ If `npx --no-install torch-lock init --help` prints initialization prompts, it m
 
 Memory retrieval seed for daily :: scheduler memory retrieval
 
+## Patterns / reusable knowledge
+- Always verify file existence before assuming roster drift.
+
+…
+### 5. [2026-02-25] (scheduler, daily, store, insight)
+
+---
+
+### 4. [2026-02-27] (scheduler, daily, retrieve)
+
+Memory retrieval seed for daily :: scheduler memory retrieval
+
 ---
 
 ### 5. [2026-02-25] (scheduler, daily, store, insight)
@@ -48,3 +60,6 @@ When running `npm run --prefix torch scheduler:daily`, the scheduler resolves co
 
 ### 2. [2026-02-25] (torch, scheduler, handoff)
 A non-inter…
+### 2. [2026-02-25] (torch, scheduler, handoff)
+A non-inter…
+Memory retrieval seed for daily :: Required startup + artifacts + memory + issue capture
