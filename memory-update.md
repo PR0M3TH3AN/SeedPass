@@ -196,3 +196,5 @@
 - Introduced a test hook in `launch_tui2(..., app_hook=...)` so tests can capture and pilot the Textual app instance without starting a live terminal run.
 - 2026-03-01: Added CI-like large-vault validation with explicit thresholds in `src/tests/test_tui_v2_large_vault_validation.py` (10k rows standard, 50k rows under `--stress`).
 - Added docs `docs/tui_v2_large_vault_validation.md` with exact commands and budgets; parity checklist now marks large-vault CI-like validation complete.
+- 2026-03-01: Added deterministic TUI v2 parity scenarios across entry kinds in `src/tests/test_tui_v2_parity_scenarios.py` (kind filters, archive/restore roundtrip, non-document edit guard).
+- Completed help/docs alignment gate: updated `seedpass tui2` help text, capabilities hints for keybindings/palette (`Ctrl+P`, `p/n`, `x`), and docs discoverability commands (`seedpass tui2 --help/--check`).

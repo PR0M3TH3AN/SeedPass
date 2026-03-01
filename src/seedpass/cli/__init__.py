@@ -121,7 +121,7 @@ def tui2(
         help="Fall back to legacy TUI when TUI v2 runtime is unavailable",
     ),
 ) -> None:
-    """Launch experimental TUI v2 scaffold."""
+    """Launch the Textual-based TUI v2 (search/edit/graph workflows)."""
     if check:
         typer.echo(json.dumps(check_tui2_runtime(), indent=2, sort_keys=True))
         return

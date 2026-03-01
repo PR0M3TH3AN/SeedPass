@@ -44,5 +44,7 @@ This directory contains SeedPass project documentation.
 
 - `seedpass --help`
 - `seedpass <group> --help`
+- `seedpass tui2 --help`
+- `seedpass tui2 --check`
 - `seedpass capabilities --format json`
 - `seedpass agent bootstrap-context`
