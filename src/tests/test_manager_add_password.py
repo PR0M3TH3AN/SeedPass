@@ -74,18 +74,18 @@ def test_handle_add_password(monkeypatch, dummy_nostr_client, capsys):
         assert entries == [(0, "Example", "", "", False)]
 
         entry = entry_mgr.retrieve_entry(0)
-        assert entry == {
-            "label": "Example",
-            "length": DEFAULT_PASSWORD_LENGTH,
-            "username": "",
-            "url": "",
-            "archived": False,
-            "type": "password",
-            "kind": "password",
-            "notes": "",
-            "custom_fields": [],
-            "tags": [],
-        }
+        assert entry["label"] == "Example"
+        assert entry["length"] == DEFAULT_PASSWORD_LENGTH
+        assert entry["username"] == ""
+        assert entry["url"] == ""
+        assert entry["archived"] is False
+        assert entry["type"] == "password"
+        assert entry["kind"] == "password"
+        assert entry["notes"] == ""
+        assert entry["custom_fields"] == []
+        assert entry["tags"] == []
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         assert f"pw-0-{DEFAULT_PASSWORD_LENGTH}" in out
 
@@ -194,18 +194,18 @@ def test_handle_add_password_quick_mode(monkeypatch, dummy_nostr_client, capsys)
         assert entries == [(0, "Example", "", "", False)]
 
         entry = entry_mgr.retrieve_entry(0)
-        assert entry == {
-            "label": "Example",
-            "length": DEFAULT_PASSWORD_LENGTH,
-            "username": "",
-            "url": "",
-            "archived": False,
-            "type": "password",
-            "kind": "password",
-            "notes": "",
-            "custom_fields": [],
-            "tags": [],
-        }
+        assert entry["label"] == "Example"
+        assert entry["length"] == DEFAULT_PASSWORD_LENGTH
+        assert entry["username"] == ""
+        assert entry["url"] == ""
+        assert entry["archived"] is False
+        assert entry["type"] == "password"
+        assert entry["kind"] == "password"
+        assert entry["notes"] == ""
+        assert entry["custom_fields"] == []
+        assert entry["tags"] == []
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         assert f"pw-0-{DEFAULT_PASSWORD_LENGTH}" in out
 

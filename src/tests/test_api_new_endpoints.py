@@ -110,6 +110,148 @@ async def test_create_and_modify_ssh_entry(client):
 
 
 @pytest.mark.anyio
+async def test_create_and_modify_document_entry(client):
+    cl, token = client
+    calls = {}
+
+    def add_document(label, content, **kwargs):
+        calls["create"] = (label, content, kwargs)
+        return 11
+
+    def modify(idx, **kwargs):
+        calls["modify"] = (idx, kwargs)
+
+    api.app.state.pm.entry_manager.add_document = add_document
+    api.app.state.pm.entry_manager.modify_entry = modify
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post(
+        "/api/v1/entry",
+        json={
+            "type": "document",
+            "title": "Runbook",
+            "content": "line1\\nline2",
+            "file_type": "md",
+            "notes": "ops",
+            "tags": ["doc", "ops"],
+        },
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"id": 11}
+    assert calls["create"] == (
+        "Runbook",
+        "line1\\nline2",
+        {"file_type": "md", "notes": "ops", "archived": False, "tags": ["doc", "ops"]},
+    )
+
+    res = await cl.put(
+        "/api/v1/entry/11",
+        json={"content": "line1\\nline2\\nline3", "file_type": "txt"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert calls["modify"][0] == 11
+    assert calls["modify"][1]["content"].endswith("line3")
+    assert calls["modify"][1]["file_type"] == "txt"
+
+
+@pytest.mark.anyio
+async def test_document_import_export_endpoints(client):
+    cl, token = client
+    calls = {}
+
+    def import_document(path, **kwargs):
+        calls["import"] = (path, kwargs)
+        return 33
+
+    def export_document(idx, **kwargs):
+        calls["export"] = (idx, kwargs)
+        return Path("/tmp/exported.md")
+
+    api.app.state.pm.entry_manager.import_document_file = import_document
+    api.app.state.pm.entry_manager.export_document_file = export_document
+
+    headers = {"Authorization": f"Bearer {token}"}
+    imported = await cl.post(
+        "/api/v1/entry/document/import",
+        json={"path": "/tmp/source.md", "label": "Imported", "notes": "n"},
+        headers=headers,
+    )
+    assert imported.status_code == 200
+    assert imported.json() == {"id": 33}
+    assert calls["import"] == (
+        "/tmp/source.md",
+        {"label": "Imported", "notes": "n", "archived": False, "tags": None},
+    )
+
+    exported = await cl.post(
+        "/api/v1/entry/33/document/export",
+        json={"path": "/tmp/out", "overwrite": True},
+        headers=headers,
+    )
+    assert exported.status_code == 200
+    assert exported.json() == {"path": "/tmp/exported.md"}
+    assert calls["export"] == (33, {"output_path": "/tmp/out", "overwrite": True})
+
+
+@pytest.mark.anyio
+async def test_entry_links_endpoints(client):
+    cl, token = client
+    calls = {}
+
+    def add_link(entry_id, target_id, **kwargs):
+        calls["add"] = (entry_id, target_id, kwargs)
+        return [{"target_id": target_id, "relation": kwargs["relation"], "note": kwargs["note"]}]
+
+    def remove_link(entry_id, target_id, **kwargs):
+        calls["remove"] = (entry_id, target_id, kwargs)
+        return []
+
+    def get_links(entry_id):
+        calls["get"] = entry_id
+        return [
+            {
+                "target_id": 2,
+                "relation": "references",
+                "note": "used by doc",
+                "target_label": "API Token",
+                "target_kind": "key_value",
+            }
+        ]
+
+    api.app.state.pm.entry_manager.add_link = add_link
+    api.app.state.pm.entry_manager.remove_link = remove_link
+    api.app.state.pm.entry_manager.get_links = get_links
+
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await cl.post(
+        "/api/v1/entry/1/links",
+        json={"target_id": 2, "relation": "references", "note": "used by doc"},
+        headers=headers,
+    )
+    assert created.status_code == 200
+    assert created.json()["links"][0]["target_id"] == 2
+    assert calls["add"] == (1, 2, {"relation": "references", "note": "used by doc"})
+
+    listed = await cl.get("/api/v1/entry/1/links", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()["entry_id"] == 1
+    assert listed.json()["links"][0]["target_kind"] == "key_value"
+    assert calls["get"] == 1
+
+    removed = await cl.request(
+        "DELETE",
+        "/api/v1/entry/1/links",
+        json={"target_id": 2, "relation": "references"},
+        headers=headers,
+    )
+    assert removed.status_code == 200
+    assert removed.json() == {"entry_id": 1, "links": []}
+    assert calls["remove"] == (1, 2, {"relation": "references"})
+
+
+@pytest.mark.anyio
 async def test_update_entry_error(client):
     cl, token = client
 

@@ -66,6 +66,7 @@
                             <div>├─► <i class="fas fa-network-wired"></i> SSH Keys</div>
                             <div>├─► <i class="fas fa-lock"></i> PGP Key</div>
                             <div>├─► <i class="fas fa-bolt"></i> Nostr Keys</div>
+                            <div>├─► <i class="fas fa-file-lines"></i> Documents</div>
                             <div>└─► <i class="fas fa-users-cog"></i> Managed Accounts</div>
                         </div>
                     </div>
@@ -122,6 +123,21 @@
                             <h3>Secret Mode</h3>
                             <p>Copy to clipboard directly, clearing automatically after delay.</p>
                         </div>
+                        <div class="feature-item">
+                            <i class="fas fa-file-code"></i>
+                            <h3>Document Entries</h3>
+                            <p>Store rich text content with file types like <code>md</code>, <code>txt</code>, <code>py</code>, and edit in-terminal.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-clock-rotate-left"></i>
+                            <h3>Entry Timestamps</h3>
+                            <p>All entry kinds include <code>date_added</code> and <code>date_modified</code> for deterministic auditability.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-diagram-project"></i>
+                            <h3>Entry Graph Links</h3>
+                            <p>Create typed relationships between entries using <code>target_id</code>, <code>relation</code>, and <code>note</code>.</p>
+                        </div>
                     </div>
                 </section>
 
@@ -169,6 +185,16 @@
                             <h3>Audit, Posture, Recovery</h3>
                             <p>Chained audit logs, posture checks/remediation, Shamir split-drills, and deterministic export validation.</p>
                         </div>
+                        <div class="feature-item">
+                            <i class="fas fa-file-import"></i>
+                            <h3>Agent Document I/O</h3>
+                            <p>Policy-gated <code>agent document-import</code> and <code>agent document-export</code> for controlled filesystem workflows.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-share-nodes"></i>
+                            <h3>Graph-Aware Entry Ops</h3>
+                            <p>Automate knowledge links with <code>entry link-add</code>, <code>entry links</code>, and <code>entry link-remove</code>.</p>
+                        </div>
                     </div>
                 </section>
 
@@ -188,6 +214,18 @@
                             <div class="tree-node">└── <i class="fas fa-folder"></i> Child_Seed_2 <span
                                     class="muted">[Index 2]</span></div>
                             <div class="tree-leaf"> └── <i class="fas fa-file-code"></i> Password_C</div>
+                        </div>
+                    </div>
+
+                    <div class="info-blocks mt-2">
+                        <div class="info-block">
+                            <h3><span class="accent">&gt;</span> Knowledge Graph Example</h3>
+                            <pre class="graph-snippet">[12] Ops Runbook (document)
+  ├─ references ──> [7] API Token (key_value)
+  ├─ depends_on ──> [3] Deploy SSH (ssh)
+  └─ rotates_with -> [9] Prod MFA (totp)
+
+Query: "depends_on" or "deploy ssh" -> returns entry 12</pre>
                         </div>
                     </div>
 

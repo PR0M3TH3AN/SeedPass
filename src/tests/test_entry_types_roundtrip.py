@@ -68,6 +68,14 @@ def _add_entry_for_type(entry_mgr: EntryManager, entry_type: EntryType) -> int:
         return entry_mgr.add_managed_account(
             "Managed Entry", TEST_SEED, notes="managed-note", tags=["managed"]
         )
+    if entry_type == EntryType.DOCUMENT:
+        return entry_mgr.add_document(
+            "Document Entry",
+            "alpha\nbeta\ngamma",
+            file_type="md",
+            notes="doc-note",
+            tags=["doc"],
+        )
     raise AssertionError(f"Unhandled entry type in test: {entry_type}")
 
 
@@ -86,6 +94,8 @@ def test_each_entry_type_roundtrip_retrieve_and_filter(tmp_path, entry_type: Ent
     assert entry["kind"] == entry_type.value
     assert entry["label"]
     assert "modified_ts" not in entry
+    assert "date_added" in entry
+    assert "date_modified" in entry
 
     entries = entry_mgr.list_entries(
         filter_kinds=[entry_type.value], include_archived=True, verbose=False
@@ -126,3 +136,26 @@ def test_each_entry_type_roundtrip_retrieve_and_filter(tmp_path, entry_type: Ent
     if entry_type == EntryType.MANAGED_ACCOUNT:
         assert entry["word_count"] == 12
         assert entry["fingerprint"]
+    if entry_type == EntryType.DOCUMENT:
+        assert entry["file_type"] == "md"
+        assert "alpha" in entry["content"]
+
+
+@pytest.mark.parametrize("entry_type", list(EntryType))
+def test_each_entry_type_sets_and_updates_dates(
+    tmp_path, monkeypatch, entry_type: EntryType
+):
+    entry_mgr = _make_entry_manager(tmp_path)
+    monkeypatch.setattr(entry_mgr, "_now_unix", lambda: 100)
+    index = _add_entry_for_type(entry_mgr, entry_type)
+    created = entry_mgr.retrieve_entry(index)
+    assert created is not None
+    assert created["date_added"] == entry_mgr._iso_from_unix(100)
+    assert created["date_modified"] == entry_mgr._iso_from_unix(100)
+
+    monkeypatch.setattr(entry_mgr, "_now_unix", lambda: 200)
+    entry_mgr.modify_entry(index, label=f"{created['label']} updated")
+    updated = entry_mgr.retrieve_entry(index)
+    assert updated is not None
+    assert updated["date_added"] == entry_mgr._iso_from_unix(100)
+    assert updated["date_modified"] == entry_mgr._iso_from_unix(200)

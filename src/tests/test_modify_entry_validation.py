@@ -74,6 +74,12 @@ def entry_manager():
             {"url": "seed_url"},
             "does not support fields: url",
         ),
+        (
+            EntryType.DOCUMENT,
+            lambda em: em.add_document("Doc", "body"),
+            {"username": "doc_user"},
+            "does not support fields: username",
+        ),
     ],
 )
 def test_modify_entry_invalid_fields(

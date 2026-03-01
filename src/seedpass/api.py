@@ -1021,55 +1021,78 @@ async def create_entry(
             int(entry.get("length", 12)),
             entry.get("username"),
             entry.get("url"),
+            archived=entry.get("archived", False),
+            notes=entry.get("notes", ""),
+            custom_fields=entry.get("custom_fields"),
+            tags=entry.get("tags"),
             **kwargs,
         )
         return {"id": index}
 
     if etype == "totp":
         index = pm.entry_manager.get_next_index()
-
+        totp_kwargs: dict[str, Any] = {
+            "secret": entry.get("secret"),
+            "index": entry.get("index"),
+            "period": int(entry.get("period", 30)),
+            "digits": int(entry.get("digits", 6)),
+            "notes": entry.get("notes", ""),
+            "archived": entry.get("archived", False),
+            "deterministic": entry.get("deterministic", False),
+        }
+        if entry.get("tags") is not None:
+            totp_kwargs["tags"] = entry.get("tags")
         uri = pm.entry_manager.add_totp(
             entry.get("label"),
             pm.KEY_TOTP_DET if entry.get("deterministic", False) else None,
-            secret=entry.get("secret"),
-            index=entry.get("index"),
-            period=int(entry.get("period", 30)),
-            digits=int(entry.get("digits", 6)),
-            notes=entry.get("notes", ""),
-            archived=entry.get("archived", False),
-            deterministic=entry.get("deterministic", False),
+            **totp_kwargs,
         )
         return {"id": index, "uri": uri}
 
     if etype == "ssh":
+        ssh_kwargs: dict[str, Any] = {
+            "index": entry.get("index"),
+            "notes": entry.get("notes", ""),
+            "archived": entry.get("archived", False),
+        }
+        if entry.get("tags") is not None:
+            ssh_kwargs["tags"] = entry.get("tags")
         index = pm.entry_manager.add_ssh_key(
             entry.get("label"),
             pm.parent_seed,
-            index=entry.get("index"),
-            notes=entry.get("notes", ""),
-            archived=entry.get("archived", False),
+            **ssh_kwargs,
         )
         return {"id": index}
 
     if etype == "pgp":
+        pgp_kwargs: dict[str, Any] = {
+            "index": entry.get("index"),
+            "key_type": entry.get("key_type", "ed25519"),
+            "user_id": entry.get("user_id", ""),
+            "notes": entry.get("notes", ""),
+            "archived": entry.get("archived", False),
+        }
+        if entry.get("tags") is not None:
+            pgp_kwargs["tags"] = entry.get("tags")
         index = pm.entry_manager.add_pgp_key(
             entry.get("label"),
             pm.parent_seed,
-            index=entry.get("index"),
-            key_type=entry.get("key_type", "ed25519"),
-            user_id=entry.get("user_id", ""),
-            notes=entry.get("notes", ""),
-            archived=entry.get("archived", False),
+            **pgp_kwargs,
         )
         return {"id": index}
 
     if etype == "nostr":
+        nostr_kwargs: dict[str, Any] = {
+            "index": entry.get("index"),
+            "notes": entry.get("notes", ""),
+            "archived": entry.get("archived", False),
+        }
+        if entry.get("tags") is not None:
+            nostr_kwargs["tags"] = entry.get("tags")
         index = pm.entry_manager.add_nostr_key(
             entry.get("label"),
             pm.parent_seed,
-            index=entry.get("index"),
-            notes=entry.get("notes", ""),
-            archived=entry.get("archived", False),
+            **nostr_kwargs,
         )
         return {"id": index}
 
@@ -1079,6 +1102,25 @@ async def create_entry(
             entry.get("key"),
             entry.get("value"),
             notes=entry.get("notes", ""),
+            custom_fields=entry.get("custom_fields"),
+            tags=entry.get("tags"),
+            archived=entry.get("archived", False),
+        )
+        return {"id": index}
+
+    if etype == "document":
+        label = entry.get("label") or entry.get("title")
+        document_kwargs: dict[str, Any] = {
+            "file_type": entry.get("file_type", "txt"),
+            "notes": entry.get("notes", ""),
+            "archived": entry.get("archived", False),
+        }
+        if entry.get("tags") is not None:
+            document_kwargs["tags"] = entry.get("tags")
+        index = pm.entry_manager.add_document(
+            label,
+            entry.get("content", ""),
+            **document_kwargs,
         )
         return {"id": index}
 
@@ -1093,6 +1135,8 @@ async def create_entry(
             pm.parent_seed,
             index=entry.get("index"),
             notes=entry.get("notes", ""),
+            archived=entry.get("archived", False),
+            tags=entry.get("tags"),
         )
         return {"id": index}
 
@@ -1125,10 +1169,138 @@ def update_entry(
             digits=entry.get("digits"),
             key=entry.get("key"),
             value=entry.get("value"),
+            content=entry.get("content"),
+            file_type=entry.get("file_type"),
+            custom_fields=entry.get("custom_fields"),
+            tags=entry.get("tags"),
+            links=entry.get("links"),
+            archived=entry.get("archived"),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
+
+
+@app.get("/api/v1/entry/{entry_id}/links")
+def get_entry_links(
+    request: Request,
+    entry_id: int,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Return resolved graph links for an entry."""
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    pm = _get_pm(request)
+    try:
+        links = pm.entry_manager.get_links(entry_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"entry_id": entry_id, "links": links}
+
+
+@app.post("/api/v1/entry/{entry_id}/links")
+def add_entry_link(
+    request: Request,
+    entry_id: int,
+    data: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Add a graph link from one entry to another."""
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    pm = _get_pm(request)
+    if "target_id" not in data:
+        raise HTTPException(status_code=400, detail="missing_target_id")
+    try:
+        links = pm.entry_manager.add_link(
+            entry_id,
+            int(data.get("target_id")),
+            relation=str(data.get("relation", "related_to")),
+            note=str(data.get("note", "")),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"entry_id": entry_id, "links": links}
+
+
+@app.delete("/api/v1/entry/{entry_id}/links")
+def remove_entry_link(
+    request: Request,
+    entry_id: int,
+    data: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Remove graph links from one entry to a target entry."""
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    pm = _get_pm(request)
+    if "target_id" not in data:
+        raise HTTPException(status_code=400, detail="missing_target_id")
+    try:
+        links = pm.entry_manager.remove_link(
+            entry_id,
+            int(data.get("target_id")),
+            relation=data.get("relation"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"entry_id": entry_id, "links": links}
+
+
+@app.post("/api/v1/entry/document/import")
+def import_document_entry(
+    request: Request,
+    data: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Import a local text file as a document entry."""
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    pm = _get_pm(request)
+
+    source_path = data.get("path")
+    if not source_path:
+        raise HTTPException(status_code=400, detail="missing_path")
+    try:
+        index = pm.entry_manager.import_document_file(
+            source_path,
+            label=data.get("label"),
+            notes=data.get("notes", ""),
+            archived=bool(data.get("archived", False)),
+            tags=data.get("tags"),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"id": index}
+
+
+@app.post("/api/v1/entry/{entry_id}/document/export")
+def export_document_entry(
+    request: Request,
+    entry_id: int,
+    data: dict,
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    """Export a document entry to a local file path."""
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    pm = _get_pm(request)
+
+    try:
+        dest = pm.entry_manager.export_document_file(
+            entry_id,
+            output_path=data.get("path"),
+            overwrite=bool(data.get("overwrite", False)),
+        )
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"path": str(dest)}
 
 
 @app.post("/api/v1/entry/{entry_id}/archive")

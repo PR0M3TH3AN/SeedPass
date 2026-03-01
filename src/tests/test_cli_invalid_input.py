@@ -43,6 +43,7 @@ def _make_pm(called, locked=None):
         handle_add_password=add,
         handle_add_totp=lambda: None,
         handle_add_managed_account=lambda: None,
+        handle_add_document=lambda: None,
         handle_retrieve_entry=retrieve,
         handle_modify_entry=modify,
         update_activity=update,
@@ -81,7 +82,7 @@ def test_out_of_range_menu(monkeypatch, capsys):
 def test_invalid_add_entry_submenu(monkeypatch, capsys):
     called = {"add": False, "retrieve": False, "modify": False}
     pm, _ = _make_pm(called)
-    inputs = iter(["1", "9", "", ""])
+    inputs = iter(["1", "10", "", ""])
     monkeypatch.setattr(main, "timed_input", lambda *_: next(inputs))
     monkeypatch.setattr("builtins.input", lambda *_: next(inputs))
     with pytest.raises(SystemExit):

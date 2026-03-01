@@ -22,15 +22,16 @@ def test_add_and_retrieve_ssh_key_pair():
 
         index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
         entry = entry_mgr.retrieve_entry(index)
-        assert entry == {
-            "type": "ssh",
-            "kind": "ssh",
-            "index": index,
-            "label": "ssh",
-            "notes": "",
-            "archived": False,
-            "tags": [],
-        }
+        assert entry["type"] == "ssh"
+        assert entry["kind"] == "ssh"
+        assert entry["index"] == index
+        assert entry["label"] == "ssh"
+        assert entry["notes"] == ""
+        assert entry["archived"] is False
+        assert entry["tags"] == []
+        assert entry["custom_fields"] == []
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         priv1, pub1 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)
         priv2, pub2 = entry_mgr.get_ssh_key_pair(index, TEST_SEED)

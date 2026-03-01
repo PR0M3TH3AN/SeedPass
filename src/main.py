@@ -425,9 +425,7 @@ def handle_post_to_nostr(
             logging.info("Encrypted index posted to Nostr successfully.")
         else:
             client = getattr(password_manager, "nostr_client", None)
-            detail = (
-                getattr(client, "last_error", None) if client is not None else None
-            )
+            detail = getattr(client, "last_error", None) if client is not None else None
             if detail:
                 print(colored(f"\N{CROSS MARK} Sync failed… {detail}", "red"))
                 logging.error("Failed to post encrypted index to Nostr: %s", detail)
@@ -1413,6 +1411,7 @@ def display_menu(
                     print(color_text("6. PGP Key", "menu"))
                     print(color_text("7. Key/Value", "menu"))
                     print(color_text("8. Managed Account", "menu"))
+                    print(color_text("9. Document", "menu"))
                     sub_choice = input(
                         "Select entry type or press Enter to go back: "
                     ).strip()
@@ -1440,6 +1439,9 @@ def display_menu(
                         break
                     elif sub_choice == "8":
                         password_manager.handle_add_managed_account()
+                        break
+                    elif sub_choice == "9":
+                        password_manager.handle_add_document()
                         break
                     elif not sub_choice:
                         break

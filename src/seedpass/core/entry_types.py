@@ -15,6 +15,7 @@ class EntryType(str, Enum):
     NOSTR = "nostr"
     KEY_VALUE = "key_value"
     MANAGED_ACCOUNT = "managed_account"
+    DOCUMENT = "document"
 
 
 # List of all entry type values for convenience

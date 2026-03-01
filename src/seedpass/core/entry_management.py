@@ -25,8 +25,10 @@ except Exception:  # pragma: no cover - fallback when orjson is missing
     USE_ORJSON = False
 import logging
 import hashlib
+import re
 import shutil
 import time
+from datetime import datetime, timezone
 from typing import Optional, Tuple, Dict, Any, List
 from pathlib import Path
 
@@ -77,8 +79,88 @@ class EntryManager:
         """Clear the cached index data."""
         self._index_cache = None
 
+    @staticmethod
+    def _now_unix() -> int:
+        return int(time.time())
+
+    @staticmethod
+    def _iso_from_unix(ts: int) -> str:
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+
+    def _now_iso(self) -> str:
+        return self._iso_from_unix(self._now_unix())
+
+    @staticmethod
+    def _normalize_links(raw_links: Any) -> list[dict[str, Any]]:
+        """Return canonical, de-duplicated entry links."""
+        if not isinstance(raw_links, list):
+            return []
+        normalized: list[dict[str, Any]] = []
+        seen: set[tuple[int, str, str]] = set()
+        for item in raw_links:
+            if not isinstance(item, dict):
+                continue
+            try:
+                target_id = int(item.get("target_id"))
+            except Exception:
+                continue
+            relation = str(item.get("relation", "related_to")).strip().lower()
+            note = str(item.get("note", "")).strip()
+            if target_id < 0 or not relation:
+                continue
+            key = (target_id, relation, note)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(
+                {"target_id": target_id, "relation": relation, "note": note}
+            )
+        return normalized
+
+    def _normalize_entry_defaults(self, entry: dict[str, Any]) -> dict[str, Any]:
+        """Normalize legacy fields and fill default graph/meta fields."""
+        if "type" not in entry and "kind" in entry:
+            entry["type"] = entry["kind"]
+        if "kind" not in entry:
+            entry["kind"] = entry.get("type", EntryType.PASSWORD.value)
+        entry.setdefault("type", entry["kind"])
+        if "label" not in entry and "website" in entry:
+            entry["label"] = entry["website"]
+        if "website" in entry and entry.get("type") == EntryType.PASSWORD.value:
+            entry.pop("website", None)
+        if "archived" not in entry and "blacklisted" in entry:
+            entry["archived"] = entry["blacklisted"]
+        entry.pop("blacklisted", None)
+        if "word_count" not in entry and "words" in entry:
+            entry["word_count"] = entry["words"]
+            entry.pop("words", None)
+        entry.setdefault("tags", [])
+        entry.setdefault("modified_ts", entry.get("updated", 0))
+        modified_ts = int(entry.get("modified_ts", 0) or 0)
+        if "date_added" not in entry:
+            entry["date_added"] = self._iso_from_unix(modified_ts)
+        if "date_modified" not in entry:
+            entry["date_modified"] = self._iso_from_unix(modified_ts)
+        entry["links"] = self._normalize_links(entry.get("links", []))
+        if entry.get("type") == EntryType.DOCUMENT.value:
+            entry.setdefault("content", "")
+            entry.setdefault("file_type", "txt")
+            entry.setdefault("custom_fields", [])
+        if entry.get("type") in (
+            EntryType.PASSWORD.value,
+            EntryType.KEY_VALUE.value,
+            EntryType.MANAGED_ACCOUNT.value,
+            EntryType.DOCUMENT.value,
+            EntryType.SSH.value,
+        ):
+            entry.setdefault("custom_fields", [])
+        return entry
+
     def _load_index(self, force_reload: bool = False) -> Dict[str, Any]:
         if not force_reload and self._index_cache is not None:
+            for entry in self._index_cache.get("entries", {}).values():
+                if isinstance(entry, dict):
+                    self._normalize_entry_defaults(entry)
             return self._index_cache
 
         if self.index_file.exists():
@@ -86,26 +168,8 @@ class EntryManager:
                 data = self.vault.load_index()
                 # Normalize legacy fields
                 for entry in data.get("entries", {}).values():
-                    if "type" not in entry and "kind" in entry:
-                        entry["type"] = entry["kind"]
-                    if "kind" not in entry:
-                        entry["kind"] = entry.get("type", EntryType.PASSWORD.value)
-                    entry.setdefault("type", entry["kind"])
-                    if "label" not in entry and "website" in entry:
-                        entry["label"] = entry["website"]
-                    if (
-                        "website" in entry
-                        and entry.get("type") == EntryType.PASSWORD.value
-                    ):
-                        entry.pop("website", None)
-                    if "archived" not in entry and "blacklisted" in entry:
-                        entry["archived"] = entry["blacklisted"]
-                    entry.pop("blacklisted", None)
-                    if "word_count" not in entry and "words" in entry:
-                        entry["word_count"] = entry["words"]
-                        entry.pop("words", None)
-                    entry.setdefault("tags", [])
-                    entry.setdefault("modified_ts", entry.get("updated", 0))
+                    if isinstance(entry, dict):
+                        self._normalize_entry_defaults(entry)
                 logger.debug("Index loaded successfully.")
                 self._index_cache = data
                 return data
@@ -183,6 +247,8 @@ class EntryManager:
         try:
             index = self.get_next_index()
             data = self._load_index()
+            now_unix = self._now_unix()
+            now_iso = self._iso_from_unix(now_unix)
 
             data.setdefault("entries", {})
             entry = {
@@ -194,9 +260,12 @@ class EntryManager:
                 "type": EntryType.PASSWORD.value,
                 "kind": EntryType.PASSWORD.value,
                 "notes": notes,
-                "modified_ts": int(time.time()),
+                "modified_ts": now_unix,
+                "date_added": now_iso,
+                "date_modified": now_iso,
                 "custom_fields": custom_fields or [],
                 "tags": tags or [],
+                "links": [],
             }
 
             policy: dict[str, Any] = {}
@@ -271,6 +340,8 @@ class EntryManager:
         entry_id = self.get_next_index()
         data = self._load_index()
         data.setdefault("entries", {})
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         if deterministic:
             if parent_seed is None:
@@ -284,7 +355,9 @@ class EntryManager:
                 "type": EntryType.TOTP.value,
                 "kind": EntryType.TOTP.value,
                 "label": label,
-                "modified_ts": int(time.time()),
+                "modified_ts": now_unix,
+                "date_added": now_iso,
+                "date_modified": now_iso,
                 "index": index,
                 "period": period,
                 "digits": digits,
@@ -292,6 +365,7 @@ class EntryManager:
                 "notes": notes,
                 "tags": tags or [],
                 "deterministic": True,
+                "links": [],
             }
         else:
             if secret is None:
@@ -303,13 +377,16 @@ class EntryManager:
                 "kind": EntryType.TOTP.value,
                 "label": label,
                 "secret": secret,
-                "modified_ts": int(time.time()),
+                "modified_ts": now_unix,
+                "date_added": now_iso,
+                "date_modified": now_iso,
                 "period": period,
                 "digits": digits,
                 "archived": archived,
                 "notes": notes,
                 "tags": tags or [],
                 "deterministic": False,
+                "links": [],
             }
 
         data["entries"][str(entry_id)] = entry
@@ -348,6 +425,8 @@ class EntryManager:
         priv_pem, pub_pem = derive_ssh_key_pair(parent_seed, index)
         if not validate_ssh_key_pair(priv_pem, pub_pem):
             raise ValueError("Derived SSH key pair failed validation")
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -356,10 +435,14 @@ class EntryManager:
             "kind": EntryType.SSH.value,
             "index": index,
             "label": label,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
+            "custom_fields": [],
+            "links": [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -406,6 +489,8 @@ class EntryManager:
         priv_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
         if not validate_pgp_private_key(priv_key, fp):
             raise ValueError("Derived PGP key failed validation")
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -414,12 +499,15 @@ class EntryManager:
             "kind": EntryType.PGP.value,
             "index": index,
             "label": label,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "key_type": key_type,
             "user_id": user_id,
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
+            "links": [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -473,6 +561,8 @@ class EntryManager:
         nsec = Keys.hex_to_bech32(keys.private_key_hex(), "nsec")
         if not validate_nostr_keys(npub, nsec):
             raise ValueError("Derived Nostr keys failed validation")
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -481,10 +571,13 @@ class EntryManager:
             "kind": EntryType.NOSTR.value,
             "index": index,
             "label": label,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
+            "links": [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -505,6 +598,8 @@ class EntryManager:
         """Add a new generic key/value entry."""
 
         index = self.get_next_index()
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -513,18 +608,126 @@ class EntryManager:
             "kind": EntryType.KEY_VALUE.value,
             "label": label,
             "key": key,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "value": value,
             "notes": notes,
             "archived": archived,
             "custom_fields": custom_fields or [],
             "tags": tags or [],
+            "links": [],
         }
 
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
         return index
+
+    def add_document(
+        self,
+        label: str,
+        content: str,
+        file_type: str = "txt",
+        *,
+        notes: str = "",
+        archived: bool = False,
+        tags: list[str] | None = None,
+    ) -> int:
+        """Add a new free-form document entry."""
+
+        index = self.get_next_index()
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
+
+        data = self._load_index()
+        data.setdefault("entries", {})
+        data["entries"][str(index)] = {
+            "type": EntryType.DOCUMENT.value,
+            "kind": EntryType.DOCUMENT.value,
+            "label": label,
+            "content": content,
+            "file_type": (file_type or "txt").strip().lower(),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
+            "notes": notes,
+            "archived": archived,
+            "tags": tags or [],
+            "links": [],
+        }
+
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return index
+
+    def import_document_file(
+        self,
+        file_path: str | Path,
+        *,
+        label: str | None = None,
+        notes: str = "",
+        archived: bool = False,
+        tags: list[str] | None = None,
+    ) -> int:
+        """Import a plaintext document file as a document entry."""
+
+        path = Path(file_path).expanduser()
+        if not path.exists() or not path.is_file():
+            raise FileNotFoundError(f"Document file not found: {path}")
+        content = path.read_text(encoding="utf-8")
+        file_type = path.suffix.lstrip(".").lower() or "txt"
+        entry_label = label if label else path.stem
+        return self.add_document(
+            entry_label,
+            content,
+            file_type=file_type,
+            notes=notes,
+            archived=archived,
+            tags=tags,
+        )
+
+    def export_document_file(
+        self,
+        index: int,
+        output_path: str | Path | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> Path:
+        """Export a document entry to a plaintext file on disk."""
+
+        entry = self.retrieve_entry(index)
+        if not entry:
+            raise ValueError(f"Entry not found: {index}")
+        kind = str(entry.get("type", entry.get("kind", ""))).strip().lower()
+        if kind != EntryType.DOCUMENT.value:
+            raise ValueError("Entry is not a document entry")
+
+        file_type = str(entry.get("file_type", "txt")).strip().lower() or "txt"
+        label = str(entry.get("label", f"document_{index}")).strip()
+        stem = (
+            re.sub(r"[^A-Za-z0-9._-]+", "_", label).strip("._") or f"document_{index}"
+        )
+        content = str(entry.get("content", ""))
+
+        if output_path is None:
+            dest = Path.cwd() / f"{stem}.{file_type}"
+        else:
+            raw = Path(output_path).expanduser()
+            if raw.exists() and raw.is_dir():
+                dest = raw / f"{stem}.{file_type}"
+            elif raw.suffix:
+                dest = raw
+            else:
+                dest = raw / f"{stem}.{file_type}"
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists() and not overwrite:
+            raise FileExistsError(f"File already exists: {dest}")
+
+        atomic_write(dest, lambda f: f.write(content))
+        return dest
 
     def get_nostr_key_pair(self, index: int, parent_seed: str) -> tuple[str, str]:
         """Return the npub and nsec for the specified entry."""
@@ -575,6 +778,8 @@ class EntryManager:
         phrase = derive_seed_phrase(bip85, index, words_num)
         if not validate_seed_phrase(phrase):
             raise ValueError("Derived seed phrase failed validation")
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         data = self._load_index()
         data.setdefault("entries", {})
@@ -583,11 +788,14 @@ class EntryManager:
             "kind": EntryType.SEED.value,
             "index": index,
             "label": label,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "word_count": words_num,
             "notes": notes,
             "archived": archived,
             "tags": tags or [],
+            "links": [],
         }
         self._save_index(data)
         self.update_checksum()
@@ -647,6 +855,8 @@ class EntryManager:
         if not validate_seed_phrase(seed_phrase):
             raise ValueError("Derived managed account seed failed validation")
         fingerprint = generate_fingerprint(seed_phrase)
+        now_unix = self._now_unix()
+        now_iso = self._iso_from_unix(now_unix)
 
         account_dir = self.fingerprint_dir / "accounts" / fingerprint
         account_dir.mkdir(parents=True, exist_ok=True)
@@ -658,12 +868,15 @@ class EntryManager:
             "kind": EntryType.MANAGED_ACCOUNT.value,
             "index": index,
             "label": label,
-            "modified_ts": int(time.time()),
+            "modified_ts": now_unix,
+            "date_added": now_iso,
+            "date_modified": now_iso,
             "word_count": word_count,
             "notes": notes,
             "fingerprint": fingerprint,
             "archived": archived,
             "tags": tags or [],
+            "links": [],
         }
 
         self._save_index(data)
@@ -813,6 +1026,7 @@ class EntryManager:
                     EntryType.PASSWORD.value,
                     EntryType.KEY_VALUE.value,
                     EntryType.MANAGED_ACCOUNT.value,
+                    EntryType.DOCUMENT.value,
                 ):
                     entry.setdefault("custom_fields", [])
                 logger.debug(
@@ -847,8 +1061,11 @@ class EntryManager:
         digits: Optional[int] = None,
         key: Optional[str] = None,
         value: Optional[str] = None,
+        content: Optional[str] = None,
+        file_type: Optional[str] = None,
         custom_fields: List[Dict[str, Any]] | None = None,
         tags: list[str] | None = None,
+        links: List[Dict[str, Any]] | None = None,
         include_special_chars: bool | None = None,
         allowed_special_chars: str | None = None,
         special_mode: str | None = None,
@@ -901,8 +1118,11 @@ class EntryManager:
                 "digits": digits,
                 "key": key,
                 "value": value,
+                "content": content,
+                "file_type": file_type,
                 "custom_fields": custom_fields,
                 "tags": tags,
+                "links": links,
                 "include_special_chars": include_special_chars,
                 "allowed_special_chars": allowed_special_chars,
                 "special_mode": special_mode,
@@ -922,6 +1142,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                     "include_special_chars",
                     "allowed_special_chars",
                     "special_mode",
@@ -939,6 +1160,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
                 EntryType.KEY_VALUE.value: {
                     "label",
@@ -948,6 +1170,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
                 EntryType.MANAGED_ACCOUNT.value: {
                     "label",
@@ -956,6 +1179,17 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
+                },
+                EntryType.DOCUMENT.value: {
+                    "label",
+                    "content",
+                    "file_type",
+                    "archived",
+                    "notes",
+                    "tags",
+                    "custom_fields",
+                    "links",
                 },
                 EntryType.SSH.value: {
                     "label",
@@ -963,6 +1197,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
                 EntryType.PGP.value: {
                     "label",
@@ -970,6 +1205,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
                 EntryType.NOSTR.value: {
                     "label",
@@ -977,6 +1213,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
                 EntryType.SEED.value: {
                     "label",
@@ -984,6 +1221,7 @@ class EntryManager:
                     "notes",
                     "custom_fields",
                     "tags",
+                    "links",
                 },
             }
 
@@ -1029,6 +1267,13 @@ class EntryManager:
                     if value is not None:
                         entry["value"] = value
                         logger.debug(f"Updated value for index {index}.")
+                elif entry_type == EntryType.DOCUMENT.value:
+                    if content is not None:
+                        entry["content"] = content
+                        logger.debug(f"Updated document content for index {index}.")
+                    if file_type is not None:
+                        entry["file_type"] = file_type.strip().lower()
+                        logger.debug(f"Updated document file type for index {index}.")
 
             if archived is None and "blacklisted" in legacy:
                 archived = legacy["blacklisted"]
@@ -1052,6 +1297,9 @@ class EntryManager:
             if tags is not None:
                 entry["tags"] = tags
                 logger.debug(f"Updated tags for index {index}.")
+            if links is not None:
+                entry["links"] = self._normalize_links(links)
+                logger.debug(f"Updated links for index {index}.")
 
             policy_updates: dict[str, Any] = {}
             if include_special_chars is not None:
@@ -1075,7 +1323,12 @@ class EntryManager:
                 entry_policy.update(policy_updates)
                 entry["policy"] = entry_policy
 
-            entry["modified_ts"] = int(time.time())
+            entry.setdefault(
+                "date_added",
+                self._iso_from_unix(int(entry.get("modified_ts", 0) or 0)),
+            )
+            entry["modified_ts"] = self._now_unix()
+            entry["date_modified"] = self._iso_from_unix(entry["modified_ts"])
 
             data["entries"][str(index)] = entry
             logger.debug(
@@ -1097,6 +1350,113 @@ class EntryManager:
                 colored(f"Error: Failed to modify entry at index {index}: {e}", "red")
             )
             raise
+
+    def add_link(
+        self,
+        index: int,
+        target_id: int,
+        *,
+        relation: str = "related_to",
+        note: str = "",
+    ) -> list[dict[str, Any]]:
+        """Create or update a typed relationship between two entries."""
+        data = self._load_index()
+        entries = data.get("entries", {})
+        src = entries.get(str(index))
+        dst = entries.get(str(target_id))
+        if not isinstance(src, dict):
+            raise ValueError(f"Entry not found: {index}")
+        if not isinstance(dst, dict):
+            raise ValueError(f"Target entry not found: {target_id}")
+        if int(index) == int(target_id):
+            raise ValueError("Self-referential links are not allowed")
+        current_links = self._normalize_links(src.get("links", []))
+        relation_norm = str(relation or "related_to").strip().lower()
+        note_norm = str(note or "").strip()
+        candidate = {
+            "target_id": int(target_id),
+            "relation": relation_norm,
+            "note": note_norm,
+        }
+        current_links.append(candidate)
+        src["links"] = self._normalize_links(current_links)
+        src.setdefault(
+            "date_added",
+            self._iso_from_unix(int(src.get("modified_ts", 0) or self._now_unix())),
+        )
+        src["modified_ts"] = self._now_unix()
+        src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+        self._save_index(data)
+        self.update_checksum()
+        self.backup_manager.create_backup()
+        return src["links"]
+
+    def remove_link(
+        self,
+        index: int,
+        target_id: int,
+        *,
+        relation: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Remove one or more links to ``target_id`` from an entry."""
+        data = self._load_index()
+        entries = data.get("entries", {})
+        src = entries.get(str(index))
+        if not isinstance(src, dict):
+            raise ValueError(f"Entry not found: {index}")
+        relation_norm = str(relation).strip().lower() if relation is not None else None
+        links = self._normalize_links(src.get("links", []))
+        filtered = []
+        for link in links:
+            matches_target = int(link.get("target_id", -1)) == int(target_id)
+            matches_relation = relation_norm is None or str(
+                link.get("relation", "")
+            ).lower() == relation_norm
+            if matches_target and matches_relation:
+                continue
+            filtered.append(link)
+        if len(filtered) != len(links):
+            src["links"] = filtered
+            src.setdefault(
+                "date_added",
+                self._iso_from_unix(
+                    int(src.get("modified_ts", 0) or self._now_unix())
+                ),
+            )
+            src["modified_ts"] = self._now_unix()
+            src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+            self._save_index(data)
+            self.update_checksum()
+            self.backup_manager.create_backup()
+        return src.get("links", [])
+
+    def get_links(self, index: int) -> list[dict[str, Any]]:
+        """Return links for an entry with resolved target metadata."""
+        data = self._load_index()
+        entries = data.get("entries", {})
+        src = entries.get(str(index))
+        if not isinstance(src, dict):
+            raise ValueError(f"Entry not found: {index}")
+        links = self._normalize_links(src.get("links", []))
+        resolved: list[dict[str, Any]] = []
+        for link in links:
+            target_id = int(link.get("target_id"))
+            target = entries.get(str(target_id), {})
+            target_label = None
+            target_kind = None
+            if isinstance(target, dict):
+                target_label = target.get("label", target.get("website", ""))
+                target_kind = target.get("type", target.get("kind"))
+            resolved.append(
+                {
+                    "target_id": target_id,
+                    "relation": str(link.get("relation", "")),
+                    "note": str(link.get("note", "")),
+                    "target_label": target_label,
+                    "target_kind": target_kind,
+                }
+            )
+        return resolved
 
     def archive_entry(self, index: int) -> None:
         """Mark the specified entry as archived."""
@@ -1147,7 +1507,7 @@ class EntryManager:
                     return entry.get("label", entry.get("website", "")).lower()
                 if sort_by == "updated":
                     # sort newest first
-                    return -int(entry.get("updated", 0))
+                    return -int(entry.get("modified_ts", entry.get("updated", 0)) or 0)
                 raise ValueError("sort_by must be 'index', 'label', or 'updated'")
 
             sorted_items = sorted(entries_data.items(), key=sort_key)
@@ -1231,6 +1591,15 @@ class EntryManager:
                                 "cyan",
                             )
                         )
+                    elif etype == EntryType.DOCUMENT.value:
+                        print(colored("  Type: Document", "cyan"))
+                        print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
+                        print(
+                            colored(
+                                f"  File Type: {entry.get('file_type', 'txt')}",
+                                "cyan",
+                            )
+                        )
                     else:
                         print(colored(f"  Label: {entry.get('label', '')}", "cyan"))
                         print(
@@ -1283,14 +1652,41 @@ class EntryManager:
             )
             url = entry.get("url", "") if etype == EntryType.PASSWORD else None
             tags = entry.get("tags", [])
+            links = entry.get("links", [])
+            content = entry.get("content", "") if etype == EntryType.DOCUMENT else ""
+            file_type = (
+                entry.get("file_type", "") if etype == EntryType.DOCUMENT else ""
+            )
             archived = entry.get("archived", entry.get("blacklisted", False))
 
             label_match = query_lower in label.lower()
             username_match = bool(username) and query_lower in username.lower()
             url_match = bool(url) and query_lower in url.lower()
             tags_match = any(query_lower in str(t).lower() for t in tags)
+            links_match = any(
+                query_lower in str(link.get("relation", "")).lower()
+                or query_lower in str(link.get("note", "")).lower()
+                or query_lower
+                in str(
+                    (entries_data.get(str(link.get("target_id", ""))) or {}).get(
+                        "label", ""
+                    )
+                ).lower()
+                for link in links
+                if isinstance(link, dict)
+            )
+            content_match = bool(content) and query_lower in str(content).lower()
+            file_type_match = bool(file_type) and query_lower in str(file_type).lower()
 
-            if label_match or username_match or url_match or tags_match:
+            if (
+                label_match
+                or username_match
+                or url_match
+                or tags_match
+                or links_match
+                or content_match
+                or file_type_match
+            ):
                 results.append(
                     (
                         int(idx),
@@ -1314,7 +1710,7 @@ class EntryManager:
             data = self._load_index()
             if "entries" in data and str(index) in data["entries"]:
                 entry = data["entries"][str(index)]
-                deleted_ts = int(time.time())
+                deleted_ts = self._now_unix()
                 entry_hash = hashlib.sha256(
                     canonical_json_dumps(entry).encode("utf-8")
                 ).hexdigest()

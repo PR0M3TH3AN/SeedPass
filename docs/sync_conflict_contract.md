@@ -22,8 +22,8 @@ Per-entry merge rules:
 1. Higher `modified_ts` wins.
 2. If `modified_ts` is equal, tie-break by canonical entry hash.
 3. On equal timestamp, selected fields are union-merged deterministically:
-   - `tags` and `custom_fields` use canonical sorted union.
-   - Optional kind-specific fields are backfilled when one side is empty.
+   - `tags`, `custom_fields`, and `links` use canonical sorted union.
+   - Optional kind-specific fields (for example document `content`/`file_type`) are backfilled when one side is empty.
 4. `archived` at equal timestamp uses conservative OR semantics.
 
 ## Tombstone Semantics

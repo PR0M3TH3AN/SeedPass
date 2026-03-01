@@ -29,7 +29,7 @@ def test_add_and_retrieve_entry():
         index = entry_mgr.add_entry("example.com", 12, "user", custom_fields=custom)
         entry = entry_mgr.retrieve_entry(index)
 
-        assert entry == {
+        expected = {
             "label": "example.com",
             "length": 12,
             "username": "user",
@@ -41,6 +41,9 @@ def test_add_and_retrieve_entry():
             "custom_fields": custom,
             "tags": [],
         }
+        assert entry.items() >= expected.items()
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         data = enc_mgr.load_json_data(entry_mgr.index_file)
         assert str(index) in data.get("entries", {})
@@ -58,6 +61,7 @@ def test_add_and_retrieve_entry():
         ("add_seed", "seed"),
         ("add_key_value", "key_value"),
         ("add_managed_account", "managed_account"),
+        ("add_document", "document"),
     ],
 )
 def test_round_trip_entry_types(method, expected_type):
@@ -74,6 +78,8 @@ def test_round_trip_entry_types(method, expected_type):
             index = 0
         elif method == "add_key_value":
             index = entry_mgr.add_key_value("label", "k1", "val")
+        elif method == "add_document":
+            index = entry_mgr.add_document("doc", "hello", file_type="txt")
         else:
             if method == "add_ssh_key":
                 index = entry_mgr.add_ssh_key("ssh", TEST_SEED)
@@ -87,6 +93,8 @@ def test_round_trip_entry_types(method, expected_type):
         entry = entry_mgr.retrieve_entry(index)
         assert entry["type"] == expected_type
         assert entry["kind"] == expected_type
+        assert "date_added" in entry
+        assert "date_modified" in entry
         data = enc_mgr.load_json_data(entry_mgr.index_file)
         assert data["entries"][str(index)]["type"] == expected_type
         assert data["entries"][str(index)]["kind"] == expected_type
@@ -120,6 +128,7 @@ def test_legacy_entry_defaults_to_password():
         ("add_seed", ("seed", TEST_SEED)),
         ("add_key_value", ("label", "k1", "val")),
         ("add_managed_account", ("acct", TEST_SEED)),
+        ("add_document", ("doc", "body")),
     ],
 )
 def test_add_default_archived_false(method, args):

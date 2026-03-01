@@ -371,6 +371,12 @@ class TestEntryService:
             digits=None,
             key=None,
             value=None,
+            content=None,
+            file_type=None,
+            custom_fields=None,
+            tags=None,
+            links=None,
+            archived=None,
         )
         mock_manager.start_background_vault_sync.assert_called_once()
 

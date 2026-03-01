@@ -34,27 +34,27 @@ def test_seed_phrase_determinism():
         entry12 = entry_mgr.retrieve_entry(idx_12)
         entry24 = entry_mgr.retrieve_entry(idx_24)
 
-        assert entry12 == {
-            "type": "seed",
-            "kind": "seed",
-            "index": idx_12,
-            "label": "seed12",
-            "word_count": 12,
-            "notes": "",
-            "archived": False,
-            "tags": [],
-        }
+        assert entry12["type"] == "seed"
+        assert entry12["kind"] == "seed"
+        assert entry12["index"] == idx_12
+        assert entry12["label"] == "seed12"
+        assert entry12["word_count"] == 12
+        assert entry12["notes"] == ""
+        assert entry12["archived"] is False
+        assert entry12["tags"] == []
+        assert "date_added" in entry12
+        assert "date_modified" in entry12
 
-        assert entry24 == {
-            "type": "seed",
-            "kind": "seed",
-            "index": idx_24,
-            "label": "seed24",
-            "word_count": 24,
-            "notes": "",
-            "archived": False,
-            "tags": [],
-        }
+        assert entry24["type"] == "seed"
+        assert entry24["kind"] == "seed"
+        assert entry24["index"] == idx_24
+        assert entry24["label"] == "seed24"
+        assert entry24["word_count"] == 24
+        assert entry24["notes"] == ""
+        assert entry24["archived"] is False
+        assert entry24["tags"] == []
+        assert "date_added" in entry24
+        assert "date_modified" in entry24
 
         assert phrase12_a not in entry12.values()
         assert phrase24_a not in entry24.values()

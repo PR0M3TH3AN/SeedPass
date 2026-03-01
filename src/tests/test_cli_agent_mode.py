@@ -586,6 +586,207 @@ def test_agent_token_issue_and_use_limit(monkeypatch, tmp_path):
     assert second_payload["reason"] == "token_exhausted"
 
 
+def test_agent_document_import_with_token_scope(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_cli, "APP_DIR", tmp_path)
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    monkeypatch.setattr(
+        agent_cli,
+        "PasswordManager",
+        lambda fingerprint, password: SimpleNamespace(
+            fingerprint=fingerprint, password=password
+        ),
+    )
+
+    class DummyEntryService:
+        def __init__(self, _pm):
+            pass
+
+        def import_document_file(self, file_path, **kwargs):
+            assert str(file_path).endswith("notes.md")
+            assert kwargs["label"] == "My Notes"
+            assert kwargs["notes"] == "imported"
+            assert kwargs["tags"] == ["work"]
+            assert kwargs["archived"] is False
+            return 12
+
+        def retrieve_entry(self, _i):
+            return {"kind": EntryType.DOCUMENT.value, "label": "My Notes", "file_type": "md"}
+
+    monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
+    monkeypatch.setattr(
+        agent_cli,
+        "_load_policy",
+        lambda **kwargs: {
+            "version": 1,
+            "default_effect": "deny",
+            "rules": [
+                {
+                    "id": "allow_doc_read",
+                    "effect": "allow",
+                    "operations": ["read"],
+                    "kinds": ["document"],
+                    "label_regex": ".*",
+                    "path_regex": "^entry/.*$",
+                    "fields": ["secret"],
+                }
+            ],
+            "approvals": {"require_for": []},
+            "output": {"safe_output_default": True, "redact_fields": ["secret"]},
+            "export": {"allow_full_vault": True},
+            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "allow_kinds": ["document"],
+            "deny_private_reveal": [],
+            "allow_export_import": True,
+        },
+    )
+
+    source = tmp_path / "notes.md"
+    source.write_text("# hello\n", encoding="utf-8")
+
+    issue = runner.invoke(
+        app,
+        [
+            "agent",
+            "token-issue",
+            "--name",
+            "doc-import",
+            "--scope",
+            "import",
+            "--kind",
+            "document",
+            "--uses",
+            "1",
+            "--ttl",
+            "600",
+        ],
+    )
+    assert issue.exit_code == 0
+    token = json.loads(issue.stdout)["token"]
+
+    result = runner.invoke(
+        app,
+        [
+            "--fingerprint",
+            "ABC123",
+            "agent",
+            "document-import",
+            "--file",
+            str(source),
+            "--label",
+            "My Notes",
+            "--notes",
+            "imported",
+            "--tag",
+            "work",
+            "--token",
+            token,
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ok"
+    assert payload["index"] == 12
+    assert payload["kind"] == "document"
+    assert payload["file_type"] == "md"
+    assert payload["token_uses_remaining"] == 0
+
+
+def test_agent_document_export_with_token_scope(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_cli, "APP_DIR", tmp_path)
+    monkeypatch.setenv("SEEDPASS_PASSWORD", "pw")
+    monkeypatch.setattr(
+        agent_cli,
+        "PasswordManager",
+        lambda fingerprint, password: SimpleNamespace(
+            fingerprint=fingerprint, password=password
+        ),
+    )
+
+    class DummyEntryService:
+        def __init__(self, _pm):
+            pass
+
+        def retrieve_entry(self, _i):
+            return {"kind": EntryType.DOCUMENT.value, "label": "Spec"}
+
+        def export_document_file(self, _entry_id, out, **kwargs):
+            assert out == str(tmp_path)
+            assert kwargs["overwrite"] is True
+            return tmp_path / "Spec.md"
+
+    monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
+    monkeypatch.setattr(
+        agent_cli,
+        "_load_policy",
+        lambda **kwargs: {
+            "version": 1,
+            "default_effect": "deny",
+            "rules": [
+                {
+                    "id": "allow_doc_read",
+                    "effect": "allow",
+                    "operations": ["read"],
+                    "kinds": ["document"],
+                    "label_regex": ".*",
+                    "path_regex": "^entry/.*$",
+                    "fields": ["secret"],
+                }
+            ],
+            "approvals": {"require_for": []},
+            "output": {"safe_output_default": True, "redact_fields": ["secret"]},
+            "export": {"allow_full_vault": True},
+            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "allow_kinds": ["document"],
+            "deny_private_reveal": [],
+            "allow_export_import": True,
+        },
+    )
+
+    issue = runner.invoke(
+        app,
+        [
+            "agent",
+            "token-issue",
+            "--name",
+            "doc-export",
+            "--scope",
+            "export",
+            "--kind",
+            "document",
+            "--uses",
+            "1",
+            "--ttl",
+            "600",
+        ],
+    )
+    assert issue.exit_code == 0
+    token = json.loads(issue.stdout)["token"]
+
+    result = runner.invoke(
+        app,
+        [
+            "--fingerprint",
+            "ABC123",
+            "agent",
+            "document-export",
+            "--entry-id",
+            "4",
+            "--out",
+            str(tmp_path),
+            "--overwrite",
+            "--token",
+            token,
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ok"
+    assert payload["index"] == 4
+    assert payload["kind"] == "document"
+    assert payload["output_path"] == str(tmp_path / "Spec.md")
+    assert payload["token_uses_remaining"] == 0
+
+
 def test_agent_identity_create_list_revoke(monkeypatch, tmp_path):
     import seedpass.core.agent_identity as identity_core
 
@@ -1444,6 +1645,7 @@ def test_agent_bootstrap_context(monkeypatch, tmp_path):
     assert "agent identity-create" in payload["commands"]["identities"]
     assert "agent high-risk-unlock" in payload["commands"]["secret_isolation"]
     assert "agent export-check" in payload["commands"]["export_controls"]
+    assert "agent document-export <query>" in payload["commands"]["document_io"]
     assert "agent posture-check" in payload["commands"]["posture"]
     assert "agent posture-remediate" in payload["commands"]["posture"]
     assert "identities" in payload

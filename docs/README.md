@@ -21,6 +21,8 @@ This directory contains SeedPass project documentation.
 
 - `ARCHITECTURE.md`
 - `SPEC.md`
+- `entry_types.md`
+- `entry_graph.md`
 - `security.md`
 - `nostr_setup.md`
 - `nostr_namespace_reset.md`
