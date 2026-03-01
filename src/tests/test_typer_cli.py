@@ -990,6 +990,45 @@ def test_tui_forward_fingerprint(monkeypatch):
     assert called.get("fp") == "abc"
 
 
+def test_tui2_check(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "check_tui2_runtime",
+        lambda: {"status": "ok", "backend": "textual", "textual_available": True},
+    )
+    result = runner.invoke(app, ["tui2", "--check"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["backend"] == "textual"
+    assert payload["textual_available"] is True
+
+
+def test_tui2_unavailable_without_fallback(monkeypatch):
+    monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
+    result = runner.invoke(app, ["tui2", "--no-fallback-legacy"])
+    assert result.exit_code == 1
+    assert "Install `textual`" in result.stderr
+
+
+def test_tui2_fallback_legacy(monkeypatch):
+    called = {}
+    monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    monkeypatch.setattr(
+        cli,
+        "importlib",
+        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+    )
+    result = runner.invoke(app, ["--fingerprint", "abc", "tui2"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert "falling back to legacy TUI" in result.stdout
+
+
 def test_gui_command(monkeypatch):
     called = {}
 

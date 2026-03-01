@@ -9,7 +9,7 @@ from typing import Optional
 
 import typer
 
-from .common import _get_services
+from .common import _get_entry_service, _get_services
 from seedpass.core.errors import SeedPassError
 from constants import GUI_BACKEND_CONFIG
 from seedpass.tui_v2.app import check_tui2_runtime, launch_tui2
@@ -127,7 +127,10 @@ def tui2(
         return
 
     fingerprint = (ctx.obj or {}).get("fingerprint")
-    launched = launch_tui2(fingerprint=fingerprint)
+    launched = launch_tui2(
+        fingerprint=fingerprint,
+        entry_service_factory=lambda: _get_entry_service(ctx),
+    )
     if launched:
         return
 
