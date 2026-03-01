@@ -1,0 +1,18 @@
+{
+  "cadence": "daily",
+  "operation": "retrieve",
+  "runId": "session-mm5l3771",
+  "servicePath": "src/services/memory/index.js#getRelevantMemories",
+  "inputs": {
+    "agentId": "audit-agent",
+    "promptPath": "torch/src/prompts/daily/audit-agent.md",
+    "promptIntent": "Required startup + artifacts + memory + issue capture",
+    "query": "scheduler | daily | agent | audit-agent | intent | Required startup + artifacts + memory + issue capture",
+    "events": 1
+  },
+  "outputs": {
+    "ingestedCount": 1,
+    "retrievedCount": 1
+  },
+  "status": "ok"
+}
