@@ -202,3 +202,5 @@
 - Added explicit one-release override flag `--legacy-tui` and updated test coverage (`test_typer_cli.py`) for default TUI v2 launch, forced legacy path, and root fallback behavior.
 - 2026-03-01: UX pass for TUI v2 added help overlay (`?`), quick jump input (`j`), pane focus switching (`1/2/3`) with visual focus borders, mode-tagged status line, and an activity log panel of recent actions.
 - Added document dirty-state UX improvements (`Edit mode [*]` marker, no-op save guard) and updated Textual interaction/parity tests for Textual 8-compatible action-driven control paths.
+- 2026-03-01: Visual polish pass for TUI v2 updated panel styling hierarchy (stronger status/pane contrast), refined left-panel summaries, improved help overlay readability, and added labeled headers for entry/detail and links sections.
+- UI copy now emphasizes current selection/filter context while keeping deterministic action affordances unchanged; full TUI-focused test slice remains green.

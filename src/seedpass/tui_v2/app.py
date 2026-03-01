@@ -104,16 +104,23 @@ def launch_tui2(
 
         CSS = """
         #command-palette {
-            height: 3;
-            margin: 0 1;
+            height: 2;
+            margin: 0 1 1 1;
             border: solid $secondary;
+            background: $panel;
         }
         #body { height: 1fr; }
-        #status { height: 1; padding: 0 1; }
-        #left { width: 30; border: solid $primary; padding: 1; }
-        #center { width: 1fr; border: solid $primary; padding: 1; }
-        #right { width: 1fr; border: solid $primary; padding: 1; }
+        #status {
+            height: 1;
+            padding: 0 1;
+            border: heavy $primary;
+            background: $panel;
+        }
+        #left { width: 34; border: solid $primary; padding: 1; background: $panel; }
+        #center { width: 1fr; border: solid $primary; padding: 1; background: $panel; }
+        #right { width: 1fr; border: solid $primary; padding: 1; background: $panel; }
         #search { margin-bottom: 1; }
+        #quick-jump { margin-bottom: 1; }
         #entry-list { height: 1fr; }
         #entry-detail {
             height: 1fr;
@@ -293,11 +300,12 @@ def launch_tui2(
 
         def _update_activity_panel(self) -> None:
             if not self._activity_log:
-                text = "Activity\n\nNo actions yet."
+                text = "Activity Log\n\nNo actions yet."
             else:
-                lines = ["Activity", ""]
+                lines = ["Activity Log", ""]
                 for i, item in enumerate(reversed(self._activity_log), start=1):
-                    lines.append(f"{i}. {item}")
+                    short = item if len(item) <= 88 else f"{item[:85]}..."
+                    lines.append(f"{i}. {short}")
                 text = "\n".join(lines)
             self.query_one("#activity", Static).update(text)
 
@@ -309,15 +317,15 @@ def launch_tui2(
             box.remove_class("hidden")
             text = "\n".join(
                 [
-                    "TUI v2 Quick Help",
+                    "TUI v2 Quick Help  (Esc to close)",
                     "",
-                    "Core: / search, j jump-id, p/n page, r refresh",
-                    "Modes: Ctrl+P palette, e edit-doc, Ctrl+S save, Esc cancel/close",
-                    "Graph: l relation filter, [/] link select, o open link target",
+                    "Core      : / search   j jump-id   p/n page   r refresh",
+                    "Modes     : Ctrl+P palette   e edit-doc   Ctrl+S save   Esc cancel/close",
+                    "Graph     : l relation filter   [/] link select   o open link target",
                     "Resilience: x retry last error",
-                    "Pane Focus: 1 left, 2 center, 3 right",
+                    "Pane Focus: 1 left   2 center   3 right",
                     "",
-                    "Palette examples:",
+                    "Palette examples",
                     "help | filter document | open 12 | link-add 7 references note",
                 ]
             )
@@ -376,6 +384,20 @@ def launch_tui2(
                 return None
             return [self.filter_kind]
 
+        def _selected_summary(self) -> str:
+            if (
+                not isinstance(self._selected_entry, dict)
+                or self._selected_entry_id is None
+            ):
+                return "Selected: (none)"
+            kind = str(
+                self._selected_entry.get("kind")
+                or self._selected_entry.get("type")
+                or "unknown"
+            )
+            label = str(self._selected_entry.get("label", ""))
+            return f"Selected: #{self._selected_entry_id} [{kind}] {label}"
+
         def _update_filters_panel(self) -> None:
             fp_line = (
                 f"Fingerprint: {fingerprint}"
@@ -384,16 +406,18 @@ def launch_tui2(
             )
             text = "\n".join(
                 [
-                    "TUI v2 (Phase 2/3)",
+                    "SeedPass TUI v2",
                     fp_line,
                     "",
-                    f"Active filter: {self.filter_kind}",
+                    self._selected_summary(),
+                    f"Filter : {self.filter_kind}",
+                    f"Links  : {self.link_relation_filter}",
                     (
-                        f"Results: {len(self._all_results)}  "
+                        f"Results: {len(self._all_results)} | "
                         f"Page: {self._result_page + 1}/{self._total_pages()}"
                     ),
                     "",
-                    "Navigation:",
+                    "Nav",
                     "- / search",
                     "- j jump to id",
                     "- f cycle kind filter",
@@ -403,7 +427,7 @@ def launch_tui2(
                     "- r refresh",
                     "- x retry last error",
                     "",
-                    "Actions:",
+                    "Actions",
                     "- a archive/restore",
                     "- e edit document",
                     "- Ctrl+S save doc",
@@ -472,7 +496,14 @@ def launch_tui2(
             payload = truncate_entry_for_display(
                 entry, self.DETAIL_CONTENT_PREVIEW_LIMIT
             )
-            return json.dumps(payload, indent=2, sort_keys=True)
+            entry_id = (
+                self._selected_entry_id
+                if self._selected_entry_id is not None
+                else payload.get("id", "?")
+            )
+            kind = payload.get("kind") or payload.get("type") or "unknown"
+            header = f"Entry #{entry_id}  [{kind}]"
+            return f"{header}\n{'-' * len(header)}\n{json.dumps(payload, indent=2, sort_keys=True)}"
 
         def _load_entries(self, query: str = "", *, reset_page: bool = False) -> None:
             self._last_query = query
@@ -592,13 +623,13 @@ def launch_tui2(
 
             if not links:
                 self.query_one("#link-detail", Static).update(
-                    "Links\n\nNo graph links for this entry.\n"
+                    f"Links for #{self._selected_entry_id}\n\nNo graph links for this entry.\n"
                     "Use Ctrl+P and run: link-add <target_id> [relation] [note]"
                 )
                 return
             if not filtered:
                 self.query_one("#link-detail", Static).update(
-                    "Links\n\n"
+                    f"Links for #{self._selected_entry_id}\n\n"
                     f"Relation filter: {self.link_relation_filter}\n\n"
                     "No links match this relation filter.\n"
                     "Press 'l' to cycle relation filter."
@@ -606,7 +637,7 @@ def launch_tui2(
                 return
 
             lines = [
-                "Links",
+                f"Links for #{self._selected_entry_id}",
                 "",
                 f"Relation filter: {self.link_relation_filter}",
                 (
