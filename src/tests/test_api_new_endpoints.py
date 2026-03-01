@@ -191,7 +191,7 @@ async def test_document_import_export_endpoints(client):
         headers=headers,
     )
     assert exported.status_code == 200
-    assert exported.json() == {"path": "/tmp/exported.md"}
+    assert exported.json() == {"path": str(Path("/tmp/exported.md"))}
     assert calls["export"] == (33, {"output_path": "/tmp/out", "overwrite": True})
 
 
@@ -202,7 +202,13 @@ async def test_entry_links_endpoints(client):
 
     def add_link(entry_id, target_id, **kwargs):
         calls["add"] = (entry_id, target_id, kwargs)
-        return [{"target_id": target_id, "relation": kwargs["relation"], "note": kwargs["note"]}]
+        return [
+            {
+                "target_id": target_id,
+                "relation": kwargs["relation"],
+                "note": kwargs["note"],
+            }
+        ]
 
     def remove_link(entry_id, target_id, **kwargs):
         calls["remove"] = (entry_id, target_id, kwargs)

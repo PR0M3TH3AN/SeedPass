@@ -247,7 +247,7 @@ def test_entry_export_document_command(monkeypatch):
         ],
     )
     assert result.exit_code == 0
-    assert "/tmp/doc.txt" in result.stdout
+    assert str(Path("/tmp/doc.txt")) in result.stdout
     assert called["args"] == (9, "/tmp/outdir")
     assert called["kwargs"] == {"overwrite": True}
 
@@ -257,7 +257,13 @@ def test_entry_link_commands(monkeypatch):
 
     def add_link(entry_id, target_id, **kwargs):
         called["add"] = (entry_id, target_id, kwargs)
-        return [{"target_id": target_id, "relation": kwargs["relation"], "note": kwargs["note"]}]
+        return [
+            {
+                "target_id": target_id,
+                "relation": kwargs["relation"],
+                "note": kwargs["note"],
+            }
+        ]
 
     def remove_link(entry_id, target_id, **kwargs):
         called["remove"] = (entry_id, target_id, kwargs)
@@ -265,7 +271,15 @@ def test_entry_link_commands(monkeypatch):
 
     def get_links(entry_id):
         called["get"] = entry_id
-        return [{"target_id": 3, "relation": "references", "note": "", "target_label": "X", "target_kind": "document"}]
+        return [
+            {
+                "target_id": 3,
+                "relation": "references",
+                "note": "",
+                "target_label": "X",
+                "target_kind": "document",
+            }
+        ]
 
     def start_background_vault_sync():
         called["sync"] = called.get("sync", 0) + 1
