@@ -1,0 +1,37 @@
+torch/src/services/memory/index.js:45:const MIN_SAVE_INTERVAL_MS = 1000;
+torch/src/services/memory/index.js:158:const ESTIMATED_INDEX_BYTES_PER_RECORD = 512;
+torch/src/services/memory/index.js:164:    if (typeof value === 'string' && value.length > 300) {
+torch/src/services/memory/index.js:165:      safe[key] = `${value.slice(0, 300)}…`;
+torch/src/services/memory/index.js:225:  if (samples.length > 10_000) {
+torch/src/services/memory/index.js:226:    samples.splice(0, samples.length - 10_000);
+torch/src/services/memory/index.js:324: * const result = await runPruneCycle({ retentionMs: 30 * 24 * 60 * 60 * 1000 });
+torch/src/services/memory/index.js:329:  const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);
+torch/src/services/memory/index.js:491: * const preview = await triggerPruneDryRun({ retentionMs: 7 * 24 * 60 * 60 * 1000 });
+torch/src/services/memory/index.js:495:  const retentionMs = options.retentionMs ?? (1000 * 60 * 60 * 24 * 30);
+torch/src/services/memory/index.js:530: * const stats = await memoryStats({ windowMs: 60 * 60 * 1000 });
+torch/src/services/memory/index.js:535:  const windowMs = Number.isFinite(options.windowMs) ? Math.max(1, Number(options.windowMs)) : (60 * 60 * 1000);
+torch/src/services/memory/index.js:548:  const ingestThroughputPerMinute = ingestedInWindow / Math.max(1, (windowMs / 60_000));
+torch/src/services/memory/pruner.js:3:const DAY_MS = 24 * 60 * 60 * 1000;
+torch/src/services/memory/pruner.js:116:  const fallbackSummary = group.map((item) => item.summary || item.content).filter(Boolean).join(' ').slice(0, 280);
+torch/src/services/memory/pruner.js:184:    lowImportanceThreshold: options.lowImportanceThreshold ?? 0.35,
+torch/src/services/memory/pruner.js:185:    deleteImportanceThreshold: options.deleteImportanceThreshold ?? 0.12,
+torch/src/services/memory/summarizer.js:64:    : 0.25;
+torch/src/services/memory/summarizer.js:72:  return { summary: bounded, importance: 0.25 };
+torch/src/services/memory/summarizer.js:89:  return overlap / summaryTokens.length >= 0.35;
+torch/src/services/memory/summarizer.js:116:  const maxSummaryLength = options.maxSummaryLength ?? 280;
+torch/src/services/memory/ingestor.js:6:const WINDOW_BUCKET_MS = 60_000;
+torch/src/services/memory/ingestor.js:37:    : 300;
+torch/src/services/memory/ingestor.js:92:function compactContextExcerpt(text, maxChars = 280) {
+torch/src/services/memory/retriever.js:2:  w_sim: 0.6,
+torch/src/services/memory/retriever.js:3:  w_imp: 0.25,
+torch/src/services/memory/retriever.js:4:  w_rec: 0.15,
+torch/src/services/memory/retriever.js:5:  pinBoost: 0.15,
+torch/src/services/memory/retriever.js:8:const DEFAULT_RECENCY_HALF_LIFE_MS = 1000 * 60 * 60 * 24 * 7;
+torch/src/services/memory/formatter.js:3:const DEFAULT_TOKEN_BUDGET = 1000;
+torch/src/services/memory/cache.js:2:const DEFAULT_MAX_EVENTS_PER_NAMESPACE = 200;
+torch/src/services/memory/cache.js:3:const DEFAULT_MAX_TOTAL_EVENTS = 5000;
+torch/src/services/memory/cache.js:153:    setRuntimeEvent(scope, event, ttlMs = 60_000) {
+torch/src/services/memory/cache.js:157:      const safeTtlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 60_000;
+torch/src/services/memory/scheduler.js:2:const MINUTE_MS = 60_000;
+torch/src/services/memory/scheduler.js:3:const HOUR_MS = 60 * MINUTE_MS;
+torch/src/services/memory/scheduler.js:4:const DAY_MS = 24 * HOUR_MS;

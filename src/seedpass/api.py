@@ -22,6 +22,13 @@ import bcrypt
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core.entry_types import EntryType
+from seedpass.core.agent_export_policy import (
+    allowed_kinds,
+    filter_index_for_allowed_kinds,
+    full_export_allowed,
+    kind_export_allowed,
+    load_export_policy,
+)
 from seedpass.core.api import UtilityService
 
 _RATE_LIMIT = int(os.getenv("SEEDPASS_RATE_LIMIT", "100"))
@@ -138,18 +145,24 @@ def _reload_relays(request: Request, relays: list[str]) -> None:
         logger.error("Failed to initialize NostrClient with relays %s: %s", relays, exc)
 
 
-def start_server(fingerprint: str | None = None) -> str:
+def start_server(
+    fingerprint: str | None = None, unlock_password: str | None = None
+) -> str:
     """Initialize global state and return a random API token.
 
     Parameters
     ----------
     fingerprint:
         Optional seed profile fingerprint to select before starting the server.
+    unlock_password:
+        Optional master password used to unlock vault during startup.
     """
     if fingerprint is None:
         pm = PasswordManager()
     else:
         pm = PasswordManager(fingerprint=fingerprint)
+    if unlock_password is not None:
+        pm.unlock_vault(unlock_password)
     app.state.pm = pm
     raw_token = secrets.token_urlsafe(32)
     app.state.token_hash = bcrypt.hashpw(raw_token.encode(), bcrypt.gensalt())
@@ -182,6 +195,10 @@ def _validate_encryption_path(request: Request, path: Path) -> Path:
         return pm.encryption_manager.resolve_relative_path(path)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+def _header_truthy(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 @app.get("/api/v1/entry")
@@ -524,11 +541,19 @@ def export_totp(
     request: Request,
     authorization: str | None = Header(None),
     password: str | None = Header(None, alias="X-SeedPass-Password"),
+    agent_profile: str | None = Header(None, alias="X-SeedPass-Agent-Profile"),
 ) -> dict:
     """Return all stored TOTP entries in JSON format."""
     _check_token(request, authorization)
     _require_password(request, password)
     _require_unlocked(request)
+    if _header_truthy(agent_profile):
+        policy = load_export_policy()
+        if not kind_export_allowed(policy, EntryType.TOTP.value):
+            raise HTTPException(
+                status_code=403,
+                detail="Policy denied TOTP export for agent profile",
+            )
     pm = _get_pm(request)
     key = getattr(pm, "KEY_TOTP_DET", None) or getattr(pm, "parent_seed", None)
     return pm.entry_manager.export_totp_entries(key)
@@ -696,12 +721,31 @@ def export_vault(
     request: Request,
     authorization: str | None = Header(None),
     password: str | None = Header(None, alias="X-SeedPass-Password"),
+    agent_profile: str | None = Header(None, alias="X-SeedPass-Agent-Profile"),
+    policy_filtered: str | None = Header(None, alias="X-SeedPass-Policy-Filtered"),
 ):
     """Export the vault and return the encrypted file."""
     _check_token(request, authorization)
     _require_password(request, password)
     _require_unlocked(request)
+    is_agent = _header_truthy(agent_profile)
+    is_filtered = _header_truthy(policy_filtered)
     pm = _get_pm(request)
+    if is_agent:
+        policy = load_export_policy()
+        if is_filtered:
+            index_data = pm.vault.load_index()
+            filtered = filter_index_for_allowed_kinds(index_data, allowed_kinds(policy))
+            payload = json.dumps(
+                filtered, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+            data = pm.vault.encryption_manager.encrypt_data(payload)
+            return Response(content=data, media_type="application/octet-stream")
+        if not full_export_allowed(policy):
+            raise HTTPException(
+                status_code=403,
+                detail="Policy denied full vault export for agent profile",
+            )
     path = pm.handle_export_database()
     if path is None:
         raise HTTPException(status_code=500, detail="Export failed")
@@ -865,7 +909,11 @@ def unlock_vault(
         _record_unlock_failure(request, raw_token)
         raise HTTPException(status_code=401, detail="Invalid password")
     duration = pm.unlock_vault(password)
-    return {"status": "unlocked", "duration": float(duration)}
+    return {
+        "status": "unlocked",
+        "duration": float(duration),
+        "help_hint": "Use /docs or run `seedpass --help` for command and endpoint discovery.",
+    }
 
 
 @app.post("/api/v1/shutdown")

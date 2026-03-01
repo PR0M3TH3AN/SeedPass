@@ -7,6 +7,7 @@ import sys
 import pytest
 
 pytest.importorskip("pty")
+pytest.importorskip("termios")
 
 
 def _load_harness_module():
@@ -16,14 +17,43 @@ def _load_harness_module():
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+
+    try:
+        spec.loader.exec_module(module)
+    except ModuleNotFoundError as e:
+        pytest.skip(f"Skipping test due to missing module: {e}")
+
     return module
 
 
+# Skip entire module on Windows or if termios/pty are missing
+if sys.platform.startswith("win"):
+    pytest.skip(
+        "AI TUI agent harness tests require pty/termios (Unix-only)",
+        allow_module_level=True,
+    )
+
+try:
+    import termios
+    import pty
+    import tty
+except ImportError:
+    pytest.skip(
+        "AI TUI agent harness tests require pty/termios/tty modules",
+        allow_module_level=True,
+    )
+
+# Only load the harness if we haven't skipped
 harness = _load_harness_module()
+try:
+    harness = _load_harness_module()
+except pytest.skip.Exception:
+    harness = None
 
 
 def test_run_step_records_passed_result():
+    if not harness:
+        pytest.skip("Harness not loaded")
     results = []
     called = {"value": False}
 
@@ -40,6 +70,8 @@ def test_run_step_records_passed_result():
 
 
 def test_run_step_records_failed_result_and_reraises():
+    if not harness:
+        pytest.skip("Harness not loaded")
     results = []
 
     def _boom():
@@ -55,6 +87,9 @@ def test_run_step_records_failed_result_and_reraises():
 
 
 def test_add_entry_menu_open_waits_when_choice_omitted():
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def __init__(self):
             self.sent = []
@@ -74,6 +109,9 @@ def test_add_entry_menu_open_waits_when_choice_omitted():
 
 
 def test_add_entry_menu_open_sends_choice_when_provided():
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def __init__(self):
             self.sent = []
@@ -94,6 +132,9 @@ def test_add_entry_menu_open_sends_choice_when_provided():
 
 
 def test_complete_onboarding_reaches_main_menu_and_sends_password():
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def __init__(self):
             self.calls = [
@@ -124,6 +165,9 @@ def test_complete_onboarding_reaches_main_menu_and_sends_password():
 
 
 def test_complete_onboarding_times_out_without_expected_prompts():
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def try_wait_for(self, pattern, timeout):
             return False
@@ -140,6 +184,9 @@ def test_complete_onboarding_times_out_without_expected_prompts():
 
 
 def test_drain_to_main_menu_uses_helper_prompt_then_returns():
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def __init__(self):
             self.main_attempts = 0
@@ -166,6 +213,9 @@ def test_drain_to_main_menu_uses_helper_prompt_then_returns():
 
 
 def test_drain_to_main_menu_times_out_when_no_prompt_progress(monkeypatch):
+    if not harness:
+        pytest.skip("Harness not loaded")
+
     class Runner:
         def wait_for(self, pattern, timeout):
             raise harness.TUIHarnessError("missing")

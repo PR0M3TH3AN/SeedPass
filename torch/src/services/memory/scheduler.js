@@ -1,8 +1,5 @@
 import { getMemoryPruneMode, isMemoryEnabled, isMemoryIngestEnabled } from './feature-flags.js';
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-const WEEK_MS = 7 * DAY_MS;
+import { MINUTE_MS, HOUR_MS, DAY_MS, WEEK_MS } from './constants/time.js';
 
 const JOBS = {
   ingestRecentRuntimeEvents: {

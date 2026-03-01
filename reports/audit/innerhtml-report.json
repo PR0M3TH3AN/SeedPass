@@ -1,0 +1,9 @@
+{
+  "total_innerHTML_assignments": 26,
+  "top_offenders": [
+    { "file": "docs/assets/theme.js", "count": 5 },
+    { "file": "landing/docs.js", "count": 3 },
+    { "file": "torch/dashboard/app.js", "count": 1 },
+    { "file": "torch/landing/index.html", "count": 1 }
+  ]
+}

@@ -8,7 +8,7 @@ import {
   sleep,
 } from './scheduler-utils.mjs';
 
-const LOCK_INCIDENT_LINK = 'docs/agent-handoffs/learnings/2026-02-15-relay-health-preflight-job.md';
+const LOCK_INCIDENT_LINK = 'docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md';
 
 export function classifyLockBackendError(outputText) {
   const text = String(outputText || '').toLowerCase();
