@@ -40,13 +40,23 @@ def test_nostr_sdk_send_receive(tmp_path):
     thread = threading.Thread(target=run_relay, args=(relay,), daemon=True)
     thread.start()
 
-    time.sleep(0.5)
 
     seed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     fingerprint = "test"
     km = KeyManager(seed, fingerprint)
 
-    ws = create_connection("ws://localhost:8765")
+
+    # Wait for the relay to be ready
+    ws = None
+    for _ in range(40):
+        try:
+            ws = create_connection("ws://localhost:8765")
+            break
+        except ConnectionRefusedError:
+            time.sleep(0.05)
+
+    if ws is None:
+        raise RuntimeError("Fake relay did not start in time")
 
     keys = sdk.Keys.parse(km.get_private_key_hex())
     event = (
