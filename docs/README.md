@@ -45,6 +45,7 @@ This directory contains SeedPass project documentation.
 
 - `seedpass --help`
 - `seedpass --legacy-tui`
+- `seedpass legacy`
 - `seedpass <group> --help`
 - `seedpass tui2 --help`
 - `seedpass tui2 --check`

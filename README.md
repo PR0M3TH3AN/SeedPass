@@ -446,6 +446,12 @@ Once installed, launch the interactive TUI with:
 seedpass
 ```
 
+To launch the legacy interactive TUI explicitly:
+
+```bash
+seedpass legacy
+```
+
 You can also run directly from the repository with:
 
 ```bash

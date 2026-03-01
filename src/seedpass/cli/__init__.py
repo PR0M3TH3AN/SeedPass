@@ -96,6 +96,12 @@ def _prime_tui2_service(
         return None, exc
 
 
+def _launch_legacy_tui(*, fingerprint: Optional[str]) -> typer.Exit:
+    """Launch legacy interactive TUI and return Typer exit."""
+    tui = importlib.import_module("main")
+    return typer.Exit(tui.main(fingerprint=fingerprint))
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -118,8 +124,7 @@ def main(
     }
     if ctx.invoked_subcommand is None:
         if legacy_tui:
-            tui = importlib.import_module("main")
-            raise typer.Exit(tui.main(fingerprint=fingerprint))
+            raise _launch_legacy_tui(fingerprint=fingerprint)
 
         service, preflight_error = _prime_tui2_service(ctx)
         if preflight_error is not None:
@@ -127,8 +132,7 @@ def main(
                 "TUI v2 preflight failed; falling back to legacy TUI. "
                 f"Details: {preflight_error}"
             )
-            tui = importlib.import_module("main")
-            raise typer.Exit(tui.main(fingerprint=fingerprint))
+            raise _launch_legacy_tui(fingerprint=fingerprint)
 
         launched = launch_tui2(
             fingerprint=fingerprint,
@@ -141,8 +145,7 @@ def main(
             "TUI v2 runtime unavailable; falling back to legacy TUI. "
             "Run `seedpass tui2 --check` for diagnostics."
         )
-        tui = importlib.import_module("main")
-        raise typer.Exit(tui.main(fingerprint=fingerprint))
+        raise _launch_legacy_tui(fingerprint=fingerprint)
 
 
 @app.command("lock")
@@ -180,8 +183,7 @@ def tui2(
                 "TUI v2 preflight failed; falling back to legacy TUI. "
                 f"Details: {preflight_error}"
             )
-            tui = importlib.import_module("main")
-            raise typer.Exit(tui.main(fingerprint=fingerprint))
+            raise _launch_legacy_tui(fingerprint=fingerprint)
         typer.echo(
             f"TUI v2 preflight failed: {preflight_error}",
             err=True,
@@ -200,14 +202,20 @@ def tui2(
             "TUI v2 runtime unavailable; falling back to legacy TUI. "
             "Run `seedpass tui2 --check` for diagnostics."
         )
-        tui = importlib.import_module("main")
-        raise typer.Exit(tui.main(fingerprint=fingerprint))
+        raise _launch_legacy_tui(fingerprint=fingerprint)
 
     typer.echo(
         "TUI v2 runtime unavailable. Install `textual` and retry.",
         err=True,
     )
     raise typer.Exit(1)
+
+
+@app.command("legacy")
+def legacy_tui(ctx: typer.Context) -> None:
+    """Launch the legacy interactive TUI explicitly."""
+    fingerprint = (ctx.obj or {}).get("fingerprint")
+    raise _launch_legacy_tui(fingerprint=fingerprint)
 
 
 @app.command()

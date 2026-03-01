@@ -284,3 +284,9 @@
   - accent borders/focus: `#58f29d`, `#2abf75`, `#274533`, `#1a3024`
 - Styled Header/Footer/Input/ListView/ListItem focus/selection states to reduce default Textual blue and align with SeedPass mint-green terminal aesthetic.
 - Added website-style icon semantics into TUI copy and sensitive panel titles (key/mobile/network/lock/bolt/document/users/seed mappings) to improve visual continuity between landing and app.
+
+## 2026-03-01 Legacy launch ergonomics
+- Added explicit CLI command `seedpass legacy` to launch the legacy interactive TUI directly, in addition to existing global flag `--legacy-tui`.
+- Refactored legacy launch path through a shared helper in `seedpass.cli` so root fallback, `--legacy-tui`, `tui2` fallback, and `legacy` command all use consistent behavior and fingerprint forwarding.
+- Added CLI regression tests for `seedpass legacy` with and without `--fingerprint`.
+- Updated discoverability docs in `README.md` and `docs/README.md`.

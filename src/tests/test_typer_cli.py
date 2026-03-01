@@ -1006,6 +1006,40 @@ def test_root_legacy_tui_flag_forwards_fingerprint(monkeypatch):
     assert called.get("fp") == "abc"
 
 
+def test_legacy_command_forwards_fingerprint(monkeypatch):
+    called = {}
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    monkeypatch.setattr(
+        cli,
+        "importlib",
+        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+    )
+    result = runner.invoke(app, ["--fingerprint", "abc", "legacy"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+
+
+def test_legacy_command_default_profile(monkeypatch):
+    called = {}
+
+    def fake_main(*, fingerprint=None):
+        called["fp"] = fingerprint
+        return 0
+
+    monkeypatch.setattr(
+        cli,
+        "importlib",
+        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+    )
+    result = runner.invoke(app, ["legacy"])
+    assert result.exit_code == 0
+    assert called.get("fp") is None
+
+
 def test_tui2_check(monkeypatch):
     monkeypatch.setattr(
         cli,
