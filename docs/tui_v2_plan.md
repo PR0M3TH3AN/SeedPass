@@ -56,8 +56,8 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 
 ### Phase 3: Graph workflows
 - [x] Entry links panel (list, add, remove).
-- [ ] Relation-aware search controls.
-- [ ] Neighbor navigation and quick traversal.
+- [x] Relation-aware link filter controls.
+- [x] Neighbor navigation and quick traversal.
 
 ### Phase 4: Cutover readiness
 - [ ] Feature parity checklist against legacy TUI.

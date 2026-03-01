@@ -91,6 +91,10 @@ def launch_tui2(
             ("r", "refresh", "Refresh"),
             ("slash", "focus_search", "Search"),
             ("f", "cycle_filter", "Filter"),
+            ("l", "cycle_link_filter", "Link Filter"),
+            ("[", "prev_link", "Prev Link"),
+            ("]", "next_link", "Next Link"),
+            ("o", "open_link_target", "Open Link"),
             ("a", "toggle_archive", "Archive/Restore"),
             ("e", "edit_document", "Edit Document"),
             ("ctrl+s", "save_document", "Save"),
@@ -99,6 +103,7 @@ def launch_tui2(
         ]
 
         filter_kind: reactive[str] = reactive("all")
+        link_relation_filter: reactive[str] = reactive("all")
         editing_document: reactive[bool] = reactive(False)
         palette_open: reactive[bool] = reactive(False)
 
@@ -109,7 +114,8 @@ def launch_tui2(
                     "Command palette: help | open <id> | search <q> | "
                     "filter <kind> | archive | restore | "
                     "link-add <target> [relation] [note] | "
-                    "link-rm <target> [relation]"
+                    "link-rm <target> [relation] | "
+                    "link-filter <relation|all> | link-next | link-prev | link-open"
                 ),
                 id="command-palette",
                 classes="hidden",
@@ -155,6 +161,8 @@ def launch_tui2(
             self._selected_entry: dict[str, Any] | None = None
             self._last_query = ""
             self._entry_ids_in_view: list[int] = []
+            self._current_links: list[dict[str, Any]] = []
+            self._current_link_cursor = 0
             try:
                 self._service = (
                     entry_service_factory() if callable(entry_service_factory) else None
@@ -199,6 +207,9 @@ def launch_tui2(
                     "- e edit document",
                     "- Ctrl+S save doc",
                     "- Ctrl+P command palette",
+                    "- l cycle link relation",
+                    "- [ / ] select link",
+                    "- o open link target",
                     "- Esc cancel/close",
                 ]
             )
@@ -220,6 +231,8 @@ def launch_tui2(
                     "Entry service unavailable in this runtime."
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._current_links = []
+                self._current_link_cursor = 0
                 return
 
             try:
@@ -231,6 +244,8 @@ def launch_tui2(
                     f"Failed to load entries: {exc}"
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._current_links = []
+                self._current_link_cursor = 0
                 self._set_status("Failed to load entries")
                 return
 
@@ -250,6 +265,8 @@ def launch_tui2(
                 self.query_one("#link-detail", Static).update(
                     "Links: select an entry first."
                 )
+                self._current_links = []
+                self._current_link_cursor = 0
                 self._set_status("No entries match current filter/search")
             else:
                 if list_view.children:
@@ -267,6 +284,8 @@ def launch_tui2(
                     self.query_one("#link-detail", Static).update(
                         "Links: entry not found."
                     )
+                    self._current_links = []
+                    self._current_link_cursor = 0
                     self._set_status(f"Entry {entry_index} not found")
                     return
                 self._selected_entry_id = int(entry_index)
@@ -280,6 +299,8 @@ def launch_tui2(
                     f"Failed to load entry {entry_index}: {exc}"
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._current_links = []
+                self._current_link_cursor = 0
                 self._set_status(f"Failed to load entry {entry_index}")
 
         def _update_links_panel(self) -> None:
@@ -287,6 +308,8 @@ def launch_tui2(
                 self.query_one("#link-detail", Static).update(
                     "Links: select an entry first."
                 )
+                self._current_links = []
+                self._current_link_cursor = 0
                 return
             try:
                 links = self._service.get_links(self._selected_entry_id)
@@ -294,7 +317,23 @@ def launch_tui2(
                 self.query_one("#link-detail", Static).update(
                     f"Links unavailable: {exc}"
                 )
+                self._current_links = []
+                self._current_link_cursor = 0
                 return
+
+            if self.link_relation_filter == "all":
+                filtered = [lnk for lnk in links if isinstance(lnk, dict)]
+            else:
+                filtered = [
+                    lnk
+                    for lnk in links
+                    if isinstance(lnk, dict)
+                    and str(lnk.get("relation", "related_to")).lower()
+                    == self.link_relation_filter
+                ]
+            self._current_links = filtered
+            if self._current_link_cursor >= len(self._current_links):
+                self._current_link_cursor = 0
 
             if not links:
                 self.query_one("#link-detail", Static).update(
@@ -302,23 +341,36 @@ def launch_tui2(
                     "Use Ctrl+P and run: link-add <target_id> [relation] [note]"
                 )
                 return
+            if not filtered:
+                self.query_one("#link-detail", Static).update(
+                    "Links\n\n"
+                    f"Relation filter: {self.link_relation_filter}\n\n"
+                    "No links match this relation filter.\n"
+                    "Press 'l' to cycle relation filter."
+                )
+                return
 
             lines = [
                 "Links",
                 "",
+                f"Relation filter: {self.link_relation_filter}",
+                (
+                    f"Selected link: {self._current_link_cursor + 1}/"
+                    f"{len(self._current_links)}"
+                ),
+                "",
                 "Format: relation -> target_id (note)",
                 "",
             ]
-            for link in links:
-                if not isinstance(link, dict):
-                    continue
+            for i, link in enumerate(self._current_links):
                 target = link.get("target")
                 relation = link.get("relation", "related_to")
                 note = str(link.get("note", "")).strip()
+                prefix = ">" if i == self._current_link_cursor else " "
                 if note:
-                    lines.append(f"- {relation} -> {target} ({note})")
+                    lines.append(f"{prefix} {relation} -> {target} ({note})")
                 else:
-                    lines.append(f"- {relation} -> {target}")
+                    lines.append(f"{prefix} {relation} -> {target}")
             self.query_one("#link-detail", Static).update("\n".join(lines))
 
         def _is_selected_document(self) -> bool:
@@ -386,7 +438,8 @@ def launch_tui2(
             if cmd == "help":
                 self._set_status(
                     "Palette commands: help, open, search, filter, archive, "
-                    "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm"
+                    "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
+                    "link-filter, link-next, link-prev, link-open"
                 )
                 return
 
@@ -512,6 +565,25 @@ def launch_tui2(
             if cmd == "refresh":
                 self.action_refresh()
                 return
+            if cmd == "link-filter":
+                if len(args) != 1:
+                    self._set_status("Usage: link-filter <relation|all>")
+                    return
+                relation = args[0].strip().lower() or "all"
+                self.link_relation_filter = relation
+                self._current_link_cursor = 0
+                self._update_links_panel()
+                self._set_status(f"Applied link relation filter: {relation}")
+                return
+            if cmd == "link-next":
+                self.action_next_link()
+                return
+            if cmd == "link-prev":
+                self.action_prev_link()
+                return
+            if cmd == "link-open":
+                self.action_open_link_target()
+                return
 
             self._set_status(f"Unknown command: {cmd}")
 
@@ -544,6 +616,69 @@ def launch_tui2(
             idx = order.index(self.filter_kind) if self.filter_kind in order else 0
             self.filter_kind = order[(idx + 1) % len(order)]
             self.action_refresh()
+
+        def action_cycle_link_filter(self) -> None:
+            if self._service is None or self._selected_entry_id is None:
+                self._set_status("Select an entry before filtering links")
+                return
+            if self.editing_document:
+                self._set_status("Finish document edit before link operations")
+                return
+            relation_order = [
+                "all",
+                "related_to",
+                "depends_on",
+                "references",
+                "contains",
+                "derived_from",
+            ]
+            idx = (
+                relation_order.index(self.link_relation_filter)
+                if self.link_relation_filter in relation_order
+                else 0
+            )
+            self.link_relation_filter = relation_order[(idx + 1) % len(relation_order)]
+            self._current_link_cursor = 0
+            self._update_links_panel()
+            self._set_status(f"Link relation filter: {self.link_relation_filter}")
+
+        def action_next_link(self) -> None:
+            if not self._current_links:
+                self._set_status("No links to select")
+                return
+            self._current_link_cursor = (self._current_link_cursor + 1) % len(
+                self._current_links
+            )
+            self._update_links_panel()
+            self._set_status(
+                f"Selected link {self._current_link_cursor + 1}/{len(self._current_links)}"
+            )
+
+        def action_prev_link(self) -> None:
+            if not self._current_links:
+                self._set_status("No links to select")
+                return
+            self._current_link_cursor = (self._current_link_cursor - 1) % len(
+                self._current_links
+            )
+            self._update_links_panel()
+            self._set_status(
+                f"Selected link {self._current_link_cursor + 1}/{len(self._current_links)}"
+            )
+
+        def action_open_link_target(self) -> None:
+            if not self._current_links:
+                self._set_status("No links to open")
+                return
+            link = self._current_links[self._current_link_cursor]
+            target = link.get("target")
+            try:
+                target_id = int(target)
+            except Exception:
+                self._set_status(f"Invalid link target: {target}")
+                return
+            self._show_entry(target_id)
+            self._set_status(f"Opened linked entry {target_id}")
 
         def action_open_palette(self) -> None:
             if self.editing_document:

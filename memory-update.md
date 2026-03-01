@@ -182,3 +182,5 @@
 - Document editor uses `TextArea` when available and falls back to single-line input if unavailable, keeping runtime compatibility across Textual versions.
 - 2026-03-01: TUI v2 gained `Ctrl+P` command palette with command parsing (`help`, `open`, `search`, `filter`, `archive/restore`, `edit-doc/save-doc/cancel-edit`, `link-add`, `link-rm`, `refresh`).
 - Added a graph links panel in the right view that renders current entry links via `EntryService.get_links` and updates after palette link mutations.
+- 2026-03-01: TUI v2 graph navigation expanded with relation-aware link filtering (`l` or `link-filter`) and quick neighbor traversal (`[`/`]` to change selected link, `o` or `link-open` to jump to target entry).
+- Link panel now tracks selection state and displays active relation filter + selected link position to support KB-style navigation in large graphs.
