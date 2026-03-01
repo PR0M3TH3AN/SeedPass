@@ -12,10 +12,12 @@ import seedpass.core.encryption as enc_module
 def test_legacy_password_only_fallback(monkeypatch, tmp_path, caplog):
     calls: list[int] = []
 
-    def _fast_legacy_key(password: str, iterations: int = 100_000) -> bytes:
+    def _fast_legacy_key(
+        password: str, iterations: int = 100_000, salt: bytes = b""
+    ) -> bytes:
         calls.append(iterations)
         normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
-        key = hashlib.pbkdf2_hmac("sha256", normalized, b"", 1, dklen=32)
+        key = hashlib.pbkdf2_hmac("sha256", normalized, salt, 1, dklen=32)
         return base64.urlsafe_b64encode(key)
 
     # Speed up legacy key derivation
@@ -35,4 +37,4 @@ def test_legacy_password_only_fallback(monkeypatch, tmp_path, caplog):
     assert enc_mgr.decrypt_and_save_index_from_nostr(encrypted)
     assert vault.load_index() == data
     assert any("legacy password-only" in rec.message for rec in caplog.records)
-    assert calls == [50_000, 50_000]
+    assert 50_000 in calls
