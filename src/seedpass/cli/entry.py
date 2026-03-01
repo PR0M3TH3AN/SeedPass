@@ -9,7 +9,11 @@ import typer
 import click
 
 from .common import _get_entry_service, EntryType
-from seedpass.core.agent_export_policy import kind_export_allowed, load_export_policy
+from seedpass.core.agent_export_policy import (
+    evaluate_kind_export,
+    load_export_policy,
+    record_export_policy_event,
+)
 from seedpass.core.entry_types import ALL_ENTRY_TYPES
 from utils.clipboard import ClipboardUnavailableError
 
@@ -369,9 +373,27 @@ def entry_export_totp(
     """Export all TOTP secrets to a JSON file."""
     if agent_profile:
         policy = load_export_policy()
-        if not kind_export_allowed(policy, EntryType.TOTP.value):
-            typer.echo("Error: Policy denied TOTP export for agent profile.")
+        allowed, reason = evaluate_kind_export(policy, EntryType.TOTP.value)
+        if not allowed:
+            record_export_policy_event(
+                "export_denied",
+                {
+                    "source": "cli:entry_export_totp",
+                    "kind": EntryType.TOTP.value,
+                    "reason": reason,
+                    "file": str(file),
+                },
+            )
+            typer.echo(f"Error: {reason}")
             raise typer.Exit(code=1)
+        record_export_policy_event(
+            "export_allowed",
+            {
+                "source": "cli:entry_export_totp",
+                "kind": EntryType.TOTP.value,
+                "file": str(file),
+            },
+        )
     service = _get_entry_service(ctx)
     data = service.export_totp_entries()
     Path(file).write_text(json.dumps(data, indent=2))

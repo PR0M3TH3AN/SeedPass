@@ -13,7 +13,11 @@ from seedpass.core.errors import SeedPassError
 from constants import GUI_BACKEND_CONFIG
 
 app = typer.Typer(
-    help="SeedPass command line interface",
+    help=(
+        "SeedPass command line interface. "
+        "Run `seedpass capabilities` for a deterministic feature map "
+        "and `seedpass <group> --help` for group-specific commands."
+    ),
     invoke_without_command=True,
 )
 
@@ -79,6 +83,8 @@ def main(
     """SeedPass CLI entry point.
 
     When called without a subcommand this launches the interactive TUI.
+    Use ``seedpass capabilities --format json`` for machine-readable command
+    and security feature discovery.
     """
     ctx.obj = {
         "fingerprint": fingerprint,

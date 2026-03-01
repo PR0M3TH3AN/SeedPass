@@ -30,6 +30,25 @@ SeedPass synchronizes profiles over Nostr using three event kinds:
 
 Events encode JSON and include tags for checksums, fingerprints, and timestamps.
 
+## Deterministic Conflict Resolution
+
+When index payloads are merged (for example during Nostr delta replay), SeedPass
+uses deterministic conflict semantics with strategy
+`modified_ts_hash_tombstone_v2`.
+
+High-level rules:
+
+- Higher `modified_ts` entries win.
+- Equal `modified_ts` entries use deterministic hash tie-breakers and
+  field-level union rules for selected metadata.
+- Deletions are represented as tombstones in `_sync_meta.tombstones` and win
+  against older entry states.
+- `_sync_meta.last_merge_ts` is derived from payload state, not wall-clock
+  time, so replaying the same payload is idempotent.
+
+See [sync_conflict_contract.md](sync_conflict_contract.md) for the formal
+merge/tombstone contract and replay guarantees.
+
 ## Versioning
 
 Configuration and KDF schemas are versioned so clients can migrate older

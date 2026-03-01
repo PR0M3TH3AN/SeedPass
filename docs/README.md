@@ -2,6 +2,12 @@
 
 This directory contains SeedPass project documentation.
 
+## Agent and Autonomy Docs
+
+- `agent_autonomy_security_plan.md`
+- `policy_as_code.md`
+- `sync_conflict_contract.md`
+
 ## Core Security Docs
 
 - `security_readiness_checklist.md`
@@ -26,3 +32,10 @@ This directory contains SeedPass project documentation.
 - `installer_testing.md`
 - `ci-health-2026-02-19.md`
 - `agent-handoffs/README.md`
+
+## Discoverability Commands
+
+- `seedpass --help`
+- `seedpass <group> --help`
+- `seedpass capabilities --format json`
+- `seedpass agent bootstrap-context`

@@ -15,13 +15,34 @@ from .common import (
 )
 from seedpass.core.agent_export_policy import (
     allowed_kinds,
-    filter_index_for_allowed_kinds,
-    full_export_allowed,
+    build_policy_filtered_export_package,
+    evaluate_full_export,
     load_export_policy,
+    record_export_policy_event,
 )
-from seedpass.core.auth_broker import AuthBrokerError, resolve_password as resolve_broker_password
+from seedpass.core.agent_approval import approval_required, consume_approval
+from seedpass.core.agent_secret_isolation import (
+    high_risk_factor_configured,
+    high_risk_unlocked,
+)
+from seedpass.core.auth_broker import (
+    AuthBrokerError,
+    resolve_password as resolve_broker_password,
+)
 
 app = typer.Typer(help="Manage the entire vault")
+
+
+def _isolation_required_for_kind(policy: dict, kind: str) -> bool:
+    cfg = policy.get("secret_isolation", {})
+    if not isinstance(cfg, dict):
+        return False
+    if not bool(cfg.get("enabled", True)):
+        return False
+    kinds = cfg.get("high_risk_kinds", [])
+    if not isinstance(kinds, list):
+        return False
+    return str(kind).lower() in {str(v).lower() for v in kinds}
 
 
 @app.command("export")
@@ -38,6 +59,11 @@ def vault_export(
         "--policy-filtered",
         help="Export only policy-allowed subset of entries",
     ),
+    approval_id: Optional[str] = typer.Option(
+        None,
+        "--approval-id",
+        help="Step-up approval id for actions requiring approval",
+    ),
 ) -> None:
     """Export the vault profile to an encrypted file."""
     vault_service, _profile, _sync = _get_services(ctx)
@@ -48,20 +74,94 @@ def vault_export(
             vault = getattr(manager, "vault", None)
             enc_mgr = getattr(vault, "encryption_manager", None)
             if vault is None or enc_mgr is None:
-                typer.echo("Error: policy-filtered export unavailable in current context")
+                typer.echo(
+                    "Error: policy-filtered export unavailable in current context"
+                )
                 raise typer.Exit(code=1)
             index_data = vault.load_index()
-            filtered = filter_index_for_allowed_kinds(index_data, allowed_kinds(policy))
+            filtered = build_policy_filtered_export_package(index_data, policy)
             payload = json.dumps(
                 filtered, sort_keys=True, separators=(",", ":")
             ).encode("utf-8")
             data = enc_mgr.encrypt_data(payload)
             Path(file).write_bytes(data)
+            record_export_policy_event(
+                "export_allowed",
+                {
+                    "source": "cli:vault_export",
+                    "mode": "filtered",
+                    "file": str(file),
+                    "allowed_kinds": sorted(list(allowed_kinds(policy))),
+                    "policy_stamp": filtered.get("_export_manifest", {}).get(
+                        "policy_stamp"
+                    ),
+                },
+            )
             typer.echo(str(file))
             return
-        if not full_export_allowed(policy):
+        allowed, reason = evaluate_full_export(policy)
+        if not allowed:
+            record_export_policy_event(
+                "export_denied",
+                {
+                    "source": "cli:vault_export",
+                    "mode": "full",
+                    "reason": reason,
+                    "file": str(file),
+                },
+            )
+            typer.echo(f"Error: {reason}. Use --policy-filtered for subset export.")
+            raise typer.Exit(code=1)
+        if approval_required(policy, "export"):
+            if not approval_id:
+                reason = "policy_deny:approval_required"
+                record_export_policy_event(
+                    "export_denied",
+                    {
+                        "source": "cli:vault_export",
+                        "mode": "full",
+                        "reason": reason,
+                        "file": str(file),
+                    },
+                )
+                typer.echo(f"Error: {reason}. Provide --approval-id for full export.")
+                raise typer.Exit(code=1)
+            ok, approval_reason = consume_approval(
+                approval_id=approval_id,
+                action="export",
+                resource="vault:full",
+            )
+            if not ok:
+                reason = f"policy_deny:{approval_reason}"
+                record_export_policy_event(
+                    "export_denied",
+                    {
+                        "source": "cli:vault_export",
+                        "mode": "full",
+                        "reason": reason,
+                        "file": str(file),
+                    },
+                )
+                typer.echo(f"Error: {reason}")
+                raise typer.Exit(code=1)
+        record_export_policy_event(
+            "export_allowed",
+            {
+                "source": "cli:vault_export",
+                "mode": "full",
+                "file": str(file),
+                "approval_id": approval_id,
+            },
+        )
+    else:
+        policy = load_export_policy()
+
+    if _isolation_required_for_kind(policy, "seed") and high_risk_factor_configured():
+        fingerprint = str((ctx.obj or {}).get("fingerprint") or "default")
+        unlocked, _expires_at = high_risk_unlocked(fingerprint=fingerprint)
+        if not unlocked:
             typer.echo(
-                "Error: Policy denied full vault export for agent profile. Use --policy-filtered."
+                "Error: policy_deny:high_risk_locked. Unlock high-risk session first."
             )
             raise typer.Exit(code=1)
     data = vault_service.export_profile()
@@ -103,10 +203,14 @@ def vault_unlock(
         "prompt",
         "--auth-broker",
         help="Password source for unlock (prompt|env|keyring|command)",
-        click_type=click.Choice(["prompt", "env", "keyring", "command"], case_sensitive=False),
+        click_type=click.Choice(
+            ["prompt", "env", "keyring", "command"], case_sensitive=False
+        ),
     ),
     password_env: str = typer.Option(
-        "SEEDPASS_PASSWORD", "--password-env", help="Env var used when --auth-broker=env"
+        "SEEDPASS_PASSWORD",
+        "--password-env",
+        help="Env var used when --auth-broker=env",
     ),
     broker_service: str = typer.Option(
         "seedpass",
@@ -148,7 +252,7 @@ def vault_unlock(
         raise typer.Exit(code=1)
     typer.echo(f"Unlocked in {resp.duration:.2f}s")
     typer.echo(
-        "Tip: run `seedpass --help` (and `seedpass <command> --help`) to discover available features."
+        "Tip: run `seedpass --help`, `seedpass capabilities`, and `seedpass <command> --help` to discover features."
     )
 
 
@@ -174,10 +278,71 @@ def vault_reveal_parent_seed(
     file: Optional[str] = typer.Option(
         None, "--file", help="Save encrypted seed to this path"
     ),
+    agent_profile: bool = typer.Option(
+        False,
+        "--agent-profile",
+        help="Apply agent approval policy controls",
+    ),
+    approval_id: Optional[str] = typer.Option(
+        None,
+        "--approval-id",
+        help="Step-up approval id for reveal-parent-seed when required",
+    ),
 ) -> None:
     """Display the parent seed and optionally write an encrypted backup file."""
     vault_service, _profile, _sync = _get_services(ctx)
+    policy = load_export_policy()
+    if _isolation_required_for_kind(policy, "seed") and high_risk_factor_configured():
+        fingerprint = str((ctx.obj or {}).get("fingerprint") or "default")
+        unlocked, _expires_at = high_risk_unlocked(fingerprint=fingerprint)
+        if not unlocked:
+            typer.echo(
+                "Error: policy_deny:high_risk_locked. Unlock high-risk session first."
+            )
+            raise typer.Exit(code=1)
+    if agent_profile:
+        if approval_required(policy, "reveal_parent_seed"):
+            if not approval_id:
+                reason = "policy_deny:approval_required"
+                record_export_policy_event(
+                    "approval_denied",
+                    {
+                        "source": "cli:vault_reveal_parent_seed",
+                        "reason": reason,
+                        "action": "reveal_parent_seed",
+                    },
+                )
+                typer.echo(f"Error: {reason}. Provide --approval-id.")
+                raise typer.Exit(code=1)
+            ok, approval_reason = consume_approval(
+                approval_id=approval_id,
+                action="reveal_parent_seed",
+                resource="vault:parent-seed",
+            )
+            if not ok:
+                reason = f"policy_deny:{approval_reason}"
+                record_export_policy_event(
+                    "approval_denied",
+                    {
+                        "source": "cli:vault_reveal_parent_seed",
+                        "reason": reason,
+                        "action": "reveal_parent_seed",
+                        "approval_id": approval_id,
+                    },
+                )
+                typer.echo(f"Error: {reason}")
+                raise typer.Exit(code=1)
     password = typer.prompt("Master password", hide_input=True)
     vault_service.backup_parent_seed(
         BackupParentSeedRequest(path=Path(file) if file else None, password=password)
     )
+    if agent_profile:
+        record_export_policy_event(
+            "approval_consumed",
+            {
+                "source": "cli:vault_reveal_parent_seed",
+                "action": "reveal_parent_seed",
+                "approval_id": approval_id,
+                "file": str(file) if file else None,
+            },
+        )

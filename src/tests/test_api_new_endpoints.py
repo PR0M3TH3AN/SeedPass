@@ -2,11 +2,18 @@ from types import SimpleNamespace
 from pathlib import Path
 import os
 import base64
+import json
 import pytest
 
 from seedpass import api
 import seedpass.core.agent_export_policy as export_policy
+import seedpass.core.agent_approval as approval_core
+import seedpass.core.agent_secret_isolation as isolation_core
+import seedpass.core.agent_secret_lease as lease_core
+import seedpass.core.agent_job as job_core
+import seedpass.core.agent_recovery as recovery_core
 import string
+from seedpass.core.entry_types import EntryType
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
 from seedpass.core.encryption import EncryptionManager
 from nostr.client import NostrClient, DEFAULT_RELAYS
@@ -114,6 +121,80 @@ async def test_update_entry_error(client):
     res = await cl.put("/api/v1/entry/1", json={"username": "x"}, headers=headers)
     assert res.status_code == 400
     assert res.json() == {"detail": "nope"}
+
+
+@pytest.mark.anyio
+async def test_get_entry_private_kind_blocked_when_high_risk_locked(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(isolation_core, "APP_DIR", tmp_path)
+    isolation_core.set_high_risk_factor("factor-get")
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"secret_isolation": {"enabled": True, "high_risk_kinds": ["ssh"]}}),
+        encoding="utf-8",
+    )
+    api.app.state.pm.current_fingerprint = "ABC123"
+    api.app.state.pm.entry_manager.retrieve_entry = lambda _i: {
+        "kind": "ssh",
+        "label": "SSH key",
+    }
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
+    blocked = await cl.get("/api/v1/entry/1", headers=headers)
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"] == "policy_deny:high_risk_locked"
+
+    unlock_headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-High-Risk-Factor": "factor-get",
+    }
+    unlocked = await cl.post(
+        "/api/v1/high-risk/unlock", json={"ttl": 120}, headers=unlock_headers
+    )
+    assert unlocked.status_code == 200
+
+    allowed = await cl.get("/api/v1/entry/1", headers=headers)
+    assert allowed.status_code == 200
+    assert allowed.json()["kind"] == "ssh"
+
+
+@pytest.mark.anyio
+async def test_get_entry_hydrates_partitioned_high_risk_entry(client, monkeypatch):
+    cl, token = client
+    api.app.state.pm.current_fingerprint = "ABC123"
+    api.app.state.pm.fingerprint_dir = "/tmp/seedpass-tests/fp"
+    api.app.state.pm.entry_manager.retrieve_entry = lambda _i: {
+        "kind": "ssh",
+        "label": "SSH key",
+        "partition": "high_risk",
+    }
+    monkeypatch.setattr(api, "high_risk_factor_configured", lambda: False)
+    monkeypatch.setattr(api, "unlocked_partition_key_tag", lambda **kwargs: "tag-123")
+    monkeypatch.setattr(
+        api,
+        "load_partition_entry",
+        lambda fingerprint_dir, partition_key_tag, index: {
+            "kind": "ssh",
+            "label": "SSH key",
+            "notes": "from-partition",
+        },
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
+    res = await cl.get("/api/v1/entry/1", headers=headers)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["kind"] == "ssh"
+    assert payload["notes"] == "from-partition"
 
 
 @pytest.mark.anyio
@@ -617,7 +698,13 @@ async def test_vault_export_endpoint_denied_for_agent_profile(
     client, tmp_path, monkeypatch
 ):
     cl, token = client
+    called = {}
     monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(
+        api,
+        "record_export_policy_event",
+        lambda event, details: called.setdefault("event", (event, details)),
+    )
     headers = {
         "Authorization": f"Bearer {token}",
         "X-SeedPass-Password": "pw",
@@ -625,7 +712,139 @@ async def test_vault_export_endpoint_denied_for_agent_profile(
     }
     res = await cl.post("/api/v1/vault/export", headers=headers)
     assert res.status_code == 403
-    assert "Policy denied full vault export" in res.json()["detail"]
+    assert res.json()["detail"] == "policy_deny:full_export_blocked"
+    assert called["event"][0] == "export_denied"
+
+
+@pytest.mark.anyio
+async def test_vault_export_endpoint_policy_filtered_manifest(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        '{"allow_kinds":["password"],"allow_export_import":false}',
+        encoding="utf-8",
+    )
+    api.app.state.pm.vault = SimpleNamespace(
+        load_index=lambda: {
+            "schema_version": 4,
+            "entries": {
+                "0": {"kind": "password", "label": "ok"},
+                "1": {"kind": "totp", "label": "skip"},
+            },
+        },
+        encryption_manager=SimpleNamespace(encrypt_data=lambda payload: payload),
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+        "X-SeedPass-Policy-Filtered": "true",
+    }
+    res = await cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 200
+    payload = json.loads(res.content.decode("utf-8"))
+    assert payload["_export_manifest"]["mode"] == "policy_filtered"
+    assert payload["_export_manifest"]["allow_kinds"] == ["password"]
+    assert payload["_export_manifest"]["included_entry_indexes"] == ["0"]
+
+
+@pytest.mark.anyio
+async def test_vault_export_endpoint_requires_approval_when_configured(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_kinds": ["password"],
+                "allow_export_import": True,
+                "export": {"allow_full_vault": True},
+                "approvals": {"require_for": ["export"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+    }
+    res = await cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 403
+    assert res.json()["detail"] == "policy_deny:approval_required"
+
+
+@pytest.mark.anyio
+async def test_vault_export_endpoint_blocked_when_high_risk_locked(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(isolation_core, "APP_DIR", tmp_path)
+    isolation_core.set_high_risk_factor("factor-abc")
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_export_import": True,
+                "export": {"allow_full_vault": True},
+                "approvals": {"require_for": []},
+                "secret_isolation": {"enabled": True, "high_risk_kinds": ["seed"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+    }
+    res = await cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 403
+    assert res.json()["detail"] == "policy_deny:high_risk_locked"
+
+
+@pytest.mark.anyio
+async def test_vault_export_endpoint_approval_allows_full_export(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    out = tmp_path / "out.json"
+    out.write_text("data")
+    api.app.state.pm.handle_export_database = lambda *a, **k: out
+
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {
+                "allow_kinds": ["password"],
+                "allow_export_import": True,
+                "export": {"allow_full_vault": True},
+                "approvals": {"require_for": ["export"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    approval = approval_core.issue_approval(
+        action="export",
+        ttl_seconds=300,
+        uses=1,
+        resource="vault:full",
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+        "X-SeedPass-Approval-Id": approval["id"],
+    }
+    res = await cl.post("/api/v1/vault/export", headers=headers)
+    assert res.status_code == 200
+    assert res.content == b"data"
 
 
 @pytest.mark.anyio
@@ -645,7 +864,110 @@ async def test_totp_export_endpoint_denied_for_agent_profile(
     }
     res = await cl.get("/api/v1/totp/export", headers=headers)
     assert res.status_code == 403
-    assert "Policy denied TOTP export" in res.json()["detail"]
+    assert res.json()["detail"] == "policy_deny:kind_not_allowed"
+
+
+@pytest.mark.anyio
+async def test_export_check_endpoint_full_denied_default(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get("/api/v1/export/check", params={"mode": "full"}, headers=headers)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "ok"
+    assert payload["allowed"] is False
+    assert payload["reason"] == "policy_deny:full_export_blocked"
+
+
+@pytest.mark.anyio
+async def test_export_check_endpoint_kind_allowed_default(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get(
+        "/api/v1/export/check",
+        params={"mode": "kind", "kind": "totp"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "ok"
+    assert payload["allowed"] is True
+    assert payload["reason"] == "policy_allow:kind_allowed"
+
+
+@pytest.mark.anyio
+async def test_export_check_endpoint_kind_requires_kind(client):
+    cl, token = client
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.get("/api/v1/export/check", params={"mode": "kind"}, headers=headers)
+    assert res.status_code == 400
+    assert res.json()["detail"] == "missing_kind"
+
+
+@pytest.mark.anyio
+async def test_export_manifest_verify_endpoint_ok(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    policy = export_policy.load_export_policy()
+    package = export_policy.build_policy_filtered_export_package(
+        {"schema_version": 4, "entries": {"0": {"kind": "password", "label": "ok"}}},
+        policy,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/export/manifest/verify", headers=headers, json=package)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "ok"
+    assert payload["valid"] is True
+    assert payload["errors"] == []
+
+
+@pytest.mark.anyio
+async def test_export_manifest_verify_endpoint_mismatch(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    package = export_policy.build_policy_filtered_export_package(
+        {"schema_version": 4, "entries": {"0": {"kind": "password", "label": "ok"}}},
+        export_policy.load_export_policy(),
+    )
+    # Change policy after package creation to force mismatch.
+    (tmp_path / "agent_policy.json").write_text(
+        '{"allow_kinds":["totp"],"allow_export_import":false}',
+        encoding="utf-8",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/export/manifest/verify", headers=headers, json=package)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "ok"
+    assert payload["valid"] is False
+    assert "policy_stamp_mismatch" in payload["errors"]
+
+
+@pytest.mark.anyio
+async def test_export_manifest_verify_endpoint_detects_tamper(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    policy = export_policy.load_export_policy()
+    package = export_policy.build_policy_filtered_export_package(
+        {"schema_version": 4, "entries": {"0": {"kind": "password", "label": "ok"}}},
+        policy,
+    )
+    package["entries"]["0"]["kind"] = "ssh"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/export/manifest/verify", headers=headers, json=package)
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "ok"
+    assert payload["valid"] is False
+    assert "entry_kind_not_allowed" in payload["errors"]
+    assert "entries_hash_mismatch" in payload["errors"]
 
 
 @pytest.mark.anyio
@@ -677,6 +999,446 @@ async def test_backup_parent_seed_endpoint(client, tmp_path):
         headers=headers,
     )
     assert res.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_high_risk_api_unlock_status_and_lock(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(isolation_core, "APP_DIR", tmp_path)
+    isolation_core.set_high_risk_factor("factor-123")
+    api.app.state.pm.current_fingerprint = "ABC123"
+
+    headers = {"Authorization": f"Bearer {token}"}
+    status_before = await cl.get("/api/v1/high-risk/status", headers=headers)
+    assert status_before.status_code == 200
+    before_payload = status_before.json()
+    assert before_payload["status"] == "ok"
+    assert before_payload["unlocked"] is False
+
+    unlock_headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-High-Risk-Factor": "factor-123",
+    }
+    unlocked = await cl.post(
+        "/api/v1/high-risk/unlock",
+        json={"ttl": 120},
+        headers=unlock_headers,
+    )
+    assert unlocked.status_code == 200
+    unlocked_payload = unlocked.json()
+    assert unlocked_payload["status"] == "ok"
+    assert unlocked_payload["fingerprint"] == "ABC123"
+
+    status_after = await cl.get("/api/v1/high-risk/status", headers=headers)
+    assert status_after.status_code == 200
+    assert status_after.json()["unlocked"] is True
+
+    locked = await cl.post("/api/v1/high-risk/lock", headers=headers)
+    assert locked.status_code == 200
+    assert locked.json()["status"] == "ok"
+
+    status_final = await cl.get("/api/v1/high-risk/status", headers=headers)
+    assert status_final.status_code == 200
+    assert status_final.json()["unlocked"] is False
+
+
+@pytest.mark.anyio
+async def test_agent_job_profiles_crud_endpoints(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(job_core, "APP_DIR", tmp_path)
+    api.app.state.pm.current_fingerprint = "ABC123"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = await cl.post(
+        "/api/v1/agent/job-profiles",
+        headers=headers,
+        json={"id": "nightly", "query": "Site", "auth_broker": "keyring"},
+    )
+    assert created.status_code == 200
+    created_payload = created.json()
+    assert created_payload["status"] == "ok"
+    assert created_payload["job_profile"]["id"] == "nightly"
+
+    listed = await cl.get("/api/v1/agent/job-profiles", headers=headers)
+    assert listed.status_code == 200
+    listed_payload = listed.json()
+    assert any(v["id"] == "nightly" for v in listed_payload["job_profiles"])
+
+    revoked = await cl.delete("/api/v1/agent/job-profiles/nightly", headers=headers)
+    assert revoked.status_code == 200
+    assert revoked.json()["status"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_agent_job_profile_run_issues_lease(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(job_core, "APP_DIR", tmp_path)
+    monkeypatch.setattr(lease_core, "APP_DIR", tmp_path)
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    api.app.state.pm.current_fingerprint = "ABC123"
+    api.app.state.pm.entry_manager.search_entries = lambda q: [
+        (7, "Site", "user", "url", False, EntryType.PASSWORD)
+    ]
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await cl.post(
+        "/api/v1/agent/job-profiles",
+        headers=headers,
+        json={"id": "nightly-run", "query": "Site", "auth_broker": "keyring"},
+    )
+    assert created.status_code == 200
+
+    run = await cl.post(
+        "/api/v1/agent/job-profiles/nightly-run/run",
+        headers=headers,
+        json={},
+    )
+    assert run.status_code == 200
+    payload = run.json()
+    assert payload["status"] == "ok"
+    assert payload["mode"] == "lease_issued"
+    assert payload["kind"] == "password"
+    assert payload["lease_id"]
+
+
+@pytest.mark.anyio
+async def test_agent_job_profile_run_policy_mismatch_denied(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(job_core, "APP_DIR", tmp_path)
+    monkeypatch.setattr(lease_core, "APP_DIR", tmp_path)
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    api.app.state.pm.current_fingerprint = "ABC123"
+    api.app.state.pm.entry_manager.search_entries = lambda q: [
+        (7, "Site", "user", "url", False, EntryType.PASSWORD)
+    ]
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await cl.post(
+        "/api/v1/agent/job-profiles",
+        headers=headers,
+        json={"id": "policy-run", "query": "Site", "auth_broker": "keyring"},
+    )
+    assert created.status_code == 200
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"allow_kinds": ["totp"], "allow_export_import": False}),
+        encoding="utf-8",
+    )
+    denied = await cl.post(
+        "/api/v1/agent/job-profiles/policy-run/run",
+        headers=headers,
+        json={},
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "job_profile_policy_mismatch"
+
+    allowed = await cl.post(
+        "/api/v1/agent/job-profiles/policy-run/run",
+        headers=headers,
+        json={"allow_policy_drift": True},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["status"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_agent_job_profile_template_endpoint(client, tmp_path, monkeypatch):
+    cl, token = client
+    monkeypatch.setattr(job_core, "APP_DIR", tmp_path)
+    api.app.state.pm.current_fingerprint = "ABC123"
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await cl.post(
+        "/api/v1/agent/job-profiles",
+        headers=headers,
+        json={
+            "id": "templated-job",
+            "query": "Site",
+            "auth_broker": "keyring",
+            "schedule": "*/30 * * * *",
+        },
+    )
+    assert created.status_code == 200
+
+    cron = await cl.get(
+        "/api/v1/agent/job-profiles/templated-job/template",
+        headers=headers,
+    )
+    assert cron.status_code == 200
+    cron_payload = cron.json()
+    assert cron_payload["status"] == "ok"
+    assert cron_payload["mode"] == "cron"
+    assert cron_payload["schedule_source"] == "profile"
+    assert "agent job-profile-run templated-job" in cron_payload["command"]
+    assert cron_payload["cron_line"].startswith("*/30 * * * * ")
+
+    systemd = await cl.get(
+        "/api/v1/agent/job-profiles/templated-job/template",
+        headers=headers,
+        params={
+            "mode": "systemd",
+            "schedule": "*:0/20",
+            "unit_name": "seedpass-nightly",
+        },
+    )
+    assert systemd.status_code == 200
+    systemd_payload = systemd.json()
+    assert systemd_payload["mode"] == "systemd"
+    assert systemd_payload["schedule_source"] == "provided"
+    assert (
+        "ExecStart=seedpass --fingerprint ABC123 agent job-profile-run templated-job"
+        in systemd_payload["systemd_service"]
+    )
+    assert "OnCalendar=*:0/20" in systemd_payload["systemd_timer"]
+    assert "template_manifest" in systemd_payload
+    assert systemd_payload["template_manifest"]["job_profile_id"] == "templated-job"
+
+
+@pytest.mark.anyio
+async def test_agent_job_profile_template_post_and_verify(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    monkeypatch.setattr(job_core, "APP_DIR", tmp_path)
+    api.app.state.pm.current_fingerprint = "ABC123"
+    headers = {"Authorization": f"Bearer {token}"}
+    created = await cl.post(
+        "/api/v1/agent/job-profiles",
+        headers=headers,
+        json={"id": "verify-job", "query": "Site", "auth_broker": "keyring"},
+    )
+    assert created.status_code == 200
+
+    rendered = await cl.post(
+        "/api/v1/agent/job-profiles/verify-job/template",
+        headers=headers,
+        json={"mode": "cron", "schedule": "0 * * * *", "include_manifest": True},
+    )
+    assert rendered.status_code == 200
+    rendered_payload = rendered.json()
+    assert rendered_payload["status"] == "ok"
+    assert rendered_payload["schedule"] == "0 * * * *"
+    assert "template_manifest" in rendered_payload
+
+    verified = await cl.post(
+        "/api/v1/agent/job-profiles/verify-job/template/verify",
+        headers=headers,
+        json={"template": rendered_payload},
+    )
+    assert verified.status_code == 200
+    verified_payload = verified.json()
+    assert verified_payload["status"] == "ok"
+    assert verified_payload["valid"] is True
+
+    tampered = dict(rendered_payload)
+    tampered["command"] = "seedpass --fingerprint ABC123 agent job-profile-run altered"
+    bad = await cl.post(
+        "/api/v1/agent/job-profiles/verify-job/template/verify",
+        headers=headers,
+        json={"template": tampered},
+    )
+    assert bad.status_code == 200
+    bad_payload = bad.json()
+    assert bad_payload["valid"] is False
+    assert "template_hash_sha256" in bad_payload["mismatches"]
+
+
+@pytest.mark.anyio
+async def test_agent_recovery_split_recover_api(client, monkeypatch, tmp_path):
+    cl, token = client
+    monkeypatch.setattr(recovery_core, "APP_DIR", tmp_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    secret = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+    split = await cl.post(
+        "/api/v1/agent/recovery/split",
+        headers=headers,
+        json={"secret": secret, "shares": 5, "threshold": 3, "label": "api-recovery"},
+    )
+    assert split.status_code == 200
+    split_payload = split.json()
+    assert split_payload["status"] == "ok"
+    shares = split_payload["shares"]
+    assert len(shares) == 5
+
+    recover = await cl.post(
+        "/api/v1/agent/recovery/recover",
+        headers=headers,
+        json={"shares": shares[:3], "reveal": True},
+    )
+    assert recover.status_code == 200
+    recover_payload = recover.json()
+    assert recover_payload["status"] == "ok"
+    assert recover_payload["secret"] == secret
+
+
+@pytest.mark.anyio
+async def test_agent_recovery_drill_and_verify_api(client, monkeypatch, tmp_path):
+    cl, token = client
+    monkeypatch.setattr(recovery_core, "APP_DIR", tmp_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    missing = tmp_path / "missing-backup.enc"
+
+    drill = await cl.post(
+        "/api/v1/agent/recovery/drill",
+        headers=headers,
+        json={"backup_path": str(missing), "simulated": True, "max_age_days": 7},
+    )
+    assert drill.status_code == 200
+    drill_payload = drill.json()
+    assert drill_payload["status"] == "ok"
+    assert drill_payload["report"]["status"] == "warning"
+
+    listed = await cl.get("/api/v1/agent/recovery/drills", headers=headers)
+    assert listed.status_code == 200
+    listed_payload = listed.json()
+    assert listed_payload["count"] >= 1
+
+    verify = await cl.post(
+        "/api/v1/agent/recovery/drills/verify",
+        headers=headers,
+        json={"limit": 50},
+    )
+    assert verify.status_code == 200
+    verify_payload = verify.json()
+    assert verify_payload["status"] == "ok"
+    assert verify_payload["valid"] is True
+
+
+@pytest.mark.anyio
+async def test_agent_recovery_drill_verify_detects_tamper(
+    client, monkeypatch, tmp_path
+):
+    cl, token = client
+    monkeypatch.setattr(recovery_core, "APP_DIR", tmp_path)
+    headers = {"Authorization": f"Bearer {token}"}
+    missing = tmp_path / "missing-backup.enc"
+
+    created = await cl.post(
+        "/api/v1/agent/recovery/drill",
+        headers=headers,
+        json={"backup_path": str(missing), "simulated": True},
+    )
+    assert created.status_code == 200
+
+    log_path = tmp_path / "agent_recovery_drills.log"
+    lines = [ln for ln in log_path.read_text(encoding="utf-8").splitlines() if ln]
+    payload = json.loads(lines[-1])
+    payload["backup_exists"] = True
+    lines[-1] = json.dumps(payload, sort_keys=True)
+    log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    verify = await cl.post(
+        "/api/v1/agent/recovery/drills/verify",
+        headers=headers,
+        json={"limit": 50},
+    )
+    assert verify.status_code == 200
+    verify_payload = verify.json()
+    assert verify_payload["valid"] is False
+    assert any("sig_mismatch_line" in v for v in verify_payload["errors"])
+
+
+@pytest.mark.anyio
+async def test_backup_parent_seed_blocked_when_high_risk_locked(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    api.app.state.pm.parent_seed = "seed"
+    api.app.state.pm.current_fingerprint = "ABC123"
+    api.app.state.pm.encryption_manager = SimpleNamespace(
+        encrypt_and_save_file=lambda data, path: None,
+        resolve_relative_path=lambda p: p,
+    )
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(isolation_core, "APP_DIR", tmp_path)
+    isolation_core.set_high_risk_factor("factor-xyz")
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps(
+            {"secret_isolation": {"enabled": True, "high_risk_kinds": ["seed"]}}
+        ),
+        encoding="utf-8",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+    }
+    res = await cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": "seed.enc", "confirm": True},
+        headers=headers,
+    )
+    assert res.status_code == 403
+    assert res.json()["detail"] == "policy_deny:high_risk_locked"
+
+
+@pytest.mark.anyio
+async def test_backup_parent_seed_requires_approval_when_agent_profile(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    api.app.state.pm.parent_seed = "seed"
+    api.app.state.pm.encryption_manager = SimpleNamespace(
+        encrypt_and_save_file=lambda data, path: None,
+        resolve_relative_path=lambda p: p,
+    )
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"approvals": {"require_for": ["reveal_parent_seed"]}}),
+        encoding="utf-8",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+    }
+    res = await cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": "seed.enc", "confirm": True},
+        headers=headers,
+    )
+    assert res.status_code == 403
+    assert res.json()["detail"] == "policy_deny:approval_required"
+
+
+@pytest.mark.anyio
+async def test_backup_parent_seed_allows_with_approval_when_agent_profile(
+    client, tmp_path, monkeypatch
+):
+    cl, token = client
+    api.app.state.pm.parent_seed = "seed"
+    called = {}
+    api.app.state.pm.encryption_manager = SimpleNamespace(
+        encrypt_and_save_file=lambda data, path: called.setdefault("path", path),
+        resolve_relative_path=lambda p: p,
+    )
+    monkeypatch.setattr(export_policy, "APP_DIR", tmp_path)
+    monkeypatch.setattr(approval_core, "APP_DIR", tmp_path)
+    (tmp_path / "agent_policy.json").write_text(
+        json.dumps({"approvals": {"require_for": ["reveal_parent_seed"]}}),
+        encoding="utf-8",
+    )
+    approval = approval_core.issue_approval(
+        action="reveal_parent_seed",
+        ttl_seconds=300,
+        uses=1,
+        resource="vault:parent-seed",
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SeedPass-Password": "pw",
+        "X-SeedPass-Agent-Profile": "true",
+        "X-SeedPass-Approval-Id": approval["id"],
+    }
+    res = await cl.post(
+        "/api/v1/vault/backup-parent-seed",
+        json={"path": "seed.enc", "confirm": True},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"status": "saved", "path": "seed.enc"}
+    assert str(called["path"]) == "seed.enc"
 
 
 @pytest.mark.anyio

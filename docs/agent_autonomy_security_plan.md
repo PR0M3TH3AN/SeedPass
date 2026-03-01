@@ -11,6 +11,12 @@ Implement a staged security architecture that enables autonomous agents to use S
 - Phase C: Operations
   Add posture tooling, rotation workflows, recovery hardening, and conflict-safe sync semantics.
 
+## Implementation Snapshot (2026-03-01)
+
+- Implemented: 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+- In Progress: 2 (continuing enforcement-depth hardening and broad validation across all operation paths)
+- Tracking source of truth: `docs/security_readiness_checklist.md` (Agent Autonomy Control Track section)
+
 ## 1. Native Non-Interactive Auth Brokers
 - Problem:
   Agent auth depends heavily on env vars and manual password flow.

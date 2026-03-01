@@ -34,6 +34,7 @@
             <ul class="nav-links">
                 <li><a href="#intro" class="nav-btn">[ HOME ]</a></li>
                 <li><a href="#features" class="nav-btn">[ FEATURES ]</a></li>
+                <li><a href="#agents" class="nav-btn">[ FOR AGENTS ]</a></li>
                 <li><a href="#architecture" class="nav-btn">[ ARCHITECTURE ]</a></li>
                 <li><a href="./docs.html" class="nav-btn">[ DOCS ]</a></li>
             </ul>
@@ -120,6 +121,53 @@
                             <i class="fas fa-user-secret"></i>
                             <h3>Secret Mode</h3>
                             <p>Copy to clipboard directly, clearing automatically after delay.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- For Agents Section -->
+                <section id="agents" class="ascii-box mt-2">
+                    <h2 class="section-title"><span class="accent">#</span> For_Agents</h2>
+                    <p class="muted">Machine-readable discovery, non-interactive auth, scoped access, and audit-first automation.</p>
+
+                    <div class="agent-quickstart">
+                        <span class="comment"># Bootstrap context before autonomous execution</span>
+                        <div class="cmd-prompt">
+                            <span class="prompt-symbol">❯</span>
+                            <code class="install-cmd">seedpass capabilities --format json && seedpass agent bootstrap-context</code>
+                        </div>
+                    </div>
+
+                    <div class="grid-features agent-grid">
+                        <div class="feature-item">
+                            <i class="fas fa-user-shield"></i>
+                            <h3>Brokered Auth</h3>
+                            <p>Use <code>keyring</code> or <code>command</code> brokers for non-interactive unlock without plaintext env secrets.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-scale-balanced"></i>
+                            <h3>Policy as Code</h3>
+                            <p>Lint, review, and apply policy files with deterministic output and risk-gated changes.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-id-badge"></i>
+                            <h3>Scoped Identity & Tokens</h3>
+                            <p>Issue revocable TTL-bound tokens tied to agent identities, kinds, scopes, and use limits.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-mask"></i>
+                            <h3>Safe Output & Leases</h3>
+                            <p>Default redaction plus one-time or N-use secret leases for reduced exposure in logs and pipelines.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-person-circle-check"></i>
+                            <h3>Approval + Isolation</h3>
+                            <p>Step-up approvals and separate high-risk unlock factors for seed/SSH/PGP/Nostr retrieval paths.</p>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-clipboard-check"></i>
+                            <h3>Audit, Posture, Recovery</h3>
+                            <p>Chained audit logs, posture checks/remediation, Shamir split-drills, and deterministic export validation.</p>
                         </div>
                     </div>
                 </section>
