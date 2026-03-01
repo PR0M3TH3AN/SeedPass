@@ -52,10 +52,10 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 ### Phase 2: Core editing workflows
 - [x] Archive/restore action + document modify flow.
 - [x] Document editor panel with dirty-state and save/cancel.
-- [ ] Keybindings + command palette.
+- [x] Keybindings + command palette.
 
 ### Phase 3: Graph workflows
-- [ ] Entry links panel (list, add, remove).
+- [x] Entry links panel (list, add, remove).
 - [ ] Relation-aware search controls.
 - [ ] Neighbor navigation and quick traversal.
 

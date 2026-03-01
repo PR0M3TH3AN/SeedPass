@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shlex
 from typing import Any
 
 
@@ -50,6 +51,11 @@ def launch_tui2(
 
     class SeedPassTuiV2(App[None]):
         CSS = """
+        #command-palette {
+            height: 3;
+            margin: 0 1;
+            border: solid $secondary;
+        }
         #body { height: 1fr; }
         #status { height: 1; padding: 0 1; }
         #left { width: 30; border: solid $primary; padding: 1; }
@@ -57,7 +63,19 @@ def launch_tui2(
         #right { width: 1fr; border: solid $primary; padding: 1; }
         #search { margin-bottom: 1; }
         #entry-list { height: 1fr; }
-        #entry-detail { height: 1fr; overflow: auto; }
+        #entry-detail {
+            height: 1fr;
+            overflow: auto;
+            border: solid $boost;
+            padding: 1;
+        }
+        #link-detail {
+            height: 12;
+            overflow: auto;
+            border: solid $accent;
+            padding: 1;
+            margin-top: 1;
+        }
         #right-view { height: 1fr; }
         #right-editor { height: 1fr; }
         #doc-edit-label { margin-bottom: 1; }
@@ -76,14 +94,26 @@ def launch_tui2(
             ("a", "toggle_archive", "Archive/Restore"),
             ("e", "edit_document", "Edit Document"),
             ("ctrl+s", "save_document", "Save"),
+            ("ctrl+p", "open_palette", "Palette"),
             ("escape", "cancel_document_edit", "Cancel"),
         ]
 
         filter_kind: reactive[str] = reactive("all")
         editing_document: reactive[bool] = reactive(False)
+        palette_open: reactive[bool] = reactive(False)
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
+            yield Input(
+                placeholder=(
+                    "Command palette: help | open <id> | search <q> | "
+                    "filter <kind> | archive | restore | "
+                    "link-add <target> [relation] [note] | "
+                    "link-rm <target> [relation]"
+                ),
+                id="command-palette",
+                classes="hidden",
+            )
             with Horizontal(id="body"):
                 with Vertical(id="left"):
                     yield Static("", id="filters")
@@ -95,6 +125,7 @@ def launch_tui2(
                 with Vertical(id="right"):
                     with Vertical(id="right-view"):
                         yield Static("", id="entry-detail")
+                        yield Static("", id="link-detail")
                     with Vertical(id="right-editor", classes="hidden"):
                         yield Input(placeholder="Document title", id="doc-edit-label")
                         yield Input(
@@ -153,7 +184,7 @@ def launch_tui2(
             )
             text = "\n".join(
                 [
-                    "TUI v2 (Phase 2)",
+                    "TUI v2 (Phase 2/3)",
                     fp_line,
                     "",
                     f"Active filter: {self.filter_kind}",
@@ -167,7 +198,8 @@ def launch_tui2(
                     "- a archive/restore",
                     "- e edit document",
                     "- Ctrl+S save doc",
-                    "- Esc cancel edit",
+                    "- Ctrl+P command palette",
+                    "- Esc cancel/close",
                 ]
             )
             self.query_one("#filters", Static).update(text)
@@ -187,6 +219,7 @@ def launch_tui2(
                 self.query_one("#entry-detail", Static).update(
                     "Entry service unavailable in this runtime."
                 )
+                self.query_one("#link-detail", Static).update("Links unavailable.")
                 return
 
             try:
@@ -197,6 +230,7 @@ def launch_tui2(
                 self.query_one("#entry-detail", Static).update(
                     f"Failed to load entries: {exc}"
                 )
+                self.query_one("#link-detail", Static).update("Links unavailable.")
                 self._set_status("Failed to load entries")
                 return
 
@@ -213,6 +247,9 @@ def launch_tui2(
                 self._selected_entry_id = None
                 self._selected_entry = None
                 self.query_one("#entry-detail", Static).update("No entries match.")
+                self.query_one("#link-detail", Static).update(
+                    "Links: select an entry first."
+                )
                 self._set_status("No entries match current filter/search")
             else:
                 if list_view.children:
@@ -227,18 +264,62 @@ def launch_tui2(
                 entry = self._service.retrieve_entry(entry_index)
                 if not isinstance(entry, dict):
                     self.query_one("#entry-detail", Static).update("Entry not found.")
+                    self.query_one("#link-detail", Static).update(
+                        "Links: entry not found."
+                    )
                     self._set_status(f"Entry {entry_index} not found")
                     return
                 self._selected_entry_id = int(entry_index)
                 self._selected_entry = dict(entry)
                 body = json.dumps(entry, indent=2, sort_keys=True)
                 self.query_one("#entry-detail", Static).update(body)
+                self._update_links_panel()
                 self._set_status(f"Selected entry {entry_index}")
             except Exception as exc:
                 self.query_one("#entry-detail", Static).update(
                     f"Failed to load entry {entry_index}: {exc}"
                 )
+                self.query_one("#link-detail", Static).update("Links unavailable.")
                 self._set_status(f"Failed to load entry {entry_index}")
+
+        def _update_links_panel(self) -> None:
+            if self._service is None or self._selected_entry_id is None:
+                self.query_one("#link-detail", Static).update(
+                    "Links: select an entry first."
+                )
+                return
+            try:
+                links = self._service.get_links(self._selected_entry_id)
+            except Exception as exc:
+                self.query_one("#link-detail", Static).update(
+                    f"Links unavailable: {exc}"
+                )
+                return
+
+            if not links:
+                self.query_one("#link-detail", Static).update(
+                    "Links\n\nNo graph links for this entry.\n"
+                    "Use Ctrl+P and run: link-add <target_id> [relation] [note]"
+                )
+                return
+
+            lines = [
+                "Links",
+                "",
+                "Format: relation -> target_id (note)",
+                "",
+            ]
+            for link in links:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                relation = link.get("relation", "related_to")
+                note = str(link.get("note", "")).strip()
+                if note:
+                    lines.append(f"- {relation} -> {target} ({note})")
+                else:
+                    lines.append(f"- {relation} -> {target}")
+            self.query_one("#link-detail", Static).update("\n".join(lines))
 
         def _is_selected_document(self) -> bool:
             if not isinstance(self._selected_entry, dict):
@@ -259,6 +340,16 @@ def launch_tui2(
                 view.remove_class("hidden")
             self.editing_document = visible
 
+        def _set_palette_visible(self, visible: bool) -> None:
+            palette = self.query_one("#command-palette", Input)
+            if visible:
+                palette.remove_class("hidden")
+                palette.focus()
+            else:
+                palette.value = ""
+                palette.add_class("hidden")
+            self.palette_open = visible
+
         def _get_document_editor_text(self) -> str:
             if TextArea is not None:
                 area = self.query_one("#doc-edit-content")
@@ -275,12 +366,166 @@ def launch_tui2(
                 return
             self.query_one("#doc-edit-content-single", Input).value = content
 
+        def _run_palette_command(self, command: str) -> None:
+            raw = command.strip()
+            if not raw:
+                self._set_status("Palette: command required")
+                return
+            try:
+                parts = shlex.split(raw)
+            except ValueError as exc:
+                self._set_status(f"Palette parse error: {exc}")
+                return
+            if not parts:
+                self._set_status("Palette: command required")
+                return
+
+            cmd = parts[0].lower()
+            args = parts[1:]
+
+            if cmd == "help":
+                self._set_status(
+                    "Palette commands: help, open, search, filter, archive, "
+                    "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm"
+                )
+                return
+
+            if cmd == "open":
+                if len(args) != 1:
+                    self._set_status("Usage: open <entry_id>")
+                    return
+                try:
+                    entry_id = int(args[0])
+                except ValueError:
+                    self._set_status("open requires integer entry_id")
+                    return
+                self._show_entry(entry_id)
+                return
+
+            if cmd == "search":
+                query = " ".join(args)
+                self.query_one("#search", Input).value = query
+                self._load_entries(query=query)
+                self._set_status(f"Applied search: {query}")
+                return
+
+            if cmd == "filter":
+                if len(args) != 1:
+                    self._set_status("Usage: filter <kind|all>")
+                    return
+                self.filter_kind = args[0].strip().lower()
+                self._update_filters_panel()
+                self._load_entries(query=self._last_query)
+                self._set_status(f"Applied filter: {self.filter_kind}")
+                return
+
+            if cmd in ("archive", "restore"):
+                if self._service is None or self._selected_entry_id is None:
+                    self._set_status("No entry selected")
+                    return
+                try:
+                    if cmd == "archive":
+                        self._service.archive_entry(self._selected_entry_id)
+                        action = "archived"
+                    else:
+                        self._service.restore_entry(self._selected_entry_id)
+                        action = "restored"
+                    current_id = self._selected_entry_id
+                    self._load_entries(self._last_query)
+                    if current_id in self._entry_ids_in_view:
+                        self._show_entry(current_id)
+                    self._set_status(f"Entry {current_id} {action}")
+                except Exception as exc:
+                    self._set_status(f"{cmd} failed: {exc}")
+                return
+
+            if cmd == "edit-doc":
+                self.action_edit_document()
+                return
+
+            if cmd == "save-doc":
+                self.action_save_document()
+                return
+
+            if cmd == "cancel-edit":
+                self.action_cancel_document_edit()
+                return
+
+            if cmd == "link-add":
+                if self._service is None or self._selected_entry_id is None:
+                    self._set_status("No source entry selected")
+                    return
+                if len(args) < 1:
+                    self._set_status(
+                        "Usage: link-add <target_id> [relation] [note text]"
+                    )
+                    return
+                try:
+                    target = int(args[0])
+                except ValueError:
+                    self._set_status("link-add target_id must be an integer")
+                    return
+                relation = args[1] if len(args) >= 2 else "related_to"
+                note = " ".join(args[2:]) if len(args) >= 3 else ""
+                try:
+                    self._service.add_link(
+                        self._selected_entry_id,
+                        target,
+                        relation=relation,
+                        note=note,
+                    )
+                    self._update_links_panel()
+                    self._set_status(
+                        f"Link added: {self._selected_entry_id} {relation} {target}"
+                    )
+                except Exception as exc:
+                    self._set_status(f"link-add failed: {exc}")
+                return
+
+            if cmd == "link-rm":
+                if self._service is None or self._selected_entry_id is None:
+                    self._set_status("No source entry selected")
+                    return
+                if len(args) < 1:
+                    self._set_status("Usage: link-rm <target_id> [relation]")
+                    return
+                try:
+                    target = int(args[0])
+                except ValueError:
+                    self._set_status("link-rm target_id must be an integer")
+                    return
+                relation = args[1] if len(args) >= 2 else None
+                try:
+                    self._service.remove_link(
+                        self._selected_entry_id,
+                        target,
+                        relation=relation,
+                    )
+                    self._update_links_panel()
+                    self._set_status(
+                        f"Link removed: {self._selected_entry_id} -> {target}"
+                    )
+                except Exception as exc:
+                    self._set_status(f"link-rm failed: {exc}")
+                return
+
+            if cmd == "refresh":
+                self.action_refresh()
+                return
+
+            self._set_status(f"Unknown command: {cmd}")
+
         def action_refresh(self) -> None:
             search = self.query_one("#search", Input).value
             self._update_filters_panel()
             self._load_entries(query=search)
 
         def action_focus_search(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before searching")
+                return
+            if self.palette_open:
+                self._set_palette_visible(False)
             self.query_one("#search", Input).focus()
 
         def action_cycle_filter(self) -> None:
@@ -299,6 +544,16 @@ def launch_tui2(
             idx = order.index(self.filter_kind) if self.filter_kind in order else 0
             self.filter_kind = order[(idx + 1) % len(order)]
             self.action_refresh()
+
+        def action_open_palette(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before opening palette")
+                return
+            self._set_palette_visible(not self.palette_open)
+            if self.palette_open:
+                self._set_status("Palette opened")
+            else:
+                self._set_status("Palette closed")
 
         def action_toggle_archive(self) -> None:
             if self._service is None or self._selected_entry_id is None:
@@ -390,6 +645,10 @@ def launch_tui2(
                 self._set_status(f"Failed to save document: {exc}")
 
         def action_cancel_document_edit(self) -> None:
+            if self.palette_open:
+                self._set_palette_visible(False)
+                self._set_status("Palette closed")
+                return
             if not self.editing_document:
                 return
             self._set_document_editor_visible(False)
@@ -401,6 +660,11 @@ def launch_tui2(
                     self._set_status("Finish document edit before searching")
                     return
                 self._load_entries(query=event.value.strip())
+                return
+            if event.input.id == "command-palette":
+                command = event.value
+                self._set_palette_visible(False)
+                self._run_palette_command(command)
 
         def on_list_view_selected(self, event: ListView.Selected) -> None:
             if self.editing_document:

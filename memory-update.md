@@ -180,3 +180,5 @@
 - Added focused CLI tests in `src/tests/test_typer_cli.py` for `tui2 --check`, unavailable + no fallback exit path, and legacy fallback fingerprint forwarding.
 - 2026-03-01: TUI v2 phase 2 slice added in `seedpass/tui_v2/app.py`: archive/restore action (`a`), document editor mode (`e`) with save/cancel (`Ctrl+S`/`Esc`), and a persistent status line for operation feedback.
 - Document editor uses `TextArea` when available and falls back to single-line input if unavailable, keeping runtime compatibility across Textual versions.
+- 2026-03-01: TUI v2 gained `Ctrl+P` command palette with command parsing (`help`, `open`, `search`, `filter`, `archive/restore`, `edit-doc/save-doc/cancel-edit`, `link-add`, `link-rm`, `refresh`).
+- Added a graph links panel in the right view that renders current entry links via `EntryService.get_links` and updates after palette link mutations.
