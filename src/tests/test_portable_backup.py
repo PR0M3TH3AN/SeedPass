@@ -88,7 +88,9 @@ def test_corruption_detection(monkeypatch):
         content["payload"] = base64.b64encode(payload).decode()
         path.write_text(json.dumps(content))
 
-        def _fast_legacy_key(password: str, iterations: int = 100_000, salt: bytes = b"") -> bytes:
+        def _fast_legacy_key(
+            password: str, iterations: int = 100_000, salt: bytes = b""
+        ) -> bytes:
             return base64.urlsafe_b64encode(b"0" * 32)
 
         monkeypatch.setattr(

@@ -12,7 +12,9 @@ import seedpass.core.encryption as enc_module
 def test_legacy_password_only_fallback(monkeypatch, tmp_path, caplog):
     calls: list[int] = []
 
-    def _fast_legacy_key(password: str, iterations: int = 100_000, salt: bytes = b"") -> bytes:
+    def _fast_legacy_key(
+        password: str, iterations: int = 100_000, salt: bytes = b""
+    ) -> bytes:
         calls.append(iterations)
         normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
         key = hashlib.pbkdf2_hmac("sha256", normalized, salt, 1, dklen=32)
