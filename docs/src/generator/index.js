@@ -1,4 +1,4 @@
-// Generator entry point for Archivox
+// Generator entry point for SeedPass docs
 const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
@@ -213,7 +213,7 @@ async function generate({ contentDir = 'content', outputDir = '_site', configPat
   }
 
   // Copy the main assets directory (theme, js, etc.)
-  // Always resolve assets relative to the Archivox package so it works
+  // Always resolve assets relative to the docs package so it works
   // regardless of the current working directory or config location.
   const mainAssetsSrc = path.resolve(__dirname, '../../assets');
   const mainAssetsDest = path.join(outputDir, 'assets');

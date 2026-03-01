@@ -23,6 +23,7 @@ This directory contains SeedPass project documentation.
 - `SPEC.md`
 - `entry_types.md`
 - `entry_graph.md`
+- `tui_v2_plan.md`
 - `security.md`
 - `nostr_setup.md`
 - `nostr_namespace_reset.md`

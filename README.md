@@ -108,6 +108,7 @@ For machine-readable discovery, run:
 ```bash
 seedpass capabilities --format json
 seedpass agent bootstrap-context
+seedpass tui2 --check
 ```
 
 ## Architecture Overview

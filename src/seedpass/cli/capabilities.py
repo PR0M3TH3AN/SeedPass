@@ -17,6 +17,7 @@ def build_capabilities() -> dict[str, Any]:
                 "root_commands": [
                     "lock",
                     "gui",
+                    "tui2",
                     "capabilities",
                     "entry",
                     "vault",
@@ -239,6 +240,7 @@ def build_capabilities() -> dict[str, Any]:
             "Run `seedpass --help` for top-level commands.",
             "Run `seedpass <group> --help` for detailed options.",
             "Use `seedpass capabilities --format json` for machine-readable discovery.",
+            "Run `seedpass tui2 --check` before adopting Textual-based TUI v2.",
             "For graph workflows, start with `seedpass entry link-add --help` and `seedpass entry links --help`.",
             "For document workflows, run `seedpass entry import-document --help` and `seedpass agent document-import --help`.",
             "After unlock/login, run `seedpass capabilities` before autonomous runs.",

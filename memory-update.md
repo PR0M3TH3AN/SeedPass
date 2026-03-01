@@ -162,3 +162,17 @@
 - Verification:
   - `.venv/bin/pytest -q src/tests/test_typer_cli.py -k "capabilities_text or capabilities_json" src/tests/test_cli_agent_mode.py -k "bootstrap_context"`
   - Result: `2 passed`.
+
+## TUI v2 scaffold kickoff on beta
+- Added `docs/tui_v2_plan.md` with phased migration plan, risk controls, and testing strategy for Textual-based TUI v2.
+- Added experimental CLI command `seedpass tui2` and diagnostics mode `seedpass tui2 --check`.
+- Added new runtime-check/launcher scaffold package at `src/seedpass/tui_v2/`.
+- Updated discoverability/docs surfaces:
+  - `docs/README.md` includes `tui_v2_plan.md`
+  - `landing/docs.html` includes `TUI v2 Plan`
+  - `README.md` discovery snippet includes `seedpass tui2 --check`
+  - `capabilities` root commands/help hints include `tui2`
+- Validation:
+  - `py_compile` for updated modules
+  - `pytest` capabilities tests (`2 passed`)
+  - `.venv` smoke run confirms `seedpass tui2 --check` emits runtime diagnostics.
