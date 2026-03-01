@@ -82,6 +82,20 @@ def _gui_backend_available() -> bool:
     return False
 
 
+def _prime_tui2_service(
+    ctx: typer.Context,
+) -> tuple[Optional[object], Optional[Exception]]:
+    """Initialize entry service before Textual mounts.
+
+    PasswordManager initialization may prompt for credentials. Doing that before
+    entering Textual prevents hidden prompt stalls that appear as a blank screen.
+    """
+    try:
+        return _get_entry_service(ctx), None
+    except Exception as exc:  # pragma: no cover - defensive runtime path
+        return None, exc
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -107,9 +121,18 @@ def main(
             tui = importlib.import_module("main")
             raise typer.Exit(tui.main(fingerprint=fingerprint))
 
+        service, preflight_error = _prime_tui2_service(ctx)
+        if preflight_error is not None:
+            typer.echo(
+                "TUI v2 preflight failed; falling back to legacy TUI. "
+                f"Details: {preflight_error}"
+            )
+            tui = importlib.import_module("main")
+            raise typer.Exit(tui.main(fingerprint=fingerprint))
+
         launched = launch_tui2(
             fingerprint=fingerprint,
-            entry_service_factory=lambda: _get_entry_service(ctx),
+            entry_service_factory=lambda: service,
         )
         if launched:
             return
@@ -150,9 +173,24 @@ def tui2(
         return
 
     fingerprint = (ctx.obj or {}).get("fingerprint")
+    service, preflight_error = _prime_tui2_service(ctx)
+    if preflight_error is not None:
+        if fallback_legacy:
+            typer.echo(
+                "TUI v2 preflight failed; falling back to legacy TUI. "
+                f"Details: {preflight_error}"
+            )
+            tui = importlib.import_module("main")
+            raise typer.Exit(tui.main(fingerprint=fingerprint))
+        typer.echo(
+            f"TUI v2 preflight failed: {preflight_error}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     launched = launch_tui2(
         fingerprint=fingerprint,
-        entry_service_factory=lambda: _get_entry_service(ctx),
+        entry_service_factory=lambda: service,
     )
     if launched:
         return

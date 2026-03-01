@@ -981,6 +981,7 @@ def test_root_tui2_forward_fingerprint(monkeypatch):
         called["factory"] = kwargs.get("entry_service_factory")
         return True
 
+    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", fake_launch)
     result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 0
@@ -1019,6 +1020,7 @@ def test_tui2_check(monkeypatch):
 
 
 def test_tui2_unavailable_without_fallback(monkeypatch):
+    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
     result = runner.invoke(app, ["tui2", "--no-fallback-legacy"])
     assert result.exit_code == 1
@@ -1027,6 +1029,7 @@ def test_tui2_unavailable_without_fallback(monkeypatch):
 
 def test_tui2_fallback_legacy(monkeypatch):
     called = {}
+    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
 
     def fake_main(*, fingerprint=None):
@@ -1046,6 +1049,7 @@ def test_tui2_fallback_legacy(monkeypatch):
 
 def test_root_fallback_legacy_when_tui2_unavailable(monkeypatch):
     called = {}
+    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
 
     def fake_main(*, fingerprint=None):
@@ -1061,6 +1065,17 @@ def test_root_fallback_legacy_when_tui2_unavailable(monkeypatch):
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
     assert "falling back to legacy TUI" in result.stdout
+
+
+def test_tui2_preflight_failure_without_fallback(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "_get_entry_service",
+        lambda _ctx: (_ for _ in ()).throw(RuntimeError("unlock failed")),
+    )
+    result = runner.invoke(app, ["tui2", "--no-fallback-legacy"])
+    assert result.exit_code == 1
+    assert "preflight failed" in result.stderr.lower()
 
 
 def test_gui_command(monkeypatch):

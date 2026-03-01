@@ -240,3 +240,12 @@
 - Harness validation results:
   - `scripts/ai_tui2_agent_test.py --scenario extended`: passed
   - `scripts/ai_tui_agent_test.py --scenario core`: passed
+
+## 2026-03-01 Installer + TUI v2 preflight fix (gray-screen mitigation)
+- Root cause found for "blank/gray screen" reports: TUI v2 was initializing `PasswordManager` inside Textual mount via `entry_service_factory`, so password/setup prompts could occur behind the Textual screen and appear as a frozen UI.
+- Updated `src/seedpass/cli/__init__.py` to pre-initialize entry service before launching Textual (`_prime_tui2_service`), then pass the ready service into `launch_tui2`.
+- Added explicit fallback/error behavior:
+  - default `seedpass`: preflight failures now fall back to legacy TUI with details.
+  - `seedpass tui2 --no-fallback-legacy`: preflight failures now return exit code 1 with a clear error.
+- Updated installer `scripts/install.sh` to run `seedpass tui2 --check` after install and warn when Textual runtime is unavailable, plus print a legacy fallback hint for users seeing blank/gray startup.
+- Added regression coverage in `src/tests/test_typer_cli.py` for preflight behavior and adapted existing TUI launch tests to mock preflight service creation.
