@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 
 from seedpass.core.manager import PasswordManager
 from seedpass.core import manager as manager_module
@@ -56,3 +57,16 @@ def test_start_background_vault_sync_async_worker_path(monkeypatch):
 
     assert ("sync_started",) in events
     assert ("sync_finished", {"alt_summary": "async-path"}) in events
+
+
+def test_sync_vault_async_sets_offline_error():
+    pm = PasswordManager.__new__(PasswordManager)
+    pm.offline_mode = True
+    pm.nostr_client = SimpleNamespace(last_error=None)
+
+    result = asyncio.run(pm.sync_vault_async())
+
+    assert result is None
+    assert pm.nostr_client.last_error == (
+        "Offline mode is enabled. Disable it in Settings to sync."
+    )

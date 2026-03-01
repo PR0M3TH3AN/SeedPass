@@ -25,3 +25,15 @@
 - Added `docs/nostr_namespace_reset.md` documenting menu options `8` (reset sync state) and `9` (start fresh namespace), plus validation steps for robust publish/restore.
 - Linked the new guide from `docs/nostr_setup.md`, `docs/README.md`, and root `README.md`.
 - Exposed the guide in website docs navigation via `landing/docs.html` (`Nostr Namespace Reset`).
+
+## Nostr sync failure after namespace increment
+- Root-cause pattern: when profile `offline_mode` is enabled, `sync_vault_async()` exits early and previously returned `None` without a helpful message, so UI showed only `❌ Sync failed…`.
+- Fixes:
+  - `PasswordManager.sync_vault_async()` now sets `nostr_client.last_error` for early-return cases (`offline_mode`, missing encrypted index, and missing publish result).
+  - `main.handle_post_to_nostr()` now explicitly reports offline mode when no detailed error is present.
+- Regression tests added:
+  - `src/tests/test_post_sync_messages.py::test_handle_post_failure_offline_mode_message`
+  - `src/tests/test_background_vault_sync_paths.py::test_sync_vault_async_sets_offline_error`
+- Verified with local venv:
+  - `./.venv/bin/pytest -q src/tests/test_post_sync_messages.py`
+  - `./.venv/bin/pytest -q src/tests/test_background_vault_sync_paths.py`

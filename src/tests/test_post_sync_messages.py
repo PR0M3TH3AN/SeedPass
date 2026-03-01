@@ -41,6 +41,16 @@ def test_handle_post_failure_shows_nostr_error(capsys):
     assert "❌ Sync failed… Manifest out of date" in out
 
 
+def test_handle_post_failure_offline_mode_message(capsys):
+    pm = SimpleNamespace(
+        sync_vault=lambda alt_summary=None: None,
+        offline_mode=True,
+    )
+    main.handle_post_to_nostr(pm)
+    out = capsys.readouterr().out
+    assert "Offline mode is enabled. Disable it in Settings to sync." in out
+
+
 def test_handle_post_prints_all_ids(capsys):
     pm = SimpleNamespace(
         sync_vault=lambda alt_summary=None: {

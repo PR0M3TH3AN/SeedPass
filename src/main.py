@@ -431,6 +431,10 @@ def handle_post_to_nostr(
             if detail:
                 print(colored(f"\N{CROSS MARK} Sync failed… {detail}", "red"))
                 logging.error("Failed to post encrypted index to Nostr: %s", detail)
+            elif getattr(password_manager, "offline_mode", False):
+                detail = "Offline mode is enabled. Disable it in Settings to sync."
+                print(colored(f"\N{CROSS MARK} Sync failed… {detail}", "red"))
+                logging.error("Failed to post encrypted index to Nostr: %s", detail)
             else:
                 print(colored("\N{CROSS MARK} Sync failed…", "red"))
                 logging.error("Failed to post encrypted index to Nostr.")

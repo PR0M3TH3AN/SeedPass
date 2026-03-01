@@ -3930,11 +3930,20 @@ class PasswordManager:
     ) -> dict[str, list[str] | str] | None:
         """Publish the current vault contents to Nostr and return event IDs."""
         try:
+            client = getattr(self, "nostr_client", None)
             if getattr(self, "offline_mode", False):
+                if client is not None and hasattr(client, "last_error"):
+                    client.last_error = (
+                        "Offline mode is enabled. Disable it in Settings to sync."
+                    )
                 return None
             encrypted = self.get_encrypted_data()
             if not encrypted:
+                if client is not None and hasattr(client, "last_error"):
+                    client.last_error = "No encrypted index data available to sync."
                 return None
+            if client is not None and hasattr(client, "last_error"):
+                client.last_error = None
             pub_snap = getattr(self.nostr_client, "publish_snapshot", None)
             manifest = None
             event_id = None
@@ -3948,6 +3957,14 @@ class PasswordManager:
                 event_id = await self.nostr_client.publish_json_to_nostr(encrypted)
             self.is_dirty = False
             if event_id is None:
+                if (
+                    client is not None
+                    and hasattr(client, "last_error")
+                    and not client.last_error
+                ):
+                    client.last_error = (
+                        "Failed to publish encrypted index to configured relays."
+                    )
                 return None
             chunk_ids: list[str] = []
             if manifest is not None:
