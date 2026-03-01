@@ -40,11 +40,9 @@ def test_nostr_sdk_send_receive(tmp_path):
     thread = threading.Thread(target=run_relay, args=(relay,), daemon=True)
     thread.start()
 
-
     seed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     fingerprint = "test"
     km = KeyManager(seed, fingerprint)
-
 
     # Wait for the relay to be ready
     ws = None
