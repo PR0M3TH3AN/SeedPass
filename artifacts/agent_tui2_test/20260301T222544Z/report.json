@@ -1,0 +1,32 @@
+{
+  "timestamp_utc": "20260301T222545Z",
+  "scenario": "extended",
+  "status": "failed",
+  "failure": "restore: expected 'restored' in '[VIEW | RIGHT] Entry 1 archived'",
+  "duration_sec": 0.669,
+  "coverage_points": {
+    "startup": true,
+    "search": true,
+    "document_edit": true,
+    "graph_navigation": true,
+    "archive_restore": false,
+    "palette_navigation": false,
+    "help_overlay": false
+  },
+  "steps": [
+    {
+      "step_id": "extended",
+      "description": "Drive extended TUI v2 user/agent workflow.",
+      "status": "failed",
+      "duration_sec": 0.6685328660005325,
+      "detail": "restore: expected 'restored' in '[VIEW | RIGHT] Entry 1 archived'"
+    }
+  ],
+  "activity_log": [
+    "Opened linked entry 2",
+    "Selected entry 1",
+    "Entry 2 archived",
+    "Selected entry 1",
+    "Entry 1 archived"
+  ]
+}
