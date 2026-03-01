@@ -45,5 +45,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 
 - [ ] Define and run deterministic parity scenarios across entry kinds.
 - [ ] Add Textual interaction tests for list/search/edit/link/pagination flows.
+- [x] Add non-UI unit tests for TUI v2 helper logic.
+  - `src/tests/test_tui_v2_helpers.py` covers command parsing, pagination, and detail truncation.
 - [ ] Verify large vault behavior with realistic data volume in CI-like environment.
 - [ ] Confirm help text and docs match shipped keybindings and palette commands.

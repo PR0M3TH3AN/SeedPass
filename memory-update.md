@@ -190,3 +190,5 @@
 - Recovery hints are now included in status messages (for example, "Press 'x' to retry") and Phase 4 docs mark error/recovery flow work complete.
 - 2026-03-01: Added `docs/tui_v2_cutover_decision.md` with explicit recommendation to keep legacy default for next release, required cutover gates, staged rollout, and rollback plan for switching `seedpass` default to TUI v2.
 - Updated phase tracking docs to mark the cutover timing decision item complete and linked the memo in docs indexes.
+- 2026-03-01: Began cutover-gate automation by extracting testable TUI v2 helpers (`parse_palette_command`, `pagination_window`, `truncate_entry_for_display`) from `tui_v2/app.py`.
+- Added `src/tests/test_tui_v2_helpers.py` with coverage for palette parsing edge cases, pagination normalization, and large-vault pagination smoke sizes up to 50k rows.

@@ -21,6 +21,54 @@ def check_tui2_runtime() -> dict[str, Any]:
     }
 
 
+def parse_palette_command(command: str) -> tuple[str, list[str]]:
+    """Parse a palette command into ``(cmd, args)``."""
+    raw = command.strip()
+    if not raw:
+        raise ValueError("Palette: command required")
+    try:
+        parts = shlex.split(raw)
+    except ValueError as exc:
+        raise ValueError(f"Palette parse error: {exc}") from exc
+    if not parts:
+        raise ValueError("Palette: command required")
+    return parts[0].lower(), parts[1:]
+
+
+def pagination_window(
+    total_rows: int, page_size: int, page_index: int
+) -> tuple[int, int, int, int]:
+    """Return normalized pagination tuple.
+
+    Returns ``(normalized_page_index, start, end, total_pages)``.
+    """
+    if page_size <= 0:
+        raise ValueError("page_size must be > 0")
+    total = max(0, int(total_rows))
+    total_pages = 1 if total == 0 else (total + page_size - 1) // page_size
+    page = min(max(0, int(page_index)), total_pages - 1)
+    start = page * page_size
+    end = min(total, start + page_size)
+    return page, start, end, total_pages
+
+
+def truncate_entry_for_display(
+    entry: dict[str, Any], content_limit: int
+) -> dict[str, Any]:
+    """Return an entry payload suitable for responsive display in TUI details."""
+    payload = dict(entry)
+    content = payload.get("content")
+    if content_limit <= 0:
+        return payload
+    if isinstance(content, str) and len(content) > content_limit:
+        head = content[:content_limit]
+        payload["content"] = (
+            f"{head}\n\n...[truncated {len(content) - len(head)} chars]"
+        )
+        payload["content_truncated"] = True
+    return payload
+
+
 def launch_tui2(
     *,
     fingerprint: str | None = None,
@@ -278,10 +326,10 @@ def launch_tui2(
             return f"{idx:>4}  {etype:<15}  {label}{arch}"
 
         def _total_pages(self) -> int:
-            total = len(self._all_results)
-            if total <= 0:
-                return 1
-            return (total + self.RESULT_PAGE_SIZE - 1) // self.RESULT_PAGE_SIZE
+            _page, _start, _end, total_pages = pagination_window(
+                len(self._all_results), self.RESULT_PAGE_SIZE, self._result_page
+            )
+            return total_pages
 
         def _render_current_page(self, *, preserve_selected: bool = True) -> None:
             self._entry_ids_in_view = []
@@ -301,14 +349,9 @@ def launch_tui2(
                 self._update_filters_panel()
                 return
 
-            max_page = max(0, self._total_pages() - 1)
-            if self._result_page > max_page:
-                self._result_page = max_page
-            if self._result_page < 0:
-                self._result_page = 0
-
-            start = self._result_page * self.RESULT_PAGE_SIZE
-            end = min(total, start + self.RESULT_PAGE_SIZE)
+            self._result_page, start, end, _total_pages = pagination_window(
+                total, self.RESULT_PAGE_SIZE, self._result_page
+            )
             page_rows = self._all_results[start:end]
             for idx, label, _username, _url, archived, etype in page_rows:
                 kind = getattr(etype, "value", str(etype))
@@ -329,17 +372,9 @@ def launch_tui2(
                 self._show_entry(chosen_id)
 
         def _entry_detail_text(self, entry: dict[str, Any]) -> str:
-            payload = dict(entry)
-            content = payload.get("content")
-            if (
-                isinstance(content, str)
-                and len(content) > self.DETAIL_CONTENT_PREVIEW_LIMIT
-            ):
-                head = content[: self.DETAIL_CONTENT_PREVIEW_LIMIT]
-                payload["content"] = (
-                    f"{head}\n\n...[truncated {len(content) - len(head)} chars]"
-                )
-                payload["content_truncated"] = True
+            payload = truncate_entry_for_display(
+                entry, self.DETAIL_CONTENT_PREVIEW_LIMIT
+            )
             return json.dumps(payload, indent=2, sort_keys=True)
 
         def _load_entries(self, query: str = "", *, reset_page: bool = False) -> None:
@@ -544,20 +579,11 @@ def launch_tui2(
 
         def _run_palette_command(self, command: str) -> None:
             raw = command.strip()
-            if not raw:
-                self._set_status("Palette: command required")
-                return
             try:
-                parts = shlex.split(raw)
+                cmd, args = parse_palette_command(raw)
             except ValueError as exc:
-                self._set_status(f"Palette parse error: {exc}")
+                self._set_status(str(exc))
                 return
-            if not parts:
-                self._set_status("Palette: command required")
-                return
-
-            cmd = parts[0].lower()
-            args = parts[1:]
 
             if cmd == "help":
                 self._set_status(
