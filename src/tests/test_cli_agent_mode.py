@@ -829,7 +829,7 @@ def test_agent_identity_create_list_revoke(monkeypatch, tmp_path):
     listed_payload = json.loads(listed.stdout)
     assert any(v["id"] == "ci-bot" for v in listed_payload["identities"])
 
-    revoked = runner.invoke(app, ["agent", "identity-revoke", "ci-bot"])
+    revoked = runner.invoke(app, ["agent", "identity-revoke", "--", "ci-bot"])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
@@ -905,7 +905,7 @@ def test_agent_token_denied_when_identity_revoked(monkeypatch, tmp_path):
     assert issue.exit_code == 0
     token = json.loads(issue.stdout)["token"]
 
-    revoke = runner.invoke(app, ["agent", "identity-revoke", "revoked-agent"])
+    revoke = runner.invoke(app, ["agent", "identity-revoke", "--", "revoked-agent"])
     assert revoke.exit_code == 0
 
     denied = runner.invoke(
@@ -1117,7 +1117,7 @@ def test_agent_job_profile_lifecycle(monkeypatch, tmp_path):
     assert calls["query"] == "example"
     assert calls["auth_broker"] == "keyring"
 
-    revoked = runner.invoke(app, ["agent", "job-profile-revoke", "nightly-read"])
+    revoked = runner.invoke(app, ["agent", "job-profile-revoke", "--", "nightly-read"])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
@@ -1717,7 +1717,7 @@ def test_agent_approval_issue_list_and_revoke(monkeypatch, tmp_path):
     listed_payload = json.loads(listed.stdout)
     assert any(a["id"] == approval_id for a in listed_payload["approvals"])
 
-    revoked = runner.invoke(app, ["agent", "approval-revoke", approval_id])
+    revoked = runner.invoke(app, ["agent", "approval-revoke", "--", approval_id])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
