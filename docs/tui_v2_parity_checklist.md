@@ -39,7 +39,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 
 - Incomplete parity for legacy-only interactive operations not yet mapped into TUI v2.
 - Textual runtime/version behavior can vary by environment.
-- No dedicated Textual interaction test suite yet for pagination and graph traversal.
+- Large-vault validation is bounded to deterministic pagination/preview checks and should be expanded with full end-to-end sync workloads.
 
 ## Validation Checklist Before Cutover
 
@@ -48,5 +48,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
   - `src/tests/test_tui_v2_textual_interactions.py` (skips when `textual` is unavailable).
 - [x] Add non-UI unit tests for TUI v2 helper logic.
   - `src/tests/test_tui_v2_helpers.py` covers command parsing, pagination, and detail truncation.
-- [ ] Verify large vault behavior with realistic data volume in CI-like environment.
+- [x] Verify large vault behavior with realistic data volume in CI-like environment.
+  - `src/tests/test_tui_v2_large_vault_validation.py`
+  - standard: `10,000` rows, stress: `50,000` rows (`--stress`)
 - [ ] Confirm help text and docs match shipped keybindings and palette commands.
