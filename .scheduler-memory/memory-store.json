@@ -513,6 +513,12 @@
     }
   ],
   [
+    "094aab2a-4a25-4322-a198-1638752acc77",
+    {
+      "schema_version": 1,
+      "id": "094aab2a-4a25-4322-a198-1638752acc77",
+      "agent_id": "const-refactor-agent",
+      "session_id": "session-mm5d7amf",
     "c60afd2d-1325-4096-849a-77e11f2b5e39",
     {
       "schema_version": 1,
@@ -547,6 +553,8 @@
       ],
       "importance": 0.4,
       "embedding_id": null,
+      "created_at": 1772225327752,
+      "last_seen": 1772225327764,
       "created_at": 1772221041979,
       "last_seen": 1772221041993,
       "created_at": 1772218140227,
@@ -560,6 +568,12 @@
     }
   ],
   [
+    "cef905d0-7a66-459c-8937-41310afc934f",
+    {
+      "schema_version": 1,
+      "id": "cef905d0-7a66-459c-8937-41310afc934f",
+      "agent_id": "const-refactor-agent",
+      "session_id": "session-mm5dpefy",
     "9c49ca58-c6e5-4751-a3de-ab48bf7a4da1",
     {
       "schema_version": 1,
@@ -592,6 +606,8 @@
       ],
       "importance": 0.8,
       "embedding_id": null,
+      "created_at": 1772226172512,
+      "last_seen": 1772226172512,
       "created_at": 1772222021666,
       "last_seen": 1772222021666,
       "created_at": 1772218432277,

@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_SUMMARY_LENGTH } from './constants/text.js';
+import { DEFAULT_IMPORTANCE_SCORE, LOW_IMPORTANCE_THRESHOLD } from './constants/scoring.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,7 +63,7 @@ function parseSummaryPayload(rawResponse) {
   const rawImportance = Number(parsed.importance);
   const importance = Number.isFinite(rawImportance)
     ? Math.min(1, Math.max(0, rawImportance))
-    : 0.25;
+    : DEFAULT_IMPORTANCE_SCORE;
 
   return { summary, importance };
 }
@@ -69,7 +71,7 @@ function parseSummaryPayload(rawResponse) {
 function deterministicFallback(events, maxSummaryLength) {
   const joined = events.map((event) => redactObviousPii(event.content)).join(' ').trim();
   const bounded = joined.length > maxSummaryLength ? `${joined.slice(0, maxSummaryLength - 1)}…` : joined;
-  return { summary: bounded, importance: 0.25 };
+  return { summary: bounded, importance: DEFAULT_IMPORTANCE_SCORE };
 }
 
 function isLikelyFactual(summary, sourceText) {
@@ -86,7 +88,7 @@ function isLikelyFactual(summary, sourceText) {
 
   if (!summaryTokens.length) return true;
   const overlap = summaryTokens.filter((token) => sourceTokens.has(token)).length;
-  return overlap / summaryTokens.length >= 0.35;
+  return overlap / summaryTokens.length >= LOW_IMPORTANCE_THRESHOLD;
 }
 
 function sanitizeResult(parsed, sourceText, maxSummaryLength, fallback) {
@@ -113,7 +115,7 @@ function sanitizeResult(parsed, sourceText, maxSummaryLength, fallback) {
  * @returns {Promise<{ summary: string, importance: number }>}
  */
 export async function summarizeEvents(events, options = {}) {
-  const maxSummaryLength = options.maxSummaryLength ?? 280;
+  const maxSummaryLength = options.maxSummaryLength ?? MAX_SUMMARY_LENGTH;
   const fallback = deterministicFallback(events, maxSummaryLength);
   if (!fallback.summary) return fallback;
 
