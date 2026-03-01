@@ -50,6 +50,9 @@ def launch_tui2(
             self.entry_index = int(entry_index)
 
     class SeedPassTuiV2(App[None]):
+        RESULT_PAGE_SIZE = 200
+        DETAIL_CONTENT_PREVIEW_LIMIT = 4000
+
         CSS = """
         #command-palette {
             height: 3;
@@ -91,6 +94,8 @@ def launch_tui2(
             ("r", "refresh", "Refresh"),
             ("slash", "focus_search", "Search"),
             ("f", "cycle_filter", "Filter"),
+            ("p", "prev_page", "Prev Page"),
+            ("n", "next_page", "Next Page"),
             ("l", "cycle_link_filter", "Link Filter"),
             ("[", "prev_link", "Prev Link"),
             ("]", "next_link", "Next Link"),
@@ -115,7 +120,8 @@ def launch_tui2(
                     "filter <kind> | archive | restore | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
-                    "link-filter <relation|all> | link-next | link-prev | link-open"
+                    "link-filter <relation|all> | link-next | link-prev | link-open | "
+                    "page-next | page-prev | page <n>"
                 ),
                 id="command-palette",
                 classes="hidden",
@@ -161,6 +167,8 @@ def launch_tui2(
             self._selected_entry: dict[str, Any] | None = None
             self._last_query = ""
             self._entry_ids_in_view: list[int] = []
+            self._all_results: list[tuple[Any, ...]] = []
+            self._result_page = 0
             self._current_links: list[dict[str, Any]] = []
             self._current_link_cursor = 0
             try:
@@ -196,10 +204,15 @@ def launch_tui2(
                     fp_line,
                     "",
                     f"Active filter: {self.filter_kind}",
+                    (
+                        f"Results: {len(self._all_results)}  "
+                        f"Page: {self._result_page + 1}/{self._total_pages()}"
+                    ),
                     "",
                     "Navigation:",
                     "- / search",
                     "- f cycle kind filter",
+                    "- p/n prev/next page",
                     "- r refresh",
                     "",
                     "Actions:",
@@ -221,18 +234,83 @@ def launch_tui2(
             arch = " [archived]" if archived else ""
             return f"{idx:>4}  {etype:<15}  {label}{arch}"
 
-        def _load_entries(self, query: str = "") -> None:
-            self._last_query = query
+        def _total_pages(self) -> int:
+            total = len(self._all_results)
+            if total <= 0:
+                return 1
+            return (total + self.RESULT_PAGE_SIZE - 1) // self.RESULT_PAGE_SIZE
+
+        def _render_current_page(self, *, preserve_selected: bool = True) -> None:
             self._entry_ids_in_view = []
             list_view = self.query_one("#entry-list", ListView)
             list_view.clear()
+            total = len(self._all_results)
+            if total == 0:
+                self._selected_entry_id = None
+                self._selected_entry = None
+                self.query_one("#entry-detail", Static).update("No entries match.")
+                self.query_one("#link-detail", Static).update(
+                    "Links: select an entry first."
+                )
+                self._current_links = []
+                self._current_link_cursor = 0
+                self._set_status("No entries match current filter/search")
+                self._update_filters_panel()
+                return
+
+            max_page = max(0, self._total_pages() - 1)
+            if self._result_page > max_page:
+                self._result_page = max_page
+            if self._result_page < 0:
+                self._result_page = 0
+
+            start = self._result_page * self.RESULT_PAGE_SIZE
+            end = min(total, start + self.RESULT_PAGE_SIZE)
+            page_rows = self._all_results[start:end]
+            for idx, label, _username, _url, archived, etype in page_rows:
+                kind = getattr(etype, "value", str(etype))
+                item = EntryListItem(
+                    idx,
+                    self._render_entry_label(idx, label, kind, bool(archived)),
+                )
+                self._entry_ids_in_view.append(int(idx))
+                list_view.append(item)
+
+            self._update_filters_panel()
+            chosen_id = None
+            if preserve_selected and self._selected_entry_id in self._entry_ids_in_view:
+                chosen_id = self._selected_entry_id
+            elif self._entry_ids_in_view:
+                chosen_id = self._entry_ids_in_view[0]
+            if chosen_id is not None:
+                self._show_entry(chosen_id)
+
+        def _entry_detail_text(self, entry: dict[str, Any]) -> str:
+            payload = dict(entry)
+            content = payload.get("content")
+            if (
+                isinstance(content, str)
+                and len(content) > self.DETAIL_CONTENT_PREVIEW_LIMIT
+            ):
+                head = content[: self.DETAIL_CONTENT_PREVIEW_LIMIT]
+                payload["content"] = (
+                    f"{head}\n\n...[truncated {len(content) - len(head)} chars]"
+                )
+                payload["content_truncated"] = True
+            return json.dumps(payload, indent=2, sort_keys=True)
+
+        def _load_entries(self, query: str = "", *, reset_page: bool = False) -> None:
+            self._last_query = query
             if self._service is None:
                 self.query_one("#entry-detail", Static).update(
                     "Entry service unavailable in this runtime."
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._all_results = []
+                self._result_page = 0
                 self._current_links = []
                 self._current_link_cursor = 0
+                self._update_filters_panel()
                 return
 
             try:
@@ -244,35 +322,18 @@ def launch_tui2(
                     f"Failed to load entries: {exc}"
                 )
                 self.query_one("#link-detail", Static).update("Links unavailable.")
+                self._all_results = []
+                self._result_page = 0
                 self._current_links = []
                 self._current_link_cursor = 0
+                self._update_filters_panel()
                 self._set_status("Failed to load entries")
                 return
 
-            for idx, label, _username, _url, archived, etype in results:
-                kind = getattr(etype, "value", str(etype))
-                item = EntryListItem(
-                    idx,
-                    self._render_entry_label(idx, label, kind, bool(archived)),
-                )
-                self._entry_ids_in_view.append(int(idx))
-                list_view.append(item)
-
-            if len(results) == 0:
-                self._selected_entry_id = None
-                self._selected_entry = None
-                self.query_one("#entry-detail", Static).update("No entries match.")
-                self.query_one("#link-detail", Static).update(
-                    "Links: select an entry first."
-                )
-                self._current_links = []
-                self._current_link_cursor = 0
-                self._set_status("No entries match current filter/search")
-            else:
-                if list_view.children:
-                    first = list_view.children[0]
-                    if isinstance(first, EntryListItem):
-                        self._show_entry(first.entry_index)
+            self._all_results = list(results)
+            if reset_page:
+                self._result_page = 0
+            self._render_current_page(preserve_selected=not reset_page)
 
         def _show_entry(self, entry_index: int) -> None:
             if self._service is None:
@@ -290,7 +351,7 @@ def launch_tui2(
                     return
                 self._selected_entry_id = int(entry_index)
                 self._selected_entry = dict(entry)
-                body = json.dumps(entry, indent=2, sort_keys=True)
+                body = self._entry_detail_text(entry)
                 self.query_one("#entry-detail", Static).update(body)
                 self._update_links_panel()
                 self._set_status(f"Selected entry {entry_index}")
@@ -439,7 +500,8 @@ def launch_tui2(
                 self._set_status(
                     "Palette commands: help, open, search, filter, archive, "
                     "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
-                    "link-filter, link-next, link-prev, link-open"
+                    "link-filter, link-next, link-prev, link-open, page-next, "
+                    "page-prev, page <n>"
                 )
                 return
 
@@ -458,7 +520,7 @@ def launch_tui2(
             if cmd == "search":
                 query = " ".join(args)
                 self.query_one("#search", Input).value = query
-                self._load_entries(query=query)
+                self._load_entries(query=query, reset_page=True)
                 self._set_status(f"Applied search: {query}")
                 return
 
@@ -468,7 +530,7 @@ def launch_tui2(
                     return
                 self.filter_kind = args[0].strip().lower()
                 self._update_filters_panel()
-                self._load_entries(query=self._last_query)
+                self._load_entries(query=self._last_query, reset_page=True)
                 self._set_status(f"Applied filter: {self.filter_kind}")
                 return
 
@@ -484,7 +546,7 @@ def launch_tui2(
                         self._service.restore_entry(self._selected_entry_id)
                         action = "restored"
                     current_id = self._selected_entry_id
-                    self._load_entries(self._last_query)
+                    self._load_entries(self._last_query, reset_page=False)
                     if current_id in self._entry_ids_in_view:
                         self._show_entry(current_id)
                     self._set_status(f"Entry {current_id} {action}")
@@ -565,6 +627,30 @@ def launch_tui2(
             if cmd == "refresh":
                 self.action_refresh()
                 return
+            if cmd == "page-next":
+                self.action_next_page()
+                return
+            if cmd == "page-prev":
+                self.action_prev_page()
+                return
+            if cmd == "page":
+                if len(args) != 1:
+                    self._set_status("Usage: page <page_number>")
+                    return
+                try:
+                    page = int(args[0])
+                except ValueError:
+                    self._set_status("page requires integer page number")
+                    return
+                if page < 1:
+                    self._set_status("page must be >= 1")
+                    return
+                self._result_page = min(page - 1, self._total_pages() - 1)
+                self._render_current_page(preserve_selected=False)
+                self._set_status(
+                    f"Moved to page {self._result_page + 1}/{self._total_pages()}"
+                )
+                return
             if cmd == "link-filter":
                 if len(args) != 1:
                     self._set_status("Usage: link-filter <relation|all>")
@@ -590,7 +676,7 @@ def launch_tui2(
         def action_refresh(self) -> None:
             search = self.query_one("#search", Input).value
             self._update_filters_panel()
-            self._load_entries(query=search)
+            self._load_entries(query=search, reset_page=False)
 
         def action_focus_search(self) -> None:
             if self.editing_document:
@@ -615,7 +701,30 @@ def launch_tui2(
             ]
             idx = order.index(self.filter_kind) if self.filter_kind in order else 0
             self.filter_kind = order[(idx + 1) % len(order)]
-            self.action_refresh()
+            self._load_entries(query=self._last_query, reset_page=True)
+            self._set_status(f"Applied filter: {self.filter_kind}")
+
+        def action_next_page(self) -> None:
+            if not self._all_results:
+                self._set_status("No entries loaded")
+                return
+            if self._result_page >= self._total_pages() - 1:
+                self._set_status("Already on last page")
+                return
+            self._result_page += 1
+            self._render_current_page(preserve_selected=False)
+            self._set_status(f"Page {self._result_page + 1}/{self._total_pages()}")
+
+        def action_prev_page(self) -> None:
+            if not self._all_results:
+                self._set_status("No entries loaded")
+                return
+            if self._result_page <= 0:
+                self._set_status("Already on first page")
+                return
+            self._result_page -= 1
+            self._render_current_page(preserve_selected=False)
+            self._set_status(f"Page {self._result_page + 1}/{self._total_pages()}")
 
         def action_cycle_link_filter(self) -> None:
             if self._service is None or self._selected_entry_id is None:
@@ -772,7 +881,7 @@ def launch_tui2(
                 )
                 current_id = self._selected_entry_id
                 self._set_document_editor_visible(False)
-                self._load_entries(self._last_query)
+                self._load_entries(self._last_query, reset_page=False)
                 if current_id in self._entry_ids_in_view:
                     self._show_entry(current_id)
                 self._set_status(f"Saved document {current_id}")
@@ -794,7 +903,7 @@ def launch_tui2(
                 if self.editing_document:
                     self._set_status("Finish document edit before searching")
                     return
-                self._load_entries(query=event.value.strip())
+                self._load_entries(query=event.value.strip(), reset_page=True)
                 return
             if event.input.id == "command-palette":
                 command = event.value

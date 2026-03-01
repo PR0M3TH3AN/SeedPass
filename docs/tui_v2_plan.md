@@ -60,8 +60,8 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 - [x] Neighbor navigation and quick traversal.
 
 ### Phase 4: Cutover readiness
-- [ ] Feature parity checklist against legacy TUI.
-- [ ] UX/perf pass for large vaults.
+- [x] Feature parity checklist against legacy TUI.
+- [x] UX/perf pass for large vaults.
 - [ ] Error messaging and recovery flows.
 - [ ] Decide default switch timing (`seedpass` -> `tui2`).
 
