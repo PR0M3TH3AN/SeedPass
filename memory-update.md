@@ -178,3 +178,5 @@
   - `.venv` smoke run confirms `seedpass tui2 --check` emits runtime diagnostics.
 - 2026-03-01: TUI v2 phase 1 moved from placeholder to functional read-only Textual shell. `seedpass tui2` now passes a lazy `entry_service_factory` so vault/service init only happens when Textual is actually available, preventing unnecessary prompts on unavailable runtimes.
 - Added focused CLI tests in `src/tests/test_typer_cli.py` for `tui2 --check`, unavailable + no fallback exit path, and legacy fallback fingerprint forwarding.
+- 2026-03-01: TUI v2 phase 2 slice added in `seedpass/tui_v2/app.py`: archive/restore action (`a`), document editor mode (`e`) with save/cancel (`Ctrl+S`/`Esc`), and a persistent status line for operation feedback.
+- Document editor uses `TextArea` when available and falls back to single-line input if unavailable, keeping runtime compatibility across Textual versions.

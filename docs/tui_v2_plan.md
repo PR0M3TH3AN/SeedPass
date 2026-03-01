@@ -41,17 +41,17 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 - [ ] Add CI smoke command for `seedpass tui2 --check`.
 
 ### Phase 1: Read-only shell
-- [ ] Textual app skeleton with 3-pane layout:
+- [x] Textual app skeleton with 3-pane layout:
   - filters panel
   - entry list panel
   - details panel
 - [ ] Unlock/profile context hookup.
-- [ ] Entry list/search/detail read paths.
-- [ ] Status line for sync/profile/lock state.
+- [x] Entry list/search/detail read paths.
+- [x] Status line for sync/profile/lock state.
 
 ### Phase 2: Core editing workflows
-- [ ] Add/modify/archive flows for common entry kinds.
-- [ ] Document editor panel with dirty-state and save/cancel.
+- [x] Archive/restore action + document modify flow.
+- [x] Document editor panel with dirty-state and save/cancel.
 - [ ] Keybindings + command palette.
 
 ### Phase 3: Graph workflows
