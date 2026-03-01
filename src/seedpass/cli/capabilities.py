@@ -242,7 +242,7 @@ def build_capabilities() -> dict[str, Any]:
             "Use `seedpass capabilities --format json` for machine-readable discovery.",
             "Run `seedpass tui2 --check` before adopting Textual-based TUI v2.",
             "Use `seedpass --legacy-tui` to force the legacy interface during cutover.",
-            "In TUI v2, use `Ctrl+P` for the command palette, `p/n` for paging, and `x` to retry the last failed action.",
+            "In TUI v2, use `?` for help, `j` to jump to entry id, `1/2/3` to focus panes, `Ctrl+P` for palette, `p/n` for paging, and `x` to retry.",
             "For graph workflows, start with `seedpass entry link-add --help` and `seedpass entry links --help`.",
             "For document workflows, run `seedpass entry import-document --help` and `seedpass agent document-import --help`.",
             "After unlock/login, run `seedpass capabilities` before autonomous runs.",

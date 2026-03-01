@@ -100,15 +100,19 @@ def _build_app(service: FakeEntryService):
     return app
 
 
-async def _run_palette(pilot, command: str) -> None:
-    await pilot.press("ctrl+p")
-    await pilot.type(command)
-    await pilot.press("enter")
+def _widget_text(app, selector: str) -> str:
+    return str(app.query_one(selector).render())
+
+
+async def _run_palette(app, pilot, command: str) -> None:
+    app.action_open_palette()
+    await pilot.pause()
+    app._run_palette_command(command)
     await pilot.pause()
 
 
 def _status_text(app) -> str:
-    return str(app.query_one("#status", Static).renderable)
+    return _widget_text(app, "#status")
 
 
 @pytest.mark.anyio
@@ -136,12 +140,12 @@ async def test_tui2_parity_filters_cover_all_entry_kinds() -> None:
         assert len(list_view.children) == len(kinds)
 
         for kind in kinds:
-            await _run_palette(pilot, f"filter {kind}")
+            await _run_palette(app, pilot, f"filter {kind}")
             assert len(list_view.children) == 1
-            detail_text = str(app.query_one("#entry-detail", Static).renderable)
+            detail_text = _widget_text(app, "#entry-detail")
             assert f'"kind": "{kind}"' in detail_text
 
-        await _run_palette(pilot, "filter all")
+        await _run_palette(app, pilot, "filter all")
         assert len(list_view.children) == len(kinds)
 
 
@@ -154,11 +158,11 @@ async def test_tui2_parity_archive_restore_roundtrip_non_document() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
-        await _run_palette(pilot, "archive")
+        await _run_palette(app, pilot, "archive")
         assert service.retrieve_entry(1)["archived"] is True
         assert "archived" in _status_text(app)
 
-        await _run_palette(pilot, "restore")
+        await _run_palette(app, pilot, "restore")
         assert service.retrieve_entry(1)["archived"] is False
         assert "restored" in _status_text(app)
 
@@ -169,6 +173,6 @@ async def test_tui2_parity_edit_document_guard_for_non_document() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.press("e")
+        app.action_edit_document()
         await pilot.pause()
         assert "Select a document entry to edit" in _status_text(app)

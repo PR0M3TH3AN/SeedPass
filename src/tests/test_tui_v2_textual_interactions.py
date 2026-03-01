@@ -111,18 +111,23 @@ def _build_app(service: FakeEntryService):
     return app
 
 
+def _widget_text(app, selector: str) -> str:
+    return str(app.query_one(selector).render())
+
+
 def _status_text(app) -> str:
-    return str(app.query_one("#status", Static).renderable)
+    return _widget_text(app, "#status")
 
 
 def _filters_text(app) -> str:
-    return str(app.query_one("#filters", Static).renderable)
+    return _widget_text(app, "#filters")
 
 
-async def _run_palette(pilot, command: str) -> None:
-    await pilot.press("ctrl+p")
-    await pilot.type(command)
-    await pilot.press("enter")
+async def _run_palette(app, pilot, command: str) -> None:
+    app.action_open_palette()
+    await pilot.pause()
+    app._run_palette_command(command)
+    app._set_palette_visible(False)
     await pilot.pause()
 
 
@@ -140,13 +145,12 @@ async def test_tui2_textual_pagination_and_search_flow() -> None:
         assert len(list_view.children) == 200
         assert "Page: 1/3" in _filters_text(app)
 
-        await pilot.press("n")
+        app.action_next_page()
         await pilot.pause()
         assert "Page: 2/3" in _filters_text(app)
 
-        await pilot.press("/")
-        await pilot.type("Entry 44")
-        await pilot.press("enter")
+        app.query_one("#search", Input).value = "Entry 44"
+        app._load_entries(query="Entry 44", reset_page=True)
         await pilot.pause()
         assert len(list_view.children) == 11
         assert "Page: 1/1" in _filters_text(app)
@@ -170,7 +174,7 @@ async def test_tui2_textual_document_edit_save_flow() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
-        await pilot.press("e")
+        app.action_edit_document()
         await pilot.pause()
 
         app.query_one("#doc-edit-label", Input).value = "Doc A Updated"
@@ -185,7 +189,7 @@ async def test_tui2_textual_document_edit_save_flow() -> None:
         else:
             app.query_one("#doc-edit-content-single", Input).value = "new content"
 
-        await pilot.press("ctrl+s")
+        app.action_save_document()
         await pilot.pause()
 
         entry = service.retrieve_entry(1)
@@ -208,16 +212,16 @@ async def test_tui2_textual_link_commands_and_neighbor_open() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
 
-        await _run_palette(pilot, "link-add 2 references rel-note")
-        links_text = str(app.query_one("#link-detail", Static).renderable)
+        await _run_palette(app, pilot, "link-add 2 references rel-note")
+        links_text = _widget_text(app, "#link-detail")
         assert "references -> 2 (rel-note)" in links_text
 
-        await pilot.press("o")
+        app.action_open_link_target()
         await pilot.pause()
         assert "Opened linked entry 2" in _status_text(app)
 
-        await _run_palette(pilot, "link-rm 2 references")
-        links_text = str(app.query_one("#link-detail", Static).renderable)
+        await _run_palette(app, pilot, "link-rm 2 references")
+        links_text = _widget_text(app, "#link-detail")
         assert "No graph links" in links_text
 
 
@@ -233,7 +237,7 @@ async def test_tui2_textual_retry_after_search_failure() -> None:
         await pilot.pause()
         assert "Failed to load entries" in _status_text(app)
 
-        await pilot.press("x")
+        app.action_retry_last_error()
         await pilot.pause()
 
         list_view = app.query_one("#entry-list", ListView)

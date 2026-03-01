@@ -136,13 +136,34 @@ def launch_tui2(
         #doc-edit-help { margin-top: 1; }
         #doc-edit-content { height: 1fr; }
         #doc-edit-content-single { height: 1fr; }
+        #help-overlay {
+            layer: overlay;
+            dock: top;
+            margin: 1 2;
+            border: solid $warning;
+            padding: 1;
+            background: $surface;
+        }
+        #activity {
+            height: 12;
+            border: solid $secondary;
+            padding: 1;
+            margin-top: 1;
+            overflow: auto;
+        }
+        .pane-focus { border: heavy $success; }
         .hidden { display: none; }
         """
         BINDINGS = [
             ("q", "quit", "Quit"),
             ("r", "refresh", "Refresh"),
             ("x", "retry_last_error", "Retry"),
+            ("question_mark", "toggle_help", "Help"),
             ("slash", "focus_search", "Search"),
+            ("j", "focus_jump", "Jump"),
+            ("1", "focus_left", "Left"),
+            ("2", "focus_center", "Center"),
+            ("3", "focus_right", "Right"),
             ("f", "cycle_filter", "Filter"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
@@ -161,6 +182,7 @@ def launch_tui2(
         link_relation_filter: reactive[str] = reactive("all")
         editing_document: reactive[bool] = reactive(False)
         palette_open: reactive[bool] = reactive(False)
+        help_open: reactive[bool] = reactive(False)
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -176,13 +198,16 @@ def launch_tui2(
                 id="command-palette",
                 classes="hidden",
             )
+            yield Static("", id="help-overlay", classes="hidden")
             with Horizontal(id="body"):
                 with Vertical(id="left"):
                     yield Static("", id="filters")
+                    yield Static("", id="activity")
                 with Vertical(id="center"):
                     yield Input(
                         placeholder="Search entries (Enter to apply)", id="search"
                     )
+                    yield Input(placeholder="Jump to entry id (Enter)", id="quick-jump")
                     yield ListView(id="entry-list")
                 with Vertical(id="right"):
                     with Vertical(id="right-view"):
@@ -223,6 +248,10 @@ def launch_tui2(
             self._current_link_cursor = 0
             self._last_error: str | None = None
             self._retry_action: Any | None = None
+            self._activity_log: list[str] = []
+            self._focus_pane = "center"
+            self._doc_dirty = False
+            self._doc_snapshot: dict[str, Any] = {}
             try:
                 self._service = (
                     entry_service_factory() if callable(entry_service_factory) else None
@@ -239,10 +268,74 @@ def launch_tui2(
                     f"Unable to initialize entry service: {exc}"
                 )
             self._update_filters_panel()
+            self._update_help_overlay()
+            self._update_activity_panel()
+            self._apply_focus_style()
             self._load_entries()
 
         def _set_status(self, message: str) -> None:
-            self.query_one("#status", Static).update(message)
+            mode = (
+                "PALETTE"
+                if self.palette_open
+                else ("EDIT" if self.editing_document else "VIEW")
+            )
+            text = f"[{mode} | {self._focus_pane.upper()}] {message}"
+            self.query_one("#status", Static).update(text)
+            self._log_activity(message)
+
+        def _log_activity(self, message: str) -> None:
+            msg = message.strip()
+            if not msg:
+                return
+            self._activity_log.append(msg)
+            self._activity_log = self._activity_log[-5:]
+            self._update_activity_panel()
+
+        def _update_activity_panel(self) -> None:
+            if not self._activity_log:
+                text = "Activity\n\nNo actions yet."
+            else:
+                lines = ["Activity", ""]
+                for i, item in enumerate(reversed(self._activity_log), start=1):
+                    lines.append(f"{i}. {item}")
+                text = "\n".join(lines)
+            self.query_one("#activity", Static).update(text)
+
+        def _update_help_overlay(self) -> None:
+            box = self.query_one("#help-overlay", Static)
+            if not self.help_open:
+                box.add_class("hidden")
+                return
+            box.remove_class("hidden")
+            text = "\n".join(
+                [
+                    "TUI v2 Quick Help",
+                    "",
+                    "Core: / search, j jump-id, p/n page, r refresh",
+                    "Modes: Ctrl+P palette, e edit-doc, Ctrl+S save, Esc cancel/close",
+                    "Graph: l relation filter, [/] link select, o open link target",
+                    "Resilience: x retry last error",
+                    "Pane Focus: 1 left, 2 center, 3 right",
+                    "",
+                    "Palette examples:",
+                    "help | filter document | open 12 | link-add 7 references note",
+                ]
+            )
+            box.update(text)
+
+        def _apply_focus_style(self) -> None:
+            for pane_id in ("left", "center", "right"):
+                pane = self.query_one(f"#{pane_id}", Vertical)
+                if pane_id == self._focus_pane:
+                    pane.add_class("pane-focus")
+                else:
+                    pane.remove_class("pane-focus")
+
+        def _refresh_doc_edit_help(self) -> None:
+            marker = "*" if self._doc_dirty else "clean"
+            self.query_one("#doc-edit-help", Static).update(
+                f"Edit mode [{marker}]: Ctrl+S save, Esc cancel"
+            )
 
         def _record_failure(
             self,
@@ -302,8 +395,11 @@ def launch_tui2(
                     "",
                     "Navigation:",
                     "- / search",
+                    "- j jump to id",
                     "- f cycle kind filter",
                     "- p/n prev/next page",
+                    "- 1/2/3 focus pane",
+                    "- ? help overlay",
                     "- r refresh",
                     "- x retry last error",
                     "",
@@ -551,6 +647,8 @@ def launch_tui2(
                 editor.add_class("hidden")
                 view.remove_class("hidden")
             self.editing_document = visible
+            self._focus_pane = "right"
+            self._apply_focus_style()
 
         def _set_palette_visible(self, visible: bool) -> None:
             palette = self.query_one("#command-palette", Input)
@@ -561,6 +659,7 @@ def launch_tui2(
                 palette.value = ""
                 palette.add_class("hidden")
             self.palette_open = visible
+            self._update_help_overlay()
 
         def _get_document_editor_text(self) -> str:
             if TextArea is not None:
@@ -578,6 +677,14 @@ def launch_tui2(
                 return
             self.query_one("#doc-edit-content-single", Input).value = content
 
+        def _mark_doc_dirty(self, dirty: bool = True) -> None:
+            if not self.editing_document:
+                return
+            if self._doc_dirty == dirty:
+                return
+            self._doc_dirty = dirty
+            self._refresh_doc_edit_help()
+
         def _run_palette_command(self, command: str) -> None:
             raw = command.strip()
             try:
@@ -591,7 +698,7 @@ def launch_tui2(
                     "Palette commands: help, open, search, filter, archive, "
                     "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
                     "link-filter, link-next, link-prev, link-open, page-next, "
-                    "page-prev, page <n>, retry"
+                    "page-prev, page <n>, retry, jump <id>"
                 )
                 return
             if cmd == "retry":
@@ -606,6 +713,17 @@ def launch_tui2(
                     entry_id = int(args[0])
                 except ValueError:
                     self._set_status("open requires integer entry_id")
+                    return
+                self._show_entry(entry_id)
+                return
+            if cmd == "jump":
+                if len(args) != 1:
+                    self._set_status("Usage: jump <entry_id>")
+                    return
+                try:
+                    entry_id = int(args[0])
+                except ValueError:
+                    self._set_status("jump requires integer entry_id")
                     return
                 self._show_entry(entry_id)
                 return
@@ -789,6 +907,40 @@ def launch_tui2(
             self._update_filters_panel()
             self._load_entries(query=search, reset_page=False)
 
+        def action_toggle_help(self) -> None:
+            if self.palette_open:
+                self._set_palette_visible(False)
+            self.help_open = not self.help_open
+            self._update_help_overlay()
+            self._set_status("Help opened" if self.help_open else "Help closed")
+
+        def action_focus_left(self) -> None:
+            self._focus_pane = "left"
+            self._apply_focus_style()
+            self._set_status("Focused left pane")
+
+        def action_focus_center(self) -> None:
+            self._focus_pane = "center"
+            self._apply_focus_style()
+            self.query_one("#search", Input).focus()
+            self._set_status("Focused center pane")
+
+        def action_focus_right(self) -> None:
+            self._focus_pane = "right"
+            self._apply_focus_style()
+            self._set_status("Focused right pane")
+
+        def action_focus_jump(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before jumping")
+                return
+            if self.palette_open:
+                self._set_palette_visible(False)
+            self._focus_pane = "center"
+            self._apply_focus_style()
+            self.query_one("#quick-jump", Input).focus()
+            self._set_status("Focused jump-to-id input")
+
         def action_retry_last_error(self) -> None:
             retry = self._retry_action
             if retry is None:
@@ -810,6 +962,8 @@ def launch_tui2(
                 return
             if self.palette_open:
                 self._set_palette_visible(False)
+            self._focus_pane = "center"
+            self._apply_focus_style()
             self.query_one("#search", Input).focus()
 
         def action_cycle_filter(self) -> None:
@@ -919,7 +1073,12 @@ def launch_tui2(
             if self.editing_document:
                 self._set_status("Finish document edit before opening palette")
                 return
+            if self.help_open:
+                self.help_open = False
+                self._update_help_overlay()
             self._set_palette_visible(not self.palette_open)
+            self._focus_pane = "center"
+            self._apply_focus_style()
             if self.palette_open:
                 self._set_status("Palette opened")
             else:
@@ -980,7 +1139,15 @@ def launch_tui2(
                 tags_text = ""
             self.query_one("#doc-edit-tags", Input).value = tags_text
             self._set_document_editor_text(str(entry.get("content", "")))
+            self._doc_snapshot = {
+                "label": str(entry.get("label", "")),
+                "file_type": str(entry.get("file_type", "txt")).lstrip("."),
+                "tags": tags_text,
+                "content": str(entry.get("content", "")),
+            }
+            self._doc_dirty = False
             self._set_document_editor_visible(True)
+            self._refresh_doc_edit_help()
             if TextArea is not None:
                 self.query_one("#doc-edit-content").focus()
             else:
@@ -1002,6 +1169,17 @@ def launch_tui2(
             tags_raw = self.query_one("#doc-edit-tags", Input).value.strip()
             tags = [part.strip() for part in tags_raw.split(",") if part.strip()]
             content = self._get_document_editor_text()
+            current_form = {
+                "label": label,
+                "file_type": file_type,
+                "tags": tags_raw,
+                "content": content,
+            }
+            self._doc_dirty = current_form != self._doc_snapshot
+            self._refresh_doc_edit_help()
+            if not self._doc_dirty:
+                self._set_status("No document changes to save")
+                return
 
             try:
                 self._service.modify_entry(
@@ -1013,6 +1191,7 @@ def launch_tui2(
                 )
                 current_id = self._selected_entry_id
                 self._set_document_editor_visible(False)
+                self._doc_dirty = False
                 self._load_entries(self._last_query, reset_page=False)
                 if current_id in self._entry_ids_in_view:
                     self._show_entry(current_id)
@@ -1031,10 +1210,28 @@ def launch_tui2(
                 self._set_palette_visible(False)
                 self._set_status("Palette closed")
                 return
+            if self.help_open:
+                self.help_open = False
+                self._update_help_overlay()
+                self._set_status("Help closed")
+                return
             if not self.editing_document:
                 return
             self._set_document_editor_visible(False)
+            self._doc_dirty = False
             self._set_status("Canceled document edit")
+
+        def on_input_changed(self, event: Input.Changed) -> None:
+            if event.input.id in {
+                "doc-edit-label",
+                "doc-edit-file-type",
+                "doc-edit-tags",
+                "doc-edit-content-single",
+            }:
+                self._mark_doc_dirty(True)
+
+        def on_text_area_changed(self, _event: Any) -> None:
+            self._mark_doc_dirty(True)
 
         def on_input_submitted(self, event: Input.Submitted) -> None:
             if event.input.id == "search":
@@ -1042,6 +1239,18 @@ def launch_tui2(
                     self._set_status("Finish document edit before searching")
                     return
                 self._load_entries(query=event.value.strip(), reset_page=True)
+                return
+            if event.input.id == "quick-jump":
+                raw = event.value.strip()
+                if not raw:
+                    self._set_status("Jump requires an entry id")
+                    return
+                try:
+                    entry_id = int(raw)
+                except ValueError:
+                    self._set_status("Jump requires an integer entry id")
+                    return
+                self._show_entry(entry_id)
                 return
             if event.input.id == "command-palette":
                 command = event.value
@@ -1052,6 +1261,8 @@ def launch_tui2(
             if self.editing_document:
                 self._set_status("Finish document edit before selecting another entry")
                 return
+            self._focus_pane = "center"
+            self._apply_focus_style()
             item = event.item
             if isinstance(item, EntryListItem):
                 self._show_entry(item.entry_index)
