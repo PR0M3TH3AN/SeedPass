@@ -446,10 +446,22 @@ Once installed, launch the interactive TUI with:
 seedpass
 ```
 
+Force the new Textual TUI v2 explicitly:
+
+```bash
+seedpass tui2
+```
+
 To launch the legacy interactive TUI explicitly:
 
 ```bash
 seedpass legacy
+```
+
+You can also force legacy from any command invocation with:
+
+```bash
+seedpass --legacy-tui
 ```
 
 You can also run directly from the repository with:

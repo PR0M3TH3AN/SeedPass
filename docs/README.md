@@ -38,12 +38,15 @@ This directory contains SeedPass project documentation.
 - `ai_agent_tui_testing.md`
 - `agent_test_format.md`
 - `installer_testing.md`
+- `kb_scale_validation.md`
 - `ci-health-2026-02-19.md`
 - `agent-handoffs/README.md`
 
 ## Discoverability Commands
 
 - `seedpass --help`
+- `seedpass`
+- `seedpass tui2`
 - `seedpass --legacy-tui`
 - `seedpass legacy`
 - `seedpass <group> --help`

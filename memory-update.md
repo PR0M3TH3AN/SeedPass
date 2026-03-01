@@ -290,3 +290,13 @@
 - Refactored legacy launch path through a shared helper in `seedpass.cli` so root fallback, `--legacy-tui`, `tui2` fallback, and `legacy` command all use consistent behavior and fingerprint forwarding.
 - Added CLI regression tests for `seedpass legacy` with and without `--fingerprint`.
 - Updated discoverability docs in `README.md` and `docs/README.md`.
+
+## 2026-03-01 KB scale stress coverage + launch docs
+- Added `src/tests/test_kb_scale_stress.py` for large-index KB validation:
+  - sort/tag/search across `10k` entries (and `100k` with `--stress`)
+  - high-degree graph link validation (`1k` edges standard, `5k` edges stress)
+- Added `src/tests/test_tui_v2_kb_scale_stress.py` for Textual large-index interaction validation:
+  - pagination/navigation/search/filter behavior at `10k` rows standard and `50k` rows under `--stress`
+- Added docs `docs/kb_scale_validation.md` with exact commands for standard and `--stress` runs.
+- Updated launch documentation to clearly show all interactive launch modes:
+  - default (`seedpass`), explicit v2 (`seedpass tui2`), and legacy (`seedpass legacy` / `seedpass --legacy-tui`).
