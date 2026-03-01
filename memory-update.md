@@ -192,3 +192,5 @@
 - Updated phase tracking docs to mark the cutover timing decision item complete and linked the memo in docs indexes.
 - 2026-03-01: Began cutover-gate automation by extracting testable TUI v2 helpers (`parse_palette_command`, `pagination_window`, `truncate_entry_for_display`) from `tui_v2/app.py`.
 - Added `src/tests/test_tui_v2_helpers.py` with coverage for palette parsing edge cases, pagination normalization, and large-vault pagination smoke sizes up to 50k rows.
+- 2026-03-01: Added Textual interaction tests in `src/tests/test_tui_v2_textual_interactions.py` for pagination/search, document edit+save, link add/remove + neighbor open, and retry-after-failure.
+- Introduced a test hook in `launch_tui2(..., app_hook=...)` so tests can capture and pilot the Textual app instance without starting a live terminal run.

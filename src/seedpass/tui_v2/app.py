@@ -73,6 +73,7 @@ def launch_tui2(
     *,
     fingerprint: str | None = None,
     entry_service_factory: Any | None = None,
+    app_hook: Any | None = None,
 ) -> bool:
     """Launch TUI v2 when runtime dependencies are available.
 
@@ -1055,5 +1056,9 @@ def launch_tui2(
             if isinstance(item, EntryListItem):
                 self._show_entry(item.entry_index)
 
-    SeedPassTuiV2().run()
+    app = SeedPassTuiV2()
+    if callable(app_hook):
+        app_hook(app)
+        return True
+    app.run()
     return True

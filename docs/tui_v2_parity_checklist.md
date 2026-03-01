@@ -44,7 +44,8 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 ## Validation Checklist Before Cutover
 
 - [ ] Define and run deterministic parity scenarios across entry kinds.
-- [ ] Add Textual interaction tests for list/search/edit/link/pagination flows.
+- [x] Add Textual interaction tests for list/search/edit/link/pagination flows.
+  - `src/tests/test_tui_v2_textual_interactions.py` (skips when `textual` is unavailable).
 - [x] Add non-UI unit tests for TUI v2 helper logic.
   - `src/tests/test_tui_v2_helpers.py` covers command parsing, pagination, and detail truncation.
 - [ ] Verify large vault behavior with realistic data volume in CI-like environment.
