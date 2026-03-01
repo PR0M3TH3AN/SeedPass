@@ -6,12 +6,9 @@ Decision owner: SeedPass maintainers
 
 ## Decision
 
-Do not switch the default interactive entrypoint (`seedpass`) to TUI v2 yet.
+Addendum (March 1, 2026, `beta`): default interactive routing now launches TUI v2 first, with `--legacy-tui` retained as a one-release fallback path.
 
-Recommended rollout:
-- Keep legacy TUI as default for the next release.
-- Keep `seedpass tui2` as the opt-in path.
-- Schedule default switch only after cutover gates below are met.
+Original recommendation in this memo was conservative (defer default switch until all gates were complete). The `beta` branch now reflects the cutover implementation requested during active hardening.
 
 ## Rationale
 

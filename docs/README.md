@@ -43,6 +43,7 @@ This directory contains SeedPass project documentation.
 ## Discoverability Commands
 
 - `seedpass --help`
+- `seedpass --legacy-tui`
 - `seedpass <group> --help`
 - `seedpass tui2 --help`
 - `seedpass tui2 --check`

@@ -198,3 +198,5 @@
 - Added docs `docs/tui_v2_large_vault_validation.md` with exact commands and budgets; parity checklist now marks large-vault CI-like validation complete.
 - 2026-03-01: Added deterministic TUI v2 parity scenarios across entry kinds in `src/tests/test_tui_v2_parity_scenarios.py` (kind filters, archive/restore roundtrip, non-document edit guard).
 - Completed help/docs alignment gate: updated `seedpass tui2` help text, capabilities hints for keybindings/palette (`Ctrl+P`, `p/n`, `x`), and docs discoverability commands (`seedpass tui2 --help/--check`).
+- 2026-03-01: Switched default root CLI interactive routing to TUI v2 in `seedpass.cli.main` (when no subcommand), with automatic legacy fallback when Textual runtime is unavailable.
+- Added explicit one-release override flag `--legacy-tui` and updated test coverage (`test_typer_cli.py`) for default TUI v2 launch, forced legacy path, and root fallback behavior.
