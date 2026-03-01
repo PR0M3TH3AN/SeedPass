@@ -68,6 +68,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772047328158,
+      "last_seen": 1772221041993,
       "last_seen": 1772218140238,
       "source": "agent-output",
       "ttl_days": null,
@@ -119,6 +120,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772049603683,
+      "last_seen": 1772221041993,
       "last_seen": 1772218140238,
       "source": "agent-output",
       "ttl_days": null,
@@ -272,6 +274,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772073865813,
+      "last_seen": 1772221041993,
       "last_seen": 1772218140238,
       "source": "agent-output",
       "ttl_days": null,
@@ -450,6 +453,7 @@
       "importance": 0.8,
       "embedding_id": null,
       "created_at": 1772136272549,
+      "last_seen": 1772221041993,
       "last_seen": 1772218140238,
       "source": "agent-output",
       "ttl_days": null,
@@ -509,6 +513,15 @@
     }
   ],
   [
+    "c60afd2d-1325-4096-849a-77e11f2b5e39",
+    {
+      "schema_version": 1,
+      "id": "c60afd2d-1325-4096-849a-77e11f2b5e39",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm5anfp7",
+      "type": "batch_window",
+      "content": "Memory retrieval seed for daily :: scheduler memory retrieval",
+      "summary": "Memory retrieval seed for daily :: scheduler memory retrieval",
     "d7723c49-e9fa-48df-a7f3-ac1d98a93fce",
     {
       "schema_version": 1,
@@ -534,6 +547,8 @@
       ],
       "importance": 0.4,
       "embedding_id": null,
+      "created_at": 1772221041979,
+      "last_seen": 1772221041993,
       "created_at": 1772218140227,
       "last_seen": 1772218140238,
       "created_at": 1772238573613,
@@ -545,6 +560,12 @@
     }
   ],
   [
+    "9c49ca58-c6e5-4751-a3de-ab48bf7a4da1",
+    {
+      "schema_version": 1,
+      "id": "9c49ca58-c6e5-4751-a3de-ab48bf7a4da1",
+      "agent_id": "scheduler-memory-daily",
+      "session_id": "session-mm5b8fmq",
     "d4e307de-89ae-48eb-ac20-565a0c1061d3",
     {
       "schema_version": 1,
@@ -571,6 +592,8 @@
       ],
       "importance": 0.8,
       "embedding_id": null,
+      "created_at": 1772222021666,
+      "last_seen": 1772222021666,
       "created_at": 1772218432277,
       "last_seen": 1772218432277,
       "created_at": 1772238600589,
