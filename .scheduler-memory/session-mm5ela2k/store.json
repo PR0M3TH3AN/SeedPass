@@ -1,0 +1,20 @@
+{
+  "cadence": "daily",
+  "operation": "store",
+  "runId": "session-mm5ela2k",
+  "servicePath": "src/services/memory/index.js#ingestEvents",
+  "inputs": {
+    "agentId": "deps-security-agent",
+    "promptPath": "torch/src/prompts/daily/deps-security-agent.md",
+    "promptIntent": "Deps Security Agent",
+    "events": 1,
+    "sourceFile": ".scheduler-memory/latest/daily/store.ok"
+  },
+  "outputs": {
+    "storedCount": 1,
+    "summaries": [
+      "Prompt failed: missing runner codex"
+    ]
+  },
+  "status": "ok"
+}
