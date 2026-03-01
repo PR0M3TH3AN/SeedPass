@@ -54,7 +54,7 @@ gui-mac = ["toga-cocoa"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2"
-coverage = "^7.5"
+coverage = "^7.13"
 black = "^24.3"
 pip-audit = "^2.7"
 pytest-xdist = "^3.5"
