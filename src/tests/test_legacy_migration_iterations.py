@@ -49,9 +49,9 @@ def test_migrate_iterations(tmp_path, monkeypatch, iterations):
     calls: list[int] = []
     orig_derive = enc_module._derive_legacy_key_from_password
 
-    def tracking_derive(password: str, iterations: int = 100_000) -> bytes:
+    def tracking_derive(password: str, iterations: int = 100_000, salt: bytes = b"") -> bytes:
         calls.append(iterations)
-        return orig_derive(password, iterations=iterations)
+        return orig_derive(password, iterations=iterations, salt=salt)
 
     monkeypatch.setattr(enc_module, "_derive_legacy_key_from_password", tracking_derive)
 
@@ -60,7 +60,7 @@ def test_migrate_iterations(tmp_path, monkeypatch, iterations):
     vault.load_index()
 
     assert prompts == [1]
-    expected = [50_000] if iterations == 50_000 else [50_000, 100_000]
+    expected = [50_000, 100_000, 50_000] if iterations == 50_000 else [50_000, 100_000, 50_000, 100_000]
     assert calls == expected
 
     cfg = ConfigManager(vault, tmp_path)

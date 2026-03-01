@@ -425,9 +425,7 @@ def handle_post_to_nostr(
             logging.info("Encrypted index posted to Nostr successfully.")
         else:
             client = getattr(password_manager, "nostr_client", None)
-            detail = (
-                getattr(client, "last_error", None) if client is not None else None
-            )
+            detail = getattr(client, "last_error", None) if client is not None else None
             if detail:
                 print(colored(f"\N{CROSS MARK} Sync failed… {detail}", "red"))
                 logging.error("Failed to post encrypted index to Nostr: %s", detail)

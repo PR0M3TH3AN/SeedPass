@@ -28,9 +28,9 @@ def test_wrong_password_message(tmp_path):
 
 
 def test_legacy_file_requires_migration_message(tmp_path, monkeypatch):
-    def _fast_legacy_key(password: str, iterations: int = 100_000) -> bytes:
+    def _fast_legacy_key(password: str, iterations: int = 100_000, salt: bytes = b"") -> bytes:
         normalized = unicodedata.normalize("NFKD", password).strip().encode("utf-8")
-        key = hashlib.pbkdf2_hmac("sha256", normalized, b"", 1, dklen=32)
+        key = hashlib.pbkdf2_hmac("sha256", normalized, salt, 1, dklen=32)
         return base64.urlsafe_b64encode(key)
 
     monkeypatch.setattr(
