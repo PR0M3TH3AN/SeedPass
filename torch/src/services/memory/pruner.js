@@ -1,6 +1,7 @@
 import { loadMemoryPromptTemplates } from './summarizer.js';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from './constants/time.js';
+import { MAX_SUMMARY_LENGTH } from './constants/text.js';
+import { LOW_IMPORTANCE_THRESHOLD } from './constants/scoring.js';
 
 /**
  * @typedef {'keep' | 'archive' | 'delete'} LifecycleAction
@@ -113,7 +114,7 @@ function groupNearDuplicates(memories, options) {
  */
 async function condenseGroup(group, generateSummary, condenseTemplate) {
   const [primary, ...rest] = group;
-  const fallbackSummary = group.map((item) => item.summary || item.content).filter(Boolean).join(' ').slice(0, 280);
+  const fallbackSummary = group.map((item) => item.summary || item.content).filter(Boolean).join(' ').slice(0, MAX_SUMMARY_LENGTH);
   const fallback = {
     summary: fallbackSummary || primary.summary,
     importance: Math.max(...group.map((item) => item.importance)),
@@ -181,7 +182,7 @@ export async function createLifecyclePlan(memories, options) {
   const policy = {
     now,
     retentionMs: options.retentionMs,
-    lowImportanceThreshold: options.lowImportanceThreshold ?? 0.35,
+    lowImportanceThreshold: options.lowImportanceThreshold ?? LOW_IMPORTANCE_THRESHOLD,
     deleteImportanceThreshold: options.deleteImportanceThreshold ?? 0.12,
     recentUsageMs: options.recentUsageMs ?? Math.max(Math.floor(options.retentionMs / 2), DAY_MS),
     duplicateWindowMs: options.duplicateWindowMs ?? (7 * DAY_MS),

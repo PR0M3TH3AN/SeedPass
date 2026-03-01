@@ -1,0 +1,2 @@
+export const DEFAULT_IMPORTANCE_SCORE = 0.25;
+export const LOW_IMPORTANCE_THRESHOLD = 0.35;

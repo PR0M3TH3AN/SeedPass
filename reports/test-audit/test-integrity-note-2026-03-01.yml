@@ -1,0 +1,24 @@
+# Test Integrity Note
+date: 2026-03-01
+agent: test-audit-agent
+changes:
+  - file: src/tests/test_unlock_sync.py
+    type: refactor
+    reason: Removed non-deterministic time.sleep(0.05) to await task completion
+    details: Replaced time.sleep with pm._sync_task.join(timeout=1.0)
+  - file: src/tests/test_nostr_sdk_workflow.py
+    type: refactor
+    reason: Removed non-deterministic time.sleep(0.5) waiting for relay to start
+    details: Replaced time.sleep with an active polling connection retry loop
+  - file: src/tests/test_background_relay_check.py
+    type: refactor
+    reason: Removed non-deterministic time.sleep(0.05) waiting for background thread
+    details: Replaced time.sleep with pm._relay_thread.join(timeout=1.0)
+  - file: src/tests/test_offline_mode_behavior.py
+    type: refactor
+    reason: Removed useless time.sleep(0.05)
+    details: Background thread is never spawned because of early exit, so removed sleep entirely
+  - file: src/tests/test_nostr_index_size.py
+    type: refactor
+    reason: Removed non-deterministic time.sleep(delay) and added missing assertion
+    details: Replaced time.sleep with an active polling asyncio retry loop and added assert len(results) > 0 at the end of the file.

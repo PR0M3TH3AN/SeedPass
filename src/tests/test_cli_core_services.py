@@ -24,7 +24,35 @@ def test_cli_vault_unlock(monkeypatch):
     result = runner.invoke(app, ["vault", "unlock"])
     assert result.exit_code == 0
     assert "Unlocked in" in result.stdout
+    assert "seedpass --help" in result.stdout
     assert called["pw"] == "pw"
+
+
+def test_cli_vault_unlock_with_env_broker(monkeypatch):
+    called = {}
+    broker_called = {}
+
+    def unlock_vault(pw):
+        called["pw"] = pw
+        return 0.25
+
+    pm = SimpleNamespace(unlock_vault=unlock_vault, select_fingerprint=lambda fp: None)
+    monkeypatch.setattr(cli_common, "PasswordManager", lambda: pm)
+    monkeypatch.setattr(
+        "seedpass.cli.vault.resolve_broker_password",
+        lambda **kwargs: broker_called.update(kwargs) or "broker-pw",
+    )
+    monkeypatch.setattr(
+        cli.typer,
+        "prompt",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("prompt should not be called")
+        ),
+    )
+    result = runner.invoke(app, ["vault", "unlock", "--auth-broker", "env"])
+    assert result.exit_code == 0
+    assert called["pw"] == "broker-pw"
+    assert broker_called["broker"] == "env"
 
 
 def test_cli_entry_add_search_sync(monkeypatch):

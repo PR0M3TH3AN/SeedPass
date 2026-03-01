@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
+import click
 import typer
 
 from .common import (
@@ -12,16 +13,62 @@ from .common import (
     UnlockRequest,
     BackupParentSeedRequest,
 )
+from seedpass.core.agent_export_policy import (
+    allowed_kinds,
+    filter_index_for_allowed_kinds,
+    full_export_allowed,
+    load_export_policy,
+)
+from seedpass.core.auth_broker import (
+    AuthBrokerError,
+    resolve_password as resolve_broker_password,
+)
 
 app = typer.Typer(help="Manage the entire vault")
 
 
 @app.command("export")
 def vault_export(
-    ctx: typer.Context, file: str = typer.Option(..., help="Output file")
+    ctx: typer.Context,
+    file: str = typer.Option(..., help="Output file"),
+    agent_profile: bool = typer.Option(
+        False,
+        "--agent-profile",
+        help="Apply agent export policy controls",
+    ),
+    policy_filtered: bool = typer.Option(
+        False,
+        "--policy-filtered",
+        help="Export only policy-allowed subset of entries",
+    ),
 ) -> None:
     """Export the vault profile to an encrypted file."""
     vault_service, _profile, _sync = _get_services(ctx)
+    if agent_profile:
+        policy = load_export_policy()
+        if policy_filtered:
+            manager = getattr(vault_service, "_manager", None)
+            vault = getattr(manager, "vault", None)
+            enc_mgr = getattr(vault, "encryption_manager", None)
+            if vault is None or enc_mgr is None:
+                typer.echo(
+                    "Error: policy-filtered export unavailable in current context"
+                )
+                raise typer.Exit(code=1)
+            index_data = vault.load_index()
+            filtered = filter_index_for_allowed_kinds(index_data, allowed_kinds(policy))
+            payload = json.dumps(
+                filtered, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+            data = enc_mgr.encrypt_data(payload)
+            Path(file).write_bytes(data)
+            typer.echo(str(file))
+            return
+        if not full_export_allowed(policy):
+            typer.echo(
+                "Error: Policy denied full vault export for agent profile. Use --policy-filtered."
+            )
+            raise typer.Exit(code=1)
     data = vault_service.export_profile()
     Path(file).write_bytes(data)
     typer.echo(str(file))
@@ -55,16 +102,63 @@ def vault_change_password(ctx: typer.Context) -> None:
 
 
 @app.command("unlock")
-def vault_unlock(ctx: typer.Context) -> None:
+def vault_unlock(
+    ctx: typer.Context,
+    auth_broker: str = typer.Option(
+        "prompt",
+        "--auth-broker",
+        help="Password source for unlock (prompt|env|keyring|command)",
+        click_type=click.Choice(
+            ["prompt", "env", "keyring", "command"], case_sensitive=False
+        ),
+    ),
+    password_env: str = typer.Option(
+        "SEEDPASS_PASSWORD",
+        "--password-env",
+        help="Env var used when --auth-broker=env",
+    ),
+    broker_service: str = typer.Option(
+        "seedpass",
+        "--broker-service",
+        help="Keyring service name when --auth-broker=keyring",
+    ),
+    broker_account: Optional[str] = typer.Option(
+        None,
+        "--broker-account",
+        help="Keyring account (defaults to active fingerprint when available)",
+    ),
+    broker_command: Optional[str] = typer.Option(
+        None,
+        "--broker-command",
+        help="Command that prints password to stdout for --auth-broker=command",
+    ),
+) -> None:
     """Unlock the vault for the active profile."""
     vault_service, _profile, _sync = _get_services(ctx)
-    password = typer.prompt("Master password", hide_input=True)
+    password: str
+    if auth_broker.lower() == "prompt":
+        password = typer.prompt("Master password", hide_input=True)
+    else:
+        account = broker_account or str((ctx.obj or {}).get("fingerprint") or "default")
+        try:
+            password = resolve_broker_password(
+                broker=auth_broker,
+                password_env=password_env,
+                broker_service=broker_service,
+                broker_account=account,
+                broker_command=broker_command,
+            )
+        except AuthBrokerError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     try:
         resp = vault_service.unlock(UnlockRequest(password=password))
     except Exception as exc:  # pragma: no cover - pass through errors
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
     typer.echo(f"Unlocked in {resp.duration:.2f}s")
+    typer.echo(
+        "Tip: run `seedpass --help` (and `seedpass <command> --help`) to discover available features."
+    )
 
 
 @app.command("lock")
