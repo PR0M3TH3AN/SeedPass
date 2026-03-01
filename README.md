@@ -70,6 +70,7 @@ SeedPass now uses the `portalocker` library for cross-platform file locking. No 
 - **Quick Unlock:** Optionally skip the password prompt after verifying once.
 - **Secret Mode:** When enabled, newly generated and retrieved passwords are copied to your clipboard and automatically cleared after a delay.
 - **Tagging Support:** Organize entries with optional tags and find them quickly via search.
+- **Entry Graph Links:** Connect entries with typed relationships (`target_id`, `relation`, `note`) for knowledge-base style navigation.
 - **Typed Search Results:** Results now display each entry's type for quicker identification.
 - **Manual Vault Export/Import:** Create encrypted backups or restore them using the CLI or API.
 - **Parent Seed Backup:** Securely save an encrypted copy of the master seed.
@@ -98,6 +99,7 @@ with policy and security guardrails:
 - **Safer automation primitives:** `agent job-run`, `agent job-template`, and job profiles with policy-stamp checks and signed template manifests.
 - **Recovery hardening:** `agent recovery-split/recover/drill/drill-list` for Shamir split/recover and signed drill evidence.
 - **Deterministic export controls:** policy-filtered exports plus manifest integrity checks with `agent export-check` and `agent export-manifest-verify`.
+- **Agent document I/O:** policy-gated filesystem import/export with `agent document-import` and `agent document-export`.
 - **Security posture tooling:** `agent posture-check` and `agent posture-remediate` for drift detection and remediation bundles.
 - **Auditable access chain:** append-only HMAC-chained audit records with verification support.
 
@@ -501,6 +503,13 @@ export SEEDPASS_PASSWORD='your-strong-password'
 seedpass -f <fingerprint> agent get github --ttl 30
 ```
 
+4. Import/export document entries from automation (requires policy `allow_export_import=true`):
+
+```bash
+seedpass -f <fingerprint> agent document-import --file ./notes.md --label "Ops Notes"
+seedpass -f <fingerprint> agent document-export --entry-id 42 --out ./exports
+```
+
 By default, agent policy blocks private key/seed-style entry kinds from being
 revealed through `agent get`.
 
@@ -609,19 +618,59 @@ SeedPass supports storing more than just passwords and 2FA secrets. You can also
 - **Nostr Key Pair** – store the index used to derive an `npub`/`nsec` pair for Nostr clients. When you retrieve one of these entries, SeedPass can display QR codes for the keys. The `npub` is wrapped in the `nostr:` URI scheme so any client can scan it, while the `nsec` QR is shown only after a security warning.
 - **Key/Value** – store a simple key and value for miscellaneous secrets or configuration data.
 - **Managed Account** – derive a child seed under the current profile. Loading a managed account switches to a nested profile and the header shows `<parent_fp> > Managed Account > <child_fp>`. Press Enter on the main menu to return to the parent profile.
+- **Document** – store editable text content plus a file type/extension (`md`, `txt`, `py`, `js`, `csv`, etc.) with a built-in terminal editor (`p`, `a`, `i <n>`, `e <n>`, `d <n>`, `w`, `q`).
 
-The table below summarizes the extra fields stored for each entry type. Every entry includes a `label`, while only password entries track a `url`.
+All entry types include:
+- `type` and `kind`
+- `label` (title)
+- `archived`
+- `date_added` (UTC ISO-8601)
+- `date_modified` (UTC ISO-8601)
+- `links` (optional graph edges: `target_id`, `relation`, `note`)
+
+The table below summarizes additional kind-specific fields.
 
 | Entry Type      | Extra Fields                                                                                                                                         |
 |-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Password        | `username`, `url`, `length`, `archived`, optional `notes`, optional `custom_fields` (may include hidden fields), optional `tags`                       |
-| 2FA (TOTP)      | `index` or `secret`, `period`, `digits`, `archived`, optional `notes`, optional `tags`                                                                 |
-| SSH Key         | `index`, `archived`, optional `notes`, optional `tags`                                                                                                |
-| Seed Phrase     | `index`, `word_count` *(mnemonic regenerated; never stored)*, `archived`, optional `notes`, optional `tags`                                            |
-| PGP Key         | `index`, `key_type`, `archived`, optional `user_id`, optional `notes`, optional `tags`                                                                 |
-| Nostr Key Pair  | `index`, `archived`, optional `notes`, optional `tags`                                                                                                |
-| Key/Value       | `key`, `value`, `archived`, optional `notes`, optional `custom_fields`, optional `tags`                                                                       |
-| Managed Account | `index`, `word_count`, `fingerprint`, `archived`, optional `notes`, optional `tags`                                                                   |
+| Password        | `username`, `url`, `length`, optional `notes`, optional `custom_fields` (may include hidden fields), optional `tags`                                |
+| 2FA (TOTP)      | `index` or `secret`, `period`, `digits`, optional `notes`, optional `tags`                                                                           |
+| SSH Key         | `index`, optional `notes`, optional `tags`                                                                                                            |
+| Seed Phrase     | `index`, `word_count` *(mnemonic regenerated; never stored)*, optional `notes`, optional `tags`                                                     |
+| PGP Key         | `index`, `key_type`, optional `user_id`, optional `notes`, optional `tags`                                                                           |
+| Nostr Key Pair  | `index`, optional `notes`, optional `tags`                                                                                                            |
+| Key/Value       | `key`, `value`, optional `notes`, optional `custom_fields`, optional `tags`                                                                          |
+| Managed Account | `index`, `word_count`, `fingerprint`, optional `notes`, optional `tags`                                                                              |
+| Document        | `content`, `file_type`, optional `notes`, optional `custom_fields`, optional `tags`                                                                  |
+
+For a complete per-kind schema reference, see [docs/entry_types.md](docs/entry_types.md).
+
+### Document Import/Export
+
+SeedPass can import local text files as `document` entries and export stored documents back to your OS filesystem.
+
+- CLI import:
+  - `seedpass entry import-document --file ./notes.md --label "Ops Notes"`
+- CLI export:
+  - `seedpass entry export-document --entry-id 42 --out ./exports`
+- API import:
+  - `POST /api/v1/entry/document/import` with JSON: `{"path":"./notes.md","label":"Ops Notes"}`
+- API export:
+  - `POST /api/v1/entry/{entry_id}/document/export` with JSON: `{"path":"./exports","overwrite":false}`
+
+In TUI, choose `Add Entry > Document > Import Document File` to import, and use `Entry Actions > Export Document to File` on a document entry to export.
+
+### Entry Graph Links
+
+SeedPass entries can be connected with typed links so tags can evolve into an explicit knowledge graph.
+
+- CLI:
+  - `seedpass entry link-add --entry-id 1 --target-id 2 --relation references --note "used by runbook"`
+  - `seedpass entry links --entry-id 1`
+  - `seedpass entry link-remove --entry-id 1 --target-id 2 --relation references`
+- API:
+  - `GET /api/v1/entry/{id}/links`
+  - `POST /api/v1/entry/{id}/links`
+  - `DELETE /api/v1/entry/{id}/links`
 
 ### Managing Multiple Seeds
 

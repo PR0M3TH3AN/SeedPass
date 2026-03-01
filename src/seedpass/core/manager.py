@@ -2228,6 +2228,81 @@ class PasswordManager:
             print(colored(f"Error: Failed to add {operation_name}: {e}", "red"))
             pause()
 
+    def _terminal_document_editor(
+        self, initial_content: str = "", *, title: str = "Document Editor"
+    ) -> str | None:
+        """Simple line-oriented terminal editor.
+
+        Commands:
+        - `p`: print buffer
+        - `a`: append line
+        - `i <n>`: insert before line n
+        - `e <n>`: edit line n
+        - `d <n>`: delete line n
+        - `w`: save and exit
+        - `q`: cancel
+        """
+
+        lines = initial_content.splitlines()
+        print(colored(f"\n{title}", "cyan"))
+        print(colored("Type 'h' for help.", "cyan"))
+
+        def print_help() -> None:
+            print(colored("Commands: p | a | i <n> | e <n> | d <n> | w | q", "cyan"))
+
+        def print_lines() -> None:
+            if not lines:
+                print(colored("[empty]", "yellow"))
+                return
+            for idx, line in enumerate(lines, start=1):
+                print(colored(f"{idx:>4}: {line}", "cyan"))
+
+        print_help()
+        print_lines()
+
+        while True:
+            raw = input("(doc-edit)> ").rstrip()
+            if not raw:
+                continue
+            cmd, *rest = raw.split(maxsplit=1)
+            cmd = cmd.lower()
+
+            if cmd == "h":
+                print_help()
+                continue
+            if cmd == "p":
+                print_lines()
+                continue
+            if cmd == "a":
+                lines.append(input("append> "))
+                continue
+            if cmd in {"i", "e", "d"}:
+                if not rest or not rest[0].strip().isdigit():
+                    print(colored("Line number required.", "red"))
+                    continue
+                line_no = int(rest[0].strip())
+                if line_no < 1 or line_no > max(len(lines), 1):
+                    print(colored("Invalid line number.", "red"))
+                    continue
+                if cmd == "i":
+                    lines.insert(line_no - 1, input("insert> "))
+                elif cmd == "e":
+                    if line_no > len(lines):
+                        print(colored("Line does not exist.", "red"))
+                        continue
+                    lines[line_no - 1] = input("edit> ")
+                else:
+                    if line_no > len(lines):
+                        print(colored("Line does not exist.", "red"))
+                        continue
+                    lines.pop(line_no - 1)
+                continue
+            if cmd == "w":
+                return "\n".join(lines)
+            if cmd == "q":
+                return None
+            print(colored("Unknown command.", "red"))
+
     @pause_logging_for_ui
     def handle_add_password(self) -> None:
         self.entry_service.handle_add_password()
@@ -2592,6 +2667,69 @@ class PasswordManager:
             self._sync_and_pause()
 
     @pause_logging_for_ui
+    def handle_add_document(self) -> None:
+        """Add a document entry with editable text content."""
+        with self._entry_op_context("document"):
+            self._clear_header_add_entry("Document")
+            print("1. New Document")
+            print("2. Import Document File")
+            mode = input("Select option or press Enter to cancel: ").strip()
+            if not mode:
+                return
+            if mode not in {"1", "2"}:
+                print(colored("Invalid choice.", "red"))
+                return
+
+            if mode == "2":
+                file_path = input("Path to document file: ").strip()
+                if not file_path:
+                    print(colored("Error: File path cannot be empty.", "red"))
+                    return
+                label = input("Title override (optional): ").strip() or None
+                notes = input("Notes (optional): ").strip()
+                tags_input = input("Enter tags (comma-separated, optional): ").strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else []
+                )
+                index = self.entry_manager.import_document_file(
+                    file_path,
+                    label=label,
+                    notes=notes,
+                    tags=tags,
+                )
+            else:
+                label = input("Title: ").strip()
+                if not label:
+                    print(colored("Error: Title cannot be empty.", "red"))
+                    return
+                file_type = (
+                    input("File type/extension (default txt): ").strip() or "txt"
+                )
+                notes = input("Notes (optional): ").strip()
+                tags_input = input("Enter tags (comma-separated, optional): ").strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else []
+                )
+                content = self._terminal_document_editor("", title=f"Editing: {label}")
+                if content is None:
+                    print(colored("Document creation cancelled.", "yellow"))
+                    return
+                index = self.entry_manager.add_document(
+                    label,
+                    content,
+                    file_type=file_type,
+                    notes=notes,
+                    tags=tags,
+                )
+            self._mark_dirty()
+            print(colored(f"\n[+] Document entry added with ID {index}.\n", "green"))
+            self._sync_and_pause()
+
+    @pause_logging_for_ui
     def handle_add_managed_account(self) -> None:
         """Add a managed account seed entry."""
         with self._entry_op_context("managed account"):
@@ -2789,6 +2927,20 @@ class PasswordManager:
             pause()
             refresh_entry()
 
+        def export_document():
+            out = input(
+                "Output path (file or directory, blank for current directory): "
+            ).strip()
+            try:
+                dest = self.entry_manager.export_document_file(
+                    index, output_path=out or None
+                )
+                print(colored(f"Document exported to: {dest}", "green"))
+            except Exception as exc:
+                print(colored(f"Export failed: {exc}", "red"))
+            pause()
+            refresh_entry()
+
         def get_options():
             archived = current_entry.get(
                 "archived", current_entry.get("blacklisted", False)
@@ -2813,6 +2965,8 @@ class PasswordManager:
                 EntryType.NOSTR.value,
             }:
                 options.append(("q", "Show QR codes", show_qr))
+            if entry_type == EntryType.DOCUMENT.value:
+                options.append(("x", "Export Document to File", export_document))
 
             return options
 
@@ -2853,6 +3007,30 @@ class PasswordManager:
                 self.is_dirty = True
                 self.last_update = time.time()
                 refresh_entry()
+
+        def edit_document_content():
+            new_content = self._terminal_document_editor(
+                current_entry.get("content", ""),
+                title=f"Editing: {current_entry.get('label', 'Document')}",
+            )
+            if new_content is None:
+                print(colored("Edit cancelled.", "yellow"))
+                return
+            self.entry_manager.modify_entry(index, content=new_content)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
+
+        def edit_document_file_type():
+            current = current_entry.get("file_type", "txt")
+            new_file_type = (
+                input(f"New file type/extension (current: {current}): ").strip()
+                or current
+            )
+            self.entry_manager.modify_entry(index, file_type=new_file_type)
+            self.is_dirty = True
+            self.last_update = time.time()
+            refresh_entry()
 
         def edit_username():
             new_username = input("New username: ").strip()
@@ -2895,6 +3073,9 @@ class PasswordManager:
             if entry_type == EntryType.KEY_VALUE.value:
                 options.append(("k", "Edit Key", edit_key))
                 options.append(("v", "Edit Value", edit_value))
+            elif entry_type == EntryType.DOCUMENT.value:
+                options.append(("c", "Edit Content", edit_document_content))
+                options.append(("f", "Edit File Type", edit_document_file_type))
 
             if entry_type == EntryType.PASSWORD.value:
                 options.append(("u", "Edit Username", edit_username))
@@ -3226,6 +3407,81 @@ class PasswordManager:
                     archived=new_blacklisted,
                     notes=new_notes,
                     label=new_label,
+                    tags=tags,
+                )
+            elif entry_type == EntryType.DOCUMENT.value:
+                label = entry.get("label", "")
+                content = entry.get("content", "")
+                file_type = entry.get("file_type", "txt")
+                blacklisted = entry.get("archived", False)
+                notes = entry.get("notes", "")
+
+                print(
+                    colored(
+                        f"Modifying document '{label}' (Index: {index}):",
+                        "cyan",
+                    )
+                )
+                new_label = (
+                    input(f'Enter new title (leave blank to keep "{label}"): ').strip()
+                    or label
+                )
+                new_file_type = (
+                    input(
+                        f'Enter file type/extension (leave blank to keep "{file_type}"): '
+                    ).strip()
+                    or file_type
+                )
+                if input("Edit document content now? (y/N): ").strip().lower() == "y":
+                    edited = self._terminal_document_editor(
+                        content, title=f"Editing: {new_label}"
+                    )
+                    new_content = content if edited is None else edited
+                else:
+                    new_content = content
+
+                blacklist_input = (
+                    input(
+                        f'Archive this entry? (Y/N, current: {"Y" if blacklisted else "N"}): '
+                    )
+                    .strip()
+                    .lower()
+                )
+                if blacklist_input == "":
+                    new_blacklisted = blacklisted
+                elif blacklist_input == "y":
+                    new_blacklisted = True
+                elif blacklist_input == "n":
+                    new_blacklisted = False
+                else:
+                    self.notify(
+                        "Invalid input for archived status. Keeping the current status.",
+                        level="WARNING",
+                    )
+                    new_blacklisted = blacklisted
+
+                new_notes = (
+                    input(
+                        f'Enter new notes (leave blank to keep "{notes or "N/A"}"): '
+                    ).strip()
+                    or notes
+                )
+                tags_input = input(
+                    "Enter tags (comma-separated, leave blank to keep current): "
+                ).strip()
+                tags = (
+                    [t.strip() for t in tags_input.split(",") if t.strip()]
+                    if tags_input
+                    else None
+                )
+
+                self.entry_manager.modify_entry(
+                    index,
+                    archived=new_blacklisted,
+                    notes=new_notes,
+                    label=new_label,
+                    content=new_content,
+                    file_type=new_file_type,
                     tags=tags,
                 )
             elif entry_type in (
@@ -3632,6 +3888,36 @@ class PasswordManager:
                 print(color_text(f"  Tags: {', '.join(tags)}", "index"))
             blacklisted = entry.get("archived", entry.get("blacklisted", False))
             print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
+        elif etype == EntryType.DOCUMENT.value:
+            print(color_text("  Type: Document", "index"))
+            print(color_text(f"  Title: {entry.get('label', '')}", "index"))
+            print(
+                color_text(
+                    f"  File Type: {entry.get('file_type', 'txt')}",
+                    "index",
+                )
+            )
+            content = str(entry.get("content", ""))
+            preview = content if len(content) <= 240 else f"{content[:240]}..."
+            print(color_text("  Content Preview:", "index"))
+            print(color_text(f"{preview}", "index"))
+            notes = entry.get("notes", "")
+            if notes:
+                print(color_text(f"  Notes: {notes}", "index"))
+            tags = entry.get("tags", [])
+            if tags:
+                print(color_text(f"  Tags: {', '.join(tags)}", "index"))
+            if entry.get("date_added"):
+                print(color_text(f"  Date Added: {entry.get('date_added')}", "index"))
+            if entry.get("date_modified"):
+                print(
+                    color_text(
+                        f"  Date Modified: {entry.get('date_modified')}",
+                        "index",
+                    )
+                )
+            blacklisted = entry.get("archived", entry.get("blacklisted", False))
+            print(color_text(f"  Archived: {'Yes' if blacklisted else 'No'}", "index"))
         elif etype == EntryType.MANAGED_ACCOUNT.value:
             print(color_text("  Type: Managed Account", "index"))
             print(color_text(f"  Label: {entry.get('label', '')}", "index"))
@@ -3671,6 +3957,10 @@ class PasswordManager:
                     "index",
                 )
             )
+        if entry.get("date_added"):
+            print(color_text(f"  Date Added: {entry.get('date_added')}", "index"))
+        if entry.get("date_modified"):
+            print(color_text(f"  Date Modified: {entry.get('date_modified')}", "index"))
         print("-" * 40)
 
     @pause_logging_for_ui

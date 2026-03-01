@@ -137,7 +137,7 @@ def _prefer_entry(current: dict[str, Any], incoming: dict[str, Any]) -> bool:
 
 
 def _union_fields_for_kind(kind: str) -> list[str]:
-    common = ["notes", "tags", "custom_fields"]
+    common = ["notes", "tags", "custom_fields", "links"]
     matrix = {
         "password": ["username", "url"],
         "totp": ["issuer"],
@@ -147,6 +147,7 @@ def _union_fields_for_kind(kind: str) -> list[str]:
         "pgp": ["public_key", "key_type"],
         "nostr": ["npub", "public_key"],
         "seed": ["path", "network", "coin_type"],
+        "document": ["content", "file_type"],
     }
     return matrix.get(kind, []) + common
 
@@ -170,7 +171,7 @@ def _merge_equal_ts_entries(
     for field in union_fields:
         pv = merged.get(field)
         ov = other.get(field)
-        if field in ("tags", "custom_fields"):
+        if field in ("tags", "custom_fields", "links"):
             merged[field] = _merge_list_union(pv, ov)
             continue
         if _is_empty(pv) and not _is_empty(ov):

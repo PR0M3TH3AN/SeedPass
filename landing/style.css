@@ -567,6 +567,19 @@ a:hover {
     color: var(--text-muted);
 }
 
+.graph-snippet {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-left: 2px solid var(--accent-secondary);
+    border-radius: 4px;
+    background: rgba(8, 10, 12, 0.45);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    overflow-x: auto;
+}
+
 /* Footer */
 .tui-footer {
     display: flex;

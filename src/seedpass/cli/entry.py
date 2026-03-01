@@ -108,6 +108,8 @@ def entry_get(ctx: typer.Context, query: str) -> None:
         elif etype == EntryType.TOTP.value:
             code = service.get_totp_code(index)
             typer.echo(code)
+        elif etype == EntryType.DOCUMENT.value:
+            typer.echo(str(entry.get("content", "")))
         else:
             typer.echo("Unsupported entry type")
             raise typer.Exit(code=1)
@@ -302,6 +304,55 @@ def entry_add_managed_account(
     typer.echo(str(idx))
 
 
+@app.command("add-document")
+def entry_add_document(
+    ctx: typer.Context,
+    label: str,
+    content: str = typer.Option("", "--content", help="Document text content"),
+    file_type: str = typer.Option("txt", "--file-type", help="File extension/type"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Add a document entry and output its index."""
+    service = _get_entry_service(ctx)
+    idx = service.add_document(
+        label,
+        content,
+        file_type=file_type,
+        notes=notes,
+    )
+    typer.echo(str(idx))
+
+
+@app.command("import-document")
+def entry_import_document(
+    ctx: typer.Context,
+    file: str = typer.Option(..., "--file", help="Input file path"),
+    label: Optional[str] = typer.Option(None, "--label", help="Title override"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+) -> None:
+    """Import a local text file as a document entry and output its index."""
+    service = _get_entry_service(ctx)
+    idx = service.import_document_file(file, label=label, notes=notes)
+    typer.echo(str(idx))
+
+
+@app.command("export-document")
+def entry_export_document(
+    ctx: typer.Context,
+    entry_id: int = typer.Option(..., "--entry-id", help="Document entry index"),
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Output file path or directory (default: current directory)",
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite if exists"),
+) -> None:
+    """Export a document entry to a local file and print the destination path."""
+    service = _get_entry_service(ctx)
+    dest = service.export_document_file(entry_id, out, overwrite=overwrite)
+    typer.echo(str(dest))
+
+
 @app.command("modify")
 def entry_modify(
     ctx: typer.Context,
@@ -316,9 +367,31 @@ def entry_modify(
     digits: Optional[int] = typer.Option(None, "--digits", help="TOTP digits"),
     key: Optional[str] = typer.Option(None, "--key", help="New key"),
     value: Optional[str] = typer.Option(None, "--value", help="New value"),
+    content: Optional[str] = typer.Option(
+        None, "--content", help="New document content"
+    ),
+    file_type: Optional[str] = typer.Option(
+        None, "--file-type", help="New document file type"
+    ),
+    links_json: Optional[str] = typer.Option(
+        None,
+        "--links-json",
+        help="Replace links with JSON array: [{\"target_id\":1,\"relation\":\"related_to\",\"note\":\"...\"}]",
+    ),
 ) -> None:
     """Modify an existing entry."""
     service = _get_entry_service(ctx)
+    links = None
+    if links_json is not None:
+        try:
+            parsed = json.loads(links_json)
+        except json.JSONDecodeError as exc:
+            typer.echo(f"Invalid --links-json: {exc}")
+            raise typer.Exit(code=1)
+        if not isinstance(parsed, list):
+            typer.echo("Invalid --links-json: expected a JSON list")
+            raise typer.Exit(code=1)
+        links = parsed
     try:
         service.modify_entry(
             entry_id,
@@ -330,11 +403,66 @@ def entry_modify(
             digits=digits,
             key=key,
             value=value,
+            content=content,
+            file_type=file_type,
+            links=links,
         )
     except ValueError as e:
         typer.echo(str(e))
         sys.stdout.flush()
         raise typer.Exit(code=1)
+
+
+@app.command("links")
+def entry_links(
+    ctx: typer.Context,
+    entry_id: int = typer.Option(..., "--entry-id", help="Entry index"),
+) -> None:
+    """List graph links for an entry."""
+    service = _get_entry_service(ctx)
+    try:
+        links = service.get_links(entry_id)
+    except ValueError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps({"entry_id": entry_id, "links": links}, indent=2))
+
+
+@app.command("link-add")
+def entry_link_add(
+    ctx: typer.Context,
+    entry_id: int = typer.Option(..., "--entry-id", help="Source entry index"),
+    target_id: int = typer.Option(..., "--target-id", help="Target entry index"),
+    relation: str = typer.Option("related_to", "--relation", help="Link relation"),
+    note: str = typer.Option("", "--note", help="Optional link note"),
+) -> None:
+    """Create a typed link between entries."""
+    service = _get_entry_service(ctx)
+    try:
+        links = service.add_link(entry_id, target_id, relation=relation, note=note)
+    except ValueError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps({"entry_id": entry_id, "links": links}, indent=2))
+
+
+@app.command("link-remove")
+def entry_link_remove(
+    ctx: typer.Context,
+    entry_id: int = typer.Option(..., "--entry-id", help="Source entry index"),
+    target_id: int = typer.Option(..., "--target-id", help="Target entry index"),
+    relation: Optional[str] = typer.Option(
+        None, "--relation", help="Relation filter (optional)"
+    ),
+) -> None:
+    """Remove links from source entry to target entry."""
+    service = _get_entry_service(ctx)
+    try:
+        links = service.remove_link(entry_id, target_id, relation=relation)
+    except ValueError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps({"entry_id": entry_id, "links": links}, indent=2))
 
 
 @app.command("archive")

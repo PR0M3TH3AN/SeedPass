@@ -16,7 +16,8 @@ app = typer.Typer(
     help=(
         "SeedPass command line interface. "
         "Run `seedpass capabilities` for a deterministic feature map "
-        "and `seedpass <group> --help` for group-specific commands."
+        "and `seedpass <group> --help` for group-specific commands, "
+        "including document I/O and entry graph links."
     ),
     invoke_without_command=True,
 )

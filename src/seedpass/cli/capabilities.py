@@ -38,6 +38,7 @@ def build_capabilities() -> dict[str, Any]:
                     "/docs",
                     "/api/v1/export/check",
                     "/api/v1/export/manifest/verify",
+                    "/api/v1/entry/{id}/links",
                     "/api/v1/agent/job-profiles",
                     "/api/v1/agent/job-profiles/{job_id}/run",
                     "/api/v1/agent/job-profiles/{job_id}/template",
@@ -180,6 +181,30 @@ def build_capabilities() -> dict[str, Any]:
                 "supports_manifest_entry_hash_verification": True,
                 "manifest_mode": "policy_filtered",
             },
+            "document_io": {
+                "commands": [
+                    "entry import-document",
+                    "entry export-document",
+                    "agent document-import",
+                    "agent document-export",
+                ],
+                "requires_agent_export_import_policy": True,
+            },
+            "knowledge_graph": {
+                "commands": [
+                    "entry link-add",
+                    "entry links",
+                    "entry link-remove",
+                    "entry modify --links-json",
+                ],
+                "api_endpoints": [
+                    "GET /api/v1/entry/{id}/links",
+                    "POST /api/v1/entry/{id}/links",
+                    "DELETE /api/v1/entry/{id}/links",
+                ],
+                "search_includes_link_metadata": True,
+                "sync_union_merge_fields": ["tags", "custom_fields", "links"],
+            },
             "redaction": {
                 "default_safe_output": True,
                 "reveal_override": "agent get --reveal",
@@ -214,6 +239,8 @@ def build_capabilities() -> dict[str, Any]:
             "Run `seedpass --help` for top-level commands.",
             "Run `seedpass <group> --help` for detailed options.",
             "Use `seedpass capabilities --format json` for machine-readable discovery.",
+            "For graph workflows, start with `seedpass entry link-add --help` and `seedpass entry links --help`.",
+            "For document workflows, run `seedpass entry import-document --help` and `seedpass agent document-import --help`.",
             "After unlock/login, run `seedpass capabilities` before autonomous runs.",
             "For agent bootstrap context, run `seedpass agent bootstrap-context`.",
         ],
@@ -252,6 +279,8 @@ def emit_capabilities(output_format: str) -> str:
     lines.append("- Safe output redaction default with explicit --reveal")
     lines.append("- Security posture checks and remediation bundles")
     lines.append("- Audited access log with chained HMAC signatures")
+    lines.append("- Knowledge graph links: entry link-add/links/link-remove")
+    lines.append("- Document file workflows for users and agents")
     lines.append("")
     lines.append("Discovery hints:")
     for hint in data["help_hints"]:

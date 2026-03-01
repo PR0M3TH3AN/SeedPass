@@ -64,3 +64,35 @@ def test_full_sync_roundtrip(dummy_nostr_client):
         pm_b.entry_manager.clear_cache()
         labels = [e[1] for e in pm_b.entry_manager.list_entries()]
         assert sorted(labels) == ["site1", "site2"]
+
+
+def test_large_document_sync_roundtrip(dummy_nostr_client):
+    client, relay = dummy_nostr_client
+    with TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        dir_a = base / "A"
+        dir_b = base / "B"
+        dir_a.mkdir()
+        dir_b.mkdir()
+
+        pm_a = _init_pm(dir_a, client)
+        pm_b = _init_pm(dir_b, client)
+
+        large_content = "line\n" * 120_000
+        doc_id = pm_a.entry_manager.add_document(
+            "LargeDoc",
+            large_content,
+            file_type="txt",
+            notes="large-payload",
+            tags=["sync", "large"],
+        )
+
+        pm_a.sync_vault()
+
+        result = pm_b.attempt_initial_sync()
+        assert result is True
+        restored = pm_b.entry_manager.retrieve_entry(doc_id)
+        assert restored is not None
+        assert restored["kind"] == "document"
+        assert restored["file_type"] == "txt"
+        assert restored["content"] == large_content

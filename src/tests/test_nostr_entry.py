@@ -24,15 +24,15 @@ def test_nostr_key_determinism():
 
         idx = entry_mgr.add_nostr_key("main", TEST_SEED)
         entry = entry_mgr.retrieve_entry(idx)
-        assert entry == {
-            "type": "nostr",
-            "kind": "nostr",
-            "index": idx,
-            "label": "main",
-            "notes": "",
-            "archived": False,
-            "tags": [],
-        }
+        assert entry["type"] == "nostr"
+        assert entry["kind"] == "nostr"
+        assert entry["index"] == idx
+        assert entry["label"] == "main"
+        assert entry["notes"] == ""
+        assert entry["archived"] is False
+        assert entry["tags"] == []
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         npub1, nsec1 = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)
         npub2, nsec2 = entry_mgr.get_nostr_key_pair(idx, TEST_SEED)

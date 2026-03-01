@@ -25,17 +25,17 @@ def test_add_and_modify_key_value():
 
         idx = em.add_key_value("API entry", "api_key", "abc123", notes="token")
         entry = em.retrieve_entry(idx)
-        assert entry == {
-            "type": "key_value",
-            "kind": "key_value",
-            "label": "API entry",
-            "key": "api_key",
-            "value": "abc123",
-            "notes": "token",
-            "archived": False,
-            "custom_fields": [],
-            "tags": [],
-        }
+        assert entry["type"] == "key_value"
+        assert entry["kind"] == "key_value"
+        assert entry["label"] == "API entry"
+        assert entry["key"] == "api_key"
+        assert entry["value"] == "abc123"
+        assert entry["notes"] == "token"
+        assert entry["archived"] is False
+        assert entry["custom_fields"] == []
+        assert entry["tags"] == []
+        assert "date_added" in entry
+        assert "date_modified" in entry
 
         # Appears in listing
         assert em.list_entries() == [(idx, "API entry", None, None, False)]

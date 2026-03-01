@@ -18,6 +18,7 @@ DEFAULT_EXPORT_POLICY: dict[str, Any] = {
         EntryType.PASSWORD.value,
         EntryType.TOTP.value,
         EntryType.KEY_VALUE.value,
+        EntryType.DOCUMENT.value,
     ],
     "allow_export_import": False,
     "export": {"allow_full_vault": False},

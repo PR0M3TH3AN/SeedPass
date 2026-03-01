@@ -69,6 +69,8 @@ class DisplayService:
             self._display_nostr(entry, index)
         elif entry_type == EntryType.KEY_VALUE.value:
             self._display_key_value(entry, index)
+        elif entry_type == EntryType.DOCUMENT.value:
+            self._display_document(entry, index)
         elif entry_type == EntryType.MANAGED_ACCOUNT.value:
             self._display_managed_account(entry, index)
         else:
@@ -381,6 +383,51 @@ class DisplayService:
             self.manager._suppress_entry_actions_menu = True
             self.manager.load_managed_account(index)
             return
+
+    def _display_document(self, entry: dict, _index: int) -> None:
+        label = entry.get("label", "")
+        file_type = entry.get("file_type", "txt")
+        notes = entry.get("notes", "")
+        content = str(entry.get("content", ""))
+        archived = entry.get("archived", False)
+        print(colored(f"Document '{label}' ({file_type})", "cyan"))
+        if notes:
+            print(colored(f"Notes: {notes}", "cyan"))
+        tags = entry.get("tags", [])
+        if tags:
+            print(colored(f"Tags: {', '.join(tags)}", "cyan"))
+        print(
+            colored(f"Archived Status: {'Archived' if archived else 'Active'}", "cyan")
+        )
+        print(color_text("\n--- BEGIN DOCUMENT ---", "index"))
+        print(color_text(content, "index"))
+        print(color_text("--- END DOCUMENT ---\n", "index"))
+        custom_fields = entry.get("custom_fields", [])
+        if custom_fields:
+            print(colored("Additional Fields:", "cyan"))
+            hidden_fields = []
+            for field in custom_fields:
+                f_label = field.get("label", "")
+                f_value = field.get("value", "")
+                if field.get("is_hidden"):
+                    hidden_fields.append((f_label, f_value))
+                    print(colored(f"  {f_label}: [hidden]", "cyan"))
+                else:
+                    print(colored(f"  {f_label}: {f_value}", "cyan"))
+            if hidden_fields:
+                show = input("Reveal hidden fields? (y/N): ").strip().lower()
+                if show == "y":
+                    for f_label, f_value in hidden_fields:
+                        if self.manager.secret_mode_enabled:
+                            if self._copy_to_clipboard(f_value):
+                                print(
+                                    colored(
+                                        f"[+] {f_label} copied to clipboard. Will clear in {self.manager.clipboard_clear_delay} seconds.",
+                                        "green",
+                                    )
+                                )
+                        else:
+                            print(colored(f"  {f_label}: {f_value}", "cyan"))
 
     def _display_password(self, entry: dict, index: int) -> None:
         website_name = entry.get("label", entry.get("website"))

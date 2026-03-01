@@ -487,6 +487,62 @@ class EntryService:
             self._manager.start_background_vault_sync()
             return idx
 
+    def add_document(
+        self,
+        label: str,
+        content: str,
+        *,
+        file_type: str = "txt",
+        notes: str = "",
+        tags: list[str] | None = None,
+        archived: bool = False,
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.add_document(
+                label,
+                content,
+                file_type=file_type,
+                notes=notes,
+                tags=tags,
+                archived=archived,
+            )
+            self._manager.start_background_vault_sync()
+            return idx
+
+    def import_document_file(
+        self,
+        file_path: str | Path,
+        *,
+        label: str | None = None,
+        notes: str = "",
+        tags: list[str] | None = None,
+        archived: bool = False,
+    ) -> int:
+        with self._lock:
+            idx = self._manager.entry_manager.import_document_file(
+                file_path,
+                label=label,
+                notes=notes,
+                tags=tags,
+                archived=archived,
+            )
+            self._manager.start_background_vault_sync()
+            return idx
+
+    def export_document_file(
+        self,
+        entry_id: int,
+        output_path: str | Path | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> Path:
+        with self._lock:
+            return self._manager.entry_manager.export_document_file(
+                entry_id,
+                output_path=output_path,
+                overwrite=overwrite,
+            )
+
     def modify_entry(
         self,
         entry_id: int,
@@ -499,6 +555,12 @@ class EntryService:
         digits: int | None = None,
         key: str | None = None,
         value: str | None = None,
+        content: str | None = None,
+        file_type: str | None = None,
+        custom_fields: list[dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
+        links: list[dict[str, Any]] | None = None,
+        archived: bool | None = None,
     ) -> None:
         with self._lock:
             self._manager.entry_manager.modify_entry(
@@ -511,8 +573,47 @@ class EntryService:
                 digits=digits,
                 key=key,
                 value=value,
+                content=content,
+                file_type=file_type,
+                custom_fields=custom_fields,
+                tags=tags,
+                links=links,
+                archived=archived,
             )
             self._manager.start_background_vault_sync()
+
+    def add_link(
+        self,
+        entry_id: int,
+        target_id: int,
+        *,
+        relation: str = "related_to",
+        note: str = "",
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            links = self._manager.entry_manager.add_link(
+                entry_id, target_id, relation=relation, note=note
+            )
+            self._manager.start_background_vault_sync()
+            return links
+
+    def remove_link(
+        self,
+        entry_id: int,
+        target_id: int,
+        *,
+        relation: str | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            links = self._manager.entry_manager.remove_link(
+                entry_id, target_id, relation=relation
+            )
+            self._manager.start_background_vault_sync()
+            return links
+
+    def get_links(self, entry_id: int) -> list[dict[str, Any]]:
+        with self._lock:
+            return self._manager.entry_manager.get_links(entry_id)
 
     def archive_entry(self, entry_id: int) -> None:
         with self._lock:

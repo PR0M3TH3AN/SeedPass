@@ -37,3 +37,128 @@
 - Verified with local venv:
   - `./.venv/bin/pytest -q src/tests/test_post_sync_messages.py`
   - `./.venv/bin/pytest -q src/tests/test_background_vault_sync_paths.py`
+
+## Entry model expansion: document kind + universal date fields
+- Added a new `document` entry kind across core enum, TUI, API, CLI, and agent secret resolution.
+- Added universal `date_added` and `date_modified` fields for all entry kinds.
+  - Creation now sets both fields.
+  - Modification preserves `date_added` and updates `date_modified`.
+  - Legacy entries are normalized in `_load_index()` by deriving date fields from `modified_ts`/`updated`.
+- TUI now supports `Document` creation via a built-in line editor with basic commands (`p`, `a`, `i <n>`, `e <n>`, `d <n>`, `w`, `q`).
+- Added document-specific display and edit flows in manager/display services.
+
+## Sync/policy compatibility notes
+- Updated deterministic merge kind matrix to include document fields (`content`, `file_type`) for equal-timestamp backfill behavior.
+- Agent defaults now include `document` in non-private allow-kinds, and agent secret resolution returns document content for `document` entries.
+
+## Tests and docs
+- Added/updated tests for:
+  - document entry roundtrip and CLI add command
+  - universal date field presence/update semantics across all entry kinds
+  - API create/modify behavior for `document`
+  - large document Nostr sync roundtrip
+- Added `docs/entry_types.md` and updated README/docs index and sync conflict docs.
+- Verified with:
+  - `./.venv/bin/pytest -q src/tests/test_cli_entry_add_commands.py src/tests/test_entry_add.py src/tests/test_entry_types_roundtrip.py src/tests/test_modify_entry_validation.py src/tests/test_api.py src/tests/test_api_new_endpoints.py src/tests/test_full_sync_roundtrip.py`
+  - Result: `141 passed`.
+
+## Document file import/export workflows
+- Added document file I/O at core layer:
+  - `EntryManager.import_document_file(path, ...)`
+  - `EntryManager.export_document_file(index, output_path=None, overwrite=False)`
+- Added TUI support:
+  - `Add Entry > Document` now supports `New Document` and `Import Document File`.
+  - Document entry actions now include `Export Document to File`.
+- Added automation surfaces:
+  - CLI: `entry import-document`, `entry export-document`
+  - API: `POST /api/v1/entry/document/import`, `POST /api/v1/entry/{id}/document/export`
+- Regression coverage added for core file roundtrip, CLI commands, and API endpoints.
+
+## Agent document import/export commands
+- Added dedicated agent CLI commands:
+  - `seedpass agent document-import --file <path>`
+  - `seedpass agent document-export <query>` (or `--entry-id`)
+- Enforcement model for both commands:
+  - Requires `--fingerprint` and non-interactive auth broker password resolution.
+  - Denies unless policy `allow_export_import` is enabled.
+  - Denies unless `document` kind is policy-allowed (`allow_kinds` / kind export check).
+  - Supports scoped token enforcement with operation scopes (`import` for import, `export` for export).
+  - Export honors approval gates when policy requires `export` approval.
+  - Emits structured JSON responses and append-only audit events for granted/denied outcomes.
+- Discovery updates:
+  - Added `document_io` command hints to `agent bootstrap-context` payload.
+  - Added `document_io` section to `seedpass capabilities --format json` security features.
+- Added CLI tests for:
+  - token-scoped agent document import success path
+  - token-scoped agent document export success path
+  - bootstrap context includes document command hints
+- Environment note: could not run pytest in this shell because `pytest` is unavailable (`python3 -m pytest` reports module missing).
+
+## Test environment note (2026-03-01)
+- Repo `.venv` already had `pytest` and `typer`; upgraded to `pytest 9.0.2` and `typer 0.24.1`.
+- New agent document I/O tests initially failed due mocked policy normalization (empty `rules` caused normalized `allow_kinds` to become empty).
+- Fixed tests by adding explicit allow rule for `document` in mocked policies.
+- Verification run:
+  - `.venv/bin/pytest -q src/tests/test_document_file_io.py src/tests/test_cli_entry_add_commands.py src/tests/test_api_new_endpoints.py src/tests/test_entry_types_roundtrip.py src/tests/test_full_sync_roundtrip.py src/tests/test_cli_agent_mode.py`
+  - Result: `150 passed`.
+
+## Full-suite regression repair after document rollout
+- Ran full suite after enabling agent document I/O and found 12 regressions (mostly stale tests).
+- Fixed regressions by updating tests for:
+  - new document add-menu option/mocks (`handle_add_document`),
+  - expanded `EntryService.modify_entry` kwargs,
+  - universal `date_added`/`date_modified` and `custom_fields` fields in entry expectations,
+  - `list_entries(sort_by="updated")` relying on `modified_ts`,
+  - legacy decrypt fallback monkeypatches to accept `salt` argument and revised iteration-call expectations.
+- Verification: `.venv/bin/pytest -q src/tests` => `891 passed, 11 skipped`.
+
+## Knowledge graph links integration (entry relationships)
+- Added first-class graph edges to every entry via shared `links` field (list of `{target_id, relation, note}`).
+- Implemented core link operations in `EntryManager`:
+  - `add_link(entry_id, target_id, relation, note)`
+  - `remove_link(entry_id, target_id, relation=None)`
+  - `get_links(entry_id)` with resolved target label/kind.
+- Added normalization/defaulting for `links` in index load path, including cache-return normalization to prevent stale in-memory schemas.
+- Extended `modify_entry(..., links=...)` to allow full links replacement with validation.
+- Search now matches link metadata (`relation`, `note`) and linked target labels, enabling graph-style discovery from existing index scans.
+- Sync conflict equal-timestamp union now includes `links` alongside `tags` and `custom_fields` for deterministic convergence.
+- Added API endpoints:
+  - `GET /api/v1/entry/{id}/links`
+  - `POST /api/v1/entry/{id}/links`
+  - `DELETE /api/v1/entry/{id}/links`
+  and `PUT /api/v1/entry/{id}` now accepts `links`.
+- Added CLI graph commands:
+  - `seedpass entry link-add`
+  - `seedpass entry links`
+  - `seedpass entry link-remove`
+  plus `entry modify --links-json`.
+- Documentation updated in `README.md`, `docs/entry_types.md`, and `docs/sync_conflict_contract.md`.
+- Validation:
+  - Focused suite: `140 passed`
+  - Full suite: `895 passed, 11 skipped`.
+
+## Website/docs refresh for graph features
+- Added dedicated graph docs page: `docs/entry_graph.md`.
+- Updated docs indexes/navigation:
+  - `docs/README.md` now lists `entry_graph.md`.
+  - `landing/docs.html` sidebar now includes `Entry Graph`.
+- Updated landing page feature cards (`landing/index.html`) to highlight:
+  - Entry Graph Links
+  - Graph-Aware Entry Ops CLI commands
+- Updated docs cross-links:
+  - `docs/entry_types.md` points to `docs/entry_graph.md`.
+- Updated README feature bullets to include Entry Graph Links.
+
+## Landing graph example + help-hint refresh
+- Added a visual graph snippet block to landing architecture section (`landing/index.html`) showing linked entries and graph query behavior.
+- Styled graph snippet in `landing/style.css` (`.graph-snippet`) to match the terminal UI aesthetic.
+- Expanded help/discovery surfaces for users and agents:
+  - `seedpass capabilities` now includes a `knowledge_graph` security feature block with CLI/API graph commands and sync/search behavior.
+  - Capabilities API discovery now lists `/api/v1/entry/{id}/links`.
+  - Capabilities text output now explicitly mentions graph links and document workflows.
+  - Capabilities `help_hints` now include graph/document command pointers.
+  - `agent bootstrap-context` now includes `commands.knowledge_graph` hints.
+  - Root CLI help string now mentions document I/O and entry graph links.
+- Verification:
+  - `.venv/bin/pytest -q src/tests/test_typer_cli.py -k "capabilities_text or capabilities_json" src/tests/test_cli_agent_mode.py -k "bootstrap_context"`
+  - Result: `2 passed`.

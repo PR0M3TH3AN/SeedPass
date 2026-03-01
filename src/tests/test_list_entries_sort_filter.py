@@ -40,8 +40,8 @@ def test_sort_by_updated():
         idx1 = em.add_entry("beta.com", 8, "u1")
 
         data = em._load_index(force_reload=True)
-        data["entries"][str(idx0)]["updated"] = 1
-        data["entries"][str(idx1)]["updated"] = 2
+        data["entries"][str(idx0)]["modified_ts"] = 1
+        data["entries"][str(idx1)]["modified_ts"] = 2
         em._save_index(data)
 
         result = em.list_entries(sort_by="updated")

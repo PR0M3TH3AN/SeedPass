@@ -113,6 +113,7 @@ DEFAULT_POLICY = {
                 EntryType.PASSWORD.value,
                 EntryType.TOTP.value,
                 EntryType.KEY_VALUE.value,
+                EntryType.DOCUMENT.value,
             ],
             "label_regex": ".*",
             "path_regex": "^entry/.*$",
@@ -152,6 +153,7 @@ DEFAULT_POLICY = {
         EntryType.PASSWORD.value,
         EntryType.TOTP.value,
         EntryType.KEY_VALUE.value,
+        EntryType.DOCUMENT.value,
     ],
     "deny_private_reveal": sorted(PRIVATE_KINDS),
     "allow_export_import": False,
@@ -267,6 +269,8 @@ def _resolve_secret_for_kind(
         return service.get_totp_code(index)
     if kind == EntryType.KEY_VALUE.value:
         return str(entry.get("value", ""))
+    if kind == EntryType.DOCUMENT.value:
+        return str(entry.get("content", ""))
     if kind == EntryType.SEED.value:
         return pm.entry_manager.get_seed_phrase(index, pm.parent_seed)
     if kind == EntryType.MANAGED_ACCOUNT.value:
@@ -1302,7 +1306,9 @@ def _remediation_actions(findings: list[dict[str, Any]]) -> list[dict[str, Any]]
         "export_import_allowed": {
             "title": "Disable broad export/import for agent profiles",
             "commands": ["seedpass agent policy-review --file <candidate.json>"],
-            "notes": ["Set export.allow_full_vault=false and keep allow_export_import=false."],
+            "notes": [
+                "Set export.allow_full_vault=false and keep allow_export_import=false."
+            ],
         },
         "secret_isolation_disabled": {
             "title": "Enable high-risk secret isolation",
@@ -3290,6 +3296,15 @@ def agent_bootstrap_context(ctx: typer.Context) -> None:
                 "agent export-check",
                 "agent export-manifest-verify",
             ],
+            "document_io": [
+                "agent document-import --file <path>",
+                "agent document-export <query>",
+            ],
+            "knowledge_graph": [
+                "entry link-add --entry-id <source> --target-id <target>",
+                "entry links --entry-id <source>",
+                "entry link-remove --entry-id <source> --target-id <target>",
+            ],
             "posture": ["agent posture-check", "agent posture-remediate"],
             "secret_access": ["agent get --fingerprint <fp> <query>"],
             "discovery": ["seedpass capabilities --format json", "seedpass --help"],
@@ -3655,6 +3670,474 @@ def agent_export_manifest_verify(
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     if strict_exit and not valid:
         raise typer.Exit(code=1)
+
+
+@app.command("document-import")
+def agent_document_import(
+    ctx: typer.Context,
+    file: Path = typer.Option(..., "--file", help="Input file path"),
+    label: Optional[str] = typer.Option(None, "--label", help="Document title override"),
+    notes: str = typer.Option("", "--notes", help="Entry notes"),
+    tag: list[str] = typer.Option(
+        [], "--tag", help="Tag to attach (repeatable)", show_default=False
+    ),
+    archived: bool = typer.Option(False, "--archived", help="Import as archived"),
+    password_env: str = typer.Option(
+        "SEEDPASS_PASSWORD", "--password-env", help="Env var containing master password"
+    ),
+    auth_broker: str = typer.Option(
+        "env",
+        "--auth-broker",
+        help="Non-interactive password broker (env|keyring|command)",
+        click_type=click.Choice(["env", "keyring", "command"], case_sensitive=False),
+    ),
+    broker_service: str = typer.Option(
+        "seedpass",
+        "--broker-service",
+        help="Keyring service name when --auth-broker=keyring",
+    ),
+    broker_account: Optional[str] = typer.Option(
+        None,
+        "--broker-account",
+        help="Keyring account (defaults to fingerprint)",
+    ),
+    broker_command: Optional[str] = typer.Option(
+        None,
+        "--broker-command",
+        help="Command that prints password to stdout for --auth-broker=command",
+    ),
+    token: Optional[str] = typer.Option(
+        None,
+        "--token",
+        help="Scoped agent token. Defaults to SEEDPASS_AGENT_TOKEN env var.",
+    ),
+) -> None:
+    """Import a local file as a document entry with agent policy enforcement."""
+    fingerprint = (ctx.obj or {}).get("fingerprint")
+    if not fingerprint:
+        raise typer.BadParameter("Specify target profile with --fingerprint.")
+    password = _agent_password(
+        broker=auth_broker,
+        password_env=password_env,
+        broker_service=broker_service,
+        broker_account=broker_account or str(fingerprint),
+        broker_command=broker_command,
+    )
+    raw_token = token or os.getenv("SEEDPASS_AGENT_TOKEN")
+
+    try:
+        policy = _load_policy(strict=True)
+        policy = _normalize_policy(policy, strict=False)
+    except ValueError as exc:
+        payload = {
+            "status": "denied",
+            "reason": "invalid_policy",
+            "detail": str(exc),
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    if not bool(policy.get("allow_export_import", False)):
+        payload = {
+            "status": "denied",
+            "reason": "policy_deny:export_import_disabled",
+            "kind": EntryType.DOCUMENT.value,
+            "file": str(file),
+        }
+        _append_audit_event(
+            "agent_document_import_denied",
+            {
+                "fingerprint": fingerprint,
+                "kind": EntryType.DOCUMENT.value,
+                "file": str(file),
+                "reason": "policy_deny:export_import_disabled",
+            },
+        )
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    allowed, decision = evaluate_kind_export(policy, EntryType.DOCUMENT.value)
+    if not allowed:
+        payload = {
+            "status": "denied",
+            "reason": decision,
+            "kind": EntryType.DOCUMENT.value,
+            "file": str(file),
+        }
+        _append_audit_event(
+            "agent_document_import_denied",
+            {
+                "fingerprint": fingerprint,
+                "kind": EntryType.DOCUMENT.value,
+                "file": str(file),
+                "reason": decision,
+            },
+        )
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    token_meta: dict[str, Any] | None = None
+    if raw_token:
+        ok, token_reason, token_meta = _validate_token(
+            raw_token,
+            operation="import",
+            kind=EntryType.DOCUMENT.value,
+            label=label or file.stem,
+            consume_use=True,
+        )
+        if not ok:
+            payload = {
+                "status": "denied",
+                "reason": token_reason,
+                "kind": EntryType.DOCUMENT.value,
+                "file": str(file),
+            }
+            _append_audit_event(
+                "agent_document_import_denied",
+                {
+                    "fingerprint": fingerprint,
+                    "kind": EntryType.DOCUMENT.value,
+                    "file": str(file),
+                    "reason": token_reason,
+                },
+            )
+            typer.echo(json.dumps(payload, indent=2))
+            raise typer.Exit(1)
+
+    pm = PasswordManager(fingerprint=fingerprint, password=password)
+    service = EntryService(pm)
+    try:
+        index = service.import_document_file(
+            file,
+            label=label,
+            notes=notes,
+            tags=tag,
+            archived=archived,
+        )
+        entry = service.retrieve_entry(index) or {}
+    except Exception as exc:
+        payload = {
+            "status": "error",
+            "reason": "document_import_failed",
+            "detail": str(exc),
+            "file": str(file),
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    payload = {
+        "status": "ok",
+        "fingerprint": fingerprint,
+        "index": index,
+        "kind": EntryType.DOCUMENT.value,
+        "label": entry.get("label", label or file.stem),
+        "file_type": entry.get("file_type", file.suffix.lstrip(".").lower()),
+        "source_file": str(file),
+        "policy_decision": decision,
+    }
+    if token_meta is not None:
+        payload["token_id"] = token_meta.get("id")
+        payload["token_uses_remaining"] = token_meta.get("uses_remaining", 0)
+
+    _append_audit_event(
+        "agent_document_import_granted",
+        {
+            "fingerprint": fingerprint,
+            "index": index,
+            "kind": EntryType.DOCUMENT.value,
+            "label": payload["label"],
+            "source_file": str(file),
+            "token_id": (token_meta or {}).get("id"),
+        },
+    )
+    typer.echo(json.dumps(payload, indent=2))
+
+
+@app.command("document-export")
+def agent_document_export(
+    ctx: typer.Context,
+    query: Optional[str] = typer.Argument(
+        None, help="Document label or index query (omit when using --entry-id)"
+    ),
+    entry_id: Optional[int] = typer.Option(
+        None, "--entry-id", help="Document entry index override"
+    ),
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Output file path or directory (default: current directory)",
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite if exists"),
+    approval_id: Optional[str] = typer.Option(
+        None,
+        "--approval-id",
+        help="Approval id when policy requires export approval",
+    ),
+    password_env: str = typer.Option(
+        "SEEDPASS_PASSWORD", "--password-env", help="Env var containing master password"
+    ),
+    auth_broker: str = typer.Option(
+        "env",
+        "--auth-broker",
+        help="Non-interactive password broker (env|keyring|command)",
+        click_type=click.Choice(["env", "keyring", "command"], case_sensitive=False),
+    ),
+    broker_service: str = typer.Option(
+        "seedpass",
+        "--broker-service",
+        help="Keyring service name when --auth-broker=keyring",
+    ),
+    broker_account: Optional[str] = typer.Option(
+        None,
+        "--broker-account",
+        help="Keyring account (defaults to fingerprint)",
+    ),
+    broker_command: Optional[str] = typer.Option(
+        None,
+        "--broker-command",
+        help="Command that prints password to stdout for --auth-broker=command",
+    ),
+    token: Optional[str] = typer.Option(
+        None,
+        "--token",
+        help="Scoped agent token. Defaults to SEEDPASS_AGENT_TOKEN env var.",
+    ),
+) -> None:
+    """Export a document entry to a local file with agent policy enforcement."""
+    fingerprint = (ctx.obj or {}).get("fingerprint")
+    if not fingerprint:
+        raise typer.BadParameter("Specify target profile with --fingerprint.")
+    if entry_id is None and not query:
+        raise typer.BadParameter("Provide query or --entry-id.")
+    if entry_id is not None and query:
+        raise typer.BadParameter("Provide either query or --entry-id, not both.")
+
+    password = _agent_password(
+        broker=auth_broker,
+        password_env=password_env,
+        broker_service=broker_service,
+        broker_account=broker_account or str(fingerprint),
+        broker_command=broker_command,
+    )
+    raw_token = token or os.getenv("SEEDPASS_AGENT_TOKEN")
+
+    try:
+        policy = _load_policy(strict=True)
+        policy = _normalize_policy(policy, strict=False)
+    except ValueError as exc:
+        payload = {
+            "status": "denied",
+            "reason": "invalid_policy",
+            "detail": str(exc),
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    if not bool(policy.get("allow_export_import", False)):
+        payload = {
+            "status": "denied",
+            "reason": "policy_deny:export_import_disabled",
+            "kind": EntryType.DOCUMENT.value,
+        }
+        _append_audit_event(
+            "agent_document_export_denied",
+            {
+                "fingerprint": fingerprint,
+                "kind": EntryType.DOCUMENT.value,
+                "reason": "policy_deny:export_import_disabled",
+            },
+        )
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    allowed, decision = evaluate_kind_export(policy, EntryType.DOCUMENT.value)
+    if not allowed:
+        payload = {
+            "status": "denied",
+            "reason": decision,
+            "kind": EntryType.DOCUMENT.value,
+        }
+        _append_audit_event(
+            "agent_document_export_denied",
+            {
+                "fingerprint": fingerprint,
+                "kind": EntryType.DOCUMENT.value,
+                "reason": decision,
+            },
+        )
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    pm = PasswordManager(fingerprint=fingerprint, password=password)
+    service = EntryService(pm)
+    if entry_id is None:
+        assert query is not None
+        matches = service.search_entries(query, kinds=[EntryType.DOCUMENT.value])
+        if len(matches) != 1:
+            payload = {
+                "status": "error",
+                "reason": "ambiguous_or_missing",
+                "match_count": len(matches),
+                "matches": [
+                    {
+                        "index": idx,
+                        "label": label_v,
+                        "kind": etype.value,
+                    }
+                    for idx, label_v, _username, _url, _archived, etype in matches
+                ],
+            }
+            _append_audit_event(
+                "agent_document_export_denied",
+                {
+                    "fingerprint": fingerprint,
+                    "query": query,
+                    "reason": "ambiguous_or_missing",
+                    "match_count": len(matches),
+                },
+            )
+            typer.echo(json.dumps(payload, indent=2))
+            raise typer.Exit(1)
+        entry_id = int(matches[0][0])
+
+    entry = service.retrieve_entry(entry_id)
+    if not isinstance(entry, dict):
+        payload = {"status": "error", "reason": "entry_not_found", "index": entry_id}
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+    kind = str(entry.get("type", entry.get("kind", "")))
+    label = str(entry.get("label", ""))
+    if kind != EntryType.DOCUMENT.value:
+        payload = {
+            "status": "denied",
+            "reason": "entry_kind_mismatch",
+            "index": entry_id,
+            "kind": kind,
+            "expected_kind": EntryType.DOCUMENT.value,
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    token_meta: dict[str, Any] | None = None
+    if raw_token:
+        ok, token_reason, token_meta = _validate_token(
+            raw_token,
+            operation="export",
+            kind=kind,
+            label=label,
+            consume_use=True,
+        )
+        if not ok:
+            payload = {
+                "status": "denied",
+                "reason": token_reason,
+                "kind": kind,
+                "label": label,
+                "index": entry_id,
+            }
+            _append_audit_event(
+                "agent_document_export_denied",
+                {
+                    "fingerprint": fingerprint,
+                    "index": entry_id,
+                    "kind": kind,
+                    "label": label,
+                    "reason": token_reason,
+                },
+            )
+            typer.echo(json.dumps(payload, indent=2))
+            raise typer.Exit(1)
+
+    if approval_required(policy, "export"):
+        if not approval_id:
+            payload = {
+                "status": "denied",
+                "reason": "policy_deny:approval_required",
+                "action": "export",
+                "kind": kind,
+                "label": label,
+                "index": entry_id,
+            }
+            _append_audit_event(
+                "agent_document_export_denied",
+                {
+                    "fingerprint": fingerprint,
+                    "index": entry_id,
+                    "kind": kind,
+                    "label": label,
+                    "reason": "policy_deny:approval_required",
+                    "action": "export",
+                },
+            )
+            typer.echo(json.dumps(payload, indent=2))
+            raise typer.Exit(1)
+        ok, approval_reason = consume_approval(
+            approval_id=approval_id,
+            action="export",
+            resource=f"entry:{kind}:{entry_id}",
+        )
+        if not ok:
+            reason = f"policy_deny:{approval_reason}"
+            payload = {
+                "status": "denied",
+                "reason": reason,
+                "action": "export",
+                "kind": kind,
+                "label": label,
+                "index": entry_id,
+            }
+            _append_audit_event(
+                "agent_document_export_denied",
+                {
+                    "fingerprint": fingerprint,
+                    "index": entry_id,
+                    "kind": kind,
+                    "label": label,
+                    "reason": reason,
+                    "action": "export",
+                    "approval_id": approval_id,
+                },
+            )
+            typer.echo(json.dumps(payload, indent=2))
+            raise typer.Exit(1)
+
+    try:
+        destination = service.export_document_file(entry_id, out, overwrite=overwrite)
+    except Exception as exc:
+        payload = {
+            "status": "error",
+            "reason": "document_export_failed",
+            "detail": str(exc),
+            "index": entry_id,
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(1)
+
+    payload = {
+        "status": "ok",
+        "fingerprint": fingerprint,
+        "index": entry_id,
+        "kind": kind,
+        "label": label,
+        "output_path": str(destination),
+        "policy_decision": decision,
+    }
+    if token_meta is not None:
+        payload["token_id"] = token_meta.get("id")
+        payload["token_uses_remaining"] = token_meta.get("uses_remaining", 0)
+
+    _append_audit_event(
+        "agent_document_export_granted",
+        {
+            "fingerprint": fingerprint,
+            "index": entry_id,
+            "kind": kind,
+            "label": label,
+            "output_path": str(destination),
+            "token_id": (token_meta or {}).get("id"),
+        },
+    )
+    typer.echo(json.dumps(payload, indent=2))
 
 
 @app.command("get")
