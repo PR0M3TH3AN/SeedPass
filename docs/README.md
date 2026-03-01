@@ -23,6 +23,7 @@ This directory contains SeedPass project documentation.
 - `SPEC.md`
 - `security.md`
 - `nostr_setup.md`
+- `nostr_namespace_reset.md`
 - `packaging.md`
 
 ## QA and Testing Docs

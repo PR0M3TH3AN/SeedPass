@@ -31,6 +31,16 @@ def test_handle_post_failure(capsys):
     assert "❌ Sync failed…" in out
 
 
+def test_handle_post_failure_shows_nostr_error(capsys):
+    pm = SimpleNamespace(
+        sync_vault=lambda alt_summary=None: None,
+        nostr_client=SimpleNamespace(last_error="Manifest out of date"),
+    )
+    main.handle_post_to_nostr(pm)
+    out = capsys.readouterr().out
+    assert "❌ Sync failed… Manifest out of date" in out
+
+
 def test_handle_post_prints_all_ids(capsys):
     pm = SimpleNamespace(
         sync_vault=lambda alt_summary=None: {

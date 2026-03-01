@@ -669,7 +669,11 @@ You can manage your relays and sync with Nostr from the **Settings** menu:
 7. Choose `5` to remove a relay by number.
 8. Select `6` to reset to the default relay list.
 9. Choose `7` to display your Nostr public key.
-10. Select `8` to return to the Settings menu.
+10. Choose `8` to reset Nostr sync state for this profile (keeps current namespace).
+11. Select `9` to start a fresh Nostr namespace (increments deterministic key index).
+12. Press **Enter** to return to the Settings menu.
+
+For migration-safe sync workflows, see [Nostr Namespace Reset](docs/nostr_namespace_reset.md).
 
 Back in the Settings menu you can:
 

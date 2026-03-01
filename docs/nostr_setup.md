@@ -42,5 +42,8 @@ For the detailed merge contract, see
 - **No events found:** ensure the relays are reachable and that the correct fingerprint is selected.
 - **Connection failures:** some relays only support WebSocket over TLS; verify you are using `wss://` URLs where required.
 - **Stale data:** if deltas accumulate without a fresh snapshot, run `seedpass nostr sync` to publish an updated snapshot.
+- **Legacy/state drift after deterministic changes:** use
+  [nostr_namespace_reset.md](nostr_namespace_reset.md) to reset sync metadata or
+  start a fresh deterministic Nostr namespace.
 
 Increasing log verbosity with `--verbose` can also help diagnose relay or network issues.

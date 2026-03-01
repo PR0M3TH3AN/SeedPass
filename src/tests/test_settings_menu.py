@@ -17,6 +17,7 @@ import main
 from nostr.client import DEFAULT_RELAYS
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import Notification, PasswordManager
+from seedpass.core.state_manager import StateManager
 from seedpass.core.vault import Vault
 from seedpass.core.errors import SeedPassError
 from utils.fingerprint_manager import FingerprintManager
@@ -263,3 +264,97 @@ def test_settings_import_missing_path_message(monkeypatch, capsys):
 
         out = capsys.readouterr().out
         assert "Import failed: file 'missing.json.enc' not found." in out
+
+
+def test_reset_nostr_sync_state(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        fp_dir = tmp_path / ".seedpass" / "fp"
+        state_mgr = StateManager(fp_dir)
+        state_mgr.update_state(
+            manifest_id="manifest-old",
+            delta_since=123,
+            last_sync_ts=456,
+            nostr_account_idx=2,
+        )
+        pm.state_manager = state_mgr
+        pm.fingerprint_dir = fp_dir
+        pm.current_fingerprint = "fp"
+        pm.manifest_id = "manifest-old"
+        pm.delta_since = 123
+        pm.last_sync_ts = 456
+
+        monkeypatch.setattr(main, "confirm_action", lambda *_: True)
+        monkeypatch.setattr(main, "pause", lambda: None)
+        main.handle_reset_nostr_sync_state(pm)
+
+        state = state_mgr.state
+        assert state["manifest_id"] is None
+        assert state["delta_since"] == 0
+        assert state["last_sync_ts"] == 0
+        assert state["nostr_account_idx"] == 2
+        assert pm.manifest_id is None
+        assert pm.delta_since == 0
+        assert pm.last_sync_ts == 0
+        assert pm.nostr_account_idx == 2
+
+
+def test_start_fresh_nostr_namespace(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        fp_dir = tmp_path / ".seedpass" / "fp"
+        state_mgr = StateManager(fp_dir)
+        state_mgr.update_state(
+            manifest_id="manifest-old",
+            delta_since=123,
+            last_sync_ts=456,
+            nostr_account_idx=2,
+        )
+        pm.state_manager = state_mgr
+        pm.fingerprint_dir = fp_dir
+        pm.current_fingerprint = "fp"
+        pm.manifest_id = "manifest-old"
+        pm.delta_since = 123
+        pm.last_sync_ts = 456
+        called = {"reinit": 0}
+        pm._initialize_nostr_client = lambda: called.__setitem__(
+            "reinit", called["reinit"] + 1
+        )
+
+        monkeypatch.setattr(main, "confirm_action", lambda *_: True)
+        monkeypatch.setattr(main, "pause", lambda: None)
+        main.handle_start_fresh_nostr_namespace(pm)
+
+        state = state_mgr.state
+        assert state["manifest_id"] is None
+        assert state["delta_since"] == 0
+        assert state["last_sync_ts"] == 0
+        assert state["nostr_account_idx"] == 3
+        assert pm.nostr_account_idx == 3
+        assert called["reinit"] == 1
+
+
+def test_nostr_menu_dispatches_reset_sync_state(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        pm.update_activity = lambda: None
+        inputs = iter(["8", ""])
+        with patch("main.handle_reset_nostr_sync_state") as handler:
+            with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+                main.handle_nostr_menu(pm)
+        handler.assert_called_once_with(pm)
+
+
+def test_nostr_menu_dispatches_fresh_namespace(monkeypatch):
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        pm, _, _ = setup_pm(tmp_path, monkeypatch)
+        pm.update_activity = lambda: None
+        inputs = iter(["9", ""])
+        with patch("main.handle_start_fresh_nostr_namespace") as handler:
+            with patch("builtins.input", side_effect=lambda *_: next(inputs)):
+                main.handle_nostr_menu(pm)
+        handler.assert_called_once_with(pm)

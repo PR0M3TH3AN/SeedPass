@@ -424,8 +424,16 @@ def handle_post_to_nostr(
                 print(f"  delta: {did}")
             logging.info("Encrypted index posted to Nostr successfully.")
         else:
-            print(colored("\N{CROSS MARK} Sync failed…", "red"))
-            logging.error("Failed to post encrypted index to Nostr.")
+            client = getattr(password_manager, "nostr_client", None)
+            detail = (
+                getattr(client, "last_error", None) if client is not None else None
+            )
+            if detail:
+                print(colored(f"\N{CROSS MARK} Sync failed… {detail}", "red"))
+                logging.error("Failed to post encrypted index to Nostr: %s", detail)
+            else:
+                print(colored("\N{CROSS MARK} Sync failed…", "red"))
+                logging.error("Failed to post encrypted index to Nostr.")
     except Exception as e:
         logging.error(f"Failed to post to Nostr: {e}", exc_info=True)
         print(colored(f"Error: Failed to post to Nostr: {e}", "red"))
@@ -595,6 +603,105 @@ def handle_reset_relays(password_manager: PasswordManager) -> None:
     except Exception as e:
         logging.error(f"Error resetting relays: {e}")
         print(colored(f"Error: {e}", "red"))
+    finally:
+        pause()
+
+
+def _get_profile_state_manager(password_manager: PasswordManager):
+    """Return the active profile StateManager or create one from fingerprint dir."""
+    state_mgr = getattr(password_manager, "state_manager", None)
+    if state_mgr is not None:
+        return state_mgr
+    fingerprint_dir = getattr(password_manager, "fingerprint_dir", None)
+    if fingerprint_dir is None:
+        raise ValueError("State manager unavailable for current profile.")
+    from seedpass.core.state_manager import StateManager
+
+    return StateManager(Path(fingerprint_dir))
+
+
+def _clear_nostr_runtime_state(password_manager: PasswordManager) -> None:
+    """Clear in-memory Nostr sync metadata for the active profile."""
+    password_manager.manifest_id = None
+    password_manager.delta_since = 0
+    password_manager.last_sync_ts = 0
+    client = getattr(password_manager, "nostr_client", None)
+    if client is not None:
+        if hasattr(client, "last_error"):
+            client.last_error = None
+        if hasattr(client, "current_manifest_id"):
+            client.current_manifest_id = None
+        if hasattr(client, "current_manifest"):
+            client.current_manifest = None
+        if hasattr(client, "_delta_events"):
+            client._delta_events = []
+
+
+def handle_reset_nostr_sync_state(password_manager: PasswordManager) -> None:
+    """Reset Nostr sync state for the active profile without changing key index."""
+    if not confirm_action(
+        "Reset Nostr sync state for this profile (manifest/delta metadata)? (Y/N): "
+    ):
+        print(colored("Nostr sync-state reset cancelled.", "yellow"))
+        pause()
+        return
+    try:
+        state_mgr = _get_profile_state_manager(password_manager)
+        state = state_mgr.state
+        state_mgr.update_state(manifest_id=None, delta_since=0, last_sync_ts=0)
+        _clear_nostr_runtime_state(password_manager)
+        password_manager.nostr_account_idx = int(state.get("nostr_account_idx", 0))
+        print(colored("Nostr sync state reset for current profile.", "green"))
+        logging.info(
+            "Nostr sync state reset for profile %s",
+            getattr(password_manager, "current_fingerprint", "unknown"),
+        )
+    except Exception as exc:
+        logging.error("Failed to reset Nostr sync state: %s", exc, exc_info=True)
+        print(colored(f"Error resetting Nostr sync state: {exc}", "red"))
+    finally:
+        pause()
+
+
+def handle_start_fresh_nostr_namespace(password_manager: PasswordManager) -> None:
+    """Increment Nostr account index and reset sync metadata for fresh publishing."""
+    if not confirm_action(
+        "Start a fresh Nostr namespace (new deterministic key index) for this profile? (Y/N): "
+    ):
+        print(colored("Fresh Nostr namespace action cancelled.", "yellow"))
+        pause()
+        return
+    try:
+        state_mgr = _get_profile_state_manager(password_manager)
+        state = state_mgr.state
+        next_idx = int(state.get("nostr_account_idx", 0)) + 1
+        state_mgr.update_state(
+            manifest_id=None,
+            delta_since=0,
+            last_sync_ts=0,
+            nostr_account_idx=next_idx,
+        )
+        _clear_nostr_runtime_state(password_manager)
+        password_manager.nostr_account_idx = next_idx
+
+        reinit = getattr(password_manager, "_initialize_nostr_client", None)
+        if callable(reinit):
+            _safe_close_client_pool(password_manager)
+            reinit()
+        print(
+            colored(
+                f"Started fresh Nostr namespace at account index {next_idx}.",
+                "green",
+            )
+        )
+        logging.info(
+            "Started fresh Nostr namespace for profile %s at account index %s",
+            getattr(password_manager, "current_fingerprint", "unknown"),
+            next_idx,
+        )
+    except Exception as exc:
+        logging.error("Failed to start fresh Nostr namespace: %s", exc, exc_info=True)
+        print(colored(f"Error starting fresh Nostr namespace: {exc}", "red"))
     finally:
         pause()
 
@@ -962,6 +1069,8 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
         print(color_text("5. Remove a relay by number", "menu"))
         print(color_text("6. Reset to default relays", "menu"))
         print(color_text("7. Display Nostr Public Key", "menu"))
+        print(color_text("8. Reset Nostr sync state", "menu"))
+        print(color_text("9. Start fresh Nostr namespace (new key index)", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         password_manager.update_activity()
         try:
@@ -979,6 +1088,10 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
                 handle_reset_relays(password_manager)
             elif choice == "7":
                 handle_display_npub(password_manager)
+            elif choice == "8":
+                handle_reset_nostr_sync_state(password_manager)
+            elif choice == "9":
+                handle_start_fresh_nostr_namespace(password_manager)
             elif not choice:
                 break
             else:

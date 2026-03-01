@@ -3967,6 +3967,12 @@ class PasswordManager:
                 "delta_ids": list(delta_ids),
             }
         except Exception as e:
+            client = getattr(self, "nostr_client", None)
+            if client is not None and hasattr(client, "last_error"):
+                try:
+                    client.last_error = str(e)
+                except Exception:
+                    pass
             logging.error(f"Failed to sync vault: {e}", exc_info=True)
             return None
 
