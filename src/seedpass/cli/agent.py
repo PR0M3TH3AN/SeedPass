@@ -1302,7 +1302,9 @@ def _remediation_actions(findings: list[dict[str, Any]]) -> list[dict[str, Any]]
         "export_import_allowed": {
             "title": "Disable broad export/import for agent profiles",
             "commands": ["seedpass agent policy-review --file <candidate.json>"],
-            "notes": ["Set export.allow_full_vault=false and keep allow_export_import=false."],
+            "notes": [
+                "Set export.allow_full_vault=false and keep allow_export_import=false."
+            ],
         },
         "secret_isolation_disabled": {
             "title": "Enable high-risk secret isolation",
