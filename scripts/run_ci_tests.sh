@@ -3,6 +3,10 @@ set -eo pipefail
 
 mkdir -p artifacts/coverage
 
+if [[ "${DETERMINISM_GATE:-1}" == "1" ]]; then
+    ./scripts/run_determinism_tests.sh
+fi
+
 pytest_args=(-vv)
 if [[ -n "${STRESS_ARGS:-}" ]]; then
     pytest_args+=(${STRESS_ARGS})

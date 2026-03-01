@@ -1,0 +1,391 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+pytest.importorskip("textual")
+from textual.widgets import Input, ListView
+
+from seedpass.tui_v2.app import launch_tui2
+
+
+class MatrixEntryService:
+    def __init__(
+        self,
+        entries: list[dict],
+        *,
+        fail_search: bool = False,
+        fail_links: bool = False,
+        fail_archive: bool = False,
+        fail_restore: bool = False,
+        fail_modify: bool = False,
+        fail_add_link: bool = False,
+        fail_remove_link: bool = False,
+    ) -> None:
+        self._entries = {int(entry["id"]): dict(entry) for entry in entries}
+        self._links = {
+            int(entry["id"]): [dict(link) for link in entry.get("links", [])]
+            for entry in entries
+        }
+        self.fail_search = fail_search
+        self.fail_links = fail_links
+        self.fail_archive = fail_archive
+        self.fail_restore = fail_restore
+        self.fail_modify = fail_modify
+        self.fail_add_link = fail_add_link
+        self.fail_remove_link = fail_remove_link
+
+    def search_entries(self, query: str, kinds: list[str] | None = None):
+        if self.fail_search:
+            raise RuntimeError("search failed")
+        q = (query or "").strip().lower()
+        rows = []
+        for entry_id in sorted(self._entries.keys()):
+            entry = self._entries[entry_id]
+            kind = str(entry.get("kind", "password"))
+            if kinds and kind not in kinds:
+                continue
+            label = str(entry.get("label", ""))
+            if q and q not in label.lower():
+                continue
+            rows.append(
+                (
+                    entry_id,
+                    label,
+                    None,
+                    None,
+                    bool(entry.get("archived", False)),
+                    SimpleNamespace(value=kind),
+                )
+            )
+        return rows
+
+    def retrieve_entry(self, entry_id: int):
+        if int(entry_id) not in self._entries:
+            return {}
+        return dict(self._entries[int(entry_id)])
+
+    def modify_entry(self, entry_id: int, **kwargs) -> None:
+        if self.fail_modify:
+            raise RuntimeError("modify failed")
+        entry = self._entries[int(entry_id)]
+        for key, value in kwargs.items():
+            if value is not None:
+                entry[key] = value
+
+    def archive_entry(self, entry_id: int) -> None:
+        if self.fail_archive:
+            raise RuntimeError("archive failed")
+        self._entries[int(entry_id)]["archived"] = True
+
+    def restore_entry(self, entry_id: int) -> None:
+        if self.fail_restore:
+            raise RuntimeError("restore failed")
+        self._entries[int(entry_id)]["archived"] = False
+
+    def get_links(self, entry_id: int):
+        if self.fail_links:
+            raise RuntimeError("links failed")
+        return [dict(link) for link in self._links.get(int(entry_id), [])]
+
+    def add_link(
+        self,
+        entry_id: int,
+        target_id: int,
+        *,
+        relation: str = "related_to",
+        note: str = "",
+    ):
+        if self.fail_add_link:
+            raise RuntimeError("link add failed")
+        links = self._links.setdefault(int(entry_id), [])
+        links.append({"target": int(target_id), "relation": relation, "note": note})
+        return [dict(link) for link in links]
+
+    def remove_link(
+        self, entry_id: int, target_id: int, *, relation: str | None = None
+    ):
+        if self.fail_remove_link:
+            raise RuntimeError("link remove failed")
+        src = self._links.setdefault(int(entry_id), [])
+        keep = []
+        for link in src:
+            if int(link.get("target", -1)) != int(target_id):
+                keep.append(link)
+                continue
+            if relation is not None and str(link.get("relation")) != relation:
+                keep.append(link)
+        self._links[int(entry_id)] = keep
+        return [dict(link) for link in keep]
+
+
+def _build_app(*, service: MatrixEntryService | None = None, factory=None):
+    holder: dict[str, object] = {}
+
+    def _hook(app):
+        holder["app"] = app
+
+    launched = launch_tui2(
+        entry_service_factory=factory if factory is not None else (lambda: service),
+        app_hook=_hook,
+    )
+    assert launched is True
+    app = holder.get("app")
+    assert app is not None
+    return app
+
+
+def _status(app) -> str:
+    return str(app.query_one("#status").render())
+
+
+@pytest.mark.anyio
+async def test_tui2_matrix_init_retry_failure_and_success() -> None:
+    calls = {"n": 0}
+    svc = MatrixEntryService([{"id": 1, "kind": "document", "label": "Doc"}])
+
+    def _factory():
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise RuntimeError("boom")
+        return svc
+
+    app = _build_app(factory=_factory)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "Unable to initialize entry service" in _status(app)
+        app.action_retry_last_error()
+        await pilot.pause()
+        assert any(
+            "Entry service initialized" in msg
+            for msg in getattr(app, "_activity_log", [])
+        )
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 1
+
+
+@pytest.mark.anyio
+async def test_tui2_matrix_service_unavailable_and_no_retry() -> None:
+    app = _build_app(service=None)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "Entry service unavailable" in str(
+            app.query_one("#entry-detail").render()
+        )
+        app.action_retry_last_error()
+        await pilot.pause()
+        assert "No retry action available" in _status(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
+    entries = [
+        {
+            "id": 1,
+            "kind": "document",
+            "label": "Doc One",
+            "content": "line",
+            "file_type": "md",
+            "tags": ["a"],
+            "links": [
+                {"target": 2, "relation": "references", "note": "a-note"},
+                {"target": 3, "relation": "contains", "note": ""},
+            ],
+        },
+        {"id": 2, "kind": "password", "label": "Pw Two"},
+        {"id": 3, "kind": "key_value", "label": "KV Three"},
+    ] + [
+        {"id": i, "kind": "document", "label": f"Doc {i}", "content": "x"}
+        for i in range(4, 235)
+    ]
+    svc = MatrixEntryService(entries)
+    app = _build_app(service=svc)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app.action_toggle_help()
+        await pilot.pause()
+        assert "Help opened" in _status(app)
+        app.action_open_palette()
+        await pilot.pause()
+        assert "Palette opened" in _status(app)
+        app.action_cancel_document_edit()
+        await pilot.pause()
+        assert "Palette closed" in _status(app)
+        app.action_cancel_document_edit()
+        await pilot.pause()
+        assert app.help_open is False
+
+        app._run_palette_command("")
+        app._run_palette_command("open")
+        app._run_palette_command("open abc")
+        app._run_palette_command("jump")
+        app._run_palette_command("jump abc")
+        app._run_palette_command("page")
+        app._run_palette_command("page abc")
+        app._run_palette_command("page 0")
+        app._run_palette_command("link-filter")
+        app._run_palette_command("link-add")
+        app._run_palette_command("link-add no")
+        app._run_palette_command("link-rm")
+        app._run_palette_command("link-rm no")
+        app._run_palette_command("filter")
+        app._run_palette_command("unknown-cmd")
+        await pilot.pause()
+
+        app._run_palette_command("help")
+        app._run_palette_command("search Doc")
+        app._run_palette_command("filter document")
+        app._run_palette_command("page-next")
+        app._run_palette_command("page-prev")
+        app._run_palette_command("page 2")
+        app._run_palette_command("open 1")
+        app._run_palette_command("jump 2")
+        await pilot.pause()
+
+        app.action_focus_left()
+        app.action_focus_center()
+        app.action_focus_right()
+        app.action_focus_search()
+        app.action_focus_jump()
+        await pilot.pause()
+
+        app.action_next_page()
+        app.action_prev_page()
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app.action_cycle_link_filter()
+        app.link_relation_filter = "all"
+        app._update_links_panel()
+        app.action_next_link()
+        app.action_prev_link()
+        app.action_open_link_target()
+        await pilot.pause()
+        assert "Opened linked entry" in _status(app)
+
+        app._current_links = [{"target": "bad", "relation": "references", "note": ""}]
+        app._current_link_cursor = 0
+        app.action_open_link_target()
+        await pilot.pause()
+        assert "Invalid link target" in _status(app)
+
+        app.action_toggle_archive()
+        await pilot.pause()
+        assert "archived" in _status(app) or "restored" in _status(app)
+        app._run_palette_command("archive")
+        app._run_palette_command("restore")
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        app.action_edit_document()
+        await pilot.pause()
+        app.action_focus_search()
+        app.action_focus_jump()
+        app.action_cycle_link_filter()
+        app.action_open_palette()
+        app.action_toggle_archive()
+        await pilot.pause()
+
+        app.query_one("#doc-edit-label", Input).value = "Doc Updated"
+        app.query_one("#doc-edit-file-type", Input).value = "txt"
+        app.query_one("#doc-edit-tags", Input).value = "a,b"
+        if len(app.query("#doc-edit-content")) > 0:
+            area = app.query_one("#doc-edit-content")
+            if hasattr(area, "load_text"):
+                area.load_text("new-content")
+            else:
+                area.text = "new-content"
+        else:
+            app.query_one("#doc-edit-content-single", Input).value = "new-content"
+
+        app.on_input_changed(
+            SimpleNamespace(input=SimpleNamespace(id="doc-edit-label"))
+        )
+        app.on_text_area_changed(None)
+        app.action_save_document()
+        await pilot.pause()
+        assert "Saved document" in _status(app)
+
+        app._run_palette_command("open 1")
+        app.action_edit_document()
+        await pilot.pause()
+        app.action_save_document()
+        await pilot.pause()
+        assert "No document changes to save" in _status(app)
+        app.action_cancel_document_edit()
+        await pilot.pause()
+
+        app.on_input_submitted(
+            SimpleNamespace(input=SimpleNamespace(id="quick-jump"), value="")
+        )
+        app.on_input_submitted(
+            SimpleNamespace(input=SimpleNamespace(id="quick-jump"), value="x")
+        )
+        app.on_input_submitted(
+            SimpleNamespace(input=SimpleNamespace(id="quick-jump"), value="2")
+        )
+        app.on_input_submitted(
+            SimpleNamespace(input=SimpleNamespace(id="search"), value="Doc One")
+        )
+        app.on_input_submitted(
+            SimpleNamespace(input=SimpleNamespace(id="command-palette"), value="help")
+        )
+        await pilot.pause()
+
+        app._run_palette_command("filter all")
+        app._run_palette_command("search Doc")
+        await pilot.pause()
+        first = app.query_one("#entry-list", ListView).children[0]
+        app.on_list_view_selected(SimpleNamespace(item=first))
+        await pilot.pause()
+
+        app._run_palette_command("retry")
+        await pilot.pause()
+
+
+@pytest.mark.anyio
+async def test_tui2_matrix_failure_paths_and_retry() -> None:
+    svc = MatrixEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Doc", "content": "x"},
+            {"id": 2, "kind": "password", "label": "Pw"},
+        ],
+        fail_links=True,
+        fail_archive=True,
+        fail_modify=True,
+        fail_add_link=True,
+        fail_remove_link=True,
+    )
+    app = _build_app(service=svc)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._show_entry(1)
+        await pilot.pause()
+        assert "Links unavailable:" in str(app.query_one("#link-detail").render())
+
+        app.action_retry_last_error()
+        await pilot.pause()
+        assert "retry" in _status(app).lower() or "failed" in _status(app).lower()
+
+        app._run_palette_command("link-add 2 references nope")
+        await pilot.pause()
+        assert "link-add failed" in _status(app)
+
+        app._run_palette_command("link-rm 2 references")
+        await pilot.pause()
+        assert "link-rm failed" in _status(app)
+
+        app.action_toggle_archive()
+        await pilot.pause()
+        assert "Archive/restore failed" in _status(app)
+
+        app.action_edit_document()
+        await pilot.pause()
+        app.query_one("#doc-edit-label", Input).value = "Doc2"
+        app.action_save_document()
+        await pilot.pause()
+        assert "Failed to save document" in _status(app)

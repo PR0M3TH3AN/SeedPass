@@ -36,6 +36,7 @@ This directory contains SeedPass project documentation.
 
 - `agent_testing_roadmap.md`
 - `ai_agent_tui_testing.md`
+- `agent_test_format.md`
 - `installer_testing.md`
 - `ci-health-2026-02-19.md`
 - `agent-handoffs/README.md`

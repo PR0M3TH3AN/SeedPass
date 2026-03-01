@@ -1,11 +1,13 @@
 import hashlib
 from dataclasses import dataclass
 
+import pytest
 from bip_utils import Bip39SeedGenerator
 from local_bip85.bip85 import BIP85
 from nostr.coincurve_keys import Keys
 
 from seedpass.core.password_generation import (
+    PasswordPolicy,
     PasswordGenerator,
     derive_pgp_key,
     derive_seed_phrase,
@@ -17,6 +19,8 @@ TEST_SEED = (
     "abandon abandon abandon abandon abandon abandon abandon abandon abandon "
     "abandon abandon about"
 )
+
+pytestmark = pytest.mark.determinism
 
 
 @dataclass(frozen=True)
@@ -104,10 +108,12 @@ class _MnemonicSeedEncoder:
         return Bip39SeedGenerator(mnemonic).Generate()
 
 
-def _build_password_generator(seed_phrase: str) -> PasswordGenerator:
+def _build_password_generator(
+    seed_phrase: str, policy: PasswordPolicy | None = None
+) -> PasswordGenerator:
     seed_bytes = Bip39SeedGenerator(seed_phrase).Generate()
     bip85 = BIP85(seed_bytes)
-    return PasswordGenerator(_MnemonicSeedEncoder(), seed_phrase, bip85)
+    return PasswordGenerator(_MnemonicSeedEncoder(), seed_phrase, bip85, policy=policy)
 
 
 def test_deterministic_vectors_index_352_regression():
@@ -177,3 +183,82 @@ def test_repeatability_for_same_seed_and_index():
         totp_secret_1 = TotpManager.derive_secret(TEST_SEED, vector.index)
         totp_secret_2 = TotpManager.derive_secret(TEST_SEED, vector.index)
         assert totp_secret_1 == totp_secret_2
+
+
+@pytest.mark.parametrize(
+    "index,expected_sha256",
+    [
+        (0, "4e4df93e6a35f03eb5108f7bfca41f4469a13c287876cfb1b0c6c4fa48d4026f"),
+        (1, "c28902c1ba33cacab86d2fdc4524cee594809277337f9e77a4124e6946c3ae80"),
+        (352, "85ff7ed5b2be3277f822fb0c141b35ba8636badbd9adec089531172d689fa815"),
+        (
+            1024,
+            "834a72f2fbea70964239bbc085c6ba4262032b961542333e2eef5ccdc05214b4",
+        ),
+    ],
+)
+def test_password_entropy_stream_hash_regression(index: int, expected_sha256: str):
+    """Pin entropy stream outputs for known indexes to catch derivation drift."""
+    generator = _build_password_generator(TEST_SEED)
+    stream = generator._derive_password_entropy(index=index)
+    assert hashlib.sha256(stream).hexdigest() == expected_sha256
+
+
+@pytest.mark.parametrize(
+    "policy,index,length,expected_password",
+    [
+        (
+            PasswordPolicy(),
+            352,
+            24,
+            "$oEEz0$606DE2g9o(%$wH;Uu",
+        ),
+        (
+            PasswordPolicy(special_mode="safe"),
+            352,
+            24,
+            "o66U^o!g%D0w!6E2E=ZH6uw!",
+        ),
+        (
+            PasswordPolicy(include_special_chars=False, min_special=0),
+            352,
+            24,
+            "0E6jwUo92EZ96GDoeuoHiU56",
+        ),
+        (
+            PasswordPolicy(exclude_ambiguous=True),
+            17,
+            20,
+            "59ik9Z3k=UJW_%)tZm_6",
+        ),
+        (
+            PasswordPolicy(
+                allowed_special_chars="@#",
+                min_uppercase=2,
+                min_lowercase=2,
+                min_digits=2,
+                min_special=2,
+            ),
+            99,
+            22,
+            "x@N#M82#Jwf#7b8u99NM5@",
+        ),
+    ],
+    ids=[
+        "default",
+        "safe_special_mode",
+        "no_special_characters",
+        "exclude_ambiguous",
+        "restricted_special_charset",
+    ],
+)
+def test_password_policy_vector_regression(
+    policy: PasswordPolicy,
+    index: int,
+    length: int,
+    expected_password: str,
+):
+    """Lock policy-specific password outputs to prevent accidental behavior changes."""
+    generator = _build_password_generator(TEST_SEED, policy=policy)
+    password = generator.generate_password(length=length, index=index)
+    assert password == expected_password

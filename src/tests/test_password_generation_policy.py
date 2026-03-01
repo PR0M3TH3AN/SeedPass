@@ -1,10 +1,13 @@
 import string
 from pathlib import Path
 import sys
+import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
+
+pytestmark = pytest.mark.determinism
 
 
 class DummyEnc:

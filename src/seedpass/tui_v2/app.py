@@ -325,7 +325,7 @@ def launch_tui2(
                     "",
                     "Core      : / search   j jump-id   p/n page   r refresh",
                     "Modes     : Ctrl+P palette   e edit-doc   Ctrl+S save   Esc cancel/close",
-                    "Graph     : l relation filter   [/] link select   o open link target",
+                    "Graph     : l relation filter   brackets link select   o open link target",
                     "Resilience: x retry last error",
                     "Pane Focus: 1 left   2 center   3 right",
                     "",

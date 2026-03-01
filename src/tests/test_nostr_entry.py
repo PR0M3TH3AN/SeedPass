@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import pytest
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 
@@ -12,6 +13,8 @@ from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.vault import Vault
 from seedpass.core.config_manager import ConfigManager
+
+pytestmark = pytest.mark.determinism
 
 
 def test_nostr_key_determinism():

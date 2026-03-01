@@ -206,3 +206,37 @@
 - UI copy now emphasizes current selection/filter context while keeping deterministic action affordances unchanged; full TUI-focused test slice remains green.
 - 2026-03-01: Reduced TUI v2 status noise by deduplicating repeated status messages before appending to status bar/activity log.
 - Verified critical coverage gate against existing full coverage artifact (`artifacts/coverage/coverage.json`): all default threshold modules pass (main/core manager/core encryption/core migrations).
+
+## 2026-03-01 Determinism test infrastructure hardening
+- Added a dedicated determinism lane with `scripts/run_determinism_tests.sh` and wired `scripts/run_ci_tests.sh` to run it by default (`DETERMINISM_GATE=1`, disable with `DETERMINISM_GATE=0`).
+- Added pytest marker support for determinism (`pyproject.toml`, `src/tests/conftest.py`) and a `--determinism-only` selector that skips non-determinism tests.
+- Expanded deterministic regression vectors in `src/tests/test_deterministic_artifact_regression.py`:
+  - pinned entropy-stream SHA-256 vectors for indexes `0,1,352,1024`
+  - pinned password outputs for policy variants (default, safe specials, no specials, exclude ambiguous, restricted special charset)
+- Marked existing deterministic suites so they run in the determinism lane: password helpers/policy plus seed, SSH, PGP, and Nostr determinism tests.
+- Verified determinism lane now executes 23 focused tests and fails fast on derivation drift.
+
+## 2026-03-01 Determinism gates + cross-process + size-tier sync tests
+- Added `scripts/check_determinism_suite.py` and wired it into `scripts/run_determinism_tests.sh`.
+- Determinism gate now enforces both a minimum test count (`DETERMINISM_MIN_TESTS`, default 25) and required determinism files, preventing accidental suite erosion.
+- Added unit tests for determinism gate parser logic in `src/tests/test_check_determinism_suite.py`.
+- Added cross-process determinism regression in `src/tests/test_cross_process_determinism.py`; derives artifacts in separate Python processes and asserts exact JSON identity.
+- Expanded size-tier sync integrity coverage:
+  - `src/tests/test_document_file_io.py` includes large document import/export and portable backup restore invariance checks (hash/equality).
+  - `src/tests/test_full_sync_roundtrip.py` includes parameterized large document Nostr sync roundtrip with content hash checks.
+  - `src/tests/test_nostr_snapshot.py` includes chunk hash and gzip roundtrip integrity across multiple payload size tiers.
+- Current determinism lane status after updates: 43 passed, 916 skipped.
+
+## 2026-03-01 TUI v2 agent harness + deep coverage expansion
+- Added `scripts/ai_tui2_agent_test.py` as a deterministic agent-style TUI v2 harness using Textual pilot mode; emits timestamped JSON reports in `artifacts/agent_tui2_test/`.
+- Added test/process documentation: `docs/agent_test_format.md` with repeatable commands for TUI v2, legacy interactive harness, CLI/CUI, API, and determinism gate runs.
+- Fixed legacy harness invalid-input regression after Document type addition: in `scripts/ai_tui_agent_test.py`, Add Entry invalid choice now uses `99` instead of `9`.
+- Added `src/tests/test_tui_v2_action_matrix.py` to exercise broad TUI v2 action and palette paths (including guards/failure/retry/event handlers).
+- Fixed a real TUI v2 help-overlay bug in `src/seedpass/tui_v2/app.py` where `[/]` text triggered Textual markup parsing errors (`MarkupError`).
+- Latest TUI v2 focused coverage run:
+  - Command: test helper/interactions/parity/large-vault/action-matrix suites with `--cov=seedpass.tui_v2.app`
+  - Result: 25 passed, 2 skipped
+  - Coverage: 86% for `src/seedpass/tui_v2/app.py` (up from ~57%).
+- Harness validation results:
+  - `scripts/ai_tui2_agent_test.py --scenario extended`: passed
+  - `scripts/ai_tui_agent_test.py --scenario core`: passed

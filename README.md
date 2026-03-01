@@ -787,6 +787,7 @@ For AI-agent driven interactive testing and current test command tiers, see:
 
 - `docs/ai_agent_tui_testing.md`
 - `docs/agent_testing_roadmap.md`
+- `docs/agent_test_format.md`
 
 ### Exploring Nostr Index Size Limits
 
