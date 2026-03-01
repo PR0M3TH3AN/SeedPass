@@ -176,3 +176,5 @@
   - `py_compile` for updated modules
   - `pytest` capabilities tests (`2 passed`)
   - `.venv` smoke run confirms `seedpass tui2 --check` emits runtime diagnostics.
+- 2026-03-01: TUI v2 phase 1 moved from placeholder to functional read-only Textual shell. `seedpass tui2` now passes a lazy `entry_service_factory` so vault/service init only happens when Textual is actually available, preventing unnecessary prompts on unavailable runtimes.
+- Added focused CLI tests in `src/tests/test_typer_cli.py` for `tui2 --check`, unavailable + no fallback exit path, and legacy fallback fingerprint forwarding.
