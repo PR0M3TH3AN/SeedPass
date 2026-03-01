@@ -13,7 +13,7 @@ portalocker>=2.8,<4
 nostr-sdk>=0.43,<1
 websocket-client>=1.7,<2
 
-websockets>=15,<16
+websockets>=15,<17
 tomli>=2,<3
 pgpy>=0.6,<1
 pyotp>=2.8,<3
