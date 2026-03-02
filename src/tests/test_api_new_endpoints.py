@@ -202,7 +202,13 @@ async def test_entry_links_endpoints(client):
 
     def add_link(entry_id, target_id, **kwargs):
         calls["add"] = (entry_id, target_id, kwargs)
-        return [{"target_id": target_id, "relation": kwargs["relation"], "note": kwargs["note"]}]
+        return [
+            {
+                "target_id": target_id,
+                "relation": kwargs["relation"],
+                "note": kwargs["note"],
+            }
+        ]
 
     def remove_link(entry_id, target_id, **kwargs):
         calls["remove"] = (entry_id, target_id, kwargs)

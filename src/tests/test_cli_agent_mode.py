@@ -610,7 +610,11 @@ def test_agent_document_import_with_token_scope(monkeypatch, tmp_path):
             return 12
 
         def retrieve_entry(self, _i):
-            return {"kind": EntryType.DOCUMENT.value, "label": "My Notes", "file_type": "md"}
+            return {
+                "kind": EntryType.DOCUMENT.value,
+                "label": "My Notes",
+                "file_type": "md",
+            }
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
     monkeypatch.setattr(
@@ -633,7 +637,11 @@ def test_agent_document_import_with_token_scope(monkeypatch, tmp_path):
             "approvals": {"require_for": []},
             "output": {"safe_output_default": True, "redact_fields": ["secret"]},
             "export": {"allow_full_vault": True},
-            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "secret_isolation": {
+                "enabled": False,
+                "high_risk_kinds": [],
+                "unlock_ttl_sec": 300,
+            },
             "allow_kinds": ["document"],
             "deny_private_reveal": [],
             "allow_export_import": True,
@@ -735,7 +743,11 @@ def test_agent_document_export_with_token_scope(monkeypatch, tmp_path):
             "approvals": {"require_for": []},
             "output": {"safe_output_default": True, "redact_fields": ["secret"]},
             "export": {"allow_full_vault": True},
-            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "secret_isolation": {
+                "enabled": False,
+                "high_risk_kinds": [],
+                "unlock_ttl_sec": 300,
+            },
             "allow_kinds": ["document"],
             "deny_private_reveal": [],
             "allow_export_import": True,
