@@ -61,7 +61,9 @@ def test_sync_vault_async_sets_default_error_when_publish_returns_none() -> None
     assert pm.is_dirty is False
 
 
-def test_sync_index_from_nostr_async_notifies_last_error_when_snapshot_missing() -> None:
+def test_sync_index_from_nostr_async_notifies_last_error_when_snapshot_missing() -> (
+    None
+):
     notifications: list[tuple[str, str]] = []
 
     async def _no_snapshot():
