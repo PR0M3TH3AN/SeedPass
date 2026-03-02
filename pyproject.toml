@@ -37,7 +37,7 @@ slowapi = "^0.1.9"
 cbor2 = ">=5.8.0"
 pynacl = ">=1.6.2"
 pyasn1 = ">=0.6.2"
-starlette = ">=0.40,<0.48"
+starlette = ">=0.40,<0.53"
 urllib3 = ">=2.6.0"
 pycryptodome = ">=3.20.0,<4"
 toga-core = { version = ">=0.5.2", optional = true }
