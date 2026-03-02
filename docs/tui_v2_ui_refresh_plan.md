@@ -329,7 +329,7 @@ Before ending any session touching this refresh:
 3. Add test evidence and known regressions.
 4. Append summary to `memory-update.md`.
 
-Current next slice (recommended): **Phase 1 - Shell Restructure**.
+Current next slice (recommended): **Phase 5 - Interactive tree navigation + final visual polish**.
 
 ## 13) Progress Update
 
@@ -499,3 +499,20 @@ Validation:
 Next recommended slice:
 
 1. Continue Phase 5 by adding explicit keyboard navigation inside the left profile tree and wiring profile-selection actions to update active context.
+
+## 14) Current Status Snapshot
+
+Completed:
+
+1. Phase 1 shell restructure scaffold.
+2. Phase 2 grid modernization baseline.
+3. Phase 3 core inspector board templates.
+4. Phase 4 advanced inspector actions (`copy`, `export-field` with confirm gates).
+5. Phase 5 initial polish (`density` controls + profile tree scaffold).
+
+Remaining (active queue):
+
+1. Implement explicit keyboard navigation/select actions in left profile tree.
+2. Wire tree selection to active profile context updates (safe, service-backed path).
+3. Final alignment pass to mockup spacing/rhythm and action-strip clarity.
+4. Run focused TUI tests and coverage gate after each polish slice.

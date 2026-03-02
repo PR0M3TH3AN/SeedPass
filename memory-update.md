@@ -1027,3 +1027,18 @@
   - Result: `29 passed`.
 - Refresh plan updated:
   - `docs/tui_v2_ui_refresh_plan.md` now tracks Phase 5 density/tree scaffold progress and points next to explicit tree keyboard navigation + selection actions.
+
+## 2026-03-02 Planning sync slice: centralized "done vs left" UI roadmap update
+- Updated `docs/tui_v2_ui_refresh_plan.md` to remove stale next-step text and add a clear status snapshot:
+  - completed phases/slices explicitly listed
+  - active remaining queue explicitly listed
+  - current next slice set to Phase 5 interactive tree navigation + final polish
+- Updated `docs/dev_control_center.md` to reflect latest state:
+  - added recent focused TUI test evidence (`29 passed`, plus `31 passed` run with online-default notice tests)
+  - documented landed UI refresh features (`copy`, `export-field`, density, profile tree scaffold)
+  - documented online-by-default behavior and one-time settings notice
+  - added current remaining UI queue items in priority order
+- Updated `docs/tui_v2_legacy_parity_matrix.md`:
+  - clarified no active medium/high functional parity gaps
+  - added implemented ergonomics rows (`copy`, `export-field`, `density`)
+  - linked remaining work to `docs/tui_v2_ui_refresh_plan.md` Phase 5 queue

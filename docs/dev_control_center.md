@@ -20,6 +20,10 @@ Latest verification in this session:
   - determinism gate: PASS
   - full suite: `979 passed, 16 skipped`
   - coverage: `85.65%`
+- Focused TUI validation slices:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - latest result: `29 passed`
+  - plus online-default notice coverage run: `31 passed` (adds config/notice tests)
 
 ## 2) Canonical Status Sources
 
@@ -67,7 +71,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
 : prioritized gaps from side-by-side legacy vs v2 run:
-: onboarding + stats/ops + lock/session affordances now landed; continue bug-driven UX polish.
+: onboarding + stats/ops + lock/session affordances now landed; focus now is mockup-aligned UI refresh completion.
 2. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
 3. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
@@ -134,6 +138,21 @@ Progress update (2026-03-02):
   - left pane now displays explicit session lock state and managed-session indicator
   - lock state blocks open/reveal/QR workflows until unlock succeeds
   - interaction + matrix tests extended for usage, success, and failure paths
+- UI refresh progress (mockup-aligned) now in active implementation:
+  - shell scaffold + top ribbon + action strip
+  - grid modernization (table-like rows/heading)
+  - core + advanced inspector boards
+  - advanced inspector actions: `copy <field> (optional: confirm)` and `export-field <field> <path> (optional: confirm)`
+  - density controls: `d` key and `density <compact|comfortable>`
+  - profile tree scaffold visible in left pane
+- Online-mode defaults updated:
+  - profiles now default to online (`offline_mode = false` by default)
+  - one-time onboarding notice added for first online profile load with settings guidance
+
+Current UI refresh remaining queue:
+1. Add keyboard navigation/select behavior inside left profile tree.
+2. Wire tree selection to profile context switch actions.
+3. Final visual polish pass against mockups (spacing, headers, action strip clarity).
 
 ## 6) Working Rule
 

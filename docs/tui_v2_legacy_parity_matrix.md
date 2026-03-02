@@ -9,7 +9,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 - Implemented: core daily workflows are covered in TUI v2 (add/retrieve/search/modify/archive, reveal/QR, 2FA board, settings/profile/relay/sync, export/import/checksum paths).
 - Partial: a few legacy menu affordances are represented differently in v2 (palette-first vs nested menus).
-- Gaps: remaining high-value gaps are mostly UX-guidance and operational affordances rather than missing core data operations.
+- Gaps: no active medium/high functional parity gaps; current work is UI refinement and operator ergonomics.
 
 ## Matrix
 
@@ -61,7 +61,11 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Session visibility | Operational/session affordance | `session-status` + left-pane session lines | Implemented | Shows lock state + managed session state. |
 | Lock vault | Operational/session affordance | `lock` | Implemented | Locks session, clears selected view, blocks reveal/open actions. |
 | Unlock vault | Operational/session affordance | `unlock <password>` | Implemented | Restores unlocked state; usage + failure paths covered in tests. |
+| Inspector quick copy actions | Entry action ergonomics | `copy <field> (optional: confirm)` | Implemented | Kind-aware field mapping with confirm gates for sensitive fields. |
+| Inspector export actions | Entry action ergonomics | `export-field <field> <path> (optional: confirm)` | Implemented | Kind-aware export path with sensitive confirm gates. |
+| Display density controls | UI readability ergonomics | `d` key + `density <compact|comfortable>` | Implemented | Ribbon/grid/left panel show active density state. |
 
 ## Prioritized Gap Queue
 
-No active medium/high parity gaps are currently identified in this matrix.
+No active medium/high functional parity gaps are currently identified in this matrix.
+Remaining UX work is tracked in `docs/tui_v2_ui_refresh_plan.md` (Phase 5 interactive tree navigation + final visual polish).
