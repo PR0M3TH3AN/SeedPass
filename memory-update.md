@@ -528,3 +528,23 @@
   - `scripts/tui2_check_smoke.sh` => `tui2 --check smoke: ok`
   - `bash -n scripts/tui2_check_smoke.sh scripts/run_ci_tests.sh` => clean
   - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py` => `86 passed`.
+
+## 2026-03-02 TUI v2 UX fixes: stale selection panel, clipped nav/help, and sensitive feedback clarity
+- Reproduced screenshot-reported UX issues in TUI v2:
+  - Left panel could show stale `Selected: (none)` even while entry details were loaded.
+  - Left panel command text could clip/wrap aggressively and hide actionable hints.
+  - Sensitive reveal/QR confirmation paths could appear like no-op when only status line changed.
+  - QR output could become visually distorted by line wrapping in the secret panel.
+- Fixes implemented in `src/seedpass/tui_v2/app.py`:
+  - `_show_entry(...)` now refreshes the filters panel immediately so selected state is always in sync.
+  - Added `on_list_view_highlighted(...)` to keep selected entry aligned with list highlight navigation.
+  - Left filters pane now uses `height: 1fr` + `overflow: auto` to prevent clipping.
+  - Secret panel now sets `text-wrap: nowrap` to preserve QR matrix geometry.
+  - Footer top border removed to avoid visual crowding at the bottom status/footer region.
+  - Filters/nav action copy trimmed to avoid forced line wraps in narrow terminals.
+  - Confirmation-required reveal/QR actions now also write explicit instructions into `#secret-detail`.
+- Added regression coverage in `src/tests/test_tui_v2_textual_interactions.py`:
+  - `test_tui2_textual_filters_panel_tracks_selected_entry` ensures left-panel selected summary updates after opening a different entry.
+- Validation:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py` -> `33 passed`.
+  - `python scripts/ai_tui2_agent_test.py --scenario core --verbose` -> `[PASS] core`.

@@ -138,7 +138,6 @@ def launch_tui2(
         Footer {
             background: #0b0f13;
             color: #97b8a6;
-            border-top: solid #274533;
         }
         Input {
             background: #0d1114;
@@ -181,6 +180,10 @@ def launch_tui2(
         #left { width: 34; border: solid #1a3024; padding: 1; background: #0d1114; }
         #center { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
         #right { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
+        #filters {
+            height: 1fr;
+            overflow: auto;
+        }
         #search { margin-bottom: 1; }
         #quick-jump { margin-bottom: 1; }
         #entry-list { height: 1fr; }
@@ -203,6 +206,7 @@ def launch_tui2(
             border: solid #58f29d;
             padding: 1;
             margin-top: 1;
+            text-wrap: nowrap;
         }
         #totp-board {
             height: 1fr;
@@ -608,12 +612,11 @@ def launch_tui2(
                     "- Ctrl+S save doc",
                     "- Ctrl+P command palette",
                     "- add-* create entries",
-                    "- add-seed/add-ssh/add-pgp/add-nostr/add-managed-account",
-                    "- notes-set/notes-clear, tag-add/tag-rm/tags-set/tags-clear",
-                    "- field-add/field-rm, set-field/clear-field, doc-export",
+                    "- tags/notes/fields via palette",
+                    "- docs: edit/save/export",
                     "- 6 toggle dedicated 2FA board",
-                    "- profile/relay/sync + setting-* commands",
-                    "- checksum/db/totp export + parent seed backup commands",
+                    "- profile/relay/sync/settings",
+                    "- checksum/db/totp/seed backup",
                     "- l cycle link relation",
                     "- [ / ] select link",
                     "- o open link target",
@@ -764,6 +767,7 @@ def launch_tui2(
                     "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
                 )
                 self._update_links_panel()
+                self._update_filters_panel()
                 self._set_status(f"Selected entry {entry_index}")
             except Exception as exc:
                 self.query_one("#entry-detail", Static).update(
@@ -1092,10 +1096,20 @@ def launch_tui2(
                 and not confirm
             ):
                 if include_qr:
+                    self._set_secret_panel(
+                        "Sensitive QR hidden.\n"
+                        "Confirmation required for this action.\n"
+                        "Run: qr private confirm"
+                    )
                     self._set_status(
                         "Sensitive QR requires confirmation. Run: qr private confirm"
                     )
                 else:
+                    self._set_secret_panel(
+                        "Sensitive reveal hidden.\n"
+                        "Confirmation required for this action.\n"
+                        "Run: reveal confirm"
+                    )
                     self._set_status(
                         "Sensitive reveal requires confirmation. Run: reveal confirm"
                     )
@@ -3332,6 +3346,13 @@ def launch_tui2(
                 return
             self._focus_pane = "center"
             self._apply_focus_style()
+            item = event.item
+            if isinstance(item, EntryListItem):
+                self._show_entry(item.entry_index)
+
+        def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+            if self.editing_document:
+                return
             item = event.item
             if isinstance(item, EntryListItem):
                 self._show_entry(item.entry_index)

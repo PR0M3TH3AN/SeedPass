@@ -713,6 +713,29 @@ async def test_tui2_textual_reveal_and_qr_flow() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "managed_account", "label": "Acct 2", "index": 2},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        filters_text = _widget_text(app, "#filters")
+        assert "Selected: #1" in filters_text
+        assert "Login 1" in filters_text
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        filters_text = _widget_text(app, "#filters")
+        assert "Selected: #2" in filters_text
+        assert "Acct 2" in filters_text
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_sensitive_confirm_and_secret_mode_clipboard() -> None:
     service = FakeEntryService(
         [
