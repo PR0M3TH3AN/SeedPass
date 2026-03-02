@@ -416,3 +416,86 @@ Validation:
 Next recommended slice:
 
 1. Phase 4 inspector board templates for advanced kinds (`ssh`, `pgp`, `nostr`, `key_value`) and stronger action-strip context hints.
+
+### 2026-03-02 - Phase 4 advanced actions (copy workflow) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Added palette command:
+- `copy <field> (optional: confirm)`
+
+2. Added kind-aware copy field resolution for:
+- `password/stored_password`: `password`, `username`, `url`
+- `seed/managed_account`: `seed|phrase`
+- `totp`: `code`, `secret`
+- `ssh`: `public`, `private`
+- `pgp`: `private`, `fingerprint`
+- `nostr`: `npub`, `nsec`
+- `key_value`: `key`, `value`
+- `document/note`: `content|text`
+
+3. Sensitive copy targets now require explicit confirmation (`confirm`) before clipboard action.
+
+4. Updated command reference/help coverage to include `copy`.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `29 passed`.
+
+Next recommended slice:
+
+1. Extend Phase 4 with explicit file export actions for advanced key kinds (SSH/PGP/Nostr material export paths with confirmation and tests).
+
+### 2026-03-02 - Phase 4 advanced actions (export workflow) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Added palette command:
+- `export-field <field> <path> (optional: confirm)`
+
+2. Reused kind-aware field resolution from copy workflow and added file export writing:
+- supports same kind/field matrix as `copy`.
+- writes UTF-8 payloads to absolute or relative paths (relative paths resolve from cwd).
+
+3. Sensitive export targets now require explicit confirmation (`confirm`) before writing.
+
+4. Updated command discoverability/help:
+- palette placeholder
+- help summary
+- full palette reference
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `29 passed`.
+
+Next recommended slice:
+
+1. Continue Phase 5 polish: left tree navigation model + compact/expanded density toggle and final visual alignment pass to mockups.
+
+### 2026-03-02 - Phase 5 polish (density + profile tree scaffold) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Added density controls:
+- keybind: `d` (toggle compact/comfortable)
+- palette: `density <compact|comfortable>`
+- top ribbon, left panel, and grid heading now show active density mode
+
+2. Added left-panel profile tree scaffold:
+- new `Profiles` section in left panel
+- shows known profiles from profile service when available
+- marks active fingerprint line
+
+3. Expanded command discoverability:
+- palette placeholder/help/reference include `density` command.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `29 passed`.
+
+Next recommended slice:
+
+1. Continue Phase 5 by adding explicit keyboard navigation inside the left profile tree and wiring profile-selection actions to update active context.

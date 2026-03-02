@@ -288,6 +288,7 @@ def launch_tui2(
             ("2", "focus_center", "Center"),
             ("3", "focus_right", "Right"),
             ("f", "cycle_filter", "Filter"),
+            ("d", "toggle_density", "Density"),
             ("h", "cycle_archive_scope", "Archive View"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
@@ -319,6 +320,7 @@ def launch_tui2(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
                     "help-commands | onboarding | quickstart | stats | session-status | lock | unlock <password> | "
+                    "density <compact|comfortable> | "
                     "filter <kind> | archive | restore | "
                     "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
@@ -344,6 +346,8 @@ def launch_tui2(
                     "totp-export <path> | parent-seed-backup [path] [password] | "
                     "managed-load [entry_id] | managed-exit | session-status | lock | unlock <password> | "
                     "doc-export [output_path] | "
+                    "copy <field> [confirm] | "
+                    "export-field <field> <path> [confirm] | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
                     "reveal [confirm] | qr [public|private] [confirm] | "
@@ -425,6 +429,7 @@ def launch_tui2(
             self._session_locked = False
             self._managed_session_entry_id: int | None = None
             self._last_sync_text = "(none)"
+            self._density_mode = "compact"
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -550,6 +555,7 @@ def launch_tui2(
                 f" | Kind: {self.filter_kind}"
                 f" | Archive: {self.archive_scope}"
                 f" | Session: {lock_state}"
+                f" | Density: {self._density_mode}"
                 f" | Last Sync: {self._last_sync_text}"
             )
             self.query_one("#top-ribbon", Static).update(text)
@@ -593,7 +599,8 @@ def launch_tui2(
             sort_line = (
                 "Sort: index ▲▼ | entry ▲▼ | title ▲▼ | kind ▲▼   "
                 f"Page {self._result_page + 1}/{self._total_pages()}   "
-                f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}"
+                f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}   "
+                f"Density: {self._density_mode}"
             )
             self.query_one("#grid-heading", Static).update(
                 f"Entry Grid\n{table_cols}\n{sort_line}"
@@ -635,12 +642,13 @@ def launch_tui2(
             return (
                 "Palette commands: help, help-commands, open, search, filter, "
                 "onboarding, quickstart, stats, session-status, lock/unlock, "
+                "density, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
                 "npub, nostr-reset-sync-state, nostr-fresh-namespace, sync-now/sync-bg, "
                 "checksum-*, db-*, totp-export, parent-seed-backup, managed-load/exit, "
-                "reveal/qr, page-*, retry, jump."
+                "reveal/qr/copy/export-field, page-*, retry, jump."
             )
 
         def _palette_reference_text(self) -> str:
@@ -650,12 +658,12 @@ def launch_tui2(
                     "-----------------",
                     "",
                     "Core: help | help-commands | open <id> | jump <id> | search <q>",
-                    "Core Ops: onboarding | quickstart | stats | session-status | lock | unlock <password>",
+                    "Core Ops: onboarding | quickstart | stats | session-status | lock | unlock <password> | density <compact|comfortable>",
                     "Filters: filter <kind|all> | archive-filter <active|all|archived>",
                     "Pages: page-next | page-prev | page <n>",
                     "",
                     "Entry Actions: archive | restore | reveal [confirm] | qr [public|private] [confirm]",
-                    "Docs: edit-doc | save-doc | cancel-edit | doc-export [output_path]",
+                    "Docs: edit-doc | save-doc | cancel-edit | doc-export [output_path] | copy <field> [confirm] | export-field <field> <path> [confirm]",
                     "Graph: link-add <target> [relation] [note] | link-rm <target> [relation]",
                     "Graph Nav: link-filter <relation|all> | link-next | link-prev | link-open",
                     "",
@@ -774,6 +782,23 @@ def launch_tui2(
             return f"Selected: #{self._selected_entry_id} [{kind}] {label}"
 
         def _update_filters_panel(self) -> None:
+            tree_lines = ["Profiles", "--------"]
+            profiles: list[str] = []
+            if self._profile_service is not None:
+                lister = getattr(self._profile_service, "list_profiles", None)
+                if callable(lister):
+                    try:
+                        profiles = [str(item) for item in lister()]
+                    except Exception:
+                        profiles = []
+            current_fp = fingerprint or ""
+            if profiles:
+                for item in profiles[:8]:
+                    marker = "*" if item == current_fp else "-"
+                    tree_lines.append(f"{marker} {item}")
+            else:
+                tree_lines.append(f"* {current_fp or '(default)'}")
+
             fp_line = (
                 f"Fingerprint: {fingerprint}"
                 if fingerprint
@@ -794,6 +819,7 @@ def launch_tui2(
                     f"Filter : {self.filter_kind}",
                     f"Archive: {self.archive_scope}",
                     f"Links  : {self.link_relation_filter}",
+                    f"Density: {self._density_mode}",
                     f"Session: {session_state}",
                     f"Managed: {managed_state}",
                     (
@@ -801,10 +827,13 @@ def launch_tui2(
                         f"Page: {self._result_page + 1}/{self._total_pages()}"
                     ),
                     "",
+                    *tree_lines,
+                    "",
                     "Nav ⌘",
                     "- / search",
                     "- j jump to id",
                     "- f cycle kind filter",
+                    "- d density toggle",
                     "- h cycle archive scope",
                     "- p/n prev/next page",
                     "- 1/2/3 focus pane",
@@ -850,7 +879,11 @@ def launch_tui2(
             url: str | None = None,
         ) -> str:
             entry_num = idx
-            title = (label or "").replace("\n", " ").strip()[:25]
+            title_limit = 25 if self._density_mode == "compact" else 34
+            meta_limit = 20 if self._density_mode == "compact" else 28
+            title_width = title_limit
+            meta_width = meta_limit
+            title = (label or "").replace("\n", " ").strip()[:title_limit]
             kind = (etype or "unknown")[:14]
             if url:
                 meta = str(url).replace("\n", " ").strip()
@@ -858,9 +891,12 @@ def launch_tui2(
                 meta = str(username).replace("\n", " ").strip()
             else:
                 meta = "-"
-            meta = meta[:20]
+            meta = meta[:meta_limit]
             arch = "YES" if archived else "NO"
-            return f"{idx:<8} {entry_num:<6} {title:<25} {kind:<14} {meta:<20} {arch:<4}"
+            return (
+                f"{idx:<8} {entry_num:<6} {title:<{title_width}} "
+                f"{kind:<14} {meta:<{meta_width}} {arch:<4}"
+            )
 
         def _total_pages(self) -> int:
             _page, _start, _end, total_pages = pagination_window(
@@ -1861,6 +1897,93 @@ def launch_tui2(
                 raise ValueError("Selected entry not found")
             return dict(entry)
 
+        def _resolve_copy_field_value(
+            self, field: str
+        ) -> tuple[str, bool, str]:
+            if self._service is None:
+                raise ValueError("Entry service unavailable")
+            entry = self._selected_entry_payload()
+            entry_id = int(self._selected_entry_id or 0)
+            kind = self._entry_kind(entry)
+            key = field.strip().lower()
+
+            if kind in {"password", "stored_password"}:
+                if key in {"password", "pass"}:
+                    length = int(entry.get("length", 16))
+                    return (
+                        str(self._service.generate_password(length, entry_id)),
+                        True,
+                        "password",
+                    )
+                if key == "username":
+                    return str(entry.get("username") or ""), False, "username"
+                if key == "url":
+                    return str(entry.get("url") or ""), False, "url"
+                raise ValueError("copy field unsupported for password: password|username|url")
+
+            if kind in {"seed", "managed_account"}:
+                if key not in {"seed", "phrase"}:
+                    raise ValueError("copy field unsupported for seed: seed|phrase")
+                getter = (
+                    self._service.get_managed_account_seed
+                    if kind == "managed_account"
+                    else self._service.get_seed_phrase
+                )
+                return str(getter(entry_id)), True, "seed"
+
+            if kind == "totp":
+                if key == "code":
+                    return str(self._service.get_totp_code(entry_id)), True, "code"
+                if key == "secret":
+                    return str(self._service.get_totp_secret(entry_id)), True, "secret"
+                raise ValueError("copy field unsupported for totp: code|secret")
+
+            if kind == "ssh":
+                private_key, public_key = self._service.get_ssh_key_pair(entry_id)
+                if key in {"public", "public_key"}:
+                    return str(public_key), False, "public_key"
+                if key in {"private", "private_key"}:
+                    return str(private_key), True, "private_key"
+                raise ValueError("copy field unsupported for ssh: public|private")
+
+            if kind == "pgp":
+                private_key, fingerprint_text = self._service.get_pgp_key(entry_id)
+                if key in {"private", "private_key"}:
+                    return str(private_key), True, "private_key"
+                if key in {"fingerprint", "fpr"}:
+                    return str(fingerprint_text), False, "fingerprint"
+                raise ValueError("copy field unsupported for pgp: private|fingerprint")
+
+            if kind == "nostr":
+                npub, nsec = self._service.get_nostr_key_pair(entry_id)
+                if key == "npub":
+                    return str(npub), False, "npub"
+                if key == "nsec":
+                    return str(nsec), True, "nsec"
+                raise ValueError("copy field unsupported for nostr: npub|nsec")
+
+            if kind == "key_value":
+                if key == "key":
+                    return str(entry.get("key") or ""), False, "key"
+                if key == "value":
+                    return str(entry.get("value") or ""), True, "value"
+                raise ValueError("copy field unsupported for key_value: key|value")
+
+            if kind in {"document", "note"}:
+                if key not in {"content", "text"}:
+                    raise ValueError("copy field unsupported for document: content|text")
+                return str(entry.get("content") or ""), False, "content"
+
+            raise ValueError(f"copy not supported for kind '{kind or 'unknown'}'")
+
+        def _export_value_to_path(self, value: str, output_path: str) -> Path:
+            raw = Path(output_path).expanduser()
+            if not raw.is_absolute():
+                raw = Path.cwd() / raw
+            raw.parent.mkdir(parents=True, exist_ok=True)
+            raw.write_text(value, encoding="utf-8")
+            return raw
+
         def _apply_selected_modify(
             self,
             *,
@@ -1976,6 +2099,19 @@ def launch_tui2(
                     return
                 self.query_one("#entry-detail", Static).update(self._stats_text())
                 self._set_status("Displayed vault stats")
+                return
+            if cmd == "density":
+                if len(args) != 1:
+                    self._set_status("Usage: density <compact|comfortable>")
+                    return
+                mode = args[0].strip().lower()
+                if mode not in {"compact", "comfortable"}:
+                    self._set_status("density must be one of: compact, comfortable")
+                    return
+                self._density_mode = mode
+                self._render_current_page(preserve_selected=True)
+                self._update_filters_panel()
+                self._set_status(f"Density set to {mode}")
                 return
             if cmd == "session-status":
                 if args:
@@ -3541,6 +3677,76 @@ def launch_tui2(
                     )
                 return
 
+            if cmd == "copy":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status("Usage: copy <field> (optional: confirm)")
+                    return
+                field = args[0].strip()
+                confirm = False
+                if len(args) == 2:
+                    if args[1].strip().lower() != "confirm":
+                        self._set_status("Usage: copy <field> (optional: confirm)")
+                        return
+                    confirm = True
+                try:
+                    value, sensitive, canonical = self._resolve_copy_field_value(field)
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                if sensitive and not confirm:
+                    self._set_status(
+                        f"copy {canonical} is sensitive. Re-run with: copy {field} confirm"
+                    )
+                    return
+                if not self._copy_to_clipboard(value):
+                    self._set_status("Clipboard unavailable")
+                    return
+                self._set_status(f"Copied {canonical} to clipboard")
+                return
+
+            if cmd == "export-field":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) not in {2, 3}:
+                    self._set_status("Usage: export-field <field> <path> (optional: confirm)")
+                    return
+                field = args[0].strip()
+                output_path = args[1].strip()
+                if not output_path:
+                    self._set_status("export-field path is required")
+                    return
+                confirm = False
+                if len(args) == 3:
+                    if args[2].strip().lower() != "confirm":
+                        self._set_status("Usage: export-field <field> <path> (optional: confirm)")
+                        return
+                    confirm = True
+                try:
+                    value, sensitive, canonical = self._resolve_copy_field_value(field)
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                if sensitive and not confirm:
+                    self._set_status(
+                        f"export-field {canonical} is sensitive. Re-run with: export-field {field} {output_path} confirm"
+                    )
+                    return
+                try:
+                    destination = self._export_value_to_path(value, output_path)
+                    self._set_status(f"Exported {canonical} to {destination}")
+                except Exception as exc:
+                    self._record_failure(
+                        "export-field failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
             if cmd in ("archive", "restore"):
                 if self._service is None or self._selected_entry_id is None:
                     self._set_status("No entry selected")
@@ -3902,6 +4108,17 @@ def launch_tui2(
             self.archive_scope = order[(idx + 1) % len(order)]
             self._load_entries(query=self._last_query, reset_page=True)
             self._set_status(f"Applied archive filter: {self.archive_scope}")
+
+        def action_toggle_density(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before changing density")
+                return
+            self._density_mode = (
+                "comfortable" if self._density_mode == "compact" else "compact"
+            )
+            self._render_current_page(preserve_selected=True)
+            self._update_filters_panel()
+            self._set_status(f"Density: {self._density_mode}")
 
         def action_next_page(self) -> None:
             if not self._all_results:

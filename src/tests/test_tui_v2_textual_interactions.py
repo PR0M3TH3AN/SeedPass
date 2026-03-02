@@ -643,6 +643,16 @@ async def test_tui2_textual_pagination_and_search_flow() -> None:
         await pilot.pause()
         assert "Page: 2/3" in _filters_text(app)
 
+        app.action_toggle_density()
+        await pilot.pause()
+        assert "Density: comfortable" in _status_text(app)
+        assert "Density: comfortable" in _filters_text(app)
+
+        app._run_palette_command("density compact")
+        await pilot.pause()
+        assert "Density set to compact" in _status_text(app)
+        assert "Density: compact" in _filters_text(app)
+
         app.query_one("#search", Input).value = "Entry 44"
         app._load_entries(query="Entry 44", reset_page=True)
         await pilot.pause()
@@ -976,6 +986,99 @@ async def test_tui2_textual_sensitive_confirm_and_secret_mode_clipboard() -> Non
         app._run_palette_command("qr private confirm")
         await pilot.pause()
         assert "Nostr #2 QR" in _widget_text(app, "#secret-detail")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_copy_command_for_core_and_advanced_fields(tmp_path) -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "Login 1",
+                "length": 16,
+                "username": "alice",
+                "url": "https://example.com",
+            },
+            {
+                "id": 2,
+                "kind": "ssh",
+                "label": "SSH 2",
+                "private_key": "SSH_PRIVATE_2",
+                "public_key": "ssh-ed25519 AAAA-2",
+            },
+            {"id": 3, "kind": "nostr", "label": "Nostr 3", "npub": "npub3", "nsec": "nsec3"},
+            {"id": 4, "kind": "key_value", "label": "KV 4", "key": "TOKEN", "value": "abc123"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        app._run_palette_command("copy password")
+        await pilot.pause()
+        assert "copy password is sensitive" in _status_text(app)
+
+        app._run_palette_command("copy password confirm")
+        await pilot.pause()
+        assert "Copied password to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "pw-1-16"
+
+        app._run_palette_command("copy username")
+        await pilot.pause()
+        assert "Copied username to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "alice"
+
+        app._run_palette_command("open 2")
+        app._run_palette_command("copy private")
+        await pilot.pause()
+        assert "copy private_key is sensitive" in _status_text(app)
+        app._run_palette_command("copy private confirm")
+        await pilot.pause()
+        assert "Copied private_key to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "SSH_PRIVATE_2"
+
+        app._run_palette_command("open 3")
+        app._run_palette_command("copy npub")
+        await pilot.pause()
+        assert "Copied npub to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "npub3"
+
+        app._run_palette_command("copy nsec confirm")
+        await pilot.pause()
+        assert "Copied nsec to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "nsec3"
+
+        app._run_palette_command("open 4")
+        app._run_palette_command("copy value confirm")
+        await pilot.pause()
+        assert "Copied value to clipboard" in _status_text(app)
+        assert service.clipboard_values[-1] == "abc123"
+
+        app._run_palette_command("export-field value value.txt confirm")
+        await pilot.pause()
+        assert "Exported value to" in _status_text(app)
+        assert (Path.cwd() / "value.txt").exists()
+        assert (Path.cwd() / "value.txt").read_text(encoding="utf-8") == "abc123"
+        (Path.cwd() / "value.txt").unlink(missing_ok=True)
+
+        out_file = tmp_path / "nostr.nsec"
+        app._run_palette_command("open 3")
+        app._run_palette_command(f"export-field nsec {out_file}")
+        await pilot.pause()
+        assert "export-field nsec is sensitive" in _status_text(app)
+
+        app._run_palette_command(f"export-field nsec {out_file} confirm")
+        await pilot.pause()
+        assert "Exported nsec to" in _status_text(app)
+        assert out_file.read_text(encoding="utf-8") == "nsec3"
+
+        app._run_palette_command("open 4")
+        app._run_palette_command("copy bogus")
+        await pilot.pause()
+        assert "copy field unsupported for key_value" in _status_text(app)
 
 
 @pytest.mark.anyio
@@ -1791,6 +1894,30 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         app._run_palette_command("unlock")
         await pilot.pause()
         assert "Usage: unlock <password>" in _status_text(app)
+
+        app._run_palette_command("copy")
+        await pilot.pause()
+        assert "Usage: copy <field> (optional: confirm)" in _status_text(app)
+
+        app._run_palette_command("copy password nope")
+        await pilot.pause()
+        assert "Usage: copy <field> (optional: confirm)" in _status_text(app)
+
+        app._run_palette_command("export-field")
+        await pilot.pause()
+        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(app)
+
+        app._run_palette_command("export-field password /tmp/x nope")
+        await pilot.pause()
+        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(app)
+
+        app._run_palette_command("density")
+        await pilot.pause()
+        assert "Usage: density <compact|comfortable>" in _status_text(app)
+
+        app._run_palette_command("density noisy")
+        await pilot.pause()
+        assert "density must be one of: compact, comfortable" in _status_text(app)
 
 
 @pytest.mark.anyio

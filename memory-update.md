@@ -954,3 +954,76 @@
   - Result: `28 passed`.
 - Refresh plan updated:
   - `docs/tui_v2_ui_refresh_plan.md` now records Phase 3 progress and sets Phase 4 advanced-kind board templates as next slice.
+
+## 2026-03-02 UI refresh implementation slice: Phase 4 advanced-kind actions (copy workflow)
+- Implemented advanced-kind inspector action command in `src/seedpass/tui_v2/app.py`:
+  - `copy <field> (optional: confirm)`
+- Added kind-specific copy field resolution:
+  - password/stored_password: `password`, `username`, `url`
+  - seed/managed_account: `seed|phrase`
+  - totp: `code`, `secret`
+  - ssh: `public`, `private`
+  - pgp: `private`, `fingerprint`
+  - nostr: `npub`, `nsec`
+  - key_value: `key`, `value`
+  - document/note: `content|text`
+- Sensitive field copies now require explicit `confirm`.
+- Updated palette help/reference strings to include copy action.
+- Tests added/updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - new test: `test_tui2_textual_copy_command_for_core_and_advanced_fields`
+    - validation assertions for copy usage errors
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix now exercises copy usage and success paths
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `29 passed`.
+- Refresh plan updated:
+  - `docs/tui_v2_ui_refresh_plan.md` marks this Phase 4 action slice and sets advanced-key export actions as next recommendation.
+
+## 2026-03-02 UI refresh implementation slice: Phase 4 advanced-kind actions (export workflow)
+- Implemented export action command in `src/seedpass/tui_v2/app.py`:
+  - `export-field <field> <path> (optional: confirm)`
+- Export workflow details:
+  - uses the same field/kind resolver as `copy`
+  - writes UTF-8 payloads to requested file path
+  - supports relative paths (resolved from current working directory)
+  - creates parent directories when needed
+- Sensitive field exports now require explicit `confirm`.
+- Discoverability updates:
+  - command palette placeholder now includes `export-field`
+  - help summary and palette reference include `export-field`
+- Tests added/updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - extended copy test to cover `export-field` success and confirmation gating
+    - validation test covers usage errors
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix now exercises export-field usage + success paths
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `29 passed`.
+- Refresh plan updated:
+  - `docs/tui_v2_ui_refresh_plan.md` marks export workflow landed and points next to Phase 5 polish (tree nav + density toggle + final mockup alignment).
+
+## 2026-03-02 UI refresh implementation slice: Phase 5 polish (density + profile tree scaffold)
+- Implemented density controls in `src/seedpass/tui_v2/app.py`:
+  - keybind: `d` via `action_toggle_density`
+  - palette command: `density <compact|comfortable>`
+  - density state shown in top ribbon, left panel, and grid heading
+- Implemented left-panel profile tree scaffold:
+  - new `Profiles` section in left panel
+  - uses profile service list when available
+  - marks active fingerprint entry
+- Discoverability updates:
+  - command palette placeholder/help/reference include density command
+- Tests updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - pagination flow now verifies keybind/palette density success
+    - settings validation now covers density usage/invalid-mode errors
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix now exercises density usage error + valid mode switches
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `29 passed`.
+- Refresh plan updated:
+  - `docs/tui_v2_ui_refresh_plan.md` now tracks Phase 5 density/tree scaffold progress and points next to explicit tree keyboard navigation + selection actions.
