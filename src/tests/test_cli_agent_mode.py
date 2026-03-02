@@ -610,7 +610,11 @@ def test_agent_document_import_with_token_scope(monkeypatch, tmp_path):
             return 12
 
         def retrieve_entry(self, _i):
-            return {"kind": EntryType.DOCUMENT.value, "label": "My Notes", "file_type": "md"}
+            return {
+                "kind": EntryType.DOCUMENT.value,
+                "label": "My Notes",
+                "file_type": "md",
+            }
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
     monkeypatch.setattr(
@@ -633,7 +637,11 @@ def test_agent_document_import_with_token_scope(monkeypatch, tmp_path):
             "approvals": {"require_for": []},
             "output": {"safe_output_default": True, "redact_fields": ["secret"]},
             "export": {"allow_full_vault": True},
-            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "secret_isolation": {
+                "enabled": False,
+                "high_risk_kinds": [],
+                "unlock_ttl_sec": 300,
+            },
             "allow_kinds": ["document"],
             "deny_private_reveal": [],
             "allow_export_import": True,
@@ -735,7 +743,11 @@ def test_agent_document_export_with_token_scope(monkeypatch, tmp_path):
             "approvals": {"require_for": []},
             "output": {"safe_output_default": True, "redact_fields": ["secret"]},
             "export": {"allow_full_vault": True},
-            "secret_isolation": {"enabled": False, "high_risk_kinds": [], "unlock_ttl_sec": 300},
+            "secret_isolation": {
+                "enabled": False,
+                "high_risk_kinds": [],
+                "unlock_ttl_sec": 300,
+            },
             "allow_kinds": ["document"],
             "deny_private_reveal": [],
             "allow_export_import": True,
@@ -817,7 +829,7 @@ def test_agent_identity_create_list_revoke(monkeypatch, tmp_path):
     listed_payload = json.loads(listed.stdout)
     assert any(v["id"] == "ci-bot" for v in listed_payload["identities"])
 
-    revoked = runner.invoke(app, ["agent", "identity-revoke", "ci-bot"])
+    revoked = runner.invoke(app, ["agent", "identity-revoke", "--", "ci-bot"])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
@@ -893,7 +905,7 @@ def test_agent_token_denied_when_identity_revoked(monkeypatch, tmp_path):
     assert issue.exit_code == 0
     token = json.loads(issue.stdout)["token"]
 
-    revoke = runner.invoke(app, ["agent", "identity-revoke", "revoked-agent"])
+    revoke = runner.invoke(app, ["agent", "identity-revoke", "--", "revoked-agent"])
     assert revoke.exit_code == 0
 
     denied = runner.invoke(
@@ -1105,7 +1117,7 @@ def test_agent_job_profile_lifecycle(monkeypatch, tmp_path):
     assert calls["query"] == "example"
     assert calls["auth_broker"] == "keyring"
 
-    revoked = runner.invoke(app, ["agent", "job-profile-revoke", "nightly-read"])
+    revoked = runner.invoke(app, ["agent", "job-profile-revoke", "--", "nightly-read"])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
@@ -1705,7 +1717,7 @@ def test_agent_approval_issue_list_and_revoke(monkeypatch, tmp_path):
     listed_payload = json.loads(listed.stdout)
     assert any(a["id"] == approval_id for a in listed_payload["approvals"])
 
-    revoked = runner.invoke(app, ["agent", "approval-revoke", approval_id])
+    revoked = runner.invoke(app, ["agent", "approval-revoke", "--", approval_id])
     assert revoked.exit_code == 0
     revoked_payload = json.loads(revoked.stdout)
     assert revoked_payload["status"] == "ok"
@@ -1798,8 +1810,9 @@ def test_agent_secret_lease_issue_consume_and_exhaust(monkeypatch, tmp_path):
             "ABC123",
             "agent",
             "lease-consume",
-            lease_id,
             "--reveal",
+            "--",
+            lease_id,
         ],
     )
     assert first.exit_code == 0
@@ -1815,8 +1828,9 @@ def test_agent_secret_lease_issue_consume_and_exhaust(monkeypatch, tmp_path):
             "ABC123",
             "agent",
             "lease-consume",
-            lease_id,
             "--reveal",
+            "--",
+            lease_id,
         ],
     )
     assert second.exit_code == 1
@@ -1901,8 +1915,9 @@ def test_agent_lease_consume_hydrates_partitioned_private_entry(monkeypatch, tmp
             "ABC123",
             "agent",
             "lease-consume",
-            "lease-1",
             "--reveal",
+            "--",
+            "lease-1",
         ],
     )
     assert result.exit_code == 0
