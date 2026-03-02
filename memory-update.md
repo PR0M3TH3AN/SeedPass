@@ -617,3 +617,37 @@
 - Updated planning docs:
   - `docs/tui_v2_legacy_parity_matrix.md` marks Nostr maintenance parity as implemented.
   - `docs/dev_control_center.md` now points to archived-only view/filter as the next parity target.
+
+## 2026-03-02 Next parity slice landed: archived view/filter parity in TUI v2
+- Added archive-scope support across TUI v2 entry browsing with three modes:
+  - `active` (default, excludes archived entries)
+  - `all` (includes active + archived)
+  - `archived` (archived-only)
+- TUI v2 updates in `src/seedpass/tui_v2/app.py`:
+  - new keybinding: `h` (`action_cycle_archive_scope`)
+  - new palette command: `archive-filter <active|all|archived>`
+  - left filter panel now shows `Archive: <scope>`
+  - search loads now pass archive scope to service search.
+- Core wrapper updates in `src/seedpass/core/api.py`:
+  - `EntryService.search_entries(...)` now accepts
+    - `include_archived: bool = False`
+    - `archived_only: bool = False`
+  - wrapper filters archived rows deterministically on top of entry-manager search results.
+- UX parity fix bundled:
+  - palette `archive`/`restore` branch now returns correctly after success.
+  - archive/restore flows preserve selected-entry context when an archived item leaves the active view, enabling immediate restore roundtrip without forced reselection.
+- Test coverage updates:
+  - `src/tests/test_core_api_services.py`: archive include/exclude/only behavior for `EntryService.search_entries`.
+  - `src/tests/test_tui_v2_textual_interactions.py`: new archive-scope interaction test.
+  - updated TUI fake services across
+    - `test_tui_v2_textual_interactions.py`
+    - `test_tui_v2_action_matrix.py`
+    - `test_tui_v2_kb_scale_stress.py`
+    - `test_tui_v2_parity_scenarios.py`
+    to accept archive-scope args.
+- Validation run:
+  - `pytest -q src/tests/test_core_api_services.py src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_kb_scale_stress.py src/tests/test_tui_v2_parity_scenarios.py`
+  - Result: `96 passed, 1 skipped`.
+- Planning docs updated:
+  - `docs/tui_v2_legacy_parity_matrix.md` marks archived-only view parity implemented.
+  - `docs/dev_control_center.md` next target updated to dedicated `npub` utility command parity.

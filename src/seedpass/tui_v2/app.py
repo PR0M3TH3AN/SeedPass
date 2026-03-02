@@ -252,6 +252,7 @@ def launch_tui2(
             ("2", "focus_center", "Center"),
             ("3", "focus_right", "Right"),
             ("f", "cycle_filter", "Filter"),
+            ("h", "cycle_archive_scope", "Archive View"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
             ("l", "cycle_link_filter", "Link Filter"),
@@ -269,6 +270,7 @@ def launch_tui2(
         ]
 
         filter_kind: reactive[str] = reactive("all")
+        archive_scope: reactive[str] = reactive("active")
         link_relation_filter: reactive[str] = reactive("all")
         editing_document: reactive[bool] = reactive(False)
         palette_open: reactive[bool] = reactive(False)
@@ -281,6 +283,7 @@ def launch_tui2(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
                     "filter <kind> | archive | restore | "
+                    "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
                     "add-totp <label> [period] [digits] [secret] | "
                     "add-key-value <label> <key> <value> | "
@@ -496,7 +499,7 @@ def launch_tui2(
                 [
                     "TUI v2 Quick Help  (Esc to close)",
                     "",
-                    "Core      : / search   j jump-id   p/n page   r refresh",
+                    "Core      : / search   j jump-id   p/n page   f kind   h archive scope   r refresh",
                     "Modes     : Ctrl+P palette   e edit-doc   Ctrl+S save   Esc cancel/close",
                     "Graph ⚯   : l relation filter   brackets link select   o open link target",
                     "Secrets 🔑: v reveal selected secret   g QR for selected entry",
@@ -565,6 +568,13 @@ def launch_tui2(
                 return None
             return [self.filter_kind]
 
+        def _current_archive_scope_flags(self) -> tuple[bool, bool]:
+            if self.archive_scope == "all":
+                return True, False
+            if self.archive_scope == "archived":
+                return True, True
+            return False, False
+
         def _selected_summary(self) -> str:
             if (
                 not isinstance(self._selected_entry, dict)
@@ -592,6 +602,7 @@ def launch_tui2(
                     "",
                     self._selected_summary(),
                     f"Filter : {self.filter_kind}",
+                    f"Archive: {self.archive_scope}",
                     f"Links  : {self.link_relation_filter}",
                     (
                         f"Results: {len(self._all_results)} | "
@@ -602,6 +613,7 @@ def launch_tui2(
                     "- / search",
                     "- j jump to id",
                     "- f cycle kind filter",
+                    "- h cycle archive scope",
                     "- p/n prev/next page",
                     "- 1/2/3 focus pane",
                     "- ? help overlay",
@@ -717,8 +729,12 @@ def launch_tui2(
                 return
 
             try:
+                include_archived, archived_only = self._current_archive_scope_flags()
                 results = self._service.search_entries(
-                    query, kinds=self._current_filter_kinds()
+                    query,
+                    kinds=self._current_filter_kinds(),
+                    include_archived=include_archived,
+                    archived_only=archived_only,
                 )
             except Exception as exc:
                 self.query_one("#entry-detail", Static).update(
@@ -1377,7 +1393,7 @@ def launch_tui2(
             if cmd == "help":
                 self._set_status(
                     "Palette commands: help, open, search, filter, archive, "
-                    "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
+                    "restore, archive-filter, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
                     "add-password, add-totp, add-key-value, add-document, add-ssh, "
                     "add-pgp, add-nostr, add-seed, add-managed-account, "
                     "notes-set, notes-clear, tag-add, tag-rm, tags-set, tags-clear, "
@@ -1438,6 +1454,22 @@ def launch_tui2(
                 self._update_filters_panel()
                 self._load_entries(query=self._last_query, reset_page=True)
                 self._set_status(f"Applied filter: {self.filter_kind}")
+                return
+
+            if cmd == "archive-filter":
+                if len(args) != 1:
+                    self._set_status("Usage: archive-filter <active|all|archived>")
+                    return
+                mode = args[0].strip().lower()
+                if mode not in {"active", "all", "archived"}:
+                    self._set_status(
+                        "archive-filter must be one of: active, all, archived"
+                    )
+                    return
+                self.archive_scope = mode
+                self._update_filters_panel()
+                self._load_entries(query=self._last_query, reset_page=True)
+                self._set_status(f"Applied archive filter: {self.archive_scope}")
                 return
 
             if cmd == "add-password":
@@ -2856,6 +2888,13 @@ def launch_tui2(
                     self._load_entries(self._last_query, reset_page=False)
                     if current_id in self._entry_ids_in_view:
                         self._show_entry(current_id)
+                    else:
+                        self._selected_entry_id = int(current_id)
+                        entry = self._service.retrieve_entry(int(current_id))
+                        self._selected_entry = (
+                            dict(entry) if isinstance(entry, dict) else {}
+                        )
+                        self._update_filters_panel()
                     self._clear_failure()
                     self._set_status(f"Entry {current_id} {action}")
                 except Exception as exc:
@@ -2866,6 +2905,7 @@ def launch_tui2(
                         hint="Press 'x' to retry.",
                     )
                     return
+                return
 
             if cmd == "managed-load":
                 if self._service is None:
@@ -3183,6 +3223,16 @@ def launch_tui2(
             self._load_entries(query=self._last_query, reset_page=True)
             self._set_status(f"Applied filter: {self.filter_kind}")
 
+        def action_cycle_archive_scope(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before changing archive scope")
+                return
+            order = ["active", "all", "archived"]
+            idx = order.index(self.archive_scope) if self.archive_scope in order else 0
+            self.archive_scope = order[(idx + 1) % len(order)]
+            self._load_entries(query=self._last_query, reset_page=True)
+            self._set_status(f"Applied archive filter: {self.archive_scope}")
+
         def action_next_page(self) -> None:
             if not self._all_results:
                 self._set_status("No entries loaded")
@@ -3324,6 +3374,13 @@ def launch_tui2(
                 self._load_entries(self._last_query)
                 if current_id in self._entry_ids_in_view:
                     self._show_entry(current_id)
+                else:
+                    self._selected_entry_id = int(current_id)
+                    entry = self._service.retrieve_entry(int(current_id))
+                    self._selected_entry = (
+                        dict(entry) if isinstance(entry, dict) else {}
+                    )
+                    self._update_filters_panel()
                 self._clear_failure()
                 self._set_status(f"Entry {current_id} {action}")
             except Exception as exc:

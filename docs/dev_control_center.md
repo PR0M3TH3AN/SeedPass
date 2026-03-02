@@ -92,7 +92,7 @@ Progress update (2026-03-02):
   - `nostr-fresh-namespace`
   - service wrappers and tests added
 - Current next implementation target:
-  - archived-only entry view/filter parity
+  - dedicated utility-style `npub` display command parity
 
 ## 6) Working Rule
 

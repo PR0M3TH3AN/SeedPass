@@ -9,7 +9,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 - Implemented: core daily workflows are covered in TUI v2 (add/retrieve/search/modify/archive, reveal/QR, 2FA board, settings/profile/relay/sync, export/import/checksum paths).
 - Partial: a few legacy menu affordances are represented differently in v2 (palette-first vs nested menus).
-- Gaps: remaining high-value gaps are mostly around managed-account session operations and a few settings/Nostr maintenance affordances.
+- Gaps: remaining high-value gaps are low-volume utility affordances rather than core workflows.
 
 ## Matrix
 
@@ -51,7 +51,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Export TOTP codes | Settings | `totp-export` | Implemented | |
 | Backup/reveal parent seed | Settings | `parent-seed-backup [path] [password]` | Implemented | |
 | Display npub | Main utility flow | No direct dedicated command | Partial | Possible via entry reveal for nostr entry; direct utility-style command absent. |
-| View archived-only list | Settings/List flow | No dedicated archived-only pane/command | Gap | Archived state visible in list; archive-only view affordance missing. |
+| View archived-only list | Settings/List flow | `h` cycle archive scope or `archive-filter <active|all|archived>` | Implemented | Supports active-only/default, all, and archived-only views. |
 | Reset Nostr sync state | Settings > Nostr | `nostr-reset-sync-state` | Implemented | Added to TUI v2 palette + tests. |
 | Start fresh Nostr namespace | Settings > Nostr | `nostr-fresh-namespace` | Implemented | Added to TUI v2 palette + tests. |
 | Load managed-account session | Retrieve managed account action | `managed-load (optional: entry_id)` | Implemented | Added in TUI v2 palette + tests. |
@@ -59,9 +59,8 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 ## Prioritized Gap Queue
 
-1. Medium: archived-only list/view affordance parity.
-2. Low: dedicated utility-style npub display command in v2.
+1. Low: dedicated utility-style npub display command in v2.
 
 ## Suggested implementation order
 
-1. Archived-only view filter/command + tests.
+1. Dedicated `npub` utility command + tests.

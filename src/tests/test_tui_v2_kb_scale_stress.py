@@ -32,13 +32,25 @@ class LargeKbService:
                 entry["url"] = f"https://example/{idx}"
             self._entries[idx] = entry
 
-    def search_entries(self, query: str, kinds: list[str] | None = None):
+    def search_entries(
+        self,
+        query: str,
+        kinds: list[str] | None = None,
+        *,
+        include_archived: bool = False,
+        archived_only: bool = False,
+    ):
         q = (query or "").strip().lower()
         rows = []
         for idx in sorted(self._entries.keys()):
             entry = self._entries[idx]
             kind = str(entry.get("kind", "password"))
             if kinds and kind not in kinds:
+                continue
+            archived = bool(entry.get("archived", False))
+            if archived_only and not archived:
+                continue
+            if not include_archived and archived:
                 continue
             label = str(entry.get("label", ""))
             tags = [str(tag).lower() for tag in entry.get("tags", [])]
@@ -50,7 +62,7 @@ class LargeKbService:
                     label,
                     entry.get("username"),
                     entry.get("url"),
-                    bool(entry.get("archived", False)),
+                    archived,
                     SimpleNamespace(value=kind),
                 )
             )

@@ -45,7 +45,14 @@ class MatrixEntryService:
     def _next_id(self) -> int:
         return (max(self._entries.keys()) + 1) if self._entries else 1
 
-    def search_entries(self, query: str, kinds: list[str] | None = None):
+    def search_entries(
+        self,
+        query: str,
+        kinds: list[str] | None = None,
+        *,
+        include_archived: bool = False,
+        archived_only: bool = False,
+    ):
         if self.fail_search:
             raise RuntimeError("search failed")
         q = (query or "").strip().lower()
@@ -54,6 +61,11 @@ class MatrixEntryService:
             entry = self._entries[entry_id]
             kind = str(entry.get("kind", "password"))
             if kinds and kind not in kinds:
+                continue
+            archived = bool(entry.get("archived", False))
+            if archived_only and not archived:
+                continue
+            if not include_archived and archived:
                 continue
             label = str(entry.get("label", ""))
             if q and q not in label.lower():
@@ -64,7 +76,7 @@ class MatrixEntryService:
                     label,
                     None,
                     None,
-                    bool(entry.get("archived", False)),
+                    archived,
                     SimpleNamespace(value=kind),
                 )
             )
@@ -558,12 +570,17 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("managed-exit now")
         app._run_palette_command("doc-export one two")
         app._run_palette_command("filter")
+        app._run_palette_command("archive-filter")
+        app._run_palette_command("archive-filter bogus")
         app._run_palette_command("unknown-cmd")
         await pilot.pause()
 
         app._run_palette_command("help")
         app._run_palette_command("search Doc")
         app._run_palette_command("filter document")
+        app._run_palette_command("archive-filter all")
+        app._run_palette_command("archive-filter archived")
+        app._run_palette_command("archive-filter active")
         app._run_palette_command("page-next")
         app._run_palette_command("page-prev")
         app._run_palette_command("page 2")
@@ -611,6 +628,9 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
 
         app.action_next_page()
         app.action_prev_page()
+        app.action_cycle_archive_scope()
+        app.action_cycle_archive_scope()
+        app.action_cycle_archive_scope()
         await pilot.pause()
 
         app._run_palette_command("open 1")

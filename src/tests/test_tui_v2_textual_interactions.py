@@ -28,7 +28,14 @@ class FakeEntryService:
     def _next_id(self) -> int:
         return (max(self._entries.keys()) + 1) if self._entries else 1
 
-    def search_entries(self, query: str, kinds: list[str] | None = None):
+    def search_entries(
+        self,
+        query: str,
+        kinds: list[str] | None = None,
+        *,
+        include_archived: bool = False,
+        archived_only: bool = False,
+    ):
         if self.fail_search_times > 0:
             self.fail_search_times -= 1
             raise RuntimeError("temporary search failure")
@@ -40,6 +47,11 @@ class FakeEntryService:
             kind = str(entry.get("kind", "password"))
             if kinds and kind not in kinds:
                 continue
+            archived = bool(entry.get("archived", False))
+            if archived_only and not archived:
+                continue
+            if not include_archived and archived:
+                continue
             label = str(entry.get("label", ""))
             if q and q not in label.lower():
                 continue
@@ -49,7 +61,7 @@ class FakeEntryService:
                     label,
                     None,
                     None,
-                    bool(entry.get("archived", False)),
+                    archived,
                     SimpleNamespace(value=kind),
                 )
             )
@@ -613,6 +625,44 @@ async def test_tui2_textual_pagination_and_search_flow() -> None:
         await pilot.pause()
         assert len(list_view.children) == 11
         assert "Page: 1/1" in _filters_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_archive_scope_filters() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Active Doc", "content": "x"},
+            {
+                "id": 2,
+                "kind": "document",
+                "label": "Archived Doc",
+                "content": "y",
+                "archived": True,
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 1
+        assert "Archive: active" in _filters_text(app)
+
+        app.action_cycle_archive_scope()
+        await pilot.pause()
+        assert len(list_view.children) == 2
+        assert "Archive: all" in _filters_text(app)
+
+        app.action_cycle_archive_scope()
+        await pilot.pause()
+        assert len(list_view.children) == 1
+        assert "Archive: archived" in _filters_text(app)
+        assert app._entry_ids_in_view == [2]
+
+        await _run_palette(app, pilot, "archive-filter active")
+        assert len(list_view.children) == 1
+        assert "Archive: active" in _filters_text(app)
 
 
 @pytest.mark.anyio
@@ -1383,9 +1433,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
 
         app._run_palette_command("nostr-fresh-namespace")
         await pilot.pause()
-        assert (
-            "Started fresh Nostr namespace at account index 1" in _status_text(app)
-        )
+        assert "Started fresh Nostr namespace at account index 1" in _status_text(app)
         assert nostr.account_idx == 1
 
         app._run_palette_command("sync-now")

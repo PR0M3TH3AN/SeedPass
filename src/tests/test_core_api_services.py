@@ -248,6 +248,30 @@ class TestEntryService:
         )
         assert results == []
 
+    def test_search_entries_default_excludes_archived(self, service, mock_manager):
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "active", None, None, False, EntryType.PASSWORD),
+            (2, "archived", None, None, True, EntryType.PASSWORD),
+        ]
+        results = service.search_entries("q")
+        assert [row[0] for row in results] == [1]
+
+    def test_search_entries_include_archived(self, service, mock_manager):
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "active", None, None, False, EntryType.PASSWORD),
+            (2, "archived", None, None, True, EntryType.PASSWORD),
+        ]
+        results = service.search_entries("q", include_archived=True)
+        assert [row[0] for row in results] == [1, 2]
+
+    def test_search_entries_archived_only(self, service, mock_manager):
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "active", None, None, False, EntryType.PASSWORD),
+            (2, "archived", None, None, True, EntryType.PASSWORD),
+        ]
+        results = service.search_entries("q", include_archived=True, archived_only=True)
+        assert [row[0] for row in results] == [2]
+
     def test_retrieve_entry(self, service, mock_manager):
         mock_entry = {"id": 1, "label": "test"}
         mock_manager.entry_manager.retrieve_entry.return_value = mock_entry

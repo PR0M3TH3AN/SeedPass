@@ -285,7 +285,12 @@ class EntryService:
             )
 
     def search_entries(
-        self, query: str, kinds: list[str] | None = None
+        self,
+        query: str,
+        kinds: list[str] | None = None,
+        *,
+        include_archived: bool = False,
+        archived_only: bool = False,
     ) -> list[tuple[int, str, str | None, str | None, bool, EntryType]]:
         """Search entries optionally filtering by ``kinds``.
 
@@ -298,7 +303,12 @@ class EntryService:
         """
 
         with self._lock:
-            return self._manager.entry_manager.search_entries(query, kinds=kinds)
+            rows = self._manager.entry_manager.search_entries(query, kinds=kinds)
+        if not include_archived:
+            return [row for row in rows if not bool(row[4])]
+        if archived_only:
+            return [row for row in rows if bool(row[4])]
+        return rows
 
     def retrieve_entry(self, entry_id: int):
         with self._lock:
