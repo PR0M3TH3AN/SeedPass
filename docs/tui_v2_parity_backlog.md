@@ -9,6 +9,7 @@ Linked plans:
 - `docs/tui_v2_plan.md`
 - `docs/tui_v2_parity_checklist.md`
 - `docs/tui_v2_cutover_decision.md`
+- `docs/tui_v2_ui_refresh_plan.md`
 
 ## What We Learned
 

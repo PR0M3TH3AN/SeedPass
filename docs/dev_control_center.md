@@ -29,6 +29,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 - TUI parity backlog: `docs/tui_v2_parity_backlog.md`
 - TUI parity checklist: `docs/tui_v2_parity_checklist.md`
 - TUI legacy parity matrix: `docs/tui_v2_legacy_parity_matrix.md`
+- TUI v2 UI refresh plan (mockup-aligned): `docs/tui_v2_ui_refresh_plan.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
 - Supply-chain integrity: `docs/supply_chain_release_integrity.md`

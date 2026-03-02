@@ -35,6 +35,7 @@ This directory contains SeedPass project documentation.
 - `tui_v2_parity_checklist.md`
 - `tui_v2_parity_backlog.md`
 - `tui_v2_legacy_parity_matrix.md`
+- `tui_v2_ui_refresh_plan.md`
 - `tui_v2_cutover_decision.md`
 - `tui_v2_large_vault_validation.md`
 - `security.md`

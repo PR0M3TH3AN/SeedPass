@@ -884,3 +884,20 @@
 - Planning docs updated:
   - `docs/tui_v2_legacy_parity_matrix.md` now marks onboarding parity as implemented and clears active medium/high parity gaps.
   - `docs/dev_control_center.md` now reflects that the tracked onboarding/stats/session UX gaps are landed.
+
+## 2026-03-02 UI direction capture slice: mockup-aligned TUI v2 refresh plan
+- Added a detailed multi-session implementation spec:
+  - `docs/tui_v2_ui_refresh_plan.md`
+- Plan captures:
+  - visual contract preserving existing green palette
+  - target information architecture (left tree, top grid, bottom inspector board, bottom action strip)
+  - component requirements and per-entry-kind board template contracts
+  - keyboard/command discoverability expectations
+  - phased delivery plan with explicit exit criteria
+  - required test gates and handoff checklist for session continuity
+- Linked the plan from control/index docs:
+  - `docs/dev_control_center.md`
+  - `docs/README.md`
+  - `docs/tui_v2_parity_backlog.md`
+- Recommended next implementation slice documented as:
+  - Phase 1: shell restructure (layout scaffolding only, no behavior regressions).
