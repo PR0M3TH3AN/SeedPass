@@ -96,6 +96,7 @@ def _prime_tui2_service(
             ProfileService,
             ConfigService,
             NostrService,
+            SemanticIndexService,
             SyncService,
             UtilityService,
             VaultService,
@@ -111,6 +112,7 @@ def _prime_tui2_service(
             "sync": SyncService(pm) if pm is not None else None,
             "utility": UtilityService(pm) if pm is not None else None,
             "vault": VaultService(pm) if pm is not None else None,
+            "semantic": SemanticIndexService(pm) if pm is not None else None,
         }, None
     except Exception as exc:  # pragma: no cover - defensive runtime path
         return None, exc
@@ -163,6 +165,7 @@ def main(
             sync_service_factory=lambda: services["sync"],
             utility_service_factory=lambda: services["utility"],
             vault_service_factory=lambda: services["vault"],
+            semantic_service_factory=lambda: services["semantic"],
         )
         if launched:
             return
@@ -225,6 +228,7 @@ def tui2(
         sync_service_factory=lambda: services["sync"],
         utility_service_factory=lambda: services["utility"],
         vault_service_factory=lambda: services["vault"],
+        semantic_service_factory=lambda: services["semantic"],
     )
     if launched:
         return

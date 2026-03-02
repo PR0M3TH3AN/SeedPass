@@ -21,6 +21,7 @@ from utils.color_scheme import color_text
 import importlib
 
 from seedpass.core.manager import PasswordManager, restore_backup_index
+from seedpass.core.api import SemanticIndexService
 from seedpass.core.errors import SeedPassError
 from nostr.client import NostrClient
 from seedpass.core.entry_types import EntryType
@@ -1112,6 +1113,121 @@ def handle_nostr_menu(password_manager: PasswordManager) -> None:
             pause()
 
 
+def handle_semantic_index_menu(password_manager: PasswordManager) -> None:
+    """Submenu for semantic index status/build/search controls."""
+    service = SemanticIndexService(password_manager)
+    while True:
+        fp, parent_fp, child_fp = getattr(
+            password_manager,
+            "header_fingerprint_args",
+            (getattr(password_manager, "current_fingerprint", None), None, None),
+        )
+        clear_header_with_notification(
+            password_manager,
+            fp,
+            "Main Menu > Settings > Semantic Index",
+            parent_fingerprint=parent_fp,
+            child_fingerprint=child_fp,
+        )
+        print(color_text("\nSemantic Index:", "menu"))
+        print(color_text("1. Show status", "menu"))
+        print(color_text("2. Enable", "menu"))
+        print(color_text("3. Disable", "menu"))
+        print(color_text("4. Build", "menu"))
+        print(color_text("5. Rebuild", "menu"))
+        print(color_text("6. Search", "menu"))
+        choice = input("Select an option or press Enter to go back: ").strip()
+        try:
+            if choice == "1":
+                payload = service.status()
+                print(
+                    colored(
+                        "Status: "
+                        f"enabled={bool(payload.get('enabled', False))}, "
+                        f"built={bool(payload.get('built', False))}, "
+                        f"records={int(payload.get('records', 0))}",
+                        "green",
+                    )
+                )
+                pause()
+            elif choice == "2":
+                payload = service.set_enabled(True)
+                print(
+                    colored(
+                        f"Semantic index enabled (records={int(payload.get('records', 0))}).",
+                        "green",
+                    )
+                )
+                pause()
+            elif choice == "3":
+                payload = service.set_enabled(False)
+                print(
+                    colored(
+                        f"Semantic index disabled (records={int(payload.get('records', 0))}).",
+                        "yellow",
+                    )
+                )
+                pause()
+            elif choice == "4":
+                payload = service.build()
+                print(
+                    colored(
+                        f"Semantic index built with {int(payload.get('records', 0))} records.",
+                        "green",
+                    )
+                )
+                pause()
+            elif choice == "5":
+                payload = service.rebuild()
+                print(
+                    colored(
+                        f"Semantic index rebuilt with {int(payload.get('records', 0))} records.",
+                        "green",
+                    )
+                )
+                pause()
+            elif choice == "6":
+                query = input("Enter semantic search query: ").strip()
+                if not query:
+                    print(colored("Search query required.", "yellow"))
+                    pause()
+                    continue
+                results = service.search(query, k=10, kind=None)
+                if not results:
+                    print(colored("No semantic matches found.", "yellow"))
+                    pause()
+                    continue
+                print(color_text("\nSemantic Matches:", "menu"))
+                for row in results:
+                    entry_id = int(row.get("entry_id", 0))
+                    kind = str(row.get("kind", ""))
+                    label = str(row.get("label", ""))
+                    score = float(row.get("score", 0.0))
+                    print(
+                        colored(
+                            f"- #{entry_id} [{kind}] {label} (score={score:.3f})",
+                            "cyan",
+                        )
+                    )
+                pause()
+            elif not choice:
+                break
+            else:
+                print(colored("Invalid choice.", "red"))
+        except PasswordPromptError as exc:
+            logging.warning("Semantic submenu action cancelled: %s", exc)
+            print(colored(f"Action cancelled: {exc}", "yellow"))
+            pause()
+        except SeedPassError as exc:
+            logging.error("Semantic submenu action failed: %s", exc, exc_info=True)
+            print(colored(f"Action failed: {exc}", "red"))
+            pause()
+        except Exception as exc:
+            logging.error("Semantic submenu action failed: %s", exc, exc_info=True)
+            print(colored(f"Semantic action failed: {exc}", "red"))
+            pause()
+
+
 def handle_settings(password_manager: PasswordManager) -> None:
     """Interactive settings menu with submenus for profiles and Nostr."""
     while True:
@@ -1145,6 +1261,7 @@ def handle_settings(password_manager: PasswordManager) -> None:
         print(color_text("15. Toggle Secret Mode", "menu"))
         print(color_text("16. Toggle Offline Mode (default ON)", "menu"))
         print(color_text("17. Toggle Quick Unlock", "menu"))
+        print(color_text("18. Semantic Index", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         try:
             if choice == "1":
@@ -1248,6 +1365,8 @@ def handle_settings(password_manager: PasswordManager) -> None:
             elif choice == "17":
                 handle_toggle_quick_unlock(password_manager)
                 pause()
+            elif choice == "18":
+                handle_semantic_index_menu(password_manager)
             elif not choice:
                 break
             else:

@@ -1060,3 +1060,69 @@
 - Updated control-center priorities:
   - keep Phase 5 TUI refresh completion ahead of semantic Phase A implementation
   - semantic index Phase A now explicit next-track deliverable after current UI slice.
+
+# Memory Update (2026-03-02)
+
+## TUI v2 Phase 5 tree navigation parity landed
+- Added explicit left-profile-tree keyboard navigation in `src/seedpass/tui_v2/app.py`:
+  - `Up` / `Down` for tree cursor movement
+  - `Ctrl+O` to open/switch the selected profile
+- Added palette command parity/discoverability:
+  - `profile-tree-next`, `profile-tree-prev`, `profile-tree-open`
+- Updated left panel rendering with cursor + active profile markers and refreshed tree state after profile add/remove/rename/switch.
+- Extended Textual interaction + matrix tests:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+  - `src/tests/test_tui_v2_action_matrix.py`
+
+## Semantic index implementation started (Phase A/B baseline)
+- Added local derived semantic index core:
+  - `src/seedpass/core/semantic_index.py`
+  - profile-local `semantic_index/manifest.json` + `records.json`
+  - token-overlap retrieval baseline, with high-risk kinds excluded by default (e.g., `seed`, `managed_account`).
+- Added profile config flag and service wrappers:
+  - `semantic_index_enabled` default `false`
+  - `ConfigManager` + `ConfigService` getters/setters
+  - new `SemanticIndexService` in `src/seedpass/core/api.py`
+- Added CLI command group:
+  - `seedpass semantic status|enable|disable|build|rebuild|search`
+- Added API endpoints:
+  - `GET /api/v1/semantic/status`
+  - `POST /api/v1/semantic/build`
+  - `POST /api/v1/semantic/rebuild`
+  - `POST /api/v1/semantic/search`
+  - `POST /api/v1/semantic/config`
+- Updated capabilities discovery for semantic CLI/API surfaces.
+
+## Tests executed and passing
+- `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_semantic_index.py src/tests/test_cli_semantic.py src/tests/test_api_new_endpoints.py` => `95 passed`
+- Expanded target including CLI capability coverage:
+  - `poetry run pytest -q src/tests/test_cli_semantic.py src/tests/test_api_new_endpoints.py src/tests/test_semantic_index.py src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_typer_cli.py` => `149 passed`
+
+## Docs/control-plane updates
+- Updated semantic roadmap status/progress and phase checkboxes:
+  - `docs/semantic_vector_index_plan.md`
+- Updated unified prioritization doc with current state and next queue:
+  - `docs/dev_control_center.md`
+- Updated UI refresh plan to mark Phase 5 tree-navigation completion:
+  - `docs/tui_v2_ui_refresh_plan.md`
+
+## Committed + pushed
+- Branch: `beta`
+- Commit: `165e2db`
+- Message: `feat: add semantic index scaffolding, cli/api surfaces, and tui tree nav polish`
+
+## Recommended immediate next slice
+1. Implement semantic Phase C in both TUIs (status/build/search commands + visible semantic-state indicator in ribbon/settings).
+2. Add incremental semantic index updates on entry/tag/link mutation paths (avoid rebuild-only behavior).
+3. Add hybrid ranking mode contract (`keyword|hybrid|semantic`) across CLI/API/TUI with tests.
+
+## Memory Update (2026-03-02, semantic Phase C slice)
+- Wired semantic controls into TUI v2 palette and top ribbon semantic state (`SEM: off/stale/ready(n)/err/n/a`).
+- Added TUI v2 commands: `semantic-status`, `semantic-enable`, `semantic-disable`, `semantic-build`, `semantic-rebuild`, `semantic-search <query>`.
+- Wired semantic service bootstrap into CLI TUI launch path (`_prime_tui2_service` + `launch_tui2` factories).
+- Added legacy TUI Settings option `18. Semantic Index` with submenu for status/enable/disable/build/rebuild/search.
+- Added tests:
+  - `test_settings_menu.py` semantic submenu dispatch/search flow
+  - `test_tui_v2_textual_interactions.py` semantic command success/validation paths
+  - `test_tui_v2_action_matrix.py` semantic command matrix coverage
+- Validation run: `102 passed` across targeted settings/TUI/semantic/CLI suites.

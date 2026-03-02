@@ -562,6 +562,49 @@ class FakeVaultService:
         return _Resp()
 
 
+class FakeSemanticService:
+    def __init__(self) -> None:
+        self.enabled = False
+        self.built = False
+        self.records = 0
+        self.last_query: str | None = None
+
+    def status(self):
+        return {
+            "enabled": bool(self.enabled),
+            "built": bool(self.built),
+            "records": int(self.records),
+        }
+
+    def set_enabled(self, enabled: bool):
+        self.enabled = bool(enabled)
+        return self.status()
+
+    def build(self):
+        self.built = True
+        self.records = 2
+        return self.status()
+
+    def rebuild(self):
+        self.built = True
+        self.records = 2
+        return self.status()
+
+    def search(self, query: str, *, k: int = 10, kind: str | None = None):
+        self.last_query = str(query)
+        if not query.strip():
+            return []
+        return [
+            {
+                "entry_id": 1,
+                "kind": kind or "document",
+                "label": "Doc",
+                "score": 0.7,
+                "excerpt": f"query={query} k={k}",
+            }
+        ]
+
+
 def _build_app(
     service: FakeEntryService,
     *,
@@ -571,6 +614,7 @@ def _build_app(
     sync_service=None,
     utility_service=None,
     vault_service=None,
+    semantic_service=None,
 ):
     holder: dict[str, object] = {}
 
@@ -596,6 +640,9 @@ def _build_app(
         ),
         vault_service_factory=(
             (lambda: vault_service) if vault_service is not None else None
+        ),
+        semantic_service_factory=(
+            (lambda: semantic_service) if semantic_service is not None else None
         ),
         app_hook=_hook,
     )
@@ -1547,6 +1594,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
     sync = FakeSyncService()
     utility = FakeUtilityService()
     vault = FakeVaultService()
+    semantic = FakeSemanticService()
     app = _build_app(
         service,
         profile_service=profiles,
@@ -1555,6 +1603,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         sync_service=sync,
         utility_service=utility,
         vault_service=vault,
+        semantic_service=semantic,
     )
 
     async with app.run_test() as pilot:
@@ -1610,6 +1659,34 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         await pilot.pause()
         assert config.kdf_mode == "argon2"
         assert "KDF mode set to argon2" in _status_text(app)
+
+        app._run_palette_command("semantic-status")
+        await pilot.pause()
+        assert "Displayed semantic index status" in _status_text(app)
+
+        app._run_palette_command("semantic-enable")
+        await pilot.pause()
+        assert semantic.enabled is True
+        assert "Semantic index enabled" in _status_text(app)
+
+        app._run_palette_command("semantic-build")
+        await pilot.pause()
+        assert semantic.built is True
+        assert "Semantic index built" in _status_text(app)
+
+        app._run_palette_command("semantic-search relay recovery")
+        await pilot.pause()
+        assert semantic.last_query == "relay recovery"
+        assert "Semantic matches: 1 for 'relay recovery'" in _status_text(app)
+
+        app._run_palette_command("semantic-rebuild")
+        await pilot.pause()
+        assert "Semantic index rebuilt" in _status_text(app)
+
+        app._run_palette_command("semantic-disable")
+        await pilot.pause()
+        assert semantic.enabled is False
+        assert "Semantic index disabled" in _status_text(app)
 
         app._run_palette_command("profile-add")
         await pilot.pause()
@@ -1763,6 +1840,10 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Utility service unavailable" in _status_text(app)
 
+        app._run_palette_command("semantic-status")
+        await pilot.pause()
+        assert "Semantic service unavailable" in _status_text(app)
+
         app._run_palette_command("db-export /tmp/x")
         await pilot.pause()
         assert "Vault service unavailable" in _status_text(app)
@@ -1831,6 +1912,14 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
 
+        app._run_palette_command("semantic-enable now")
+        await pilot.pause()
+        assert "Semantic service unavailable" in _status_text(app)
+
+        app._run_palette_command("semantic-search")
+        await pilot.pause()
+        assert "Semantic service unavailable" in _status_text(app)
+
         app._run_palette_command("npub")
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
@@ -1855,6 +1944,7 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
     vault = FakeVaultService()
     nostr = FakeNostrService(["wss://r1"])
     sync = FakeSyncService()
+    semantic = FakeSemanticService()
     app = _build_app(
         service,
         profile_service=profiles,
@@ -1863,6 +1953,7 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         vault_service=vault,
         nostr_service=nostr,
         sync_service=sync,
+        semantic_service=semantic,
     )
     async with app.run_test() as pilot:
         await pilot.pause()
@@ -1878,6 +1969,14 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         app._run_palette_command("setting-kdf-mode")
         await pilot.pause()
         assert "Usage: setting-kdf-mode <mode>" in _status_text(app)
+
+        app._run_palette_command("semantic-enable now")
+        await pilot.pause()
+        assert "Usage: semantic-enable" in _status_text(app)
+
+        app._run_palette_command("semantic-search")
+        await pilot.pause()
+        assert "Usage: semantic-search <query>" in _status_text(app)
 
         app._run_palette_command("checksum-update nope")
         await pilot.pause()

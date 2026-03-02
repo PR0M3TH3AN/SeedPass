@@ -95,6 +95,7 @@ def launch_tui2(
     sync_service_factory: Any | None = None,
     utility_service_factory: Any | None = None,
     vault_service_factory: Any | None = None,
+    semantic_service_factory: Any | None = None,
     app_hook: Any | None = None,
 ) -> bool:
     """Launch TUI v2 when runtime dependencies are available.
@@ -343,6 +344,7 @@ def launch_tui2(
                     "setting-secret <on|off> [delay] | setting-offline <on|off> | "
                     "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
                     "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
+                    "semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query> | "
                     "relay-list | relay-add <url> | relay-rm <index> | "
                     "relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace | "
                     "sync-now | sync-bg | "
@@ -413,6 +415,8 @@ def launch_tui2(
             self._sync_service = None
             self._utility_service = None
             self._vault_service = None
+            self._semantic_service = None
+            self._semantic_state = "n/a"
             self._selected_entry_id: int | None = None
             self._selected_entry: dict[str, Any] | None = None
             self._last_query = ""
@@ -500,6 +504,16 @@ def launch_tui2(
             except Exception as exc:
                 self._vault_service = None
                 self._log_activity(f"Vault service unavailable: {exc}")
+            try:
+                self._semantic_service = (
+                    semantic_service_factory()
+                    if callable(semantic_service_factory)
+                    else None
+                )
+            except Exception as exc:
+                self._semantic_service = None
+                self._log_activity(f"Semantic service unavailable: {exc}")
+            self._refresh_semantic_state()
             self._update_filters_panel()
             self._update_help_overlay()
             self._update_activity_panel()
@@ -563,9 +577,32 @@ def launch_tui2(
                 f" | Archive: {self.archive_scope}"
                 f" | Session: {lock_state}"
                 f" | Density: {self._density_mode}"
+                f" | SEM: {self._semantic_state}"
                 f" | Last Sync: {self._last_sync_text}"
             )
             self.query_one("#top-ribbon", Static).update(text)
+
+        def _refresh_semantic_state(self) -> None:
+            if self._semantic_service is None:
+                self._semantic_state = "n/a"
+                return
+            status = getattr(self._semantic_service, "status", None)
+            if not callable(status):
+                self._semantic_state = "n/a"
+                return
+            try:
+                payload = status() or {}
+                enabled = bool(payload.get("enabled", False))
+                built = bool(payload.get("built", False))
+                records = int(payload.get("records", 0))
+                if not enabled:
+                    self._semantic_state = "off"
+                elif built:
+                    self._semantic_state = f"ready({records})"
+                else:
+                    self._semantic_state = "stale"
+            except Exception:
+                self._semantic_state = "err"
 
         def _refresh_profile_tree(self) -> None:
             profiles: list[str] = []
@@ -668,6 +705,7 @@ def launch_tui2(
                 "Palette commands: help, help-commands, open, search, filter, "
                 "onboarding, quickstart, stats, session-status, lock/unlock, "
                 "density, profile-tree-next/prev/open, "
+                "semantic-status/build/rebuild/search, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
@@ -698,6 +736,7 @@ def launch_tui2(
                     "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id>",
                     "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename | profile-tree-next | profile-tree-prev | profile-tree-open",
                     "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
+                    "Semantic: semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query>",
                     "Nostr: relay-list | relay-add | relay-rm | relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace",
                     "Sync/Utility: sync-now | sync-bg | checksum-verify | checksum-update | db-export | db-import | totp-export | parent-seed-backup",
                     "Sessions: managed-load [entry_id] | managed-exit | session-status | lock | unlock <password>",
@@ -3303,6 +3342,155 @@ def launch_tui2(
                 except Exception as exc:
                     self._record_failure(
                         "setting-kdf-mode failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "semantic-status":
+                if self._semantic_service is None:
+                    self._set_status("Semantic service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: semantic-status")
+                    return
+                status = getattr(self._semantic_service, "status", None)
+                if not callable(status):
+                    self._set_status("Semantic service does not support status")
+                    return
+                try:
+                    payload = status() or {}
+                    self._refresh_semantic_state()
+                    self._update_top_ribbon()
+                    self.query_one("#entry-detail", Static).update(
+                        "Semantic Index Status\n---------------------\n\n"
+                        + json.dumps(payload, indent=2, sort_keys=True)
+                    )
+                    self._clear_failure()
+                    self._set_status("Displayed semantic index status")
+                except Exception as exc:
+                    self._record_failure(
+                        "semantic-status failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd in {"semantic-enable", "semantic-disable"}:
+                if self._semantic_service is None:
+                    self._set_status("Semantic service unavailable")
+                    return
+                if args:
+                    self._set_status(f"Usage: {cmd}")
+                    return
+                setter = getattr(self._semantic_service, "set_enabled", None)
+                if not callable(setter):
+                    self._set_status("Semantic service does not support enable/disable")
+                    return
+                try:
+                    enabled = cmd == "semantic-enable"
+                    payload = setter(enabled) or {}
+                    self._refresh_semantic_state()
+                    self._update_top_ribbon()
+                    self._clear_failure()
+                    self._set_status(
+                        "Semantic index "
+                        + ("enabled" if enabled else "disabled")
+                        + f" (records={int(payload.get('records', 0))})"
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        f"{cmd} failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd in {"semantic-build", "semantic-rebuild"}:
+                if self._semantic_service is None:
+                    self._set_status("Semantic service unavailable")
+                    return
+                if args:
+                    self._set_status(f"Usage: {cmd}")
+                    return
+                runner = getattr(
+                    self._semantic_service,
+                    "rebuild" if cmd == "semantic-rebuild" else "build",
+                    None,
+                )
+                if not callable(runner):
+                    self._set_status("Semantic service does not support build/rebuild")
+                    return
+                try:
+                    payload = runner() or {}
+                    self._refresh_semantic_state()
+                    self._update_top_ribbon()
+                    self._clear_failure()
+                    verb = "rebuilt" if cmd == "semantic-rebuild" else "built"
+                    self._set_status(
+                        f"Semantic index {verb} (records={int(payload.get('records', 0))})"
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        f"{cmd} failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "semantic-search":
+                if self._semantic_service is None:
+                    self._set_status("Semantic service unavailable")
+                    return
+                if not args:
+                    self._set_status("Usage: semantic-search <query>")
+                    return
+                searcher = getattr(self._semantic_service, "search", None)
+                if not callable(searcher):
+                    self._set_status("Semantic service does not support search")
+                    return
+                query = " ".join(args).strip()
+                if not query:
+                    self._set_status("Usage: semantic-search <query>")
+                    return
+                try:
+                    results = list(searcher(query, k=10, kind=None) or [])
+                    self._refresh_semantic_state()
+                    self._update_top_ribbon()
+                    lines = [
+                        f"Semantic Search: {query}",
+                        "---------------------------",
+                        "",
+                    ]
+                    if not results:
+                        lines.append("No semantic matches.")
+                    else:
+                        for row in results[:10]:
+                            entry_id = int(row.get("entry_id", 0))
+                            kind = str(row.get("kind", ""))
+                            label = str(row.get("label", ""))
+                            score = float(row.get("score", 0.0))
+                            excerpt = str(row.get("excerpt", ""))
+                            lines.append(
+                                f"- #{entry_id} [{kind}] {label} (score={score:.3f})"
+                            )
+                            if excerpt:
+                                short = (
+                                    excerpt
+                                    if len(excerpt) <= 120
+                                    else excerpt[:117] + "..."
+                                )
+                                lines.append(f"  {short}")
+                    self.query_one("#entry-detail", Static).update("\n".join(lines))
+                    self._clear_failure()
+                    self._set_status(f"Semantic matches: {len(results)} for '{query}'")
+                except Exception as exc:
+                    self._record_failure(
+                        "semantic-search failed",
                         exc,
                         retry=lambda: self._run_palette_command(raw),
                         hint="Press 'x' to retry.",
