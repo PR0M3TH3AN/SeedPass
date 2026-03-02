@@ -1451,7 +1451,13 @@ def semantic_search(
     k = int(data.get("k", 10))
     kind_raw = data.get("kind")
     kind = str(kind_raw).strip() if kind_raw is not None else None
-    results = _semantic_service(request).search(query, k=max(1, k), kind=kind)
+    mode_raw = data.get("mode")
+    mode = str(mode_raw).strip().lower() if mode_raw is not None else None
+    if mode is not None and mode not in {"keyword", "hybrid", "semantic"}:
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    results = _semantic_service(request).search(
+        query, k=max(1, k), kind=kind, mode=mode
+    )
     return {"results": results}
 
 
@@ -1463,10 +1469,23 @@ def semantic_config(
 ) -> dict[str, Any]:
     _check_token(request, authorization)
     _require_unlocked(request)
-    if "enabled" not in data:
-        raise HTTPException(status_code=400, detail="Missing enabled")
-    payload = _semantic_service(request).set_enabled(bool(data.get("enabled")))
-    return {"enabled": bool(payload.get("enabled", False))}
+    has_enabled = "enabled" in data
+    has_mode = "mode" in data
+    if not has_enabled and not has_mode:
+        raise HTTPException(status_code=400, detail="Missing enabled or mode")
+    service = _semantic_service(request)
+    if has_enabled:
+        service.set_enabled(bool(data.get("enabled")))
+    if has_mode:
+        mode = str(data.get("mode", "")).strip().lower()
+        if mode not in {"keyword", "hybrid", "semantic"}:
+            raise HTTPException(status_code=400, detail="Invalid mode")
+        service.set_mode(mode)
+    payload = service.status()
+    return {
+        "enabled": bool(payload.get("enabled", False)),
+        "mode": str(payload.get("mode", "keyword")),
+    }
 
 
 @app.get("/api/v1/fingerprint")

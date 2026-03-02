@@ -118,10 +118,11 @@ Add settings + search affordances:
 Palette commands:
 
 1. `semantic-status`
-2. `semantic-build`
-3. `semantic-rebuild`
-4. `semantic-search <query>`
-5. `search-mode <keyword|hybrid|semantic>`
+2. `semantic-enable` / `semantic-disable`
+3. `semantic-build`
+4. `semantic-rebuild`
+5. `semantic-search <query>`
+6. `search-mode <keyword|hybrid|semantic>`
 
 UI surfaces:
 
@@ -150,6 +151,7 @@ Proposed endpoints:
 2. `POST /api/v1/semantic/build`
 3. `POST /api/v1/semantic/rebuild`
 4. `POST /api/v1/semantic/search`
+5. `POST /api/v1/semantic/config`
 
 Request examples:
 
@@ -247,9 +249,9 @@ Exit:
 
 ## Phase C: TUI integration
 
-1. [ ] wire legacy TUI settings/search hooks
-2. [ ] wire TUI v2 palette commands + ribbon/status indicators
-3. [ ] add hybrid search mode toggles
+1. [x] wire legacy TUI settings/search hooks
+2. [x] wire TUI v2 palette commands + ribbon/status indicators
+3. [x] add hybrid search mode toggles
 
 Exit:
 
@@ -276,7 +278,7 @@ Exit:
 
 1. Complete Phase C integration in both TUIs (`semantic-status/build/rebuild/search` + status indicator).
 2. Add incremental update hooks on entry/link/tag mutations (avoid full rebuild for small edits).
-3. Add hybrid ranking mode (`keyword|hybrid|semantic`) with explicit config + API contract.
+3. Expand hybrid ranking quality and retrieval relevance validation on KB stress datasets.
 4. Add audit logging and lock-policy tests for semantic operations in agent/API contexts.
 5. Run KB scale benchmark with semantic index enabled and record latency/memory evidence.
 
@@ -289,6 +291,7 @@ Implemented:
 3. `SemanticIndexService` in core API layer.
 4. CLI commands:
 - `seedpass semantic status|enable|disable|build|rebuild|search`
+ - `seedpass semantic config --enabled <true|false> --mode <keyword|hybrid|semantic>`
 5. API endpoints:
 - `GET /api/v1/semantic/status`
 - `POST /api/v1/semantic/build`
@@ -296,10 +299,15 @@ Implemented:
 - `POST /api/v1/semantic/search`
 - `POST /api/v1/semantic/config`
 6. Initial tests for core service/index, CLI commands, and API endpoints.
+7. Semantic search mode support:
+- profile config key `semantic_search_mode` (`keyword|hybrid|semantic`)
+- API `semantic/search` mode override
+- API `semantic/config` mode updates
+- TUI v2 `search-mode` command + ribbon mode indicator
+- legacy TUI semantic submenu mode setter
 
 Not yet implemented:
 
-1. Legacy TUI semantic controls.
-2. TUI v2 semantic palette integration/ribbon indicator.
-3. True embedding backend and vector DB adapter (current implementation is token-overlap baseline).
-4. Incremental mutation hooks and hybrid ranking mode.
+1. True embedding backend and vector DB adapter (current implementation is token-overlap baseline).
+2. Incremental mutation hooks (entry/tag/link CRUD triggers).
+3. Audit/logging policy hardening and lock-state behavior validation.

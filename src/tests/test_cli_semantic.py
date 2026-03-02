@@ -9,11 +9,18 @@ runner = CliRunner()
 
 
 class _DummySemanticService:
+    def __init__(self) -> None:
+        self.mode = "keyword"
+
     def status(self):
-        return {"enabled": True, "built": True, "records": 2}
+        return {"enabled": True, "built": True, "records": 2, "mode": self.mode}
 
     def set_enabled(self, enabled: bool):
         return {"enabled": bool(enabled), "built": True, "records": 2}
+
+    def set_mode(self, mode: str):
+        self.mode = str(mode)
+        return self.status()
 
     def build(self):
         return {"enabled": True, "built": True, "records": 3}
@@ -21,7 +28,14 @@ class _DummySemanticService:
     def rebuild(self):
         return {"enabled": True, "built": True, "records": 3}
 
-    def search(self, query: str, *, k: int = 10, kind: str | None = None):
+    def search(
+        self,
+        query: str,
+        *,
+        k: int = 10,
+        kind: str | None = None,
+        mode: str | None = None,
+    ):
         if not query:
             return []
         return [
@@ -70,7 +84,25 @@ def test_semantic_cli_commands(monkeypatch):
 
     result = runner.invoke(
         app,
-        ["semantic", "search", "relay", "--k", "3", "--kind", "document", "--json"],
+        [
+            "semantic",
+            "search",
+            "relay",
+            "--k",
+            "3",
+            "--kind",
+            "document",
+            "--mode",
+            "hybrid",
+            "--json",
+        ],
     )
     assert result.exit_code == 0
     assert '"entry_id": 7' in result.stdout
+
+    result = runner.invoke(
+        app,
+        ["semantic", "config", "--enabled", "true", "--mode", "semantic"],
+    )
+    assert result.exit_code == 0
+    assert '"mode": "semantic"' in result.stdout

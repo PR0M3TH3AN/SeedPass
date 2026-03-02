@@ -95,6 +95,7 @@ class ConfigManager:
                 "exclude_ambiguous": False,
                 "verbose_timing": False,
                 "semantic_index_enabled": False,
+                "semantic_search_mode": "keyword",
                 "secret_class_partitions": dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
             }
         try:
@@ -128,6 +129,7 @@ class ConfigManager:
             data.setdefault("exclude_ambiguous", False)
             data.setdefault("verbose_timing", False)
             data.setdefault("semantic_index_enabled", False)
+            data.setdefault("semantic_search_mode", "keyword")
             data.setdefault(
                 "secret_class_partitions",
                 dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
@@ -293,6 +295,25 @@ class ConfigManager:
         """Return whether semantic index is enabled for this profile."""
         config = self.load_config(require_pin=False)
         return bool(config.get("semantic_index_enabled", False))
+
+    def set_semantic_search_mode(self, mode: str) -> None:
+        """Persist semantic search mode for this profile."""
+        normalized = str(mode).strip().lower()
+        if normalized not in {"keyword", "hybrid", "semantic"}:
+            raise ValueError(
+                "semantic_search_mode must be keyword, hybrid, or semantic"
+            )
+        config = self.load_config(require_pin=False)
+        config["semantic_search_mode"] = normalized
+        self.save_config(config)
+
+    def get_semantic_search_mode(self) -> str:
+        """Return semantic search mode for this profile."""
+        config = self.load_config(require_pin=False)
+        normalized = str(config.get("semantic_search_mode", "keyword")).strip().lower()
+        if normalized not in {"keyword", "hybrid", "semantic"}:
+            return "keyword"
+        return normalized
 
     def set_clipboard_clear_delay(self, delay: int) -> None:
         """Persist clipboard clear timeout in seconds."""

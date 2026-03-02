@@ -344,7 +344,7 @@ def launch_tui2(
                     "setting-secret <on|off> [delay] | setting-offline <on|off> | "
                     "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
                     "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
-                    "semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query> | "
+                    "search-mode <keyword|hybrid|semantic> | semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query> | "
                     "relay-list | relay-add <url> | relay-rm <index> | "
                     "relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace | "
                     "sync-now | sync-bg | "
@@ -417,6 +417,7 @@ def launch_tui2(
             self._vault_service = None
             self._semantic_service = None
             self._semantic_state = "n/a"
+            self._semantic_mode = "keyword"
             self._selected_entry_id: int | None = None
             self._selected_entry: dict[str, Any] | None = None
             self._last_query = ""
@@ -577,7 +578,7 @@ def launch_tui2(
                 f" | Archive: {self.archive_scope}"
                 f" | Session: {lock_state}"
                 f" | Density: {self._density_mode}"
-                f" | SEM: {self._semantic_state}"
+                f" | SEM: {self._semantic_state}/{self._semantic_mode}"
                 f" | Last Sync: {self._last_sync_text}"
             )
             self.query_one("#top-ribbon", Static).update(text)
@@ -595,6 +596,10 @@ def launch_tui2(
                 enabled = bool(payload.get("enabled", False))
                 built = bool(payload.get("built", False))
                 records = int(payload.get("records", 0))
+                mode = str(payload.get("mode", "keyword")).strip().lower()
+                self._semantic_mode = (
+                    mode if mode in {"keyword", "hybrid", "semantic"} else "keyword"
+                )
                 if not enabled:
                     self._semantic_state = "off"
                 elif built:
@@ -705,7 +710,7 @@ def launch_tui2(
                 "Palette commands: help, help-commands, open, search, filter, "
                 "onboarding, quickstart, stats, session-status, lock/unlock, "
                 "density, profile-tree-next/prev/open, "
-                "semantic-status/build/rebuild/search, "
+                "search-mode, semantic-status/build/rebuild/search, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
@@ -736,7 +741,7 @@ def launch_tui2(
                     "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id>",
                     "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename | profile-tree-next | profile-tree-prev | profile-tree-open",
                     "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
-                    "Semantic: semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query>",
+                    "Semantic: search-mode <keyword|hybrid|semantic> | semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query>",
                     "Nostr: relay-list | relay-add | relay-rm | relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace",
                     "Sync/Utility: sync-now | sync-bg | checksum-verify | checksum-update | db-export | db-import | totp-export | parent-seed-backup",
                     "Sessions: managed-load [entry_id] | managed-exit | session-status | lock | unlock <password>",
@@ -3378,6 +3383,38 @@ def launch_tui2(
                     )
                 return
 
+            if cmd == "search-mode":
+                if self._semantic_service is None:
+                    self._set_status("Semantic service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: search-mode <keyword|hybrid|semantic>")
+                    return
+                mode = args[0].strip().lower()
+                if mode not in {"keyword", "hybrid", "semantic"}:
+                    self._set_status(
+                        "search-mode must be one of: keyword, hybrid, semantic"
+                    )
+                    return
+                setter = getattr(self._semantic_service, "set_mode", None)
+                if not callable(setter):
+                    self._set_status("Semantic service does not support search mode")
+                    return
+                try:
+                    setter(mode)
+                    self._refresh_semantic_state()
+                    self._update_top_ribbon()
+                    self._clear_failure()
+                    self._set_status(f"Search mode set to {mode}")
+                except Exception as exc:
+                    self._record_failure(
+                        "search-mode failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
             if cmd in {"semantic-enable", "semantic-disable"}:
                 if self._semantic_service is None:
                     self._set_status("Semantic service unavailable")
@@ -3458,7 +3495,9 @@ def launch_tui2(
                     self._set_status("Usage: semantic-search <query>")
                     return
                 try:
-                    results = list(searcher(query, k=10, kind=None) or [])
+                    results = list(
+                        searcher(query, k=10, kind=None, mode=self._semantic_mode) or []
+                    )
                     self._refresh_semantic_state()
                     self._update_top_ribbon()
                     lines = [

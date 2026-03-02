@@ -11,6 +11,7 @@ from seedpass.core.api import SemanticIndexService
 from seedpass.core.entry_types import ALL_ENTRY_TYPES
 
 app = typer.Typer(help="Manage local semantic vector index and search")
+SEARCH_MODES = ["keyword", "hybrid", "semantic"]
 
 
 def _get_semantic_service(ctx: typer.Context) -> SemanticIndexService:
@@ -76,11 +77,17 @@ def semantic_search(
         help="Restrict to entry kind",
         click_type=click.Choice(ALL_ENTRY_TYPES),
     ),
+    mode: Optional[str] = typer.Option(
+        None,
+        "--mode",
+        help="Search mode override",
+        click_type=click.Choice(SEARCH_MODES),
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit JSON output"),
 ) -> None:
     """Run semantic search over locally indexed KB content."""
     service = _get_semantic_service(ctx)
-    results = service.search(query, k=max(1, int(k)), kind=kind)
+    results = service.search(query, k=max(1, int(k)), kind=kind, mode=mode)
     if as_json:
         typer.echo(json.dumps(results, indent=2, sort_keys=True))
         return
@@ -96,3 +103,32 @@ def semantic_search(
         typer.echo(f"{entry_id}: [{entry_kind}] {label} (score={score:.3f})")
         if excerpt:
             typer.echo(f"  {excerpt}")
+
+
+@app.command("config")
+def semantic_config(
+    ctx: typer.Context,
+    enabled: Optional[str] = typer.Option(
+        None,
+        "--enabled",
+        help="Enable or disable semantic index for this profile",
+        click_type=click.Choice(["true", "false"]),
+    ),
+    mode: Optional[str] = typer.Option(
+        None,
+        "--mode",
+        help="Default semantic search mode",
+        click_type=click.Choice(SEARCH_MODES),
+    ),
+) -> None:
+    """Configure semantic index behavior for the active profile."""
+    if enabled is None and mode is None:
+        typer.echo("Provide at least one option: --enabled or --mode")
+        raise typer.Exit(code=1)
+    service = _get_semantic_service(ctx)
+    if enabled is not None:
+        service.set_enabled(enabled == "true")
+    if mode is not None:
+        service.set_mode(mode)
+    payload = service.status()
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))

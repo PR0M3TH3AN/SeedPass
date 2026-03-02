@@ -530,7 +530,7 @@ Validation:
 
 Next recommended slice:
 
-1. Final visual alignment pass to mockups (spacing, headers, action strip hierarchy) and semantic indicator slot prep.
+1. Final visual alignment pass to mockups (spacing, headers, action strip hierarchy) and semantic indicator readability polish.
 
 ## 14) Current Status Snapshot
 
@@ -546,5 +546,5 @@ Completed:
 Remaining (active queue):
 
 1. Final alignment pass to mockup spacing/rhythm and action-strip clarity.
-2. Add semantic-state indicator slot in ribbon/action strip for upcoming semantic Phase C.
+2. Semantic-state indicator readability pass in ribbon/action strip for upcoming dense-status scenarios.
 3. Run focused TUI tests and coverage gate after each polish slice.

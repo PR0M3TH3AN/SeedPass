@@ -567,6 +567,7 @@ class FakeSemanticService:
         self.enabled = False
         self.built = False
         self.records = 0
+        self.mode = "keyword"
         self.last_query: str | None = None
 
     def status(self):
@@ -574,6 +575,7 @@ class FakeSemanticService:
             "enabled": bool(self.enabled),
             "built": bool(self.built),
             "records": int(self.records),
+            "mode": str(self.mode),
         }
 
     def set_enabled(self, enabled: bool):
@@ -590,8 +592,21 @@ class FakeSemanticService:
         self.records = 2
         return self.status()
 
-    def search(self, query: str, *, k: int = 10, kind: str | None = None):
+    def set_mode(self, mode: str):
+        self.mode = str(mode)
+        return self.status()
+
+    def search(
+        self,
+        query: str,
+        *,
+        k: int = 10,
+        kind: str | None = None,
+        mode: str | None = None,
+    ):
         self.last_query = str(query)
+        if mode:
+            self.mode = str(mode)
         if not query.strip():
             return []
         return [
@@ -1669,6 +1684,11 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         assert semantic.enabled is True
         assert "Semantic index enabled" in _status_text(app)
 
+        app._run_palette_command("search-mode hybrid")
+        await pilot.pause()
+        assert semantic.mode == "hybrid"
+        assert "Search mode set to hybrid" in _status_text(app)
+
         app._run_palette_command("semantic-build")
         await pilot.pause()
         assert semantic.built is True
@@ -1916,6 +1936,10 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Semantic service unavailable" in _status_text(app)
 
+        app._run_palette_command("search-mode semantic")
+        await pilot.pause()
+        assert "Semantic service unavailable" in _status_text(app)
+
         app._run_palette_command("semantic-search")
         await pilot.pause()
         assert "Semantic service unavailable" in _status_text(app)
@@ -1973,6 +1997,16 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         app._run_palette_command("semantic-enable now")
         await pilot.pause()
         assert "Usage: semantic-enable" in _status_text(app)
+
+        app._run_palette_command("search-mode")
+        await pilot.pause()
+        assert "Usage: search-mode <keyword|hybrid|semantic>" in _status_text(app)
+
+        app._run_palette_command("search-mode nope")
+        await pilot.pause()
+        assert "search-mode must be one of: keyword, hybrid, semantic" in _status_text(
+            app
+        )
 
         app._run_palette_command("semantic-search")
         await pilot.pause()

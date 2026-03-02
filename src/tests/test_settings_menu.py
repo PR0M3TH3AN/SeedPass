@@ -375,9 +375,10 @@ def test_semantic_submenu_search_flow(monkeypatch, capsys):
     class DummySemanticService:
         def __init__(self, _pm):
             self.last_query = None
+            self.mode = "keyword"
 
         def status(self):
-            return {"enabled": False, "built": False, "records": 0}
+            return {"enabled": False, "built": False, "records": 0, "mode": self.mode}
 
         def set_enabled(self, enabled: bool):
             return {"enabled": bool(enabled), "records": 0}
@@ -388,6 +389,10 @@ def test_semantic_submenu_search_flow(monkeypatch, capsys):
         def rebuild(self):
             return {"enabled": True, "built": True, "records": 2}
 
+        def set_mode(self, mode: str):
+            self.mode = str(mode)
+            return {"mode": self.mode}
+
         def search(self, query: str, *, k: int = 10, kind: str | None = None):
             self.last_query = query
             return [{"entry_id": 1, "kind": "document", "label": "Doc", "score": 0.5}]
@@ -397,11 +402,12 @@ def test_semantic_submenu_search_flow(monkeypatch, capsys):
         pm, _, _ = setup_pm(tmp_path, monkeypatch)
         monkeypatch.setattr(main, "SemanticIndexService", DummySemanticService)
         monkeypatch.setattr(main, "pause", lambda: None)
-        inputs = iter(["1", "2", "4", "6", "relay docs", ""])
+        inputs = iter(["1", "7", "hybrid", "2", "4", "6", "relay docs", ""])
         with patch("builtins.input", side_effect=lambda *_: next(inputs)):
             main.handle_semantic_index_menu(pm)
         out = capsys.readouterr().out
-        assert "Status: enabled=False, built=False, records=0" in out
+        assert "Status: enabled=False, built=False, records=0, mode=keyword" in out
+        assert "Semantic search mode set to hybrid." in out
         assert "Semantic index enabled" in out
         assert "Semantic index built with 2 records" in out
         assert "Semantic Matches:" in out

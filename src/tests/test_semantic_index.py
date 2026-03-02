@@ -49,12 +49,19 @@ def test_semantic_index_build_and_search(tmp_path: Path) -> None:
 class _DummyConfig:
     def __init__(self) -> None:
         self.enabled = False
+        self.mode = "keyword"
 
     def set_semantic_index_enabled(self, enabled: bool) -> None:
         self.enabled = bool(enabled)
 
     def get_semantic_index_enabled(self) -> bool:
         return bool(self.enabled)
+
+    def set_semantic_search_mode(self, mode: str) -> None:
+        self.mode = str(mode)
+
+    def get_semantic_search_mode(self) -> str:
+        return str(self.mode)
 
 
 class _DummyEntryManager:
@@ -106,3 +113,14 @@ def test_semantic_index_service_build_and_status(tmp_path: Path) -> None:
     results = service.search("agent", k=3)
     assert len(results) >= 1
     assert results[0]["entry_id"] == 1
+
+    service.set_mode("semantic")
+    semantic_only = service.search("agent", k=3, mode="semantic")
+    assert len(semantic_only) >= 1
+
+    service.set_mode("keyword")
+    keyword_only = service.search("agent", k=3, mode="keyword")
+    assert len(keyword_only) >= 1
+
+    hybrid = service.search("agent", k=3, mode="hybrid")
+    assert len(hybrid) >= 1

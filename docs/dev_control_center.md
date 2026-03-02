@@ -74,7 +74,8 @@ Use these docs as inputs, but treat this file as the decision layer:
 - Current implementation status:
   - Phase A complete (local derived index + profile-scoped manifest/records + config flag)
   - Phase B baseline complete (CLI + API surfaces + initial tests)
-  - Phase C pending (legacy TUI + TUI v2 semantic workflow integration)
+  - Phase C complete baseline (legacy + TUI v2 semantic workflows and mode toggles)
+  - Next: incremental mutation hooks + hybrid quality hardening
 
 ## 4) Recommended Next Steps (Priority Order)
 
@@ -83,9 +84,9 @@ Use these docs as inputs, but treat this file as the decision layer:
 : onboarding + stats/ops + lock/session affordances now landed; focus now is mockup-aligned UI refresh completion.
 2. Complete Phase 5 TUI v2 UI refresh queue:
 : final visual polish pass (profile tree navigation/select is now landed).
-3. Begin semantic index Phase C (legacy TUI + TUI v2 integration with status/build/search controls).
-4. Add semantic incremental update hooks on entry/link/tag mutations.
-5. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
+3. Add semantic incremental update hooks on entry/link/tag mutations.
+4. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
+5. Expand semantic hybrid quality validation and KB stress evidence capture.
 6. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
@@ -163,7 +164,7 @@ Progress update (2026-03-02):
 
 Current UI refresh remaining queue:
 1. Final visual polish pass against mockups (spacing, headers, action strip clarity).
-2. Semantic indicator slot in top ribbon/action strip (for upcoming Phase C semantic integration).
+2. Tune semantic indicator wording/placement in top ribbon/action strip for readability under narrow terminals.
 
 ## 6) Working Rule
 

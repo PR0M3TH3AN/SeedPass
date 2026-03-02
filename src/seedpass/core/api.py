@@ -783,6 +783,7 @@ class ConfigService:
                 "set_quick_unlock",
                 lambda v: v.lower() in ("1", "true", "yes", "y", "on"),
             ),
+            "semantic_search_mode": ("set_semantic_search_mode", lambda v: v),
         }
         entry = mapping.get(key)
         if entry is None:
@@ -835,6 +836,14 @@ class ConfigService:
         with self._lock:
             return self._manager.config_manager.get_semantic_index_enabled()
 
+    def set_semantic_search_mode(self, mode: str) -> None:
+        with self._lock:
+            self._manager.config_manager.set_semantic_search_mode(mode)
+
+    def get_semantic_search_mode(self) -> str:
+        with self._lock:
+            return self._manager.config_manager.get_semantic_search_mode()
+
 
 class SemanticIndexService:
     """Thread-safe wrapper around local semantic index operations."""
@@ -877,6 +886,7 @@ class SemanticIndexService:
             payload["enabled"] = bool(
                 self._manager.config_manager.get_semantic_index_enabled()
             )
+            payload["mode"] = self._manager.config_manager.get_semantic_search_mode()
             return payload
 
     def set_enabled(self, enabled: bool) -> Dict[str, Any]:
@@ -886,7 +896,23 @@ class SemanticIndexService:
             idx.set_enabled(bool(enabled))
             payload = idx.status()
             payload["enabled"] = bool(enabled)
+            payload["mode"] = self._manager.config_manager.get_semantic_search_mode()
             return payload
+
+    def set_mode(self, mode: str) -> Dict[str, Any]:
+        with self._lock:
+            self._manager.config_manager.set_semantic_search_mode(mode)
+            idx = self._index()
+            payload = idx.status()
+            payload["enabled"] = bool(
+                self._manager.config_manager.get_semantic_index_enabled()
+            )
+            payload["mode"] = self._manager.config_manager.get_semantic_search_mode()
+            return payload
+
+    def get_mode(self) -> str:
+        with self._lock:
+            return self._manager.config_manager.get_semantic_search_mode()
 
     def build(self) -> Dict[str, Any]:
         with self._lock:
@@ -901,11 +927,126 @@ class SemanticIndexService:
             return idx.rebuild(self._all_entries())
 
     def search(
-        self, query: str, *, k: int = 10, kind: str | None = None
+        self,
+        query: str,
+        *,
+        k: int = 10,
+        kind: str | None = None,
+        mode: str | None = None,
     ) -> list[Dict[str, Any]]:
         with self._lock:
+            active_mode = (
+                str(mode or self._manager.config_manager.get_semantic_search_mode())
+                .strip()
+                .lower()
+            )
+            if active_mode not in {"keyword", "hybrid", "semantic"}:
+                active_mode = "keyword"
+            if active_mode == "keyword":
+                return self._lexical_search(query, k=k, kind=kind)
             idx = self._index()
-            return idx.search(query, k=k, kind=kind)
+            semantic_rows = idx.search(query, k=k, kind=kind)
+            if active_mode == "semantic":
+                return semantic_rows
+            lexical_rows = self._lexical_search(query, k=k, kind=kind)
+            return self._merge_hybrid(semantic_rows, lexical_rows, k=max(1, int(k)))
+
+    def _lexical_search(
+        self, query: str, *, k: int = 10, kind: str | None = None
+    ) -> list[Dict[str, Any]]:
+        em = getattr(self._manager, "entry_manager", None)
+        if em is None:
+            return []
+        kinds = [kind] if kind else None
+        rows = em.search_entries(
+            str(query),
+            kinds=kinds,
+            include_archived=True,
+            archived_only=False,
+        )
+        out: list[Dict[str, Any]] = []
+        max_rows = max(1, int(k))
+        for idx, row in enumerate(rows[:max_rows], start=1):
+            try:
+                entry_id = int(row[0])
+            except Exception:
+                continue
+            label = str(row[1]) if len(row) > 1 else ""
+            kind_value = ""
+            if len(row) > 5:
+                kind_cell = row[5]
+                kind_value = str(getattr(kind_cell, "value", kind_cell))
+            if not kind_value:
+                kind_value = str(kind or "")
+            entry = em.retrieve_entry(entry_id)
+            excerpt = ""
+            if isinstance(entry, dict):
+                for field in ("notes", "content", "value", "username", "url"):
+                    text = str(entry.get(field, "")).strip()
+                    if text:
+                        excerpt = text[:220]
+                        break
+            # lexical rank-based score in (0,1]
+            score = 1.0 - ((idx - 1) / max(1, max_rows))
+            out.append(
+                {
+                    "entry_id": entry_id,
+                    "kind": kind_value,
+                    "label": label,
+                    "score": round(score, 6),
+                    "excerpt": excerpt,
+                }
+            )
+        return out
+
+    @staticmethod
+    def _merge_hybrid(
+        semantic_rows: list[Dict[str, Any]],
+        lexical_rows: list[Dict[str, Any]],
+        *,
+        k: int,
+    ) -> list[Dict[str, Any]]:
+        merged: dict[int, Dict[str, Any]] = {}
+        for row in semantic_rows:
+            entry_id = int(row.get("entry_id", 0))
+            if entry_id <= 0:
+                continue
+            merged[entry_id] = {
+                "entry_id": entry_id,
+                "kind": str(row.get("kind", "")),
+                "label": str(row.get("label", "")),
+                "excerpt": str(row.get("excerpt", "")),
+                "score": float(row.get("score", 0.0)) * 0.7,
+            }
+        for row in lexical_rows:
+            entry_id = int(row.get("entry_id", 0))
+            if entry_id <= 0:
+                continue
+            lex_boost = float(row.get("score", 0.0)) * 0.3
+            current = merged.get(entry_id)
+            if current is None:
+                merged[entry_id] = {
+                    "entry_id": entry_id,
+                    "kind": str(row.get("kind", "")),
+                    "label": str(row.get("label", "")),
+                    "excerpt": str(row.get("excerpt", "")),
+                    "score": lex_boost,
+                }
+                continue
+            current["score"] = float(current.get("score", 0.0)) + lex_boost
+            if not str(current.get("excerpt", "")).strip():
+                current["excerpt"] = str(row.get("excerpt", ""))
+            if not str(current.get("label", "")).strip():
+                current["label"] = str(row.get("label", ""))
+            if not str(current.get("kind", "")).strip():
+                current["kind"] = str(row.get("kind", ""))
+        items = list(merged.values())
+        items.sort(
+            key=lambda r: (-float(r.get("score", 0.0)), int(r.get("entry_id", 0)))
+        )
+        for row in items:
+            row["score"] = round(float(row.get("score", 0.0)), 6)
+        return items[: max(1, int(k))]
 
 
 class UtilityService:

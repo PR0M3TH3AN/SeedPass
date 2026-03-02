@@ -1126,3 +1126,18 @@
   - `test_tui_v2_textual_interactions.py` semantic command success/validation paths
   - `test_tui_v2_action_matrix.py` semantic command matrix coverage
 - Validation run: `102 passed` across targeted settings/TUI/semantic/CLI suites.
+
+## Memory Update (2026-03-02, semantic mode and interface expansion)
+- Added profile-scoped semantic mode config (`semantic_search_mode`) with allowed values: `keyword|hybrid|semantic`.
+- `SemanticIndexService.search()` now supports mode-aware retrieval:
+  - `keyword`: lexical fallback via `entry_manager.search_entries`
+  - `semantic`: local semantic index results
+  - `hybrid`: weighted merge of semantic + lexical candidates
+- Added semantic mode controls across interfaces:
+  - CLI: `seedpass semantic config --mode ...` and `seedpass semantic search --mode ...`
+  - API: `/api/v1/semantic/config` accepts `enabled` and/or `mode`; `/api/v1/semantic/search` accepts optional `mode`
+  - TUI v2: `search-mode <keyword|hybrid|semantic>` palette command + ribbon mode indicator
+  - Legacy TUI: Settings > Semantic Index > Set search mode
+- Fixed deadlock in `SemanticIndexService.set_mode()` (lock re-entry via `status()` call while holding lock).
+- Updated tests for semantic mode behavior across API/CLI/TUI/legacy settings and core service paths.
+- Expanded targeted validation result: `231 passed` for semantic + API + core + settings + TUI + typer slices.

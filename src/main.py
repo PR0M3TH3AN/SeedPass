@@ -1136,6 +1136,7 @@ def handle_semantic_index_menu(password_manager: PasswordManager) -> None:
         print(color_text("4. Build", "menu"))
         print(color_text("5. Rebuild", "menu"))
         print(color_text("6. Search", "menu"))
+        print(color_text("7. Set search mode", "menu"))
         choice = input("Select an option or press Enter to go back: ").strip()
         try:
             if choice == "1":
@@ -1145,7 +1146,8 @@ def handle_semantic_index_menu(password_manager: PasswordManager) -> None:
                         "Status: "
                         f"enabled={bool(payload.get('enabled', False))}, "
                         f"built={bool(payload.get('built', False))}, "
-                        f"records={int(payload.get('records', 0))}",
+                        f"records={int(payload.get('records', 0))}, "
+                        f"mode={str(payload.get('mode', 'keyword'))}",
                         "green",
                     )
                 )
@@ -1209,6 +1211,20 @@ def handle_semantic_index_menu(password_manager: PasswordManager) -> None:
                             "cyan",
                         )
                     )
+                pause()
+            elif choice == "7":
+                mode = input("Mode (keyword/hybrid/semantic): ").strip().lower()
+                if mode not in {"keyword", "hybrid", "semantic"}:
+                    print(colored("Invalid mode.", "red"))
+                    pause()
+                    continue
+                payload = service.set_mode(mode)
+                print(
+                    colored(
+                        f"Semantic search mode set to {payload.get('mode', mode)}.",
+                        "green",
+                    )
+                )
                 pause()
             elif not choice:
                 break
