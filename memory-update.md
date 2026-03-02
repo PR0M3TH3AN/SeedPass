@@ -562,3 +562,14 @@
      - `scripts/ai_tui_agent_test.py --scenario extended --verbose`: PASS.
 - Added release note document: `docs/beta_hardening_2026-03-02.md` with checklist commands, results, and residual operational warning about stale launcher binaries on PATH.
 - Practical note: Installer repeatedly warns about stale `/home/user/.local/bin/seedpass` entries; this does not fail install but can obscure which binary users are executing.
+
+## 2026-03-02 Next parity slice: keyboard-path managed-account sensitive actions
+- Added explicit keyboard-path TUI v2 regression coverage for managed-account sensitive actions.
+- New test in `src/tests/test_tui_v2_textual_interactions.py`:
+  - `test_tui2_textual_managed_account_keyboard_reveal_and_qr`
+  - Validates pressing `v` triggers confirmation-required reveal messaging for managed-account entries.
+  - Validates pressing `g` renders managed-account QR payload after list focus is set.
+- Note on test ergonomics:
+  - Search input can capture keystrokes by default; test now focuses `#entry-list` before keybinding presses to exercise app-level binding path reliably.
+- Validation run:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py` -> `34 passed`.

@@ -713,6 +713,42 @@ async def test_tui2_textual_reveal_and_qr_flow() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_managed_account_keyboard_reveal_and_qr() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "managed_account",
+                "label": "Acct 1",
+                "seed_phrase": (
+                    "legal winner thank year wave sausage worth useful "
+                    "legal winner thank yellow"
+                ),
+            }
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app.query_one("#entry-list", ListView).focus()
+        await pilot.pause()
+
+        await pilot.press("v")
+        await pilot.pause()
+        assert "requires confirmation" in _status_text(app)
+        assert "Run: reveal confirm" in _widget_text(app, "#secret-detail")
+
+        await pilot.press("g")
+        await pilot.pause()
+        qr_text = _widget_text(app, "#secret-detail")
+        assert "Managed Account Seed #1 QR" in qr_text
+        assert "Payload:" in qr_text
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
     service = FakeEntryService(
         [
