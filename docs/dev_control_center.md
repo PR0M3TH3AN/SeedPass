@@ -22,7 +22,7 @@ Latest verification in this session:
   - coverage: `85.65%`
 - Focused TUI validation slices:
   - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
-  - latest result: `31 passed`
+  - latest result: `35 passed`
   - includes profile-tree keyboard navigation/select command coverage
 
 ## 2) Canonical Status Sources
@@ -163,8 +163,31 @@ Progress update (2026-03-02):
   - one-time onboarding notice added for first online profile load with settings guidance
 
 Current UI refresh remaining queue:
-1. Final visual polish pass against mockups (spacing, headers, action strip clarity).
-2. Tune semantic indicator wording/placement in top ribbon/action strip for readability under narrow terminals.
+1. Keep strict mockup parity `Open` count at zero:
+: preserve 2FA `copy URL` command/board affordance coverage.
+2. Finish remaining `Minor Gap` board polish:
+: `UI Board`, `Password`, `Stored Password`, `Note` geometry/rhythm and action-chip treatment.
+3. Final UI-board density/viewport balance polish:
+: keep both dense table rows and usable lower inspector in common terminal sizes.
+4. Continue semantic indicator wording/placement tuning (baseline compact ribbon pass is now landed) for readability under narrow terminals.
+5. Execute strict closeout pass from:
+: `docs/tui_v2_ui_refresh_plan.md` section "15) Mockup Board Parity Audit (2026-03-02)".
+4. Keep default list focus + hotkey reliability + compact responsive regression green:
+: `test_tui2_textual_default_focus_keeps_sensitive_hotkeys_active`.
+: `test_tui2_textual_compact_layout_hides_link_panel_and_can_restore`.
+5. Keep SSH/PGP/Nostr board-fidelity regression green:
+: `test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity`.
+6. Keep Seed/Managed Seed board-fidelity regression green:
+: `test_tui2_textual_seed_and_managed_seed_boards_show_fidelity`.
+7. Preserve micro-alignment density (table/header/panel spacing) in ongoing UI slices.
+8. Keep Note/2FA metadata consistency regression green:
+: `test_tui2_textual_note_and_totp_boards_include_common_metadata`.
+9. Preserve table/header/action micro-copy consistency introduced in latest polish.
+10. Track strict closeout statuses (`Done` / `Minor Gap` / `Open`) per board and re-evaluate after each slice.
+11. Keep compact discoverability regression green (inline notes/tags fallback when side card is collapsed).
+12. Keep viewport-height balance regression green (activity fallback + layout rebalance on short screens).
+13. Preserve icon-enhanced board title hierarchy introduced in typography polish pass.
+14. Keep strict scorecard at `Open=0` and advance `Minor Gap -> Done` boards incrementally.
 
 ## 6) Working Rule
 
@@ -173,3 +196,16 @@ When priorities conflict:
 2. Close user-visible parity gaps.
 3. Raise security/testing gates.
 4. Then optimize docs and process.
+
+## 7) Active UI Parity Focus (Mockup-Coupled)
+
+Use this order for current TUI v2 design iterations:
+
+1. Preserve upper table density while retaining usable lower inspector in the same viewport.
+2. Normalize shared inspector header metadata/actions across all kinds.
+3. Complete board-specific action affordance fidelity:
+: Password/Stored Password -> Note/2FA -> Seed -> SSH/PGP/Nostr.
+4. Keep each slice test-gated:
+: `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+5. Capture screenshot evidence after each slice in:
+: `artifacts/ui_eval/current_tui2_after*.png`.

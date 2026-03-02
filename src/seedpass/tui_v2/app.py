@@ -107,9 +107,10 @@ def launch_tui2(
         return False
 
     from textual.app import App, ComposeResult
+    from textual.binding import Binding
     from textual.containers import Horizontal, Vertical
     from textual.reactive import reactive
-    from textual.widgets import Footer, Header, Input, Label, ListItem, ListView, Static
+    from textual.widgets import Input, Label, ListItem, ListView, Static
 
     try:
         from textual.widgets import TextArea
@@ -130,15 +131,14 @@ def launch_tui2(
             background: #080a0c;
             color: #97b8a6;
         }
-        Header {
+        #brand-strip {
             background: #0b0f13;
-            color: #daf2e5;
+            color: #58f29d;
             text-style: bold;
-            border-bottom: solid #274533;
-        }
-        Footer {
-            background: #0b0f13;
-            color: #97b8a6;
+            border: solid #2abf75;
+            margin: 0 1 0 1;
+            padding: 0 1;
+            height: 1;
         }
         Input {
             background: #0d1114;
@@ -154,6 +154,7 @@ def launch_tui2(
         }
         ListItem {
             color: #97b8a6;
+            height: 1;
         }
         ListItem.-highlight {
             background: #122019;
@@ -174,33 +175,35 @@ def launch_tui2(
             height: 1;
             padding: 0 1;
             margin: 0 1;
-            border: solid #274533;
-            background: #0b0f13;
+            border: heavy #2abf75;
+            background: #10181f;
             color: #daf2e5;
             text-style: bold;
         }
-        #body { height: 1fr; }
+        #body { height: 1fr; margin: 0 1; }
+        #top-work { height: 6fr; }
         #status {
-            height: 1;
+            height: 2;
             padding: 0 1;
             border: heavy #58f29d;
-            background: #0d1114;
-            color: #daf2e5;
+            background: #11191f;
+            color: #e4fff2;
+            margin: 1 1 0 1;
         }
         #action-strip {
-            height: 1;
+            height: 2;
             padding: 0 1;
             margin: 0 1;
-            border: solid #274533;
-            background: #0b0f13;
-            color: #97b8a6;
+            border: heavy #2abf75;
+            background: #11191f;
+            color: #daf2e5;
         }
-        #left { width: 34; border: solid #1a3024; padding: 1; background: #0d1114; }
-        #center { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
-        #right { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
+        #left { width: 31; border: solid #1a3024; padding: 0 1; background: #0d1114; }
+        #center { width: 1fr; border: solid #1a3024; padding: 0 1; background: #0d1114; margin-left: 1; }
+        #right { height: 5fr; border: heavy #3ce79c; padding: 1; background: #0d1114; margin-top: 0; }
         #grid-heading {
-            height: 3;
-            margin-bottom: 1;
+            height: 2;
+            margin-bottom: 0;
             border: solid #274533;
             background: #0b0f13;
             color: #daf2e5;
@@ -210,46 +213,51 @@ def launch_tui2(
         }
         #inspector-heading {
             height: 1;
-            margin-bottom: 1;
+            margin-bottom: 0;
             border: solid #274533;
             background: #0b0f13;
             color: #daf2e5;
             text-style: bold;
             padding: 0 1;
         }
+        #inspector-grid { height: 1fr; }
+        #inspector-side { width: 28; height: 1fr; margin-left: 1; }
         #filters {
             height: 1fr;
             overflow: auto;
         }
-        #search { margin-bottom: 1; }
-        #quick-jump { margin-bottom: 1; }
+        #search { margin-bottom: 0; }
+        #quick-jump { margin-bottom: 0; }
         #entry-list { height: 1fr; }
         #entry-detail {
+            width: 1fr;
             height: 1fr;
-            overflow: auto;
-            border: solid #274533;
-            padding: 1;
-        }
-        #link-detail {
-            height: 12;
-            overflow: auto;
-            border: solid #2abf75;
-            padding: 1;
-            margin-top: 1;
-        }
-        #secret-detail {
-            height: 12;
             overflow: auto;
             border: solid #58f29d;
             padding: 1;
-            margin-top: 1;
-            text-wrap: nowrap;
         }
-        #totp-board {
-            height: 1fr;
+        #link-detail {
+            min-height: 3;
+            height: 2fr;
             overflow: auto;
             border: solid #2abf75;
             padding: 1;
+        }
+        #secret-detail {
+            min-height: 3;
+            height: 1fr;
+            overflow: auto;
+            border: solid #58f29d;
+            padding: 1;
+            margin-top: 0;
+            text-wrap: nowrap;
+        }
+        #totp-board {
+            height: 10;
+            overflow: auto;
+            border: solid #2abf75;
+            padding: 1;
+            margin-top: 1;
         }
         #right-view { height: 1fr; }
         #right-editor { height: 1fr; }
@@ -269,10 +277,10 @@ def launch_tui2(
             color: #daf2e5;
         }
         #activity {
-            height: 12;
+            height: 3;
             border: solid #274533;
             padding: 1;
-            margin-top: 1;
+            margin-top: 0;
             overflow: auto;
         }
         .pane-focus { border: heavy #58f29d; }
@@ -300,8 +308,8 @@ def launch_tui2(
             ("[", "prev_link", "Prev Link"),
             ("]", "next_link", "Next Link"),
             ("o", "open_link_target", "Open Link"),
-            ("v", "reveal_selected", "Reveal"),
-            ("g", "show_qr", "QR"),
+            Binding("v", "reveal_selected", "Reveal", priority=True),
+            Binding("g", "show_qr", "QR", priority=True),
             ("6", "toggle_totp_board", "2FA Board"),
             ("a", "toggle_archive", "Archive/Restore"),
             ("e", "edit_document", "Edit Document"),
@@ -319,7 +327,6 @@ def launch_tui2(
         totp_board_open: reactive[bool] = reactive(False)
 
         def compose(self) -> ComposeResult:
-            yield Header(show_clock=True)
             yield Input(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
@@ -337,7 +344,7 @@ def launch_tui2(
                     "notes-set <text> | notes-clear | tag-add <tag> | tag-rm <tag> | "
                     "tags-set <comma-list> | tags-clear | field-add <label> <value> [hidden] | "
                     "field-rm <label> | set-field <name> <value> | clear-field <name> | "
-                    "2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id> | "
+                    "2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id> | 2fa-copy-url <entry_id> | "
                     "profiles-list | profile-switch <fp> [password] | profile-add | "
                     "profile-remove <fp> | profile-rename <fp> <name> | "
                     "profile-tree-next | profile-tree-prev | profile-tree-open | "
@@ -364,24 +371,30 @@ def launch_tui2(
                 classes="hidden",
             )
             yield Static("", id="help-overlay", classes="hidden")
+            yield Static("SeedPass ◈ UI v2", id="brand-strip")
             yield Static("", id="top-ribbon")
-            with Horizontal(id="body"):
-                with Vertical(id="left"):
-                    yield Static("", id="filters")
-                    yield Static("", id="activity")
-                with Vertical(id="center"):
-                    yield Static("", id="grid-heading")
-                    yield Input(
-                        placeholder="Search entries (Enter to apply)", id="search"
-                    )
-                    yield Input(placeholder="Jump to entry id (Enter)", id="quick-jump")
-                    yield ListView(id="entry-list")
+            with Vertical(id="body"):
+                with Horizontal(id="top-work"):
+                    with Vertical(id="left"):
+                        yield Static("", id="filters")
+                        yield Static("", id="activity")
+                    with Vertical(id="center"):
+                        yield Static("", id="grid-heading")
+                        yield Input(
+                            placeholder="Search entries (Enter to apply)", id="search"
+                        )
+                        yield Input(
+                            placeholder="Jump to entry id (Enter)", id="quick-jump"
+                        )
+                        yield ListView(id="entry-list")
                 with Vertical(id="right"):
                     with Vertical(id="right-view"):
                         yield Static("Inspector Board", id="inspector-heading")
-                        yield Static("", id="entry-detail")
-                        yield Static("", id="link-detail")
-                        yield Static("", id="secret-detail")
+                        with Horizontal(id="inspector-grid"):
+                            yield Static("", id="entry-detail")
+                            with Vertical(id="inspector-side"):
+                                yield Static("", id="link-detail")
+                                yield Static("", id="secret-detail")
                         yield Static("", id="totp-board", classes="hidden")
                     with Vertical(id="right-editor", classes="hidden"):
                         yield Input(placeholder="Document title", id="doc-edit-label")
@@ -405,7 +418,6 @@ def launch_tui2(
                         )
             yield Static("Ready", id="status")
             yield Static("", id="action-strip")
-            yield Footer()
 
         def on_mount(self) -> None:
             self._service = None
@@ -441,6 +453,9 @@ def launch_tui2(
             self._density_mode = "compact"
             self._profile_tree_items: list[str] = []
             self._profile_tree_cursor = 0
+            self._compact_layout = False
+            self._viewport_width = 0
+            self._viewport_height = 0
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -525,7 +540,11 @@ def launch_tui2(
             self._set_secret_panel(
                 "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
             )
+            self._update_responsive_layout()
             self._load_entries()
+            # Keep primary navigation on the entry list so global action keys
+            # (v/g/a/e) work immediately after launch.
+            self.query_one("#entry-list", ListView).focus()
 
         def _set_status(self, message: str) -> None:
             if message == self._last_status_message:
@@ -536,7 +555,11 @@ def launch_tui2(
                 if self.palette_open
                 else ("EDIT" if self.editing_document else "VIEW")
             )
-            text = f"[{mode} | {self._focus_pane.upper()}] {message}"
+            text = (
+                f"[{mode} | {self._focus_pane.upper()}] "
+                "Shortcuts: ? help  Ctrl+P cmd  / search\n"
+                f"{message}"
+            )
             self.query_one("#status", Static).update(text)
             self._log_activity(message)
 
@@ -570,16 +593,28 @@ def launch_tui2(
                 else "0"
             )
             total = len(self._all_results)
+            fp_text = fingerprint or "(default)"
+            if len(fp_text) > 14:
+                fp_text = f"{fp_text[:11]}..."
+            sync_text = self._last_sync_text or "(none)"
+            if len(sync_text) > 18:
+                sync_text = f"{sync_text[:15]}..."
+            sem_mode = self._semantic_mode
+            if sem_mode not in {"keyword", "hybrid", "semantic"}:
+                sem_mode = "keyword"
+            sem_mode_short = {
+                "keyword": "kw",
+                "hybrid": "hyb",
+                "semantic": "sem",
+            }[sem_mode]
             text = (
-                f"FP: {fingerprint or '(default)'}"
-                f" | Managed Users: {managed}"
-                f" | Entries: {total}"
-                f" | Kind: {self.filter_kind}"
-                f" | Archive: {self.archive_scope}"
-                f" | Session: {lock_state}"
-                f" | Density: {self._density_mode}"
-                f" | SEM: {self._semantic_state}/{self._semantic_mode}"
-                f" | Last Sync: {self._last_sync_text}"
+                f"FP:{fp_text}"
+                f" | M:{managed}"
+                f" | E:{total}"
+                f" | K:{self.filter_kind}"
+                f" | Session:{lock_state}"
+                f" | SEM:{sem_mode_short}/{self._semantic_state}"
+                f" | Sync:{sync_text}"
             )
             self.query_one("#top-ribbon", Static).update(text)
 
@@ -638,39 +673,63 @@ def launch_tui2(
                     or ""
                 ).strip()
             kind_l = kind.lower()
-            if kind_l in {"password", "stored_password", "seed", "managed_account"}:
-                context = "V:Reveal  G:QR  A:Archive  E:Edit"
+            if kind_l in {"password", "stored_password"}:
+                context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
+            elif kind_l in {"seed", "managed_account"}:
+                context = (
+                    "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
+                )
             elif kind_l == "totp":
-                context = "6:2FABoard  V:Reveal  G:QR  A:Archive"
+                context = "Entry ▣ 6 2FA Board ▣ v Reveal ▣ g QR ▣ a Archive"
             elif kind_l in {"ssh", "pgp"}:
-                context = "V:Reveal  A:Archive  DocExport  Palette: field/tag/note"
+                context = (
+                    "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
+                )
             elif kind_l == "nostr":
-                context = "V:Reveal  G:QR(public/private)  A:Archive"
+                context = "Entry ▣ v Reveal ▣ g QR (public/private) ▣ a Archive"
             elif kind_l in {"document", "note"}:
-                context = "E:EditDoc  Ctrl+S:Save  A:Archive  DocExport"
+                context = "Entry ▣ e Edit Doc ▣ Ctrl+S Save ▣ a Archive ▣ doc-export"
             elif kind_l == "key_value":
-                context = "SetField/ClearField  A:Archive  Note/Tag via palette"
+                context = "Entry ▣ set-field/clear-field ▣ a Archive ▣ notes/tags"
             else:
-                context = "V:Reveal  G:QR  A:Archive  E:Edit"
+                context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
             if kind:
                 context = f"{context} ({kind_l})"
-            text = (
-                "/:Search  J:Jump  F:Filter  H:ArchiveScope  L:LinkFilter  "
-                "Ctrl+P:Palette  X:Retry  "
-                f"{context}"
-            )
+            if self._compact_layout:
+                global_row = (
+                    "Global ▣ ? Help ▣ Ctrl+P ▣ / Search ▣ j Jump ▣ "
+                    "1/2/3 ▣ p/n ▣ f/h ▣ r ▣ Compact"
+                )
+                if self._viewport_width and self._viewport_width < 130:
+                    context = context.replace("Entry ▣ ", "E ▣ ")
+                    context = context.replace("Reveal", "Rev")
+                    context = context.replace("Archive", "Arch")
+                    context = context.replace("confirm", "cfm")
+            else:
+                global_row = (
+                    "Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ "
+                    "1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh"
+                )
+            text = f"{global_row}\n{context}"
             self.query_one("#action-strip", Static).update(text)
 
         def _update_grid_heading(self) -> None:
-            table_cols = "Idx      Entry  Title                     Kind            Meta                 Arch"
-            sort_line = (
-                "Sort: index ▲▼ | entry ▲▼ | title ▲▼ | kind ▲▼   "
-                f"Page {self._result_page + 1}/{self._total_pages()}   "
-                f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}   "
-                f"Density: {self._density_mode}"
+            table_cols = (
+                "Sel Id       Entry#   Label                       Kind            "
+                "Meta                      Arch"
+            )
+            metrics = (
+                f"Pg {self._result_page + 1}/{self._total_pages()}  "
+                f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}  "
+                f"Density {self._density_mode}"
             )
             self.query_one("#grid-heading", Static).update(
-                f"Entry Grid\n{table_cols}\n{sort_line}"
+                "\n".join(
+                    [
+                        f"Entry Grid  |  {metrics}",
+                        table_cols,
+                    ]
+                )
             )
 
         def _quickstart_text(self) -> str:
@@ -738,7 +797,7 @@ def launch_tui2(
                     "Add: add-password | add-totp | add-key-value | add-document | add-ssh | add-pgp | add-nostr | add-seed | add-managed-account",
                     "Entry Fields: notes-set | notes-clear | tag-add | tag-rm | tags-set | tags-clear | field-add | field-rm | set-field | clear-field",
                     "",
-                    "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id>",
+                    "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id> | 2fa-copy-url <entry_id>",
                     "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename | profile-tree-next | profile-tree-prev | profile-tree-open",
                     "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
                     "Semantic: search-mode <keyword|hybrid|semantic> | semantic-status | semantic-enable | semantic-disable | semantic-build | semantic-rebuild | semantic-search <query>",
@@ -769,7 +828,7 @@ def launch_tui2(
                     "",
                     "Palette examples",
                     (
-                        'help | 2fa-board | 2fa-copy 12 | add-password "Site" 20 '
+                        'help | 2fa-board | 2fa-copy 12 | 2fa-copy-url 12 | add-password "Site" 20 '
                         "user https://x | profiles-list | checksum-verify | db-export backup.enc"
                     ),
                 ]
@@ -783,6 +842,53 @@ def launch_tui2(
                     pane.add_class("pane-focus")
                 else:
                     pane.remove_class("pane-focus")
+
+        def _update_responsive_layout(
+            self, width: int | None = None, height: int | None = None
+        ) -> None:
+            if width is None:
+                width = int(getattr(self.size, "width", 0) or 0)
+            if height is None:
+                height = int(getattr(self.size, "height", 0) or 0)
+            self._viewport_width = width
+            self._viewport_height = height
+            compact = width > 0 and width < 150
+            previous = bool(getattr(self, "_compact_layout", False))
+            try:
+                link_detail = self.query_one("#link-detail", Static)
+            except Exception:
+                self._compact_layout = compact
+                return
+            if compact:
+                link_detail.add_class("hidden")
+            else:
+                link_detail.remove_class("hidden")
+            try:
+                top_work = self.query_one("#top-work", Horizontal)
+                right = self.query_one("#right", Vertical)
+                activity = self.query_one("#activity", Static)
+                if height > 0 and height < 32:
+                    top_work.styles.height = "6fr"
+                    right.styles.height = "5fr"
+                    activity.add_class("hidden")
+                elif height >= 52:
+                    top_work.styles.height = "8fr"
+                    right.styles.height = "4fr"
+                    activity.remove_class("hidden")
+                    activity.styles.height = 4
+                else:
+                    top_work.styles.height = "7fr"
+                    right.styles.height = "4fr"
+                    activity.remove_class("hidden")
+                    activity.styles.height = 3
+            except Exception:
+                pass
+            if compact != previous:
+                self._compact_layout = compact
+                try:
+                    self._update_action_strip()
+                except Exception:
+                    pass
 
         def _refresh_doc_edit_help(self) -> None:
             marker = "*" if self._doc_dirty else "clean"
@@ -852,16 +958,20 @@ def launch_tui2(
 
         def _update_filters_panel(self) -> None:
             self._refresh_profile_tree()
-            tree_lines = ["Profiles", "--------"]
+            tree_lines = ["Profile Tree", "------------"]
             profiles = list(self._profile_tree_items)
             current_fp = fingerprint or ""
+            root_fp = profiles[0] if profiles else (current_fp or "(default)")
+            root_name = f"{root_fp[:12]}Seed"
+            tree_lines.append(f"■ {root_name}")
             if profiles:
                 for idx, item in enumerate(profiles[:8]):
-                    marker = "*" if item == current_fp else "-"
+                    marker = "■" if item == current_fp else "□"
                     cursor = "▶" if idx == self._profile_tree_cursor else " "
-                    tree_lines.append(f"{cursor} {marker} {item}")
+                    item_name = f"{item[:12]}Seed"
+                    tree_lines.append(f"{cursor} └─ {marker} {item_name}:{item[:10]}")
             else:
-                tree_lines.append(f"▶ * {current_fp or '(default)'}")
+                tree_lines.append(f"▶ └─ ■ default:{(current_fp or '(default)')[:10]}")
 
             fp_line = (
                 f"Fingerprint: {fingerprint}"
@@ -893,41 +1003,8 @@ def launch_tui2(
                     "",
                     *tree_lines,
                     "",
-                    "Nav ⌘",
-                    "- / search",
-                    "- j jump to id",
-                    "- f cycle kind filter",
-                    "- d density toggle",
-                    "- ↑/↓ profile tree",
-                    "- Ctrl+O open profile",
-                    "- h cycle archive scope",
-                    "- p/n prev/next page",
-                    "- 1/2/3 focus pane",
-                    "- ? help overlay",
-                    "- r refresh",
-                    "- x retry last error",
-                    "",
-                    "Actions ⚡",
-                    "- a archive/restore",
-                    "- e edit document",
-                    "- Ctrl+S save doc",
-                    "- Ctrl+P command palette",
-                    "- add-* create entries",
-                    "- onboarding/quickstart/stats via palette",
-                    "- tags/notes/fields via palette",
-                    "- docs: edit/save/export",
-                    "- 6 toggle dedicated 2FA board",
-                    "- profile/relay/sync/settings",
-                    "- npub + nostr reset/fresh namespace",
-                    "- checksum/db/totp/seed backup",
-                    "- managed-load/managed-exit session",
-                    "- session-status, lock, unlock",
-                    "- l cycle link relation",
-                    "- [ / ] select link",
-                    "- o open link target",
-                    "- v reveal selected secret",
-                    "- g show selected QR",
-                    "- Esc cancel/close",
+                    "Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x",
+                    "Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)",
                 ]
             )
             self.query_one("#filters", Static).update(text)
@@ -945,8 +1022,8 @@ def launch_tui2(
             url: str | None = None,
         ) -> str:
             entry_num = idx
-            title_limit = 25 if self._density_mode == "compact" else 34
-            meta_limit = 20 if self._density_mode == "compact" else 28
+            title_limit = 27 if self._density_mode == "compact" else 36
+            meta_limit = 24 if self._density_mode == "compact" else 34
             title_width = title_limit
             meta_width = meta_limit
             title = (label or "").replace("\n", " ").strip()[:title_limit]
@@ -959,9 +1036,10 @@ def launch_tui2(
                 meta = "-"
             meta = meta[:meta_limit]
             arch = "YES" if archived else "NO"
+            selected = "▌" if self._selected_entry_id == idx else " "
             return (
-                f"{idx:<8} {entry_num:<6} {title:<{title_width}} "
-                f"{kind:<14} {meta:<{meta_width}} {arch:<4}"
+                f"{selected} {idx:<6} | {entry_num:<6} | {title:<{title_width}} | "
+                f"{kind:<14} | {meta:<{meta_width}} | {arch:<3}"
             )
 
         def _total_pages(self) -> int:
@@ -1146,6 +1224,21 @@ def launch_tui2(
                 return notes.strip()
             return "(none)"
 
+        def _notes_tags_panel_hint(
+            self, *, tags_text: str, notes_text: str
+        ) -> list[str]:
+            if not self._compact_layout:
+                return ["Tags/Notes appear in right panel."]
+            tags_preview = tags_text if len(tags_text) <= 88 else f"{tags_text[:85]}..."
+            notes_preview = (
+                notes_text if len(notes_text) <= 88 else f"{notes_text[:85]}..."
+            )
+            return [
+                "Compact: Notes/Tags shown inline.",
+                f"Tags: {tags_preview}",
+                f"Notes: {notes_preview}",
+            ]
+
         def _entry_board_header(self, entry: dict[str, Any]) -> list[str]:
             entry_id = (
                 self._selected_entry_id
@@ -1154,6 +1247,7 @@ def launch_tui2(
             )
             label = str(entry.get("label") or "(untitled)")
             kind = self._entry_kind(entry) or "unknown"
+            icon = self._kind_icon(kind)
             modified = str(
                 entry.get("modified_at")
                 or entry.get("updated_at")
@@ -1161,13 +1255,13 @@ def launch_tui2(
                 or "(unknown)"
             )
             archived = "Yes" if bool(entry.get("archived", False)) else "No"
+            index_num = str(entry.get("index", "(auto)"))
+            title = f"{icon} Entry #{entry_id}  {label}"
             return [
-                f"{label}",
-                (
-                    f"Kind: {kind} | Entry: #{entry_id} | Modified: {modified} | "
-                    f"Archived: {archived}"
-                ),
-                "-" * 64,
+                title,
+                "-" * max(24, len(title)),
+                f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
+                f"Index Num*: {index_num} | Entry Num: {entry_id} | Edit: e",
             ]
 
         def _entry_board_text(self, entry: dict[str, Any]) -> str:
@@ -1180,120 +1274,241 @@ def launch_tui2(
                 username = str(entry.get("username") or "(none)")
                 url = str(entry.get("url") or "(none)")
                 length = str(entry.get("length") or "(auto)")
-                lines = header + [
+                board_name = "Stored Password Board"
+                action_row = "▣ Copy Password  ▣ Edit"
+                if kind == "password":
+                    board_name = "Password Board"
+                    action_row = "▣ Copy Password  ▣ Create New  ▣ Edit"
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                label = str(entry.get("label") or "(untitled)")
+                lines = [
+                    f"Entry #{entry_id}  {label}",
+                    "-" * max(24, len(label) + 10),
+                    f"{self._kind_icon(kind)} {board_name}",
+                    f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    action_row,
                     "Credentials",
-                    f"- Password: (hidden)  use 'v' to reveal",
-                    f"- Username: {username}",
-                    f"- URL: {url}",
-                    f"- Length: {length}",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                    f"Password*: hidden (v reveal, g qr) | Length: {length} chars",
+                    f"Username*: {username} | URL: {url}",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Edit (e) | Archive (a)",
                 ]
                 return "\n".join(lines)
 
             if kind in {"document", "note"}:
                 file_type = str(entry.get("file_type") or "txt")
                 content = str(entry.get("content") or "")
-                lines = header + [
-                    "Document",
-                    f"- File type: {file_type}",
-                    f"- Content length: {len(content)} chars",
-                    "",
-                    "Content",
-                    content if content.strip() else "(empty)",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                preview = content.strip()
+                if preview:
+                    preview = preview.replace("\n", " ")[:120]
+                else:
+                    preview = "(empty)"
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                lines = [
+                    f"Entry #{entry_id}  {str(entry.get('label') or '(untitled)')}",
+                    "-" * 28,
+                    f"{self._kind_icon(kind)} Note Board",
+                    f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id} | File Type: {file_type}",
+                    f"Content Length: {len(content)} chars",
+                    "▣ Edit  ▣ Export",
+                    "Content Preview",
+                    f"{preview}",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)",
                 ]
                 return "\n".join(lines)
 
             if kind in {"seed", "managed_account"}:
-                words = str(entry.get("words") or "(unknown)")
+                phrase_text = str(entry.get("seed_phrase") or "").strip()
+                words_value = entry.get("words")
+                if words_value is None and phrase_text:
+                    words_value = len([w for w in phrase_text.split() if w.strip()])
+                words = str(words_value or "(unknown)")
                 index = str(entry.get("index") or "(auto)")
+                board_name = (
+                    "Managed Account Seed Board"
+                    if kind == "managed_account"
+                    else "BIP-39 Seed Board"
+                )
                 lines = header + [
-                    "Seed Material",
-                    "- Seed phrase: (hidden)  use 'v confirm' to reveal",
-                    f"- Word count: {words}",
-                    f"- Index: {index}",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                    f"{self._kind_icon(kind)} {board_name}",
+                    "▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)",
+                    f"Seed Phrase*: hidden (v confirm) | Word Count: {words}",
+                    f"Index Num*: {index}",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)",
                 ]
                 return "\n".join(lines)
 
             if kind == "totp":
                 period = str(entry.get("period") or 30)
                 digits = str(entry.get("digits") or 6)
-                lines = header + [
-                    "TOTP",
-                    "- Current code: use '6' (2FA board) or 'v' to inspect details",
-                    f"- Period: {period}s",
-                    f"- Digits: {digits}",
-                    "- Secret: (hidden)",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                label = str(entry.get("label") or "(untitled)")
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                lines = [
+                    f"Entry #{entry_id}  {label}",
+                    "-" * 28,
+                    f"{self._kind_icon(kind)} 2FA Board",
+                    f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    f"Period: {period}s | Digits: {digits}",
+                    "▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR",
+                    "Current Code: hidden (use '6' board or 'v' reveal)",
+                    "Secret: hidden | URI via QR",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)",
                 ]
                 return "\n".join(lines)
 
             if kind == "ssh":
-                lines = header + [
-                    "SSH Keys",
-                    "- Public key: available",
-                    "- Private key: (hidden)  use 'v confirm' to reveal",
-                    "- Export: use palette + document export workflow",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                public_preview = str(entry.get("public_key") or "(unavailable)")
+                public_preview = public_preview.replace("\n", " ").strip()
+                public_preview = (
+                    f"{public_preview[:72]}..."
+                    if len(public_preview) > 72
+                    else public_preview
+                )
+                label = str(entry.get("label") or "(untitled)")
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                lines = [
+                    f"Entry #{entry_id}  {label}",
+                    "-" * 28,
+                    f"{self._kind_icon(kind)} SSH Board",
+                    f"Kind: ssh | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    "▣ Copy Public  ▣ Export Public",
+                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
+                    f"Public Key: {public_preview}",
+                    "Private Key: hidden (use 'v confirm' to reveal)",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field",
                 ]
                 return "\n".join(lines)
 
             if kind == "pgp":
                 fingerprint_text = str(entry.get("fingerprint") or "(unknown)")
-                lines = header + [
-                    "PGP Keys",
-                    f"- Fingerprint: {fingerprint_text}",
-                    "- Public key: available",
-                    "- Private key: (hidden)  use 'v confirm' to reveal",
-                    "- Export: use palette + document export workflow",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                label = str(entry.get("label") or "(untitled)")
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                lines = [
+                    f"Entry #{entry_id}  {label}",
+                    "-" * 28,
+                    f"{self._kind_icon(kind)} PGP Board",
+                    f"Kind: pgp | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    "▣ Copy Public  ▣ Export Public",
+                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
+                    f"Fingerprint: {fingerprint_text}",
+                    "Public Key: available",
+                    "Private Key: hidden (use 'v confirm' to reveal)",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field",
                 ]
                 return "\n".join(lines)
 
             if kind == "nostr":
                 npub = str(entry.get("npub") or "(unavailable)")
-                lines = header + [
-                    "Nostr Keys",
-                    f"- npub: {npub}",
-                    "- nsec: (hidden)  use 'v confirm' to reveal",
-                    "- QR: use 'g' for public, or 'qr private confirm' for nsec",
-                    "",
-                    "Tags",
-                    f"- {tags_text}",
-                    "",
-                    "Notes",
-                    notes_text,
+                label = str(entry.get("label") or "(untitled)")
+                entry_id = (
+                    self._selected_entry_id
+                    if self._selected_entry_id is not None
+                    else entry.get("id", "?")
+                )
+                modified = str(
+                    entry.get("modified_at")
+                    or entry.get("updated_at")
+                    or entry.get("date_modified")
+                    or "(unknown)"
+                )
+                archived = "Yes" if bool(entry.get("archived", False)) else "No"
+                index_num = str(entry.get("index", "(auto)"))
+                lines = [
+                    f"Entry #{entry_id}  {label}",
+                    "-" * 28,
+                    f"{self._kind_icon(kind)} Nostr Board",
+                    f"Kind: nostr | Modified: {modified} | Archived: {archived}",
+                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    "▣ Copy npub  ▣ Copy nsec  ▣ Edit",
+                    "▣ QR Public  ▣ QR Private",
+                    f"npub: {npub}",
+                    "nsec: hidden (use 'v confirm' to reveal)",
+                    *self._notes_tags_panel_hint(
+                        tags_text=tags_text, notes_text=notes_text
+                    ),
+                    "Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)",
                 ]
                 return "\n".join(lines)
 
@@ -1448,6 +1663,12 @@ def launch_tui2(
                 )
                 return
 
+            tags_text = "(none)"
+            notes_text = "(none)"
+            if isinstance(self._selected_entry, dict):
+                tags_text = self._entry_tags_text(self._selected_entry)
+                notes_text = self._entry_notes_text(self._selected_entry)
+
             if self.link_relation_filter == "all":
                 filtered = [lnk for lnk in links if isinstance(lnk, dict)]
             else:
@@ -1462,24 +1683,108 @@ def launch_tui2(
             if self._current_link_cursor >= len(self._current_links):
                 self._current_link_cursor = 0
 
+            notes_preview = notes_text[:220]
+            kind = self._selected_kind()
+            side_title = (
+                "Notes & Tags"
+                if kind
+                in {
+                    "password",
+                    "stored_password",
+                    "document",
+                    "note",
+                    "totp",
+                    "seed",
+                    "managed_account",
+                    "ssh",
+                    "pgp",
+                    "nostr",
+                    "key_value",
+                }
+                else "Links & Context"
+            )
+            notes_only_kinds = {
+                "password",
+                "stored_password",
+                "document",
+                "note",
+                "totp",
+                "seed",
+                "managed_account",
+                "ssh",
+                "pgp",
+                "nostr",
+                "key_value",
+            }
+
+            if kind in notes_only_kinds:
+                lines = [
+                    f"{side_title} #{self._selected_entry_id}",
+                    "-" * 28,
+                    f"Tags: {tags_text}",
+                    f"Notes: {notes_preview if notes_preview.strip() else '(none)'}",
+                ]
+                if links:
+                    for i, link in enumerate(self._current_links):
+                        target = link.get("target")
+                        relation = link.get("relation", "related_to")
+                        note = str(link.get("note", "")).strip()
+                        prefix = ">" if i == self._current_link_cursor else " "
+                        if note:
+                            lines.append(f"{prefix} {relation} -> {target} ({note})")
+                        else:
+                            lines.append(f"{prefix} {relation} -> {target}")
+                    lines.extend(
+                        [
+                            "",
+                            f"Graph links: {len(links)}",
+                            "Use Ctrl+P: link-add/link-rm/link-open",
+                        ]
+                    )
+                else:
+                    lines.extend(
+                        [
+                            "",
+                            "No graph links for this entry.",
+                            "Use Ctrl+P: link-add <target_id> [relation] [note]",
+                        ]
+                    )
+                self.query_one("#link-detail", Static).update("\n".join(lines))
+                return
+
             if not links:
                 self.query_one("#link-detail", Static).update(
-                    f"Links for #{self._selected_entry_id}\n\nNo graph links for this entry.\n"
-                    "Use Ctrl+P and run: link-add <target_id> [relation] [note]"
+                    (
+                        f"{side_title} #{self._selected_entry_id}\n"
+                        f"{'-' * 28}\n"
+                        "No graph links for this entry.\n"
+                        "Use Ctrl+P: link-add <target_id> [relation] [note]\n\n"
+                        "Tags\n"
+                        f"{tags_text}\n\n"
+                        "Notes\n"
+                        f"{notes_preview}"
+                    )
                 )
                 return
             if not filtered:
                 self.query_one("#link-detail", Static).update(
-                    f"Links for #{self._selected_entry_id}\n\n"
-                    f"Relation filter: {self.link_relation_filter}\n\n"
-                    "No links match this relation filter.\n"
-                    "Press 'l' to cycle relation filter."
+                    (
+                        f"{side_title} #{self._selected_entry_id}\n"
+                        f"{'-' * 28}\n"
+                        f"Relation filter: {self.link_relation_filter}\n\n"
+                        "No links match this relation filter.\n"
+                        "Press 'l' to cycle relation filter.\n\n"
+                        "Tags\n"
+                        f"{tags_text}\n\n"
+                        "Notes\n"
+                        f"{notes_preview}"
+                    )
                 )
                 return
 
             lines = [
-                f"Links for #{self._selected_entry_id}",
-                "",
+                f"{side_title} #{self._selected_entry_id}",
+                "-" * 28,
                 f"Relation filter: {self.link_relation_filter}",
                 (
                     f"Selected link: {self._current_link_cursor + 1}/"
@@ -1498,6 +1803,16 @@ def launch_tui2(
                     lines.append(f"{prefix} {relation} -> {target} ({note})")
                 else:
                     lines.append(f"{prefix} {relation} -> {target}")
+            lines.extend(
+                [
+                    "",
+                    "Tags",
+                    tags_text,
+                    "",
+                    "Notes",
+                    notes_preview,
+                ]
+            )
             self.query_one("#link-detail", Static).update("\n".join(lines))
             self._clear_failure()
 
@@ -1917,7 +2232,7 @@ def launch_tui2(
                     [
                         "",
                         "source: det=deterministic, imp=imported",
-                        "Commands: 2fa-copy <entry_id>, 2fa-refresh, 2fa-hide",
+                        "Commands: 2fa-copy <entry_id>, 2fa-copy-url <entry_id>, 2fa-refresh, 2fa-hide",
                     ]
                 )
             self.query_one("#totp-board", Static).update("\n".join(lines))
@@ -2004,7 +2319,18 @@ def launch_tui2(
                     return str(self._service.get_totp_code(entry_id)), True, "code"
                 if key == "secret":
                     return str(self._service.get_totp_secret(entry_id)), True, "secret"
-                raise ValueError("copy field unsupported for totp: code|secret")
+                if key in {"url", "uri", "otpauth"}:
+                    from seedpass.core.totp import TotpManager
+
+                    secret = str(self._service.get_totp_secret(entry_id))
+                    label = str(entry.get("label") or f"totp-{entry_id}")
+                    period = int(entry.get("period", 30))
+                    digits = int(entry.get("digits", 6))
+                    uri = TotpManager.make_otpauth_uri(
+                        label, secret, period=period, digits=digits
+                    )
+                    return uri, True, "url"
+                raise ValueError("copy field unsupported for totp: code|secret|url")
 
             if kind == "ssh":
                 private_key, public_key = self._service.get_ssh_key_pair(entry_id)
@@ -3004,6 +3330,54 @@ def launch_tui2(
                     self._refresh_totp_board(force_reload=False)
                 self._set_status(
                     f"Copied TOTP code for entry {entry_id} to clipboard ({delay}s clear)"
+                )
+                self._clear_failure()
+                return
+
+            if cmd == "2fa-copy-url":
+                if len(args) != 1:
+                    self._set_status("Usage: 2fa-copy-url <entry_id>")
+                    return
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                try:
+                    entry_id = int(args[0])
+                except ValueError:
+                    self._set_status("2fa-copy-url entry_id must be an integer")
+                    return
+                try:
+                    entry = self._service.retrieve_entry(entry_id)
+                    if not isinstance(entry, dict) or not entry:
+                        self._set_status(f"Entry {entry_id} not found")
+                        return
+                    kind = str(entry.get("kind") or entry.get("type") or "").lower()
+                    if kind != "totp":
+                        self._set_status("2fa-copy-url requires a TOTP entry")
+                        return
+                    from seedpass.core.totp import TotpManager
+
+                    secret = str(self._service.get_totp_secret(entry_id))
+                    label = str(entry.get("label") or f"totp-{entry_id}")
+                    period = int(entry.get("period", 30))
+                    digits = int(entry.get("digits", 6))
+                    uri = TotpManager.make_otpauth_uri(
+                        label, secret, period=period, digits=digits
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        "2fa-copy-url failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                    return
+                if not self._copy_to_clipboard(uri):
+                    self._set_status("Clipboard copy unavailable")
+                    return
+                delay = self._clipboard_clear_delay()
+                self._set_status(
+                    f"Copied TOTP URL for entry {entry_id} to clipboard ({delay}s clear)"
                 )
                 self._clear_failure()
                 return
@@ -4382,7 +4756,7 @@ def launch_tui2(
         def action_focus_center(self) -> None:
             self._focus_pane = "center"
             self._apply_focus_style()
-            self.query_one("#search", Input).focus()
+            self.query_one("#entry-list", ListView).focus()
             self._set_status("Focused center pane")
 
         def action_focus_right(self) -> None:
@@ -4749,6 +5123,11 @@ def launch_tui2(
 
         def on_text_area_changed(self, _event: Any) -> None:
             self._mark_doc_dirty(True)
+
+        def on_resize(self, event: Any) -> None:
+            width = int(getattr(getattr(event, "size", None), "width", 0) or 0)
+            height = int(getattr(getattr(event, "size", None), "height", 0) or 0)
+            self._update_responsive_layout(width=width, height=height)
 
         def on_input_submitted(self, event: Input.Submitted) -> None:
             if event.input.id == "search":

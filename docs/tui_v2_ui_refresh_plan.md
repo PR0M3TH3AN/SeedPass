@@ -545,6 +545,416 @@ Completed:
 
 Remaining (active queue):
 
-1. Final alignment pass to mockup spacing/rhythm and action-strip clarity.
+1. Final alignment pass to mockup spacing/rhythm.
 2. Semantic-state indicator readability pass in ribbon/action strip for upcoming dense-status scenarios.
-3. Run focused TUI tests and coverage gate after each polish slice.
+3. Continue board-by-board card/action fidelity polish (Password/Stored Password -> Note/2FA -> SSH/PGP/Nostr).
+4. Run focused TUI tests and coverage gate after each polish slice.
+
+## 16) Progress Update (2026-03-02, Slice: Action Rail + Hotkey Reliability)
+
+Implemented:
+
+1. Bottom action strip upgraded to a two-line persistent rail:
+- line 1: stable global controls
+- line 2: entry-kind contextual controls
+2. Status bar upgraded to a two-line presentation for better readability:
+- mode/pane + stable shortcut hint
+- latest status message
+3. Center-pane focus behavior changed to list-first:
+- `action_focus_center` now focuses `#entry-list` instead of `#search`
+- on launch, focus defaults to `#entry-list`
+4. This restores expected immediate hotkey behavior for `v`/`g` without requiring a manual focus fix.
+5. Top ribbon readability pass:
+- compacted status labels (`FP`, `M`, `E`, `K`, `SEM`, `Sync`)
+- semantic mode shortened (`kw|hyb|sem`)
+- fingerprint and sync strings truncated for narrow terminals
+6. Responsive narrow-screen fallback:
+- auto-compact mode when terminal width is narrow
+- link context side panel collapses in compact mode to preserve inspector readability
+- action strip now signals compact mode (`Compact: links hidden`)
+7. Board-fidelity refresh (current slice):
+- Password/Stored Password boards now use explicit board titles and refined action/field lines
+- Note/Document board now uses explicit board title with clearer preview labeling
+- 2FA board action labels clarified (`Copy Code`, `Reveal Secret`, `QR`)
+8. Added compact-layout regression test:
+- `test_tui2_textual_compact_layout_hides_link_panel_and_can_restore`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `31 passed`.
+3. Added regression coverage:
+- `test_tui2_textual_default_focus_keeps_sensitive_hotkeys_active`
+
+## 17) Progress Update (2026-03-02, Slice: SSH/PGP/Nostr Card Fidelity)
+
+Implemented:
+
+1. Inspector header readability tweak:
+- changed `Edit: [e]` to `Edit: e` (avoids markup-style ambiguity in Textual render output).
+2. SSH board polish:
+- explicit `SSH Board` title
+- metadata row moved directly under title
+- public-key preview line added (truncated for dense layout)
+- action rows grouped as public/private operations
+3. PGP board polish:
+- explicit `PGP Board` title
+- metadata-first structure + retained fingerprint prominence
+- action rows grouped as public/private operations
+4. Nostr board polish:
+- explicit `Nostr Board` title
+- metadata-first structure + npub/nsec lines
+- QR public/private actions shown together
+5. Added board-fidelity regression coverage:
+- `test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `32 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after32_ssh.png`
+2. `artifacts/ui_eval/current_tui2_after32_pgp.png`
+3. `artifacts/ui_eval/current_tui2_after32_nostr.png`
+
+## 18) Progress Update (2026-03-02, Slice: Seed Board Fidelity)
+
+Implemented:
+
+1. Seed-family board specialization:
+- `seed` now renders as `BIP-39 Seed Board`
+- `managed_account` now renders as `Managed Account Seed Board`
+2. Seed metadata fidelity:
+- word count now falls back to deriving from `seed_phrase` when `words` is absent
+- index metadata remains explicit in the board
+3. Seed action affordances aligned to sensitive workflow:
+- `Reveal Seed`, `QR Seed`, `Copy Seed(confirm)`, `Export Seed(confirm)`
+- clear command hints for confirm-gated copy/export/reveal flows
+4. Added board-fidelity regression coverage:
+- `test_tui2_textual_seed_and_managed_seed_boards_show_fidelity`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `33 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after33_seed.png`
+2. `artifacts/ui_eval/current_tui2_after33_managed_seed.png`
+
+## 19) Progress Update (2026-03-02, Slice: Spacing/Rhythm + Compact Action Strip)
+
+Implemented:
+
+1. Layout rhythm tuning:
+- top work area increased (`#top-work` from `5fr` to `6fr`)
+- inspector area increased (`#right` from `4fr` to `5fr`)
+- left rail slightly narrowed (`#left` from `34` to `32`)
+- inspector side rail slightly narrowed (`#inspector-side` from `30` to `28`)
+2. Compact-mode action-strip readability:
+- compact global row now uses shorter labels (`Ctrl+P`, `1/2/3`, `p/n`, `f/h`)
+- very narrow widths apply abbreviated context text (`Rev`, `Arch`, `cfm`)
+3. Responsive state tracking:
+- stores viewport width and adapts action-strip wording accordingly.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `33 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after34_password.png`
+2. `artifacts/ui_eval/current_tui2_after34_note.png`
+3. `artifacts/ui_eval/current_tui2_after34_totp.png`
+4. `artifacts/ui_eval/current_tui2_after34_ssh.png`
+5. `artifacts/ui_eval/current_tui2_after34_pgp.png`
+6. `artifacts/ui_eval/current_tui2_after34_nostr.png`
+7. `artifacts/ui_eval/current_tui2_after34_seed.png`
+8. `artifacts/ui_eval/current_tui2_after34_managed_seed.png`
+
+## 20) Progress Update (2026-03-02, Slice: Micro-Alignment Tightening)
+
+Implemented:
+
+1. Tightened top-frame rhythm to better mirror mockup structure:
+- reduced top-ribbon vertical gap
+- removed extra right-panel top gap
+2. Increased dense-table feel in center column:
+- reduced grid heading height and spacing
+- removed quick-jump extra bottom spacing
+3. Tightened panel rhythm in left column:
+- slightly narrower tree rail
+- reduced activity panel height and top gap
+4. Improved inspector rhythm:
+- removed extra spacing under inspector heading
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `33 passed`.
+
+## 21) Progress Update (2026-03-02, Slice: Header/Action Consistency Sweep)
+
+Implemented:
+
+1. Note/Document board consistency upgrades:
+- now includes common metadata line: `Kind | Modified | Archived`
+- now includes common ID line: `Index Num* | Entry Num`
+2. 2FA board consistency upgrades:
+- now includes common metadata line: `Kind | Modified | Archived`
+- now includes common ID line: `Index Num* | Entry Num`
+3. Added regression coverage:
+- `test_tui2_textual_note_and_totp_boards_include_common_metadata`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `34 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after35_password.svg`
+2. `artifacts/ui_eval/current_tui2_after35_note.svg`
+3. `artifacts/ui_eval/current_tui2_after35_totp.svg`
+4. `artifacts/ui_eval/current_tui2_after35_ssh.svg`
+5. `artifacts/ui_eval/current_tui2_after35_pgp.svg`
+6. `artifacts/ui_eval/current_tui2_after35_nostr.svg`
+7. `artifacts/ui_eval/current_tui2_after35_seed.svg`
+8. `artifacts/ui_eval/current_tui2_after35_managed_seed.svg`
+
+## 22) Progress Update (2026-03-02, Slice: Final Table/Header Micro-Copy)
+
+Implemented:
+
+1. Grid heading copy cleanup:
+- removed ambiguous duplicate naming and standardized columns to:
+`Sel | Id | Entry# | Label | Kind | Meta | Arch`
+2. Board footer action wording normalized across kinds:
+- consistent verb-first labels with key hints, e.g.
+`Edit (e)`, `Archive (a)`, `Reveal (v)`, `QR (g)`, `Save (Ctrl+S)`, `Cancel (Esc)`.
+3. Seed/advanced command hints retained where explicit command forms are needed:
+- `copy seed confirm`
+- `export-field seed <path> confirm`
+- `qr private confirm`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `34 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after36_password.svg`
+2. `artifacts/ui_eval/current_tui2_after36_note.svg`
+3. `artifacts/ui_eval/current_tui2_after36_totp.svg`
+4. `artifacts/ui_eval/current_tui2_after36_ssh.svg`
+5. `artifacts/ui_eval/current_tui2_after36_pgp.svg`
+6. `artifacts/ui_eval/current_tui2_after36_nostr.svg`
+7. `artifacts/ui_eval/current_tui2_after36_seed.svg`
+8. `artifacts/ui_eval/current_tui2_after36_managed_seed.svg`
+
+## 23) Progress Update (2026-03-02, Slice: 2FA Copy URL Parity Closure)
+
+Implemented:
+
+1. Added first-class 2FA URL copy command:
+- `2fa-copy-url <entry_id>`
+2. Added TOTP URL support to generic copy flow:
+- `copy url confirm` (for selected TOTP entry) now resolves otpauth URI.
+3. Surfaced URL copy affordance in 2FA UI text:
+- 2FA inspector board action row now includes `Copy URL(confirm)`.
+- 2FA board command hint row now includes `2fa-copy-url <entry_id>`.
+4. Updated palette discoverability text:
+- command palette placeholder, help reference, and quick-help example include `2fa-copy-url`.
+5. Added/updated regression coverage:
+- extended 2FA board tests to assert:
+  - successful URL copy
+  - usage and input validation for `2fa-copy-url`
+  - board command hint visibility
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `34 passed`.
+
+Strict closeout impact:
+
+1. 2FA board moved from `Open` to `Minor Gap` (functional parity closed; visual polish remains).
+
+## 24) Progress Update (2026-03-02, Slice: Compact Discoverability + Board Polish)
+
+Implemented:
+
+1. Compact-mode notes/tags discoverability upgrade:
+- when compact mode collapses the right notes/tags panel, inspector boards now render notes/tags inline for discoverability.
+2. Applied inline notes/tags fallback across core boards:
+- password/stored_password, note/document, seed/managed_account, totp, ssh, pgp, nostr.
+3. Password + Note polish:
+- password board now has explicit `Credentials` section.
+- note board now uses clearer `Content Preview` heading and flow.
+4. Added compact discoverability regression assertions:
+- extended `test_tui2_textual_compact_layout_hides_link_panel_and_can_restore` to verify inline notes/tags content.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `34 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after38_note_compact.svg`
+
+## 25) Progress Update (2026-03-02, Slice: Viewport Balance Adaptation)
+
+Implemented:
+
+1. Added viewport-height adaptive layout balancing:
+- short viewports (`height < 32`): keeps inspector usable and hides activity panel to recover space.
+- standard viewports: balanced default (`top-work` / inspector sizing) with activity visible.
+- tall viewports (`height >= 52`): increases table density while preserving inspector legibility.
+2. Keeps compact-mode width behavior and height behavior coordinated via unified responsive update path.
+3. Added viewport-balance regression coverage:
+- `test_tui2_textual_viewport_balance_hides_activity_on_short_height`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `35 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after39_note_compact_short.svg`
+2. `artifacts/ui_eval/current_tui2_after39_note_standard.svg`
+
+## 26) Progress Update (2026-03-02, Slice: Typography/Icon Polish)
+
+Implemented:
+
+1. Added consistent kind icons in inspector board titles/headers for stronger visual scanning:
+- password, note/document, 2FA, seed/managed seed, SSH, PGP, Nostr now include their kind icon in board title lines.
+2. Applied icon-enhanced shared entry-header format for template-based boards.
+3. Preserved command and behavior parity while improving visual hierarchy.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `35 passed`.
+
+Artifacts:
+
+1. `artifacts/ui_eval/current_tui2_after40_password.svg`
+2. `artifacts/ui_eval/current_tui2_after40_note.svg`
+3. `artifacts/ui_eval/current_tui2_after40_totp.svg`
+4. `artifacts/ui_eval/current_tui2_after40_ssh.svg`
+5. `artifacts/ui_eval/current_tui2_after40_pgp.svg`
+6. `artifacts/ui_eval/current_tui2_after40_nostr.svg`
+7. `artifacts/ui_eval/current_tui2_after40_seed.svg`
+8. `artifacts/ui_eval/current_tui2_after40_managed_seed.svg`
+
+## 15) Mockup Board Parity Audit (2026-03-02)
+
+Source set reviewed:
+
+1. `UI_mockups/PNG/UI Board.png`
+2. `UI_mockups/PNG/Password Board.png`
+3. `UI_mockups/PNG/Stored Password Board.png`
+4. `UI_mockups/PNG/Note Board.png`
+5. `UI_mockups/PNG/2FA Board.png`
+6. `UI_mockups/PNG/BIP-39 Seed Board.png`
+7. `UI_mockups/PNG/SSH Board.png`
+8. `UI_mockups/PNG/PGP Board.png`
+9. `UI_mockups/PNG/Nostr Board.png`
+
+### 15.1 Shared Layout Contract (from all mockups)
+
+Expected:
+
+1. Dense table-first upper region with always-visible rows and explicit separators.
+2. Persistent left hierarchy tree with compact, high-signal metadata.
+3. Lower inspector with:
+- shared header row (`label`, `kind`, `modified`, blacklist/archive, index/entry)
+- field cards
+- right-side secondary card (tags/notes/links/sensitive)
+4. Bottom action rail with stable global actions + contextual actions.
+
+Current status:
+
+1. Implemented in structure, but still needs spacing/density tuning to keep both:
+- sufficient table rows visible
+- full inspector card content visible in same viewport
+
+### 15.2 Board-by-Board Functional + Layout Parity
+
+| Mockup board | Required field/layout traits | Required actions | TUI v2 status |
+|---|---|---|---|
+| UI Board | Dense table, left tree, bottom rail | search/filter/paging/navigation | Minor Gap |
+| Password | password/username/url/tags + notes side panel | copy password, create new, edit, reveal/qr | Minor Gap |
+| Stored Password | password/username/url/tags + notes side panel | copy password, edit, reveal/qr | Minor Gap |
+| Note | large content area + tags side card | edit/save/cancel/export | Minor Gap |
+| 2FA | code field + URL field + notes/tags side card | copy code, copy URL, reveal/qr, 2FA board | Done |
+| BIP-39 Seed | seed field + notes + tags side card | reveal/confirm, qr, copy/export with confirm | Done |
+| SSH | public/private rows + notes/tags side card | copy public/private, export public/private, reveal private | Done |
+| PGP | public/private rows + notes/tags side card | copy/export public/private, reveal private | Done |
+| Nostr | npub/nsec rows + notes/tags side card | copy npub/nsec, qr public/private, reveal nsec | Done |
+
+### 15.3 Closeout Status Definitions (Strict)
+
+1. `Done`: matching layout and actions with no user-visible parity gap in normal viewport.
+2. `Minor Gap`: core behaviors present; remaining differences are visual rhythm/density or secondary affordance polish.
+3. `Open`: missing required interaction from mockup contract.
+
+### 15.4 Strict Closeout Notes (2026-03-02)
+
+1. `UI Board` -> Minor Gap:
+- structure is correct (left tree + table + inspector + action rail), but table density and lower board visibility balance still need final tuning.
+2. `Password/Stored Password` -> Minor Gap:
+- core actions and fields are present; remaining gap is closer card geometry fidelity to mockup.
+3. `Note` -> Minor Gap:
+- edit/save/export flow is complete; remaining gap is larger content-card visual weighting compared to mockup.
+4. `2FA` -> Done:
+- code/URL copy, reveal, QR, and board workflows are now first-class and discoverable.
+5. `BIP-39 Seed` -> Done:
+- reveal/QR/copy/export confirm workflows are present with board-level affordances.
+6. `SSH/PGP/Nostr` -> Done:
+- required copy/export/reveal/QR workflows are present with explicit board action affordances.
+
+### 15.5 Current Priority Gap Order (derived from strict closeout)
+
+1. Keep strict `Open` count at zero by preserving 2FA copy-URL parity.
+2. Final visual card/rhythm pass for remaining `Minor Gap` boards (`UI Board`, `Password`, `Stored Password`, `Note`).
+3. Final action-rail wording polish to match mockup verbs.
+
+### 15.6 Immediate Next Slice (strict closeout coupled)
+
+1. Final card geometry pass for Password/Stored Password/Note.
+2. Final UI-board density pass (table rows + lower inspector balance).
+3. Final action-strip verb/microcopy polish.
+4. Re-run focused suite and capture `after41` artifacts.
+
+## 27) Progress Update (2026-03-02, Slice: Strict Closeout Scoring Pass)
+
+Scoring method:
+
+1. `Done`: no user-visible functional parity gap and mockup-consistent action discoverability in normal viewport.
+2. `Minor Gap`: functional parity met, but visual/rhythm mismatch remains.
+3. `Open`: required interaction missing.
+
+Current strict closeout scoreboard:
+
+1. `Done` (5/9): `2FA`, `BIP-39 Seed`, `SSH`, `PGP`, `Nostr`.
+2. `Minor Gap` (4/9): `UI Board`, `Password`, `Stored Password`, `Note`.
+3. `Open` (0/9).
+
+Evidence basis:
+
+1. Focused validation gate: `35 passed` in current run set.
+2. Artifact set: `artifacts/ui_eval/current_tui2_after40_*.svg`.
+3. Dedicated parity regressions in `src/tests/test_tui_v2_textual_interactions.py` for:
+- default hotkey focus
+- compact discoverability
+- board fidelity (`SSH/PGP/Nostr`, `Seed/Managed Seed`, `Note/2FA metadata`)
+- viewport balance behavior

@@ -981,6 +981,236 @@ async def test_tui2_textual_managed_account_keyboard_reveal_and_qr() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_default_focus_keeps_sensitive_hotkeys_active() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "managed_account",
+                "label": "Acct 1",
+                "seed_phrase": (
+                    "legal winner thank year wave sausage worth useful "
+                    "legal winner thank yellow"
+                ),
+            }
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert getattr(app.focused, "id", None) == "entry-list"
+
+        await pilot.press("v")
+        await pilot.pause()
+        assert "requires confirmation" in _status_text(app)
+        assert "Run: reveal confirm" in _widget_text(app, "#secret-detail")
+
+        await pilot.press("g")
+        await pilot.pause()
+        qr_text = _widget_text(app, "#secret-detail")
+        assert "Managed Account Seed #1 QR" in qr_text
+        assert "Payload:" in qr_text
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_compact_layout_hides_link_panel_and_can_restore() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "document",
+                "label": "Doc 1",
+                "notes": "compact note",
+                "tags": ["alpha", "beta"],
+            }
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        link_detail = app.query_one("#link-detail", Static)
+        assert link_detail.has_class("hidden")
+        assert "Compact" in _widget_text(app, "#action-strip")
+        detail = _widget_text(app, "#entry-detail")
+        assert "Compact: Notes/Tags shown inline." in detail
+        assert "Tags: alpha, beta" in detail
+        assert "Notes: compact note" in detail
+
+        app._update_responsive_layout(width=220)
+        await pilot.pause()
+        assert not link_detail.has_class("hidden")
+
+        app._update_responsive_layout(width=120)
+        await pilot.pause()
+        assert link_detail.has_class("hidden")
+        assert "Compact" in _widget_text(app, "#action-strip")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_viewport_balance_hides_activity_on_short_height() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc 1"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        activity = app.query_one("#activity", Static)
+        assert activity.has_class("hidden")
+
+        app._update_responsive_layout(width=120, height=28)
+        await pilot.pause()
+        assert activity.has_class("hidden")
+
+        app._update_responsive_layout(width=170, height=46)
+        await pilot.pause()
+        assert not activity.has_class("hidden")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "ssh",
+                "label": "SSH 1",
+                "private_key": "SSH_PRIVATE_1",
+                "public_key": "ssh-ed25519 AAAA-1",
+            },
+            {
+                "id": 2,
+                "kind": "pgp",
+                "label": "PGP 2",
+                "private_key": "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+                "fingerprint": "FPR-2",
+            },
+            {
+                "id": 3,
+                "kind": "nostr",
+                "label": "Nostr 3",
+                "npub": "npub1abc",
+                "nsec": "nsec1abc",
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "SSH Board" in board
+        assert "▣ Copy Public" in board
+        assert "▣ Reveal Private" in board
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "PGP Board" in board
+        assert "Fingerprint: FPR-2" in board
+        assert "▣ Export Private" in board
+
+        app._run_palette_command("open 3")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "Nostr Board" in board
+        assert "▣ QR Public" in board
+        assert "▣ QR Private" in board
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_seed_and_managed_seed_boards_show_fidelity() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "seed",
+                "label": "Seed 1",
+                "seed_phrase": (
+                    "abandon abandon abandon abandon abandon abandon "
+                    "abandon abandon abandon abandon abandon about"
+                ),
+                "index": 1,
+            },
+            {
+                "id": 2,
+                "kind": "managed_account",
+                "label": "Managed 2",
+                "seed_phrase": (
+                    "legal winner thank year wave sausage worth useful "
+                    "legal winner thank yellow"
+                ),
+                "index": 2,
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "BIP-39 Seed Board" in board
+        assert "Word Count: 12" in board
+        assert "copy seed confirm" in board
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "Managed Account Seed Board" in board
+        assert "Word Count: 12" in board
+        assert "export-field seed <path> confirm" in board
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "document",
+                "label": "Note 1",
+                "content": "hello",
+                "file_type": "md",
+                "index": 1,
+            },
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Auth 2",
+                "secret": "JBSWY3DPEHPK3PXP",
+                "period": 30,
+                "digits": 6,
+                "index": 2,
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "Note Board" in board
+        assert "Kind: document | Modified:" in board
+        assert "Index Num*:" in board
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "2FA Board" in board
+        assert "Kind: totp | Modified:" in board
+        assert "Index Num*:" in board
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
     service = FakeEntryService(
         [
@@ -1552,6 +1782,13 @@ async def test_tui2_textual_2fa_board_view_timer_and_copy() -> None:
         assert service.clipboard_values[-1] == "123456"
         assert "Copied TOTP code for entry 1" in _status_text(app)
 
+        app._run_palette_command("2fa-copy-url 1")
+        await pilot.pause()
+        copied_uri = service.clipboard_values[-1]
+        assert copied_uri.startswith("otpauth://totp/")
+        assert "secret=" in copied_uri
+        assert "Copied TOTP URL for entry 1" in _status_text(app)
+
         app._run_palette_command("2fa-refresh")
         await pilot.pause()
         assert "2FA board refreshed" in _status_text(app)
@@ -1589,11 +1826,20 @@ async def test_tui2_textual_2fa_board_secret_mode_and_validation() -> None:
         await pilot.pause()
         assert "2fa-copy entry_id must be an integer" in _status_text(app)
 
+        app._run_palette_command("2fa-copy-url")
+        await pilot.pause()
+        assert "Usage: 2fa-copy-url <entry_id>" in _status_text(app)
+
+        app._run_palette_command("2fa-copy-url nope")
+        await pilot.pause()
+        assert "2fa-copy-url entry_id must be an integer" in _status_text(app)
+
         app._run_palette_command("2fa-board")
         await pilot.pause()
         board_text = _widget_text(app, "#totp-board")
         assert "******" in board_text
         assert "123456" not in board_text
+        assert "2fa-copy-url <entry_id>" in board_text
 
         app._run_palette_command("2fa-hide")
         await pilot.pause()
