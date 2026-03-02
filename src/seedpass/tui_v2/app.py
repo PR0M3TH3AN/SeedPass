@@ -110,7 +110,7 @@ def launch_tui2(
     from textual.binding import Binding
     from textual.containers import Horizontal, Vertical
     from textual.reactive import reactive
-    from textual.widgets import Input, Label, ListItem, ListView, Static
+    from textual.widgets import Button, Input, Label, ListItem, ListView, Static
 
     try:
         from textual.widgets import TextArea
@@ -125,6 +125,22 @@ def launch_tui2(
     class SeedPassTuiV2(App[None]):
         RESULT_PAGE_SIZE = 200
         DETAIL_CONTENT_PREVIEW_LIMIT = 4000
+        FILTER_PRESETS: dict[str, list[str] | None] = {
+            "all": None,
+            "secrets": [
+                "password",
+                "stored_password",
+                "seed",
+                "managed_account",
+                "ssh",
+                "pgp",
+                "nostr",
+                "key_value",
+            ],
+            "docs": ["document", "note"],
+            "keys": ["seed", "managed_account", "ssh", "pgp", "nostr"],
+            "2fa": ["totp"],
+        }
 
         CSS = """
         Screen {
@@ -183,7 +199,7 @@ def launch_tui2(
         #body { height: 1fr; margin: 0 1; }
         #top-work { height: 6fr; }
         #status {
-            height: 4;
+            height: 3;
             padding: 0 1;
             border: heavy #58f29d;
             background: #11191f;
@@ -191,7 +207,7 @@ def launch_tui2(
             margin: 1 1 0 1;
         }
         #action-strip {
-            height: 4;
+            height: 3;
             padding: 0 1;
             margin: 0 1;
             border: heavy #2abf75;
@@ -199,6 +215,17 @@ def launch_tui2(
             color: #daf2e5;
         }
         #left { width: 31; border: solid #1a3024; padding: 0 1; background: #0d1114; }
+        #left.sidebar-collapsed { width: 3; padding: 0; }
+        #sidebar-toggle {
+            height: 1;
+            min-height: 1;
+            margin: 0;
+            border: none;
+            background: transparent;
+            color: #58f29d;
+            text-style: bold;
+            content-align: left middle;
+        }
         #center { width: 1fr; border: solid #1a3024; padding: 0 1; background: #0d1114; margin-left: 1; }
         #right { height: 5fr; border: heavy #3ce79c; padding: 1; background: #0d1114; margin-top: 0; }
         #grid-heading {
@@ -228,27 +255,31 @@ def launch_tui2(
         }
         #search { margin-bottom: 0; }
         #quick-jump { margin-bottom: 0; }
+        #kind-filter-input {
+            margin-bottom: 0;
+            border: solid #2abf75;
+        }
         #entry-list { height: 1fr; }
         #entry-detail {
             width: 1fr;
             height: 1fr;
             overflow: auto;
             border: solid #58f29d;
-            padding: 1;
+            padding: 0 1;
         }
         #link-detail {
             min-height: 3;
             height: 2fr;
             overflow: auto;
             border: solid #2abf75;
-            padding: 1;
+            padding: 0 1;
         }
         #secret-detail {
             min-height: 3;
             height: 1fr;
             overflow: auto;
             border: solid #58f29d;
-            padding: 1;
+            padding: 0 1;
             margin-top: 0;
             text-wrap: nowrap;
         }
@@ -296,7 +327,8 @@ def launch_tui2(
             ("1", "focus_left", "Left"),
             ("2", "focus_center", "Center"),
             ("3", "focus_right", "Right"),
-            ("f", "cycle_filter", "Filter"),
+            ("f", "toggle_filter_menu", "Filter Menu"),
+            ("shift+f", "cycle_filter", "Filter"),
             ("d", "toggle_density", "Density"),
             ("h", "cycle_archive_scope", "Archive View"),
             ("up", "profile_tree_prev", "Profile Prev"),
@@ -315,6 +347,7 @@ def launch_tui2(
             ("e", "edit_document", "Edit Document"),
             ("ctrl+s", "save_document", "Save"),
             ("ctrl+p", "open_palette", "Palette"),
+            ("ctrl+b", "toggle_sidebar", "Sidebar"),
             ("escape", "cancel_document_edit", "Cancel"),
         ]
 
@@ -332,7 +365,7 @@ def launch_tui2(
                     "Command palette: help | open <id> | search <q> | "
                     "help-commands | onboarding | quickstart | stats | session-status | lock | unlock <password> | "
                     "density <compact|comfortable> | "
-                    "filter <kind> | archive | restore | "
+                    "filter <kind|comma-list|all|secrets|docs|keys|2fa> | archive | restore | "
                     "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
                     "add-totp <label> [period] [digits] [secret] | "
@@ -376,6 +409,7 @@ def launch_tui2(
             with Vertical(id="body"):
                 with Horizontal(id="top-work"):
                     with Vertical(id="left"):
+                        yield Button("◀ Collapse", id="sidebar-toggle")
                         yield Static("", id="filters")
                         yield Static("", id="activity")
                     with Vertical(id="center"):
@@ -385,6 +419,11 @@ def launch_tui2(
                         )
                         yield Input(
                             placeholder="Jump to entry id (Enter)", id="quick-jump"
+                        )
+                        yield Input(
+                            placeholder="Filter presets: all | secrets | docs | keys | 2fa (Enter)",
+                            id="kind-filter-input",
+                            classes="hidden",
                         )
                         yield ListView(id="entry-list")
                 with Vertical(id="right"):
@@ -456,6 +495,9 @@ def launch_tui2(
             self._compact_layout = False
             self._viewport_width = 0
             self._viewport_height = 0
+            self._sidebar_collapsed = False
+            self._active_profile_fp = (fingerprint or "").strip()
+            self._profile_filter_by_fp: dict[str, str] = {}
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -535,6 +577,7 @@ def launch_tui2(
             self._update_activity_panel()
             self._apply_focus_style()
             self._refresh_profile_tree()
+            self._restore_filter_for_active_profile(default_filter="all")
             self._update_top_ribbon()
             self._update_action_strip()
             self._set_secret_panel(
@@ -582,39 +625,58 @@ def launch_tui2(
                 text = "\n".join(lines)
             self.query_one("#activity", Static).update(text)
 
-        def _set_secret_panel(self, text: str) -> None:
-            self.query_one("#secret-detail", Static).update(text)
+        def _set_secret_panel(self, text: str, *, state: str | None = "HIDDEN") -> None:
+            if state:
+                rendered = f"Sensitive State: {state}\n\n{text}"
+            else:
+                rendered = text
+            self.query_one("#secret-detail", Static).update(rendered)
+
+        def _select_highlighted_entry_for_sensitive_action(self) -> bool:
+            if self._selected_entry_id is not None:
+                return True
+            list_view = self.query_one("#entry-list", ListView)
+            item = getattr(list_view, "highlighted_child", None)
+            if isinstance(item, EntryListItem):
+                self._show_entry(item.entry_index)
+            return self._selected_entry_id is not None
 
         def _update_top_ribbon(self) -> None:
             lock_state = "locked" if self._session_locked else "unlocked"
-            managed = (
-                str(self._managed_session_entry_id)
-                if self._managed_session_entry_id is not None
-                else "0"
-            )
+            managed_rows, _agent_rows = self._profile_tree_child_nodes()
+            managed = str(len(managed_rows))
             total = len(self._all_results)
-            fp_text = fingerprint or "(default)"
-            if len(fp_text) > 14:
-                fp_text = f"{fp_text[:11]}..."
+            pw_count = 0
+            twofa_count = 0
+            doc_count = 0
+            key_count = 0
+            for row in self._all_results:
+                if len(row) < 6:
+                    continue
+                kind_obj = row[5]
+                kind = str(getattr(kind_obj, "value", kind_obj)).strip().lower()
+                if kind in {"password", "stored_password"}:
+                    pw_count += 1
+                elif kind == "totp":
+                    twofa_count += 1
+                elif kind in {"document", "note"}:
+                    doc_count += 1
+                elif kind in {"seed", "managed_account", "ssh", "pgp", "nostr", "key_value"}:
+                    key_count += 1
+            fp_text = self._active_profile_key()
+            if len(fp_text) > 16:
+                fp_text = f"{fp_text[:13]}..."
             sync_text = self._last_sync_text or "(none)"
-            if len(sync_text) > 18:
-                sync_text = f"{sync_text[:15]}..."
-            sem_mode = self._semantic_mode
-            if sem_mode not in {"keyword", "hybrid", "semantic"}:
-                sem_mode = "keyword"
-            sem_mode_short = {
-                "keyword": "kw",
-                "hybrid": "hyb",
-                "semantic": "sem",
-            }[sem_mode]
+            if len(sync_text) > 26:
+                sync_text = f"{sync_text[:23]}..."
             text = (
-                f"FP:{fp_text}"
-                f" | M:{managed}"
-                f" | E:{total}"
-                f" | K:{self.filter_kind}"
-                f" | Session:{lock_state}"
-                f" | SEM:{sem_mode_short}/{self._semantic_state}"
-                f" | Sync:{sync_text}"
+                f"FP {fp_text}"
+                f" | Managed Users: {managed}"
+                f" | Entries: {total}"
+                f" | PW:{pw_count} 2FA:{twofa_count} DOC:{doc_count} KEY:{key_count}"
+                f" | Kind: {self.filter_kind}"
+                f" | Session: {lock_state}"
+                f" | Last Sync: {sync_text}"
             )
             self.query_one("#top-ribbon", Static).update(text)
 
@@ -654,15 +716,68 @@ def launch_tui2(
                     except Exception:
                         profiles = []
             if not profiles:
-                profiles = [fingerprint or "(default)"]
+                profiles = [self._active_profile_key()]
             self._profile_tree_items = profiles
-            active = fingerprint or ""
+            active = self._active_profile_key()
+            if active == "(default)" and "(default)" not in profiles:
+                active = ""
             if active and active in profiles:
                 self._profile_tree_cursor = profiles.index(active)
             else:
                 self._profile_tree_cursor = min(
                     max(0, self._profile_tree_cursor), max(0, len(profiles) - 1)
                 )
+
+        def _profile_tree_child_nodes(self) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+            managed: list[tuple[int, str]] = []
+            agent_like: list[tuple[int, str]] = []
+            for row in self._all_results:
+                if len(row) < 6:
+                    continue
+                entry_id = int(row[0])
+                label = str(row[1] or f"entry-{entry_id}").strip()
+                kind_obj = row[5]
+                kind = str(getattr(kind_obj, "value", kind_obj)).strip().lower()
+                if kind == "managed_account" and len(managed) < 6:
+                    managed.append((entry_id, label))
+                elif kind == "nostr" and len(agent_like) < 6:
+                    agent_like.append((entry_id, label))
+            return managed, agent_like
+
+        def _set_sidebar_collapsed(self, collapsed: bool) -> None:
+            self._sidebar_collapsed = bool(collapsed)
+            left = self.query_one("#left", Vertical)
+            toggle = self.query_one("#sidebar-toggle", Button)
+            filters = self.query_one("#filters", Static)
+            activity = self.query_one("#activity", Static)
+            if self._sidebar_collapsed:
+                left.add_class("sidebar-collapsed")
+                filters.add_class("hidden")
+                activity.add_class("hidden")
+                toggle.label = "▶ Expand"
+                if self._focus_pane == "left":
+                    self._focus_pane = "center"
+                    self._apply_focus_style()
+            else:
+                left.remove_class("sidebar-collapsed")
+                filters.remove_class("hidden")
+                activity.remove_class("hidden")
+                toggle.label = "◀ Collapse"
+                if self._viewport_height >= 36 and not self._compact_layout:
+                    activity.remove_class("hidden")
+            self._update_action_strip()
+
+        def _set_filter_menu_visible(self, visible: bool) -> None:
+            filter_input = self.query_one("#kind-filter-input", Input)
+            if visible:
+                filter_input.remove_class("hidden")
+                filter_input.value = ""
+                filter_input.focus()
+                self._set_status("Filter menu: enter all|secrets|docs|keys|2fa")
+            else:
+                filter_input.add_class("hidden")
+                if self._focus_pane == "center":
+                    self.query_one("#entry-list", ListView).focus()
 
         def _update_action_strip(self) -> None:
             kind = ""
@@ -692,24 +807,18 @@ def launch_tui2(
             elif kind_l == "key_value":
                 context = "Entry ▣ set-field/clear-field ▣ a Archive ▣ notes/tags"
             else:
-                context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
+                context = "Select an entry to view context actions."
             if kind:
                 context = f"{context} ({kind_l})"
             if self._compact_layout:
-                global_row = (
-                    "Global ▣ ? Help ▣ Ctrl+P ▣ / Search ▣ j Jump ▣ "
-                    "1/2/3 ▣ p/n ▣ f/h ▣ r ▣ Compact"
-                )
+                global_row = "S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact"
                 if self._viewport_width and self._viewport_width < 130:
-                    context = context.replace("Entry ▣ ", "E ▣ ")
+                    context = context.replace("Entry ▣ ", "")
                     context = context.replace("Reveal", "Rev")
                     context = context.replace("Archive", "Arch")
                     context = context.replace("confirm", "cfm")
             else:
-                global_row = (
-                    "Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ "
-                    "1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh"
-                )
+                global_row = "S Settings  A Add New Entry  C Create New Seed  R Remove Seed  H Hide/Reveal Sensitive  E Export Data  I Import Data  B Backup Data"
             text = f"{global_row}\n{context}"
             self.query_one("#action-strip", Static).update(text)
 
@@ -759,7 +868,7 @@ def launch_tui2(
                     "- link-add / tag-add / notes-set to build knowledge graph context",
                     "",
                     "Useful navigation:",
-                    "- / search, j jump, f kind filter, h archive scope",
+                    "- / search, j jump, f filter presets, Shift+F kind cycle, h archive scope",
                     "- 1/2/3 focus panes, ? keyboard help",
                 ]
             )
@@ -819,7 +928,7 @@ def launch_tui2(
                 [
                     "TUI v2 Quick Help  (Esc to close)",
                     "",
-                    "Core      : / search   j jump-id   p/n page   f kind   h archive scope   r refresh",
+                    "Core      : / search   j jump-id   p/n page   f filter menu   Shift+F kind cycle   h archive scope   r refresh",
                     "Modes     : Ctrl+P palette   e edit-doc   Ctrl+S save   Esc cancel/close",
                     "Graph ⚯   : l relation filter   brackets link select   o open link target",
                     "Secrets 🔑: v reveal selected secret   g QR for selected entry",
@@ -931,9 +1040,59 @@ def launch_tui2(
             self._load_entries(self._last_query, reset_page=False)
 
         def _current_filter_kinds(self) -> list[str] | None:
-            if self.filter_kind == "all":
-                return None
-            return [self.filter_kind]
+            token = self._normalize_filter_kind(self.filter_kind)
+            if token in self.FILTER_PRESETS:
+                return self.FILTER_PRESETS[token]
+            if "," in token:
+                return [part for part in token.split(",") if part]
+            return [token]
+
+        def _active_profile_key(self) -> str:
+            fp = str(getattr(self, "_active_profile_fp", "") or "").strip()
+            return fp if fp else "(default)"
+
+        def _remember_filter_for_active_profile(self) -> None:
+            key = self._active_profile_key()
+            self._profile_filter_by_fp[key] = self._normalize_filter_kind(
+                self.filter_kind
+            )
+
+        def _restore_filter_for_active_profile(self, *, default_filter: str = "all") -> None:
+            key = self._active_profile_key()
+            raw = self._profile_filter_by_fp.get(key, default_filter)
+            self.filter_kind = self._normalize_filter_kind(raw)
+
+        def _normalize_filter_kind(self, value: str) -> str:
+            token = (value or "all").strip().lower()
+            if token in self.FILTER_PRESETS:
+                return token
+            allowed = {
+                "password",
+                "stored_password",
+                "totp",
+                "document",
+                "note",
+                "key_value",
+                "ssh",
+                "pgp",
+                "nostr",
+                "seed",
+                "managed_account",
+            }
+            if "," in token:
+                parts: list[str] = []
+                seen: set[str] = set()
+                for raw in token.split(","):
+                    item = raw.strip()
+                    if item in allowed and item not in seen:
+                        parts.append(item)
+                        seen.add(item)
+                if parts:
+                    return ",".join(parts)
+                return "all"
+            if token in allowed:
+                return token
+            return "all"
 
         def _current_archive_scope_flags(self) -> tuple[bool, bool]:
             if self.archive_scope == "all":
@@ -960,22 +1119,44 @@ def launch_tui2(
             self._refresh_profile_tree()
             tree_lines = ["Profile Tree", "------------"]
             profiles = list(self._profile_tree_items)
-            current_fp = fingerprint or ""
-            root_fp = profiles[0] if profiles else (current_fp or "(default)")
-            root_name = f"{root_fp[:12]}Seed"
-            tree_lines.append(f"■ {root_name}")
+            current_fp = self._active_profile_key()
+            if current_fp == "(default)" and "(default)" not in profiles:
+                current_fp = ""
+            managed_nodes, agent_nodes = self._profile_tree_child_nodes()
             if profiles:
-                for idx, item in enumerate(profiles[:8]):
+                for idx, item in enumerate(profiles[:6]):
                     marker = "■" if item == current_fp else "□"
                     cursor = "▶" if idx == self._profile_tree_cursor else " "
                     item_name = f"{item[:12]}Seed"
-                    tree_lines.append(f"{cursor} └─ {marker} {item_name}:{item[:10]}")
+                    tree_lines.append(f"{cursor} {marker} {item_name}:{item[:10]}")
+                    is_active_branch = (
+                        item == current_fp
+                        or (not current_fp and idx == self._profile_tree_cursor)
+                    )
+                    if not is_active_branch:
+                        continue
+                    tree_lines.append("  ├─ 👤 Managed Users")
+                    if managed_nodes:
+                        for entry_id, label in managed_nodes[:3]:
+                            tree_lines.append(f"  │  └─ #{entry_id} {label[:20]}")
+                    else:
+                        tree_lines.append("  │  └─ (none)")
+                    tree_lines.append("  └─ 🤖 Agents")
+                    if agent_nodes:
+                        for entry_id, label in agent_nodes[:3]:
+                            tree_lines.append(f"     └─ #{entry_id} {label[:20]}")
+                    else:
+                        tree_lines.append("     └─ (none)")
             else:
-                tree_lines.append(f"▶ └─ ■ default:{(current_fp or '(default)')[:10]}")
+                tree_lines.append(f"▶ ■ default:{(current_fp or '(default)')[:10]}")
+                tree_lines.append("  ├─ 👤 Managed Users")
+                tree_lines.append("  │  └─ (none)")
+                tree_lines.append("  └─ 🤖 Agents")
+                tree_lines.append("     └─ (none)")
 
             fp_line = (
-                f"Fingerprint: {fingerprint}"
-                if fingerprint
+                f"Fingerprint: {self._active_profile_key()}"
+                if self._active_profile_key() != "(default)"
                 else "Fingerprint: (default)"
             )
             session_state = "locked" if self._session_locked else "unlocked"
@@ -1003,7 +1184,7 @@ def launch_tui2(
                     "",
                     *tree_lines,
                     "",
-                    "Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x",
+                    "Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x",
                     "Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)",
                 ]
             )
@@ -1137,6 +1318,10 @@ def launch_tui2(
             list_view.clear()
             total = len(self._all_results)
             if total == 0:
+                try:
+                    list_view.index = None
+                except Exception:
+                    pass
                 self._selected_entry_id = None
                 self._selected_entry = None
                 is_empty_vault = (
@@ -1191,10 +1376,26 @@ def launch_tui2(
             chosen_id = None
             if preserve_selected and self._selected_entry_id in self._entry_ids_in_view:
                 chosen_id = self._selected_entry_id
-            elif self._entry_ids_in_view:
-                chosen_id = self._entry_ids_in_view[0]
             if chosen_id is not None:
                 self._show_entry(chosen_id)
+                return
+            self._selected_entry_id = None
+            self._selected_entry = None
+            self.query_one("#entry-detail", Static).update(
+                "Inspector idle.\n\nSelect an entry from the grid to inspect details."
+            )
+            self.query_one("#link-detail", Static).update("Links: select an entry first.")
+            self._set_secret_panel(
+                "Sensitive data hidden. Select an entry, then use 'v' (reveal) or 'g' (QR)."
+            )
+            self._current_links = []
+            self._current_link_cursor = 0
+            try:
+                list_view.index = None
+            except Exception:
+                pass
+            self._set_status("Entries loaded. Select an entry to inspect.")
+            self._update_filters_panel()
 
         def _entry_detail_text(self, entry: dict[str, Any]) -> str:
             payload = truncate_entry_for_display(
@@ -2052,7 +2253,8 @@ def launch_tui2(
                     self._set_secret_panel(
                         "Sensitive QR hidden.\n"
                         "Confirmation required for this action.\n"
-                        "Run: qr private confirm"
+                        "Run: qr private confirm",
+                        state="HIDDEN",
                     )
                     self._set_status(
                         "Sensitive QR requires confirmation. Run: qr private confirm"
@@ -2061,7 +2263,8 @@ def launch_tui2(
                     self._set_secret_panel(
                         "Sensitive reveal hidden.\n"
                         "Confirmation required for this action.\n"
-                        "Run: reveal confirm"
+                        "Run: reveal confirm",
+                        state="HIDDEN",
                     )
                     self._set_status(
                         "Sensitive reveal requires confirmation. Run: reveal confirm"
@@ -2071,7 +2274,8 @@ def launch_tui2(
             if include_qr:
                 if not qr_data:
                     self._set_secret_panel(
-                        f"{title}\n\nQR not supported for this entry."
+                        f"{title}\n\nQR not supported for this entry.",
+                        state="HIDDEN",
                     )
                     self._clear_failure()
                     self._set_status("QR not available for selected entry")
@@ -2087,20 +2291,22 @@ def launch_tui2(
                     )
                     return
                 self._set_secret_panel(
-                    f"{title} QR\n\n{qr_ascii}\n\nPayload: {qr_data}"
+                    f"{title} QR\n\n{qr_ascii}\n\nPayload: {qr_data}",
+                    state="QR",
                 )
                 self._clear_failure()
                 self._set_status("Rendered QR for selected entry")
                 return
 
-            self._set_secret_panel(f"{title}\n\n{body}")
+            self._set_secret_panel(f"{title}\n\n{body}", state="REVEALED")
             self._clear_failure()
             if self._is_secret_mode_enabled() and secret_value:
                 if self._copy_to_clipboard(secret_value):
                     delay = self._clipboard_clear_delay()
                     self._set_secret_panel(
                         f"{title}\n\nSecret mode is enabled.\n"
-                        f"Sensitive value copied to clipboard (auto-clear in {delay}s)."
+                        f"Sensitive value copied to clipboard (auto-clear in {delay}s).",
+                        state="COPIED",
                     )
                     self._set_status("Sensitive value copied to clipboard")
                     return
@@ -2609,9 +2815,12 @@ def launch_tui2(
 
             if cmd == "filter":
                 if len(args) != 1:
-                    self._set_status("Usage: filter <kind|all>")
+                    self._set_status(
+                        "Usage: filter <kind|comma-list|all|secrets|docs|keys|2fa>"
+                    )
                     return
-                self.filter_kind = args[0].strip().lower()
+                self.filter_kind = self._normalize_filter_kind(args[0])
+                self._remember_filter_for_active_profile()
                 self._update_filters_panel()
                 self._load_entries(query=self._last_query, reset_page=True)
                 self._set_status(f"Applied filter: {self.filter_kind}")
@@ -3428,6 +3637,8 @@ def launch_tui2(
                     self._profile_service.switch_profile(
                         ProfileSwitchRequest(fingerprint=fp, password=password)
                     )
+                    self._active_profile_fp = fp
+                    self._restore_filter_for_active_profile(default_filter="all")
                     self._clear_failure()
                     self._load_entries(self._last_query, reset_page=True)
                     self._refresh_profile_tree()
@@ -4686,11 +4897,23 @@ def launch_tui2(
             self._set_status("Help opened" if self.help_open else "Help closed")
 
         def action_focus_left(self) -> None:
+            if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
+                return
             self._focus_pane = "left"
             self._apply_focus_style()
             self._set_status("Focused left pane")
 
+        def action_toggle_sidebar(self) -> None:
+            self._set_sidebar_collapsed(not self._sidebar_collapsed)
+            if self._sidebar_collapsed:
+                self._set_status("Sidebar collapsed")
+            else:
+                self._set_status("Sidebar expanded")
+
         def action_profile_tree_next(self) -> None:
+            if self._sidebar_collapsed:
+                return
             if self._focus_pane != "left":
                 return
             self._refresh_profile_tree()
@@ -4705,6 +4928,8 @@ def launch_tui2(
             self._set_status(f"Profile selection: {selected}")
 
         def action_profile_tree_prev(self) -> None:
+            if self._sidebar_collapsed:
+                return
             if self._focus_pane != "left":
                 return
             self._refresh_profile_tree()
@@ -4719,6 +4944,8 @@ def launch_tui2(
             self._set_status(f"Profile selection: {selected}")
 
         def action_profile_tree_open(self) -> None:
+            if self._sidebar_collapsed:
+                return
             if self._focus_pane != "left":
                 return
             if self._profile_service is None:
@@ -4732,7 +4959,7 @@ def launch_tui2(
             if target == "(default)":
                 self._set_status("No switch needed for default profile")
                 return
-            if target == (fingerprint or ""):
+            if target == self._active_profile_key():
                 self._set_status(f"Profile already active: {target}")
                 return
             try:
@@ -4741,6 +4968,8 @@ def launch_tui2(
                 self._profile_service.switch_profile(
                     ProfileSwitchRequest(fingerprint=target, password=None)
                 )
+                self._active_profile_fp = target
+                self._restore_filter_for_active_profile(default_filter="all")
                 self._clear_failure()
                 self._load_entries(self._last_query, reset_page=True)
                 self._refresh_profile_tree()
@@ -4770,6 +4999,7 @@ def launch_tui2(
                 return
             if self.palette_open:
                 self._set_palette_visible(False)
+            self._set_filter_menu_visible(False)
             self._focus_pane = "center"
             self._apply_focus_style()
             self.query_one("#quick-jump", Input).focus()
@@ -4796,13 +5026,25 @@ def launch_tui2(
                 return
             if self.palette_open:
                 self._set_palette_visible(False)
+            self._set_filter_menu_visible(False)
             self._focus_pane = "center"
             self._apply_focus_style()
             self.query_one("#search", Input).focus()
 
+        def action_toggle_filter_menu(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before changing filters")
+                return
+            filter_input = self.query_one("#kind-filter-input", Input)
+            self._set_filter_menu_visible(filter_input.has_class("hidden"))
+
         def action_cycle_filter(self) -> None:
             order = [
                 "all",
+                "secrets",
+                "docs",
+                "keys",
+                "2fa",
                 "password",
                 "totp",
                 "document",
@@ -4815,6 +5057,7 @@ def launch_tui2(
             ]
             idx = order.index(self.filter_kind) if self.filter_kind in order else 0
             self.filter_kind = order[(idx + 1) % len(order)]
+            self._remember_filter_for_active_profile()
             self._load_entries(query=self._last_query, reset_page=True)
             self._set_status(f"Applied filter: {self.filter_kind}")
 
@@ -4943,11 +5186,25 @@ def launch_tui2(
             if self._session_locked:
                 self._set_status("Vault is locked. Run: unlock <password>")
                 return
+            if not self._select_highlighted_entry_for_sensitive_action():
+                self._set_secret_panel(
+                    "No entry selected.\n\nSelect an entry, then press 'v' to reveal.",
+                    state="HIDDEN",
+                )
+                self._set_status("No entry selected")
+                return
             self._show_sensitive_panel(include_qr=False, confirm=confirm)
 
         def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
             if self._session_locked:
                 self._set_status("Vault is locked. Run: unlock <password>")
+                return
+            if not self._select_highlighted_entry_for_sensitive_action():
+                self._set_secret_panel(
+                    "No entry selected.\n\nSelect an entry, then press 'g' to show QR.",
+                    state="HIDDEN",
+                )
+                self._set_status("No entry selected")
                 return
             self._show_sensitive_panel(include_qr=True, qr_mode=mode, confirm=confirm)
 
@@ -5097,6 +5354,11 @@ def launch_tui2(
                 self._set_palette_visible(False)
                 self._set_status("Palette closed")
                 return
+            filter_input = self.query_one("#kind-filter-input", Input)
+            if not filter_input.has_class("hidden"):
+                self._set_filter_menu_visible(False)
+                self._set_status("Filter menu closed")
+                return
             if self.help_open:
                 self.help_open = False
                 self._update_help_overlay()
@@ -5120,6 +5382,10 @@ def launch_tui2(
                 "doc-edit-content-single",
             }:
                 self._mark_doc_dirty(True)
+
+        def on_button_pressed(self, event: Button.Pressed) -> None:
+            if event.button.id == "sidebar-toggle":
+                self.action_toggle_sidebar()
 
         def on_text_area_changed(self, _event: Any) -> None:
             self._mark_doc_dirty(True)
@@ -5147,6 +5413,14 @@ def launch_tui2(
                     self._set_status("Jump requires an integer entry id")
                     return
                 self._show_entry(entry_id)
+                return
+            if event.input.id == "kind-filter-input":
+                self.filter_kind = self._normalize_filter_kind(event.value.strip())
+                self._remember_filter_for_active_profile()
+                self._set_filter_menu_visible(False)
+                self._update_filters_panel()
+                self._load_entries(query=self._last_query, reset_page=True)
+                self._set_status(f"Applied filter: {self.filter_kind}")
                 return
             if event.input.id == "command-palette":
                 command = event.value

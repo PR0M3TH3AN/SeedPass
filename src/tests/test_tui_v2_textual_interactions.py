@@ -778,6 +778,8 @@ async def test_tui2_textual_document_edit_save_flow() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
         app.action_edit_document()
         await pilot.pause()
 
@@ -815,6 +817,7 @@ async def test_tui2_textual_link_commands_and_neighbor_open() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
+        await _run_palette(app, pilot, "open 1")
 
         await _run_palette(app, pilot, "link-add 2 references rel-note")
         links_text = _widget_text(app, "#link-detail")
@@ -1000,11 +1003,17 @@ async def test_tui2_textual_default_focus_keeps_sensitive_hotkeys_active() -> No
     async with app.run_test() as pilot:
         await pilot.pause()
         assert getattr(app.focused, "id", None) == "entry-list"
+        assert "Selected: (none)" in _filters_text(app)
+        assert "Select an entry from the grid" in _widget_text(app, "#entry-detail")
 
         await pilot.press("v")
         await pilot.pause()
-        assert "requires confirmation" in _status_text(app)
-        assert "Run: reveal confirm" in _widget_text(app, "#secret-detail")
+        assert "No entry selected" in _status_text(app)
+        assert "Select an entry" in _widget_text(app, "#secret-detail")
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        assert "Selected: #1" in _filters_text(app)
 
         await pilot.press("g")
         await pilot.pause()
@@ -1029,6 +1038,8 @@ async def test_tui2_textual_compact_layout_hides_link_panel_and_can_restore() ->
     app = _build_app(service)
 
     async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
         await pilot.pause()
         link_detail = app.query_one("#link-detail", Static)
         assert link_detail.has_class("hidden")
@@ -1223,6 +1234,11 @@ async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
         filters_text = _widget_text(app, "#filters")
+        assert "Selected: (none)" in filters_text
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        filters_text = _widget_text(app, "#filters")
         assert "Selected: #1" in filters_text
         assert "Login 1" in filters_text
 
@@ -1231,6 +1247,76 @@ async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
         filters_text = _widget_text(app, "#filters")
         assert "Selected: #2" in filters_text
         assert "Acct 2" in filters_text
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_filter_menu_applies_presets() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "hello"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("f")
+        await pilot.pause()
+        filter_input = app.query_one("#kind-filter-input", Input)
+        assert not filter_input.has_class("hidden")
+        filter_input.value = "docs"
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert filter_input.has_class("hidden")
+        assert "Filter : docs" in _widget_text(app, "#filters")
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 1
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_filter_supports_multi_kind_list() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "totp", "label": "Auth 2", "secret": "JBSWY3DPEHPK3PXP"},
+            {"id": 3, "kind": "document", "label": "Doc 3", "content": "hello"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("filter password,totp")
+        await pilot.pause()
+        assert "Filter : password,totp" in _widget_text(app, "#filters")
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 2
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_filter_menu_closes_on_escape_and_focus_actions() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc 1"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("f")
+        await pilot.pause()
+        filter_input = app.query_one("#kind-filter-input", Input)
+        assert not filter_input.has_class("hidden")
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert filter_input.has_class("hidden")
+
+        await pilot.press("f")
+        await pilot.pause()
+        assert not filter_input.has_class("hidden")
+        app.action_focus_search()
+        await pilot.pause()
+        assert filter_input.has_class("hidden")
 
 
 @pytest.mark.anyio
@@ -1584,6 +1670,8 @@ async def test_tui2_textual_palette_notes_tags_fields_and_doc_export_validation(
 
     async with app.run_test() as pilot:
         await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
         app._run_palette_command("notes-set")
         await pilot.pause()
         assert "Usage: notes-set <text>" in _status_text(app)
@@ -1919,6 +2007,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         app._run_palette_command("setting-kdf-mode argon2")
         await pilot.pause()
         assert config.kdf_mode == "argon2"
+
         assert "KDF mode set to argon2" in _status_text(app)
 
         app._run_palette_command("semantic-status")
@@ -2049,6 +2138,41 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_profile_switch_restores_filter_state() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "hello"},
+            {"id": 3, "kind": "ssh", "label": "SSH 3"},
+        ]
+    )
+    profiles = FakeProfileService(["fp-a", "fp-b"])
+    app = _build_app(service, profile_service=profiles)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("filter docs")
+        await pilot.pause()
+        assert "Filter : docs" in _widget_text(app, "#filters")
+
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        assert "Filter : all" in _widget_text(app, "#filters")
+
+        app._run_palette_command("filter keys")
+        await pilot.pause()
+        assert "Filter : keys" in _widget_text(app, "#filters")
+
+        app._run_palette_command("profile-switch fp-b")
+        await pilot.pause()
+        assert "Filter : all" in _widget_text(app, "#filters")
+
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        assert "Filter : keys" in _widget_text(app, "#filters")
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_managed_account_session_palette_commands() -> None:
     service = FakeEntryService(
         [
@@ -2059,6 +2183,8 @@ async def test_tui2_textual_managed_account_session_palette_commands() -> None:
     app = _build_app(service)
 
     async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
         await pilot.pause()
 
         app._run_palette_command("managed-load")
