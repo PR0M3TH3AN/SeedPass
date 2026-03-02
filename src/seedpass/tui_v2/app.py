@@ -298,7 +298,8 @@ def launch_tui2(
                     "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
                     "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
                     "relay-list | relay-add <url> | relay-rm <index> | "
-                    "relay-reset | sync-now | sync-bg | "
+                    "relay-reset | nostr-reset-sync-state | nostr-fresh-namespace | "
+                    "sync-now | sync-bg | "
                     "checksum-verify | checksum-update | db-export <path> | db-import <path> | "
                     "totp-export <path> | parent-seed-backup [path] [password] | "
                     "managed-load [entry_id] | managed-exit | "
@@ -617,6 +618,7 @@ def launch_tui2(
                     "- docs: edit/save/export",
                     "- 6 toggle dedicated 2FA board",
                     "- profile/relay/sync/settings",
+                    "- nostr reset/fresh namespace",
                     "- checksum/db/totp/seed backup",
                     "- managed-load/managed-exit session",
                     "- l cycle link relation",
@@ -1384,7 +1386,9 @@ def launch_tui2(
                     "profiles-list, profile-switch, profile-add, profile-remove, profile-rename, "
                     "setting-secret, setting-offline, setting-quick-unlock, setting-timeout, "
                     "setting-kdf-iterations, setting-kdf-mode, "
-                    "relay-list, relay-add, relay-rm, relay-reset, sync-now, sync-bg, "
+                    "relay-list, relay-add, relay-rm, relay-reset, "
+                    "nostr-reset-sync-state, nostr-fresh-namespace, "
+                    "sync-now, sync-bg, "
                     "checksum-verify, checksum-update, db-export, db-import, "
                     "totp-export, parent-seed-backup, managed-load, managed-exit, "
                     "reveal [confirm], qr [public|private] [confirm], link-filter, "
@@ -2549,6 +2553,60 @@ def launch_tui2(
                 except Exception as exc:
                     self._record_failure(
                         "relay-reset failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "nostr-reset-sync-state":
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: nostr-reset-sync-state")
+                    return
+                reset_sync = getattr(self._nostr_service, "reset_sync_state", None)
+                if not callable(reset_sync):
+                    self._set_status("Nostr service does not support sync-state reset")
+                    return
+                try:
+                    current_idx = int(reset_sync())
+                    self._clear_failure()
+                    self._set_status(
+                        f"Nostr sync state reset (account index {current_idx})"
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        "nostr-reset-sync-state failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "nostr-fresh-namespace":
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: nostr-fresh-namespace")
+                    return
+                fresh_ns = getattr(self._nostr_service, "start_fresh_namespace", None)
+                if not callable(fresh_ns):
+                    self._set_status(
+                        "Nostr service does not support fresh namespace rotation"
+                    )
+                    return
+                try:
+                    next_idx = int(fresh_ns())
+                    self._clear_failure()
+                    self._set_status(
+                        f"Started fresh Nostr namespace at account index {next_idx}"
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        "nostr-fresh-namespace failed",
                         exc,
                         retry=lambda: self._run_palette_command(raw),
                         hint="Press 'x' to retry.",

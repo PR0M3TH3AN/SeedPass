@@ -598,3 +598,22 @@
   - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_core_api_services.py`
   - Result: `86 passed`.
 - Updated matrix priorities: next parity target is explicit Nostr maintenance commands (`reset sync state`, `fresh namespace`).
+
+## 2026-03-02 Next gap landed: Nostr maintenance parity in TUI v2
+- Implemented two legacy Nostr maintenance equivalents in TUI v2 palette:
+  - `nostr-reset-sync-state`
+  - `nostr-fresh-namespace`
+- Added service-layer methods in `src/seedpass/core/api.py` (`NostrService`):
+  - `reset_sync_state()`
+  - `start_fresh_namespace()`
+  - includes runtime sync-state clearing and account index management.
+- Added/updated tests:
+  - `src/tests/test_tui_v2_textual_interactions.py` (happy path + unavailable/usage validation)
+  - `src/tests/test_tui_v2_action_matrix.py` (command matrix coverage)
+  - `src/tests/test_core_api_services.py` (service method behavior)
+- Validation:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_core_api_services.py`
+  - Result: `88 passed`.
+- Updated planning docs:
+  - `docs/tui_v2_legacy_parity_matrix.md` marks Nostr maintenance parity as implemented.
+  - `docs/dev_control_center.md` now points to archived-only view/filter as the next parity target.

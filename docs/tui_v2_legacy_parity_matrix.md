@@ -52,18 +52,16 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Backup/reveal parent seed | Settings | `parent-seed-backup [path] [password]` | Implemented | |
 | Display npub | Main utility flow | No direct dedicated command | Partial | Possible via entry reveal for nostr entry; direct utility-style command absent. |
 | View archived-only list | Settings/List flow | No dedicated archived-only pane/command | Gap | Archived state visible in list; archive-only view affordance missing. |
-| Reset Nostr sync state | Settings > Nostr | No explicit command in v2 palette | Gap | Legacy has explicit reset/fresh namespace operations. |
-| Start fresh Nostr namespace | Settings > Nostr | No explicit command in v2 palette | Gap | |
+| Reset Nostr sync state | Settings > Nostr | `nostr-reset-sync-state` | Implemented | Added to TUI v2 palette + tests. |
+| Start fresh Nostr namespace | Settings > Nostr | `nostr-fresh-namespace` | Implemented | Added to TUI v2 palette + tests. |
 | Load managed-account session | Retrieve managed account action | `managed-load (optional: entry_id)` | Implemented | Added in TUI v2 palette + tests. |
 | Exit managed-account session | Main loop when in child profile | `managed-exit` | Implemented | Added in TUI v2 palette + tests. |
 
 ## Prioritized Gap Queue
 
-1. Medium: explicit Nostr maintenance actions (`reset sync state`, `fresh namespace`) in TUI v2 palette.
-2. Medium: archived-only list/view affordance parity.
-3. Low: dedicated utility-style npub display command in v2.
+1. Medium: archived-only list/view affordance parity.
+2. Low: dedicated utility-style npub display command in v2.
 
 ## Suggested implementation order
 
-1. Nostr sync-state reset and fresh-namespace palette commands + tests.
-2. Archived-only view filter/command + tests.
+1. Archived-only view filter/command + tests.

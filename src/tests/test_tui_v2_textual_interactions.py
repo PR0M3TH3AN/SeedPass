@@ -444,6 +444,7 @@ class FakeConfigService:
 class FakeNostrService:
     def __init__(self, relays: list[str]) -> None:
         self.relays = list(relays)
+        self.account_idx = 0
 
     def list_relays(self) -> list[str]:
         return list(self.relays)
@@ -461,6 +462,13 @@ class FakeNostrService:
     def reset_relays(self) -> list[str]:
         self.relays = ["wss://default-1", "wss://default-2"]
         return list(self.relays)
+
+    def reset_sync_state(self) -> int:
+        return int(self.account_idx)
+
+    def start_fresh_namespace(self) -> int:
+        self.account_idx += 1
+        return int(self.account_idx)
 
 
 class FakeSyncResult:
@@ -1369,6 +1377,17 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         assert "Relays reset (2)" in _status_text(app)
         assert nostr.relays == ["wss://default-1", "wss://default-2"]
 
+        app._run_palette_command("nostr-reset-sync-state")
+        await pilot.pause()
+        assert "Nostr sync state reset (account index 0)" in _status_text(app)
+
+        app._run_palette_command("nostr-fresh-namespace")
+        await pilot.pause()
+        assert (
+            "Started fresh Nostr namespace at account index 1" in _status_text(app)
+        )
+        assert nostr.account_idx == 1
+
         app._run_palette_command("sync-now")
         await pilot.pause()
         assert "Sync completed manifest manifest-1" in _status_text(app)
@@ -1525,6 +1544,14 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
 
+        app._run_palette_command("nostr-reset-sync-state")
+        await pilot.pause()
+        assert "Nostr service unavailable" in _status_text(app)
+
+        app._run_palette_command("nostr-fresh-namespace")
+        await pilot.pause()
+        assert "Nostr service unavailable" in _status_text(app)
+
         app._run_palette_command("sync-now")
         await pilot.pause()
         assert "Sync service unavailable" in _status_text(app)
@@ -1575,6 +1602,14 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
             "Usage: parent-seed-backup (optional: path) (optional: password)"
             in _status_text(app)
         )
+
+        app._run_palette_command("nostr-reset-sync-state now")
+        await pilot.pause()
+        assert "Usage: nostr-reset-sync-state" in _status_text(app)
+
+        app._run_palette_command("nostr-fresh-namespace now")
+        await pilot.pause()
+        assert "Usage: nostr-fresh-namespace" in _status_text(app)
 
         app._run_palette_command("managed-load 1 2")
         await pilot.pause()

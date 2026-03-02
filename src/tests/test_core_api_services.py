@@ -597,3 +597,31 @@ class TestNostrService:
 
         mock_manager.state_manager.remove_relay.assert_called_once_with(0)
         assert mock_manager.nostr_client.relays == []
+
+    def test_reset_sync_state(self, service, mock_manager):
+        mock_manager.state_manager.state = {"nostr_account_idx": 3}
+        idx = service.reset_sync_state()
+
+        mock_manager.state_manager.update_state.assert_called_once_with(
+            manifest_id=None, delta_since=0, last_sync_ts=0
+        )
+        assert idx == 3
+        assert mock_manager.nostr_account_idx == 3
+        assert mock_manager.manifest_id is None
+        assert mock_manager.delta_since == 0
+        assert mock_manager.last_sync_ts == 0
+
+    def test_start_fresh_namespace(self, service, mock_manager):
+        mock_manager.state_manager.state = {"nostr_account_idx": 4}
+
+        next_idx = service.start_fresh_namespace()
+
+        mock_manager.state_manager.update_state.assert_called_once_with(
+            manifest_id=None,
+            delta_since=0,
+            last_sync_ts=0,
+            nostr_account_idx=5,
+        )
+        mock_manager._initialize_nostr_client.assert_called_once()
+        assert next_idx == 5
+        assert mock_manager.nostr_account_idx == 5

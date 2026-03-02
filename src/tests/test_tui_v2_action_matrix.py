@@ -543,6 +543,8 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("relay-add wss://relay.example")
         app._run_palette_command("relay-rm 1")
         app._run_palette_command("relay-reset")
+        app._run_palette_command("nostr-reset-sync-state")
+        app._run_palette_command("nostr-fresh-namespace")
         app._run_palette_command("sync-now")
         app._run_palette_command("sync-bg")
         app._run_palette_command("checksum-verify")

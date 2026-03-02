@@ -917,3 +917,53 @@ class NostrService:
             self._manager.state_manager._save(state)
             self._manager.nostr_client.relays = list(relays)
             return relays
+
+    def _clear_runtime_sync_state(self) -> None:
+        self._manager.manifest_id = None
+        self._manager.delta_since = 0
+        self._manager.last_sync_ts = 0
+        client = getattr(self._manager, "nostr_client", None)
+        if client is None:
+            return
+        if hasattr(client, "last_error"):
+            client.last_error = None
+        if hasattr(client, "current_manifest_id"):
+            client.current_manifest_id = None
+        if hasattr(client, "current_manifest"):
+            client.current_manifest = None
+        if hasattr(client, "_delta_events"):
+            client._delta_events = []
+
+    def reset_sync_state(self) -> int:
+        """Reset manifest/delta sync metadata for the active profile."""
+        with self._lock:
+            state_mgr = getattr(self._manager, "state_manager", None)
+            if state_mgr is None:
+                raise ValueError("State manager unavailable for current profile.")
+            state = getattr(state_mgr, "state", {}) or {}
+            state_mgr.update_state(manifest_id=None, delta_since=0, last_sync_ts=0)
+            self._clear_runtime_sync_state()
+            idx = int(state.get("nostr_account_idx", 0))
+            self._manager.nostr_account_idx = idx
+            return idx
+
+    def start_fresh_namespace(self) -> int:
+        """Advance deterministic Nostr account index and reset sync metadata."""
+        with self._lock:
+            state_mgr = getattr(self._manager, "state_manager", None)
+            if state_mgr is None:
+                raise ValueError("State manager unavailable for current profile.")
+            state = getattr(state_mgr, "state", {}) or {}
+            next_idx = int(state.get("nostr_account_idx", 0)) + 1
+            state_mgr.update_state(
+                manifest_id=None,
+                delta_since=0,
+                last_sync_ts=0,
+                nostr_account_idx=next_idx,
+            )
+            self._clear_runtime_sync_state()
+            self._manager.nostr_account_idx = next_idx
+            reinit = getattr(self._manager, "_initialize_nostr_client", None)
+            if callable(reinit):
+                reinit()
+            return next_idx

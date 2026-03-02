@@ -87,8 +87,12 @@ Progress update (2026-03-02):
   - `managed-load (optional: entry_id)`
   - `managed-exit`
   - service wrappers and tests added
+- Nostr maintenance parity landed in TUI v2:
+  - `nostr-reset-sync-state`
+  - `nostr-fresh-namespace`
+  - service wrappers and tests added
 - Current next implementation target:
-  - explicit Nostr sync-state reset/fresh-namespace parity commands
+  - archived-only entry view/filter parity
 
 ## 6) Working Rule
 
