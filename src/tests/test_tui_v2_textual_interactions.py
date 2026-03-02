@@ -522,6 +522,9 @@ class FakeVaultService:
         self.exported: list[Path] = []
         self.imported: list[Path] = []
         self.parent_seed_backups: list[tuple[Path | None, str | None]] = []
+        self.lock_calls = 0
+        self.unlock_passwords: list[str] = []
+        self.locked = False
 
     def export_vault(self, req) -> None:
         path = Path(getattr(req, "path"))
@@ -541,6 +544,22 @@ class FakeVaultService:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("seed-backup", encoding="utf-8")
         self.parent_seed_backups.append((path, password))
+
+    def lock(self) -> None:
+        self.lock_calls += 1
+        self.locked = True
+
+    def unlock(self, req):
+        password = str(getattr(req, "password", ""))
+        self.unlock_passwords.append(password)
+        if password != "hunter2":
+            raise ValueError("invalid password")
+        self.locked = False
+
+        class _Resp:
+            duration = 0.42
+
+        return _Resp()
 
 
 def _build_app(
@@ -773,9 +792,15 @@ async def test_tui2_textual_quickstart_and_stats_commands() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
 
+        await _run_palette(app, pilot, "onboarding")
+        detail = _widget_text(app, "#entry-detail")
+        assert "Onboarding Quick Start" in detail
+        assert "Step 1: Create your first entry" in detail
+        assert "Displayed onboarding guide" in _status_text(app)
+
         await _run_palette(app, pilot, "quickstart")
         detail = _widget_text(app, "#entry-detail")
-        assert "Quick Start" in detail
+        assert "Onboarding Quick Start" in detail
         assert "add-password" in detail
         assert "Displayed quick start guide" in _status_text(app)
 
@@ -794,7 +819,7 @@ async def test_tui2_textual_empty_vault_shows_quickstart() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
         detail = _widget_text(app, "#entry-detail")
-        assert "Quick Start" in detail
+        assert "Onboarding Quick Start" in detail
         assert "add-password" in detail
         assert "Vault is empty." in _status_text(app)
 
@@ -1571,11 +1596,13 @@ async def test_tui2_textual_managed_account_session_palette_commands() -> None:
         await pilot.pause()
         assert "Loaded managed account session from entry #1" in _status_text(app)
         assert service.managed_load_calls == [1]
+        assert "Managed: #1" in _filters_text(app)
 
         app._run_palette_command("managed-exit")
         await pilot.pause()
         assert "Exited managed account session" in _status_text(app)
         assert service.managed_exit_calls == 1
+        assert "Managed: (none)" in _filters_text(app)
 
         app._run_palette_command("open 2")
         app._run_palette_command("managed-load")
@@ -1611,6 +1638,14 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         assert "Utility service unavailable" in _status_text(app)
 
         app._run_palette_command("db-export /tmp/x")
+        await pilot.pause()
+        assert "Vault service unavailable" in _status_text(app)
+
+        app._run_palette_command("lock")
+        await pilot.pause()
+        assert "Vault service unavailable" in _status_text(app)
+
+        app._run_palette_command("unlock secret")
         await pilot.pause()
         assert "Vault service unavailable" in _status_text(app)
 
@@ -1744,3 +1779,58 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         app._run_palette_command("managed-exit now")
         await pilot.pause()
         assert "Usage: managed-exit" in _status_text(app)
+
+        app._run_palette_command("session-status now")
+        await pilot.pause()
+        assert "Usage: session-status" in _status_text(app)
+
+        app._run_palette_command("lock now")
+        await pilot.pause()
+        assert "Usage: lock" in _status_text(app)
+
+        app._run_palette_command("unlock")
+        await pilot.pause()
+        assert "Usage: unlock <password>" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_session_status_lock_and_unlock() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Demo", "username": "a"}]
+    )
+    vault = FakeVaultService()
+    app = _build_app(service, vault_service=vault)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("session-status")
+        await pilot.pause()
+        assert "Displayed session status" in _status_text(app)
+        assert "Vault lock state: unlocked" in _widget_text(app, "#entry-detail")
+        assert "Session: unlocked" in _filters_text(app)
+
+        app._run_palette_command("lock")
+        await pilot.pause()
+        assert "Vault locked" in _status_text(app)
+        assert vault.lock_calls == 1
+        assert "Session: locked" in _filters_text(app)
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        assert "Vault is locked. Run: unlock <password>" in _status_text(app)
+
+        app._run_palette_command("reveal")
+        await pilot.pause()
+        assert "Vault is locked. Run: unlock <password>" in _status_text(app)
+
+        app._run_palette_command("unlock wrong")
+        await pilot.pause()
+        assert "unlock failed: invalid password" in _status_text(app)
+        assert vault.unlock_passwords[-1] == "wrong"
+
+        app._run_palette_command("unlock hunter2")
+        await pilot.pause()
+        assert "Vault unlocked in 0.42s" in _status_text(app)
+        assert vault.unlock_passwords[-1] == "hunter2"
+        assert "Session: unlocked" in _filters_text(app)

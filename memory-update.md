@@ -825,3 +825,62 @@
   - `docs/dev_control_center.md`
   - `docs/tui_v2_legacy_parity_matrix.md`
   (remaining medium gap: explicit lock/session affordances).
+
+## 2026-03-02 Parity UX slice: explicit session lock/unlock/status affordances
+- Implemented in `src/seedpass/tui_v2/app.py`:
+  - new palette commands:
+    - `session-status`
+    - `lock`
+    - `unlock <password>`
+  - left panel now displays:
+    - `Session: locked|unlocked`
+    - `Managed: #<entry_id>|(none)`
+  - managed session visibility wired:
+    - `managed-load` sets active managed-session marker
+    - `managed-exit` clears active managed-session marker
+  - lock guard behavior:
+    - `open`, `reveal`, and `qr` actions are blocked while locked
+    - selected entry/view state is cleared on lock
+    - unlock restores normal browse/reveal behavior
+- Command discoverability updates:
+  - palette placeholder/help summary/reference now include session commands.
+- Tests added/updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - `test_tui2_textual_palette_session_status_lock_and_unlock`
+    - managed session test now asserts filter-panel state line updates
+    - validation suite now covers `session-status`, `lock`, and `unlock` usage/unavailable paths
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix command paths now exercise session command usage + runtime cases
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `28 passed`.
+- Planning docs updated:
+  - `docs/tui_v2_legacy_parity_matrix.md` now marks session lock/unlock/status rows as implemented.
+  - `docs/dev_control_center.md` priority list now reflects onboarding as the primary remaining UX parity item.
+
+## 2026-03-02 Parity UX slice: first-run onboarding flow parity
+- Implemented explicit onboarding guidance in `src/seedpass/tui_v2/app.py`:
+  - new palette command: `onboarding`
+  - alias: `welcome`
+  - `quickstart` remains supported and now renders the same onboarding guide for backward compatibility.
+- Empty-vault startup behavior now renders the onboarding panel and status guidance:
+  - status text updated to: run `onboarding` (or `quickstart`) to begin.
+- Onboarding guide content now provides a structured first-run path:
+  - create first entry
+  - inspect/reveal/QR verification
+  - operate with stats/help/linking commands.
+- Command discoverability updates:
+  - palette placeholder, help summary, and reference include onboarding.
+  - left action hints now show onboarding/quickstart/stats path.
+- Tests updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - quickstart/stats test now includes onboarding command assertions
+    - empty-vault test now validates onboarding panel rendering
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix coverage now includes onboarding usage and success paths
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `28 passed`.
+- Planning docs updated:
+  - `docs/tui_v2_legacy_parity_matrix.md` now marks onboarding parity as implemented and clears active medium/high parity gaps.
+  - `docs/dev_control_center.md` now reflects that the tracked onboarding/stats/session UX gaps are landed.

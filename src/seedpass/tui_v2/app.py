@@ -282,7 +282,7 @@ def launch_tui2(
             yield Input(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
-                    "help-commands | quickstart | stats | "
+                    "help-commands | onboarding | quickstart | stats | session-status | lock | unlock <password> | "
                     "filter <kind> | archive | restore | "
                     "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
@@ -306,7 +306,7 @@ def launch_tui2(
                     "sync-now | sync-bg | "
                     "checksum-verify | checksum-update | db-export <path> | db-import <path> | "
                     "totp-export <path> | parent-seed-backup [path] [password] | "
-                    "managed-load [entry_id] | managed-exit | "
+                    "managed-load [entry_id] | managed-exit | session-status | lock | unlock <password> | "
                     "doc-export [output_path] | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
@@ -382,6 +382,8 @@ def launch_tui2(
             self._last_status_message = ""
             self._time_now = time.time
             self._totp_rows: list[dict[str, Any]] = []
+            self._session_locked = False
+            self._managed_session_entry_id: int | None = None
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -491,32 +493,41 @@ def launch_tui2(
             self.query_one("#secret-detail", Static).update(text)
 
         def _quickstart_text(self) -> str:
+            return self._onboarding_text()
+
+        def _onboarding_text(self) -> str:
             return "\n".join(
                 [
-                    "Quick Start",
-                    "-----------",
+                    "Onboarding Quick Start",
+                    "----------------------",
                     "",
+                    "Welcome to SeedPass TUI v2.",
                     "Your vault currently has no active entries.",
                     "",
-                    "Try these first actions in the palette (Ctrl+P):",
-                    '- add-password "Site" 16 user https://site.example',
-                    '- add-totp "Authenticator" 30 6',
-                    '- add-document "Runbook" md "starter notes"',
+                    "Step 1: Create your first entry (Ctrl+P then run one command):",
+                    '- add-password "Site" 16 user https://site.example  (login)',
+                    '- add-totp "Authenticator" 30 6                     (2FA)',
+                    '- add-document "Runbook" md "starter notes"         (KB)',
+                    "",
+                    "Step 2: Inspect and verify",
+                    "- open <id> to inspect an entry",
+                    "- v to reveal a selected secret, g to render QR when supported",
+                    "",
+                    "Step 3: Operate and scale",
+                    "- stats for vault overview",
+                    "- help-commands for full command reference",
+                    "- link-add / tag-add / notes-set to build knowledge graph context",
                     "",
                     "Useful navigation:",
                     "- / search, j jump, f kind filter, h archive scope",
                     "- 1/2/3 focus panes, ? keyboard help",
-                    "",
-                    "Operational shortcuts:",
-                    "- stats (vault summary)",
-                    "- help-commands (full palette reference)",
                 ]
             )
 
         def _palette_help_summary(self) -> str:
             return (
                 "Palette commands: help, help-commands, open, search, filter, "
-                "quickstart, stats, "
+                "onboarding, quickstart, stats, session-status, lock/unlock, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
@@ -532,7 +543,7 @@ def launch_tui2(
                     "-----------------",
                     "",
                     "Core: help | help-commands | open <id> | jump <id> | search <q>",
-                    "Core Ops: quickstart | stats",
+                    "Core Ops: onboarding | quickstart | stats | session-status | lock | unlock <password>",
                     "Filters: filter <kind|all> | archive-filter <active|all|archived>",
                     "Pages: page-next | page-prev | page <n>",
                     "",
@@ -549,7 +560,7 @@ def launch_tui2(
                     "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
                     "Nostr: relay-list | relay-add | relay-rm | relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace",
                     "Sync/Utility: sync-now | sync-bg | checksum-verify | checksum-update | db-export | db-import | totp-export | parent-seed-backup",
-                    "Sessions: managed-load [entry_id] | managed-exit",
+                    "Sessions: managed-load [entry_id] | managed-exit | session-status | lock | unlock <password>",
                     "",
                     "Tip: use '?' for compact keyboard help overlay.",
                 ]
@@ -661,6 +672,12 @@ def launch_tui2(
                 if fingerprint
                 else "Fingerprint: (default)"
             )
+            session_state = "locked" if self._session_locked else "unlocked"
+            managed_state = (
+                f"#{self._managed_session_entry_id}"
+                if self._managed_session_entry_id is not None
+                else "(none)"
+            )
             text = "\n".join(
                 [
                     "SeedPass ◈ TUI v2",
@@ -670,6 +687,8 @@ def launch_tui2(
                     f"Filter : {self.filter_kind}",
                     f"Archive: {self.archive_scope}",
                     f"Links  : {self.link_relation_filter}",
+                    f"Session: {session_state}",
+                    f"Managed: {managed_state}",
                     (
                         f"Results: {len(self._all_results)} | "
                         f"Page: {self._result_page + 1}/{self._total_pages()}"
@@ -692,7 +711,7 @@ def launch_tui2(
                     "- Ctrl+S save doc",
                     "- Ctrl+P command palette",
                     "- add-* create entries",
-                    "- quickstart/stats via palette",
+                    "- onboarding/quickstart/stats via palette",
                     "- tags/notes/fields via palette",
                     "- docs: edit/save/export",
                     "- 6 toggle dedicated 2FA board",
@@ -700,6 +719,7 @@ def launch_tui2(
                     "- npub + nostr reset/fresh namespace",
                     "- checksum/db/totp/seed backup",
                     "- managed-load/managed-exit session",
+                    "- session-status, lock, unlock",
                     "- l cycle link relation",
                     "- [ / ] select link",
                     "- o open link target",
@@ -820,7 +840,7 @@ def launch_tui2(
                 )
                 if is_empty_vault:
                     self.query_one("#entry-detail", Static).update(
-                        self._quickstart_text()
+                        self._onboarding_text()
                     )
                 else:
                     self.query_one("#entry-detail", Static).update("No entries match.")
@@ -834,7 +854,7 @@ def launch_tui2(
                 self._current_link_cursor = 0
                 if is_empty_vault:
                     self._set_status(
-                        "Vault is empty. Run 'quickstart' or add your first entry."
+                        "Vault is empty. Run 'onboarding' (or 'quickstart') to begin."
                     )
                 else:
                     self._set_status("No entries match current filter/search")
@@ -931,6 +951,9 @@ def launch_tui2(
             self._render_current_page(preserve_selected=not reset_page)
 
         def _show_entry(self, entry_index: int) -> None:
+            if self._session_locked:
+                self._set_status("Vault is locked. Run: unlock <password>")
+                return
             if self._service is None:
                 return
             try:
@@ -1499,6 +1522,8 @@ def launch_tui2(
             self._refresh_doc_edit_help()
 
         def _selected_entry_payload(self) -> dict[str, Any]:
+            if self._session_locked:
+                raise ValueError("Vault is locked. Run: unlock <password>")
             if self._service is None:
                 raise ValueError("Entry service unavailable")
             if self._selected_entry_id is None:
@@ -1604,11 +1629,18 @@ def launch_tui2(
                 self._set_status(f"Applied search: {query}")
                 return
 
+            if cmd in {"onboarding", "welcome"}:
+                if args:
+                    self._set_status("Usage: onboarding")
+                    return
+                self.query_one("#entry-detail", Static).update(self._onboarding_text())
+                self._set_status("Displayed onboarding guide")
+                return
             if cmd == "quickstart":
                 if args:
                     self._set_status("Usage: quickstart")
                     return
-                self.query_one("#entry-detail", Static).update(self._quickstart_text())
+                self.query_one("#entry-detail", Static).update(self._onboarding_text())
                 self._set_status("Displayed quick start guide")
                 return
 
@@ -1618,6 +1650,103 @@ def launch_tui2(
                     return
                 self.query_one("#entry-detail", Static).update(self._stats_text())
                 self._set_status("Displayed vault stats")
+                return
+            if cmd == "session-status":
+                if args:
+                    self._set_status("Usage: session-status")
+                    return
+                lock_state = "locked" if self._session_locked else "unlocked"
+                managed_state = (
+                    f"entry #{self._managed_session_entry_id}"
+                    if self._managed_session_entry_id is not None
+                    else "none"
+                )
+                vault_state = (
+                    "connected" if self._vault_service is not None else "unavailable"
+                )
+                self.query_one("#entry-detail", Static).update(
+                    "\n".join(
+                        [
+                            "Session Status",
+                            "--------------",
+                            "",
+                            f"Vault lock state: {lock_state}",
+                            f"Managed account session: {managed_state}",
+                            f"Vault service: {vault_state}",
+                        ]
+                    )
+                )
+                self._update_filters_panel()
+                self._set_status("Displayed session status")
+                return
+            if cmd == "lock":
+                if args:
+                    self._set_status("Usage: lock")
+                    return
+                if self._vault_service is None:
+                    self._set_status("Vault service unavailable")
+                    return
+                locker = getattr(self._vault_service, "lock", None)
+                if not callable(locker):
+                    self._set_status("Vault service does not support lock")
+                    return
+                try:
+                    locker()
+                    self._session_locked = True
+                    self._clear_failure()
+                    self._selected_entry_id = None
+                    self._selected_entry = None
+                    self._current_links = []
+                    self._current_link_cursor = 0
+                    self._all_results = []
+                    self._result_page = 0
+                    self._render_current_page(preserve_selected=False)
+                    self._set_secret_panel(
+                        "Vault locked. Sensitive data hidden.\nRun: unlock <password>"
+                    )
+                    self._update_filters_panel()
+                    self._set_status("Vault locked")
+                except Exception as exc:
+                    self._record_failure(
+                        "lock failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+            if cmd == "unlock":
+                if len(args) != 1:
+                    self._set_status("Usage: unlock <password>")
+                    return
+                if self._vault_service is None:
+                    self._set_status("Vault service unavailable")
+                    return
+                unlocker = getattr(self._vault_service, "unlock", None)
+                if not callable(unlocker):
+                    self._set_status("Vault service does not support unlock")
+                    return
+                try:
+                    from seedpass.core.api import UnlockRequest
+
+                    response = unlocker(UnlockRequest(password=args[0]))
+                    self._session_locked = False
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._set_secret_panel(
+                        "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
+                    )
+                    self._clear_failure()
+                    duration = getattr(response, "duration", None)
+                    if isinstance(duration, (int, float)):
+                        self._set_status(f"Vault unlocked in {float(duration):.2f}s")
+                    else:
+                        self._set_status("Vault unlocked")
+                except Exception as exc:
+                    self._record_failure(
+                        "unlock failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
                 return
 
             if cmd == "filter":
@@ -3155,6 +3284,7 @@ def launch_tui2(
                     return
                 try:
                     loader(entry_id)
+                    self._managed_session_entry_id = int(entry_id)
                     self._load_entries(query="", reset_page=True)
                     self._clear_failure()
                     self._set_status(
@@ -3184,6 +3314,7 @@ def launch_tui2(
                     return
                 try:
                     exiter()
+                    self._managed_session_entry_id = None
                     self._load_entries(query="", reset_page=True)
                     self._clear_failure()
                     self._set_status("Exited managed account session")
@@ -3544,9 +3675,15 @@ def launch_tui2(
                 self._set_status("Palette closed")
 
         def action_reveal_selected(self, confirm: bool = False) -> None:
+            if self._session_locked:
+                self._set_status("Vault is locked. Run: unlock <password>")
+                return
             self._show_sensitive_panel(include_qr=False, confirm=confirm)
 
         def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
+            if self._session_locked:
+                self._set_status("Vault is locked. Run: unlock <password>")
+                return
             self._show_sensitive_panel(include_qr=True, qr_mode=mode, confirm=confirm)
 
         def action_toggle_totp_board(self) -> None:

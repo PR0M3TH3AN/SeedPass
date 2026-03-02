@@ -66,7 +66,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
 : prioritized gaps from side-by-side legacy vs v2 run:
-: guided first-run onboarding, stats/ops visibility, explicit lock/session affordances.
+: onboarding + stats/ops + lock/session affordances now landed; continue bug-driven UX polish.
 2. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
 3. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
@@ -128,6 +128,11 @@ Progress update (2026-03-02):
   - added full palette command reference (`help-commands`, alias `commands`)
   - `help` now also renders in-app command reference in entry detail pane
   - focused TUI gate remains green with improved app coverage (`79.97%`)
+- Session affordance parity improved in TUI v2:
+  - added `session-status`, `lock`, and `unlock <password>` palette commands
+  - left pane now displays explicit session lock state and managed-session indicator
+  - lock state blocks open/reveal/QR workflows until unlock succeeds
+  - interaction + matrix tests extended for usage, success, and failure paths
 
 ## 6) Working Rule
 

@@ -51,19 +51,17 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Export TOTP codes | Settings | `totp-export` | Implemented | |
 | Backup/reveal parent seed | Settings | `parent-seed-backup [path] [password]` | Implemented | |
 | Stats view | Settings > Stats | `stats` (palette) | Implemented | In-app dashboard in detail pane. |
+| First-run onboarding guidance | Startup path/menu guidance | Empty-vault onboarding panel + `onboarding` (alias: `welcome`) + `quickstart` | Implemented | Guided steps for first entry, inspect/reveal, and operations. |
 | Display npub | Main utility flow | `npub` (alias: `nostr-pubkey`) | Implemented | Displays active profile npub and QR payload in the sensitive panel. |
 | View archived-only list | Settings/List flow | `h` cycle archive scope or `archive-filter <active|all|archived>` | Implemented | Supports active-only/default, all, and archived-only views. |
 | Reset Nostr sync state | Settings > Nostr | `nostr-reset-sync-state` | Implemented | Added to TUI v2 palette + tests. |
 | Start fresh Nostr namespace | Settings > Nostr | `nostr-fresh-namespace` | Implemented | Added to TUI v2 palette + tests. |
 | Load managed-account session | Retrieve managed account action | `managed-load (optional: entry_id)` | Implemented | Added in TUI v2 palette + tests. |
 | Exit managed-account session | Main loop when in child profile | `managed-exit` | Implemented | Added in TUI v2 palette + tests. |
+| Session visibility | Operational/session affordance | `session-status` + left-pane session lines | Implemented | Shows lock state + managed session state. |
+| Lock vault | Operational/session affordance | `lock` | Implemented | Locks session, clears selected view, blocks reveal/open actions. |
+| Unlock vault | Operational/session affordance | `unlock <password>` | Implemented | Restores unlocked state; usage + failure paths covered in tests. |
 
 ## Prioritized Gap Queue
 
-1. Medium: guided first-run onboarding parity in TUI v2 (legacy has explicit startup path).
-2. Medium: explicit lock/session affordances and status visibility parity in TUI v2.
-
-## Suggested implementation order
-
-1. Land guided onboarding panel/flow parity improvements.
-2. Add lock/session visibility commands and test coverage.
+No active medium/high parity gaps are currently identified in this matrix.
