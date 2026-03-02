@@ -1653,6 +1653,11 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         help="Derive TOTP secrets deterministically",
     )
     parser.add_argument(
+        "--legacy-tui",
+        action="store_true",
+        help="Compatibility flag: launch legacy interactive TUI",
+    )
+    parser.add_argument(
         "--max-prompt-attempts",
         type=int,
         default=None,
@@ -1679,6 +1684,10 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
 
     totp_p = sub.add_parser("totp")
     totp_p.add_argument("query")
+    sub.add_parser(
+        "legacy",
+        help="Compatibility command: launch legacy interactive TUI",
+    )
 
     args = parser.parse_args(argv)
 
@@ -1699,7 +1708,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             logger.error(f"Failed to restore backup: {e}", exc_info=True)
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
             return 1
-    elif args.command is None:
+    elif args.command is None and not args.legacy_tui:
         print("Startup Options:")
         print("1. Continue")
         print("2. Restore from backup")

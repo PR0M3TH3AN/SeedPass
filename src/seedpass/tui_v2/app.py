@@ -138,7 +138,7 @@ def launch_tui2(
             border: solid #2abf75;
             margin: 0 1 0 1;
             padding: 0 1;
-            height: 1;
+            height: 3;
         }
         Input {
             background: #0d1114;
@@ -172,7 +172,7 @@ def launch_tui2(
             color: #daf2e5;
         }
         #top-ribbon {
-            height: 1;
+            height: 3;
             padding: 0 1;
             margin: 0 1;
             border: heavy #2abf75;
@@ -183,7 +183,7 @@ def launch_tui2(
         #body { height: 1fr; margin: 0 1; }
         #top-work { height: 6fr; }
         #status {
-            height: 2;
+            height: 4;
             padding: 0 1;
             border: heavy #58f29d;
             background: #11191f;
@@ -191,7 +191,7 @@ def launch_tui2(
             margin: 1 1 0 1;
         }
         #action-strip {
-            height: 2;
+            height: 4;
             padding: 0 1;
             margin: 0 1;
             border: heavy #2abf75;
@@ -202,7 +202,7 @@ def launch_tui2(
         #center { width: 1fr; border: solid #1a3024; padding: 0 1; background: #0d1114; margin-left: 1; }
         #right { height: 5fr; border: heavy #3ce79c; padding: 1; background: #0d1114; margin-top: 0; }
         #grid-heading {
-            height: 2;
+            height: 4;
             margin-bottom: 0;
             border: solid #274533;
             background: #0b0f13;
@@ -212,7 +212,7 @@ def launch_tui2(
             overflow: hidden;
         }
         #inspector-heading {
-            height: 1;
+            height: 3;
             margin-bottom: 0;
             border: solid #274533;
             background: #0b0f13;

@@ -156,3 +156,39 @@ def test_main_fingerprint_option(monkeypatch):
     rc = main.main(["--fingerprint", "abc", "search", "q"])
     assert rc == 0
     assert called.get("fp") == "abc"
+
+
+def test_legacy_command_compatibility(monkeypatch):
+    called = {"menu": False}
+
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: make_pm([]))
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+    monkeypatch.setattr(
+        main,
+        "display_menu",
+        lambda *a, **k: called.__setitem__("menu", True),
+    )
+
+    rc = main.main(["legacy"])
+    assert rc == 0
+    assert called["menu"] is True
+
+
+def test_legacy_flag_compatibility(monkeypatch):
+    called = {"menu": False}
+
+    monkeypatch.setattr(main, "PasswordManager", lambda *a, **k: make_pm([]))
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main, "initialize_app", lambda: None)
+    monkeypatch.setattr(main.signal, "signal", lambda *a, **k: None)
+    monkeypatch.setattr(
+        main,
+        "display_menu",
+        lambda *a, **k: called.__setitem__("menu", True),
+    )
+
+    rc = main.main(["--legacy-tui"])
+    assert rc == 0
+    assert called["menu"] is True
