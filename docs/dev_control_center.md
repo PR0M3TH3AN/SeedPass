@@ -22,8 +22,8 @@ Latest verification in this session:
   - coverage: `85.65%`
 - Focused TUI validation slices:
   - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
-  - latest result: `29 passed`
-  - plus online-default notice coverage run: `31 passed` (adds config/notice tests)
+  - latest result: `31 passed`
+  - includes profile-tree keyboard navigation/select command coverage
 
 ## 2) Canonical Status Sources
 
@@ -71,10 +71,10 @@ Use these docs as inputs, but treat this file as the decision layer:
 ### Semantic Search Roadmap
 - Semantic index plan drafted and linked:
   - `docs/semantic_vector_index_plan.md`
-- Current recommendation:
-  - local per-device/profile derived vector index
-  - canonical sync unchanged (vectors not synced in Phase 1)
-  - add semantic/hybrid retrieval across KB-centric fields for agents and users
+- Current implementation status:
+  - Phase A complete (local derived index + profile-scoped manifest/records + config flag)
+  - Phase B baseline complete (CLI + API surfaces + initial tests)
+  - Phase C pending (legacy TUI + TUI v2 semantic workflow integration)
 
 ## 4) Recommended Next Steps (Priority Order)
 
@@ -82,11 +82,11 @@ Use these docs as inputs, but treat this file as the decision layer:
 : prioritized gaps from side-by-side legacy vs v2 run:
 : onboarding + stats/ops + lock/session affordances now landed; focus now is mockup-aligned UI refresh completion.
 2. Complete Phase 5 TUI v2 UI refresh queue:
-: interactive profile tree navigation + profile-select actions + final visual polish.
-3. Begin semantic index Phase A scaffolding (feature-flagged local derived index, CLI-first controls).
-4. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
-5. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
-6. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
+: final visual polish pass (profile tree navigation/select is now landed).
+3. Begin semantic index Phase C (legacy TUI + TUI v2 integration with status/build/search controls).
+4. Add semantic incremental update hooks on entry/link/tag mutations.
+5. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
+6. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
@@ -162,9 +162,8 @@ Progress update (2026-03-02):
   - one-time onboarding notice added for first online profile load with settings guidance
 
 Current UI refresh remaining queue:
-1. Add keyboard navigation/select behavior inside left profile tree.
-2. Wire tree selection to profile context switch actions.
-3. Final visual polish pass against mockups (spacing, headers, action strip clarity).
+1. Final visual polish pass against mockups (spacing, headers, action strip clarity).
+2. Semantic indicator slot in top ribbon/action strip (for upcoming Phase C semantic integration).
 
 ## 6) Working Rule
 

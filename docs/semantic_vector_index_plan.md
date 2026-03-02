@@ -1,6 +1,6 @@
 # Semantic Vector Index Integration Plan
 
-Status: Proposed (2026-03-02)  
+Status: In Progress (updated 2026-03-02)  
 Branch target: `beta`  
 Scope: Legacy TUI + Textual TUI v2 + CLI + API
 
@@ -225,29 +225,31 @@ Scale tests:
 
 ## Phase A: Core scaffolding (no UI)
 
-1. add service interfaces + local store abstraction
-2. add index manifest + per-profile storage layout
-3. add offline build/rebuild/status operations
+1. [x] add service interfaces + local store abstraction
+2. [x] add index manifest + per-profile storage layout
+3. [x] add offline build/rebuild/status operations
 
 Exit:
 
-1. CLI-only smoke works (`semantic status/build/search`)
+1. [x] CLI-only smoke works (`semantic status/build/search`)
 
 ## Phase B: CLI + API
 
-1. expose semantic commands in CLI
-2. expose semantic endpoints in API
-3. add tests and policy guards
+1. [x] expose semantic commands in CLI
+2. [x] expose semantic endpoints in API
+3. [x] add initial tests for core + CLI + API
+4. [ ] add lock/policy guard refinements for high-risk partitions and audit logging
 
 Exit:
 
-1. interface tests pass
+1. [x] interface tests pass for current endpoints/commands
+2. [ ] audit and lock-policy behavior validated end-to-end
 
 ## Phase C: TUI integration
 
-1. wire legacy TUI settings/search hooks
-2. wire TUI v2 palette commands + ribbon/status indicators
-3. add hybrid search mode toggles
+1. [ ] wire legacy TUI settings/search hooks
+2. [ ] wire TUI v2 palette commands + ribbon/status indicators
+3. [ ] add hybrid search mode toggles
 
 Exit:
 
@@ -272,8 +274,32 @@ Exit:
 
 ## 14) Recommended Immediate Next Steps
 
-1. Approve local-only (non-synced embeddings) as Phase A baseline.
-2. Finalize field-level allowlist/denylist defaults with security review.
-3. Implement Phase A core scaffolding behind feature flag:
-- `semantic_index_enabled` (default `false`)
-4. Add CLI `seedpass semantic status/build/rebuild/search` as first user-facing slice.
+1. Complete Phase C integration in both TUIs (`semantic-status/build/rebuild/search` + status indicator).
+2. Add incremental update hooks on entry/link/tag mutations (avoid full rebuild for small edits).
+3. Add hybrid ranking mode (`keyword|hybrid|semantic`) with explicit config + API contract.
+4. Add audit logging and lock-policy tests for semantic operations in agent/API contexts.
+5. Run KB scale benchmark with semantic index enabled and record latency/memory evidence.
+
+## 15) Progress Snapshot (2026-03-02)
+
+Implemented:
+
+1. `seedpass.core.semantic_index` local derived index with profile-local manifest/records.
+2. `semantic_index_enabled` profile config flag and config service wrappers.
+3. `SemanticIndexService` in core API layer.
+4. CLI commands:
+- `seedpass semantic status|enable|disable|build|rebuild|search`
+5. API endpoints:
+- `GET /api/v1/semantic/status`
+- `POST /api/v1/semantic/build`
+- `POST /api/v1/semantic/rebuild`
+- `POST /api/v1/semantic/search`
+- `POST /api/v1/semantic/config`
+6. Initial tests for core service/index, CLI commands, and API endpoints.
+
+Not yet implemented:
+
+1. Legacy TUI semantic controls.
+2. TUI v2 semantic palette integration/ribbon indicator.
+3. True embedding backend and vector DB adapter (current implementation is token-overlap baseline).
+4. Incremental mutation hooks and hybrid ranking mode.

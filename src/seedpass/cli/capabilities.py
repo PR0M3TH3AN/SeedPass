@@ -27,6 +27,7 @@ def build_capabilities() -> dict[str, Any]:
                     "util",
                     "api",
                     "agent",
+                    "semantic",
                 ],
                 "global_options": [
                     "--fingerprint",
@@ -53,6 +54,10 @@ def build_capabilities() -> dict[str, Any]:
                     "/api/v1/high-risk/status",
                     "/api/v1/high-risk/unlock",
                     "/api/v1/high-risk/lock",
+                    "/api/v1/semantic/status",
+                    "/api/v1/semantic/build",
+                    "/api/v1/semantic/rebuild",
+                    "/api/v1/semantic/search",
                 ],
                 "auth_headers": ["Authorization: Bearer <token>"],
                 "sensitive_auth_headers": [
@@ -206,6 +211,25 @@ def build_capabilities() -> dict[str, Any]:
                 "search_includes_link_metadata": True,
                 "sync_union_merge_fields": ["tags", "custom_fields", "links"],
             },
+            "semantic_index": {
+                "commands": [
+                    "semantic status",
+                    "semantic enable",
+                    "semantic disable",
+                    "semantic build",
+                    "semantic rebuild",
+                    "semantic search",
+                ],
+                "api_endpoints": [
+                    "GET /api/v1/semantic/status",
+                    "POST /api/v1/semantic/build",
+                    "POST /api/v1/semantic/rebuild",
+                    "POST /api/v1/semantic/search",
+                    "POST /api/v1/semantic/config",
+                ],
+                "default_enabled": False,
+                "sync_behavior": "local_derived_only",
+            },
             "redaction": {
                 "default_safe_output": True,
                 "reveal_override": "agent get --reveal",
@@ -244,6 +268,7 @@ def build_capabilities() -> dict[str, Any]:
             "Use `seedpass --legacy-tui` to force the legacy interface during cutover.",
             "In TUI v2, use `?` for help, `j` to jump to entry id, `1/2/3` to focus panes, `Ctrl+P` for palette, `p/n` for paging, and `x` to retry.",
             "For graph workflows, start with `seedpass entry link-add --help` and `seedpass entry links --help`.",
+            "For semantic KB retrieval, run `seedpass semantic --help` and check `seedpass semantic status`.",
             "For document workflows, run `seedpass entry import-document --help` and `seedpass agent document-import --help`.",
             "After unlock/login, run `seedpass capabilities` before autonomous runs.",
             "For agent bootstrap context, run `seedpass agent bootstrap-context`.",
@@ -284,6 +309,7 @@ def emit_capabilities(output_format: str) -> str:
     lines.append("- Security posture checks and remediation bundles")
     lines.append("- Audited access log with chained HMAC signatures")
     lines.append("- Knowledge graph links: entry link-add/links/link-remove")
+    lines.append("- Semantic KB retrieval: semantic status/build/rebuild/search")
     lines.append("- Document file workflows for users and agents")
     lines.append("")
     lines.append("Discovery hints:")

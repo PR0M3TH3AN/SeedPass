@@ -63,7 +63,7 @@ from seedpass.core.agent_recovery import (
     verify_recovery_drills,
 )
 from seedpass.core.high_risk_partition_store import load_partition_entry
-from seedpass.core.api import UtilityService
+from seedpass.core.api import SemanticIndexService, UtilityService
 
 _RATE_LIMIT = int(os.getenv("SEEDPASS_RATE_LIMIT", "100"))
 _RATE_WINDOW = int(os.getenv("SEEDPASS_RATE_WINDOW", "60"))
@@ -216,6 +216,10 @@ def _require_unlocked(request: Request) -> None:
     pm = _get_pm(request)
     if bool(getattr(pm, "is_locked", False) or getattr(pm, "locked", False)):
         raise HTTPException(status_code=423, detail="Vault is locked")
+
+
+def _semantic_service(request: Request) -> SemanticIndexService:
+    return SemanticIndexService(_get_pm(request))
 
 
 def _validate_encryption_path(request: Request, path: Path) -> Path:
@@ -1404,6 +1408,65 @@ def set_secret_mode(
     pm.secret_mode_enabled = bool(enabled)
     pm.clipboard_clear_delay = int(delay)
     return {"status": "ok"}
+
+
+@app.get("/api/v1/semantic/status")
+def semantic_status(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    return _semantic_service(request).status()
+
+
+@app.post("/api/v1/semantic/build")
+def semantic_build(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    return _semantic_service(request).build()
+
+
+@app.post("/api/v1/semantic/rebuild")
+def semantic_rebuild(
+    request: Request, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    return _semantic_service(request).rebuild()
+
+
+@app.post("/api/v1/semantic/search")
+def semantic_search(
+    request: Request,
+    data: dict[str, Any],
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    query = str(data.get("query", "")).strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing query")
+    k = int(data.get("k", 10))
+    kind_raw = data.get("kind")
+    kind = str(kind_raw).strip() if kind_raw is not None else None
+    results = _semantic_service(request).search(query, k=max(1, k), kind=kind)
+    return {"results": results}
+
+
+@app.post("/api/v1/semantic/config")
+def semantic_config(
+    request: Request,
+    data: dict[str, Any],
+    authorization: str | None = Header(None),
+) -> dict[str, Any]:
+    _check_token(request, authorization)
+    _require_unlocked(request)
+    if "enabled" not in data:
+        raise HTTPException(status_code=400, detail="Missing enabled")
+    payload = _semantic_service(request).set_enabled(bool(data.get("enabled")))
+    return {"enabled": bool(payload.get("enabled", False))}
 
 
 @app.get("/api/v1/fingerprint")

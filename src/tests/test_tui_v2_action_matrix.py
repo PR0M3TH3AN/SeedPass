@@ -551,6 +551,9 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("profile-add")
         app._run_palette_command("profile-remove")
         app._run_palette_command("profile-rename")
+        app._run_palette_command("profile-tree-next now")
+        app._run_palette_command("profile-tree-prev now")
+        app._run_palette_command("profile-tree-open now")
         app._run_palette_command("setting-secret on")
         app._run_palette_command("setting-offline on")
         app._run_palette_command("setting-quick-unlock on")
@@ -598,6 +601,10 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("lock")
         app._run_palette_command("unlock hunter2")
         app._run_palette_command("search Doc")
+        app.action_focus_left()
+        app._run_palette_command("profile-tree-next")
+        app._run_palette_command("profile-tree-prev")
+        app._run_palette_command("profile-tree-open")
         app._run_palette_command("density comfortable")
         app._run_palette_command("density compact")
         app._run_palette_command("filter document")
@@ -633,12 +640,16 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("2fa-hide")
         app._run_palette_command("doc-export /tmp/seedpass-matrix-export")
         app._run_palette_command("copy content")
-        app._run_palette_command("export-field content /tmp/seedpass-matrix-content.txt")
+        app._run_palette_command(
+            "export-field content /tmp/seedpass-matrix-content.txt"
+        )
         await pilot.pause()
 
         app._run_palette_command("open 2")
         app._run_palette_command("copy password confirm")
-        app._run_palette_command("export-field password /tmp/seedpass-matrix-password.txt confirm")
+        app._run_palette_command(
+            "export-field password /tmp/seedpass-matrix-password.txt confirm"
+        )
         app.action_reveal_selected()
         await pilot.pause()
         assert "pw-2-" in str(app.query_one("#secret-detail").render())

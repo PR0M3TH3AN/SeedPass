@@ -1007,8 +1007,20 @@ async def test_tui2_textual_copy_command_for_core_and_advanced_fields(tmp_path) 
                 "private_key": "SSH_PRIVATE_2",
                 "public_key": "ssh-ed25519 AAAA-2",
             },
-            {"id": 3, "kind": "nostr", "label": "Nostr 3", "npub": "npub3", "nsec": "nsec3"},
-            {"id": 4, "kind": "key_value", "label": "KV 4", "key": "TOKEN", "value": "abc123"},
+            {
+                "id": 3,
+                "kind": "nostr",
+                "label": "Nostr 3",
+                "npub": "npub3",
+                "nsec": "nsec3",
+            },
+            {
+                "id": 4,
+                "kind": "key_value",
+                "label": "KV 4",
+                "key": "TOKEN",
+                "value": "abc123",
+            },
         ]
     )
     app = _build_app(service)
@@ -1552,6 +1564,17 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         await pilot.pause()
         assert "Profiles (2): fp-a, fp-b" in _status_text(app)
 
+        app.action_focus_left()
+        await pilot.pause()
+        app.action_profile_tree_next()
+        await pilot.pause()
+        assert "Profile selection: fp-b" in _status_text(app)
+
+        app.action_profile_tree_open()
+        await pilot.pause()
+        assert profiles.last_switch == ("fp-b", None)
+        assert "Switched profile to fp-b" in _status_text(app)
+
         app._run_palette_command("profile-switch fp-b")
         await pilot.pause()
         assert profiles.last_switch == ("fp-b", None)
@@ -1792,6 +1815,18 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Usage: profile-rename <fingerprint> <name>" in _status_text(app)
 
+        app._run_palette_command("profile-tree-next now")
+        await pilot.pause()
+        assert "Usage: profile-tree-next" in _status_text(app)
+
+        app._run_palette_command("profile-tree-prev now")
+        await pilot.pause()
+        assert "Usage: profile-tree-prev" in _status_text(app)
+
+        app._run_palette_command("profile-tree-open now")
+        await pilot.pause()
+        assert "Usage: profile-tree-open" in _status_text(app)
+
         app._run_palette_command("relay-list")
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
@@ -1905,11 +1940,15 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
 
         app._run_palette_command("export-field")
         await pilot.pause()
-        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(app)
+        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(
+            app
+        )
 
         app._run_palette_command("export-field password /tmp/x nope")
         await pilot.pause()
-        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(app)
+        assert "Usage: export-field <field> <path> (optional: confirm)" in _status_text(
+            app
+        )
 
         app._run_palette_command("density")
         await pilot.pause()

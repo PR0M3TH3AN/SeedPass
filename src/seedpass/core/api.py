@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from .manager import PasswordManager
 from .pubsub import bus
 from .entry_types import EntryType
+from .semantic_index import SemanticIndex
 from utils import copy_to_clipboard
 
 
@@ -824,6 +825,87 @@ class ConfigService:
             cfg = self._manager.config_manager
             cfg.set_offline_mode(enabled)
             self._manager.offline_mode = enabled
+
+    def set_semantic_index_enabled(self, enabled: bool) -> None:
+        with self._lock:
+            cfg = self._manager.config_manager
+            cfg.set_semantic_index_enabled(enabled)
+
+    def get_semantic_index_enabled(self) -> bool:
+        with self._lock:
+            return self._manager.config_manager.get_semantic_index_enabled()
+
+
+class SemanticIndexService:
+    """Thread-safe wrapper around local semantic index operations."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def _index(self) -> SemanticIndex:
+        profile_dir = getattr(self._manager, "fingerprint_dir", None)
+        if profile_dir is None:
+            raise ValueError("active profile directory unavailable")
+        return SemanticIndex(Path(profile_dir))
+
+    def _all_entries(self) -> list[dict[str, Any]]:
+        em = getattr(self._manager, "entry_manager", None)
+        if em is None:
+            return []
+        rows = em.search_entries(
+            "",
+            kinds=None,
+            include_archived=True,
+            archived_only=False,
+        )
+        entries: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                entry_id = int(row[0])
+            except Exception:
+                continue
+            entry = em.retrieve_entry(entry_id)
+            if isinstance(entry, dict) and entry:
+                entries.append(dict(entry))
+        return entries
+
+    def status(self) -> Dict[str, Any]:
+        with self._lock:
+            idx = self._index()
+            payload = idx.status()
+            payload["enabled"] = bool(
+                self._manager.config_manager.get_semantic_index_enabled()
+            )
+            return payload
+
+    def set_enabled(self, enabled: bool) -> Dict[str, Any]:
+        with self._lock:
+            self._manager.config_manager.set_semantic_index_enabled(bool(enabled))
+            idx = self._index()
+            idx.set_enabled(bool(enabled))
+            payload = idx.status()
+            payload["enabled"] = bool(enabled)
+            return payload
+
+    def build(self) -> Dict[str, Any]:
+        with self._lock:
+            idx = self._index()
+            idx.set_enabled(self._manager.config_manager.get_semantic_index_enabled())
+            return idx.build(self._all_entries())
+
+    def rebuild(self) -> Dict[str, Any]:
+        with self._lock:
+            idx = self._index()
+            idx.set_enabled(self._manager.config_manager.get_semantic_index_enabled())
+            return idx.rebuild(self._all_entries())
+
+    def search(
+        self, query: str, *, k: int = 10, kind: str | None = None
+    ) -> list[Dict[str, Any]]:
+        with self._lock:
+            idx = self._index()
+            return idx.search(query, k=k, kind=kind)
 
 
 class UtilityService:

@@ -94,6 +94,7 @@ class ConfigManager:
                 "special_mode": "standard",
                 "exclude_ambiguous": False,
                 "verbose_timing": False,
+                "semantic_index_enabled": False,
                 "secret_class_partitions": dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
             }
         try:
@@ -126,6 +127,7 @@ class ConfigManager:
             data.setdefault("special_mode", "standard")
             data.setdefault("exclude_ambiguous", False)
             data.setdefault("verbose_timing", False)
+            data.setdefault("semantic_index_enabled", False)
             data.setdefault(
                 "secret_class_partitions",
                 dict(self.SECRET_CLASS_PARTITIONS_DEFAULT),
@@ -280,6 +282,17 @@ class ConfigManager:
         """Retrieve the offline mode setting."""
         config = self.load_config(require_pin=False)
         return bool(config.get("offline_mode", False))
+
+    def set_semantic_index_enabled(self, enabled: bool) -> None:
+        """Persist whether semantic index is enabled for this profile."""
+        config = self.load_config(require_pin=False)
+        config["semantic_index_enabled"] = bool(enabled)
+        self.save_config(config)
+
+    def get_semantic_index_enabled(self) -> bool:
+        """Return whether semantic index is enabled for this profile."""
+        config = self.load_config(require_pin=False)
+        return bool(config.get("semantic_index_enabled", False))
 
     def set_clipboard_clear_delay(self, delay: int) -> None:
         """Persist clipboard clear timeout in seconds."""

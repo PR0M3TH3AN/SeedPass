@@ -290,6 +290,9 @@ def launch_tui2(
             ("f", "cycle_filter", "Filter"),
             ("d", "toggle_density", "Density"),
             ("h", "cycle_archive_scope", "Archive View"),
+            ("up", "profile_tree_prev", "Profile Prev"),
+            ("down", "profile_tree_next", "Profile Next"),
+            ("ctrl+o", "profile_tree_open", "Profile Open"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
             ("l", "cycle_link_filter", "Link Filter"),
@@ -336,6 +339,7 @@ def launch_tui2(
                     "2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id> | "
                     "profiles-list | profile-switch <fp> [password] | profile-add | "
                     "profile-remove <fp> | profile-rename <fp> <name> | "
+                    "profile-tree-next | profile-tree-prev | profile-tree-open | "
                     "setting-secret <on|off> [delay] | setting-offline <on|off> | "
                     "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
                     "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
@@ -430,6 +434,8 @@ def launch_tui2(
             self._managed_session_entry_id: int | None = None
             self._last_sync_text = "(none)"
             self._density_mode = "compact"
+            self._profile_tree_items: list[str] = []
+            self._profile_tree_cursor = 0
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -498,6 +504,7 @@ def launch_tui2(
             self._update_help_overlay()
             self._update_activity_panel()
             self._apply_focus_style()
+            self._refresh_profile_tree()
             self._update_top_ribbon()
             self._update_action_strip()
             self._set_secret_panel(
@@ -560,6 +567,26 @@ def launch_tui2(
             )
             self.query_one("#top-ribbon", Static).update(text)
 
+        def _refresh_profile_tree(self) -> None:
+            profiles: list[str] = []
+            if self._profile_service is not None:
+                lister = getattr(self._profile_service, "list_profiles", None)
+                if callable(lister):
+                    try:
+                        profiles = [str(item) for item in lister() if str(item).strip()]
+                    except Exception:
+                        profiles = []
+            if not profiles:
+                profiles = [fingerprint or "(default)"]
+            self._profile_tree_items = profiles
+            active = fingerprint or ""
+            if active and active in profiles:
+                self._profile_tree_cursor = profiles.index(active)
+            else:
+                self._profile_tree_cursor = min(
+                    max(0, self._profile_tree_cursor), max(0, len(profiles) - 1)
+                )
+
         def _update_action_strip(self) -> None:
             kind = ""
             if isinstance(self._selected_entry, dict):
@@ -593,9 +620,7 @@ def launch_tui2(
             self.query_one("#action-strip", Static).update(text)
 
         def _update_grid_heading(self) -> None:
-            table_cols = (
-                "Idx      Entry  Title                     Kind            Meta                 Arch"
-            )
+            table_cols = "Idx      Entry  Title                     Kind            Meta                 Arch"
             sort_line = (
                 "Sort: index ▲▼ | entry ▲▼ | title ▲▼ | kind ▲▼   "
                 f"Page {self._result_page + 1}/{self._total_pages()}   "
@@ -642,7 +667,7 @@ def launch_tui2(
             return (
                 "Palette commands: help, help-commands, open, search, filter, "
                 "onboarding, quickstart, stats, session-status, lock/unlock, "
-                "density, "
+                "density, profile-tree-next/prev/open, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
@@ -671,7 +696,7 @@ def launch_tui2(
                     "Entry Fields: notes-set | notes-clear | tag-add | tag-rm | tags-set | tags-clear | field-add | field-rm | set-field | clear-field",
                     "",
                     "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id>",
-                    "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename",
+                    "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename | profile-tree-next | profile-tree-prev | profile-tree-open",
                     "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
                     "Nostr: relay-list | relay-add | relay-rm | relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace",
                     "Sync/Utility: sync-now | sync-bg | checksum-verify | checksum-update | db-export | db-import | totp-export | parent-seed-backup",
@@ -782,22 +807,17 @@ def launch_tui2(
             return f"Selected: #{self._selected_entry_id} [{kind}] {label}"
 
         def _update_filters_panel(self) -> None:
+            self._refresh_profile_tree()
             tree_lines = ["Profiles", "--------"]
-            profiles: list[str] = []
-            if self._profile_service is not None:
-                lister = getattr(self._profile_service, "list_profiles", None)
-                if callable(lister):
-                    try:
-                        profiles = [str(item) for item in lister()]
-                    except Exception:
-                        profiles = []
+            profiles = list(self._profile_tree_items)
             current_fp = fingerprint or ""
             if profiles:
-                for item in profiles[:8]:
+                for idx, item in enumerate(profiles[:8]):
                     marker = "*" if item == current_fp else "-"
-                    tree_lines.append(f"{marker} {item}")
+                    cursor = "▶" if idx == self._profile_tree_cursor else " "
+                    tree_lines.append(f"{cursor} {marker} {item}")
             else:
-                tree_lines.append(f"* {current_fp or '(default)'}")
+                tree_lines.append(f"▶ * {current_fp or '(default)'}")
 
             fp_line = (
                 f"Fingerprint: {fingerprint}"
@@ -834,6 +854,8 @@ def launch_tui2(
                     "- j jump to id",
                     "- f cycle kind filter",
                     "- d density toggle",
+                    "- ↑/↓ profile tree",
+                    "- Ctrl+O open profile",
                     "- h cycle archive scope",
                     "- p/n prev/next page",
                     "- 1/2/3 focus pane",
@@ -1060,7 +1082,9 @@ def launch_tui2(
 
         @staticmethod
         def _entry_kind(entry: dict[str, Any]) -> str:
-            return str(entry.get("kind") or entry.get("type") or "unknown").strip().lower()
+            return (
+                str(entry.get("kind") or entry.get("type") or "unknown").strip().lower()
+            )
 
         @staticmethod
         def _entry_tags_text(entry: dict[str, Any]) -> str:
@@ -1897,9 +1921,7 @@ def launch_tui2(
                 raise ValueError("Selected entry not found")
             return dict(entry)
 
-        def _resolve_copy_field_value(
-            self, field: str
-        ) -> tuple[str, bool, str]:
+        def _resolve_copy_field_value(self, field: str) -> tuple[str, bool, str]:
             if self._service is None:
                 raise ValueError("Entry service unavailable")
             entry = self._selected_entry_payload()
@@ -1919,7 +1941,9 @@ def launch_tui2(
                     return str(entry.get("username") or ""), False, "username"
                 if key == "url":
                     return str(entry.get("url") or ""), False, "url"
-                raise ValueError("copy field unsupported for password: password|username|url")
+                raise ValueError(
+                    "copy field unsupported for password: password|username|url"
+                )
 
             if kind in {"seed", "managed_account"}:
                 if key not in {"seed", "phrase"}:
@@ -1971,7 +1995,9 @@ def launch_tui2(
 
             if kind in {"document", "note"}:
                 if key not in {"content", "text"}:
-                    raise ValueError("copy field unsupported for document: content|text")
+                    raise ValueError(
+                        "copy field unsupported for document: content|text"
+                    )
                 return str(entry.get("content") or ""), False, "content"
 
             raise ValueError(f"copy not supported for kind '{kind or 'unknown'}'")
@@ -2986,6 +3012,7 @@ def launch_tui2(
                     )
                     self._clear_failure()
                     self._load_entries(self._last_query, reset_page=True)
+                    self._refresh_profile_tree()
                     self._set_status(f"Switched profile to {fp}")
                 except Exception as exc:
                     self._record_failure(
@@ -3006,6 +3033,7 @@ def launch_tui2(
                 try:
                     fp = self._profile_service.add_profile()
                     self._clear_failure()
+                    self._refresh_profile_tree()
                     if fp:
                         self._set_status(f"Created profile {fp}")
                     else:
@@ -3037,6 +3065,7 @@ def launch_tui2(
                         ProfileRemoveRequest(fingerprint=fp)
                     )
                     self._clear_failure()
+                    self._refresh_profile_tree()
                     self._set_status(f"Removed profile {fp}")
                 except Exception as exc:
                     self._record_failure(
@@ -3065,6 +3094,7 @@ def launch_tui2(
                 try:
                     self._profile_service.rename_profile(fp, name)
                     self._clear_failure()
+                    self._refresh_profile_tree()
                     self._set_status(f"Renamed profile {fp} to '{name}'")
                 except Exception as exc:
                     self._record_failure(
@@ -3073,6 +3103,27 @@ def launch_tui2(
                         retry=lambda: self._run_palette_command(raw),
                         hint="Press 'x' to retry.",
                     )
+                return
+
+            if cmd == "profile-tree-next":
+                if args:
+                    self._set_status("Usage: profile-tree-next")
+                    return
+                self.action_profile_tree_next()
+                return
+
+            if cmd == "profile-tree-prev":
+                if args:
+                    self._set_status("Usage: profile-tree-prev")
+                    return
+                self.action_profile_tree_prev()
+                return
+
+            if cmd == "profile-tree-open":
+                if args:
+                    self._set_status("Usage: profile-tree-open")
+                    return
+                self.action_profile_tree_open()
                 return
 
             if cmd == "setting-secret":
@@ -3712,7 +3763,9 @@ def launch_tui2(
                     self._set_status("Entry service unavailable")
                     return
                 if len(args) not in {2, 3}:
-                    self._set_status("Usage: export-field <field> <path> (optional: confirm)")
+                    self._set_status(
+                        "Usage: export-field <field> <path> (optional: confirm)"
+                    )
                     return
                 field = args[0].strip()
                 output_path = args[1].strip()
@@ -3722,7 +3775,9 @@ def launch_tui2(
                 confirm = False
                 if len(args) == 3:
                     if args[2].strip().lower() != "confirm":
-                        self._set_status("Usage: export-field <field> <path> (optional: confirm)")
+                        self._set_status(
+                            "Usage: export-field <field> <path> (optional: confirm)"
+                        )
                         return
                     confirm = True
                 try:
@@ -4033,6 +4088,69 @@ def launch_tui2(
             self._focus_pane = "left"
             self._apply_focus_style()
             self._set_status("Focused left pane")
+
+        def action_profile_tree_next(self) -> None:
+            if self._focus_pane != "left":
+                return
+            self._refresh_profile_tree()
+            if not self._profile_tree_items:
+                self._set_status("No profiles available")
+                return
+            self._profile_tree_cursor = (self._profile_tree_cursor + 1) % len(
+                self._profile_tree_items
+            )
+            selected = self._profile_tree_items[self._profile_tree_cursor]
+            self._update_filters_panel()
+            self._set_status(f"Profile selection: {selected}")
+
+        def action_profile_tree_prev(self) -> None:
+            if self._focus_pane != "left":
+                return
+            self._refresh_profile_tree()
+            if not self._profile_tree_items:
+                self._set_status("No profiles available")
+                return
+            self._profile_tree_cursor = (self._profile_tree_cursor - 1) % len(
+                self._profile_tree_items
+            )
+            selected = self._profile_tree_items[self._profile_tree_cursor]
+            self._update_filters_panel()
+            self._set_status(f"Profile selection: {selected}")
+
+        def action_profile_tree_open(self) -> None:
+            if self._focus_pane != "left":
+                return
+            if self._profile_service is None:
+                self._set_status("Profile service unavailable")
+                return
+            self._refresh_profile_tree()
+            if not self._profile_tree_items:
+                self._set_status("No profiles available")
+                return
+            target = self._profile_tree_items[self._profile_tree_cursor]
+            if target == "(default)":
+                self._set_status("No switch needed for default profile")
+                return
+            if target == (fingerprint or ""):
+                self._set_status(f"Profile already active: {target}")
+                return
+            try:
+                from seedpass.core.api import ProfileSwitchRequest
+
+                self._profile_service.switch_profile(
+                    ProfileSwitchRequest(fingerprint=target, password=None)
+                )
+                self._clear_failure()
+                self._load_entries(self._last_query, reset_page=True)
+                self._refresh_profile_tree()
+                self._set_status(f"Switched profile to {target}")
+            except Exception as exc:
+                self._record_failure(
+                    "profile-tree-open failed",
+                    exc,
+                    retry=self.action_profile_tree_open,
+                    hint="Press 'x' to retry.",
+                )
 
         def action_focus_center(self) -> None:
             self._focus_pane = "center"

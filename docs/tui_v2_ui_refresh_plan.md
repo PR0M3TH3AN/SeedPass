@@ -500,6 +500,38 @@ Next recommended slice:
 
 1. Continue Phase 5 by adding explicit keyboard navigation inside the left profile tree and wiring profile-selection actions to update active context.
 
+### 2026-03-02 - Phase 5 polish (interactive profile tree navigation) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Added keyboard bindings for left profile tree interactions:
+- `Up` / `Down`: move profile cursor
+- `Ctrl+O`: open/switch to selected profile
+
+2. Added palette command aliases:
+- `profile-tree-next`
+- `profile-tree-prev`
+- `profile-tree-open`
+
+3. Updated left-panel rendering:
+- cursor marker (`▶`) and active profile marker (`*`) now render together
+- status text confirms selection movement and profile-switch outcomes
+
+4. Wired profile mutation commands to refresh tree state:
+- `profile-switch`
+- `profile-add`
+- `profile-remove`
+- `profile-rename`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `31 passed`.
+
+Next recommended slice:
+
+1. Final visual alignment pass to mockups (spacing, headers, action strip hierarchy) and semantic indicator slot prep.
+
 ## 14) Current Status Snapshot
 
 Completed:
@@ -509,10 +541,10 @@ Completed:
 3. Phase 3 core inspector board templates.
 4. Phase 4 advanced inspector actions (`copy`, `export-field` with confirm gates).
 5. Phase 5 initial polish (`density` controls + profile tree scaffold).
+6. Phase 5 interactive profile tree navigation and open/switch behavior.
 
 Remaining (active queue):
 
-1. Implement explicit keyboard navigation/select actions in left profile tree.
-2. Wire tree selection to active profile context updates (safe, service-backed path).
-3. Final alignment pass to mockup spacing/rhythm and action-strip clarity.
-4. Run focused TUI tests and coverage gate after each polish slice.
+1. Final alignment pass to mockup spacing/rhythm and action-strip clarity.
+2. Add semantic-state indicator slot in ribbon/action strip for upcoming semantic Phase C.
+3. Run focused TUI tests and coverage gate after each polish slice.
