@@ -4,14 +4,25 @@ set -euo pipefail
 # CI smoke gate for TUI v2 runtime diagnostics.
 # Prefer the real CLI command when available; fall back to Typer CliRunner.
 
+export PYTHONPATH=src
+
 if command -v seedpass >/dev/null 2>&1; then
     raw_output="$(seedpass tui2 --check)"
 else
-    py_bin="python"
-    if ! command -v "$py_bin" >/dev/null 2>&1; then
+    if command -v python >/dev/null 2>&1; then
+        py_bin="python"
+    else
         py_bin="python3"
     fi
-    raw_output="$("$py_bin" - <<'PY'
+
+    # Try poetry first if we are not in an active virtual environment
+    if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
+        py_bin="poetry run $py_bin"
+    elif [[ -x ".venv/bin/python" ]]; then
+        py_bin=".venv/bin/python"
+    fi
+
+    raw_output="$($py_bin - <<'PY'
 import json
 from typer.testing import CliRunner
 from seedpass.cli import app
@@ -25,12 +36,19 @@ PY
 )"
 fi
 
-py_bin="python"
-if ! command -v "$py_bin" >/dev/null 2>&1; then
+if command -v python >/dev/null 2>&1; then
+    py_bin="python"
+else
     py_bin="python3"
 fi
 
-"$py_bin" - <<'PY' "$raw_output"
+if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
+    py_bin="poetry run $py_bin"
+elif [[ -x ".venv/bin/python" ]]; then
+    py_bin=".venv/bin/python"
+fi
+
+$py_bin - <<'PY' "$raw_output"
 import json
 import sys
 

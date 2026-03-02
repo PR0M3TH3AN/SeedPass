@@ -4,30 +4,37 @@
   "modules": {
     "src/main.py": {
       "threshold_percent": 50.0,
-      "actual_percent": 54.170571696344894,
+      "actual_percent": 59.07079646017699,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    },
+    "src/seedpass/core/api.py": {
+      "threshold_percent": 85.0,
+      "actual_percent": 89.86928104575163,
       "meets_threshold": true,
       "uncovered_functions": [],
       "error": null
     },
     "src/seedpass/core/encryption.py": {
       "threshold_percent": 80.0,
-      "actual_percent": 83.09037900874635,
+      "actual_percent": 82.83132530120481,
       "meets_threshold": true,
       "uncovered_functions": [],
       "error": null
     },
     "src/seedpass/core/manager.py": {
       "threshold_percent": 60.0,
-      "actual_percent": 61.59822419533851,
+      "actual_percent": 60.40462427745665,
       "meets_threshold": true,
       "uncovered_functions": [
         {
-          "name": "PasswordManager._worker",
-          "line": 1727
+          "name": "PasswordManager.print_help",
+          "line": 2265
         },
         {
-          "name": "PasswordManager._async_worker",
-          "line": 1743
+          "name": "PasswordManager.print_lines",
+          "line": 2268
         }
       ],
       "error": null
@@ -40,5 +47,5 @@
       "error": null
     }
   },
-  "coverage_json": "/home/user/Documents/GitHub/SeedPass/artifacts/coverage/coverage.full.json"
+  "coverage_json": "/app/artifacts/coverage/coverage.json"
 }
