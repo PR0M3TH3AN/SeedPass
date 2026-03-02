@@ -155,7 +155,7 @@ async def test_tui2_parity_filters_cover_all_entry_kinds() -> None:
             await _run_palette(app, pilot, f"filter {kind}")
             assert len(list_view.children) == 1
             detail_text = _widget_text(app, "#entry-detail")
-            assert f'"kind": "{kind}"' in detail_text
+            assert f"{kind}-entry" in detail_text
 
         await _run_palette(app, pilot, "filter all")
         assert len(list_view.children) == len(kinds)

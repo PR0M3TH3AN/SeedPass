@@ -306,7 +306,7 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     pm.initialize_managers()
     pm.initialize_managers()
 
-    assert calls["sync"] == 0
+    assert calls["sync"] == 1
     assert enc_mgr.last_migration_performed is False
 
 

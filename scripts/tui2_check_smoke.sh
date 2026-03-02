@@ -13,6 +13,9 @@ else
     fi
     raw_output="$("$py_bin" - <<'PY'
 import json
+import sys
+import os
+sys.path.insert(0, os.path.abspath('src'))
 from typer.testing import CliRunner
 from seedpass.cli import app
 

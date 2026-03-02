@@ -676,15 +676,11 @@ def launch_tui2(
             if kind_l in {"password", "stored_password"}:
                 context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
             elif kind_l in {"seed", "managed_account"}:
-                context = (
-                    "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
-                )
+                context = "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
             elif kind_l == "totp":
                 context = "Entry ▣ 6 2FA Board ▣ v Reveal ▣ g QR ▣ a Archive"
             elif kind_l in {"ssh", "pgp"}:
-                context = (
-                    "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
-                )
+                context = "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
             elif kind_l == "nostr":
                 context = "Entry ▣ v Reveal ▣ g QR (public/private) ▣ a Archive"
             elif kind_l in {"document", "note"}:
