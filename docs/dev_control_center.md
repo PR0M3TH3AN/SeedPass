@@ -34,6 +34,8 @@ Use these docs as inputs, but treat this file as the decision layer:
 - TUI parity checklist: `docs/tui_v2_parity_checklist.md`
 - TUI legacy parity matrix: `docs/tui_v2_legacy_parity_matrix.md`
 - TUI v2 UI refresh plan (mockup-aligned): `docs/tui_v2_ui_refresh_plan.md`
+- TUI v2 integration execution plan (current working plan): `docs/tui_v2_integration_execution_plan_2026-03-02.md`
+- TUI v2 mockup gap audit: `docs/tui_v2_mockup_gap_audit_2026-03-02.md`
 - Semantic vector index integration plan: `docs/semantic_vector_index_plan.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
@@ -79,15 +81,16 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
-: prioritized gaps from side-by-side legacy vs v2 run:
-: onboarding + stats/ops + lock/session affordances now landed; focus now is mockup-aligned UI refresh completion.
-2. Complete Phase 5 TUI v2 UI refresh queue:
-: final visual polish pass (profile tree navigation/select is now landed).
-3. Add semantic incremental update hooks on entry/link/tag mutations.
-4. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
-5. Expand semantic hybrid quality validation and KB stress evidence capture.
-6. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
+1. Execute Phases A-C from `docs/tui_v2_integration_execution_plan_2026-03-02.md`:
+: selection lifecycle, real hierarchy tree, and dense header/footer rebuild.
+2. Execute Phases D and G:
+: filter menu model and reveal/QR reliability hardening.
+3. Execute Phase H:
+: responsive and density polish for high-resolution and compact terminals.
+4. Execute Phase E:
+: unified lexical+tag+semantic search integration.
+5. Execute Phase F:
+: final per-board fidelity pass and strict mockup closeout.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 

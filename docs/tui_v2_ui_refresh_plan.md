@@ -4,6 +4,9 @@ Status: Active (2026-03-02)
 Branch target: `beta`  
 Primary references: `UI_mockups/PNG/*.png`, `UI_mockups/SeedPass_UI-Board.pdf`
 
+Latest audit reference: `docs/tui_v2_mockup_gap_audit_2026-03-02.md`
+Execution plan reference: `docs/tui_v2_integration_execution_plan_2026-03-02.md`
+
 ## 1) Purpose
 
 Translate the mockup direction into an implementation-ready, multi-session plan for Textual TUI v2 while preserving SeedPass's green visual identity.
@@ -958,3 +961,115 @@ Evidence basis:
 - compact discoverability
 - board fidelity (`SSH/PGP/Nostr`, `Seed/Managed Seed`, `Note/2FA metadata`)
 - viewport balance behavior
+
+## 28) Detailed UX Audit (2026-03-02, Pre-Implementation Writeup)
+
+Scope:
+
+1. Compare current TUI v2 runtime states against mockup set in `UI_mockups/PNG/*.png`.
+2. Focus on:
+- context-aware inspector behavior
+- left tree structure fidelity
+- per-board layout transitions and function-driven UI changes
+
+Evidence captured:
+
+1. Runtime state dump:
+- `artifacts/ui_eval/audit_20260302/state_dump.txt`
+2. Board screenshots (vector snapshots):
+- `artifacts/ui_eval/audit_20260302/*.svg`
+
+### 28.1 Key User-Reported Concerns: Validation
+
+1. Concern: inspector panel appears open/populated all the time.
+- Confirmed behavior in current v2:
+  - first row is auto-selected on load (`Selected: #0 ...` in state dump),
+  - inspector is therefore always populated by design.
+- Mockup intent:
+  - inspector content is contextual and should feel state-driven, not always-active by default.
+- Status:
+  - Functional but not matching UX intent; should be revised to delayed/populated-on-explicit-selection behavior.
+
+2. Concern: left tree does not reflect fingerprint/managed-account hierarchy.
+- Confirmed behavior in current v2:
+  - left panel shows profile list scaffold with shallow pseudo-tree lines from profile fingerprints.
+  - managed accounts are not rendered as child nodes in this structure.
+- Mockup intent:
+  - deep hierarchical seed/account tree with clear parent-child grouping.
+- Status:
+  - Partial scaffold only; structural data model + renderer need expansion.
+
+### 28.2 Board-by-Board Layout/Function Transition Audit
+
+UI Board (global layout):
+
+1. Present:
+- top ribbon, left rail, center grid, lower inspector, bottom action strip.
+2. Missing vs mockup:
+- tree depth and semantic grouping on left.
+- denser table row packing with richer column semantics (mockup includes blacklist/date emphasis).
+- true “inspect mode” transition behavior (instead of always-populated inspector at startup).
+
+Password / Stored Password:
+
+1. Present:
+- board titles, metadata, credentials rows, action affordances, right notes/tags side panel.
+2. Gaps:
+- visual card geometry still less segmented than mockup (mockup uses stronger field-card framing and right notes dominance).
+- “create new”/copy controls are textual chips, not distinct button blocks with stronger visual separation.
+
+Note Board:
+
+1. Present:
+- content preview, metadata, edit/export actions, notes/tags panel, compact inline fallback.
+2. Gaps:
+- mockup shows stronger large-content card emphasis with clearer right notes pane ratio.
+- current board remains text-first and less panelized.
+
+2FA Board:
+
+1. Present:
+- copy code, copy URL, reveal, QR, dedicated 2FA board commands and hints.
+2. Gaps:
+- visual treatment of URL/code cards not yet equivalent to mockup’s framed field blocks.
+
+BIP-39 Seed Board:
+
+1. Present:
+- reveal/QR/copy/export confirm paths, word-count/index metadata, managed vs non-managed board variants.
+2. Gaps:
+- card visual hierarchy still lighter than mockup’s framed block style.
+
+SSH / PGP / Nostr:
+
+1. Present:
+- required copy/export/reveal/QR action coverage and metadata lines.
+2. Gaps:
+- action chips and field block segmentation still not as bold as mockup button/card composition.
+
+### 28.3 Layout State Changes (Function-Driven) vs Mockup Expectations
+
+Current implemented state transitions:
+
+1. Selection changes board content.
+2. Compact width hides side notes/links panel and now inlines notes/tags.
+3. Short height hides activity panel to preserve core content area.
+4. 2FA board toggles into dedicated live-code table view.
+
+Still needed to match mockup behavior intent:
+
+1. Startup with no forced selection state (or a true neutral “select entry” inspect state).
+2. Explicit browse-mode vs inspect-mode layout emphasis:
+- browse: denser table, reduced inspector prominence
+- inspect: fuller lower board prominence after explicit open/select action
+3. Left tree deep hierarchy with managed-account child nodes and clearer expand/collapse semantics.
+
+### 28.4 Font Size Request Constraint
+
+1. Terminal font size itself is controlled by the terminal emulator, not Textual app CSS.
+2. App-side equivalent for “smaller font feel” is:
+- tighter spacing/margins/heights,
+- shorter labels,
+- denser row/column presentation,
+- reduced decorative padding.
+3. Next implementation slices should target this density path to effectively fit more content per viewport.

@@ -1,67 +1,26 @@
-# Session Memory Update - 2026-03-02
+# Memory Update (2026-03-02)
 
-## TUI v2 parity progress
-- Completed multiple UI parity slices for Textual TUI v2 with focused test-gated increments.
-- Current focused gate: `34 passed` for:
-  - `src/tests/test_tui_v2_textual_interactions.py`
-  - `src/tests/test_tui_v2_action_matrix.py`
+## TUI v2 mockup parity audit refreshed
+- Added a dedicated audit doc: `docs/tui_v2_mockup_gap_audit_2026-03-02.md`.
+- Linked the audit from `docs/tui_v2_ui_refresh_plan.md` so future sessions use it as the active parity reference.
 
-## Key interaction fixes landed
-- Resolved `v/g` reveal/QR hotkey reliability by defaulting center focus to `#entry-list`.
-- Added regression: `test_tui2_textual_default_focus_keeps_sensitive_hotkeys_active`.
+## High-impact findings (user-visible)
+- Inspector panel currently pre-populates because first entry is auto-selected; this diverges from context-aware mockup behavior.
+- Left nav is not yet a true hierarchical tree of fingerprint -> managed-account nodes.
+- Layout density and panel proportions still differ from mockup geometry, especially on large displays.
+- Reveal/QR pathways exist in code but user runtime still reports non-working `v`/QR behavior in some installs; treat as high-priority runtime validation gap.
 
-## Responsive behavior
-- Added narrow-width compact mode behavior:
-  - auto-collapses link side panel,
-  - preserves secret panel,
-  - shortens action-strip wording.
-- Added regression: `test_tui2_textual_compact_layout_hides_link_panel_and_can_restore`.
+## Evidence artifacts to reuse
+- Primary runtime evidence: `artifacts/ui_eval/audit_20260302/state_dump.txt`.
+- Mockup baseline set: `UI_mockups/PNG/*.png` (all 1854x1080).
 
-## Board fidelity slices landed
-- Password/Stored Password: explicit board naming and refined action/field lines.
-- Note/2FA: metadata consistency and clearer action wording.
-- SSH/PGP/Nostr: board titles, metadata-first layout, grouped actions.
-- Seed/Managed Seed: specialized board titles, seed word-count fallback from phrase, confirm-gated action hints.
-- Added regressions:
-  - `test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity`
-  - `test_tui2_textual_seed_and_managed_seed_boards_show_fidelity`
-  - `test_tui2_textual_note_and_totp_boards_include_common_metadata`
+## Recommended next implementation slice
+1. Remove initial auto-selection and use a neutral inspector state.
+2. Implement true left-side hierarchy model.
+3. Rework dense header/footer strips to mockup rhythm.
+4. Tune spacing/label verbosity for higher effective density before adding new feature surface.
 
-## Planning docs updated
-- `docs/tui_v2_ui_refresh_plan.md`
-  - Added strict closeout classification with `Done / Minor Gap / Open`.
-  - Marked only explicit `Open`: 2FA board missing first-class `copy URL` affordance.
-- `docs/dev_control_center.md`
-  - Queue now prioritizes closing 2FA `copy URL`, then minor-gap visual polish and compact-mode discoverability.
-
-## Artifact notes
-- New UI evidence sets generated up to `after36` (SVG snapshot artifacts under `artifacts/ui_eval/`).
-- Some prior `.png` files in artifacts were actually SVG payloads; prefer using `.svg` outputs from `export_screenshot` for reliable inspection in this workflow.
-
-## Additional update (same session)
-- Closed strict parity `Open` item for 2FA by adding first-class `2fa-copy-url <entry_id>`.
-- Added TOTP URL support in generic copy path via `copy url confirm` for selected TOTP entries.
-- Updated 2FA board/action hints and palette discoverability text to include URL copy flow.
-- Implemented compact-mode notes/tags discoverability fallback inline in inspector boards when side panel is hidden.
-- Extended compact layout test to assert inline notes/tags visibility.
-- Current focused TUI gate remains green: `34 passed`.
-
-## Additional update (viewport balance)
-- Added height-adaptive viewport balance in TUI v2 responsive path.
-- On short terminals, activity panel is hidden to preserve table/inspector usability.
-- Added regression: `test_tui2_textual_viewport_balance_hides_activity_on_short_height`.
-- Focused TUI suite now at `35 passed`.
-
-## Additional update (typography/icon polish)
-- Added consistent kind icons to inspector board titles/shared headers for faster visual scanning.
-- Preserved behavior and command parity; change is presentational only.
-- Generated `after40` SVG evidence set for all core boards.
-- Focused TUI suite remains green at `35 passed`.
-
-## Additional update (strict closeout scoring)
-- Completed strict parity score pass in `docs/tui_v2_ui_refresh_plan.md`.
-- Current board closeout state:
-  - Done: 5 (`2FA`, `BIP-39 Seed`, `SSH`, `PGP`, `Nostr`)
-  - Minor Gap: 4 (`UI Board`, `Password`, `Stored Password`, `Note`)
-  - Open: 0
-- Control center queue updated to target remaining Minor Gap boards first while preserving `Open=0`.
+## Plan consolidation (2026-03-02)
+- Created `docs/tui_v2_integration_execution_plan_2026-03-02.md` as the consolidated implementation roadmap.
+- Captured user-priority requirements: context-aware inspector lifecycle, true fingerprint/managed/agent tree, collapsible sidebar, filter menu replacing always-visible kind toggles, and unified lexical+tag+semantic search.
+- Reordered near-term execution toward structure and reliability first (Phases A-C, D, G, H), then semantic integration and final board-fidelity polish.
