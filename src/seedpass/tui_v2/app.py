@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import shlex
+import time
+from pathlib import Path
 from typing import Any
 
 
@@ -87,6 +89,12 @@ def launch_tui2(
     *,
     fingerprint: str | None = None,
     entry_service_factory: Any | None = None,
+    profile_service_factory: Any | None = None,
+    config_service_factory: Any | None = None,
+    nostr_service_factory: Any | None = None,
+    sync_service_factory: Any | None = None,
+    utility_service_factory: Any | None = None,
+    vault_service_factory: Any | None = None,
     app_hook: Any | None = None,
 ) -> bool:
     """Launch TUI v2 when runtime dependencies are available.
@@ -196,6 +204,12 @@ def launch_tui2(
             padding: 1;
             margin-top: 1;
         }
+        #totp-board {
+            height: 1fr;
+            overflow: auto;
+            border: solid #2abf75;
+            padding: 1;
+        }
         #right-view { height: 1fr; }
         #right-editor { height: 1fr; }
         #doc-edit-label { margin-bottom: 1; }
@@ -242,6 +256,7 @@ def launch_tui2(
             ("o", "open_link_target", "Open Link"),
             ("v", "reveal_selected", "Reveal"),
             ("g", "show_qr", "QR"),
+            ("6", "toggle_totp_board", "2FA Board"),
             ("a", "toggle_archive", "Archive/Restore"),
             ("e", "edit_document", "Edit Document"),
             ("ctrl+s", "save_document", "Save"),
@@ -254,6 +269,7 @@ def launch_tui2(
         editing_document: reactive[bool] = reactive(False)
         palette_open: reactive[bool] = reactive(False)
         help_open: reactive[bool] = reactive(False)
+        totp_board_open: reactive[bool] = reactive(False)
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -261,6 +277,27 @@ def launch_tui2(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
                     "filter <kind> | archive | restore | "
+                    "add-password <label> <length> [username] [url] | "
+                    "add-totp <label> [period] [digits] [secret] | "
+                    "add-key-value <label> <key> <value> | "
+                    "add-document <label> <file_type> <content> | "
+                    "add-ssh <label> [index] | add-pgp <label> [index] [key_type] [user_id] | "
+                    "add-nostr <label> [index] | add-seed <label> [words] [index] | "
+                    "add-managed-account <label> [index] | "
+                    "notes-set <text> | notes-clear | tag-add <tag> | tag-rm <tag> | "
+                    "tags-set <comma-list> | tags-clear | field-add <label> <value> [hidden] | "
+                    "field-rm <label> | set-field <name> <value> | clear-field <name> | "
+                    "2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id> | "
+                    "profiles-list | profile-switch <fp> [password] | profile-add | "
+                    "profile-remove <fp> | profile-rename <fp> <name> | "
+                    "setting-secret <on|off> [delay] | setting-offline <on|off> | "
+                    "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
+                    "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
+                    "relay-list | relay-add <url> | relay-rm <index> | "
+                    "relay-reset | sync-now | sync-bg | "
+                    "checksum-verify | checksum-update | db-export <path> | db-import <path> | "
+                    "totp-export <path> | parent-seed-backup [path] [password] | "
+                    "doc-export [output_path] | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
                     "reveal [confirm] | qr [public|private] [confirm] | "
@@ -286,6 +323,7 @@ def launch_tui2(
                         yield Static("", id="entry-detail")
                         yield Static("", id="link-detail")
                         yield Static("", id="secret-detail")
+                        yield Static("", id="totp-board", classes="hidden")
                     with Vertical(id="right-editor", classes="hidden"):
                         yield Input(placeholder="Document title", id="doc-edit-label")
                         yield Input(
@@ -311,6 +349,12 @@ def launch_tui2(
 
         def on_mount(self) -> None:
             self._service = None
+            self._profile_service = None
+            self._config_service = None
+            self._nostr_service = None
+            self._sync_service = None
+            self._utility_service = None
+            self._vault_service = None
             self._selected_entry_id: int | None = None
             self._selected_entry: dict[str, Any] | None = None
             self._last_query = ""
@@ -326,6 +370,9 @@ def launch_tui2(
             self._doc_dirty = False
             self._doc_snapshot: dict[str, Any] = {}
             self._last_status_message = ""
+            self._time_now = time.time
+            self._totp_rows: list[dict[str, Any]] = []
+            self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
                     entry_service_factory() if callable(entry_service_factory) else None
@@ -341,6 +388,54 @@ def launch_tui2(
                 self.query_one("#entry-detail", Static).update(
                     f"Unable to initialize entry service: {exc}"
                 )
+            try:
+                self._profile_service = (
+                    profile_service_factory()
+                    if callable(profile_service_factory)
+                    else None
+                )
+            except Exception as exc:
+                self._profile_service = None
+                self._log_activity(f"Profile service unavailable: {exc}")
+            try:
+                self._config_service = (
+                    config_service_factory()
+                    if callable(config_service_factory)
+                    else None
+                )
+            except Exception as exc:
+                self._config_service = None
+                self._log_activity(f"Config service unavailable: {exc}")
+            try:
+                self._nostr_service = (
+                    nostr_service_factory() if callable(nostr_service_factory) else None
+                )
+            except Exception as exc:
+                self._nostr_service = None
+                self._log_activity(f"Nostr service unavailable: {exc}")
+            try:
+                self._sync_service = (
+                    sync_service_factory() if callable(sync_service_factory) else None
+                )
+            except Exception as exc:
+                self._sync_service = None
+                self._log_activity(f"Sync service unavailable: {exc}")
+            try:
+                self._utility_service = (
+                    utility_service_factory()
+                    if callable(utility_service_factory)
+                    else None
+                )
+            except Exception as exc:
+                self._utility_service = None
+                self._log_activity(f"Utility service unavailable: {exc}")
+            try:
+                self._vault_service = (
+                    vault_service_factory() if callable(vault_service_factory) else None
+                )
+            except Exception as exc:
+                self._vault_service = None
+                self._log_activity(f"Vault service unavailable: {exc}")
             self._update_filters_panel()
             self._update_help_overlay()
             self._update_activity_panel()
@@ -403,7 +498,10 @@ def launch_tui2(
                     "Pane Focus: 1 left   2 center   3 right",
                     "",
                     "Palette examples",
-                    "help | filter document | open 12 | reveal confirm | qr private confirm",
+                    (
+                        'help | 2fa-board | 2fa-copy 12 | add-password "Site" 20 '
+                        "user https://x | profiles-list | checksum-verify | db-export backup.enc"
+                    ),
                 ]
             )
             box.update(text)
@@ -509,6 +607,13 @@ def launch_tui2(
                     "- e edit document",
                     "- Ctrl+S save doc",
                     "- Ctrl+P command palette",
+                    "- add-* create entries",
+                    "- add-seed/add-ssh/add-pgp/add-nostr/add-managed-account",
+                    "- notes-set/notes-clear, tag-add/tag-rm/tags-set/tags-clear",
+                    "- field-add/field-rm, set-field/clear-field, doc-export",
+                    "- 6 toggle dedicated 2FA board",
+                    "- profile/relay/sync + setting-* commands",
+                    "- checksum/db/totp export + parent seed backup commands",
                     "- l cycle link relation",
                     "- [ / ] select link",
                     "- o open link target",
@@ -1058,6 +1163,118 @@ def launch_tui2(
             self.palette_open = visible
             self._update_help_overlay()
 
+        def _set_totp_board_visible(self, visible: bool) -> None:
+            board = self.query_one("#totp-board", Static)
+            entry_detail = self.query_one("#entry-detail", Static)
+            link_detail = self.query_one("#link-detail", Static)
+            secret_detail = self.query_one("#secret-detail", Static)
+            if visible:
+                entry_detail.add_class("hidden")
+                link_detail.add_class("hidden")
+                secret_detail.add_class("hidden")
+                board.remove_class("hidden")
+                self.totp_board_open = True
+                self._refresh_totp_board(force_reload=True)
+            else:
+                board.add_class("hidden")
+                entry_detail.remove_class("hidden")
+                link_detail.remove_class("hidden")
+                secret_detail.remove_class("hidden")
+                self.totp_board_open = False
+
+        @staticmethod
+        def _totp_source(entry: dict[str, Any]) -> str:
+            deterministic = entry.get("deterministic")
+            if isinstance(deterministic, bool):
+                return "det" if deterministic else "imp"
+            secret = str(entry.get("secret", "")).strip()
+            return "imp" if secret else "det"
+
+        def _load_totp_rows(self) -> None:
+            if self._service is None:
+                self._totp_rows = []
+                return
+            rows: list[dict[str, Any]] = []
+            results = self._service.search_entries("", kinds=["totp"])
+            for row in results:
+                entry_id = int(row[0])
+                label = str(row[1])
+                entry = self._service.retrieve_entry(entry_id)
+                if not isinstance(entry, dict):
+                    continue
+                period = int(entry.get("period", 30))
+                digits = int(entry.get("digits", 6))
+                rows.append(
+                    {
+                        "id": entry_id,
+                        "label": label,
+                        "period": period,
+                        "digits": digits,
+                        "source": self._totp_source(entry),
+                    }
+                )
+            self._totp_rows = rows
+
+        def _refresh_totp_board(self, *, force_reload: bool = False) -> None:
+            if not self.totp_board_open:
+                return
+            if self._service is None:
+                self.query_one("#totp-board", Static).update(
+                    "2FA Board\n\nEntry service unavailable."
+                )
+                return
+            try:
+                if force_reload or not self._totp_rows:
+                    self._load_totp_rows()
+            except Exception as exc:
+                self._record_failure(
+                    "Failed to load 2FA board",
+                    exc,
+                    retry=lambda: self._refresh_totp_board(force_reload=True),
+                    hint="Press 'x' to retry.",
+                )
+                return
+
+            now = int(self._time_now())
+            secret_mode = self._is_secret_mode_enabled()
+            lines = [
+                "2FA Board",
+                "",
+                "id  src  rem  code      label",
+                "--  ---  ---  --------  -----",
+            ]
+            if not self._totp_rows:
+                lines.extend(
+                    ["", "No TOTP entries found.", "Use add-totp to create one."]
+                )
+            else:
+                for row in self._totp_rows:
+                    period = max(1, int(row["period"]))
+                    rem = period - (now % period)
+                    if rem <= 0:
+                        rem = period
+                    code = (
+                        "******"
+                        if secret_mode
+                        else self._service.get_totp_code(int(row["id"]))
+                    )
+                    lines.append(
+                        f"{row['id']:>2}  {row['source']:<3}  {rem:>3}  {str(code):<8}  {row['label']}"
+                    )
+                lines.extend(
+                    [
+                        "",
+                        "source: det=deterministic, imp=imported",
+                        "Commands: 2fa-copy <entry_id>, 2fa-refresh, 2fa-hide",
+                    ]
+                )
+            self.query_one("#totp-board", Static).update("\n".join(lines))
+            self._clear_failure()
+
+        def _tick_totp_board(self) -> None:
+            if self.totp_board_open:
+                self._refresh_totp_board(force_reload=False)
+
         def _get_document_editor_text(self) -> str:
             if TextArea is not None:
                 area = self.query_one("#doc-edit-content")
@@ -1082,6 +1299,55 @@ def launch_tui2(
             self._doc_dirty = dirty
             self._refresh_doc_edit_help()
 
+        def _selected_entry_payload(self) -> dict[str, Any]:
+            if self._service is None:
+                raise ValueError("Entry service unavailable")
+            if self._selected_entry_id is None:
+                raise ValueError("No entry selected")
+            entry = self._selected_entry or self._service.retrieve_entry(
+                self._selected_entry_id
+            )
+            if not isinstance(entry, dict) or not entry:
+                raise ValueError("Selected entry not found")
+            return dict(entry)
+
+        def _apply_selected_modify(
+            self,
+            *,
+            raw_command: str,
+            success_message: str,
+            failure_context: str,
+            hint: str = "Press 'x' to retry.",
+            **kwargs: Any,
+        ) -> None:
+            if self._service is None or self._selected_entry_id is None:
+                self._set_status("No entry selected")
+                return
+            try:
+                self._service.modify_entry(self._selected_entry_id, **kwargs)
+                current_id = self._selected_entry_id
+                self._load_entries(self._last_query, reset_page=False)
+                if current_id in self._entry_ids_in_view:
+                    self._show_entry(current_id)
+                self._clear_failure()
+                self._set_status(success_message)
+            except Exception as exc:
+                self._record_failure(
+                    failure_context,
+                    exc,
+                    retry=lambda: self._run_palette_command(raw_command),
+                    hint=hint,
+                )
+
+        @staticmethod
+        def _parse_toggle_token(token: str) -> bool:
+            value = token.strip().lower()
+            if value in {"1", "true", "yes", "y", "on", "enable", "enabled"}:
+                return True
+            if value in {"0", "false", "no", "n", "off", "disable", "disabled"}:
+                return False
+            raise ValueError(f"invalid toggle value '{token}'")
+
         def _run_palette_command(self, command: str) -> None:
             raw = command.strip()
             try:
@@ -1094,6 +1360,17 @@ def launch_tui2(
                 self._set_status(
                     "Palette commands: help, open, search, filter, archive, "
                     "restore, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
+                    "add-password, add-totp, add-key-value, add-document, add-ssh, "
+                    "add-pgp, add-nostr, add-seed, add-managed-account, "
+                    "notes-set, notes-clear, tag-add, tag-rm, tags-set, tags-clear, "
+                    "field-add, field-rm, set-field, clear-field, doc-export, "
+                    "2fa-board, 2fa-hide, 2fa-refresh, 2fa-copy, "
+                    "profiles-list, profile-switch, profile-add, profile-remove, profile-rename, "
+                    "setting-secret, setting-offline, setting-quick-unlock, setting-timeout, "
+                    "setting-kdf-iterations, setting-kdf-mode, "
+                    "relay-list, relay-add, relay-rm, relay-reset, sync-now, sync-bg, "
+                    "checksum-verify, checksum-update, db-export, db-import, "
+                    "totp-export, parent-seed-backup, "
                     "reveal [confirm], qr [public|private] [confirm], link-filter, "
                     "link-next, link-prev, link-open, page-next, page-prev, page <n>, "
                     "retry, jump <id>"
@@ -1141,6 +1418,1353 @@ def launch_tui2(
                 self._update_filters_panel()
                 self._load_entries(query=self._last_query, reset_page=True)
                 self._set_status(f"Applied filter: {self.filter_kind}")
+                return
+
+            if cmd == "add-password":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 2 or len(args) > 4:
+                    self._set_status(
+                        "Usage: add-password <label> <length> [username] [url]"
+                    )
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-password label is required")
+                    return
+                try:
+                    length = int(args[1])
+                except ValueError:
+                    self._set_status("add-password length must be an integer")
+                    return
+                username = args[2] if len(args) >= 3 else None
+                url = args[3] if len(args) >= 4 else None
+                try:
+                    new_id = self._service.add_entry(
+                        label,
+                        length,
+                        username=username,
+                        url=url,
+                    )
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added password entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-password failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-totp":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 4:
+                    self._set_status(
+                        "Usage: add-totp <label> [period] [digits] [secret]"
+                    )
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-totp label is required")
+                    return
+                period = 30
+                digits = 6
+                secret: str | None = None
+                if len(args) >= 2:
+                    try:
+                        period = int(args[1])
+                    except ValueError:
+                        self._set_status("add-totp period must be an integer")
+                        return
+                if len(args) >= 3:
+                    try:
+                        digits = int(args[2])
+                    except ValueError:
+                        self._set_status("add-totp digits must be an integer")
+                        return
+                if len(args) >= 4:
+                    secret = args[3].strip() or None
+                deterministic = secret is None
+                try:
+                    self._service.add_totp(
+                        label,
+                        period=period,
+                        digits=digits,
+                        deterministic=deterministic,
+                        secret=secret,
+                    )
+                    self._load_entries(self._last_query, reset_page=False)
+                    try:
+                        matches = self._service.search_entries(label, kinds=["totp"])
+                    except Exception:
+                        matches = []
+                    selected = None
+                    for row in matches:
+                        idx, entry_label, _u, _url, _arch, _etype = row
+                        if str(entry_label) == label:
+                            selected = int(idx)
+                    if selected is None and matches:
+                        selected = int(matches[-1][0])
+                    if selected is not None:
+                        self._show_entry(selected)
+                        self._set_status(f"Added TOTP entry #{selected}")
+                    else:
+                        self._set_status("Added TOTP entry")
+                    self._clear_failure()
+                except Exception as exc:
+                    self._record_failure(
+                        "add-totp failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-key-value":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) != 3:
+                    self._set_status("Usage: add-key-value <label> <key> <value>")
+                    return
+                label = args[0].strip()
+                key = args[1]
+                value = args[2]
+                if not label:
+                    self._set_status("add-key-value label is required")
+                    return
+                try:
+                    new_id = self._service.add_key_value(label, key, value)
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added key/value entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-key-value failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-document":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) != 3:
+                    self._set_status(
+                        "Usage: add-document <label> <file_type> <content>"
+                    )
+                    return
+                label = args[0].strip()
+                file_type = args[1].strip().lstrip(".") or "txt"
+                content = args[2]
+                if not label:
+                    self._set_status("add-document label is required")
+                    return
+                try:
+                    new_id = self._service.add_document(
+                        label,
+                        content,
+                        file_type=file_type,
+                    )
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added document entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-document failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-ssh":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status("Usage: add-ssh <label> [index]")
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-ssh label is required")
+                    return
+                index = None
+                if len(args) == 2:
+                    try:
+                        index = int(args[1])
+                    except ValueError:
+                        self._set_status("add-ssh index must be an integer")
+                        return
+                try:
+                    new_id = self._service.add_ssh_key(label, index=index)
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added SSH entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-ssh failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-pgp":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 4:
+                    self._set_status(
+                        "Usage: add-pgp <label> [index] [key_type] [user_id]"
+                    )
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-pgp label is required")
+                    return
+                index = None
+                key_type = "ed25519"
+                user_id = ""
+                if len(args) >= 2:
+                    try:
+                        index = int(args[1])
+                    except ValueError:
+                        self._set_status("add-pgp index must be an integer")
+                        return
+                if len(args) >= 3:
+                    key_type = args[2].strip() or "ed25519"
+                if len(args) >= 4:
+                    user_id = args[3]
+                try:
+                    new_id = self._service.add_pgp_key(
+                        label,
+                        index=index,
+                        key_type=key_type,
+                        user_id=user_id,
+                    )
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added PGP entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-pgp failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-nostr":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status("Usage: add-nostr <label> [index]")
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-nostr label is required")
+                    return
+                index = None
+                if len(args) == 2:
+                    try:
+                        index = int(args[1])
+                    except ValueError:
+                        self._set_status("add-nostr index must be an integer")
+                        return
+                try:
+                    new_id = self._service.add_nostr_key(label, index=index)
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added Nostr entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-nostr failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "add-seed":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 3:
+                    self._set_status("Usage: add-seed <label> [words] [index]")
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-seed label is required")
+                    return
+                words = 24
+                index = None
+                if len(args) >= 2:
+                    try:
+                        words = int(args[1])
+                    except ValueError:
+                        self._set_status("add-seed words must be an integer")
+                        return
+                if len(args) == 3:
+                    try:
+                        index = int(args[2])
+                    except ValueError:
+                        self._set_status("add-seed index must be an integer")
+                        return
+                try:
+                    new_id = self._service.add_seed(
+                        label,
+                        words=words,
+                        index=index,
+                    )
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added seed entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-seed failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd in ("add-managed-account", "add-managed"):
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status("Usage: add-managed-account <label> [index]")
+                    return
+                label = args[0].strip()
+                if not label:
+                    self._set_status("add-managed-account label is required")
+                    return
+                index = None
+                if len(args) == 2:
+                    try:
+                        index = int(args[1])
+                    except ValueError:
+                        self._set_status("add-managed-account index must be an integer")
+                        return
+                try:
+                    new_id = self._service.add_managed_account(label, index=index)
+                    self._load_entries(self._last_query, reset_page=False)
+                    self._show_entry(int(new_id))
+                    self._clear_failure()
+                    self._set_status(f"Added managed account entry #{int(new_id)}")
+                except Exception as exc:
+                    self._record_failure(
+                        "add-managed-account failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "notes-set":
+                if not args:
+                    self._set_status("Usage: notes-set <text>")
+                    return
+                notes_text = " ".join(args).strip()
+                if not notes_text:
+                    self._set_status("notes-set text is required")
+                    return
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message="Updated notes for selected entry",
+                    failure_context="notes-set failed",
+                    notes=notes_text,
+                )
+                return
+
+            if cmd == "notes-clear":
+                if args:
+                    self._set_status("Usage: notes-clear")
+                    return
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message="Cleared notes for selected entry",
+                    failure_context="notes-clear failed",
+                    notes="",
+                )
+                return
+
+            if cmd == "tag-add":
+                if len(args) != 1:
+                    self._set_status("Usage: tag-add <tag>")
+                    return
+                tag = args[0].strip()
+                if not tag:
+                    self._set_status("tag-add tag is required")
+                    return
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                current_tags = entry.get("tags")
+                tags = (
+                    [str(item).strip() for item in current_tags if str(item).strip()]
+                    if isinstance(current_tags, list)
+                    else []
+                )
+                if tag not in tags:
+                    tags.append(tag)
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Added tag '{tag}'",
+                    failure_context="tag-add failed",
+                    tags=tags,
+                )
+                return
+
+            if cmd == "tag-rm":
+                if len(args) != 1:
+                    self._set_status("Usage: tag-rm <tag>")
+                    return
+                tag = args[0].strip()
+                if not tag:
+                    self._set_status("tag-rm tag is required")
+                    return
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                current_tags = entry.get("tags")
+                tags = (
+                    [str(item).strip() for item in current_tags if str(item).strip()]
+                    if isinstance(current_tags, list)
+                    else []
+                )
+                next_tags = [item for item in tags if item != tag]
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Removed tag '{tag}'",
+                    failure_context="tag-rm failed",
+                    tags=next_tags,
+                )
+                return
+
+            if cmd == "tags-set":
+                if not args:
+                    self._set_status("Usage: tags-set <comma-separated tags>")
+                    return
+                raw_tags = " ".join(args).strip()
+                tags = [item.strip() for item in raw_tags.split(",") if item.strip()]
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message="Updated tags for selected entry",
+                    failure_context="tags-set failed",
+                    tags=tags,
+                )
+                return
+
+            if cmd == "tags-clear":
+                if args:
+                    self._set_status("Usage: tags-clear")
+                    return
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message="Cleared tags for selected entry",
+                    failure_context="tags-clear failed",
+                    tags=[],
+                )
+                return
+
+            if cmd == "field-add":
+                if len(args) < 2 or len(args) > 3:
+                    self._set_status(
+                        "Usage: field-add <label> <value> (optional: hidden)"
+                    )
+                    return
+                field_label = args[0].strip()
+                field_value = args[1]
+                if not field_label:
+                    self._set_status("field-add label is required")
+                    return
+                hidden = False
+                if len(args) == 3:
+                    token = args[2].strip().lower()
+                    hidden = token in {"hidden", "1", "true", "yes", "y"}
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                current_fields = entry.get("custom_fields")
+                fields = (
+                    [dict(item) for item in current_fields if isinstance(item, dict)]
+                    if isinstance(current_fields, list)
+                    else []
+                )
+                fields.append(
+                    {"label": field_label, "value": field_value, "is_hidden": hidden}
+                )
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Added custom field '{field_label}'",
+                    failure_context="field-add failed",
+                    custom_fields=fields,
+                )
+                return
+
+            if cmd == "field-rm":
+                if len(args) != 1:
+                    self._set_status("Usage: field-rm <label>")
+                    return
+                field_label = args[0].strip()
+                if not field_label:
+                    self._set_status("field-rm label is required")
+                    return
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                current_fields = entry.get("custom_fields")
+                fields = (
+                    [dict(item) for item in current_fields if isinstance(item, dict)]
+                    if isinstance(current_fields, list)
+                    else []
+                )
+                normalized = field_label.lower()
+                next_fields = [
+                    item
+                    for item in fields
+                    if str(item.get("label", "")).strip().lower() != normalized
+                ]
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Removed custom field '{field_label}'",
+                    failure_context="field-rm failed",
+                    custom_fields=next_fields,
+                )
+                return
+
+            if cmd in {"set-field", "field-set"}:
+                if len(args) < 2:
+                    self._set_status("Usage: set-field <name> <value>")
+                    return
+                field_raw = args[0].strip().lower()
+                field = field_raw.replace("-", "_")
+                value_raw = " ".join(args[1:]).strip()
+                if not field:
+                    self._set_status("set-field name is required")
+                    return
+                if not value_raw:
+                    self._set_status("set-field value is required")
+                    return
+                alias = {
+                    "name": "label",
+                    "user": "username",
+                    "pass_length": "length",
+                    "filetype": "file_type",
+                }
+                field = alias.get(field, field)
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                kind = str(entry.get("kind") or entry.get("type") or "").lower()
+                allowed_fields = {
+                    "password": {"label", "notes", "username", "url", "length"},
+                    "totp": {"label", "notes", "period", "digits"},
+                    "key_value": {"label", "notes", "key", "value"},
+                    "document": {"label", "notes", "file_type", "content"},
+                    "ssh": {"label", "notes"},
+                    "pgp": {"label", "notes"},
+                    "nostr": {"label", "notes"},
+                    "seed": {"label", "notes"},
+                    "managed_account": {"label", "notes"},
+                }
+                allowed = allowed_fields.get(kind, {"label", "notes"})
+                if field not in allowed:
+                    self._set_status(
+                        f"set-field '{field}' not supported for kind '{kind or 'unknown'}'"
+                    )
+                    return
+                value: Any = value_raw
+                if field in {"length", "period", "digits"}:
+                    try:
+                        value = int(value_raw)
+                    except ValueError:
+                        self._set_status(f"set-field {field} must be an integer")
+                        return
+                if field == "file_type":
+                    value = str(value).strip().lstrip(".") or "txt"
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Updated {field} for selected entry",
+                    failure_context="set-field failed",
+                    **{field: value},
+                )
+                return
+
+            if cmd in {"clear-field", "field-clear"}:
+                if len(args) != 1:
+                    self._set_status("Usage: clear-field <name>")
+                    return
+                field_raw = args[0].strip().lower()
+                field = field_raw.replace("-", "_")
+                if not field:
+                    self._set_status("clear-field name is required")
+                    return
+                alias = {
+                    "user": "username",
+                    "filetype": "file_type",
+                }
+                field = alias.get(field, field)
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                kind = str(entry.get("kind") or entry.get("type") or "").lower()
+                clearable = {
+                    "password": {"username", "url", "notes"},
+                    "totp": {"notes"},
+                    "key_value": {"notes", "key", "value"},
+                    "document": {"notes", "content"},
+                    "ssh": {"notes"},
+                    "pgp": {"notes"},
+                    "nostr": {"notes"},
+                    "seed": {"notes"},
+                    "managed_account": {"notes"},
+                }
+                allowed = clearable.get(kind, {"notes"})
+                if field not in allowed:
+                    self._set_status(
+                        f"clear-field '{field}' not supported for kind '{kind or 'unknown'}'"
+                    )
+                    return
+                self._apply_selected_modify(
+                    raw_command=raw,
+                    success_message=f"Cleared {field} for selected entry",
+                    failure_context="clear-field failed",
+                    **{field: ""},
+                )
+                return
+
+            if cmd == "2fa-board":
+                if args:
+                    self._set_status("Usage: 2fa-board")
+                    return
+                self._set_totp_board_visible(True)
+                self._set_status("2FA board opened")
+                return
+
+            if cmd == "2fa-hide":
+                if args:
+                    self._set_status("Usage: 2fa-hide")
+                    return
+                self._set_totp_board_visible(False)
+                self._set_status("2FA board closed")
+                return
+
+            if cmd == "2fa-refresh":
+                if args:
+                    self._set_status("Usage: 2fa-refresh")
+                    return
+                self._refresh_totp_board(force_reload=True)
+                self._set_status("2FA board refreshed")
+                return
+
+            if cmd == "2fa-copy":
+                if len(args) != 1:
+                    self._set_status("Usage: 2fa-copy <entry_id>")
+                    return
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                try:
+                    entry_id = int(args[0])
+                except ValueError:
+                    self._set_status("2fa-copy entry_id must be an integer")
+                    return
+                try:
+                    code = self._service.get_totp_code(entry_id)
+                except Exception as exc:
+                    self._record_failure(
+                        "2fa-copy failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                    return
+                if not self._copy_to_clipboard(code):
+                    self._set_status("Clipboard copy unavailable")
+                    return
+                delay = self._clipboard_clear_delay()
+                if self.totp_board_open:
+                    self._refresh_totp_board(force_reload=False)
+                self._set_status(
+                    f"Copied TOTP code for entry {entry_id} to clipboard ({delay}s clear)"
+                )
+                self._clear_failure()
+                return
+
+            if cmd == "profiles-list":
+                if args:
+                    self._set_status("Usage: profiles-list")
+                    return
+                if self._profile_service is None:
+                    self._set_status("Profile service unavailable")
+                    return
+                try:
+                    rows = self._profile_service.list_profiles()
+                    profiles = [str(item) for item in rows]
+                    if profiles:
+                        self._set_status(
+                            f"Profiles ({len(profiles)}): " + ", ".join(profiles[:4])
+                        )
+                    else:
+                        self._set_status("No profiles found")
+                    self._clear_failure()
+                except Exception as exc:
+                    self._record_failure(
+                        "profiles-list failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "profile-switch":
+                if self._profile_service is None:
+                    self._set_status("Profile service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status(
+                        "Usage: profile-switch <fingerprint> (optional: password)"
+                    )
+                    return
+                fp = args[0].strip()
+                if not fp:
+                    self._set_status("profile-switch fingerprint is required")
+                    return
+                password = args[1] if len(args) == 2 else None
+                try:
+                    from seedpass.core.api import ProfileSwitchRequest
+
+                    self._profile_service.switch_profile(
+                        ProfileSwitchRequest(fingerprint=fp, password=password)
+                    )
+                    self._clear_failure()
+                    self._load_entries(self._last_query, reset_page=True)
+                    self._set_status(f"Switched profile to {fp}")
+                except Exception as exc:
+                    self._record_failure(
+                        "profile-switch failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "profile-add":
+                if self._profile_service is None:
+                    self._set_status("Profile service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: profile-add")
+                    return
+                try:
+                    fp = self._profile_service.add_profile()
+                    self._clear_failure()
+                    if fp:
+                        self._set_status(f"Created profile {fp}")
+                    else:
+                        self._set_status("Created profile")
+                except Exception as exc:
+                    self._record_failure(
+                        "profile-add failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "profile-remove":
+                if self._profile_service is None:
+                    self._set_status("Profile service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: profile-remove <fingerprint>")
+                    return
+                fp = args[0].strip()
+                if not fp:
+                    self._set_status("profile-remove fingerprint is required")
+                    return
+                try:
+                    from seedpass.core.api import ProfileRemoveRequest
+
+                    self._profile_service.remove_profile(
+                        ProfileRemoveRequest(fingerprint=fp)
+                    )
+                    self._clear_failure()
+                    self._set_status(f"Removed profile {fp}")
+                except Exception as exc:
+                    self._record_failure(
+                        "profile-remove failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "profile-rename":
+                if self._profile_service is None:
+                    self._set_status("Profile service unavailable")
+                    return
+                if len(args) < 2:
+                    self._set_status("Usage: profile-rename <fingerprint> <name>")
+                    return
+                fp = args[0].strip()
+                name = " ".join(args[1:]).strip()
+                if not fp:
+                    self._set_status("profile-rename fingerprint is required")
+                    return
+                if not name:
+                    self._set_status("profile-rename name is required")
+                    return
+                try:
+                    self._profile_service.rename_profile(fp, name)
+                    self._clear_failure()
+                    self._set_status(f"Renamed profile {fp} to '{name}'")
+                except Exception as exc:
+                    self._record_failure(
+                        "profile-rename failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-secret":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) < 1 or len(args) > 2:
+                    self._set_status("Usage: setting-secret <on|off> [delay]")
+                    return
+                try:
+                    enabled = self._parse_toggle_token(args[0])
+                except ValueError as exc:
+                    self._set_status(str(exc))
+                    return
+                delay = self._clipboard_clear_delay()
+                if len(args) == 2:
+                    try:
+                        delay = int(args[1])
+                    except ValueError:
+                        self._set_status("setting-secret delay must be an integer")
+                        return
+                setter = getattr(self._config_service, "set_secret_mode", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support secret mode")
+                    return
+                try:
+                    setter(enabled, int(delay))
+                    self._clear_failure()
+                    state = "on" if enabled else "off"
+                    self._set_status(f"Secret mode {state} (delay {int(delay)}s)")
+                    if self.totp_board_open:
+                        self._refresh_totp_board(force_reload=False)
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-secret failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-offline":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: setting-offline <on|off>")
+                    return
+                try:
+                    enabled = self._parse_toggle_token(args[0])
+                except ValueError as exc:
+                    self._set_status(str(exc))
+                    return
+                setter = getattr(self._config_service, "set_offline_mode", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support offline mode")
+                    return
+                try:
+                    setter(enabled)
+                    self._clear_failure()
+                    self._set_status(f"Offline mode {'on' if enabled else 'off'}")
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-offline failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-quick-unlock":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: setting-quick-unlock <on|off>")
+                    return
+                try:
+                    enabled = self._parse_toggle_token(args[0])
+                except ValueError as exc:
+                    self._set_status(str(exc))
+                    return
+                setter = getattr(self._config_service, "set", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support quick unlock")
+                    return
+                try:
+                    setter("quick_unlock", "true" if enabled else "false")
+                    self._clear_failure()
+                    self._set_status(f"Quick unlock {'on' if enabled else 'off'}")
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-quick-unlock failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-timeout":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: setting-timeout <seconds>")
+                    return
+                try:
+                    value = float(args[0])
+                except ValueError:
+                    self._set_status("setting-timeout requires numeric seconds")
+                    return
+                setter = getattr(self._config_service, "set", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support timeout setting")
+                    return
+                try:
+                    setter("inactivity_timeout", str(value))
+                    self._clear_failure()
+                    self._set_status(f"Inactivity timeout set to {value}s")
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-timeout failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-kdf-iterations":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: setting-kdf-iterations <n>")
+                    return
+                try:
+                    value = int(args[0])
+                except ValueError:
+                    self._set_status("setting-kdf-iterations requires integer value")
+                    return
+                setter = getattr(self._config_service, "set", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support KDF settings")
+                    return
+                try:
+                    setter("kdf_iterations", str(value))
+                    self._clear_failure()
+                    self._set_status(f"KDF iterations set to {value}")
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-kdf-iterations failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "setting-kdf-mode":
+                if self._config_service is None:
+                    self._set_status("Config service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: setting-kdf-mode <mode>")
+                    return
+                mode = args[0].strip()
+                if not mode:
+                    self._set_status("setting-kdf-mode mode is required")
+                    return
+                setter = getattr(self._config_service, "set", None)
+                if not callable(setter):
+                    self._set_status("Config service does not support KDF settings")
+                    return
+                try:
+                    setter("kdf_mode", mode)
+                    self._clear_failure()
+                    self._set_status(f"KDF mode set to {mode}")
+                except Exception as exc:
+                    self._record_failure(
+                        "setting-kdf-mode failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "relay-list":
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: relay-list")
+                    return
+                try:
+                    relays = [str(item) for item in self._nostr_service.list_relays()]
+                    self._clear_failure()
+                    if relays:
+                        self._set_status(
+                            f"Relays ({len(relays)}): " + ", ".join(relays[:3])
+                        )
+                    else:
+                        self._set_status("No relays configured")
+                except Exception as exc:
+                    self._record_failure(
+                        "relay-list failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "relay-add":
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: relay-add <url>")
+                    return
+                url = args[0].strip()
+                if not url:
+                    self._set_status("relay-add url is required")
+                    return
+                try:
+                    self._nostr_service.add_relay(url)
+                    self._clear_failure()
+                    self._set_status(f"Added relay {url}")
+                except Exception as exc:
+                    self._record_failure(
+                        "relay-add failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd in {"relay-rm", "relay-remove"}:
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: relay-rm <index>")
+                    return
+                try:
+                    idx = int(args[0])
+                except ValueError:
+                    self._set_status("relay-rm index must be an integer")
+                    return
+                try:
+                    self._nostr_service.remove_relay(idx)
+                    self._clear_failure()
+                    self._set_status(f"Removed relay #{idx}")
+                except Exception as exc:
+                    self._record_failure(
+                        "relay-rm failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "relay-reset":
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: relay-reset")
+                    return
+                resetter = getattr(self._nostr_service, "reset_relays", None)
+                if not callable(resetter):
+                    self._set_status("Nostr service does not support relay reset")
+                    return
+                try:
+                    relays = list(resetter())
+                    self._clear_failure()
+                    self._set_status(f"Relays reset ({len(relays)})")
+                except Exception as exc:
+                    self._record_failure(
+                        "relay-reset failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "sync-now":
+                if self._sync_service is None:
+                    self._set_status("Sync service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: sync-now")
+                    return
+                try:
+                    result = self._sync_service.sync()
+                    self._clear_failure()
+                    if result is None:
+                        self._set_status("Sync completed (no publish result)")
+                    else:
+                        manifest = getattr(result, "manifest_id", "unknown")
+                        self._set_status(f"Sync completed manifest {manifest}")
+                except Exception as exc:
+                    self._record_failure(
+                        "sync-now failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "sync-bg":
+                if self._sync_service is None:
+                    self._set_status("Sync service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: sync-bg")
+                    return
+                try:
+                    self._sync_service.start_background_vault_sync()
+                    self._clear_failure()
+                    self._set_status("Background sync started")
+                except Exception as exc:
+                    self._record_failure(
+                        "sync-bg failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "checksum-verify":
+                if self._utility_service is None:
+                    self._set_status("Utility service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: checksum-verify")
+                    return
+                verifier = getattr(self._utility_service, "verify_checksum", None)
+                if not callable(verifier):
+                    self._set_status("Utility service does not support checksum verify")
+                    return
+                try:
+                    verifier()
+                    self._clear_failure()
+                    self._set_status("Checksum verification complete")
+                except Exception as exc:
+                    self._record_failure(
+                        "checksum-verify failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "checksum-update":
+                if self._utility_service is None:
+                    self._set_status("Utility service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: checksum-update")
+                    return
+                updater = getattr(self._utility_service, "update_checksum", None)
+                if not callable(updater):
+                    self._set_status("Utility service does not support checksum update")
+                    return
+                try:
+                    updater()
+                    self._clear_failure()
+                    self._set_status("Checksum updated")
+                except Exception as exc:
+                    self._record_failure(
+                        "checksum-update failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "db-export":
+                if self._vault_service is None:
+                    self._set_status("Vault service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: db-export <path>")
+                    return
+                try:
+                    from seedpass.core.api import VaultExportRequest
+
+                    path = Path(args[0]).expanduser()
+                    self._vault_service.export_vault(VaultExportRequest(path=path))
+                    self._clear_failure()
+                    self._set_status(f"Database exported to {path}")
+                except Exception as exc:
+                    self._record_failure(
+                        "db-export failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "db-import":
+                if self._vault_service is None:
+                    self._set_status("Vault service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: db-import <path>")
+                    return
+                try:
+                    from seedpass.core.api import VaultImportRequest
+
+                    path = Path(args[0]).expanduser()
+                    self._vault_service.import_vault(VaultImportRequest(path=path))
+                    self._clear_failure()
+                    self._load_entries(self._last_query, reset_page=True)
+                    self._set_status(f"Database imported from {path}")
+                except Exception as exc:
+                    self._record_failure(
+                        "db-import failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "totp-export":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) != 1:
+                    self._set_status("Usage: totp-export <path>")
+                    return
+                path = Path(args[0]).expanduser()
+                try:
+                    payload = self._service.export_totp_entries()
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(
+                        json.dumps(payload, indent=2, sort_keys=True),
+                        encoding="utf-8",
+                    )
+                    self._clear_failure()
+                    self._set_status(f"Exported TOTP entries to {path}")
+                except Exception as exc:
+                    self._record_failure(
+                        "totp-export failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "parent-seed-backup":
+                if self._vault_service is None:
+                    self._set_status("Vault service unavailable")
+                    return
+                if len(args) > 2:
+                    self._set_status(
+                        "Usage: parent-seed-backup (optional: path) (optional: password)"
+                    )
+                    return
+                path = Path(args[0]).expanduser() if len(args) >= 1 else None
+                password = args[1] if len(args) >= 2 else None
+                try:
+                    from seedpass.core.api import BackupParentSeedRequest
+
+                    self._vault_service.backup_parent_seed(
+                        BackupParentSeedRequest(path=path, password=password)
+                    )
+                    self._clear_failure()
+                    if path is not None:
+                        self._set_status(f"Parent seed backup written to {path}")
+                    else:
+                        self._set_status("Parent seed backup/reveal completed")
+                except Exception as exc:
+                    self._record_failure(
+                        "parent-seed-backup failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "doc-export":
+                if self._service is None or self._selected_entry_id is None:
+                    self._set_status("No entry selected")
+                    return
+                if len(args) > 1:
+                    self._set_status("Usage: doc-export (optional: output_path)")
+                    return
+                try:
+                    entry = self._selected_entry_payload()
+                except Exception as exc:
+                    self._set_status(str(exc))
+                    return
+                kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
+                if kind != "document":
+                    self._set_status("doc-export requires selected document entry")
+                    return
+                output_path = args[0] if args else None
+                try:
+                    dest = self._service.export_document_file(
+                        self._selected_entry_id, output_path=output_path
+                    )
+                    self._clear_failure()
+                    self._set_status(f"Exported document to {dest}")
+                except Exception as exc:
+                    self._record_failure(
+                        "doc-export failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
                 return
 
             if cmd in ("archive", "restore"):
@@ -1326,6 +2950,8 @@ def launch_tui2(
             search = self.query_one("#search", Input).value
             self._update_filters_panel()
             self._load_entries(query=search, reset_page=False)
+            if self.totp_board_open:
+                self._refresh_totp_board(force_reload=True)
 
         def action_toggle_help(self) -> None:
             if self.palette_open:
@@ -1510,6 +3136,19 @@ def launch_tui2(
         def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
             self._show_sensitive_panel(include_qr=True, qr_mode=mode, confirm=confirm)
 
+        def action_toggle_totp_board(self) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before opening 2FA board")
+                return
+            target = not self.totp_board_open
+            self._set_totp_board_visible(target)
+            self._focus_pane = "right"
+            self._apply_focus_style()
+            if target:
+                self._set_status("2FA board opened")
+            else:
+                self._set_status("2FA board closed")
+
         def action_toggle_archive(self) -> None:
             if self._service is None or self._selected_entry_id is None:
                 self._set_status("No entry selected")
@@ -1640,6 +3279,10 @@ def launch_tui2(
                 self.help_open = False
                 self._update_help_overlay()
                 self._set_status("Help closed")
+                return
+            if self.totp_board_open:
+                self._set_totp_board_visible(False)
+                self._set_status("2FA board closed")
                 return
             if not self.editing_document:
                 return

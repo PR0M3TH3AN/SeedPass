@@ -38,7 +38,7 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
 - [x] Add plan doc.
 - [x] Add `seedpass tui2` command.
 - [x] Add runtime check utility and placeholder launcher.
-- [ ] Add CI smoke command for `seedpass tui2 --check`.
+- [x] Add CI smoke command for `seedpass tui2 --check`.
 
 ### Phase 1: Read-only shell
 - [x] Textual app skeleton with 3-pane layout:
@@ -94,3 +94,4 @@ Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core l
   - `seedpass/tui_v2/`
 - Docs updates:
   - this file listed in docs index and discoverability nav.
+  - parity continuation tracker: `docs/tui_v2_parity_backlog.md`

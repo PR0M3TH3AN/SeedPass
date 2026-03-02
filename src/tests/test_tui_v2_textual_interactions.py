@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -21,6 +22,9 @@ class FakeEntryService:
         self.secret_mode_enabled = False
         self.clipboard_delay = 30
         self.clipboard_values: list[str] = []
+
+    def _next_id(self) -> int:
+        return (max(self._entries.keys()) + 1) if self._entries else 1
 
     def search_entries(self, query: str, kinds: list[str] | None = None):
         if self.fail_search_times > 0:
@@ -52,6 +56,183 @@ class FakeEntryService:
     def retrieve_entry(self, entry_id: int):
         return dict(self._entries.get(int(entry_id), {}))
 
+    def add_entry(
+        self,
+        label: str,
+        length: int,
+        username: str | None = None,
+        url: str | None = None,
+    ) -> int:
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "password",
+            "label": label,
+            "length": int(length),
+            "username": username,
+            "url": url,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_totp(
+        self,
+        label: str,
+        *,
+        secret: str | None = None,
+        period: int = 30,
+        digits: int = 6,
+        deterministic: bool = False,
+    ) -> str:
+        _ = deterministic
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "totp",
+            "label": label,
+            "secret": secret or "JBSWY3DPEHPK3PXP",
+            "period": int(period),
+            "digits": int(digits),
+            "archived": False,
+        }
+        return f"otpauth://totp/{label}"
+
+    def add_key_value(self, label: str, key: str, value: str) -> int:
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "key_value",
+            "label": label,
+            "key": key,
+            "value": value,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_document(self, label: str, content: str, *, file_type: str = "txt") -> int:
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "document",
+            "label": label,
+            "content": content,
+            "file_type": file_type,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_ssh_key(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "ssh",
+            "label": label,
+            "private_key": f"SSH_PRIVATE_{entry_id}",
+            "public_key": f"ssh-ed25519 AAAA-{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_pgp_key(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        key_type: str = "ed25519",
+        user_id: str = "",
+        notes: str = "",
+    ) -> int:
+        _ = (index, key_type, user_id, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "pgp",
+            "label": label,
+            "private_key": "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+            "fingerprint": f"FPR-{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_nostr_key(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "nostr",
+            "label": label,
+            "npub": f"npub{entry_id}",
+            "nsec": f"nsec{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_seed(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        words: int = 24,
+        notes: str = "",
+    ) -> int:
+        _ = (index, notes)
+        word_count = max(12, int(words))
+        phrase = " ".join(["abandon"] * (word_count - 1) + ["about"])
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "seed",
+            "label": label,
+            "seed_phrase": phrase,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_managed_account(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "managed_account",
+            "label": label,
+            "seed_phrase": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            "archived": False,
+        }
+        return entry_id
+
+    def export_document_file(
+        self,
+        entry_id: int,
+        output_path: str | Path | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> Path:
+        _ = overwrite
+        entry = self._entries[int(entry_id)]
+        kind = str(entry.get("kind", ""))
+        if kind != "document":
+            raise ValueError("Entry is not a document entry")
+        name = str(entry.get("label", f"document-{entry_id}")).replace(" ", "_")
+        ext = str(entry.get("file_type", "txt")).lstrip(".") or "txt"
+        if output_path is None:
+            dest = Path.cwd() / f"{name}.{ext}"
+        else:
+            raw = Path(output_path)
+            if raw.suffix:
+                dest = raw
+            else:
+                dest = raw / f"{name}.{ext}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(str(entry.get("content", "")), encoding="utf-8")
+        return dest
+
     def modify_entry(self, entry_id: int, **kwargs) -> None:
         entry = self._entries[int(entry_id)]
         for key, value in kwargs.items():
@@ -82,6 +263,19 @@ class FakeEntryService:
     def get_totp_code(self, entry_id: int) -> str:
         _ = entry_id
         return "123456"
+
+    def export_totp_entries(self) -> dict:
+        payload: dict[str, dict[str, object]] = {}
+        for entry_id, entry in self._entries.items():
+            if str(entry.get("kind")) != "totp":
+                continue
+            payload[str(entry_id)] = {
+                "label": str(entry.get("label", f"totp-{entry_id}")),
+                "period": int(entry.get("period", 30)),
+                "digits": int(entry.get("digits", 6)),
+                "secret": str(entry.get("secret", "JBSWY3DPEHPK3PXP")),
+            }
+        return payload
 
     def get_ssh_key_pair(self, entry_id: int):
         entry = self._entries[int(entry_id)]
@@ -156,13 +350,200 @@ class FakeEntryService:
         return [dict(link) for link in kept]
 
 
-def _build_app(service: FakeEntryService):
+class FakeProfileService:
+    def __init__(self, profiles: list[str]) -> None:
+        self.profiles = list(profiles)
+        self.last_switch: tuple[str, str | None] | None = None
+        self.add_count = 0
+        self.removed: list[str] = []
+        self.renamed: dict[str, str] = {}
+
+    def list_profiles(self) -> list[str]:
+        return list(self.profiles)
+
+    def switch_profile(self, req) -> None:
+        fp = str(getattr(req, "fingerprint", ""))
+        pw = getattr(req, "password", None)
+        if fp not in self.profiles:
+            raise ValueError("profile not found")
+        self.last_switch = (fp, pw)
+
+    def add_profile(self) -> str:
+        self.add_count += 1
+        fp = f"fp-new-{self.add_count}"
+        self.profiles.append(fp)
+        return fp
+
+    def remove_profile(self, req) -> None:
+        fp = str(getattr(req, "fingerprint", ""))
+        if fp not in self.profiles:
+            raise ValueError("profile not found")
+        self.profiles = [item for item in self.profiles if item != fp]
+        self.removed.append(fp)
+
+    def rename_profile(self, fingerprint: str, name: str | None) -> None:
+        fp = str(fingerprint)
+        if fp not in self.profiles:
+            raise ValueError("profile not found")
+        if not name:
+            raise ValueError("name required")
+        self.renamed[fp] = str(name)
+
+
+class FakeConfigService:
+    def __init__(self) -> None:
+        self.secret_mode_enabled = False
+        self.clipboard_delay = 30
+        self.offline_mode = True
+        self.quick_unlock = False
+        self.inactivity_timeout = 300.0
+        self.kdf_iterations = 100000
+        self.kdf_mode = "pbkdf2"
+
+    def set_secret_mode(self, enabled: bool, delay: int) -> None:
+        self.secret_mode_enabled = bool(enabled)
+        self.clipboard_delay = int(delay)
+
+    def set_offline_mode(self, enabled: bool) -> None:
+        self.offline_mode = bool(enabled)
+
+    def set(self, key: str, value: str) -> None:
+        if key == "quick_unlock":
+            self.quick_unlock = value.strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "y",
+                "on",
+            }
+            return
+        if key == "inactivity_timeout":
+            self.inactivity_timeout = float(value)
+            return
+        if key == "kdf_iterations":
+            self.kdf_iterations = int(value)
+            return
+        if key == "kdf_mode":
+            self.kdf_mode = str(value)
+            return
+        raise KeyError(key)
+
+
+class FakeNostrService:
+    def __init__(self, relays: list[str]) -> None:
+        self.relays = list(relays)
+
+    def list_relays(self) -> list[str]:
+        return list(self.relays)
+
+    def add_relay(self, url: str) -> None:
+        if url in self.relays:
+            return
+        self.relays.append(url)
+
+    def remove_relay(self, idx: int) -> None:
+        if not 1 <= int(idx) <= len(self.relays):
+            raise ValueError("invalid relay index")
+        self.relays.pop(int(idx) - 1)
+
+    def reset_relays(self) -> list[str]:
+        self.relays = ["wss://default-1", "wss://default-2"]
+        return list(self.relays)
+
+
+class FakeSyncResult:
+    def __init__(self, manifest_id: str) -> None:
+        self.manifest_id = manifest_id
+
+
+class FakeSyncService:
+    def __init__(self) -> None:
+        self.sync_calls = 0
+        self.bg_calls = 0
+
+    def sync(self):
+        self.sync_calls += 1
+        return FakeSyncResult(f"manifest-{self.sync_calls}")
+
+    def start_background_vault_sync(self) -> None:
+        self.bg_calls += 1
+
+
+class FakeUtilityService:
+    def __init__(self) -> None:
+        self.verify_calls = 0
+        self.update_calls = 0
+
+    def verify_checksum(self) -> None:
+        self.verify_calls += 1
+
+    def update_checksum(self) -> None:
+        self.update_calls += 1
+
+
+class FakeVaultService:
+    def __init__(self) -> None:
+        self.exported: list[Path] = []
+        self.imported: list[Path] = []
+        self.parent_seed_backups: list[tuple[Path | None, str | None]] = []
+
+    def export_vault(self, req) -> None:
+        path = Path(getattr(req, "path"))
+        self.exported.append(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("vault-export", encoding="utf-8")
+
+    def import_vault(self, req) -> None:
+        path = Path(getattr(req, "path"))
+        self.imported.append(path)
+
+    def backup_parent_seed(self, req) -> None:
+        path = getattr(req, "path", None)
+        password = getattr(req, "password", None)
+        if path is not None:
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("seed-backup", encoding="utf-8")
+        self.parent_seed_backups.append((path, password))
+
+
+def _build_app(
+    service: FakeEntryService,
+    *,
+    profile_service=None,
+    config_service=None,
+    nostr_service=None,
+    sync_service=None,
+    utility_service=None,
+    vault_service=None,
+):
     holder: dict[str, object] = {}
 
     def _hook(app):
         holder["app"] = app
 
-    launched = launch_tui2(entry_service_factory=lambda: service, app_hook=_hook)
+    launched = launch_tui2(
+        entry_service_factory=lambda: service,
+        profile_service_factory=(
+            (lambda: profile_service) if profile_service is not None else None
+        ),
+        config_service_factory=(
+            (lambda: config_service) if config_service is not None else None
+        ),
+        nostr_service_factory=(
+            (lambda: nostr_service) if nostr_service is not None else None
+        ),
+        sync_service_factory=(
+            (lambda: sync_service) if sync_service is not None else None
+        ),
+        utility_service_factory=(
+            (lambda: utility_service) if utility_service is not None else None
+        ),
+        vault_service_factory=(
+            (lambda: vault_service) if vault_service is not None else None
+        ),
+        app_hook=_hook,
+    )
     assert launched is True
     app = holder.get("app")
     assert app is not None
@@ -396,3 +777,697 @@ async def test_tui2_textual_retry_after_search_failure() -> None:
         list_view = app.query_one("#entry-list", ListView)
         assert len(list_view.children) == 1
         assert "retry" not in _status_text(app).lower()
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_add_commands() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Start"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("add-password Login 20 alice https://example.com")
+        await pilot.pause()
+        assert "Added password entry #2" in _status_text(app)
+        assert service.retrieve_entry(2)["kind"] == "password"
+
+        app._run_palette_command("add-totp Auth 45 8 JBSWY3DPEHPK3PXP")
+        await pilot.pause()
+        assert "Added TOTP entry #3" in _status_text(app)
+        assert service.retrieve_entry(3)["period"] == 45
+        assert service.retrieve_entry(3)["digits"] == 8
+
+        app._run_palette_command("add-key-value Env API_KEY abc123")
+        await pilot.pause()
+        assert "Added key/value entry #4" in _status_text(app)
+        assert service.retrieve_entry(4)["value"] == "abc123"
+
+        app._run_palette_command("add-document Notes md body")
+        await pilot.pause()
+        assert "Added document entry #5" in _status_text(app)
+        assert service.retrieve_entry(5)["file_type"] == "md"
+
+        app._run_palette_command("add-ssh HostKey 7")
+        await pilot.pause()
+        assert "Added SSH entry #6" in _status_text(app)
+        assert service.retrieve_entry(6)["kind"] == "ssh"
+
+        app._run_palette_command("add-pgp PgpKey 8 ed25519 user@example.com")
+        await pilot.pause()
+        assert "Added PGP entry #7" in _status_text(app)
+        assert service.retrieve_entry(7)["kind"] == "pgp"
+
+        app._run_palette_command("add-nostr NostrKey 9")
+        await pilot.pause()
+        assert "Added Nostr entry #8" in _status_text(app)
+        assert service.retrieve_entry(8)["kind"] == "nostr"
+
+        app._run_palette_command("add-seed TravelSeed 12 10")
+        await pilot.pause()
+        assert "Added seed entry #9" in _status_text(app)
+        assert service.retrieve_entry(9)["kind"] == "seed"
+
+        app._run_palette_command("add-managed-account Managed 11")
+        await pilot.pause()
+        assert "Added managed account entry #10" in _status_text(app)
+        assert service.retrieve_entry(10)["kind"] == "managed_account"
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_add_commands_validation_errors() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Start"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("add-password Login not-a-number")
+        await pilot.pause()
+        assert "length must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-totp Auth bad 8")
+        await pilot.pause()
+        assert "period must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-key-value only-two-args key")
+        await pilot.pause()
+        assert "Usage: add-key-value <label> <key> <value>" in _status_text(app)
+
+        app._run_palette_command("add-document too few")
+        await pilot.pause()
+        assert "Usage: add-document <label> <file_type> <content>" in _status_text(app)
+
+        app._run_palette_command("add-ssh Host abc")
+        await pilot.pause()
+        assert "add-ssh index must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-pgp Pgp nope")
+        await pilot.pause()
+        assert "add-pgp index must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-nostr Nostr nope")
+        await pilot.pause()
+        assert "add-nostr index must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-seed Seed nope")
+        await pilot.pause()
+        assert "add-seed words must be an integer" in _status_text(app)
+
+        app._run_palette_command("add-managed-account Managed nope")
+        await pilot.pause()
+        assert "add-managed-account index must be an integer" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_notes_tags_fields_and_doc_export(
+    tmp_path: Path,
+) -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "document",
+                "label": "Runbook",
+                "content": "line-1\nline-2",
+                "file_type": "md",
+                "notes": "old",
+                "tags": ["alpha"],
+                "custom_fields": [
+                    {"label": "token", "value": "abc", "is_hidden": False}
+                ],
+            },
+            {"id": 2, "kind": "password", "label": "Login"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+
+        app._run_palette_command('notes-set "updated note"')
+        await pilot.pause()
+        assert service.retrieve_entry(1)["notes"] == "updated note"
+
+        app._run_palette_command("tag-add beta")
+        await pilot.pause()
+        assert "beta" in service.retrieve_entry(1).get("tags", [])
+
+        app._run_palette_command("tag-rm alpha")
+        await pilot.pause()
+        assert "alpha" not in service.retrieve_entry(1).get("tags", [])
+
+        app._run_palette_command("tags-set gamma, delta")
+        await pilot.pause()
+        assert service.retrieve_entry(1).get("tags", []) == ["gamma", "delta"]
+
+        app._run_palette_command("field-add api_key secret hidden")
+        await pilot.pause()
+        fields = service.retrieve_entry(1).get("custom_fields", [])
+        assert any(
+            f.get("label") == "api_key" and f.get("is_hidden") is True for f in fields
+        )
+
+        app._run_palette_command("field-rm api_key")
+        await pilot.pause()
+        fields = service.retrieve_entry(1).get("custom_fields", [])
+        assert all(f.get("label") != "api_key" for f in fields)
+
+        out_dir = tmp_path / "exports"
+        app._run_palette_command(f"doc-export {out_dir}")
+        await pilot.pause()
+        exported = out_dir / "Runbook.md"
+        assert exported.exists()
+        assert exported.read_text(encoding="utf-8") == "line-1\nline-2"
+        assert "Exported document to" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_notes_tags_fields_and_doc_export_validation() -> (
+    None
+):
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Doc", "content": "x"},
+            {"id": 2, "kind": "password", "label": "Pw"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("notes-set")
+        await pilot.pause()
+        assert "Usage: notes-set <text>" in _status_text(app)
+
+        app._run_palette_command("notes-clear nope")
+        await pilot.pause()
+        assert "Usage: notes-clear" in _status_text(app)
+
+        app._run_palette_command("tag-add")
+        await pilot.pause()
+        assert "Usage: tag-add <tag>" in _status_text(app)
+
+        app._run_palette_command("tag-rm")
+        await pilot.pause()
+        assert "Usage: tag-rm <tag>" in _status_text(app)
+
+        app._run_palette_command("tags-set")
+        await pilot.pause()
+        assert "Usage: tags-set <comma-separated tags>" in _status_text(app)
+
+        app._run_palette_command("tags-clear nope")
+        await pilot.pause()
+        assert "Usage: tags-clear" in _status_text(app)
+
+        app._run_palette_command("field-add one")
+        await pilot.pause()
+        assert "Usage: field-add <label> <value> (optional: hidden)" in _status_text(
+            app
+        )
+
+        app._run_palette_command("field-rm")
+        await pilot.pause()
+        assert "Usage: field-rm <label>" in _status_text(app)
+
+        app._run_palette_command("doc-export one two")
+        await pilot.pause()
+        assert "Usage: doc-export (optional: output_path)" in _status_text(app)
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        app._run_palette_command("doc-export")
+        await pilot.pause()
+        assert "doc-export requires selected document entry" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_set_clear_field_non_document_kinds() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "Login",
+                "username": "alice",
+                "url": "https://old",
+                "length": 16,
+                "notes": "old",
+            },
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Auth",
+                "period": 30,
+                "digits": 6,
+                "notes": "old",
+            },
+            {
+                "id": 3,
+                "kind": "key_value",
+                "label": "Env",
+                "key": "API_KEY",
+                "value": "v1",
+                "notes": "old",
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app._run_palette_command("set-field username bob")
+        app._run_palette_command("set-field url https://new")
+        app._run_palette_command("set-field length 24")
+        await pilot.pause()
+        pw = service.retrieve_entry(1)
+        assert pw["username"] == "bob"
+        assert pw["url"] == "https://new"
+        assert pw["length"] == 24
+        app._run_palette_command("clear-field username")
+        await pilot.pause()
+        assert service.retrieve_entry(1)["username"] == ""
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        app._run_palette_command("set-field period 45")
+        app._run_palette_command("set-field digits 8")
+        await pilot.pause()
+        totp = service.retrieve_entry(2)
+        assert totp["period"] == 45
+        assert totp["digits"] == 8
+
+        app._run_palette_command("open 3")
+        await pilot.pause()
+        app._run_palette_command("set-field key TOKEN")
+        app._run_palette_command("set-field value v2")
+        app._run_palette_command("clear-field value")
+        await pilot.pause()
+        kv = service.retrieve_entry(3)
+        assert kv["key"] == "TOKEN"
+        assert kv["value"] == ""
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_palette_set_clear_field_validation() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login", "length": 16},
+            {"id": 2, "kind": "totp", "label": "Auth"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("set-field")
+        await pilot.pause()
+        assert "Usage: set-field <name> <value>" in _status_text(app)
+
+        app._run_palette_command("clear-field")
+        await pilot.pause()
+        assert "Usage: clear-field <name>" in _status_text(app)
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app._run_palette_command("set-field length nope")
+        await pilot.pause()
+        assert "set-field length must be an integer" in _status_text(app)
+
+        app._run_palette_command("set-field period 30")
+        await pilot.pause()
+        assert "not supported for kind 'password'" in _status_text(app)
+
+        app._run_palette_command("clear-field period")
+        await pilot.pause()
+        assert "not supported for kind 'password'" in _status_text(app)
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        app._run_palette_command("set-field digits nope")
+        await pilot.pause()
+        assert "set-field digits must be an integer" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_2fa_board_view_timer_and_copy() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "totp",
+                "label": "Det Auth",
+                "period": 30,
+                "digits": 6,
+                "deterministic": True,
+            },
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Imported Auth",
+                "period": 45,
+                "digits": 6,
+                "secret": "JBSWY3DPEHPK3PXP",
+                "deterministic": False,
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._time_now = lambda: 91
+        app._run_palette_command("2fa-board")
+        await pilot.pause()
+        board_text = _widget_text(app, "#totp-board")
+        assert "2FA Board" in board_text
+        assert "Det Auth" in board_text
+        assert "Imported Auth" in board_text
+        assert "det=deterministic, imp=imported" in board_text
+        assert "29" in board_text or "14" in board_text
+
+        app._run_palette_command("2fa-copy 1")
+        await pilot.pause()
+        assert service.clipboard_values[-1] == "123456"
+        assert "Copied TOTP code for entry 1" in _status_text(app)
+
+        app._run_palette_command("2fa-refresh")
+        await pilot.pause()
+        assert "2FA board refreshed" in _status_text(app)
+
+        app.action_toggle_totp_board()
+        await pilot.pause()
+        assert "2FA board closed" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_2fa_board_secret_mode_and_validation() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "totp",
+                "label": "Auth",
+                "period": 30,
+                "digits": 6,
+                "secret": "JBSWY3DPEHPK3PXP",
+            }
+        ]
+    )
+    service.secret_mode_enabled = True
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._time_now = lambda: 100
+        app._run_palette_command("2fa-copy")
+        await pilot.pause()
+        assert "Usage: 2fa-copy <entry_id>" in _status_text(app)
+
+        app._run_palette_command("2fa-copy nope")
+        await pilot.pause()
+        assert "2fa-copy entry_id must be an integer" in _status_text(app)
+
+        app._run_palette_command("2fa-board")
+        await pilot.pause()
+        board_text = _widget_text(app, "#totp-board")
+        assert "******" in board_text
+        assert "123456" not in board_text
+
+        app._run_palette_command("2fa-hide")
+        await pilot.pause()
+        assert "2FA board closed" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc"}])
+    profiles = FakeProfileService(["fp-a", "fp-b"])
+    config = FakeConfigService()
+    nostr = FakeNostrService(["wss://r1", "wss://r2"])
+    sync = FakeSyncService()
+    utility = FakeUtilityService()
+    vault = FakeVaultService()
+    app = _build_app(
+        service,
+        profile_service=profiles,
+        config_service=config,
+        nostr_service=nostr,
+        sync_service=sync,
+        utility_service=utility,
+        vault_service=vault,
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("profiles-list")
+        await pilot.pause()
+        assert "Profiles (2): fp-a, fp-b" in _status_text(app)
+
+        app._run_palette_command("profile-switch fp-b")
+        await pilot.pause()
+        assert profiles.last_switch == ("fp-b", None)
+        assert "Switched profile to fp-b" in _status_text(app)
+
+        app._run_palette_command("setting-secret on 42")
+        await pilot.pause()
+        assert config.secret_mode_enabled is True
+        assert config.clipboard_delay == 42
+        assert "Secret mode on (delay 42s)" in _status_text(app)
+
+        app._run_palette_command("setting-offline off")
+        await pilot.pause()
+        assert config.offline_mode is False
+        assert "Offline mode off" in _status_text(app)
+
+        app._run_palette_command("setting-quick-unlock on")
+        await pilot.pause()
+        assert config.quick_unlock is True
+        assert "Quick unlock on" in _status_text(app)
+
+        app._run_palette_command("setting-timeout 600")
+        await pilot.pause()
+        assert config.inactivity_timeout == 600.0
+        assert "Inactivity timeout set to 600.0s" in _status_text(app)
+
+        app._run_palette_command("setting-kdf-iterations 200000")
+        await pilot.pause()
+        assert config.kdf_iterations == 200000
+        assert "KDF iterations set to 200000" in _status_text(app)
+
+        app._run_palette_command("setting-kdf-mode argon2")
+        await pilot.pause()
+        assert config.kdf_mode == "argon2"
+        assert "KDF mode set to argon2" in _status_text(app)
+
+        app._run_palette_command("profile-add")
+        await pilot.pause()
+        assert "Created profile fp-new-1" in _status_text(app)
+
+        app._run_palette_command("profile-remove fp-a")
+        await pilot.pause()
+        assert "Removed profile fp-a" in _status_text(app)
+        assert "fp-a" not in profiles.profiles
+
+        app._run_palette_command("profile-rename fp-b Team Profile")
+        await pilot.pause()
+        assert "Renamed profile fp-b to 'Team Profile'" in _status_text(app)
+        assert profiles.renamed["fp-b"] == "Team Profile"
+
+        app._run_palette_command("relay-list")
+        await pilot.pause()
+        assert "Relays (2): wss://r1, wss://r2" in _status_text(app)
+
+        app._run_palette_command("relay-add wss://r3")
+        await pilot.pause()
+        assert "Added relay wss://r3" in _status_text(app)
+        assert "wss://r3" in nostr.relays
+
+        app._run_palette_command("relay-rm 3")
+        await pilot.pause()
+        assert "Removed relay #3" in _status_text(app)
+
+        app._run_palette_command("relay-reset")
+        await pilot.pause()
+        assert "Relays reset (2)" in _status_text(app)
+        assert nostr.relays == ["wss://default-1", "wss://default-2"]
+
+        app._run_palette_command("sync-now")
+        await pilot.pause()
+        assert "Sync completed manifest manifest-1" in _status_text(app)
+        assert sync.sync_calls == 1
+
+        app._run_palette_command("sync-bg")
+        await pilot.pause()
+        assert "Background sync started" in _status_text(app)
+        assert sync.bg_calls == 1
+
+        app._run_palette_command("checksum-verify")
+        await pilot.pause()
+        assert utility.verify_calls == 1
+        assert "Checksum verification complete" in _status_text(app)
+
+        app._run_palette_command("checksum-update")
+        await pilot.pause()
+        assert utility.update_calls == 1
+        assert "Checksum updated" in _status_text(app)
+
+        app._run_palette_command("totp-export /tmp/seedpass-totp-export.json")
+        await pilot.pause()
+        assert "Exported TOTP entries to" in _status_text(app)
+
+        app._run_palette_command("db-export /tmp/seedpass-db-export.enc")
+        await pilot.pause()
+        assert Path("/tmp/seedpass-db-export.enc") in vault.exported
+        assert "Database exported to /tmp/seedpass-db-export.enc" in _status_text(app)
+
+        app._run_palette_command("db-import /tmp/seedpass-db-export.enc")
+        await pilot.pause()
+        assert Path("/tmp/seedpass-db-export.enc") in vault.imported
+        assert "Database imported from /tmp/seedpass-db-export.enc" in _status_text(app)
+
+        app._run_palette_command(
+            "parent-seed-backup /tmp/seedpass-parent-backup.enc pass123"
+        )
+        await pilot.pause()
+        assert vault.parent_seed_backups[-1] == (
+            Path("/tmp/seedpass-parent-backup.enc"),
+            "pass123",
+        )
+        assert (
+            "Parent seed backup written to /tmp/seedpass-parent-backup.enc"
+            in _status_text(app)
+        )
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("profiles-list")
+        await pilot.pause()
+        assert "Profile service unavailable" in _status_text(app)
+
+        app._run_palette_command("profile-switch")
+        await pilot.pause()
+        assert "Profile service unavailable" in _status_text(app)
+
+        app._run_palette_command("setting-secret on")
+        await pilot.pause()
+        assert "Config service unavailable" in _status_text(app)
+
+        app._run_palette_command("checksum-verify")
+        await pilot.pause()
+        assert "Utility service unavailable" in _status_text(app)
+
+        app._run_palette_command("db-export /tmp/x")
+        await pilot.pause()
+        assert "Vault service unavailable" in _status_text(app)
+
+        app._run_palette_command("totp-export")
+        await pilot.pause()
+        assert "Usage: totp-export <path>" in _status_text(app)
+
+    profiles = FakeProfileService(["fp-a"])
+    config = FakeConfigService()
+    app = _build_app(service, profile_service=profiles, config_service=config)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("profile-switch")
+        await pilot.pause()
+        assert (
+            "Usage: profile-switch <fingerprint> (optional: password)"
+            in _status_text(app)
+        )
+
+        app._run_palette_command("setting-offline maybe")
+        await pilot.pause()
+        assert "invalid toggle value 'maybe'" in _status_text(app)
+
+        app._run_palette_command("setting-secret on nope")
+        await pilot.pause()
+        assert "setting-secret delay must be an integer" in _status_text(app)
+
+        app._run_palette_command("setting-quick-unlock")
+        await pilot.pause()
+        assert "Usage: setting-quick-unlock <on|off>" in _status_text(app)
+
+        app._run_palette_command("profile-add nope")
+        await pilot.pause()
+        assert "Usage: profile-add" in _status_text(app)
+
+        app._run_palette_command("profile-remove")
+        await pilot.pause()
+        assert "Usage: profile-remove <fingerprint>" in _status_text(app)
+
+        app._run_palette_command("profile-rename fp-a")
+        await pilot.pause()
+        assert "Usage: profile-rename <fingerprint> <name>" in _status_text(app)
+
+        app._run_palette_command("relay-list")
+        await pilot.pause()
+        assert "Nostr service unavailable" in _status_text(app)
+
+        app._run_palette_command("relay-reset")
+        await pilot.pause()
+        assert "Nostr service unavailable" in _status_text(app)
+
+        app._run_palette_command("sync-now")
+        await pilot.pause()
+        assert "Sync service unavailable" in _status_text(app)
+
+    utility = FakeUtilityService()
+    vault = FakeVaultService()
+    nostr = FakeNostrService(["wss://r1"])
+    sync = FakeSyncService()
+    app = _build_app(
+        service,
+        profile_service=profiles,
+        config_service=config,
+        utility_service=utility,
+        vault_service=vault,
+        nostr_service=nostr,
+        sync_service=sync,
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("setting-timeout nope")
+        await pilot.pause()
+        assert "setting-timeout requires numeric seconds" in _status_text(app)
+
+        app._run_palette_command("setting-kdf-iterations nope")
+        await pilot.pause()
+        assert "setting-kdf-iterations requires integer value" in _status_text(app)
+
+        app._run_palette_command("setting-kdf-mode")
+        await pilot.pause()
+        assert "Usage: setting-kdf-mode <mode>" in _status_text(app)
+
+        app._run_palette_command("checksum-update nope")
+        await pilot.pause()
+        assert "Usage: checksum-update" in _status_text(app)
+
+        app._run_palette_command("db-export")
+        await pilot.pause()
+        assert "Usage: db-export <path>" in _status_text(app)
+
+        app._run_palette_command("db-import")
+        await pilot.pause()
+        assert "Usage: db-import <path>" in _status_text(app)
+
+        app._run_palette_command("parent-seed-backup a b c")
+        await pilot.pause()
+        assert (
+            "Usage: parent-seed-backup (optional: path) (optional: password)"
+            in _status_text(app)
+        )

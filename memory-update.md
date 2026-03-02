@@ -300,3 +300,231 @@
 - Added docs `docs/kb_scale_validation.md` with exact commands for standard and `--stress` runs.
 - Updated launch documentation to clearly show all interactive launch modes:
   - default (`seedpass`), explicit v2 (`seedpass tui2`), and legacy (`seedpass legacy` / `seedpass --legacy-tui`).
+
+## 2026-03-01 TUI v2 parity backlog prioritization
+- TORCH latest daily/weekly memory snapshots are mostly scheduler metadata; TUI parity priorities should continue to be driven by `docs/tui_v2_plan.md`, `docs/tui_v2_parity_checklist.md`, and direct legacy-vs-v2 code diff.
+- Highest-impact remaining parity gaps identified:
+  1) Add-entry workflows for all kinds in TUI v2
+  2) Retrieve/action parity (notes/custom fields/tags/edit field-level variants/document export/QR submenus)
+  3) 2FA codes live board parity with timer + secret-mode clipboard behavior
+  4) Settings/profile/nostr operational parity in TUI v2
+  5) CI smoke gate for `seedpass tui2 --check` still marked open in plan
+
+## 2026-03-01 TUI v2 parity tracking + Phase A add-entry slice
+- Added a dedicated continuation tracker `docs/tui_v2_parity_backlog.md` and linked it from:
+  - `docs/tui_v2_plan.md`
+  - `docs/tui_v2_parity_checklist.md`
+  - `docs/README.md`
+- Landed TUI v2 command-palette add-entry flows in `src/seedpass/tui_v2/app.py`:
+  - `add-password <label> <length> [username] [url]`
+  - `add-totp <label> [period] [digits] [secret]`
+  - `add-key-value <label> <key> <value>`
+  - `add-document <label> <file_type> <content>`
+- Added usage validation and post-create behavior:
+  - strict argument/typing checks with status feedback
+  - refresh + selection focus to created entry (or nearest match for TOTP)
+  - retry wiring through existing `x` recovery path on service failures
+- Extended Textual tests:
+  - `src/tests/test_tui_v2_textual_interactions.py` now includes add-command success and validation-error scenarios.
+  - `src/tests/test_tui_v2_action_matrix.py` test service now implements add methods and exercises add-command guards/success paths.
+- Validation run:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py`
+  - Result: `24 passed`.
+- Updated backlog checkoffs (Phase A): password/TOTP/key-value/document creation + validation/post-create focus are now marked complete; remaining work is SSH/PGP/Nostr/Seed/Managed Account creation flows and downstream parity phases.
+
+## 2026-03-01 TUI v2 parity Phase A completion (remaining add kinds)
+- Extended TUI v2 command palette add workflows in `src/seedpass/tui_v2/app.py` for remaining entry kinds:
+  - `add-ssh <label> [index]`
+  - `add-pgp <label> [index] [key_type] [user_id]`
+  - `add-nostr <label> [index]`
+  - `add-seed <label> [words] [index]`
+  - `add-managed-account <label> [index]`
+- Added argument validation and status hints for all new commands, including integer checks for index/words arguments and retry integration on service failures.
+- Updated discoverability text in palette/help/filter hints to include the new add command set.
+- Expanded test doubles and coverage:
+  - `src/tests/test_tui_v2_textual_interactions.py`: success + validation coverage for all add commands (existing and new).
+  - `src/tests/test_tui_v2_action_matrix.py`: guard paths and success paths for new add commands.
+- Validation run repeated after formatting:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py`
+  - Result: `24 passed`.
+- Backlog update:
+  - `docs/tui_v2_parity_backlog.md` Phase A is now fully checked off.
+  - Next priority to start: Phase B retrieve/action parity (notes/custom fields/tags/field-level edits/document export/nostr QR submenu behaviors).
+
+## 2026-03-01 TUI v2 parity Phase B slice: notes/tags/custom fields/document export
+- Added retrieve/action parity commands to TUI v2 palette in `src/seedpass/tui_v2/app.py`:
+  - `notes-set <text>` / `notes-clear`
+  - `tag-add <tag>` / `tag-rm <tag>` / `tags-set <comma-list>` / `tags-clear`
+  - `field-add <label> <value> [hidden-token]` / `field-rm <label>`
+  - `doc-export [output_path]` (selected document only)
+- Introduced helper paths for selected-entry mutation:
+  - `_selected_entry_payload()` for reliable selected entry fetch/guarding
+  - `_apply_selected_modify(...)` to centralize modify->reload->reselect->retry behavior
+- Added/extended tests:
+  - `src/tests/test_tui_v2_textual_interactions.py` adds success + validation coverage for notes/tags/custom fields/doc export.
+  - `src/tests/test_tui_v2_action_matrix.py` now exercises new command guards and paths.
+  - Fake services in both test files now implement `export_document_file(...)`.
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py`
+  - Result: `26 passed`.
+- UI-status formatting note for Textual markup:
+  - Bracketed usage strings like `[hidden]`/`[output_path]` get treated as markup and partially disappear in status rendering.
+  - Switched those usage strings to plain text `(optional: ...)` format.
+- Backlog updates in `docs/tui_v2_parity_backlog.md`:
+  - Checked off Phase B items for notes, tags, custom fields, document export, and Nostr public/private QR submenu parity.
+  - Remaining Phase B gap: field-level edit parity for non-document kinds.
+
+## 2026-03-01 TUI v2 parity Phase B slice: field-level edits for non-document kinds
+- Added palette commands in `src/seedpass/tui_v2/app.py`:
+  - `set-field <name> <value>` (alias `field-set`)
+  - `clear-field <name>` (alias `field-clear`)
+- Implemented kind-aware field edit allowlists and validation:
+  - password: `label/notes/username/url/length`
+  - totp: `label/notes/period/digits`
+  - key_value: `label/notes/key/value`
+  - document: `label/notes/file_type/content`
+  - other kinds: `label/notes`
+- Integer coercion/validation added for `length/period/digits` with explicit status errors.
+- Added shared selected-entry modify helpers to keep behavior deterministic and consistent:
+  - `_selected_entry_payload()`
+  - `_apply_selected_modify(...)`
+- Expanded tests:
+  - `src/tests/test_tui_v2_textual_interactions.py` adds success + validation tests for set/clear field workflows across password/totp/key_value.
+  - `src/tests/test_tui_v2_action_matrix.py` includes command guard and action-path coverage for new commands.
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py`
+  - Result: `28 passed`.
+- Backlog update:
+  - `docs/tui_v2_parity_backlog.md` now marks Phase B field-level edit parity complete.
+  - Phase B is effectively complete in tracker and next focus should move to Phase C (dedicated 2FA board parity).
+
+## 2026-03-01 TUI v2 parity Phase C: dedicated 2FA board
+- Added dedicated 2FA board mode in `src/seedpass/tui_v2/app.py`:
+  - keybind: `6` (`action_toggle_totp_board`)
+  - palette commands: `2fa-board`, `2fa-hide`, `2fa-refresh`, `2fa-copy <entry_id>`
+- Added right-pane board widget `#totp-board` and visibility switching helpers.
+- Added live refresh/timer behavior:
+  - app interval tick (`set_interval(1.0, _tick_totp_board)`) updates board while visible
+  - per-row remaining seconds (`rem`) based on each TOTP period
+- Added board display semantics for deterministic/imported split:
+  - source column (`det` / `imp`) from `deterministic` flag fallback to secret presence
+- Added secret-mode behavior for board:
+  - board masks visible codes as `******` when secret mode is enabled
+  - `2fa-copy` copies actual code to clipboard and reports clear-delay status
+- Updated help/filter/palette discoverability text with new 2FA board commands.
+- Test coverage added/expanded:
+  - `src/tests/test_tui_v2_textual_interactions.py`:
+    - `test_tui2_textual_2fa_board_view_timer_and_copy`
+    - `test_tui2_textual_2fa_board_secret_mode_and_validation`
+  - `src/tests/test_tui_v2_action_matrix.py` command matrix includes 2FA command guards/actions
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py`
+  - Result: `30 passed`.
+- Backlog update: all Phase C checkbox items now marked complete in `docs/tui_v2_parity_backlog.md`.
+
+## 2026-03-01 TUI v2 parity Phase D slice: profile + settings palette plumbing
+- Extended `launch_tui2(...)` to accept optional `profile_service_factory` and `config_service_factory`, in addition to entry service factory.
+- Updated CLI preflight wiring (`src/seedpass/cli/__init__.py`) so TUI v2 receives entry/profile/config services from a single initialized manager when available, while preserving existing monkeypatch compatibility in CLI tests.
+- Added new TUI v2 palette commands in `src/seedpass/tui_v2/app.py`:
+  - `profiles-list`
+  - `profile-switch <fingerprint> [password]`
+  - `setting-secret <on|off> [delay]`
+  - `setting-offline <on|off>`
+  - `setting-quick-unlock <on|off>`
+- Added toggle parsing helper for robust boolean token handling (`on/off/true/false/...`).
+- Added Textual interaction test fakes for profile/config services and new command coverage:
+  - `test_tui2_textual_profiles_and_settings_palette_commands`
+  - `test_tui2_textual_profiles_and_settings_palette_validation`
+- Expanded action-matrix command coverage to include new profile/settings command guard paths.
+- Validation run:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py`
+  - Result: `86 passed`.
+- Backlog update (`docs/tui_v2_parity_backlog.md`):
+  - marked `secret mode / quick unlock / offline toggles` complete.
+  - profile switch/add/remove/list/rename remains open because only list/switch command-path parity is currently implemented; add/remove/rename UX flows still pending.
+
+## 2026-03-01 TUI v2 parity Phase D slice: profile lifecycle + relay/sync command paths
+- Extended TUI launch wiring to accept optional `nostr_service_factory` and `sync_service_factory` in `launch_tui2(...)`.
+- Updated CLI preflight service bundle (`src/seedpass/cli/__init__.py`) to pass entry/profile/config/nostr/sync services from a shared manager when available, while preserving monkeypatch compatibility in CLI tests.
+- Added new palette commands in `src/seedpass/tui_v2/app.py`:
+  - profile lifecycle: `profile-add`, `profile-remove <fingerprint>` (plus existing `profiles-list`, `profile-switch`)
+  - relays/sync: `relay-list`, `relay-add <url>`, `relay-rm <index>`, `sync-now`, `sync-bg`
+- Added Textual interaction fakes + coverage for new service surfaces:
+  - fake profile service now supports add/remove
+  - new fake nostr service for relay list/add/remove
+  - new fake sync service for sync-now/bg paths
+- Expanded command matrix coverage to include new profile/relay/sync guard-path commands.
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py`
+  - Result: `86 passed`.
+- Backlog status update:
+  - Phase D rows for profile and relay/sync remain open because profile rename and relay reset parity are still missing.
+  - Added explicit progress note in `docs/tui_v2_parity_backlog.md` documenting currently landed command coverage.
+
+## 2026-03-01 TUI v2 parity Phase D completion slice: profile rename + relay reset
+- Service-layer additions in `src/seedpass/core/api.py`:
+  - `ProfileService.rename_profile(fingerprint, name)` using fingerprint manager naming support.
+  - `NostrService.reset_relays()` to restore default relays, persist config/state, and update active Nostr client relay list.
+- TUI palette additions in `src/seedpass/tui_v2/app.py`:
+  - `profile-rename <fingerprint> <name>`
+  - `relay-reset`
+- Existing profile/relay command set now covers:
+  - profiles: list/switch/add/remove/rename
+  - relays/sync: list/add/remove/reset + sync-now/sync-bg
+- Test updates:
+  - `src/tests/test_tui_v2_textual_interactions.py` fakes now implement `rename_profile` and `reset_relays`; success/validation tests assert both command paths.
+  - `src/tests/test_tui_v2_action_matrix.py` matrix guard coverage includes `profile-rename` and `relay-reset`.
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py`
+  - Result: `86 passed`.
+- Backlog update:
+  - `docs/tui_v2_parity_backlog.md` now marks both `profile switch/add/remove/list/rename` and `relay view/add/remove/reset + sync controls` complete.
+  - Remaining Phase D open items are `inactivity timeout + KDF settings` and checksum/import-export utility actions.
+
+## 2026-03-01 TUI v2 parity Phase D completion slice: inactivity/KDF + checksum/export utilities
+- Extended TUI launch dependency injection to include optional `utility_service_factory` and `vault_service_factory`.
+- CLI preflight bundle (`src/seedpass/cli/__init__.py`) now provides utility/vault services to TUI v2 when manager-backed services are available.
+- Added new settings commands in `src/seedpass/tui_v2/app.py`:
+  - `setting-timeout <seconds>`
+  - `setting-kdf-iterations <n>`
+  - `setting-kdf-mode <mode>`
+- Added utility/export commands:
+  - `checksum-verify`
+  - `checksum-update`
+  - `db-export <path>`
+  - `db-import <path>`
+  - `totp-export <path>`
+  - `parent-seed-backup [path] [password]`
+- Added support commands to existing profile/relay set:
+  - `profile-rename <fingerprint> <name>` and `relay-reset` (wired to new service methods).
+- Service-layer additions in `src/seedpass/core/api.py`:
+  - `ProfileService.rename_profile(...)`
+  - `NostrService.reset_relays()`
+- Test coverage updates:
+  - `src/tests/test_tui_v2_textual_interactions.py` now has fakes and assertions for all new settings/checksum/export/profile-rename/relay-reset commands.
+  - `src/tests/test_tui_v2_action_matrix.py` command matrix includes guard path invocations for the new commands.
+- Validation:
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py`
+  - Result: `86 passed`.
+- Backlog update:
+  - `docs/tui_v2_parity_backlog.md` now marks all Phase D items complete.
+  - Remaining backlog focus shifts to Phase E release/CI closure work.
+
+## 2026-03-01 TUI v2 parity Phase E: CI smoke + docs/help closure
+- Added dedicated CI smoke script for TUI v2 runtime diagnostics:
+  - `scripts/tui2_check_smoke.sh`
+  - Executes `seedpass tui2 --check` when CLI binary is available, otherwise falls back to Typer `CliRunner` invocation.
+  - Validates JSON output keys (`status`, `backend`, `textual_available`, `message`) and backend value (`textual`).
+  - Includes `python`/`python3` fallback handling for portability.
+- Wired CI smoke gate into default CI test runner:
+  - `scripts/run_ci_tests.sh` now runs `./scripts/tui2_check_smoke.sh` before determinism/full test suite.
+- Added explicit workflow smoke step for Poetry matrix:
+  - `.github/workflows/tests.yml` includes `poetry run seedpass tui2 --check`.
+- Phase E docs/status updates:
+  - `docs/tui_v2_parity_backlog.md` marks all Phase E closure items complete and includes release notes.
+  - `docs/tui_v2_plan.md` marks the CI smoke command item complete in Phase 0.
+  - `docs/tui_v2_parity_checklist.md` adds closure notes for CI smoke and retained legacy fallback paths.
+- Validation run:
+  - `scripts/tui2_check_smoke.sh` => `tui2 --check smoke: ok`
+  - `bash -n scripts/tui2_check_smoke.sh scripts/run_ci_tests.sh` => clean
+  - `.venv/bin/pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py src/tests/test_typer_cli.py` => `86 passed`.

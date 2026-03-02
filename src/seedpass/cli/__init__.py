@@ -84,14 +84,33 @@ def _gui_backend_available() -> bool:
 
 def _prime_tui2_service(
     ctx: typer.Context,
-) -> tuple[Optional[object], Optional[Exception]]:
+) -> tuple[Optional[dict[str, object]], Optional[Exception]]:
     """Initialize entry service before Textual mounts.
 
     PasswordManager initialization may prompt for credentials. Doing that before
     entering Textual prevents hidden prompt stalls that appear as a blank screen.
     """
     try:
-        return _get_entry_service(ctx), None
+        from seedpass.core.api import (
+            ProfileService,
+            ConfigService,
+            NostrService,
+            SyncService,
+            UtilityService,
+            VaultService,
+        )
+
+        entry_service = _get_entry_service(ctx)
+        pm = getattr(entry_service, "_manager", None)
+        return {
+            "entry": entry_service,
+            "profile": ProfileService(pm) if pm is not None else None,
+            "config": ConfigService(pm) if pm is not None else None,
+            "nostr": NostrService(pm) if pm is not None else None,
+            "sync": SyncService(pm) if pm is not None else None,
+            "utility": UtilityService(pm) if pm is not None else None,
+            "vault": VaultService(pm) if pm is not None else None,
+        }, None
     except Exception as exc:  # pragma: no cover - defensive runtime path
         return None, exc
 
@@ -126,7 +145,7 @@ def main(
         if legacy_tui:
             raise _launch_legacy_tui(fingerprint=fingerprint)
 
-        service, preflight_error = _prime_tui2_service(ctx)
+        services, preflight_error = _prime_tui2_service(ctx)
         if preflight_error is not None:
             typer.echo(
                 "TUI v2 preflight failed; falling back to legacy TUI. "
@@ -136,7 +155,13 @@ def main(
 
         launched = launch_tui2(
             fingerprint=fingerprint,
-            entry_service_factory=lambda: service,
+            entry_service_factory=lambda: services["entry"],
+            profile_service_factory=lambda: services["profile"],
+            config_service_factory=lambda: services["config"],
+            nostr_service_factory=lambda: services["nostr"],
+            sync_service_factory=lambda: services["sync"],
+            utility_service_factory=lambda: services["utility"],
+            vault_service_factory=lambda: services["vault"],
         )
         if launched:
             return
@@ -176,7 +201,7 @@ def tui2(
         return
 
     fingerprint = (ctx.obj or {}).get("fingerprint")
-    service, preflight_error = _prime_tui2_service(ctx)
+    services, preflight_error = _prime_tui2_service(ctx)
     if preflight_error is not None:
         if fallback_legacy:
             typer.echo(
@@ -192,7 +217,13 @@ def tui2(
 
     launched = launch_tui2(
         fingerprint=fingerprint,
-        entry_service_factory=lambda: service,
+        entry_service_factory=lambda: services["entry"],
+        profile_service_factory=lambda: services["profile"],
+        config_service_factory=lambda: services["config"],
+        nostr_service_factory=lambda: services["nostr"],
+        sync_service_factory=lambda: services["sync"],
+        utility_service_factory=lambda: services["utility"],
+        vault_service_factory=lambda: services["vault"],
     )
     if launched:
         return

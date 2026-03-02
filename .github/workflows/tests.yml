@@ -30,6 +30,8 @@ jobs:
         run: |
           poetry run pip-audit || echo "::warning::pip-audit found vulnerabilities"
         shell: bash
+      - name: TUI v2 check smoke
+        run: poetry run seedpass tui2 --check
       - name: Run deterministic regression tests
         run: poetry run pytest -q src/tests/test_deterministic_artifact_regression.py
       - name: Run tests with coverage

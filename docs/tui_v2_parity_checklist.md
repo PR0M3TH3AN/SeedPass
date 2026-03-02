@@ -54,3 +54,18 @@ This checklist tracks readiness to switch default interactive mode from legacy T
   - standard: `10,000` rows, stress: `50,000` rows (`--stress`)
 - [x] Confirm help text and docs match shipped keybindings and palette commands.
   - Updated `seedpass tui2 --help`, capabilities hints, and docs discoverability commands.
+
+## Ongoing Tracking
+
+- Active parity continuation and checkoff queue:
+  - `docs/tui_v2_parity_backlog.md`
+
+## Phase E Closure Notes
+
+- CI smoke now explicitly validates `seedpass tui2 --check` output shape:
+  - `scripts/tui2_check_smoke.sh` (called from `scripts/run_ci_tests.sh`)
+  - `.github/workflows/tests.yml` (`poetry run seedpass tui2 --check`)
+- Legacy fallback paths remain intentionally available during hardening:
+  - `seedpass --legacy-tui`
+  - `seedpass legacy`
+  - `seedpass tui2 --fallback-legacy`

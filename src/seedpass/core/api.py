@@ -224,6 +224,14 @@ class ProfileService:
         with self._lock:
             self._manager.select_fingerprint(req.fingerprint, password=req.password)
 
+    def rename_profile(self, fingerprint: str, name: str | None) -> None:
+        """Set or clear a display name for ``fingerprint``."""
+
+        with self._lock:
+            ok = self._manager.fingerprint_manager.set_name(fingerprint, name)
+            if not ok:
+                raise ValueError("profile not found")
+
 
 class SyncService:
     """Thread-safe wrapper around vault synchronization."""
@@ -889,3 +897,15 @@ class NostrService:
             self._manager.nostr_client.relays = (
                 self._manager.state_manager.list_relays()
             )
+
+    def reset_relays(self) -> list[str]:
+        with self._lock:
+            from nostr.client import DEFAULT_RELAYS
+
+            relays = list(DEFAULT_RELAYS)
+            self._manager.config_manager.set_relays(relays, require_pin=False)
+            state = self._manager.state_manager._load()
+            state["relays"] = relays
+            self._manager.state_manager._save(state)
+            self._manager.nostr_client.relays = list(relays)
+            return relays

@@ -3,6 +3,8 @@ set -eo pipefail
 
 mkdir -p artifacts/coverage
 
+./scripts/tui2_check_smoke.sh
+
 if [[ "${DETERMINISM_GATE:-1}" == "1" ]]; then
     ./scripts/run_determinism_tests.sh
 fi

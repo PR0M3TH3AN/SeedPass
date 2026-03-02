@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -39,6 +40,9 @@ class MatrixEntryService:
         self.clipboard_delay = 30
         self.clipboard_values: list[str] = []
 
+    def _next_id(self) -> int:
+        return (max(self._entries.keys()) + 1) if self._entries else 1
+
     def search_entries(self, query: str, kinds: list[str] | None = None):
         if self.fail_search:
             raise RuntimeError("search failed")
@@ -68,6 +72,198 @@ class MatrixEntryService:
         if int(entry_id) not in self._entries:
             return {}
         return dict(self._entries[int(entry_id)])
+
+    def add_entry(
+        self,
+        label: str,
+        length: int,
+        username: str | None = None,
+        url: str | None = None,
+    ) -> int:
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "password",
+            "label": label,
+            "length": int(length),
+            "username": username,
+            "url": url,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_totp(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        secret: str | None = None,
+        period: int = 30,
+        digits: int = 6,
+        deterministic: bool = False,
+    ) -> str:
+        _ = (index, deterministic)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "totp",
+            "label": label,
+            "secret": secret or "JBSWY3DPEHPK3PXP",
+            "period": int(period),
+            "digits": int(digits),
+            "archived": False,
+        }
+        return f"otpauth://totp/{label}"
+
+    def add_key_value(
+        self, label: str, key: str, value: str, *, notes: str = ""
+    ) -> int:
+        _ = notes
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "key_value",
+            "label": label,
+            "key": key,
+            "value": value,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_document(
+        self,
+        label: str,
+        content: str,
+        *,
+        file_type: str = "txt",
+        notes: str = "",
+        tags: list[str] | None = None,
+        archived: bool = False,
+    ) -> int:
+        _ = notes
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "document",
+            "label": label,
+            "content": content,
+            "file_type": file_type,
+            "tags": tags or [],
+            "archived": bool(archived),
+        }
+        return entry_id
+
+    def add_ssh_key(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "ssh",
+            "label": label,
+            "private_key": f"SSH_PRIVATE_{entry_id}",
+            "public_key": f"ssh-ed25519 AAAA-{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_pgp_key(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        key_type: str = "ed25519",
+        user_id: str = "",
+        notes: str = "",
+    ) -> int:
+        _ = (index, key_type, user_id, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "pgp",
+            "label": label,
+            "private_key": "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+            "fingerprint": f"FPR-{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_nostr_key(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "nostr",
+            "label": label,
+            "npub": f"npub{entry_id}",
+            "nsec": f"nsec{entry_id}",
+            "archived": False,
+        }
+        return entry_id
+
+    def add_seed(
+        self,
+        label: str,
+        *,
+        index: int | None = None,
+        words: int = 24,
+        notes: str = "",
+    ) -> int:
+        _ = (index, notes)
+        word_count = max(12, int(words))
+        phrase = " ".join(["abandon"] * (word_count - 1) + ["about"])
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "seed",
+            "label": label,
+            "seed_phrase": phrase,
+            "archived": False,
+        }
+        return entry_id
+
+    def add_managed_account(
+        self, label: str, *, index: int | None = None, notes: str = ""
+    ) -> int:
+        _ = (index, notes)
+        entry_id = self._next_id()
+        self._entries[entry_id] = {
+            "id": entry_id,
+            "kind": "managed_account",
+            "label": label,
+            "seed_phrase": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            "archived": False,
+        }
+        return entry_id
+
+    def export_document_file(
+        self,
+        entry_id: int,
+        output_path: str | Path | None = None,
+        *,
+        overwrite: bool = False,
+    ) -> Path:
+        _ = overwrite
+        entry = self._entries[int(entry_id)]
+        kind = str(entry.get("kind", ""))
+        if kind != "document":
+            raise ValueError("Entry is not a document entry")
+        name = str(entry.get("label", f"document-{entry_id}")).replace(" ", "_")
+        ext = str(entry.get("file_type", "txt")).lstrip(".") or "txt"
+        if output_path is None:
+            dest = Path.cwd() / f"{name}.{ext}"
+        else:
+            raw = Path(output_path)
+            if raw.suffix:
+                dest = raw
+            else:
+                dest = raw / f"{name}.{ext}"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(str(entry.get("content", "")), encoding="utf-8")
+        return dest
 
     def modify_entry(self, entry_id: int, **kwargs) -> None:
         if self.fail_modify:
@@ -289,6 +485,61 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("link-add no")
         app._run_palette_command("link-rm")
         app._run_palette_command("link-rm no")
+        app._run_palette_command("add-password")
+        app._run_palette_command("add-password Site nope")
+        app._run_palette_command("add-totp")
+        app._run_palette_command("add-totp Auth bad")
+        app._run_palette_command("add-key-value")
+        app._run_palette_command("add-document")
+        app._run_palette_command("add-ssh")
+        app._run_palette_command("add-ssh Host nope")
+        app._run_palette_command("add-pgp")
+        app._run_palette_command("add-pgp Pgp nope")
+        app._run_palette_command("add-nostr")
+        app._run_palette_command("add-nostr Nostr nope")
+        app._run_palette_command("add-seed")
+        app._run_palette_command("add-seed Seed nope")
+        app._run_palette_command("add-managed-account")
+        app._run_palette_command("add-managed-account Managed nope")
+        app._run_palette_command("notes-set")
+        app._run_palette_command("notes-clear nope")
+        app._run_palette_command("tag-add")
+        app._run_palette_command("tag-rm")
+        app._run_palette_command("tags-set")
+        app._run_palette_command("tags-clear nope")
+        app._run_palette_command("field-add")
+        app._run_palette_command("field-rm")
+        app._run_palette_command("set-field")
+        app._run_palette_command("clear-field")
+        app._run_palette_command("2fa-board nope")
+        app._run_palette_command("2fa-hide nope")
+        app._run_palette_command("2fa-refresh nope")
+        app._run_palette_command("2fa-copy")
+        app._run_palette_command("2fa-copy nope")
+        app._run_palette_command("profiles-list")
+        app._run_palette_command("profile-switch")
+        app._run_palette_command("profile-add")
+        app._run_palette_command("profile-remove")
+        app._run_palette_command("profile-rename")
+        app._run_palette_command("setting-secret on")
+        app._run_palette_command("setting-offline on")
+        app._run_palette_command("setting-quick-unlock on")
+        app._run_palette_command("setting-timeout 300")
+        app._run_palette_command("setting-kdf-iterations 100000")
+        app._run_palette_command("setting-kdf-mode pbkdf2")
+        app._run_palette_command("relay-list")
+        app._run_palette_command("relay-add wss://relay.example")
+        app._run_palette_command("relay-rm 1")
+        app._run_palette_command("relay-reset")
+        app._run_palette_command("sync-now")
+        app._run_palette_command("sync-bg")
+        app._run_palette_command("checksum-verify")
+        app._run_palette_command("checksum-update")
+        app._run_palette_command("db-export /tmp/seedpass-db.enc")
+        app._run_palette_command("db-import /tmp/seedpass-db.enc")
+        app._run_palette_command("totp-export /tmp/seedpass-totp.json")
+        app._run_palette_command("parent-seed-backup")
+        app._run_palette_command("doc-export one two")
         app._run_palette_command("filter")
         app._run_palette_command("unknown-cmd")
         await pilot.pause()
@@ -301,6 +552,29 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("page 2")
         app._run_palette_command("open 1")
         app._run_palette_command("jump 2")
+        app._run_palette_command("add-password NewLogin 18 user https://seedpass.dev")
+        app._run_palette_command("add-totp NewAuth 30 6 JBSWY3DPEHPK3PXP")
+        app._run_palette_command("add-key-value Env API_KEY value")
+        app._run_palette_command("add-document Runbook md body")
+        app._run_palette_command("add-ssh Host 10")
+        app._run_palette_command("add-pgp Pgp 11 ed25519 user@example.com")
+        app._run_palette_command("add-nostr Nostr 12")
+        app._run_palette_command("add-seed Seed 24 13")
+        app._run_palette_command("add-managed-account Managed 14")
+        app._run_palette_command('notes-set "matrix note"')
+        app._run_palette_command("tag-add matrix")
+        app._run_palette_command("tag-rm matrix")
+        app._run_palette_command("tags-set m1, m2")
+        app._run_palette_command("tags-clear")
+        app._run_palette_command("field-add scope admin hidden")
+        app._run_palette_command("field-rm scope")
+        app._run_palette_command("set-field notes matrix-updated")
+        app._run_palette_command("clear-field notes")
+        app._run_palette_command("2fa-board")
+        app._run_palette_command("2fa-copy 2")
+        app._run_palette_command("2fa-refresh")
+        app._run_palette_command("2fa-hide")
+        app._run_palette_command("doc-export /tmp/seedpass-matrix-export")
         await pilot.pause()
 
         app._run_palette_command("open 2")
