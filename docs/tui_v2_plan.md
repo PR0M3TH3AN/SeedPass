@@ -1,6 +1,6 @@
 # TUI v2 Plan (Textual)
 
-Status: Draft implementation plan on `beta` branch.
+Status: Implemented on `beta`; retained as architecture/reference plan.
 
 Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core logic or breaking existing CLI/API behavior.
 

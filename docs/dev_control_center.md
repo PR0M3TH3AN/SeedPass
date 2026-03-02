@@ -64,9 +64,9 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Update cutover memo to reflect current reality and remaining concrete blockers.
-2. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
-3. Finish supply-chain readiness evidence and release-protection policy.
+1. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
+2. Finish supply-chain readiness evidence and release-protection policy.
+3. Expand operational runbooks and staged rollout evidence for security readiness closure.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
@@ -112,6 +112,9 @@ Progress update (2026-03-02):
     - preservation of relay-provided publish errors
     - snapshot-missing warning path
     - snapshot-fetch exception warning path
+- Cutover memo refreshed with current gate status and blockers:
+  - `docs/tui_v2_cutover_decision.md` updated (March 2, 2026)
+  - documents parity-complete status, strengthened CI gates, and remaining hardening blockers
 
 ## 6) Working Rule
 

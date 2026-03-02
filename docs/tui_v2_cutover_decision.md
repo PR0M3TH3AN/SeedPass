@@ -1,75 +1,92 @@
 # TUI v2 Cutover Decision Memo
 
-Date: March 1, 2026
-Branch: `beta`
+Date: March 2, 2026  
+Branch: `beta`  
 Decision owner: SeedPass maintainers
 
 ## Decision
 
-Addendum (March 1, 2026, `beta`): default interactive routing now launches TUI v2 first, with `--legacy-tui` retained as a one-release fallback path.
+Current branch state: `seedpass` default interactive routing launches TUI v2 first.  
+Legacy fallback remains intentionally available during hardening:
+- `seedpass --legacy-tui`
+- `seedpass legacy`
+- `seedpass tui2 --fallback-legacy`
 
-Original recommendation in this memo was conservative (defer default switch until all gates were complete). The `beta` branch now reflects the cutover implementation requested during active hardening.
+## Decision Update (March 2, 2026)
 
-## Rationale
+Cutover readiness has improved materially since the initial memo draft:
+- parity checklist now marks full legacy workflow coverage complete
+- Textual interaction suites and parity matrix coverage are in place
+- CI now includes both runtime smoke and stronger coverage gates for TUI v2 critical paths
+- deterministic Nostr failure-mode resilience tests have been expanded
 
-TUI v2 now covers the core workflows (search/filter/detail, document editing, graph links, relation traversal, pagination, retryable failures), but the project still has explicit remaining risks:
-- full legacy workflow parity is still marked pending
-- no dedicated Textual interaction test suite yet
-- cross-environment runtime behavior for Textual still needs broader validation
+Given this state, the default routing decision on `beta` is now technically aligned with implemented gates. Remaining work is focused on release hardening and operational risk controls, not core TUI parity.
 
-Switching defaults before those gates are closed adds avoidable regression risk.
+## Gate Status Snapshot
 
-## Cutover Gates (Required)
+1. Parity closure: **Pass**
+- `docs/tui_v2_parity_checklist.md` marks `Full legacy workflow coverage: Yes`.
+- Evidence:
+  - `artifacts/agent_tui_test/20260302T135526Z/report.json`
+  - `artifacts/agent_tui2_test/20260302T135526Z/report.json`
 
-1. Parity closure
-- Complete and verify remaining legacy-only interactive flows.
-- Update parity checklist so no high-severity gap remains.
+2. Test coverage and CI gates: **Pass (expanded)**
+- Runtime smoke:
+  - `scripts/tui2_check_smoke.sh`
+- Critical module gate (default in CI runner):
+  - `scripts/check_critical_coverage.py`
+  - includes `src/seedpass/core/api.py >= 85%`
+- Focused TUI v2 gate:
+  - `scripts/tui2_coverage_gate.sh`
+  - enforces:
+    - `src/seedpass/tui_v2/app.py >= 78%`
+    - `src/seedpass/core/api.py >= 85%`
 
-2. Test coverage
-- Add automated Textual interaction tests for:
-  - list/search/filter + pagination
-  - document edit save/cancel
-  - link add/remove/filter/open traversal
-  - retry-on-error paths
+3. Large-vault validation: **Pass**
+- `src/tests/test_tui_v2_large_vault_validation.py`
+- `src/tests/test_tui_v2_kb_scale_stress.py`
 
-3. Large-vault validation
-- Run deterministic stress scenarios with realistic vault sizes.
-- Confirm acceptable responsiveness and no functional regressions.
+4. Docs/help alignment: **Pass (ongoing maintenance)**
+- keybinding/palette help updated with landed parity commands
+- cutover/fallback command paths documented in parity/checklist docs
 
-4. Docs/help alignment
-- Ensure `--help`, keybinding hints, and docs match shipped behavior.
+5. Release safety fallback: **Pass**
+- legacy fallback command/flag paths retained for one-release safety window
 
-5. Release safety
-- Keep a one-release fallback flag/path to legacy TUI.
-- Confirm rollback steps in release notes.
+## Remaining Blockers (Cutover Hardening)
 
-## Proposed Timing
+These are now the main blockers for promoting from `beta` hardening to broad release confidence:
 
-- Target decision checkpoint: next `beta` hardening cycle after test and parity gates are complete.
-- Earliest practical default switch: first release after all gates pass in CI and manual smoke checks.
+1. Nostr resilience soak validation (beyond deterministic unit tests)
+- deterministic failure-mode suite now exists:
+  - `src/tests/test_nostr_resilience_failure_modes.py`
+- still recommended:
+  - optional real-relay soak lane and outage/retry drift capture across environments
 
-## Rollout Plan
+2. Supply-chain and release-integrity completion
+- complete pending items in `docs/supply_chain_release_integrity.md`:
+  - release-protection enforcement
+  - GHSA exception disposition documentation
+  - maintainer verification runbook evidence
 
-1. Release N
-- Default: legacy TUI.
-- Promote `seedpass tui2` in docs and help text.
-- Collect bug reports and telemetry signals (where available).
+3. Operational runbooks and staged rollout evidence
+- incident/runbook readiness still open in `docs/security_readiness_checklist.md`
+- staged rollout + rollback drill evidence still needs explicit record
 
-2. Release N+1 (conditional)
-- Default: TUI v2.
-- Keep explicit legacy fallback command/flag for one release.
+## Rollout Recommendation
 
-3. Release N+2
-- Re-evaluate legacy fallback retention based on stability.
+For the next production-facing release:
+1. Keep TUI v2 default route.
+2. Keep legacy fallback enabled for one release.
+3. Publish release notes with explicit fallback instructions.
+4. Require passing:
+   - `scripts/run_ci_tests.sh`
+   - `scripts/tui2_coverage_gate.sh`
+   - parity bug-bash harnesses (`ai_tui_agent_test.py`, `ai_tui2_agent_test.py`)
 
 ## Rollback Plan
 
 If a cutover regression is detected:
-- Immediately revert default routing to legacy TUI.
-- Keep TUI v2 available as opt-in for continued fixes.
-- Publish a short incident note with repro case and mitigation timeline.
-
-## Implementation Note
-
-When cutover is approved, update CLI callback routing in
-`src/seedpass/cli/__init__.py` so `seedpass` invokes TUI v2 by default while preserving an explicit legacy path.
+- switch default interactive route back to legacy TUI in CLI callback routing
+- keep TUI v2 as opt-in path while patching regressions
+- publish incident note with repro, mitigation, and re-enable criteria

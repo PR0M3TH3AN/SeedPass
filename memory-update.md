@@ -736,3 +736,13 @@
 - Docs updated:
   - `docs/security_readiness_checklist.md` now includes `test_nostr_resilience_failure_modes.py` under Nostr resilience evidence.
   - `docs/dev_control_center.md` progress notes updated to reflect deterministic Nostr resilience suite expansion.
+
+## 2026-03-02 Cutover memo refresh and doc alignment
+- Updated `docs/tui_v2_cutover_decision.md` to reflect current `beta` reality:
+  - default route is TUI v2 with explicit legacy fallback paths retained
+  - parity closure and bug-bash evidence status
+  - strengthened CI/testing gates (runtime smoke + critical coverage + focused TUI2 coverage)
+  - remaining blockers reframed to release hardening areas (soak validation, supply-chain completion, operational runbooks).
+- Aligned planning docs:
+  - `docs/dev_control_center.md` next-step priorities updated to remove completed memo-refresh item and track current hardening priorities.
+  - `docs/tui_v2_plan.md` status updated from draft wording to implemented/reference-plan wording.
