@@ -169,6 +169,15 @@ def launch_tui2(
             background: #0d1114;
             color: #daf2e5;
         }
+        #top-ribbon {
+            height: 1;
+            padding: 0 1;
+            margin: 0 1;
+            border: solid #274533;
+            background: #0b0f13;
+            color: #daf2e5;
+            text-style: bold;
+        }
         #body { height: 1fr; }
         #status {
             height: 1;
@@ -177,9 +186,35 @@ def launch_tui2(
             background: #0d1114;
             color: #daf2e5;
         }
+        #action-strip {
+            height: 1;
+            padding: 0 1;
+            margin: 0 1;
+            border: solid #274533;
+            background: #0b0f13;
+            color: #97b8a6;
+        }
         #left { width: 34; border: solid #1a3024; padding: 1; background: #0d1114; }
         #center { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
         #right { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
+        #grid-heading {
+            height: 1;
+            margin-bottom: 1;
+            border: solid #274533;
+            background: #0b0f13;
+            color: #daf2e5;
+            text-style: bold;
+            padding: 0 1;
+        }
+        #inspector-heading {
+            height: 1;
+            margin-bottom: 1;
+            border: solid #274533;
+            background: #0b0f13;
+            color: #daf2e5;
+            text-style: bold;
+            padding: 0 1;
+        }
         #filters {
             height: 1fr;
             overflow: auto;
@@ -318,11 +353,13 @@ def launch_tui2(
                 classes="hidden",
             )
             yield Static("", id="help-overlay", classes="hidden")
+            yield Static("", id="top-ribbon")
             with Horizontal(id="body"):
                 with Vertical(id="left"):
                     yield Static("", id="filters")
                     yield Static("", id="activity")
                 with Vertical(id="center"):
+                    yield Static("Entry Grid", id="grid-heading")
                     yield Input(
                         placeholder="Search entries (Enter to apply)", id="search"
                     )
@@ -330,6 +367,7 @@ def launch_tui2(
                     yield ListView(id="entry-list")
                 with Vertical(id="right"):
                     with Vertical(id="right-view"):
+                        yield Static("Inspector Board", id="inspector-heading")
                         yield Static("", id="entry-detail")
                         yield Static("", id="link-detail")
                         yield Static("", id="secret-detail")
@@ -355,6 +393,7 @@ def launch_tui2(
                             id="doc-edit-help",
                         )
             yield Static("Ready", id="status")
+            yield Static("", id="action-strip")
             yield Footer()
 
         def on_mount(self) -> None:
@@ -384,6 +423,7 @@ def launch_tui2(
             self._totp_rows: list[dict[str, Any]] = []
             self._session_locked = False
             self._managed_session_entry_id: int | None = None
+            self._last_sync_text = "(none)"
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
             try:
                 self._service = (
@@ -452,6 +492,8 @@ def launch_tui2(
             self._update_help_overlay()
             self._update_activity_panel()
             self._apply_focus_style()
+            self._update_top_ribbon()
+            self._update_action_strip()
             self._set_secret_panel(
                 "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
             )
@@ -491,6 +533,45 @@ def launch_tui2(
 
         def _set_secret_panel(self, text: str) -> None:
             self.query_one("#secret-detail", Static).update(text)
+
+        def _update_top_ribbon(self) -> None:
+            lock_state = "locked" if self._session_locked else "unlocked"
+            managed = (
+                str(self._managed_session_entry_id)
+                if self._managed_session_entry_id is not None
+                else "0"
+            )
+            total = len(self._all_results)
+            text = (
+                f"FP: {fingerprint or '(default)'}"
+                f" | Managed Users: {managed}"
+                f" | Entries: {total}"
+                f" | Kind: {self.filter_kind}"
+                f" | Archive: {self.archive_scope}"
+                f" | Session: {lock_state}"
+                f" | Last Sync: {self._last_sync_text}"
+            )
+            self.query_one("#top-ribbon", Static).update(text)
+
+        def _update_action_strip(self) -> None:
+            kind = ""
+            if isinstance(self._selected_entry, dict):
+                kind = str(
+                    self._selected_entry.get("kind")
+                    or self._selected_entry.get("type")
+                    or ""
+                ).strip()
+            context = (
+                f"V:Reveal  G:QR  A:Archive  E:Edit ({kind})"
+                if kind
+                else "V:Reveal  G:QR  A:Archive  E:Edit"
+            )
+            text = (
+                "/:Search  J:Jump  F:Filter  H:ArchiveScope  L:LinkFilter  "
+                "Ctrl+P:Palette  X:Retry  "
+                f"{context}"
+            )
+            self.query_one("#action-strip", Static).update(text)
 
         def _quickstart_text(self) -> str:
             return self._onboarding_text()
@@ -729,6 +810,8 @@ def launch_tui2(
                 ]
             )
             self.query_one("#filters", Static).update(text)
+            self._update_top_ribbon()
+            self._update_action_strip()
 
         def _render_entry_label(
             self, idx: int, label: str, etype: str, archived: bool
@@ -2995,9 +3078,11 @@ def launch_tui2(
                     result = self._sync_service.sync()
                     self._clear_failure()
                     if result is None:
+                        self._last_sync_text = "completed (no publish result)"
                         self._set_status("Sync completed (no publish result)")
                     else:
                         manifest = getattr(result, "manifest_id", "unknown")
+                        self._last_sync_text = f"manifest {manifest}"
                         self._set_status(f"Sync completed manifest {manifest}")
                 except Exception as exc:
                     self._record_failure(
@@ -3018,6 +3103,7 @@ def launch_tui2(
                 try:
                     self._sync_service.start_background_vault_sync()
                     self._clear_failure()
+                    self._last_sync_text = "background started"
                     self._set_status("Background sync started")
                 except Exception as exc:
                     self._record_failure(

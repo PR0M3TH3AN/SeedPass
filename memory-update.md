@@ -901,3 +901,20 @@
   - `docs/tui_v2_parity_backlog.md`
 - Recommended next implementation slice documented as:
   - Phase 1: shell restructure (layout scaffolding only, no behavior regressions).
+
+## 2026-03-02 UI refresh implementation slice: Phase 1 shell scaffold (initial pass)
+- Implemented mockup-aligned shell scaffolding in `src/seedpass/tui_v2/app.py`:
+  - added `#top-ribbon` (live operational summary line)
+  - added `Entry Grid` and `Inspector Board` section headers
+  - added `#action-strip` persistent keyboard/action hint rail
+- Operational summary now updates with:
+  - fingerprint, managed-session state, result count, active kind/archive scope, session lock state, last sync summary
+- Sync commands now update top-ribbon sync summary:
+  - `sync-now`
+  - `sync-bg`
+- Fixed Textual markup conflict in action-strip hint text by using plain-text tokens (`/:Search`, `J:Jump`, etc.).
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `28 passed`.
+- Refresh plan updated with explicit phase progress and next step:
+  - `docs/tui_v2_ui_refresh_plan.md` (Phase 2 grid modernization next).

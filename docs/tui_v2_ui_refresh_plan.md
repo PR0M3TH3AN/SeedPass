@@ -330,3 +330,35 @@ Before ending any session touching this refresh:
 4. Append summary to `memory-update.md`.
 
 Current next slice (recommended): **Phase 1 - Shell Restructure**.
+
+## 13) Progress Update
+
+### 2026-03-02 - Phase 1 scaffold (initial pass) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Added top status ribbon (`#top-ribbon`) with live summary:
+- fingerprint
+- managed session indicator
+- visible entry count
+- active kind/archive filters
+- lock/session state
+- last sync summary
+
+2. Added structural section framing:
+- `Entry Grid` heading above center list/search area
+- `Inspector Board` heading above right detail area
+
+3. Added persistent bottom action strip (`#action-strip`) with keyboard hint rail.
+
+4. Preserved all existing command behavior and service-layer flows.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `28 passed`.
+
+Notes:
+
+1. This is a layout/chrome scaffold only; no table/board template conversion yet.
+2. Next slice should implement Phase 2 grid modernization without regressing interaction tests.
