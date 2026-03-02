@@ -301,6 +301,7 @@ def launch_tui2(
                     "relay-reset | sync-now | sync-bg | "
                     "checksum-verify | checksum-update | db-export <path> | db-import <path> | "
                     "totp-export <path> | parent-seed-backup [path] [password] | "
+                    "managed-load [entry_id] | managed-exit | "
                     "doc-export [output_path] | "
                     "link-add <target> [relation] [note] | "
                     "link-rm <target> [relation] | "
@@ -617,6 +618,7 @@ def launch_tui2(
                     "- 6 toggle dedicated 2FA board",
                     "- profile/relay/sync/settings",
                     "- checksum/db/totp/seed backup",
+                    "- managed-load/managed-exit session",
                     "- l cycle link relation",
                     "- [ / ] select link",
                     "- o open link target",
@@ -1384,7 +1386,7 @@ def launch_tui2(
                     "setting-kdf-iterations, setting-kdf-mode, "
                     "relay-list, relay-add, relay-rm, relay-reset, sync-now, sync-bg, "
                     "checksum-verify, checksum-update, db-export, db-import, "
-                    "totp-export, parent-seed-backup, "
+                    "totp-export, parent-seed-backup, managed-load, managed-exit, "
                     "reveal [confirm], qr [public|private] [confirm], link-filter, "
                     "link-next, link-prev, link-open, page-next, page-prev, page <n>, "
                     "retry, jump <id>"
@@ -2803,6 +2805,85 @@ def launch_tui2(
                         f"{cmd} failed",
                         exc,
                         retry=lambda: self._run_palette_command(cmd),
+                        hint="Press 'x' to retry.",
+                    )
+                    return
+
+            if cmd == "managed-load":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if len(args) > 1:
+                    self._set_status("Usage: managed-load (optional: entry_id)")
+                    return
+                if len(args) == 1:
+                    try:
+                        entry_id = int(args[0])
+                    except ValueError:
+                        self._set_status("managed-load entry_id must be an integer")
+                        return
+                else:
+                    if self._selected_entry_id is None:
+                        self._set_status(
+                            "managed-load requires a selected managed account entry"
+                        )
+                        return
+                    entry_id = int(self._selected_entry_id)
+
+                loader = getattr(self._service, "load_managed_account", None)
+                if not callable(loader):
+                    self._set_status(
+                        "Entry service does not support managed account session loading"
+                    )
+                    return
+                entry = self._service.retrieve_entry(entry_id)
+                kind = (
+                    str(entry.get("kind") or entry.get("type") or "").strip().lower()
+                    if isinstance(entry, dict)
+                    else ""
+                )
+                if kind != "managed_account":
+                    self._set_status("Selected entry is not a managed account")
+                    return
+                try:
+                    loader(entry_id)
+                    self._load_entries(query="", reset_page=True)
+                    self._clear_failure()
+                    self._set_status(
+                        f"Loaded managed account session from entry #{entry_id}"
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        "managed-load failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd == "managed-exit":
+                if self._service is None:
+                    self._set_status("Entry service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: managed-exit")
+                    return
+                exiter = getattr(self._service, "exit_managed_account", None)
+                if not callable(exiter):
+                    self._set_status(
+                        "Entry service does not support managed account session exit"
+                    )
+                    return
+                try:
+                    exiter()
+                    self._load_entries(query="", reset_page=True)
+                    self._clear_failure()
+                    self._set_status("Exited managed account session")
+                except Exception as exc:
+                    self._record_failure(
+                        "managed-exit failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
                         hint="Press 'x' to retry.",
                     )
                 return

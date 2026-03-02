@@ -715,6 +715,14 @@ class EntryService:
         with self._lock:
             self._manager.handle_display_totp_codes()
 
+    def load_managed_account(self, entry_id: int) -> None:
+        with self._lock:
+            self._manager.load_managed_account(int(entry_id))
+
+    def exit_managed_account(self) -> None:
+        with self._lock:
+            self._manager.exit_managed_account()
+
 
 class ConfigService:
     """Thread-safe wrapper around configuration access."""

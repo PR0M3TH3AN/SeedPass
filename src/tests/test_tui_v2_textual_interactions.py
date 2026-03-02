@@ -22,6 +22,8 @@ class FakeEntryService:
         self.secret_mode_enabled = False
         self.clipboard_delay = 30
         self.clipboard_values: list[str] = []
+        self.managed_load_calls: list[int] = []
+        self.managed_exit_calls = 0
 
     def _next_id(self) -> int:
         return (max(self._entries.keys()) + 1) if self._entries else 1
@@ -348,6 +350,16 @@ class FakeEntryService:
                 kept.append(link)
         self._links[int(entry_id)] = kept
         return [dict(link) for link in kept]
+
+    def load_managed_account(self, entry_id: int) -> None:
+        entry = self._entries.get(int(entry_id), {})
+        kind = str(entry.get("kind", ""))
+        if kind != "managed_account":
+            raise ValueError("Entry is not a managed account")
+        self.managed_load_calls.append(int(entry_id))
+
+    def exit_managed_account(self) -> None:
+        self.managed_exit_calls += 1
 
 
 class FakeProfileService:
@@ -1406,6 +1418,39 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_managed_account_session_palette_commands() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "managed_account", "label": "Acct"},
+            {"id": 2, "kind": "document", "label": "Doc"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app._run_palette_command("managed-load")
+        await pilot.pause()
+        assert "Loaded managed account session from entry #1" in _status_text(app)
+        assert service.managed_load_calls == [1]
+
+        app._run_palette_command("managed-exit")
+        await pilot.pause()
+        assert "Exited managed account session" in _status_text(app)
+        assert service.managed_exit_calls == 1
+
+        app._run_palette_command("open 2")
+        app._run_palette_command("managed-load")
+        await pilot.pause()
+        assert "Selected entry is not a managed account" in _status_text(app)
+
+        app._run_palette_command("managed-load nope")
+        await pilot.pause()
+        assert "managed-load entry_id must be an integer" in _status_text(app)
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
     service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc"}])
     app = _build_app(service)
@@ -1530,3 +1575,11 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
             "Usage: parent-seed-backup (optional: path) (optional: password)"
             in _status_text(app)
         )
+
+        app._run_palette_command("managed-load 1 2")
+        await pilot.pause()
+        assert "Usage: managed-load (optional: entry_id)" in _status_text(app)
+
+        app._run_palette_command("managed-exit now")
+        await pilot.pause()
+        assert "Usage: managed-exit" in _status_text(app)

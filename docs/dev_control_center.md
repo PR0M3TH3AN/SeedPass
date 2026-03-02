@@ -28,6 +28,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 - TUI v2 plan: `docs/tui_v2_plan.md`
 - TUI parity backlog: `docs/tui_v2_parity_backlog.md`
 - TUI parity checklist: `docs/tui_v2_parity_checklist.md`
+- TUI legacy parity matrix: `docs/tui_v2_legacy_parity_matrix.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
 - Supply-chain integrity: `docs/supply_chain_release_integrity.md`
@@ -71,7 +72,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 ### Slice A: “Legacy Parity Closure Matrix”
 
 Deliverables:
-- Add `docs/tui_v2_legacy_parity_matrix.md` mapping legacy interactive actions to TUI v2 equivalents (or explicit gaps).
+- Add `docs/tui_v2_legacy_parity_matrix.md` mapping legacy interactive actions to TUI v2 equivalents (or explicit gaps). ✅ (initial matrix added)
 - Add tests for any currently uncovered high-value legacy actions surfaced by that matrix.
 - Update `docs/tui_v2_parity_checklist.md` to remove or narrow “Full legacy workflow coverage: Pending”.
 
@@ -79,6 +80,15 @@ Exit criteria:
 - Matrix exists, reviewed, and linked from this document.
 - New tests pass in CI-equivalent run.
 - Remaining parity gaps are explicit and severity-ranked.
+
+Progress update (2026-03-02):
+- Matrix added: `docs/tui_v2_legacy_parity_matrix.md`
+- Managed-account session parity landed in TUI v2:
+  - `managed-load (optional: entry_id)`
+  - `managed-exit`
+  - service wrappers and tests added
+- Current next implementation target:
+  - explicit Nostr sync-state reset/fresh-namespace parity commands
 
 ## 6) Working Rule
 

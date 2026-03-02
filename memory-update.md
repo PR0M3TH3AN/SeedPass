@@ -581,3 +581,20 @@
 - Pre-slice health verification executed first:
   - remote sync check on `origin/beta` (no new remote commits)
   - `scripts/run_ci_tests.sh` pass with full suite: `979 passed, 16 skipped`, coverage `85.65%`.
+
+## 2026-03-02 Slice A implementation progress: managed-account session parity
+- Added parity matrix doc: `docs/tui_v2_legacy_parity_matrix.md` and linked it from control-center/readme docs.
+- Implemented managed-account session controls in TUI v2 palette:
+  - `managed-load (optional: entry_id)`
+  - `managed-exit`
+- Added core service wrappers in `src/seedpass/core/api.py`:
+  - `EntryService.load_managed_account(entry_id)`
+  - `EntryService.exit_managed_account()`
+- Added tests:
+  - `src/tests/test_tui_v2_textual_interactions.py` (session command behavior + validation)
+  - `src/tests/test_tui_v2_action_matrix.py` (command matrix coverage)
+  - `src/tests/test_core_api_services.py` (service wrapper calls)
+- Validation:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_core_api_services.py`
+  - Result: `86 passed`.
+- Updated matrix priorities: next parity target is explicit Nostr maintenance commands (`reset sync state`, `fresh namespace`).

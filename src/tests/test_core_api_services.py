@@ -460,6 +460,14 @@ class TestEntryService:
         service.display_totp_codes()
         mock_manager.handle_display_totp_codes.assert_called_once()
 
+    def test_load_managed_account(self, service, mock_manager):
+        service.load_managed_account(7)
+        mock_manager.load_managed_account.assert_called_once_with(7)
+
+    def test_exit_managed_account(self, service, mock_manager):
+        service.exit_managed_account()
+        mock_manager.exit_managed_account.assert_called_once()
+
 
 class TestConfigService:
     @pytest.fixture

@@ -39,6 +39,8 @@ class MatrixEntryService:
         self.secret_mode_enabled = False
         self.clipboard_delay = 30
         self.clipboard_values: list[str] = []
+        self.managed_load_calls: list[int] = []
+        self.managed_exit_calls = 0
 
     def _next_id(self) -> int:
         return (max(self._entries.keys()) + 1) if self._entries else 1
@@ -373,6 +375,16 @@ class MatrixEntryService:
         self._links[int(entry_id)] = keep
         return [dict(link) for link in keep]
 
+    def load_managed_account(self, entry_id: int) -> None:
+        entry = self._entries.get(int(entry_id), {})
+        kind = str(entry.get("kind", ""))
+        if kind != "managed_account":
+            raise ValueError("Entry is not a managed account")
+        self.managed_load_calls.append(int(entry_id))
+
+    def exit_managed_account(self) -> None:
+        self.managed_exit_calls += 1
+
 
 def _build_app(*, service: MatrixEntryService | None = None, factory=None):
     holder: dict[str, object] = {}
@@ -539,6 +551,9 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("db-import /tmp/seedpass-db.enc")
         app._run_palette_command("totp-export /tmp/seedpass-totp.json")
         app._run_palette_command("parent-seed-backup")
+        app._run_palette_command("managed-load 1 2")
+        app._run_palette_command("managed-load nope")
+        app._run_palette_command("managed-exit now")
         app._run_palette_command("doc-export one two")
         app._run_palette_command("filter")
         app._run_palette_command("unknown-cmd")
