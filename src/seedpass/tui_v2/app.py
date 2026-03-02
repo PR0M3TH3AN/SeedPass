@@ -198,13 +198,14 @@ def launch_tui2(
         #center { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
         #right { width: 1fr; border: solid #1a3024; padding: 1; background: #0d1114; }
         #grid-heading {
-            height: 1;
+            height: 3;
             margin-bottom: 1;
             border: solid #274533;
             background: #0b0f13;
             color: #daf2e5;
             text-style: bold;
             padding: 0 1;
+            overflow: hidden;
         }
         #inspector-heading {
             height: 1;
@@ -359,7 +360,7 @@ def launch_tui2(
                     yield Static("", id="filters")
                     yield Static("", id="activity")
                 with Vertical(id="center"):
-                    yield Static("Entry Grid", id="grid-heading")
+                    yield Static("", id="grid-heading")
                     yield Input(
                         placeholder="Search entries (Enter to apply)", id="search"
                     )
@@ -561,17 +562,42 @@ def launch_tui2(
                     or self._selected_entry.get("type")
                     or ""
                 ).strip()
-            context = (
-                f"V:Reveal  G:QR  A:Archive  E:Edit ({kind})"
-                if kind
-                else "V:Reveal  G:QR  A:Archive  E:Edit"
-            )
+            kind_l = kind.lower()
+            if kind_l in {"password", "stored_password", "seed", "managed_account"}:
+                context = "V:Reveal  G:QR  A:Archive  E:Edit"
+            elif kind_l == "totp":
+                context = "6:2FABoard  V:Reveal  G:QR  A:Archive"
+            elif kind_l in {"ssh", "pgp"}:
+                context = "V:Reveal  A:Archive  DocExport  Palette: field/tag/note"
+            elif kind_l == "nostr":
+                context = "V:Reveal  G:QR(public/private)  A:Archive"
+            elif kind_l in {"document", "note"}:
+                context = "E:EditDoc  Ctrl+S:Save  A:Archive  DocExport"
+            elif kind_l == "key_value":
+                context = "SetField/ClearField  A:Archive  Note/Tag via palette"
+            else:
+                context = "V:Reveal  G:QR  A:Archive  E:Edit"
+            if kind:
+                context = f"{context} ({kind_l})"
             text = (
                 "/:Search  J:Jump  F:Filter  H:ArchiveScope  L:LinkFilter  "
                 "Ctrl+P:Palette  X:Retry  "
                 f"{context}"
             )
             self.query_one("#action-strip", Static).update(text)
+
+        def _update_grid_heading(self) -> None:
+            table_cols = (
+                "Idx      Entry  Title                     Kind            Meta                 Arch"
+            )
+            sort_line = (
+                "Sort: index ▲▼ | entry ▲▼ | title ▲▼ | kind ▲▼   "
+                f"Page {self._result_page + 1}/{self._total_pages()}   "
+                f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}"
+            )
+            self.query_one("#grid-heading", Static).update(
+                f"Entry Grid\n{table_cols}\n{sort_line}"
+            )
 
         def _quickstart_text(self) -> str:
             return self._onboarding_text()
@@ -812,12 +838,29 @@ def launch_tui2(
             self.query_one("#filters", Static).update(text)
             self._update_top_ribbon()
             self._update_action_strip()
+            self._update_grid_heading()
 
         def _render_entry_label(
-            self, idx: int, label: str, etype: str, archived: bool
+            self,
+            idx: int,
+            label: str,
+            etype: str,
+            archived: bool,
+            username: str | None = None,
+            url: str | None = None,
         ) -> str:
-            arch = " [archived]" if archived else ""
-            return f"{idx:>4}  {etype:<15}  {label}{arch}"
+            entry_num = idx
+            title = (label or "").replace("\n", " ").strip()[:25]
+            kind = (etype or "unknown")[:14]
+            if url:
+                meta = str(url).replace("\n", " ").strip()
+            elif username:
+                meta = str(username).replace("\n", " ").strip()
+            else:
+                meta = "-"
+            meta = meta[:20]
+            arch = "YES" if archived else "NO"
+            return f"{idx:<8} {entry_num:<6} {title:<25} {kind:<14} {meta:<20} {arch:<4}"
 
         def _total_pages(self) -> int:
             _page, _start, _end, total_pages = pagination_window(
@@ -948,11 +991,18 @@ def launch_tui2(
                 total, self.RESULT_PAGE_SIZE, self._result_page
             )
             page_rows = self._all_results[start:end]
-            for idx, label, _username, _url, archived, etype in page_rows:
+            for idx, label, username, url, archived, etype in page_rows:
                 kind = getattr(etype, "value", str(etype))
                 item = EntryListItem(
                     idx,
-                    self._render_entry_label(idx, label, kind, bool(archived)),
+                    self._render_entry_label(
+                        idx,
+                        label,
+                        kind,
+                        bool(archived),
+                        username=username,
+                        url=url,
+                    ),
                 )
                 self._entry_ids_in_view.append(int(idx))
                 list_view.append(item)
@@ -970,14 +1020,207 @@ def launch_tui2(
             payload = truncate_entry_for_display(
                 entry, self.DETAIL_CONTENT_PREVIEW_LIMIT
             )
+            return self._entry_board_text(payload)
+
+        @staticmethod
+        def _entry_kind(entry: dict[str, Any]) -> str:
+            return str(entry.get("kind") or entry.get("type") or "unknown").strip().lower()
+
+        @staticmethod
+        def _entry_tags_text(entry: dict[str, Any]) -> str:
+            tags = entry.get("tags")
+            if isinstance(tags, list) and tags:
+                return ", ".join(str(tag).strip() for tag in tags if str(tag).strip())
+            if isinstance(tags, str) and tags.strip():
+                return tags.strip()
+            return "(none)"
+
+        @staticmethod
+        def _entry_notes_text(entry: dict[str, Any]) -> str:
+            notes = entry.get("notes")
+            if isinstance(notes, str) and notes.strip():
+                return notes.strip()
+            return "(none)"
+
+        def _entry_board_header(self, entry: dict[str, Any]) -> list[str]:
             entry_id = (
                 self._selected_entry_id
                 if self._selected_entry_id is not None
-                else payload.get("id", "?")
+                else entry.get("id", "?")
             )
-            kind = payload.get("kind") or payload.get("type") or "unknown"
-            header = f"Entry #{entry_id}  [{kind}]"
-            return f"{header}\n{'-' * len(header)}\n{json.dumps(payload, indent=2, sort_keys=True)}"
+            label = str(entry.get("label") or "(untitled)")
+            kind = self._entry_kind(entry) or "unknown"
+            modified = str(
+                entry.get("modified_at")
+                or entry.get("updated_at")
+                or entry.get("date_modified")
+                or "(unknown)"
+            )
+            archived = "Yes" if bool(entry.get("archived", False)) else "No"
+            return [
+                f"{label}",
+                (
+                    f"Kind: {kind} | Entry: #{entry_id} | Modified: {modified} | "
+                    f"Archived: {archived}"
+                ),
+                "-" * 64,
+            ]
+
+        def _entry_board_text(self, entry: dict[str, Any]) -> str:
+            kind = self._entry_kind(entry)
+            header = self._entry_board_header(entry)
+            tags_text = self._entry_tags_text(entry)
+            notes_text = self._entry_notes_text(entry)
+
+            if kind in {"password", "stored_password"}:
+                username = str(entry.get("username") or "(none)")
+                url = str(entry.get("url") or "(none)")
+                length = str(entry.get("length") or "(auto)")
+                lines = header + [
+                    "Credentials",
+                    f"- Password: (hidden)  use 'v' to reveal",
+                    f"- Username: {username}",
+                    f"- URL: {url}",
+                    f"- Length: {length}",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind in {"document", "note"}:
+                file_type = str(entry.get("file_type") or "txt")
+                content = str(entry.get("content") or "")
+                lines = header + [
+                    "Document",
+                    f"- File type: {file_type}",
+                    f"- Content length: {len(content)} chars",
+                    "",
+                    "Content",
+                    content if content.strip() else "(empty)",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind in {"seed", "managed_account"}:
+                words = str(entry.get("words") or "(unknown)")
+                index = str(entry.get("index") or "(auto)")
+                lines = header + [
+                    "Seed Material",
+                    "- Seed phrase: (hidden)  use 'v confirm' to reveal",
+                    f"- Word count: {words}",
+                    f"- Index: {index}",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind == "totp":
+                period = str(entry.get("period") or 30)
+                digits = str(entry.get("digits") or 6)
+                lines = header + [
+                    "TOTP",
+                    "- Current code: use '6' (2FA board) or 'v' to inspect details",
+                    f"- Period: {period}s",
+                    f"- Digits: {digits}",
+                    "- Secret: (hidden)",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind == "ssh":
+                lines = header + [
+                    "SSH Keys",
+                    "- Public key: available",
+                    "- Private key: (hidden)  use 'v confirm' to reveal",
+                    "- Export: use palette + document export workflow",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind == "pgp":
+                fingerprint_text = str(entry.get("fingerprint") or "(unknown)")
+                lines = header + [
+                    "PGP Keys",
+                    f"- Fingerprint: {fingerprint_text}",
+                    "- Public key: available",
+                    "- Private key: (hidden)  use 'v confirm' to reveal",
+                    "- Export: use palette + document export workflow",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind == "nostr":
+                npub = str(entry.get("npub") or "(unavailable)")
+                lines = header + [
+                    "Nostr Keys",
+                    f"- npub: {npub}",
+                    "- nsec: (hidden)  use 'v confirm' to reveal",
+                    "- QR: use 'g' for public, or 'qr private confirm' for nsec",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            if kind == "key_value":
+                key_name = str(entry.get("key") or "(none)")
+                value = str(entry.get("value") or "")
+                value_preview = value[:80] + ("..." if len(value) > 80 else "")
+                lines = header + [
+                    "Key/Value",
+                    f"- Key: {key_name}",
+                    f"- Value: {value_preview if value_preview else '(empty)'}",
+                    "",
+                    "Tags",
+                    f"- {tags_text}",
+                    "",
+                    "Notes",
+                    notes_text,
+                ]
+                return "\n".join(lines)
+
+            entry_id = (
+                self._selected_entry_id
+                if self._selected_entry_id is not None
+                else entry.get("id", "?")
+            )
+            fallback_kind = entry.get("kind") or entry.get("type") or "unknown"
+            title = f"Entry #{entry_id}  [{fallback_kind}]"
+            return (
+                f"{title}\n{'-' * len(title)}\n"
+                f"{json.dumps(entry, indent=2, sort_keys=True)}"
+            )
 
         def _load_entries(self, query: str = "", *, reset_page: bool = False) -> None:
             self._last_query = query

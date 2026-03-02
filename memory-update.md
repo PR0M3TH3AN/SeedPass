@@ -918,3 +918,39 @@
   - Result: `28 passed`.
 - Refresh plan updated with explicit phase progress and next step:
   - `docs/tui_v2_ui_refresh_plan.md` (Phase 2 grid modernization next).
+
+## 2026-03-02 UI refresh implementation slice: Phase 2 grid modernization (initial pass)
+- Implemented denser table-style grid presentation in `src/seedpass/tui_v2/app.py`:
+  - `#grid-heading` expanded to show:
+    - column header scaffold
+    - sort-indicator placeholder row
+    - live page/row counters
+  - `_render_entry_label(...)` now outputs aligned fixed-width columns:
+    - `Idx`, `Entry`, `Title`, `Kind`, `Meta`, `Arch`
+  - row `Meta` column uses URL/username preview when present.
+- No command or service-flow behavior changes; visual presentation only.
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `28 passed`.
+- Refresh plan updated:
+  - `docs/tui_v2_ui_refresh_plan.md` now records Phase 2 progress and sets Phase 3 (inspector board templates) as next slice.
+
+## 2026-03-02 UI refresh implementation slice: Phase 3 inspector board templates (core kinds)
+- Implemented structured inspector-board rendering in `src/seedpass/tui_v2/app.py` for core kinds:
+  - `password` / `stored_password`
+  - `document` / `note`
+  - `seed` / `managed_account`
+  - `totp`
+- Added reusable board helper methods:
+  - `_entry_kind(...)`
+  - `_entry_tags_text(...)`
+  - `_entry_notes_text(...)`
+  - `_entry_board_header(...)`
+  - `_entry_board_text(...)`
+- Entry details now default to board format for covered kinds and keep generic JSON fallback for remaining kinds.
+- Sensitive fields remain hidden in board body; existing reveal/QR flows are still the explicit disclosure path.
+- Validation:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `28 passed`.
+- Refresh plan updated:
+  - `docs/tui_v2_ui_refresh_plan.md` now records Phase 3 progress and sets Phase 4 advanced-kind board templates as next slice.

@@ -362,3 +362,57 @@ Notes:
 
 1. This is a layout/chrome scaffold only; no table/board template conversion yet.
 2. Next slice should implement Phase 2 grid modernization without regressing interaction tests.
+
+### 2026-03-02 - Phase 2 grid modernization (initial pass) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Upgraded center section heading to a multi-line table scaffold:
+- column header row (`Idx`, `Entry`, `Title`, `Kind`, `Meta`, `Arch`)
+- sort-indicator placeholder row
+- live page/row counts
+
+2. Updated entry list row formatter to aligned, dense table-style rows:
+- fixed-width columns for index/entry/title/kind/meta/archive.
+- meta column now uses URL or username preview when present.
+
+3. Kept behavior and command flows unchanged (visual/data-presentational slice only).
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `28 passed`.
+
+Next recommended slice:
+
+1. Phase 3 inspector board templates for core kinds (`password`, `document/note`, `seed`, `totp`).
+
+### 2026-03-02 - Phase 3 inspector board templates (core kinds) landed
+
+Implemented in `src/seedpass/tui_v2/app.py`:
+
+1. Replaced raw JSON detail rendering for core kinds with structured board layouts:
+- `password` / `stored_password`
+- `document` / `note`
+- `seed` / `managed_account`
+- `totp`
+
+2. Added reusable board helpers:
+- entry kind normalization
+- common board header (label/kind/id/modified/archived)
+- tags and notes normalization
+
+3. Added secure-by-default board copy:
+- sensitive values remain hidden in board body
+- reveal/QR actions remain the explicit path for sensitive disclosure
+
+4. Kept fallback generic JSON board for non-templated kinds to preserve coverage while templates are expanded.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `28 passed`.
+
+Next recommended slice:
+
+1. Phase 4 inspector board templates for advanced kinds (`ssh`, `pgp`, `nostr`, `key_value`) and stronger action-strip context hints.

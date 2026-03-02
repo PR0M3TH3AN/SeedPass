@@ -70,7 +70,8 @@ class ConfigManager:
             logger.info("Config file not found; returning defaults")
             return {
                 "relays": list(DEFAULT_NOSTR_RELAYS),
-                "offline_mode": True,
+                "offline_mode": False,
+                "online_mode_notice_seen": False,
                 "pin_hash": "",
                 "password_hash": "",
                 "inactivity_timeout": INACTIVITY_TIMEOUT,
@@ -101,7 +102,8 @@ class ConfigManager:
                 raise ValueError("Config data must be a dictionary")
             # Ensure defaults for missing keys
             data.setdefault("relays", list(DEFAULT_NOSTR_RELAYS))
-            data.setdefault("offline_mode", True)
+            data.setdefault("offline_mode", False)
+            data.setdefault("online_mode_notice_seen", False)
             data.setdefault("pin_hash", "")
             data.setdefault("password_hash", "")
             data.setdefault("inactivity_timeout", INACTIVITY_TIMEOUT)
@@ -277,7 +279,7 @@ class ConfigManager:
     def get_offline_mode(self) -> bool:
         """Retrieve the offline mode setting."""
         config = self.load_config(require_pin=False)
-        return bool(config.get("offline_mode", True))
+        return bool(config.get("offline_mode", False))
 
     def set_clipboard_clear_delay(self, delay: int) -> None:
         """Persist clipboard clear timeout in seconds."""

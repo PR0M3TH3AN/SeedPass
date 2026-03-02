@@ -292,7 +292,7 @@ class PasswordManager:
         self.secret_mode_enabled: bool = False
         self.deterministic_totp: bool = False
         self.clipboard_clear_delay: int = 45
-        self.offline_mode: bool = True
+        self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
@@ -1771,13 +1771,28 @@ class PasswordManager:
             self.manifest_id = None
             self.delta_since = 0
             self.nostr_account_idx = 0
-        self.offline_mode = bool(config.get("offline_mode", True))
+        self.offline_mode = bool(config.get("offline_mode", False))
         self.inactivity_timeout = config.get("inactivity_timeout", INACTIVITY_TIMEOUT)
         self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
         self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
         self.verbose_timing = bool(config.get("verbose_timing", False))
         if not self.offline_mode:
             print("Connecting to relays...")
+        if not self.offline_mode and not bool(
+            config.get("online_mode_notice_seen", False)
+        ):
+            self.notify(
+                "Profile is ONLINE by default. Switch to offline mode in Settings if needed.",
+                level="INFO",
+            )
+            config["online_mode_notice_seen"] = True
+            try:
+                self.config_manager.save_config(config)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to persist online mode onboarding notice state: %s",
+                    exc,
+                )
         self.nostr_client = NostrClient(
             encryption_manager=self.encryption_manager,
             fingerprint=self.current_fingerprint,
