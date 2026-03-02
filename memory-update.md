@@ -768,3 +768,27 @@
   - `docs/security_readiness_checklist.md` rows 8/9/10 now reference new runbooks and moved 9/10 to `In Progress`.
   - `docs/dev_control_center.md` and `docs/README.md` now link the new runbook docs.
   - `TODO.md` supply-chain item now references published verification runbook.
+
+## 2026-03-02 Feature/parity refocus slice: in-app command discoverability + coverage bump
+- Added full palette command reference support in TUI v2 (`src/seedpass/tui_v2/app.py`):
+  - new command: `help-commands`
+  - alias: `commands`
+  - `help` now also renders the full reference in the entry-detail panel.
+- Added command reference helpers:
+  - `_palette_help_summary()`
+  - `_palette_reference_text()`
+- Updated palette placeholder copy to include `help-commands`.
+- Tests added/expanded:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - `test_tui2_textual_palette_help_commands_reference`
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - command matrix now covers `help-commands` success + usage error path.
+- Validation:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_parity_scenarios.py src/tests/test_tui_v2_helpers.py`
+  - Result: `40 passed`.
+  - `./scripts/tui2_coverage_gate.sh` -> PASS
+    - `src/seedpass/tui_v2/app.py`: `79.97%` (up from `79.87%`)
+    - `src/seedpass/core/api.py`: `86.64%`.
+- Docs updated:
+  - `docs/tui_v2_parity_checklist.md`: command discoverability row moved from `Partial` to `Yes`.
+  - `docs/dev_control_center.md`: priorities refocused to feature/parity and test coverage targets first.

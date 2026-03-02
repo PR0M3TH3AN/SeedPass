@@ -64,9 +64,9 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
-2. Finish supply-chain readiness evidence and release-protection policy.
-3. Expand operational runbooks and staged rollout evidence for security readiness closure.
+1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
+2. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
+3. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
@@ -122,6 +122,10 @@ Progress update (2026-03-02):
   - `docs/operational_runbooks.md`
   - `docs/staged_rollout_runbook.md`
   - `docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md`
+- Discoverability parity improved in TUI v2:
+  - added full palette command reference (`help-commands`, alias `commands`)
+  - `help` now also renders in-app command reference in entry detail pane
+  - focused TUI gate remains green with improved app coverage (`79.97%`)
 
 ## 6) Working Rule
 

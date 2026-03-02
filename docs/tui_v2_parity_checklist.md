@@ -21,7 +21,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 | Graph links list | Limited | Yes | Dedicated links panel. |
 | Link add/remove | Limited | Yes | Via command palette commands. |
 | Neighbor traversal | No | Yes | Link cursor + open target entry. |
-| Command discoverability | Menu-driven | Partial | Keybind hints and palette `help`. |
+| Command discoverability | Menu-driven | Yes | Keybind hints, compact `?` overlay, palette `help`, and full `help-commands` reference. |
 | Full legacy workflow coverage | Yes | Yes | Closed with parity matrix completion + bug-bash evidence (2026-03-02). |
 
 ## Phase 4 Deliverables

@@ -739,6 +739,26 @@ async def test_tui2_textual_link_commands_and_neighbor_open() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_palette_help_commands_reference() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc 1"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        await _run_palette(app, pilot, "help-commands")
+        detail = _widget_text(app, "#entry-detail")
+        assert "Palette Reference" in detail
+        assert "archive-filter <active|all|archived>" in detail
+        assert "npub" in detail
+        assert "Displayed full palette command reference" in _status_text(app)
+
+        await _run_palette(app, pilot, "help")
+        assert "Palette Reference" in _widget_text(app, "#entry-detail")
+        assert "Palette commands:" in _status_text(app)
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_reveal_and_qr_flow() -> None:
     service = FakeEntryService(
         [

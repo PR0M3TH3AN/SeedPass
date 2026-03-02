@@ -282,6 +282,7 @@ def launch_tui2(
             yield Input(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
+                    "help-commands | "
                     "filter <kind> | archive | restore | "
                     "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
@@ -488,6 +489,46 @@ def launch_tui2(
 
         def _set_secret_panel(self, text: str) -> None:
             self.query_one("#secret-detail", Static).update(text)
+
+        def _palette_help_summary(self) -> str:
+            return (
+                "Palette commands: help, help-commands, open, search, filter, "
+                "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
+                "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
+                "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
+                "npub, nostr-reset-sync-state, nostr-fresh-namespace, sync-now/sync-bg, "
+                "checksum-*, db-*, totp-export, parent-seed-backup, managed-load/exit, "
+                "reveal/qr, page-*, retry, jump."
+            )
+
+        def _palette_reference_text(self) -> str:
+            return "\n".join(
+                [
+                    "Palette Reference",
+                    "-----------------",
+                    "",
+                    "Core: help | help-commands | open <id> | jump <id> | search <q>",
+                    "Filters: filter <kind|all> | archive-filter <active|all|archived>",
+                    "Pages: page-next | page-prev | page <n>",
+                    "",
+                    "Entry Actions: archive | restore | reveal [confirm] | qr [public|private] [confirm]",
+                    "Docs: edit-doc | save-doc | cancel-edit | doc-export [output_path]",
+                    "Graph: link-add <target> [relation] [note] | link-rm <target> [relation]",
+                    "Graph Nav: link-filter <relation|all> | link-next | link-prev | link-open",
+                    "",
+                    "Add: add-password | add-totp | add-key-value | add-document | add-ssh | add-pgp | add-nostr | add-seed | add-managed-account",
+                    "Entry Fields: notes-set | notes-clear | tag-add | tag-rm | tags-set | tags-clear | field-add | field-rm | set-field | clear-field",
+                    "",
+                    "2FA: 2fa-board | 2fa-hide | 2fa-refresh | 2fa-copy <entry_id>",
+                    "Profiles: profiles-list | profile-switch | profile-add | profile-remove | profile-rename",
+                    "Settings: setting-secret | setting-offline | setting-quick-unlock | setting-timeout | setting-kdf-iterations | setting-kdf-mode",
+                    "Nostr: relay-list | relay-add | relay-rm | relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace",
+                    "Sync/Utility: sync-now | sync-bg | checksum-verify | checksum-update | db-export | db-import | totp-export | parent-seed-backup",
+                    "Sessions: managed-load [entry_id] | managed-exit",
+                    "",
+                    "Tip: use '?' for compact keyboard help overlay.",
+                ]
+            )
 
         def _update_help_overlay(self) -> None:
             box = self.query_one("#help-overlay", Static)
@@ -1391,26 +1432,19 @@ def launch_tui2(
                 return
 
             if cmd == "help":
-                self._set_status(
-                    "Palette commands: help, open, search, filter, archive, "
-                    "restore, archive-filter, edit-doc, save-doc, cancel-edit, link-add, link-rm, "
-                    "add-password, add-totp, add-key-value, add-document, add-ssh, "
-                    "add-pgp, add-nostr, add-seed, add-managed-account, "
-                    "notes-set, notes-clear, tag-add, tag-rm, tags-set, tags-clear, "
-                    "field-add, field-rm, set-field, clear-field, doc-export, "
-                    "2fa-board, 2fa-hide, 2fa-refresh, 2fa-copy, "
-                    "profiles-list, profile-switch, profile-add, profile-remove, profile-rename, "
-                    "setting-secret, setting-offline, setting-quick-unlock, setting-timeout, "
-                    "setting-kdf-iterations, setting-kdf-mode, "
-                    "relay-list, relay-add, relay-rm, relay-reset, "
-                    "npub, nostr-reset-sync-state, nostr-fresh-namespace, "
-                    "sync-now, sync-bg, "
-                    "checksum-verify, checksum-update, db-export, db-import, "
-                    "totp-export, parent-seed-backup, managed-load, managed-exit, "
-                    "reveal [confirm], qr [public|private] [confirm], link-filter, "
-                    "link-next, link-prev, link-open, page-next, page-prev, page <n>, "
-                    "retry, jump <id>"
+                self.query_one("#entry-detail", Static).update(
+                    self._palette_reference_text()
                 )
+                self._set_status(self._palette_help_summary())
+                return
+            if cmd in {"help-commands", "commands"}:
+                if args:
+                    self._set_status("Usage: help-commands")
+                    return
+                self.query_one("#entry-detail", Static).update(
+                    self._palette_reference_text()
+                )
+                self._set_status("Displayed full palette command reference")
                 return
             if cmd == "retry":
                 self.action_retry_last_error()
