@@ -34,6 +34,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 - TUI parity checklist: `docs/tui_v2_parity_checklist.md`
 - TUI legacy parity matrix: `docs/tui_v2_legacy_parity_matrix.md`
 - TUI v2 UI refresh plan (mockup-aligned): `docs/tui_v2_ui_refresh_plan.md`
+- Semantic vector index integration plan: `docs/semantic_vector_index_plan.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
 - Supply-chain integrity: `docs/supply_chain_release_integrity.md`
@@ -67,14 +68,25 @@ Use these docs as inputs, but treat this file as the decision layer:
   - enforce release protection rules
   - execute and record maintainer verification runbook
 
+### Semantic Search Roadmap
+- Semantic index plan drafted and linked:
+  - `docs/semantic_vector_index_plan.md`
+- Current recommendation:
+  - local per-device/profile derived vector index
+  - canonical sync unchanged (vectors not synced in Phase 1)
+  - add semantic/hybrid retrieval across KB-centric fields for agents and users
+
 ## 4) Recommended Next Steps (Priority Order)
 
 1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
 : prioritized gaps from side-by-side legacy vs v2 run:
 : onboarding + stats/ops + lock/session affordances now landed; focus now is mockup-aligned UI refresh completion.
-2. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
-3. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
-4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
+2. Complete Phase 5 TUI v2 UI refresh queue:
+: interactive profile tree navigation + profile-select actions + final visual polish.
+3. Begin semantic index Phase A scaffolding (feature-flagged local derived index, CLI-first controls).
+4. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
+5. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
+6. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 

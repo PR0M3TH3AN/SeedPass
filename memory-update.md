@@ -1042,3 +1042,21 @@
   - clarified no active medium/high functional parity gaps
   - added implemented ergonomics rows (`copy`, `export-field`, `density`)
   - linked remaining work to `docs/tui_v2_ui_refresh_plan.md` Phase 5 queue
+
+## 2026-03-02 Planning slice: semantic vector index integration roadmap
+- Added new cross-interface roadmap doc:
+  - `docs/semantic_vector_index_plan.md`
+- Plan defines:
+  - local derived vector index per profile/device (no embedding sync in Phase 1)
+  - canonical sync remains unchanged source of truth
+  - KB-centric field allowlist and sensitive-field exclusions
+  - integration path for legacy TUI, Textual TUI v2, CLI, and API
+  - security/privacy controls and lock-state behavior expectations
+  - phased rollout (Phase A core scaffolding, B CLI/API, C TUI integration, D hardening)
+- Linked roadmap into decision/index docs:
+  - `docs/dev_control_center.md`
+  - `docs/README.md`
+  - `docs/tui_v2_parity_backlog.md`
+- Updated control-center priorities:
+  - keep Phase 5 TUI refresh completion ahead of semantic Phase A implementation
+  - semantic index Phase A now explicit next-track deliverable after current UI slice.

@@ -10,6 +10,7 @@ Linked plans:
 - `docs/tui_v2_parity_checklist.md`
 - `docs/tui_v2_cutover_decision.md`
 - `docs/tui_v2_ui_refresh_plan.md`
+- `docs/semantic_vector_index_plan.md` (cross-interface semantic retrieval roadmap)
 
 ## What We Learned
 
