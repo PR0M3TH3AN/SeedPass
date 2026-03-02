@@ -58,13 +58,23 @@ cosign verify-blob \
 - Workflow: `.github/workflows/release-integrity.yml`
 - Tooling: `scripts/release_integrity.py`, `src/seedpass/release_integrity.py`
 - Tests: `src/tests/test_release_integrity_utils.py`
+- Maintainer verification runbook: `docs/release_verification_runbook.md`
+- Release protection policy: `docs/release_protection_policy.md`
+
+## Temporary Vulnerability Exception Register
+
+| Advisory | Scope | Owner | Added | Expiration | Status | Compensating Controls |
+|---|---|---|---|---|---|---|
+| `GHSA-wj6h-64fc-37mp` / `CVE-2025-62727` | `pip-audit` ignore in CI/release workflows | Maintainers (DevOps) | 2026-02-25 | 2026-04-15 | Temporary | locked dependencies, weekly dependency-audit workflow, release-integrity verification/signing |
+
+Exception policy:
+- Exception must have owner + expiration date.
+- Exception must be removed or renewed with explicit risk review before expiration.
+- Any renewal must be documented in this table and `docs/security_readiness_checklist.md`.
 
 ## Remaining Work To Mark Checklist Item #8 Done
 
 1. Execute at least one tagged production release through `.github/workflows/release-integrity.yml` and record the run URL/artifact links in `docs/security_readiness_checklist.md`.
-2. Eliminate the temporary audit exception (`GHSA-wj6h-64fc-37mp`) or document formal risk acceptance with expiration date and owner.
-3. Add branch/release protection so publishable tags require successful `Release Integrity` and `Dependency Audit` checks before release publication.
-4. Add maintainer verification runbook for release consumers that includes:
-   - `python scripts/release_integrity.py verify --checksum-file SHA256SUMS --base-dir .`
-   - `cosign verify-blob --certificate SHA256SUMS.pem --signature SHA256SUMS.sig SHA256SUMS`
-   - expected identity/issuer constraints for keyless signing.
+2. Eliminate the temporary audit exception (`GHSA-wj6h-64fc-37mp`) before expiration (`2026-04-15`) or renew with explicit risk review.
+3. Enforce branch/release protection so publishable tags require successful `Release Integrity` and `Dependency Audit` checks before release publication.
+4. Execute and record at least one maintainer-side verification using `docs/release_verification_runbook.md`.

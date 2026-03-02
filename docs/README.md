@@ -20,6 +20,10 @@ This directory contains SeedPass project documentation.
 - `secret_handling_local_exposure_review.md`
 - `auth_lock_unlock_access_review.md`
 - `supply_chain_release_integrity.md`
+- `release_verification_runbook.md`
+- `release_protection_policy.md`
+- `operational_runbooks.md`
+- `staged_rollout_runbook.md`
 
 ## Architecture and Product Docs
 

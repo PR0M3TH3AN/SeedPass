@@ -746,3 +746,25 @@
 - Aligned planning docs:
   - `docs/dev_control_center.md` next-step priorities updated to remove completed memo-refresh item and track current hardening priorities.
   - `docs/tui_v2_plan.md` status updated from draft wording to implemented/reference-plan wording.
+
+## 2026-03-02 Supply-chain/readiness documentation closure slice
+- Added maintainer/consumer release verification runbook:
+  - `docs/release_verification_runbook.md`
+  - includes checksum verification and `cosign verify-blob` with explicit issuer/identity constraints.
+- Added release protection policy document:
+  - `docs/release_protection_policy.md`
+  - defines required branch/tag/release controls and evidence recording expectations.
+- Added operational readiness runbook index and staged rollout drill runbook:
+  - `docs/operational_runbooks.md`
+  - `docs/staged_rollout_runbook.md`
+- Closed missing incident runbook gap by adding:
+  - `docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md`
+  and updated follow-up note `2026-03-01-missing-runbook.md` to reflect resolution.
+- Updated supply-chain integrity doc with:
+  - explicit temporary exception register entry for `GHSA-wj6h-64fc-37mp` / `CVE-2025-62727`
+  - owner + expiration (`2026-04-15`) + compensating controls
+  - revised remaining-work list focused on production evidence and enforcement.
+- Updated readiness/control docs:
+  - `docs/security_readiness_checklist.md` rows 8/9/10 now reference new runbooks and moved 9/10 to `In Progress`.
+  - `docs/dev_control_center.md` and `docs/README.md` now link the new runbook docs.
+  - `TODO.md` supply-chain item now references published verification runbook.

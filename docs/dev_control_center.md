@@ -52,21 +52,22 @@ Use these docs as inputs, but treat this file as the decision layer:
   - #5 Nostr sync security/resilience: **In Progress**
   - #7 Testing gates/quality thresholds: **In Progress**
   - #8 Supply chain/release integrity: **In Progress**
-  - #9 Operational runbooks: **Not Started**
-  - #10 External audit/rollout: **Not Started**
+  - #9 Operational runbooks: **In Progress**
+  - #10 External audit/rollout: **In Progress**
 
 ### Supply Chain Specific
 - `docs/supply_chain_release_integrity.md` remaining work:
   - execute at least one tagged production release through integrity workflow and record evidence
-  - resolve/document exception `GHSA-wj6h-64fc-37mp`
+  - resolve or renew exception `GHSA-wj6h-64fc-37mp` before expiration
   - enforce release protection rules
-  - add/validate maintainer verification runbook
+  - execute and record maintainer verification runbook
 
 ## 4) Recommended Next Steps (Priority Order)
 
 1. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 2. Finish supply-chain readiness evidence and release-protection policy.
 3. Expand operational runbooks and staged rollout evidence for security readiness closure.
+4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
@@ -115,6 +116,12 @@ Progress update (2026-03-02):
 - Cutover memo refreshed with current gate status and blockers:
   - `docs/tui_v2_cutover_decision.md` updated (March 2, 2026)
   - documents parity-complete status, strengthened CI gates, and remaining hardening blockers
+- Supply-chain and runbook docs centralized for closure work:
+  - `docs/release_verification_runbook.md`
+  - `docs/release_protection_policy.md`
+  - `docs/operational_runbooks.md`
+  - `docs/staged_rollout_runbook.md`
+  - `docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md`
 
 ## 6) Working Rule
 

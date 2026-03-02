@@ -6,9 +6,9 @@ This file tracks the remaining work from the latest bug search and security eval
 
 - [ ] Complete checklist item #8 (Supply chain and release integrity):
   - run one tagged release through `.github/workflows/release-integrity.yml` and link evidence in `docs/security_readiness_checklist.md`
-  - resolve or formally time-box/own the `GHSA-wj6h-64fc-37mp` exception
+  - resolve or formally time-box/own the `GHSA-wj6h-64fc-37mp` exception (`docs/supply_chain_release_integrity.md`)
   - enforce release/tag protections requiring `Release Integrity` + dependency audit checks
-  - publish maintainer/consumer verification runbook (checksum + cosign verification with expected issuer/identity)
+  - publish maintainer/consumer verification runbook (checksum + cosign verification with expected issuer/identity) ✅ `docs/release_verification_runbook.md`
 - [ ] Upgrade vulnerable runtime dependencies in lockfiles and packaging inputs:
   - `aiohttp` -> `>=3.13.3`
   - `cryptography` -> `>=46.0.5`
