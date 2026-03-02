@@ -40,8 +40,11 @@ Use these docs as inputs, but treat this file as the decision layer:
 ## 3) What Is Still Open
 
 ### Parity / Product
-- `docs/tui_v2_parity_checklist.md` still marks:
-  - Full legacy workflow coverage: **Pending**
+- TUI v2 legacy parity closure is now documented as complete:
+  - `docs/tui_v2_parity_checklist.md` (“Full legacy workflow coverage: Yes”)
+  - bug-bash evidence reports:
+    - `artifacts/agent_tui_test/20260302T135526Z/report.json`
+    - `artifacts/agent_tui2_test/20260302T135526Z/report.json`
 
 ### Security Readiness
 - `docs/security_readiness_checklist.md` still marks:
@@ -61,20 +64,19 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Close remaining TUI v2 legacy parity gap with an explicit action matrix and tests.
-2. Strengthen testing gates by adding critical coverage thresholds for TUI v2 and key service modules used by v2.
-3. Advance Nostr resilience validation with deterministic failure-mode suites (then optional real-relay soak lane).
-4. Update cutover memo to reflect current reality and remaining concrete blockers.
-5. Finish supply-chain readiness evidence and release-protection policy.
+1. Strengthen testing gates by adding critical coverage thresholds for TUI v2 and key service modules used by v2.
+2. Advance Nostr resilience validation with deterministic failure-mode suites (then optional real-relay soak lane).
+3. Update cutover memo to reflect current reality and remaining concrete blockers.
+4. Finish supply-chain readiness evidence and release-protection policy.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
-### Slice A: “Legacy Parity Closure Matrix”
+### Slice A: “Post-Parity Cutover Readiness”
 
 Deliverables:
-- Add `docs/tui_v2_legacy_parity_matrix.md` mapping legacy interactive actions to TUI v2 equivalents (or explicit gaps). ✅ (initial matrix added)
-- Add tests for any currently uncovered high-value legacy actions surfaced by that matrix.
-- Update `docs/tui_v2_parity_checklist.md` to remove or narrow “Full legacy workflow coverage: Pending”.
+- Keep parity docs in sync with shipped behavior and evidence.
+- Raise test gates/coverage thresholds for the TUI v2 critical path.
+- Capture remaining cutover blockers as explicit release criteria.
 
 Exit criteria:
 - Matrix exists, reviewed, and linked from this document.
@@ -95,8 +97,9 @@ Progress update (2026-03-02):
   - `npub` (alias: `nostr-pubkey`)
   - displays active profile npub (+ QR payload) in sensitive panel
   - tests added for success and validation paths
-- Current next implementation target:
-  - close “Full legacy workflow coverage” in parity checklist with bug-bash evidence
+- Full legacy workflow coverage closed with bug-bash evidence:
+  - `python scripts/ai_tui2_agent_test.py --scenario extended --verbose` => PASS
+  - `python scripts/ai_tui_agent_test.py --scenario extended --verbose` => PASS
 
 ## 6) Working Rule
 

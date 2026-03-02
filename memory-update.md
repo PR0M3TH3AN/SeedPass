@@ -673,3 +673,20 @@
 - Parity docs update:
   - `docs/tui_v2_legacy_parity_matrix.md` now marks `Display npub` as Implemented.
   - `docs/dev_control_center.md` progress notes now include `npub` parity completion and shift next target to checklist closure.
+
+## 2026-03-02 Parity checklist closure: full legacy workflow coverage
+- Executed parity bug-bash harnesses for both interactive stacks:
+  - `python scripts/ai_tui2_agent_test.py --scenario extended --verbose`
+    - Result: `PASS`
+    - Report: `artifacts/agent_tui2_test/20260302T135526Z/report.json`
+  - `python scripts/ai_tui_agent_test.py --scenario extended --verbose`
+    - Result: `PASS`
+    - Report: `artifacts/agent_tui_test/20260302T135526Z/report.json`
+- Updated parity documentation:
+  - `docs/tui_v2_parity_checklist.md`
+    - status changed to parity-complete on `beta`
+    - `Full legacy workflow coverage` changed from `Pending` to `Yes`
+    - added evidence section with exact commands and report paths.
+  - `docs/dev_control_center.md`
+    - removed parity-closure pending state
+    - shifted priority stack to post-parity cutover readiness (testing gates, Nostr resilience, cutover memo, supply-chain readiness).

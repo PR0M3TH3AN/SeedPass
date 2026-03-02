@@ -1,6 +1,6 @@
 # TUI v2 Parity Checklist
 
-Status: In progress on `beta` (updated 2026-03-01).
+Status: Parity-complete on `beta` (updated 2026-03-02).
 
 This checklist tracks readiness to switch default interactive mode from legacy TUI to `seedpass tui2`.
 
@@ -22,7 +22,7 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 | Link add/remove | Limited | Yes | Via command palette commands. |
 | Neighbor traversal | No | Yes | Link cursor + open target entry. |
 | Command discoverability | Menu-driven | Partial | Keybind hints and palette `help`. |
-| Full legacy workflow coverage | Yes | Pending | Additional edge-case parity still needed. |
+| Full legacy workflow coverage | Yes | Yes | Closed with parity matrix completion + bug-bash evidence (2026-03-02). |
 
 ## Phase 4 Deliverables
 
@@ -59,6 +59,19 @@ This checklist tracks readiness to switch default interactive mode from legacy T
 
 - Active parity continuation and checkoff queue:
   - `docs/tui_v2_parity_backlog.md`
+
+## Parity Closure Evidence (2026-03-02)
+
+- Legacy interactive bug-bash harness:
+  - `python scripts/ai_tui_agent_test.py --scenario extended --verbose`
+  - Result: `PASS`
+  - Report: `artifacts/agent_tui_test/20260302T135526Z/report.json`
+- Textual TUI v2 bug-bash harness:
+  - `python scripts/ai_tui2_agent_test.py --scenario extended --verbose`
+  - Result: `PASS`
+  - Report: `artifacts/agent_tui2_test/20260302T135526Z/report.json`
+- Parity matrix status:
+  - `docs/tui_v2_legacy_parity_matrix.md` now marks mapped legacy actions as implemented.
 
 ## Phase E Closure Notes
 
