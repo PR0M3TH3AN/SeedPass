@@ -19,6 +19,7 @@ from pathlib import Path
 DEFAULT_THRESHOLDS: dict[str, float] = {
     "src/main.py": 50.0,
     "src/seedpass/core/manager.py": 60.0,
+    "src/seedpass/core/api.py": 85.0,
     "src/seedpass/core/encryption.py": 80.0,
     "src/seedpass/core/migrations.py": 90.0,
 }

@@ -5,6 +5,11 @@ mkdir -p artifacts/coverage
 
 ./scripts/tui2_check_smoke.sh
 
+py_bin="python"
+if ! command -v "$py_bin" >/dev/null 2>&1; then
+    py_bin="python3"
+fi
+
 if [[ "${DETERMINISM_GATE:-1}" == "1" ]]; then
     ./scripts/run_determinism_tests.sh
 fi
@@ -48,7 +53,12 @@ if [[ $status -eq 124 ]]; then
     tail -n 20 pytest.log
     exit 1
 fi
-if [[ $status -eq 0 && "${CRITICAL_COVERAGE_GATE:-0}" == "1" ]]; then
-    python scripts/check_critical_coverage.py artifacts/coverage/coverage.json
+if [[ $status -eq 0 && "${CRITICAL_COVERAGE_GATE:-1}" == "1" ]]; then
+    "$py_bin" scripts/check_critical_coverage.py \
+        artifacts/coverage/coverage.json \
+        --json-output artifacts/coverage/critical_gate.full.json
+fi
+if [[ $status -eq 0 && "${TUI2_COVERAGE_GATE:-1}" == "1" ]]; then
+    ./scripts/tui2_coverage_gate.sh
 fi
 exit $status

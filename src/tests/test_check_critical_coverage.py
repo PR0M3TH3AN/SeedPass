@@ -23,6 +23,10 @@ def _load_module():
 coverage_gate = _load_module()
 
 
+def test_default_thresholds_include_tui2_service_module():
+    assert coverage_gate.DEFAULT_THRESHOLDS["src/seedpass/core/api.py"] == 85.0
+
+
 def test_parse_threshold_overrides_valid():
     parsed = coverage_gate._parse_threshold_overrides(
         ["src/main.py=40", "src/seedpass/core/manager.py=55.5"]

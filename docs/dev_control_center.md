@@ -64,10 +64,9 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Strengthen testing gates by adding critical coverage thresholds for TUI v2 and key service modules used by v2.
-2. Advance Nostr resilience validation with deterministic failure-mode suites (then optional real-relay soak lane).
-3. Update cutover memo to reflect current reality and remaining concrete blockers.
-4. Finish supply-chain readiness evidence and release-protection policy.
+1. Advance Nostr resilience validation with deterministic failure-mode suites (then optional real-relay soak lane).
+2. Update cutover memo to reflect current reality and remaining concrete blockers.
+3. Finish supply-chain readiness evidence and release-protection policy.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
@@ -100,6 +99,12 @@ Progress update (2026-03-02):
 - Full legacy workflow coverage closed with bug-bash evidence:
   - `python scripts/ai_tui2_agent_test.py --scenario extended --verbose` => PASS
   - `python scripts/ai_tui_agent_test.py --scenario extended --verbose` => PASS
+- Coverage gates strengthened for TUI v2 critical path:
+  - `scripts/run_ci_tests.sh` now enables critical coverage gate by default.
+  - `scripts/check_critical_coverage.py` default thresholds now include `src/seedpass/core/api.py=85`.
+  - new focused gate `scripts/tui2_coverage_gate.sh` enforces:
+    - `src/seedpass/tui_v2/app.py >= 78%`
+    - `src/seedpass/core/api.py >= 85%`
 
 ## 6) Working Rule
 

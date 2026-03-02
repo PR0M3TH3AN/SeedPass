@@ -690,3 +690,34 @@
   - `docs/dev_control_center.md`
     - removed parity-closure pending state
     - shifted priority stack to post-parity cutover readiness (testing gates, Nostr resilience, cutover memo, supply-chain readiness).
+
+## 2026-03-02 Testing-gate hardening: TUI v2 + service coverage thresholds
+- Added dedicated focused gate script: `scripts/tui2_coverage_gate.sh`.
+- Gate behavior:
+  - uses `.venv/bin/python` when available (fallback `python`/`python3`)
+  - checks Textual runtime availability before running focused TUI v2 coverage suite
+  - runs focused tests with coverage output: `artifacts/coverage/coverage.tui2_gate.json`
+  - enforces thresholds via `scripts/check_critical_coverage.py --no-default-thresholds`:
+    - `src/seedpass/tui_v2/app.py >= 78%`
+    - `src/seedpass/core/api.py >= 85%`
+  - writes machine-readable result to `artifacts/coverage/critical_gate.tui2.json`.
+- Strengthened default critical-coverage policy:
+  - `scripts/check_critical_coverage.py` default thresholds now include:
+    - `src/seedpass/core/api.py = 85%`.
+- CI runner hardening:
+  - `scripts/run_ci_tests.sh` now enables `CRITICAL_COVERAGE_GATE` by default (`1`).
+  - adds JSON output for full-suite gate: `artifacts/coverage/critical_gate.full.json`.
+  - adds focused TUI v2 gate call controlled by `TUI2_COVERAGE_GATE` (default `1`).
+  - coverage-gate Python invocation now uses `python`/`python3` fallback resolution.
+- Test/doc updates:
+  - `src/tests/test_check_critical_coverage.py` includes assertion for new default API threshold.
+  - docs updated in:
+    - `docs/ai_agent_tui_testing.md`
+    - `docs/security_readiness_checklist.md`
+    - `docs/dev_control_center.md`
+- Validation run (this slice):
+  - `pytest -q src/tests/test_check_critical_coverage.py` -> `9 passed`
+  - `./scripts/tui2_coverage_gate.sh` -> PASS
+    - `src/seedpass/core/api.py: 86.64%`
+    - `src/seedpass/tui_v2/app.py: 79.87%`
+  - `python3 scripts/check_critical_coverage.py artifacts/coverage/coverage.json --json-output artifacts/coverage/critical_gate.full.json` -> PASS.
