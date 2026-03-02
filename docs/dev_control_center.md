@@ -64,8 +64,8 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Advance Nostr resilience validation with deterministic failure-mode suites (then optional real-relay soak lane).
-2. Update cutover memo to reflect current reality and remaining concrete blockers.
+1. Update cutover memo to reflect current reality and remaining concrete blockers.
+2. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 3. Finish supply-chain readiness evidence and release-protection policy.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
@@ -105,6 +105,13 @@ Progress update (2026-03-02):
   - new focused gate `scripts/tui2_coverage_gate.sh` enforces:
     - `src/seedpass/tui_v2/app.py >= 78%`
     - `src/seedpass/core/api.py >= 85%`
+- Nostr deterministic resilience suite expanded:
+  - new tests in `src/tests/test_nostr_resilience_failure_modes.py` cover:
+    - no encrypted data sync attempt
+    - publish-without-event fallback error handling
+    - preservation of relay-provided publish errors
+    - snapshot-missing warning path
+    - snapshot-fetch exception warning path
 
 ## 6) Working Rule
 

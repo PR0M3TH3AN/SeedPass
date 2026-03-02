@@ -721,3 +721,18 @@
     - `src/seedpass/core/api.py: 86.64%`
     - `src/seedpass/tui_v2/app.py: 79.87%`
   - `python3 scripts/check_critical_coverage.py artifacts/coverage/coverage.json --json-output artifacts/coverage/critical_gate.full.json` -> PASS.
+
+## 2026-03-02 Nostr resilience deterministic failure-mode suite expansion
+- Added new deterministic resilience tests in `src/tests/test_nostr_resilience_failure_modes.py` targeting `PasswordManager` Nostr sync error paths.
+- New covered scenarios:
+  - `sync_vault_async` returns `None` and sets explicit error when encrypted index bytes are unavailable.
+  - `sync_vault_async` preserves relay/publish error text when `publish_snapshot` fails to produce an event ID.
+  - `sync_vault_async` sets fallback publish failure error when no relay error text is provided.
+  - `sync_index_from_nostr_async` emits warning notification when snapshot fetch returns no result and client has `last_error`.
+  - `sync_index_from_nostr_async` emits warning notification on snapshot-fetch exceptions.
+- Validation run:
+  - `pytest -q src/tests/test_nostr_resilience_failure_modes.py src/tests/test_background_vault_sync_paths.py src/tests/test_post_sync_messages.py src/tests/test_offline_mode_behavior.py`
+  - Result: `16 passed`.
+- Docs updated:
+  - `docs/security_readiness_checklist.md` now includes `test_nostr_resilience_failure_modes.py` under Nostr resilience evidence.
+  - `docs/dev_control_center.md` progress notes updated to reflect deterministic Nostr resilience suite expansion.

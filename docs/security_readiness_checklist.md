@@ -8,7 +8,7 @@ Status legend: `Not Started`, `In Progress`, `Blocked`, `Done`
 | 2 | Crypto and key management review | Done | Security / Core | `docs/crypto_key_management_review.md`, `src/tests/test_kdf_modes.py`, `src/tests/test_export_plaintext_policy.py` |
 | 3 | Secret handling and local data exposure hardening | Done | Core | `docs/secret_handling_local_exposure_review.md`, `src/tests/test_memory_protection.py`, `src/tests/test_clipboard_utils.py`, `src/tests/test_fingerprint_encryption.py`, `src/tests/test_api_new_endpoints.py`, `src/tests/test_bip85_derivation_path.py` |
 | 4 | Backup and restore integrity validation | In Progress | Core / QA | `src/tests/test_account_roundtrip_restore.py`, `src/tests/test_portable_backup.py` |
-| 5 | Nostr sync security and resilience validation | In Progress | Core / QA | `src/tests/test_nostr_real.py`, `src/tests/test_nostr_index_size.py` |
+| 5 | Nostr sync security and resilience validation | In Progress | Core / QA | `src/tests/test_nostr_real.py`, `src/tests/test_nostr_index_size.py`, `src/tests/test_nostr_resilience_failure_modes.py` |
 | 6 | Auth, lock/unlock, and access-control hardening | Done | Core | `docs/auth_lock_unlock_access_review.md`, `src/tests/test_api_new_endpoints.py`, `src/tests/test_vault_lock_flag.py`, `src/tests/test_inactivity_lock.py`, `src/tests/test_unlock_sync.py` |
 | 7 | Testing gates and quality thresholds | In Progress | QA | `scripts/check_critical_coverage.py`, `scripts/tui2_coverage_gate.sh`, CI workflows |
 | 8 | Supply chain and release integrity | In Progress | DevOps | `docs/supply_chain_release_integrity.md`, `.github/workflows/release-integrity.yml`, `scripts/release_integrity.py`, `src/tests/test_release_integrity_utils.py` |
