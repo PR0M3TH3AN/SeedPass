@@ -282,7 +282,7 @@ def launch_tui2(
             yield Input(
                 placeholder=(
                     "Command palette: help | open <id> | search <q> | "
-                    "help-commands | "
+                    "help-commands | quickstart | stats | "
                     "filter <kind> | archive | restore | "
                     "archive-filter <active|all|archived> | "
                     "add-password <label> <length> [username] [url] | "
@@ -490,9 +490,33 @@ def launch_tui2(
         def _set_secret_panel(self, text: str) -> None:
             self.query_one("#secret-detail", Static).update(text)
 
+        def _quickstart_text(self) -> str:
+            return "\n".join(
+                [
+                    "Quick Start",
+                    "-----------",
+                    "",
+                    "Your vault currently has no active entries.",
+                    "",
+                    "Try these first actions in the palette (Ctrl+P):",
+                    '- add-password "Site" 16 user https://site.example',
+                    '- add-totp "Authenticator" 30 6',
+                    '- add-document "Runbook" md "starter notes"',
+                    "",
+                    "Useful navigation:",
+                    "- / search, j jump, f kind filter, h archive scope",
+                    "- 1/2/3 focus panes, ? keyboard help",
+                    "",
+                    "Operational shortcuts:",
+                    "- stats (vault summary)",
+                    "- help-commands (full palette reference)",
+                ]
+            )
+
         def _palette_help_summary(self) -> str:
             return (
                 "Palette commands: help, help-commands, open, search, filter, "
+                "quickstart, stats, "
                 "archive, restore, archive-filter, edit-doc/save-doc/cancel-edit, "
                 "link-add/link-rm/link-filter/link-next/link-prev/link-open, "
                 "add-*, notes/tags/fields, 2fa-*, profile-*, setting-*, relay-*, "
@@ -508,6 +532,7 @@ def launch_tui2(
                     "-----------------",
                     "",
                     "Core: help | help-commands | open <id> | jump <id> | search <q>",
+                    "Core Ops: quickstart | stats",
                     "Filters: filter <kind|all> | archive-filter <active|all|archived>",
                     "Pages: page-next | page-prev | page <n>",
                     "",
@@ -667,6 +692,7 @@ def launch_tui2(
                     "- Ctrl+S save doc",
                     "- Ctrl+P command palette",
                     "- add-* create entries",
+                    "- quickstart/stats via palette",
                     "- tags/notes/fields via palette",
                     "- docs: edit/save/export",
                     "- 6 toggle dedicated 2FA board",
@@ -696,6 +722,89 @@ def launch_tui2(
             )
             return total_pages
 
+        def _stats_text(self) -> str:
+            lines = ["Vault Stats", "----------", ""]
+            stats_payload: dict[str, Any] | None = None
+            if self._vault_service is not None:
+                getter = getattr(self._vault_service, "stats", None)
+                if callable(getter):
+                    try:
+                        payload = getter()
+                        if isinstance(payload, dict):
+                            stats_payload = payload
+                    except Exception:
+                        stats_payload = None
+
+            if isinstance(stats_payload, dict):
+                total = int(stats_payload.get("total_entries", 0))
+                lines.append(f"Total entries: {total}")
+                entries = stats_payload.get("entries")
+                if isinstance(entries, dict) and entries:
+                    lines.append("Kinds:")
+                    for kind, count in sorted(entries.items()):
+                        lines.append(f"- {kind}: {count}")
+                lines.append(
+                    f"Relays configured: {int(stats_payload.get('relay_count', 0))}"
+                )
+                lines.append(f"Backups: {int(stats_payload.get('backup_count', 0))}")
+                lines.append(
+                    f"Schema version: {stats_payload.get('schema_version', '(unknown)')}"
+                )
+                lines.append(
+                    "Database checksum ok: "
+                    + ("yes" if bool(stats_payload.get("checksum_ok", False)) else "no")
+                )
+                lines.append(
+                    "Script checksum ok: "
+                    + (
+                        "yes"
+                        if bool(stats_payload.get("script_checksum_ok", False))
+                        else "no"
+                    )
+                )
+                lines.append(
+                    f"Snapshot chunks: {int(stats_payload.get('chunk_count', 0))}"
+                )
+                lines.append(
+                    f"Pending deltas: {int(stats_payload.get('pending_deltas', 0))}"
+                )
+                delta_since = stats_payload.get("delta_since")
+                if delta_since:
+                    lines.append(f"Latest delta timestamp: {delta_since}")
+                return "\n".join(lines)
+
+            if self._service is None:
+                lines.append("Stats unavailable: entry service unavailable.")
+                return "\n".join(lines)
+            try:
+                rows = self._service.search_entries(
+                    "",
+                    kinds=None,
+                    include_archived=True,
+                    archived_only=False,
+                )
+            except Exception as exc:
+                lines.append(f"Stats unavailable: {exc}")
+                return "\n".join(lines)
+
+            total = len(rows)
+            archived = sum(1 for row in rows if bool(row[4]))
+            counts: dict[str, int] = {}
+            for _idx, _label, _u, _url, _archived, etype in rows:
+                kind = getattr(etype, "value", str(etype))
+                counts[kind] = counts.get(kind, 0) + 1
+
+            lines.append(f"Total entries: {total}")
+            lines.append(f"Archived entries: {archived}")
+            lines.append(f"Active entries: {max(0, total - archived)}")
+            if counts:
+                lines.append("Kinds:")
+                for kind, count in sorted(counts.items()):
+                    lines.append(f"- {kind}: {count}")
+            lines.append("")
+            lines.append("Tip: connect vault service for full operational stats.")
+            return "\n".join(lines)
+
         def _render_current_page(self, *, preserve_selected: bool = True) -> None:
             self._entry_ids_in_view = []
             list_view = self.query_one("#entry-list", ListView)
@@ -704,7 +813,17 @@ def launch_tui2(
             if total == 0:
                 self._selected_entry_id = None
                 self._selected_entry = None
-                self.query_one("#entry-detail", Static).update("No entries match.")
+                is_empty_vault = (
+                    not self._last_query.strip()
+                    and self.filter_kind == "all"
+                    and self.archive_scope == "active"
+                )
+                if is_empty_vault:
+                    self.query_one("#entry-detail", Static).update(
+                        self._quickstart_text()
+                    )
+                else:
+                    self.query_one("#entry-detail", Static).update("No entries match.")
                 self.query_one("#link-detail", Static).update(
                     "Links: select an entry first."
                 )
@@ -713,7 +832,12 @@ def launch_tui2(
                 )
                 self._current_links = []
                 self._current_link_cursor = 0
-                self._set_status("No entries match current filter/search")
+                if is_empty_vault:
+                    self._set_status(
+                        "Vault is empty. Run 'quickstart' or add your first entry."
+                    )
+                else:
+                    self._set_status("No entries match current filter/search")
                 self._update_filters_panel()
                 return
 
@@ -1478,6 +1602,22 @@ def launch_tui2(
                 self.query_one("#search", Input).value = query
                 self._load_entries(query=query, reset_page=True)
                 self._set_status(f"Applied search: {query}")
+                return
+
+            if cmd == "quickstart":
+                if args:
+                    self._set_status("Usage: quickstart")
+                    return
+                self.query_one("#entry-detail", Static).update(self._quickstart_text())
+                self._set_status("Displayed quick start guide")
+                return
+
+            if cmd == "stats":
+                if args:
+                    self._set_status("Usage: stats")
+                    return
+                self.query_one("#entry-detail", Static).update(self._stats_text())
+                self._set_status("Displayed vault stats")
                 return
 
             if cmd == "filter":

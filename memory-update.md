@@ -792,3 +792,36 @@
 - Docs updated:
   - `docs/tui_v2_parity_checklist.md`: command discoverability row moved from `Partial` to `Yes`.
   - `docs/dev_control_center.md`: priorities refocused to feature/parity and test coverage targets first.
+
+## 2026-03-02 Parity UX slice: guided quick-start + in-app stats for TUI v2
+- User feedback (side-by-side v2 vs legacy) identified three UX parity gaps:
+  1) guided onboarding/first-run feel,
+  2) stats/operational visibility,
+  3) explicit lock/session affordances.
+- Implemented first two in `src/seedpass/tui_v2/app.py`:
+  - new palette command: `quickstart`
+    - renders guided first-steps panel in detail pane.
+  - new palette command: `stats`
+    - renders vault stats dashboard in detail pane.
+    - prefers `VaultService.stats()` when available.
+    - falls back to deterministic local aggregate from `EntryService.search_entries(..., include_archived=True)`.
+  - empty-vault UX improvement:
+    - default detail panel now shows Quick Start guidance instead of plain "No entries match".
+- Discoverability updates:
+  - palette placeholder includes `quickstart` and `stats`.
+  - command help/reference now includes quickstart/stats entries.
+  - left actions panel includes quickstart/stats hint.
+- Tests added/updated:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - `test_tui2_textual_quickstart_and_stats_commands`
+    - `test_tui2_textual_empty_vault_shows_quickstart`
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - command matrix includes quickstart/stats success and usage-error paths.
+- Validation:
+  - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_parity_scenarios.py src/tests/test_tui_v2_helpers.py`
+  - Result: `42 passed`.
+  - `./scripts/tui2_coverage_gate.sh` -> PASS (`src/seedpass/tui_v2/app.py` remains above gate at `79.30%`).
+- Planning docs updated to track remaining UX parity gap:
+  - `docs/dev_control_center.md`
+  - `docs/tui_v2_legacy_parity_matrix.md`
+  (remaining medium gap: explicit lock/session affordances).

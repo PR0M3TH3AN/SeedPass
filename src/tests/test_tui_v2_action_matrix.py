@@ -505,6 +505,8 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("page abc")
         app._run_palette_command("page 0")
         app._run_palette_command("help-commands now")
+        app._run_palette_command("quickstart now")
+        app._run_palette_command("stats now")
         app._run_palette_command("link-filter")
         app._run_palette_command("link-add")
         app._run_palette_command("link-add no")
@@ -579,6 +581,8 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
 
         app._run_palette_command("help")
         app._run_palette_command("help-commands")
+        app._run_palette_command("quickstart")
+        app._run_palette_command("stats")
         app._run_palette_command("search Doc")
         app._run_palette_command("filter document")
         app._run_palette_command("archive-filter all")

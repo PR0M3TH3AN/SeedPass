@@ -9,7 +9,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 - Implemented: core daily workflows are covered in TUI v2 (add/retrieve/search/modify/archive, reveal/QR, 2FA board, settings/profile/relay/sync, export/import/checksum paths).
 - Partial: a few legacy menu affordances are represented differently in v2 (palette-first vs nested menus).
-- Gaps: remaining high-value gaps are low-volume utility affordances rather than core workflows.
+- Gaps: remaining high-value gaps are mostly UX-guidance and operational affordances rather than missing core data operations.
 
 ## Matrix
 
@@ -50,6 +50,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Export/import database | Settings | `db-export`, `db-import` | Implemented | |
 | Export TOTP codes | Settings | `totp-export` | Implemented | |
 | Backup/reveal parent seed | Settings | `parent-seed-backup [path] [password]` | Implemented | |
+| Stats view | Settings > Stats | `stats` (palette) | Implemented | In-app dashboard in detail pane. |
 | Display npub | Main utility flow | `npub` (alias: `nostr-pubkey`) | Implemented | Displays active profile npub and QR payload in the sensitive panel. |
 | View archived-only list | Settings/List flow | `h` cycle archive scope or `archive-filter <active|all|archived>` | Implemented | Supports active-only/default, all, and archived-only views. |
 | Reset Nostr sync state | Settings > Nostr | `nostr-reset-sync-state` | Implemented | Added to TUI v2 palette + tests. |
@@ -59,8 +60,10 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 ## Prioritized Gap Queue
 
-1. Revalidate and close “Full legacy workflow coverage” in `docs/tui_v2_parity_checklist.md`.
+1. Medium: guided first-run onboarding parity in TUI v2 (legacy has explicit startup path).
+2. Medium: explicit lock/session affordances and status visibility parity in TUI v2.
 
 ## Suggested implementation order
 
-1. Run parity bug-bash + checklist update to move full legacy workflow coverage to complete.
+1. Land guided onboarding panel/flow parity improvements.
+2. Add lock/session visibility commands and test coverage.

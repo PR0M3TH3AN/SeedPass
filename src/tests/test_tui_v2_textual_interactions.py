@@ -759,6 +759,47 @@ async def test_tui2_textual_palette_help_commands_reference() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_quickstart_and_stats_commands() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "x"},
+            {"id": 3, "kind": "totp", "label": "Auth 3", "secret": "JBSWY3DPEHPK3PXP"},
+            {"id": 4, "kind": "seed", "label": "Seed 4", "archived": True},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        await _run_palette(app, pilot, "quickstart")
+        detail = _widget_text(app, "#entry-detail")
+        assert "Quick Start" in detail
+        assert "add-password" in detail
+        assert "Displayed quick start guide" in _status_text(app)
+
+        await _run_palette(app, pilot, "stats")
+        detail = _widget_text(app, "#entry-detail")
+        assert "Vault Stats" in detail
+        assert "Total entries: 4" in detail
+        assert "Archived entries: 1" in detail
+        assert "- password: 1" in detail
+        assert "Displayed vault stats" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_empty_vault_shows_quickstart() -> None:
+    app = _build_app(FakeEntryService([]))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        detail = _widget_text(app, "#entry-detail")
+        assert "Quick Start" in detail
+        assert "add-password" in detail
+        assert "Vault is empty." in _status_text(app)
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_reveal_and_qr_flow() -> None:
     service = FakeEntryService(
         [

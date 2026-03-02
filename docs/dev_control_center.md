@@ -65,6 +65,8 @@ Use these docs as inputs, but treat this file as the decision layer:
 ## 4) Recommended Next Steps (Priority Order)
 
 1. Continue feature-development parity polish in TUI v2 with user-driven UX gaps.
+: prioritized gaps from side-by-side legacy vs v2 run:
+: guided first-run onboarding, stats/ops visibility, explicit lock/session affordances.
 2. Raise TUI v2 critical-path coverage beyond current gate floor (target >82% for `src/seedpass/tui_v2/app.py`).
 3. Advance Nostr resilience validation with optional real-relay soak lane after deterministic suites.
 4. Execute a tagged release integrity run and attach evidence URLs in readiness checklist.
