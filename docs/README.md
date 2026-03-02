@@ -2,6 +2,10 @@
 
 This directory contains SeedPass project documentation.
 
+## Start Here
+
+- `dev_control_center.md` (single source to decide what to do next)
+
 ## Agent and Autonomy Docs
 
 - `agent_autonomy_security_plan.md`

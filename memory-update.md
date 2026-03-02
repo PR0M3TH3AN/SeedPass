@@ -573,3 +573,11 @@
   - Search input can capture keystrokes by default; test now focuses `#entry-list` before keybinding presses to exercise app-level binding path reliably.
 - Validation run:
   - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py` -> `34 passed`.
+
+## 2026-03-02 Centralized dev planning doc added
+- Added `docs/dev_control_center.md` as the single decision-layer document for what to work on next.
+- The control center now links plan, parity, security, QA, and hardening documents and includes a prioritized next-step queue.
+- Added `docs/README.md` “Start Here” link pointing to `dev_control_center.md`.
+- Pre-slice health verification executed first:
+  - remote sync check on `origin/beta` (no new remote commits)
+  - `scripts/run_ci_tests.sh` pass with full suite: `979 passed, 16 skipped`, coverage `85.65%`.
