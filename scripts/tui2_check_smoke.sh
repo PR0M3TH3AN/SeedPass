@@ -6,23 +6,26 @@ set -euo pipefail
 
 export PYTHONPATH=src
 
+if [[ -x ".venv/bin/python" ]]; then
+    py_bin=".venv/bin/python"
+elif command -v python >/dev/null 2>&1; then
+    py_bin="python"
+else
+    py_bin="python3"
+fi
+
 if command -v seedpass >/dev/null 2>&1; then
     raw_output="$(seedpass tui2 --check)"
 else
-    if command -v python >/dev/null 2>&1; then
+    # If poetry is available and not in venv, use poetry run
+    if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
+        cmd_prefix="poetry run "
         py_bin="python"
     else
-        py_bin="python3"
+        cmd_prefix=""
     fi
 
-    # Try poetry first if we are not in an active virtual environment
-    if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
-        py_bin="poetry run $py_bin"
-    elif [[ -x ".venv/bin/python" ]]; then
-        py_bin=".venv/bin/python"
-    fi
-
-    raw_output="$($py_bin - <<'PY'
+    raw_output="$(${cmd_prefix}${py_bin} - <<'PY'
 import json
 from typer.testing import CliRunner
 from seedpass.cli import app
@@ -36,19 +39,21 @@ PY
 )"
 fi
 
-if command -v python >/dev/null 2>&1; then
+if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
+    cmd_prefix="poetry run "
     py_bin="python"
 else
-    py_bin="python3"
+    cmd_prefix=""
+    if [[ -x ".venv/bin/python" ]]; then
+        py_bin=".venv/bin/python"
+    elif command -v python >/dev/null 2>&1; then
+        py_bin="python"
+    else
+        py_bin="python3"
+    fi
 fi
 
-if [[ -z "${VIRTUAL_ENV:-}" ]] && command -v poetry >/dev/null 2>&1; then
-    py_bin="poetry run $py_bin"
-elif [[ -x ".venv/bin/python" ]]; then
-    py_bin=".venv/bin/python"
-fi
-
-$py_bin - <<'PY' "$raw_output"
+${cmd_prefix}${py_bin} - <<'PY' "$raw_output"
 import json
 import sys
 
