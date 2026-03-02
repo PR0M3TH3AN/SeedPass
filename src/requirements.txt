@@ -14,7 +14,7 @@ portalocker>=2.8,<4
 nostr-sdk>=0.43,<1
 websocket-client>=1.7,<2
 
-websockets>=15,<16
+websockets>=15,<17
 tomli>=2,<3
 hypothesis>=6,<7
 mutmut>=2.4.4,<4
