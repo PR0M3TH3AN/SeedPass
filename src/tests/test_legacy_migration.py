@@ -290,6 +290,15 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     pm.bip85 = SimpleNamespace()
     pm.offline_mode = True
 
+    # prevent _initialize_config_and_state from overriding config
+    from seedpass.core.config_manager import ConfigManager
+
+    cfg_mgr = ConfigManager(pm.vault, tmp_path)
+    cfg = cfg_mgr.load_config(require_pin=False)
+    cfg["offline_mode"] = True
+    cfg_mgr.save_config(cfg)
+    pm.config_manager = cfg_mgr
+
     monkeypatch.setattr(
         "seedpass.core.manager.NostrClient", lambda *a, **k: SimpleNamespace()
     )
