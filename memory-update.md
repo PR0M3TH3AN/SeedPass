@@ -548,3 +548,17 @@
 - Validation:
   - `pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py src/tests/test_tui_v2_helpers.py` -> `33 passed`.
   - `python scripts/ai_tui2_agent_test.py --scenario core --verbose` -> `[PASS] core`.
+
+## 2026-03-02 Hardening checklist execution (post TUI v2 UX patch)
+- Completed requested hardening items in repo workspace:
+  1) CI-equivalent run via `scripts/run_ci_tests.sh`: PASS.
+     - Determinism gate: `43 passed, 950 skipped`.
+     - Full suite: `977 passed, 16 skipped`.
+  2) Installer smoke (`beta`) via `scripts/installer_smoke_unix.sh`:
+     - `mode=tui`: PASS.
+     - `mode=both`: PASS (GUI intentionally skipped in headless runtime).
+  3) Parity bug-bash harnesses:
+     - `scripts/ai_tui2_agent_test.py --scenario extended --verbose`: PASS.
+     - `scripts/ai_tui_agent_test.py --scenario extended --verbose`: PASS.
+- Added release note document: `docs/beta_hardening_2026-03-02.md` with checklist commands, results, and residual operational warning about stale launcher binaries on PATH.
+- Practical note: Installer repeatedly warns about stale `/home/user/.local/bin/seedpass` entries; this does not fail install but can obscure which binary users are executing.
