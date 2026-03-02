@@ -50,7 +50,7 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 | Export/import database | Settings | `db-export`, `db-import` | Implemented | |
 | Export TOTP codes | Settings | `totp-export` | Implemented | |
 | Backup/reveal parent seed | Settings | `parent-seed-backup [path] [password]` | Implemented | |
-| Display npub | Main utility flow | No direct dedicated command | Partial | Possible via entry reveal for nostr entry; direct utility-style command absent. |
+| Display npub | Main utility flow | `npub` (alias: `nostr-pubkey`) | Implemented | Displays active profile npub and QR payload in the sensitive panel. |
 | View archived-only list | Settings/List flow | `h` cycle archive scope or `archive-filter <active|all|archived>` | Implemented | Supports active-only/default, all, and archived-only views. |
 | Reset Nostr sync state | Settings > Nostr | `nostr-reset-sync-state` | Implemented | Added to TUI v2 palette + tests. |
 | Start fresh Nostr namespace | Settings > Nostr | `nostr-fresh-namespace` | Implemented | Added to TUI v2 palette + tests. |
@@ -59,8 +59,8 @@ Purpose: map legacy interactive workflows to Textual TUI v2 equivalents and isol
 
 ## Prioritized Gap Queue
 
-1. Low: dedicated utility-style npub display command in v2.
+1. Revalidate and close “Full legacy workflow coverage” in `docs/tui_v2_parity_checklist.md`.
 
 ## Suggested implementation order
 
-1. Dedicated `npub` utility command + tests.
+1. Run parity bug-bash + checklist update to move full legacy workflow coverage to complete.

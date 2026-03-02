@@ -651,3 +651,25 @@
 - Planning docs updated:
   - `docs/tui_v2_legacy_parity_matrix.md` marks archived-only view parity implemented.
   - `docs/dev_control_center.md` next target updated to dedicated `npub` utility command parity.
+
+## 2026-03-02 Next parity slice landed: dedicated Nostr npub utility command
+- Implemented utility-style Nostr pubkey command in TUI v2 palette:
+  - `npub`
+  - alias: `nostr-pubkey`
+- Behavior in `src/seedpass/tui_v2/app.py`:
+  - validates no-arg usage (`Usage: npub`)
+  - requires Nostr service availability and `get_pubkey()` support
+  - fetches active profile pubkey and renders it in `#secret-detail`
+  - includes QR payload rendering for `nostr:<npub>` when QR runtime is available
+  - status line reports `Displayed active Nostr pubkey`
+- Help/discovery text updated to include `npub` in palette placeholder/help/actions copy.
+- Test coverage updates:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+    - success path in profiles/settings command flow (`npub` status + panel assertion)
+    - unavailable service path (`Nostr service unavailable`)
+    - invalid usage path (`npub now` -> `Usage: npub`)
+  - `src/tests/test_tui_v2_action_matrix.py`
+    - matrix command-path coverage invokes `npub`.
+- Parity docs update:
+  - `docs/tui_v2_legacy_parity_matrix.md` now marks `Display npub` as Implemented.
+  - `docs/dev_control_center.md` progress notes now include `npub` parity completion and shift next target to checklist closure.

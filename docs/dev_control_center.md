@@ -91,8 +91,12 @@ Progress update (2026-03-02):
   - `nostr-reset-sync-state`
   - `nostr-fresh-namespace`
   - service wrappers and tests added
+- Nostr pubkey utility parity landed in TUI v2:
+  - `npub` (alias: `nostr-pubkey`)
+  - displays active profile npub (+ QR payload) in sensitive panel
+  - tests added for success and validation paths
 - Current next implementation target:
-  - dedicated utility-style `npub` display command parity
+  - close “Full legacy workflow coverage” in parity checklist with bug-bash evidence
 
 ## 6) Working Rule
 

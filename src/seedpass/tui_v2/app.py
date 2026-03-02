@@ -301,7 +301,7 @@ def launch_tui2(
                     "setting-quick-unlock <on|off> | setting-timeout <seconds> | "
                     "setting-kdf-iterations <n> | setting-kdf-mode <mode> | "
                     "relay-list | relay-add <url> | relay-rm <index> | "
-                    "relay-reset | nostr-reset-sync-state | nostr-fresh-namespace | "
+                    "relay-reset | npub | nostr-reset-sync-state | nostr-fresh-namespace | "
                     "sync-now | sync-bg | "
                     "checksum-verify | checksum-update | db-export <path> | db-import <path> | "
                     "totp-export <path> | parent-seed-backup [path] [password] | "
@@ -630,7 +630,7 @@ def launch_tui2(
                     "- docs: edit/save/export",
                     "- 6 toggle dedicated 2FA board",
                     "- profile/relay/sync/settings",
-                    "- nostr reset/fresh namespace",
+                    "- npub + nostr reset/fresh namespace",
                     "- checksum/db/totp/seed backup",
                     "- managed-load/managed-exit session",
                     "- l cycle link relation",
@@ -1403,7 +1403,7 @@ def launch_tui2(
                     "setting-secret, setting-offline, setting-quick-unlock, setting-timeout, "
                     "setting-kdf-iterations, setting-kdf-mode, "
                     "relay-list, relay-add, relay-rm, relay-reset, "
-                    "nostr-reset-sync-state, nostr-fresh-namespace, "
+                    "npub, nostr-reset-sync-state, nostr-fresh-namespace, "
                     "sync-now, sync-bg, "
                     "checksum-verify, checksum-update, db-export, db-import, "
                     "totp-export, parent-seed-backup, managed-load, managed-exit, "
@@ -2536,6 +2536,42 @@ def launch_tui2(
                 except Exception as exc:
                     self._record_failure(
                         "relay-add failed",
+                        exc,
+                        retry=lambda: self._run_palette_command(raw),
+                        hint="Press 'x' to retry.",
+                    )
+                return
+
+            if cmd in {"npub", "nostr-pubkey"}:
+                if self._nostr_service is None:
+                    self._set_status("Nostr service unavailable")
+                    return
+                if args:
+                    self._set_status("Usage: npub")
+                    return
+                getter = getattr(self._nostr_service, "get_pubkey", None)
+                if not callable(getter):
+                    self._set_status("Nostr service does not support pubkey display")
+                    return
+                try:
+                    pubkey = str(getter()).strip()
+                    if not pubkey:
+                        self._set_status("No active Nostr pubkey available")
+                        return
+                    panel = f"Active Nostr pubkey\n\nnpub: {pubkey}"
+                    try:
+                        panel = (
+                            f"{panel}\n\nQR (nostr:npub)\n\n"
+                            f"{render_qr_ascii(f'nostr:{pubkey}')}"
+                        )
+                    except Exception:
+                        pass
+                    self._set_secret_panel(panel)
+                    self._clear_failure()
+                    self._set_status("Displayed active Nostr pubkey")
+                except Exception as exc:
+                    self._record_failure(
+                        "npub failed",
                         exc,
                         retry=lambda: self._run_palette_command(raw),
                         hint="Press 'x' to retry.",

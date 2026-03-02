@@ -552,6 +552,7 @@ async def test_tui2_matrix_actions_palette_events_and_guards() -> None:
         app._run_palette_command("setting-kdf-iterations 100000")
         app._run_palette_command("setting-kdf-mode pbkdf2")
         app._run_palette_command("relay-list")
+        app._run_palette_command("npub")
         app._run_palette_command("relay-add wss://relay.example")
         app._run_palette_command("relay-rm 1")
         app._run_palette_command("relay-reset")

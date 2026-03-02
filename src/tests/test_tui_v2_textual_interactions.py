@@ -457,6 +457,10 @@ class FakeNostrService:
     def __init__(self, relays: list[str]) -> None:
         self.relays = list(relays)
         self.account_idx = 0
+        self.pubkey = "npub1seedpassprofile"
+
+    def get_pubkey(self) -> str:
+        return str(self.pubkey)
 
     def list_relays(self) -> list[str]:
         return list(self.relays)
@@ -1413,6 +1417,11 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         await pilot.pause()
         assert "Relays (2): wss://r1, wss://r2" in _status_text(app)
 
+        app._run_palette_command("npub")
+        await pilot.pause()
+        assert "Displayed active Nostr pubkey" in _status_text(app)
+        assert "npub: npub1seedpassprofile" in _widget_text(app, "#secret-detail")
+
         app._run_palette_command("relay-add wss://r3")
         await pilot.pause()
         assert "Added relay wss://r3" in _status_text(app)
@@ -1588,6 +1597,10 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
 
+        app._run_palette_command("npub")
+        await pilot.pause()
+        assert "Nostr service unavailable" in _status_text(app)
+
         app._run_palette_command("relay-reset")
         await pilot.pause()
         assert "Nostr service unavailable" in _status_text(app)
@@ -1658,6 +1671,10 @@ async def test_tui2_textual_profiles_and_settings_palette_validation() -> None:
         app._run_palette_command("nostr-fresh-namespace now")
         await pilot.pause()
         assert "Usage: nostr-fresh-namespace" in _status_text(app)
+
+        app._run_palette_command("npub now")
+        await pilot.pause()
+        assert "Usage: npub" in _status_text(app)
 
         app._run_palette_command("managed-load 1 2")
         await pilot.pause()
