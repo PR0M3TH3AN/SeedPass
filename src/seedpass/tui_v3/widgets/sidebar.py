@@ -29,18 +29,28 @@ class ProfileTree(Tree):
             return
 
         service = app.services["profile"]
+        entry_service = app.services.get("entry")
         profiles = service.list_profiles()
         
-        # In v3, we will properly fetch nested accounts. 
-        # For this initial scaffold, we populate the top-level fingerprints.
         for fp in profiles:
-            icon = "■ " if fp == app.active_fingerprint else "□ "
+            is_active = fp == app.active_fingerprint
+            icon = "■ " if is_active else "□ "
             label = f"{icon}{fp[:12]}..." if len(fp) > 12 else f"{icon}{fp}"
-            node = self.root.add(label, data=fp, expand=True)
+            node = self.root.add(label, data=fp, expand=is_active)
             
-            # Placeholder for child accounts - in a real run, 
-            # we would query the service for sub-entries of this FP.
-            # node.add_leaf("  ├─ Managed Account 1")
+            # If this is the active profile or we have the entry service, 
+            # we can fetch nested managed accounts.
+            if entry_service and is_active:
+                # Find managed accounts in the current profile
+                # Search for all managed accounts
+                managed = entry_service.search_entries("", kinds=["managed_account"])
+                for mid, mlabel, _, _, _, _ in managed:
+                    node.add_leaf(f"├─ {mlabel}", data=f"managed:{mid}")
+                
+                # Find agents (nostr)
+                agents = entry_service.search_entries("", kinds=["nostr"])
+                for aid, alabel, _, _, _, _ in agents:
+                    node.add_leaf(f"└─ {alabel}", data=f"agent:{aid}")
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle profile selection."""

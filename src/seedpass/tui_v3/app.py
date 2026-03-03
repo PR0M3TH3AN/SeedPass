@@ -117,6 +117,20 @@ class SeedPassTuiV3(App[None]):
         
         self.active_fingerprint = self._initial_fingerprint or ""
         self.push_screen(MainScreen())
+        # Global UI Heartbeat (for 2FA ticking etc)
+        self.set_interval(1.0, self.action_refresh_ui_quiet)
+
+    def action_refresh_ui_quiet(self) -> None:
+        """Background refresh for dynamic elements (2FA)."""
+        try:
+            # We only refresh the inspector if it's currently showing a 2FA board
+            board = self.query_one("#board-container")
+            if board and hasattr(board, "children") and board.children:
+                current_board = board.children[0]
+                if current_board.__class__.__name__ == "TotpBoard":
+                    current_board.refresh()
+        except Exception:
+            pass
 
     def watch_active_fingerprint(self, old_fp: str, new_fp: str) -> None:
         """Refresh components when the profile changes."""

@@ -11,7 +11,7 @@ class BaseBoard(Static):
 
     def _render_card(self, title: str, rows: list[str]) -> str:
         """Utility to render ASCII cards matching mockup style."""
-        width = 40
+        width = 50
         top = f"┌─ {title} " + "─" * (width - len(title) - 4) + "┐"
         bottom = "└" + "─" * (width - 2) + "┘"
         lines = [top]
@@ -52,6 +52,67 @@ class PasswordBoard(BaseBoard):
             self._render_card("Quick Actions", action_rows)
         ])
 
+class TotpBoard(BaseBoard):
+    """Matches '2FA Board.png' mockup."""
+    def render(self) -> str:
+        d = self.entry_data
+        app = self.app
+        
+        # Fetch live code from service
+        code = "------"
+        if app.services.get("entry") and not app.session_locked:
+            try:
+                code = app.services["entry"].get_totp_code(d.get("id"))
+            except:
+                pass
+
+        # Simple ASCII progress bar for the 30s cycle
+        import time
+        remaining = 30 - (int(time.time()) % 30)
+        bar_width = 20
+        filled = int((remaining / 30) * bar_width)
+        bar = "█" * filled + "░" * (bar_width - filled)
+
+        cred_rows = [
+            f"Label    : {d.get('label', '')}",
+            f"Code     : [b][cyan]{code}[/b]  ({remaining}s)",
+            f"Timer    : {bar}",
+            f"Period   : {d.get('period', 30)}s",
+            f"Digits   : {d.get('digits', 6)}",
+        ]
+        action_rows = [
+            "▣ Copy Code (c)  ▣ Reveal Secret (v)",
+            "▣ Show QR (g)    ▣ Archive (a)",
+        ]
+        
+        return "\n".join([
+            self._render_card("2FA Authenticator", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
+class SeedBoard(BaseBoard):
+    """Matches 'BIP-39 Seed Board.png' mockup."""
+    def render(self) -> str:
+        d = self.entry_data
+        cred_rows = [
+            f"Label      : {d.get('label', '')}",
+            f"Fingerprint: {d.get('fingerprint', 'Pending...')}",
+            f"Index      : {d.get('index', 0)}",
+            f"Word Count : {d.get('word_count', 24)}",
+            "Seed Phrase: [HIDDEN] (Double-press 'v' to reveal)",
+        ]
+        action_rows = [
+            "▣ Reveal Words (vv)  ▣ Show SeedQR (gg)",
+            "▣ Load Session (ml)  ▣ Archive (a)",
+        ]
+        
+        return "\n".join([
+            self._render_card("BIP-85 Derived Seed", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
 class NoteBoard(BaseBoard):
     """Matches 'Note Board.png' mockup."""
     def render(self) -> str:
@@ -67,7 +128,7 @@ class NoteBoard(BaseBoard):
         ]
         
         return "\n".join([
-            self._render_card("Content", content_rows),
+            self._render_card("Content Preview", content_rows),
             "",
             self._render_card("Quick Actions", action_rows)
         ])
@@ -106,14 +167,16 @@ class BoardContainer(Vertical):
         # Select appropriate board
         if kind in {"password", "stored_password"}:
             board = self._show_board("password")
-            board.entry_data = entry
         elif kind in {"document", "note"}:
             board = self._show_board("note")
-            board.entry_data = entry
+        elif kind == "totp":
+            board = self._show_board("totp")
+        elif kind in {"seed", "managed_account"}:
+            board = self._show_board("seed")
         else:
-            # Fallback for now
             board = self._show_board("password")
-            board.entry_data = entry
+            
+        board.entry_data = entry
 
     def _show_board(self, board_type: str) -> Any:
         self.remove_children()
@@ -123,6 +186,10 @@ class BoardContainer(Vertical):
             new_board = PasswordBoard()
         elif board_type == "note":
             new_board = NoteBoard()
+        elif board_type == "totp":
+            new_board = TotpBoard()
+        elif board_type == "seed":
+            new_board = SeedBoard()
         else:
             new_board = IdleBoard()
             
