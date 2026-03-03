@@ -1,0 +1,5 @@
+=== REPORTED ISSUE FIX CHECK ===
+grid_has_labels=True
+filters_has_fingerprint=True
+filters_has_managed=True
+filters_has_agent=True

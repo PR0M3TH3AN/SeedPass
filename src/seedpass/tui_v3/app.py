@@ -18,6 +18,21 @@ from .widgets.action_bar import ActionBar
 from .screens.settings import SettingsScreen
 from .screens.inspector import MaximizedInspectorScreen
 
+
+def render_qr_ascii(data: str) -> str:
+    """Render ``data`` as an ASCII QR code."""
+    import qrcode
+
+    qr = qrcode.QRCode(border=1)
+    qr.add_data(data)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    lines: list[str] = []
+    for row in matrix:
+        lines.append("".join("##" if cell else "  " for cell in row))
+    return "\n".join(lines)
+
+
 class CommandProcessor:
     """Handles logic for palette commands in TUI v3."""
     def __init__(self, app: SeedPassTuiV3):
@@ -36,18 +51,24 @@ class CommandProcessor:
         args = parts[1:]
 
         if cmd == "help":
-            self.app.notify("v3 commands: stats, lock, refresh, settings, maximize")
+            self.app.notify(
+                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, open <id>, settings, maximize, copy, archive, restore"
+            )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
             # We reuse the existing stats logic
             if "vault" in self.app.services:
                 stats = self.app.services["vault"].stats()
                 self.app.notify(f"Total entries: {stats.get('total_entries', 0)}")
+        elif cmd == "session-status":
+            self.app.action_session_status()
         elif cmd == "lock":
-            if "vault" in self.app.services:
-                self.app.services["vault"].lock()
-                self.app.session_locked = True
-                self.app.notify("Vault locked")
+            self.app.action_lock()
+        elif cmd == "unlock":
+            if len(args) != 1:
+                self.app.notify("Usage: unlock <password>", severity="warning")
+                return
+            self.app.action_unlock(args[0])
         elif cmd == "refresh":
             self.app.action_refresh()
         elif cmd == "search":
@@ -139,7 +160,7 @@ class SeedPassTuiV3(App[None]):
     # Shared Reactive State
     active_fingerprint = reactive("")
     selected_entry_id = reactive[int | None](None)
-    session_locked = reactive(True)
+    session_locked = reactive(False)
 
     # Internal state for sensitive actions
     _pending_sensitive_confirm: tuple[str, int, float] | None = None
@@ -194,10 +215,18 @@ class SeedPassTuiV3(App[None]):
     def action_refresh_ui_quiet(self) -> None:
         """Background refresh for dynamic elements (2FA)."""
         try:
-            # We only refresh the inspector if it's currently showing a 2FA board
-            board = self.query_one("#board-container")
+            board = self.screen.query_one("#board-container")
             if board and hasattr(board, "children") and board.children:
                 current_board = board.children[0]
+                # Ensure selection/inspector stay synchronized if a selection is set
+                # but the board is still idle after screen transitions.
+                if (
+                    self.selected_entry_id is not None
+                    and current_board.__class__.__name__ == "IdleBoard"
+                ):
+                    board.update_entry(self.selected_entry_id)
+                    return
+                # Refresh dynamic TOTP countdown only for the active TOTP board.
                 if current_board.__class__.__name__ == "TotpBoard":
                     current_board.refresh()
         except Exception:
@@ -209,28 +238,28 @@ class SeedPassTuiV3(App[None]):
             return
         # Notify sidebar and grid to refresh
         try:
-            self.query_one("#profile-tree")._refresh_tree()
-            self.query_one("#entry-data-table")._refresh_data()
+            self.screen.query_one("#profile-tree")._refresh_tree()
+            self.screen.query_one("#entry-data-table")._refresh_data()
         except Exception:
             pass
 
     def watch_selected_entry_id(self, old_id: int | None, new_id: int | None) -> None:
         """Update inspectors when an entry is selected."""
         try:
-            self.query_one("#board-container").update_entry(new_id)
+            self.screen.query_one("#board-container").update_entry(new_id)
         except Exception:
             pass
 
     def action_refresh(self) -> None:
         """Force a global UI refresh."""
-        self.query_one("#profile-tree")._refresh_tree()
-        self.query_one("#entry-data-table")._refresh_data()
+        self.screen.query_one("#profile-tree")._refresh_tree()
+        self.screen.query_one("#entry-data-table")._refresh_data()
         self.notify("UI Refreshed")
 
     def action_search(self, query: str) -> None:
         """Search entries and update grid."""
         try:
-            self.query_one("#entry-data-table")._refresh_data(query)
+            self.screen.query_one("#entry-data-table")._refresh_data(query)
             self.notify(f"Search results for: {query}")
         except Exception:
             pass
@@ -238,7 +267,7 @@ class SeedPassTuiV3(App[None]):
     def action_open_palette(self) -> None:
         """Toggle the command palette."""
         try:
-            self.query_one("#palette").toggle()
+            self.screen.query_one("#palette").toggle()
         except Exception:
             pass
 
@@ -252,6 +281,50 @@ class SeedPassTuiV3(App[None]):
             self.notify("Select an entry to maximize", severity="warning")
             return
         self.push_screen(MaximizedInspectorScreen())
+
+    def action_session_status(self) -> None:
+        """Display vault lock status."""
+        state = "locked" if self.session_locked else "unlocked"
+        self.notify(f"Session status: {state}")
+
+    def action_lock(self) -> None:
+        """Lock the vault if service support is available."""
+        vault = self.services.get("vault")
+        if vault is None:
+            self.notify("Vault service unavailable", severity="error")
+            return
+        locker = getattr(vault, "lock", None)
+        if not callable(locker):
+            self.notify("Vault service does not support lock", severity="error")
+            return
+        try:
+            locker()
+            self.session_locked = True
+            self.notify("Vault locked")
+        except Exception as e:
+            self.notify(f"Lock failed: {e}", severity="error")
+
+    def action_unlock(self, password: str) -> None:
+        """Unlock the vault with a password."""
+        vault = self.services.get("vault")
+        if vault is None:
+            self.notify("Vault service unavailable", severity="error")
+            return
+        unlocker = getattr(vault, "unlock", None)
+        if not callable(unlocker):
+            self.notify("Vault service does not support unlock", severity="error")
+            return
+        try:
+            try:
+                from seedpass.core.api import UnlockRequest
+
+                unlocker(UnlockRequest(password=password))
+            except Exception:
+                unlocker(password)
+            self.session_locked = False
+            self.notify("Vault unlocked")
+        except Exception as e:
+            self.notify(f"Unlock failed: {e}", severity="error")
 
     def action_reveal_selected(self, confirm: bool = False) -> None:
         """Handle reveal shortcut (v)."""
@@ -410,7 +483,7 @@ class SeedPassTuiV3(App[None]):
 
         # 2. Update standard inspector board
         try:
-            board_cont = self.query_one("#board-container")
+            board_cont = self.screen.query_one("#board-container")
             if board_cont.children:
                 board = board_cont.children[0]
                 if hasattr(board, "reveal_data"):

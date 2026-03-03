@@ -31,7 +31,8 @@ This directory contains SeedPass project documentation.
 - `SPEC.md`
 - `entry_types.md`
 - `entry_graph.md`
-- `tui_v2_plan.md`
+- `tui_v3_plan.md` (active roadmap for scratch rebuild)
+- `tui_v2_plan.md` (legacy logic reference)
 - `tui_v2_parity_checklist.md`
 - `tui_v2_parity_backlog.md`
 - `tui_v2_legacy_parity_matrix.md`

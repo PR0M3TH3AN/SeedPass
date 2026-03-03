@@ -1,0 +1,7 @@
+=== FILTER MENU OPEN ===
+visible=True
+
+=== ESC CLOSES FILTER MENU ===
+visible=False
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Filter menu closed

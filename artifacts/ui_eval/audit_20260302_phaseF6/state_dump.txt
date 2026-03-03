@@ -1,0 +1,6 @@
+=== INSPECTOR FIELD LAYOUT CHECK ===
+password_has_login_fields=True
+document_has_document_fields=True
+totp_has_2fa_fields=True
+inspector_heading:
+Inspector  |  #3 (totp)  Auth

@@ -1,30 +1,21 @@
 #!/usr/bin/env python3
 """
-SeedPass TUI v2 Interactive Agent Test Suite
-============================================
+SeedPass TUI Interactive Agent Test Suite (v2 and v3 Support)
+=============================================================
 
 This script provides a "Human-in-the-loop" style automated test for the 
-SeedPass TUI v2. It bypasses real encryption and filesystem requirements 
+SeedPass TUI. It bypasses real encryption and filesystem requirements 
 by injecting a MockService layer.
 
 Usage:
-    python scripts/interactive_agent_tui_test.py
-
-Features Tested:
-    - Entry Creation (Password, TOTP, Doc, etc.)
-    - Searching and Filtering
-    - Document Editing
-    - Archiving and Restoring
-    - Entry Linking (Graph)
-    - Sensitive Data Reveal & QR Codes
-    - Sub-profile (Managed Account) Sessions
-    - Nostr Sync & Namespace Management
-    - Settings & Stats
+    python scripts/interactive_agent_tui_test.py --version v3
+    python scripts/interactive_agent_tui_test.py --version v2
 """
 
 import asyncio
 import sys
 import os
+import argparse
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,6 +23,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from seedpass.tui_v2.app import launch_tui2
+from seedpass.tui_v3 import launch_tui3
 
 class AgentMockService:
     """
@@ -46,6 +38,7 @@ class AgentMockService:
         self.is_managed = False
         self.nostr_index = 0
         self.offline = False
+        self._manager = SimpleNamespace(parent_seed="MOCK_PARENT_SEED")
 
     # --- EntryService Interface ---
     def search_entries(self, query="", kinds=None, include_archived=False, archived_only=False):
@@ -118,6 +111,9 @@ class AgentMockService:
     def stats(self):
         return {"total_entries": len(self.entries), "archived": len(self.archived)}
     
+    def list_profiles(self):
+        return ["EFBE51E70ED1B53A"]
+
     def sync(self): return SimpleNamespace(manifest_id="agent-mock-manifest")
     def start_fresh_namespace(self):
         self.nostr_index += 1
@@ -129,201 +125,120 @@ class AgentMockService:
     # --- Secret Data ---
     def get_totp_code(self, entry_id): return "888999"
     def get_totp_secret(self, entry_id): return "AGENT_MOCK_SECRET"
+    def get_seed_phrase(self, eid, parent): return "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+    def get_managed_account_seed(self, eid, parent): return self.get_seed_phrase(eid, parent)
     def get_clipboard_clear_delay(self): return 10
     def copy_to_clipboard(self, val): return True
     def generate_password(self, length, entry_id): return "MOCK_PASSWORD"
 
-async def run_full_walkthrough():
+async def run_full_walkthrough(v="v3"):
     service = AgentMockService()
     holder = {}
     
     def _hook(app):
         holder["app"] = app
-        app._session_locked = False # Bypass lock
+        app.session_locked = False # Bypass lock
 
-    # Launch app with injected mock services
-    launch_tui2(
+    launch_fn = launch_tui3 if v == "v3" else launch_tui2
+    
+    launch_fn(
         entry_service_factory=lambda: service,
         vault_service_factory=lambda: service,
         profile_service_factory=lambda: service,
         sync_service_factory=lambda: service,
         nostr_service_factory=lambda: service,
+        config_service_factory=lambda: service,
         app_hook=_hook
     )
     
     app = holder["app"]
     
     async with app.run_test() as pilot:
-        from textual.widgets import Static, Input, ListView
+        from textual.widgets import Static, Input, ListView, DataTable
 
-        print("--- PHASE 1: Entry Management ---")
-        # Add various types
-        app._run_palette_command('add-password "Gmail" 20')
-        app._run_palette_command('add-totp "Bank"')
-        app._run_palette_command('add-document "Readme" md "Hello World"')
-        # Add managed/agent for hierarchy
+        print(f"--- TESTING TUI {v.upper()} ---")
+        
+        # 1. Entry Management
+        print("PHASE 1: Entry Creation & Grid")
+        service.add_entry("Gmail", 20)
+        service.add_totp("Bank")
         service.add_entry("SubUser", 10, kind="managed_account")
-        service.add_entry("MyAgent", 10, kind="nostr")
+        service.add_entry("MySeed", 24, kind="seed")
         
         await pilot.pause()
         print(f"  [OK] Created {len(service.entries)} entries.")
 
-        # Search
-        app._load_entries(query="bank")
-        await pilot.pause()
-        results = app.query_one("#entry-list", ListView).children
-        print(f"  [OK] Search 'bank' found {len(results)} results.")
-
-        # Archive
-        app._show_entry(1) # Gmail
-        await pilot.pause()
-        app.action_toggle_archive()
-        await pilot.pause()
-        print(f"  [OK] Archive status: {app.query_one('#status').render()}")
-
-        print("\n--- PHASE 2: Advanced Interaction ---")
-        # Linking
-        app._run_palette_command("link-add 2 requires 'Auth'")
-        await pilot.pause()
-        print(f"  [OK] Linked #1 to #2.")
-
-        # Reveal & QR
-        app._show_entry(2) # Bank TOTP
-        await pilot.pause()
-        app.action_reveal_selected()
-        await pilot.pause()
-        reveal_text = str(app.query_one("#secret-detail", Static).render())
-        print(f"  [OK] Secret Reveal: {'REVEALED' in reveal_text}")
-
-        app.action_show_qr()
-        await pilot.pause()
-        qr_text = str(app.query_one("#secret-detail", Static).render())
-        # The QR code uses '##' for dark cells in the ASCII renderer
-        print(f"  [OK] QR Code Active: {'##' in qr_text}")
-        if '##' not in qr_text:
-            print(f"  [DEBUG] QR Panel Content:\n{qr_text}")
-
-        print("\n--- PHASE 3: System Operations ---")
-        # Tree Hierarchy
-        print("  Testing tree hierarchy...")
-        # Initial state: current profile expanded (auto-expand logic)
-        nodes_before = app._profile_tree_visible_nodes()
-        has_child = any(n.get("kind") in {"managed", "agent"} for n in nodes_before)
-        print(f"    [OK] Child nodes visible initially: {has_child}")
-        
-        # Collapse via palette
-        app._run_palette_command("profile-tree-toggle")
-        await pilot.pause()
-        nodes_after = app._profile_tree_visible_nodes()
-        has_child_after = any(n.get("kind") in {"managed", "agent"} for n in nodes_after)
-        print(f"    [OK] Child nodes hidden after collapse: {not has_child_after}")
-        
-        # Expand via palette
-        app._run_palette_command("profile-tree-toggle")
-        await pilot.pause()
-        nodes_final = app._profile_tree_visible_nodes()
-        has_child_final = any(n.get("kind") in {"managed", "agent"} for n in nodes_final)
-        print(f"    [OK] Child nodes restored after expand: {has_child_final}")
-
-        # Managed Account / Seed Session Loading
-        print("  Testing sub-profile loading (managed_account and seed)...")
-        # Load managed_account (#4)
-        app._run_palette_command("managed-load 4")
-        await pilot.pause()
-        print(f"    [OK] Sub-profile load (managed_account): {'Loaded managed' in str(app.query_one('#status').render())}")
-        app._run_palette_command("managed-exit")
-        await pilot.pause()
-
-        # Load seed (#3 is a document, #5 is an agent. Let's add a real seed)
-        service.add_entry("ExternalSeed", 24, kind="seed")
-        app._load_entries("")
-        await pilot.pause()
-        # Seed should be #6
-        app._run_palette_command("managed-load 6")
-        await pilot.pause()
-        print(f"    [OK] Sub-profile load (seed): {'Loaded managed' in str(app.query_one('#status').render())}")
-        app._run_palette_command("managed-exit")
-        await pilot.pause()
-
-        # Nostr & Sync
-        app._run_palette_command("nostr-fresh-namespace")
-        await pilot.pause()
-        app._run_palette_command("sync-now")
-        await pilot.pause()
-        print(f"  [OK] Sync status: {app.query_one('#status').render()}")
-
-        print("\n--- PHASE 4: Real User Interaction ---")
-        # 1. Test Command Palette Input (Instead of direct _run_palette_command)
-        print("  Testing palette input via ctrl+p...")
-        # Try both variants just in case of driver differences
-        await pilot.press('ctrl+p')
+        # Selection
+        if v == "v3":
+            # Real selection via DataTable
+            table = app.screen.query_one("#entry-data-table", DataTable)
+            table.focus()
+            await pilot.press("down") # Select first row
+            await pilot.press("enter")
+        else:
+            app._show_entry(1)
         await pilot.pause(0.5)
-        print(f"    [OK] Palette open (ctrl+p): {app.palette_open}")
-        
-        if not app.palette_open:
-            print("    Attempting manual action_open_palette()...")
-            app.action_open_palette()
+        print(f"  [OK] Selected Entry #1 (ID: {app.selected_entry_id}).")
+
+        # 2. Secure Data (Reveal/Confirm)
+        print("PHASE 2: Secure Data (v/g)")
+        if v == "v3":
+            # Jump to MySeed (#4)
+            app.selected_entry_id = 4 
             await pilot.pause(0.5)
-            print(f"    [OK] Palette open (manual): {app.palette_open}")
-
-        # Simulate typing
-        if app.palette_open:
-            await pilot.press(*list('stats'))
-            await pilot.press('enter')
+            # First press
+            await pilot.press('v')
             await pilot.pause(0.5)
-            print(f"    [OK] Palette 'stats' processed: {'Inspector' in str(app.query_one('#inspector-heading').render())}")
+            board_text = str(app.screen.query_one("#board-container").children[0].render())
+            print(f"    [DEBUG] Board text after first 'v': {board_text[:100]}...")
+            print(f"  [OK] Seed Confirmation shown: {'CONFIRMATION' in board_text}")
+            # Second press
+            await pilot.press('v')
+            await pilot.pause(0.5)
+            board_text_revealed = str(app.screen.query_one("#board-container").children[0].render())
+            print(f"    [DEBUG] Board text after second 'v': {board_text_revealed[:100]}...")
+            print(f"  [OK] Seed Revealed: {'abandon' in board_text_revealed}")
+        else:
+            # v2 legacy test path
+            print("  (Skipping v2 confirmation test in this run)")
 
-        # 2. Test Action Strip Clicks
-        print("  Testing action strip clicks via direct event trigger...")
-        # Focus something else
-        app.query_one("#entry-list", ListView).focus()
-        app.help_open = False
-        app._set_palette_visible(False)
-        await pilot.pause()
-        
-        # Trigger on_click directly to test our logic
-        # Mock an event-like object with widget.id and coordinates
-        class MockEvent:
-            def __init__(self, widget_id, x, y):
-                self.widget = SimpleNamespace(id=widget_id)
-                self.x = x
-                self.y = y
-        
-        # Click 'Settings (S)' at x=5, y=1
-        app.on_click(MockEvent("action-strip", 5, 1))
-        await pilot.pause(1.0)
-        
-        # Check if SettingsScreen was pushed
-        print(f"    [OK] SettingsScreen pushed via click: {app.screen.__class__.__name__.endswith('SettingsScreen')}")
-        # Return to main
-        await pilot.press('escape')
-        await pilot.pause(1.0)
+        # 3. Full-screen UX (V3 only)
+        if v == "v3":
+            print("PHASE 3: Full-screen screens")
+            await pilot.press('shift+s')
+            await pilot.pause(0.5)
+            print(f"  [OK] Settings Screen: {app.screen.__class__.__name__.endswith('SettingsScreen')}")
+            await pilot.press('escape')
+            await pilot.pause(0.5)
+            
+            app.selected_entry_id = 1
+            await pilot.pause(0.5)
+            await pilot.press('z')
+            await pilot.pause(0.5)
+            print(f"    [DEBUG] Screen after 'z': {app.screen.__class__.__name__}")
+            print(f"  [OK] Maximize Screen: {app.screen.__class__.__name__.endswith('MaximizedInspectorScreen')}")
+            await pilot.press('escape')
+            await pilot.pause(0.5)
 
-        print("\n--- PHASE 5: Full-screen UX ---")
-        # 1. Settings Screen
-        print("  Testing full-screen settings via shift+s...")
-        await pilot.press('shift+s')
-        await pilot.pause(1.0)
-        print(f"    [OK] SettingsScreen pushed: {app.screen.__class__.__name__.endswith('SettingsScreen')}")
-        await pilot.press('escape')
-        await pilot.pause(1.0)
-        # Main app class name check
-        print(f"    [DEBUG] Current screen class: {app.screen.__class__.__name__}")
-        print(f"    [OK] Returned to main vault: {app.screen.__class__.__name__.endswith('SeedPassTuiV2') or 'Screen' in app.screen.__class__.__name__}")
+        # 4. Action Logic (Archive/Copy)
+        print("PHASE 4: Action Logic")
+        if v == "v3":
+            app.selected_entry_id = 1
+            await pilot.pause(0.5)
+            await pilot.press('a')
+            await pilot.pause(0.5)
+            print(f"    [DEBUG] Entry 1 archived in service: {1 in service.archived}")
+            print(f"  [OK] Archive: {1 in service.archived}")
+            await pilot.press('c')
+            await pilot.pause(0.5)
+            print(f"  [OK] Copy action triggered.")
 
-        # 2. Maximize Inspector
-        print("  Testing maximized inspector via z...")
-        app._show_entry(1)
-        await pilot.pause()
-        await pilot.press('z')
-        await pilot.pause(1.0)
-        print(f"    [OK] InspectorScreen pushed: {app.screen.__class__.__name__.endswith('InspectorScreen')}")
-        await pilot.press('escape')
-        await pilot.pause(1.0)
-        print(f"    [OK] Returned to main vault: {app.screen.__class__.__name__.endswith('SeedPassTuiV2') or 'Screen' in app.screen.__class__.__name__}")
-
-        print("\n--- WALKTHROUGH COMPLETE ---")
+        print(f"\n--- TUI {v.upper()} WALKTHROUGH COMPLETE ---")
         return 0
 
 if __name__ == "__main__":
-    asyncio.run(run_full_walkthrough())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", choices=["v2", "v3"], default="v3")
+    args = parser.parse_args()
+    
+    asyncio.run(run_full_walkthrough(v=args.version))

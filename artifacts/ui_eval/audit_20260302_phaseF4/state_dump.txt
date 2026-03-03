@@ -1,0 +1,7 @@
+=== ENTRY OPEN CONTEXT GUARD CHECK ===
+editing_document=True
+totp_board_open=False
+selected_entry=1
+status:
+[EDIT | RIGHT] Shortcuts: ? help  Ctrl+P cmd  / search
+Finish document edit before opening another entry

@@ -1,6 +1,10 @@
-# TUI v2 Plan (Textual)
+# TUI v2 Plan (Legacy Reference)
 
-Status: Implemented on `beta`; retained as architecture/reference plan.
+> **NOTICE:** This document is now for logic reference only. 
+> TUI v2 development has been paused in favor of the **TUI v3 Scratch Rebuild** to solve monolithic file issues and layout crowding.
+> Please see **[TUI v3 Plan](tui_v3_plan.md)** for the current roadmap.
+
+Status: Retained as logic/architecture reference.
 
 Goal: Introduce a modern, modular TUI (`seedpass tui2`) without rewriting core logic or breaking existing CLI/API behavior.
 

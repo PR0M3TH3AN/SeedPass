@@ -1,0 +1,74 @@
+{
+  "timestamp_utc": "20260302T135526Z",
+  "command": [
+    ".venv/bin/python",
+    "/home/user/Documents/GitHub/SeedPass/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/home/user/Documents/GitHub/SeedPass",
+  "home_dir": "/tmp/seedpass-agent-home-o6cop6yv",
+  "scenario": "extended",
+  "stress_cycles": null,
+  "stress_seed": null,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "invalid_input_resilience",
+    "add_password_quick",
+    "invalid_length_validation",
+    "add_totp",
+    "add_all_entry_types",
+    "retrieve_entry",
+    "search_entries",
+    "list_entries",
+    "modify_entry",
+    "archive_restore",
+    "totp_codes_view",
+    "settings_toggles_lock_unlock",
+    "settings_stats",
+    "graceful_exit"
+  ],
+  "required_post_conditions": [
+    "archive_restore_consistency",
+    "lock_unlock_recovers_retrieval"
+  ],
+  "duration_sec": 32.726,
+  "seedpass_exit_code": 0,
+  "status": "passed",
+  "failure": null,
+  "steps": [
+    {
+      "step_id": "extended_scenario",
+      "description": "Drive end-to-end deterministic TUI coverage workflow.",
+      "status": "passed",
+      "duration_sec": 32.42278435899061,
+      "detail": null
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": true,
+    "add_password_quick": true,
+    "add_totp": true,
+    "archive_restore": true,
+    "graceful_exit": true,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": true,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": true,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "seeded_negative_campaign": false,
+    "settings_stats": true,
+    "settings_toggles_lock_unlock": true,
+    "startup_onboarding": true,
+    "stress_cycles": false,
+    "totp_codes_view": true
+  },
+  "post_conditions": {
+    "archive_restore_consistency": true,
+    "lock_unlock_recovers_retrieval": true
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260302T135526Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test/20260302T135526Z/transcript.raw.txt"
+}

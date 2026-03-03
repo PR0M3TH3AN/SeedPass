@@ -1,0 +1,9 @@
+=== BOTTOM ACTION SHORTCUT CHECK ===
+action_strip:
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Select an entry to view context actions.
+palette_open=True
+palette_value=db-export 
+status:
+[PALETTE | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Export shortcut opened

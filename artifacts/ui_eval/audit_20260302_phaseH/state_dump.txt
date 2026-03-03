@@ -1,0 +1,22 @@
+=== ACTION STRIP DENSITY ===
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Select an entry to view context actions.
+
+=== STATUS DENSITY ===
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Entries loaded. Select an entry to inspect.
+
+=== DETAIL BOARD DENSITY ===
+Entry #1  GitHub
+------------------------
+🗝 Password Board
+Kind: password | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 1
+▣ Copy Password  ▣ Create New  ▣ Edit
+Credentials
+Password*: hidden (v reveal, g qr) | Length: 20 chars
+Username*: (none) | URL: (none)
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Edit (e) | Archive (a)

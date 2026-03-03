@@ -1,0 +1,7 @@
+=== STARTUP INSPECTOR SIDE ===
+link_hidden=True
+secret_hidden=True
+
+=== SELECTED INSPECTOR SIDE ===
+link_hidden=True
+secret_hidden=False

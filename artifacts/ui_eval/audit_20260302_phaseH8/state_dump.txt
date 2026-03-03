@@ -1,0 +1,19 @@
+=== TOP-LEFT HIERARCHY DENSE CHECK ===
+dense_hires=True
+filters:
+SeedPass ◈ TUI v2
+FP: fp-a | Profiles: 1 | Session: unlocked
+Scope: filter=all arch=active links=all managed=(none)
+Selected: (none)
+Results: 3 | Page: 1/1
+
+Tree
+----
+▶ ■ fp-a             | Seed: fp-a
+    👤 Managed Users
+      #2    Managed User 1
+    🤖 Agents
+      #3    Agent Alpha
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6

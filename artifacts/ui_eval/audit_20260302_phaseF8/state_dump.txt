@@ -1,0 +1,5 @@
+=== TOTP BOARD RHYTHM CHECK ===
+has_period_row=True
+has_digits_row=True
+entry_detail_head:
+Entry #1  Auth

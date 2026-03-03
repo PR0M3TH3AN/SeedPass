@@ -54,10 +54,23 @@ class ProfileTree(Tree):
 
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         """Handle profile selection."""
-        fp = event.node.data
-        if fp and isinstance(fp, str):
-            self.app.active_fingerprint = fp
-            self.app.notify(f"Switched to profile: {fp[:8]}")
+        value = event.node.data
+        if not value or not isinstance(value, str):
+            return
+
+        if value.startswith("managed:") or value.startswith("agent:"):
+            _, raw_id = value.split(":", 1)
+            try:
+                entry_id = int(raw_id)
+            except ValueError:
+                self.app.notify("Invalid tree entry target", severity="error")
+                return
+            self.app.selected_entry_id = entry_id
+            self.app.notify(f"Opened Entry #{entry_id} from profile tree")
+            return
+
+        self.app.active_fingerprint = value
+        self.app.notify(f"Switched to profile: {value[:8]}")
 
 class SidebarContainer(Static):
     """Container for the sidebar tree and toggle."""

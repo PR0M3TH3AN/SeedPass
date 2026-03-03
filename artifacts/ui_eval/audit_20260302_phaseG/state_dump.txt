@@ -1,0 +1,56 @@
+=== STARTUP SECRET PANEL ===
+Sensitive State: HIDDEN
+
+Sensitive data hidden. Select an entry, then use 'v' (reveal) or 'g' (QR).
+
+=== PRESS V WITH NO SELECTION ===
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+No entry selected
+Sensitive State: HIDDEN
+
+No entry selected.
+
+Select an entry, then press 'v' to reveal.
+
+=== REVEAL CONFIRM STATE ===
+Sensitive State: REVEALED
+
+Sensitive 👥: Managed Account Seed #1
+
+Label : Acct One
+Seed Phrase : legal winner thank year wave sausage worth useful legal winner thank yellow
+
+=== QR STATE ===
+Sensitive State: QR
+
+Sensitive 👥: Managed Account Seed #1 QR
+
+                                                      
+  ##############        ##        ##  ##############  
+  ##          ##  ##      ##  ####    ##          ##  
+  ##  ######  ##    ##      ##    ##  ##  ######  ##  
+  ##  ######  ##    ##  ##  ##    ##  ##  ######  ##  
+  ##  ######  ##  ####  ####  ##  ##  ##  ######  ##  
+  ##          ##              ##      ##          ##  
+  ##############  ##  ##  ##  ##  ##  ##############  
+                      ##  ####  ####                  
+  ##  ##  ##  ##    ##        ######      ##    ##    
+  ############  ##  ######      ######  ######  ####  
+  ##  ####  ####  ####  ##  ##############    ######  
+  ######          ############  ####      ##########  
+    ####    ######    ######  ##  ########  ######    
+    ##    ####  ####  ########  ##  ##  ##            
+  ##    ############  ######  ##    ##  ##  ##  ####  
+    ##  ####        ##    ####    ####    ##  ######  
+  ##  ##    ########    ##    ##############  ######  
+                  ########        ##      ##    ##    
+  ##############            ##  ####  ##  ######  ##  
+  ##          ##      ####      ####      ########    
+  ##  ######  ##  ######  ##    ############  ####    
+  ##  ######  ##      ########  ##  ####      ####    
+  ##  ######  ##  ####  ####  ####  ##  ####  ##  ##  
+  ##          ##    ####  ######    ##  ########      
+  ##############  ########    ####  ######  ##    ##  
+                                                      
+
+Payload: 101920151790203919831533203119191019201517902040

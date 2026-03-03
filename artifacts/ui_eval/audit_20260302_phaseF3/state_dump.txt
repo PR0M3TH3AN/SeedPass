@@ -1,0 +1,9 @@
+=== RIGHT PANE MODE TRANSITION CHECK ===
+editing_document=True
+totp_board_open=False
+right_view_hidden=True
+right_editor_hidden=False
+totp_hidden=True
+status:
+[EDIT | RIGHT] Shortcuts: ? help  Ctrl+P cmd  / search
+Editing document 1

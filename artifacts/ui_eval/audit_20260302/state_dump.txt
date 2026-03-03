@@ -1,0 +1,336 @@
+=== UI BOARD INITIAL ===
+
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: #0  AIIT
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 9 | Page: 1/1
+
+Profile Tree
+------------
+■ workseed-aaaSeed
+▶ └─ □ workseed-aaaSeed:workseed-a
+  └─ □ myseed-bbb22Seed:myseed-bbb
+  └─ □ projectseed-Seed:projectsee
+
+Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+--- GRID HEADING ---
+
+Entry Grid  |  Pg 1/1  Rows 9/9  Density compact
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive (managed_account)
+
+--- ENTRY DETAIL ---
+
+👥 Entry #0  AIIT
+------------------------
+Kind: managed_account | Modified: (unknown) | Archived: No
+Index Num*: 0 | Entry Num: 0 | Edit: e
+👥 Managed Account Seed Board
+▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)
+Seed Phrase*: hidden (v confirm) | Word Count: 12
+Index Num*: (auto)
+Tags/Notes appear in right panel.
+Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)
+
+--- LINK DETAIL ---
+
+Notes & Tags #0
+----------------------------
+Tags: managed, acct
+Notes: managed notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- SECRET DETAIL ---
+
+Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦.
+
+=== PASSWORD BOARD ===
+
+Entry #1  GitHub
+------------------------
+🗝 Password Board
+Kind: password | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 1
+▣ Copy Password  ▣ Create New  ▣ Edit
+Credentials
+Password*: hidden (v reveal, g qr) | Length: 20 chars
+Username*: user1 | URL: https://github.com
+Tags/Notes appear in right panel.
+Actions: Edit (e) | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #1
+----------------------------
+Tags: online, account
+Notes: pw notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive (password)
+
+=== STORED_PASSWORD BOARD ===
+
+Entry #2  School Login
+------------------------
+• Stored Password Board
+Kind: stored_password | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 2
+▣ Copy Password  ▣ Edit
+Credentials
+Password*: hidden (v reveal, g qr) | Length: 16 chars
+Username*: student | URL: https://school.edu
+Tags/Notes appear in right panel.
+Actions: Edit (e) | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #2
+----------------------------
+Tags: school
+Notes: stored notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive (stored_password)
+
+=== NOTE BOARD ===
+
+Entry #3  To-Do
+----------------------------
+📄 Note Board
+Kind: document | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 3 | File Type: md
+Content Length: 28 chars
+▣ Edit  ▣ Export
+Content Preview
+Task one Task two Task three
+Tags/Notes appear in right panel.
+Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #3
+----------------------------
+Tags: journal
+Notes: doc notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ e Edit Doc ▣ Ctrl+S Save ▣ a Archive ▣ doc-export (document)
+
+=== TOTP BOARD ===
+
+Entry #4  Discord 2FA
+----------------------------
+📱 2FA Board
+Kind: totp | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 4
+Period: 30s | Digits: 6
+▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR
+Current Code: hidden (use '6' board or 'v' reveal)
+Secret: hidden | URI via QR
+Tags/Notes appear in right panel.
+Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #4
+----------------------------
+Tags: 2fa, discord
+Notes: totp notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ 6 2FA Board ▣ v Reveal ▣ g QR ▣ a Archive (totp)
+
+=== SEED BOARD ===
+
+🌱 Entry #5  Wallet Seed
+------------------------
+Kind: seed | Modified: (unknown) | Archived: No
+Index Num*: 12 | Entry Num: 5 | Edit: e
+🌱 BIP-39 Seed Board
+▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)
+Seed Phrase*: hidden (v confirm) | Word Count: 12
+Index Num*: 12
+Tags/Notes appear in right panel.
+Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #5
+----------------------------
+Tags: bitcoin
+Notes: seed notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive (seed)
+
+=== SSH BOARD ===
+
+Entry #6  My SSH Key
+----------------------------
+🖧 SSH Board
+Kind: ssh | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 6
+▣ Copy Public  ▣ Export Public
+▣ Reveal Private  ▣ Copy Private  ▣ Export Private
+Public Key: ssh-ed25519 AAAA-6 user@host
+Private Key: hidden (use 'v confirm' to reveal)
+Tags/Notes appear in right panel.
+Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field
+
+--- SIDE PANEL ---
+
+Notes & Tags #6
+----------------------------
+Tags: ssh
+Notes: ssh notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field (ssh)
+
+=== PGP BOARD ===
+
+Entry #7  My PGP key
+----------------------------
+🔒 PGP Board
+Kind: pgp | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 7
+▣ Copy Public  ▣ Export Public
+▣ Reveal Private  ▣ Copy Private  ▣ Export Private
+Fingerprint: FPR-7
+Public Key: available
+Private Key: hidden (use 'v confirm' to reveal)
+Tags/Notes appear in right panel.
+Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field
+
+--- SIDE PANEL ---
+
+Notes & Tags #7
+----------------------------
+Tags: pgp
+Notes: pgp notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field (pgp)
+
+=== NOSTR BOARD ===
+
+Entry #8  Nostr Identity
+----------------------------
+⚡ Nostr Board
+Kind: nostr | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 8
+▣ Copy npub  ▣ Copy nsec  ▣ Edit
+▣ QR Public  ▣ QR Private
+npub: npub1demo
+nsec: hidden (use 'v confirm' to reveal)
+Tags/Notes appear in right panel.
+Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)
+
+--- SIDE PANEL ---
+
+Notes & Tags #8
+----------------------------
+Tags: social
+Notes: nostr notes
+
+No graph links for this entry.
+Use Ctrl+P: link-add <target_id>  
+
+--- ACTION STRIP ---
+
+Global ▣ ? Help ▣ Ctrl+P Command ▣ / Search ▣ j Jump ▣ 1/2/3 Focus ▣ p/n Page ▣ f Kind ▣ h Archive ▣ r Refresh
+Entry ▣ v Reveal ▣ g QR (public/private) ▣ a Archive (nostr)
+
+=== COMPACT SHORT MODE ===
+
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: #8  Nostr Identity
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 9 | Page: 1/1
+
+Profile Tree
+------------
+■ workseed-aaaSeed
+▶ └─ □ workseed-aaaSeed:workseed-a
+  └─ □ myseed-bbb22Seed:myseed-bbb
+  └─ □ projectseed-Seed:projectsee
+
+Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+--- NOTE BOARD INLINE TAGS/NOTES CHECK ---
+
+Entry #3  To-Do
+----------------------------
+📄 Note Board
+Kind: document | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 3 | File Type: md
+Content Length: 28 chars
+▣ Edit  ▣ Export
+Content Preview
+Task one Task two Task three
+Compact: Notes/Tags shown inline.
+Tags: journal
+Notes: doc notes
+Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)
+
+--- LINK DETAIL HIDDEN? ---
+
+hidden=True

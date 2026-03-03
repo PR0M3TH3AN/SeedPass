@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "failing_modules": [],
+  "modules": {
+    "src/seedpass/core/api.py": {
+      "threshold_percent": 85.0,
+      "actual_percent": 86.63793103448276,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    },
+    "src/seedpass/tui_v2/app.py": {
+      "threshold_percent": 78.0,
+      "actual_percent": 79.29854576561164,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    }
+  },
+  "coverage_json": "/home/user/Documents/GitHub/SeedPass/artifacts/coverage/coverage.tui2_gate.json"
+}

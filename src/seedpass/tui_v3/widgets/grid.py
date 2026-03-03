@@ -39,6 +39,13 @@ class EntryDataTable(DataTable):
         )
         self._refresh_data()
 
+    def on_focus(self) -> None:
+        """Refresh table when focused so newly added entries appear immediately."""
+        try:
+            self._refresh_data()
+        except Exception:
+            pass
+
     def _refresh_data(self, query: str = "") -> None:
         self.clear()
         app = self.app

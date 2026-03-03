@@ -1,0 +1,6 @@
+=== HIRES DENSITY CHECK ===
+brand_height=1
+ribbon_height=2
+status_height=2
+action_strip_height=2
+grid_heading_height=2

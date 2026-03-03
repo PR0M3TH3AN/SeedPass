@@ -1,0 +1,22 @@
+=== PROFILE TREE DEPTH READABILITY CHECK ===
+has_counts=True
+has_managed_group=False
+has_agent_group=True
+filters:
+SeedPass ◈ TUI v2
+Fingerprint: fp-a
+FP: fp-a | Profiles: 1 | Session: unlocked
+Scope: filter=all arch=active links=all managed=(none)
+Selected: (none)
+Results: 3 | Page: 1/1
+
+Tree
+----
+▶ ■ fp-a             | Seed: fp-a  M:1 A:1
+    👤 Managed (1)
+      #1    Managed User 1
+    🤖 Agents (1)
+      #2    Agent Alpha
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6

@@ -1,0 +1,8 @@
+=== SEARCH MODE CHIP CHECK ===
+semantic_mode=hybrid
+grid_heading:
+Entry Grid  |  Pg 1/1  Rows 2/2  Density compact  Search keyword (HYBRID) semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+status:
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Search mode set to hybrid
