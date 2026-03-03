@@ -922,7 +922,10 @@ def launch_tui2(
                 context = context.replace("Archive", "Arch")
                 context = context.replace("confirm", "cfm")
             else:
-                global_row = "Shift+S Settings  Shift+A Add Entry  Shift+C Create Seed  Shift+R Remove Seed  Shift+H Hide/Reveal  Shift+E Export  Shift+I Import  Shift+B Backup"
+                global_row = (
+                    "Settings (Shift+S)  Add (Shift+A)  Seed+ (Shift+C)  Seed- (Shift+R)  "
+                    "Reveal (Shift+H)  Export (Shift+E)  Import (Shift+I)  Backup (B)  Cmd (Ctrl+P)"
+                )
             text = f"{global_row}\n{context}"
             self.query_one("#action-strip", Static).update(text)
 
@@ -2056,9 +2059,9 @@ def launch_tui2(
                         tags_text=tags_text, notes_text=notes_text
                     ),
                     (
-                        "Actions: v reveal(cfm) | g qr | copy seed cfm | export-field seed <path> cfm | a archive"
+                        "Actions: v reveal(cfm) | g qr | copy seed cfm | export cfm | a archive"
                         if self._dense_hires_layout
-                        else "Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)"
+                        else "Actions: Reveal (v confirm) | QR (g) | Copy Seed (confirm) | Export (confirm) | Archive (a)"
                     ),
                 ]
                 return "\n".join(lines)
@@ -2101,9 +2104,9 @@ def launch_tui2(
                         tags_text=tags_text, notes_text=notes_text
                     ),
                     (
-                        "Actions: 6 board | 2fa-copy <id> | 2fa-copy-url <id> | v reveal | g qr | a archive"
+                        "Actions: 6 board | 2fa-copy | 2fa-copy-url | v reveal | g qr | a archive"
                         if self._dense_hires_layout
-                        else "Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)"
+                        else "Actions: 2FA Board (6) | Copy Code (Ctrl+P) | Copy URL (Ctrl+P) | Reveal (v) | QR (g) | Archive (a)"
                     ),
                 ]
                 return "\n".join(lines)

@@ -200,3 +200,13 @@
 
 ### Verification
 - Focused TUI v2 gate: `58 passed`.
+
+## Session Update (2026-03-03, Slice 8)
+
+### Action strip + hint line tightening
+- Normal-mode global row now uses verb-first labels matching context row style.
+- Seed/TOTP Actions hints shortened from raw palette commands to user-facing verbs.
+- All action hint lines now consistently use human-readable language.
+
+### Verification
+- Focused TUI v2 gate: `58 passed`.

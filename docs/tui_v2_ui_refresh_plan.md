@@ -1228,3 +1228,23 @@ Validation:
 
 1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
 2. Result: `58 passed`.
+
+## 34) Progress Update (2026-03-03, Slice: Action Strip + Hint Line Tightening)
+
+Completed:
+
+1. Normal-mode global action strip now uses verb-first labels with key hints:
+   - `Settings (Shift+S)`, `Add (Shift+A)`, `Seed+ (Shift+C)`, etc.
+   - Added `Cmd (Ctrl+P)` to normal mode for discoverability parity with compact/dense modes.
+2. Shortened Seed board Actions hint:
+   - Before: `copy seed confirm | export-field seed <path> confirm`
+   - After: `Copy Seed (confirm) | Export (confirm)`
+3. Shortened TOTP board Actions hint:
+   - Before: `2fa-copy <id> | 2fa-copy-url <id>`
+   - After: `Copy Code (Ctrl+P) | Copy URL (Ctrl+P)`
+4. Action hints now consistently use user-facing verbs instead of raw palette commands.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.

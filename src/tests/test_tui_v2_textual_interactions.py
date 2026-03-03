@@ -1494,7 +1494,7 @@ async def test_tui2_textual_seed_and_managed_seed_boards_show_fidelity() -> None
         assert "+- Seed Info " in board
         assert "+- Quick Actions " in board
         assert "Word Count: 12" in board
-        assert "copy seed confirm" in board
+        assert "Copy Seed (confirm)" in board
 
         app._run_palette_command("open 2")
         await pilot.pause()
@@ -1503,7 +1503,7 @@ async def test_tui2_textual_seed_and_managed_seed_boards_show_fidelity() -> None
         assert "+- Seed Info " in board
         assert "+- Quick Actions " in board
         assert "Word Count: 12" in board
-        assert "export-field seed <path> confirm" in board
+        assert "Export (confirm)" in board
 
 
 @pytest.mark.anyio
