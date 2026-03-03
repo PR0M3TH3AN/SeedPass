@@ -5,8 +5,11 @@ mkdir -p artifacts/coverage
 
 ./scripts/tui2_check_smoke.sh
 
-py_bin="python"
-if ! command -v "$py_bin" >/dev/null 2>&1; then
+if [[ -x ".venv/bin/python" ]]; then
+    py_bin=".venv/bin/python"
+elif command -v python >/dev/null 2>&1; then
+    py_bin="python"
+else
     py_bin="python3"
 fi
 
@@ -40,11 +43,11 @@ if ! command -v "$timeout_bin" >/dev/null 2>&1; then
 fi
 
 if [[ -n "$timeout_bin" ]]; then
-    $timeout_bin 15m pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
+    $timeout_bin 15m "$py_bin" -m pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
     status=${PIPESTATUS[0]}
 else
     echo "timeout command not found; running tests without timeout" >&2
-    pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
+    "$py_bin" -m pytest "${pytest_args[@]}" 2>&1 | tee pytest.log
     status=${PIPESTATUS[0]}
 fi
 
