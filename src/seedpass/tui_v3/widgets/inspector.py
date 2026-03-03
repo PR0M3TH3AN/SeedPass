@@ -43,7 +43,7 @@ class PasswordBoard(BaseBoard):
         ]
         action_rows = [
             "▣ Reveal (v)  ▣ QR (g)",
-            "▣ Edit (e)    ▣ Archive (a)",
+            "▣ Edit (e)    ▣ Archive (a)  ▣ Max (z)",
         ]
         
         return "\n".join([
@@ -57,8 +57,6 @@ class TotpBoard(BaseBoard):
     def render(self) -> str:
         d = self.entry_data
         app = self.app
-        
-        # Fetch live code from service
         code = "------"
         if app.services.get("entry") and not app.session_locked:
             try:
@@ -66,7 +64,6 @@ class TotpBoard(BaseBoard):
             except:
                 pass
 
-        # Simple ASCII progress bar for the 30s cycle
         import time
         remaining = 30 - (int(time.time()) % 30)
         bar_width = 20
@@ -82,7 +79,7 @@ class TotpBoard(BaseBoard):
         ]
         action_rows = [
             "▣ Copy Code (c)  ▣ Reveal Secret (v)",
-            "▣ Show QR (g)    ▣ Archive (a)",
+            "▣ Show QR (g)    ▣ Archive (a)  ▣ Max (z)",
         ]
         
         return "\n".join([
@@ -100,15 +97,97 @@ class SeedBoard(BaseBoard):
             f"Fingerprint: {d.get('fingerprint', 'Pending...')}",
             f"Index      : {d.get('index', 0)}",
             f"Word Count : {d.get('word_count', 24)}",
-            "Seed Phrase: [HIDDEN] (Double-press 'v' to reveal)",
+            "Seed Phrase: [HIDDEN] (vv to reveal)",
         ]
         action_rows = [
             "▣ Reveal Words (vv)  ▣ Show SeedQR (gg)",
-            "▣ Load Session (ml)  ▣ Archive (a)",
+            "▣ Load Session (ml)  ▣ Archive (a)  ▣ Max (z)",
         ]
         
         return "\n".join([
             self._render_card("BIP-85 Derived Seed", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
+class SshBoard(BaseBoard):
+    """Matches 'SSH Board.png' mockup."""
+    def render(self) -> str:
+        d = self.entry_data
+        cred_rows = [
+            f"Label    : {d.get('label', '')}",
+            f"Key Type : {d.get('key_type', 'RSA/Ed25519')}",
+            f"Index    : {d.get('index', 0)}",
+            "Pub Key  : [PREVIEW AVAILABLE]",
+            "Priv Key : [HIDDEN] (vv to reveal)",
+        ]
+        action_rows = [
+            "▣ Copy Pub (c)  ▣ Reveal Priv (vv)",
+            "▣ Export (x)    ▣ Archive (a)  ▣ Max (z)",
+        ]
+        
+        return "\n".join([
+            self._render_card("SSH Key Pair", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
+class PgpBoard(BaseBoard):
+    """Matches 'PGP Board.png' mockup."""
+    def render(self) -> str:
+        d = self.entry_data
+        cred_rows = [
+            f"Label    : {d.get('label', '')}",
+            f"Identity : {d.get('user_id', '')}",
+            f"Fingerpr : {d.get('fingerprint', '')}",
+            "Priv Key : [HIDDEN] (vv to reveal)",
+        ]
+        action_rows = [
+            "▣ Copy Pub (c)  ▣ Reveal Priv (vv)",
+            "▣ Export (x)    ▣ Archive (a)  ▣ Max (z)",
+        ]
+        
+        return "\n".join([
+            self._render_card("PGP Key Pair", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
+class NostrBoard(BaseBoard):
+    """Matches 'Nostr Board.png' mockup."""
+    def render(self) -> str:
+        d = self.entry_data
+        cred_rows = [
+            f"Label    : {d.get('label', '')}",
+            f"npub     : {d.get('npub', '')[:20]}...",
+            "nsec     : [HIDDEN] (v to reveal)",
+        ]
+        action_rows = [
+            "▣ Reveal (v)    ▣ QR (g)",
+            "▣ Sync (s)      ▣ Archive (a)  ▣ Max (z)",
+        ]
+        
+        return "\n".join([
+            self._render_card("Nostr Agent Identity", cred_rows),
+            "",
+            self._render_card("Quick Actions", action_rows)
+        ])
+
+class KeyValueBoard(BaseBoard):
+    """Generic meta-data board."""
+    def render(self) -> str:
+        d = self.entry_data
+        rows = [
+            f"Label    : {d.get('label', '')}",
+            f"Key      : {d.get('key', '')}",
+            f"Value    : {d.get('value', '')}",
+        ]
+        action_rows = [
+            "▣ Edit (e)      ▣ Archive (a)  ▣ Max (z)",
+        ]
+        
+        return "\n".join([
+            self._render_card("Key-Value Meta", rows),
             "",
             self._render_card("Quick Actions", action_rows)
         ])
@@ -118,13 +197,12 @@ class NoteBoard(BaseBoard):
     def render(self) -> str:
         d = self.entry_data
         content = str(d.get('content', ''))
-        # Truncate for preview
         preview = (content[:200] + '...') if len(content) > 200 else content
         
         content_rows = preview.splitlines()[:10]
         action_rows = [
             "▣ Edit Doc (e)  ▣ Export",
-            "▣ Archive (a)",
+            "▣ Archive (a)   ▣ Max (z)",
         ]
         
         return "\n".join([
@@ -164,7 +242,6 @@ class BoardContainer(Vertical):
 
         kind = str(entry.get("kind") or entry.get("type") or "").lower()
         
-        # Select appropriate board
         if kind in {"password", "stored_password"}:
             board = self._show_board("password")
         elif kind in {"document", "note"}:
@@ -173,6 +250,14 @@ class BoardContainer(Vertical):
             board = self._show_board("totp")
         elif kind in {"seed", "managed_account"}:
             board = self._show_board("seed")
+        elif kind == "ssh":
+            board = self._show_board("ssh")
+        elif kind == "pgp":
+            board = self._show_board("pgp")
+        elif kind == "nostr":
+            board = self._show_board("nostr")
+        elif kind == "key_value":
+            board = self._show_board("key_value")
         else:
             board = self._show_board("password")
             
@@ -180,18 +265,18 @@ class BoardContainer(Vertical):
 
     def _show_board(self, board_type: str) -> Any:
         self.remove_children()
-        if board_type == "idle":
-            new_board = IdleBoard()
-        elif board_type == "password":
-            new_board = PasswordBoard()
-        elif board_type == "note":
-            new_board = NoteBoard()
-        elif board_type == "totp":
-            new_board = TotpBoard()
-        elif board_type == "seed":
-            new_board = SeedBoard()
-        else:
-            new_board = IdleBoard()
-            
+        mapping = {
+            "idle": IdleBoard,
+            "password": PasswordBoard,
+            "note": NoteBoard,
+            "totp": TotpBoard,
+            "seed": SeedBoard,
+            "ssh": SshBoard,
+            "pgp": PgpBoard,
+            "nostr": NostrBoard,
+            "key_value": KeyValueBoard,
+        }
+        board_cls = mapping.get(board_type, IdleBoard)
+        new_board = board_cls()
         self.mount(new_board)
         return new_board

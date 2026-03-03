@@ -82,7 +82,7 @@ class MainScreen(Screen):
             with Vertical(id="right"):
                 yield Static("Inspector Board", id="inspector-heading")
                 yield BoardContainer(id="board-container")
-        yield Static("Ready", id="status")
+        yield ActionBar(id="action-bar")
         yield Footer()
 
 class SeedPassTuiV3(App[None]):
@@ -125,6 +125,10 @@ class SeedPassTuiV3(App[None]):
         Binding("ctrl+p", "open_palette", "Palette", show=True),
         Binding("shift+s", "toggle_settings", "Settings", show=True),
         Binding("z", "maximize_inspector", "Maximize", show=True),
+        Binding("v", "reveal_selected", "Reveal", show=False),
+        Binding("g", "show_qr", "QR", show=False),
+        Binding("a", "toggle_archive", "Archive", show=False),
+        Binding("c", "copy_selected", "Copy", show=False),
     ]
 
     # Shared Reactive State
@@ -240,3 +244,15 @@ class SeedPassTuiV3(App[None]):
             self.notify("Select an entry to maximize", severity="warning")
             return
         self.push_screen(MaximizedInspectorScreen())
+
+    def action_reveal_selected(self) -> None:
+        self.notify("Reveal Coming Soon in V3")
+
+    def action_show_qr(self) -> None:
+        self.notify("QR Coming Soon in V3")
+
+    def action_toggle_archive(self) -> None:
+        self.notify("Archive toggle Coming Soon in V3")
+
+    def action_copy_selected(self) -> None:
+        self.notify("Copy Coming Soon in V3")
