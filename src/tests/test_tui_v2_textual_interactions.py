@@ -1265,7 +1265,6 @@ async def test_tui2_textual_compact_layout_hides_link_panel_and_can_restore() ->
         assert link_detail.has_class("hidden")
         assert "Compact" in _widget_text(app, "#action-strip")
         detail = _widget_text(app, "#entry-detail")
-        assert "Compact: Notes/Tags shown inline." in detail
         assert "Tags: alpha, beta" in detail
         assert "Notes: compact note" in detail
 
@@ -1541,7 +1540,7 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "Note Board" in board
         assert "Kind: document | Modified:" in board
         assert "Index Num*:" in board
-        assert "Document Fields" in board
+        assert "+- Content " in board
         assert "+- Content " in board
         assert "+- Quick Actions " in board
 
@@ -1551,7 +1550,7 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "2FA Board" in board
         assert "Kind: totp | Modified:" in board
         assert "Index Num*:" in board
-        assert "2FA Fields" in board
+        assert "+- Parameters " in board
         assert "+- Parameters " in board
         assert "+- Quick Actions " in board
 
@@ -1578,7 +1577,7 @@ async def test_tui2_textual_password_board_uses_card_sections() -> None:
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "Password Board" in board
-        assert "Login Fields" in board
+        assert "+- Credentials " in board
         assert "+- Credentials " in board
         assert "Password*: hidden (v reveal, g qr)" in board
         assert "+- Quick Actions " in board

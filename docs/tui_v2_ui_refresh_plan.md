@@ -1198,3 +1198,33 @@ Strict closeout impact:
 
 1. All 9 board types now have consistent card-section framing.
 2. SSH/PGP/Nostr/Seed boards moved from visual-gap to card-parity with Password/Note.
+
+## 33) Progress Update (2026-03-03, Slice: Board Density Tightening)
+
+Completed:
+
+1. Removed redundant plain-text section headers above card frames:
+   - "Login Fields", "Document Fields", "2FA Fields", "Seed Fields", "Key Material", "Operations"
+   - Card titles (`Credentials`, `Content`, `Parameters`, `Seed Info`, `Keys`, `Quick Actions`) are self-descriptive.
+2. Removed "Compact: Notes/Tags shown inline." noise line from compact mode boards.
+3. Capped note/document preview length from 180 to 100 chars to prevent oversized Content cards.
+
+Density improvement:
+
+1. Password board: ~21 lines -> 17 lines (-4 lines per board).
+2. All boards save 2-3 lines from removed section headers.
+3. Note board Content card width reduced by ~45%.
+
+Code references:
+
+1. `src/seedpass/tui_v2/app.py` (all board sections + `_notes_tags_panel_hint`)
+
+Regression coverage:
+
+1. Updated assertions from section headers to card-frame prefixes.
+2. Removed "Compact:" noise assertion.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.

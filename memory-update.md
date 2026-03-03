@@ -189,3 +189,14 @@
 ### Next
 - Capture fresh state dump/screenshots for updated boards.
 - Update strict closeout scoreboard (Password/Stored Password/Note now at card parity; remaining Minor Gap items are density/rhythm only).
+
+## Session Update (2026-03-03, Slice 7)
+
+### Board density tightening
+- Removed redundant section headers above card frames (saves 2-3 lines per board).
+- Removed "Compact: Notes/Tags shown inline." noise from compact mode.
+- Capped note preview at 100 chars (was 180) to prevent oversized Content cards.
+- Password board now 17 lines (was ~21). All boards similarly tighter.
+
+### Verification
+- Focused TUI v2 gate: `58 passed`.

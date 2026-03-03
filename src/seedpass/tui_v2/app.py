@@ -1893,7 +1893,6 @@ def launch_tui2(
                 notes_text if len(notes_text) <= 88 else f"{notes_text[:85]}..."
             )
             return [
-                "Compact: Notes/Tags shown inline.",
                 f"Tags: {tags_preview}",
                 f"Notes: {notes_preview}",
             ]
@@ -1973,9 +1972,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} {board_name}",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num}",
-                    "Login Fields",
                     *self._board_card("Credentials", credential_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -1993,7 +1990,7 @@ def launch_tui2(
                 content = str(entry.get("content") or "")
                 preview = content.strip()
                 if preview:
-                    preview = preview.replace("\n", " ")[:180]
+                    preview = preview.replace("\n", " ")[:100]
                 else:
                     preview = "(empty)"
                 entry_id = (
@@ -2019,9 +2016,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} Note Board",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | File Type: {file_type}",
-                    "Document Fields",
                     *self._board_card("Content", document_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", ["▣ Edit  ▣ Export"]),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -2055,9 +2050,7 @@ def launch_tui2(
                 ]
                 lines = header + [
                     f"{self._kind_icon(kind)} {board_name}",
-                    "Seed Fields",
                     *self._board_card("Seed Info", seed_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -2102,9 +2095,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} 2FA Board",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num}",
-                    "2FA Fields",
                     *self._board_card("Parameters", field_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -2153,9 +2144,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} SSH Board",
                     f"Kind: ssh | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "Key Material",
                     *self._board_card("Keys", key_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -2199,9 +2188,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} PGP Board",
                     f"Kind: pgp | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "Key Material",
                     *self._board_card("Keys", key_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
@@ -2244,9 +2231,7 @@ def launch_tui2(
                     f"{self._kind_icon(kind)} Nostr Board",
                     f"Kind: nostr | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "Key Material",
                     *self._board_card("Keys", key_rows),
-                    "Operations",
                     *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
