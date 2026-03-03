@@ -19,24 +19,25 @@ class EditEntryScreen(Screen):
     
     CSS = """
     EditEntryScreen {
-        background: #0d1114;
+        background: #999999;
     }
     #editor-container {
         padding: 1 2;
-        border: heavy #2abf75;
+        border: solid black;
+        background: #000000;
         margin: 1 2;
         height: auto;
         min-height: 20;
     }
     .field-label {
-        color: #58f29d;
+        color: #ffffff;
         text-style: bold;
         margin-top: 1;
     }
     Input, TextArea {
-        background: #11191f;
-        color: #e4fff2;
-        border: solid #1a3024;
+        background: #ffffff;
+        color: #000000;
+        border: solid #999999;
     }
     .hidden {
         display: none;
@@ -47,8 +48,8 @@ class EditEntryScreen(Screen):
         content-align: right middle;
     }
     #btn-save {
-        background: #2abf75;
-        color: #0b0f13;
+        background: #ffffff;
+        color: #000000;
         text-style: bold;
     }
     #doc-content, #entry-notes {

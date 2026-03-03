@@ -20,24 +20,25 @@ class AddEntryScreen(Screen):
     
     CSS = """
     AddEntryScreen {
-        background: #0d1114;
+        background: #999999;
     }
     #add-container {
         padding: 1 2;
-        border: heavy #2abf75;
+        border: solid black;
+        background: #000000;
         margin: 1 2;
         height: auto;
         min-height: 20;
     }
     .field-label {
-        color: #58f29d;
+        color: #ffffff;
         text-style: bold;
         margin-top: 1;
     }
     Input, Select, TextArea {
-        background: #11191f;
-        color: #e4fff2;
-        border: solid #1a3024;
+        background: #ffffff;
+        color: #000000;
+        border: solid black;
     }
     #kind-select {
         margin-bottom: 1;
@@ -51,8 +52,15 @@ class AddEntryScreen(Screen):
         content-align: right middle;
     }
     #btn-save {
-        background: #2abf75;
-        color: #0b0f13;
+        background: #ffffff;
+        color: #000000;
+        border: solid black;
+        text-style: bold;
+    }
+    #btn-cancel {
+        background: #000000;
+        color: #ffffff;
+        border: solid #ffffff;
         text-style: bold;
     }
     """

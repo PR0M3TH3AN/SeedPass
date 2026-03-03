@@ -24,31 +24,33 @@ class MaximizedInspectorScreen(Screen):
 
     DEFAULT_CSS = """
     MaximizedInspectorScreen {
-        background: #080a0c;
+        background: #999999;
     }
     #max-inspector-title {
-        background: #0b0f13;
-        color: #58f29d;
+        background: #000000;
+        color: #ffffff;
         text-style: bold;
         text-align: center;
         height: 3;
-        border: double #2abf75;
+        border: solid #000000;
         padding: 0 1;
         margin: 1 2;
     }
     #max-inspector-container {
         height: 1fr;
         margin: 0 2;
-        border: solid #1a3024;
+        border: solid #000000;
+        background: #ffffff;
+        color: #000000;
         padding: 1;
         overflow: auto;
     }
     #max-inspector-footer {
         height: 3;
-        background: #11191f;
-        color: #daf2e5;
+        background: #000000;
+        color: #ffffff;
         text-align: center;
-        border: double #2abf75;
+        border: solid #000000;
         padding: 0 1;
         margin: 1 2;
     }

@@ -19,28 +19,30 @@ class RelaysScreen(Screen):
 
     DEFAULT_CSS = """
     RelaysScreen {
-        background: #080a0c;
+        background: #999999;
     }
     #relays-title {
-        background: #0b0f13;
-        color: #58f29d;
+        background: #000000;
+        color: #ffffff;
         text-style: bold;
         text-align: center;
         height: 3;
-        border: double #2abf75;
+        border: solid #000000;
         padding: 0 1;
         margin: 1 2;
     }
     #relays-container {
         height: 1fr;
         margin: 0 2;
-        border: solid #1a3024;
+        border: solid #000000;
         padding: 1;
+        background: #999999;
     }
     #relays-table {
         height: 1fr;
-        border: solid #2abf75;
-        background: #0d1114;
+        border: solid #000000;
+        background: #ffffff;
+        color: #000000;
     }
     #relays-controls {
         height: 3;
@@ -49,26 +51,26 @@ class RelaysScreen(Screen):
     }
     #relay-input {
         width: 1fr;
-        border: solid #3ce79c;
-        background: #11191f;
-        color: #daf2e5;
+        border: solid black;
+        background: #ffffff;
+        color: #000000;
     }
     #add-button {
-        background: #1a3024;
-        color: #58f29d;
-        border: none;
+        background: #000000;
+        color: #ffffff;
+        border: solid black;
         margin-left: 1;
     }
     #add-button:hover {
-        background: #2abf75;
-        color: #080a0c;
+        background: #ffffff;
+        color: #000000;
     }
     #relays-footer {
         height: 3;
-        background: #11191f;
-        color: #daf2e5;
+        background: #000000;
+        color: #ffffff;
         text-align: center;
-        border: double #2abf75;
+        border: solid #000000;
         padding: 0 1;
         margin: 1 2;
     }
