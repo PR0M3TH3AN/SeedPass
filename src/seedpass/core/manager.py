@@ -1150,11 +1150,22 @@ class PasswordManager:
 
     @requires_unlocked
     def load_managed_account(self, index: int) -> None:
-        """Load a managed account derived from the current seed profile."""
+        """Load a managed account or seed profile derived from the current seed."""
         if not self.entry_manager or not self.parent_seed:
             raise ValueError("Manager not initialized")
 
-        seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        entry = self.entry_manager.retrieve_entry(index)
+        if not entry:
+            raise ValueError(f"Entry #{index} not found")
+        
+        kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
+        if kind == EntryType.MANAGED_ACCOUNT.value:
+            seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        elif kind == EntryType.SEED.value:
+            seed = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+        else:
+            raise ValueError(f"Entry #{index} is not a loadable profile (kind: {kind})")
+
         managed_fp = generate_fingerprint(seed)
         account_dir = self.fingerprint_dir / "accounts" / managed_fp
         account_dir.mkdir(parents=True, exist_ok=True)

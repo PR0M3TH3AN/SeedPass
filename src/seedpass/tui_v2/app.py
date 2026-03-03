@@ -2999,26 +2999,20 @@ def launch_tui2(
                 )
                 and not confirm
             ):
-                if include_qr:
-                    self._set_secret_panel(
-                        "Sensitive QR hidden.\n"
-                        "Confirmation required for this action.\n"
-                        "Run: qr private confirm",
-                        state="HIDDEN",
-                    )
-                    self._set_status(
-                        "Sensitive QR requires confirmation. Run: qr private confirm"
-                    )
-                else:
-                    self._set_secret_panel(
-                        "Sensitive reveal hidden.\n"
-                        "Confirmation required for this action.\n"
-                        "Run: reveal confirm",
-                        state="HIDDEN",
-                    )
-                    self._set_status(
-                        "Sensitive reveal requires confirmation. Run: reveal confirm"
-                    )
+                action_key = "g" if include_qr else "v"
+                prompt = (
+                    f"CONFIRMATION REQUIRED\n\n"
+                    f"This is a high-risk action for kind '{kind}'.\n"
+                    f"To proceed, press '{action_key}' again within 8s."
+                )
+                self._set_secret_panel(prompt, state="HIDDEN")
+                self._set_status(f"Confirmation required (press '{action_key}' again)")
+                
+                self._pending_sensitive_confirm = (
+                    "show_qr" if include_qr else "reveal_selected",
+                    int(self._selected_entry_id),
+                    self._time_now(),
+                )
                 return
 
             if include_qr:
@@ -5494,8 +5488,8 @@ def launch_tui2(
                     if isinstance(entry, dict)
                     else ""
                 )
-                if kind != "managed_account":
-                    self._set_status("Selected entry is not a managed account")
+                if kind not in {"managed_account", "seed"}:
+                    self._set_status("Selected entry is not a loadable profile (managed_account or seed)")
                     return
                 managed_fp = (
                     str(entry.get("fingerprint") or "").strip()

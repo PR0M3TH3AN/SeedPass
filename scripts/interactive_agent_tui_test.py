@@ -225,14 +225,23 @@ async def run_full_walkthrough():
         has_child_final = any(n.get("kind") in {"managed", "agent"} for n in nodes_final)
         print(f"    [OK] Child nodes restored after expand: {has_child_final}")
 
-        # Managed Account
-        service.add_entry("Sub", 10, kind="managed_account")
-        app._load_entries("")
-        await pilot.pause()
+        # Managed Account / Seed Session Loading
+        print("  Testing sub-profile loading (managed_account and seed)...")
+        # Load managed_account (#4)
         app._run_palette_command("managed-load 4")
         await pilot.pause()
-        print(f"  [OK] Sub-profile load: {'Loaded managed' in str(app.query_one('#status').render())}")
-        
+        print(f"    [OK] Sub-profile load (managed_account): {'Loaded managed' in str(app.query_one('#status').render())}")
+        app._run_palette_command("managed-exit")
+        await pilot.pause()
+
+        # Load seed (#3 is a document, #5 is an agent. Let's add a real seed)
+        service.add_entry("ExternalSeed", 24, kind="seed")
+        app._load_entries("")
+        await pilot.pause()
+        # Seed should be #6
+        app._run_palette_command("managed-load 6")
+        await pilot.pause()
+        print(f"    [OK] Sub-profile load (seed): {'Loaded managed' in str(app.query_one('#status').render())}")
         app._run_palette_command("managed-exit")
         await pilot.pause()
 
