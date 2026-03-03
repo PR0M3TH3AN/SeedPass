@@ -102,8 +102,7 @@ class SettingsScreen(Screen):
             for row in rows:
                 lines.append(f"│ {row:<{width-4}} │")
             lines.append("└" + "─" * (width - 2) + "┘")
-            return "
-".join(lines)
+            return "\n".join(lines)
 
         rendered_lines = [
             render_card("SECURITY & AUTHENTICATION", security_rows),
@@ -113,6 +112,5 @@ class SettingsScreen(Screen):
             render_card("CONNECTIVITY & NOSTR SYNC", nostr_rows),
         ]
         
-        self.query_one("#settings-content", Static).update("
-".join(rendered_lines))
+        self.query_one("#settings-content", Static).update("\n".join(rendered_lines))
         self.app.notify("Settings reloaded")
