@@ -14,6 +14,7 @@ from .widgets.sidebar import SidebarContainer
 from .widgets.grid import GridContainer
 from .widgets.inspector import BoardContainer
 from .widgets.palette import CommandPalette
+from .widgets.action_bar import ActionBar
 from .screens.settings import SettingsScreen
 from .screens.inspector import MaximizedInspectorScreen
 
@@ -66,6 +67,10 @@ class CommandProcessor:
             self.app.action_toggle_settings()
         elif cmd == "maximize":
             self.app.action_maximize_inspector()
+        elif cmd == "copy":
+            self.app.action_copy_selected()
+        elif cmd in {"archive", "restore"}:
+            self.app.action_toggle_archive()
         else:
             self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
 
@@ -276,10 +281,51 @@ class SeedPassTuiV3(App[None]):
         self._show_sensitive_view(include_qr=True, qr_mode=mode, confirm=confirm)
 
     def action_toggle_archive(self) -> None:
-        self.notify("Archive toggle Coming Soon in V3")
+        """Toggle archived status for selected entry."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+        
+        try:
+            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
+            is_archived = entry.get("archived", False)
+            
+            if is_archived:
+                self.services["entry"].restore_entry(self.selected_entry_id)
+                self.notify(f"Restored Entry #{self.selected_entry_id}")
+            else:
+                self.services["entry"].archive_entry(self.selected_entry_id)
+                self.notify(f"Archived Entry #{self.selected_entry_id}")
+            
+            # Refresh UI
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Archive failed: {e}", severity="error")
 
     def action_copy_selected(self) -> None:
-        self.notify("Copy Coming Soon in V3")
+        """Copy the primary sensitive field of the selected entry to the clipboard."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+
+        try:
+            payload = self._resolve_sensitive_payload()
+            # payload is (title, body, qr_data, secret_value, kind)
+            secret = payload[3]
+            if secret:
+                success = self.services["entry"].copy_to_clipboard(secret)
+                if success:
+                    self.notify(f"Copied {payload[4]} value to clipboard")
+                else:
+                    self.notify("Clipboard copy failed", severity="warning")
+            else:
+                self.notify("No value to copy", severity="warning")
+        except Exception as e:
+            self.notify(f"Copy failed: {e}", severity="error")
 
     def _consume_confirm(self, action: str, eid: int) -> bool:
         if self._pending_sensitive_confirm is None: return False

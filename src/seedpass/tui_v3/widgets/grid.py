@@ -64,11 +64,25 @@ class EntryDataTable(DataTable):
                 key=str(eid)
             )
 
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """Update selection when moving cursor."""
+        rk = str(event.row_key.value) if event.row_key else None
+        if rk:
+            try:
+                self.app.selected_entry_id = int(rk)
+            except ValueError:
+                pass
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Handle entry selection."""
-        if event.row_key.value:
-            self.app.selected_entry_id = int(event.row_key.value)
-            self.app.notify(f"Selected Entry #{event.row_key.value}")
+        """Handle explicit entry selection (Enter)."""
+        rk = str(event.row_key.value) if event.row_key else None
+        if rk:
+            try:
+                eid = int(rk)
+                self.app.selected_entry_id = eid
+                self.app.notify(f"Selected Entry #{eid}")
+            except ValueError:
+                pass
 
 class GridContainer(Static):
     """

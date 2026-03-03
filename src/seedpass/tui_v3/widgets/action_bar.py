@@ -38,8 +38,7 @@ class ActionBar(Static):
             # We would normally determine kind here
             context = f"Entry #{selected_id} ▣ Reveal (v) ▣ QR (g) ▣ Edit (e) ▣ Archive (a) ▣ Max (z)"
             
-        return f"{global_row}
-{context}"
+        return f"{global_row}\n{context}"
 
     def on_mount(self) -> None:
         self.watch(self.app, "selected_entry_id", self.refresh)
