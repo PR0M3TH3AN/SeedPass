@@ -210,3 +210,14 @@
 
 ### Verification
 - Focused TUI v2 gate: `58 passed`.
+
+## Session Update (2026-03-03, Slice 9)
+
+### Final micro-polish
+- `_board_card` now has max_width=72 cap with ellipsis truncation for long rows.
+- Nostr action hint capitalized: `QR Private (confirm)`.
+- Compact mode global strip verb-first: `Settings (S)  Add (A)  ...`.
+- All three modes (compact/dense/normal) now share consistent verb-first label style.
+
+### Verification
+- Focused TUI v2 gate: `58 passed`.

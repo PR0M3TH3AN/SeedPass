@@ -906,7 +906,7 @@ def launch_tui2(
             if kind:
                 context = f"{context} ({kind_l})"
             if self._compact_layout:
-                global_row = "S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact"
+                global_row = "Settings (S)  Add (A)  Seed+ (C)  Seed- (R)  Reveal (H)  Export (E)  Import (I)  Backup (B)  Cmd (Ctrl+P)"
                 if self._viewport_width and self._viewport_width < 130:
                     context = context.replace("Entry ▣ ", "")
                     context = context.replace("Reveal", "Rev")
@@ -1901,10 +1901,16 @@ def launch_tui2(
             ]
 
         @staticmethod
-        def _board_card(title: str, rows: list[str]) -> list[str]:
-            width = max([len(title), *[len(row) for row in rows], 12])
+        def _board_card(
+            title: str, rows: list[str], *, max_width: int = 72
+        ) -> list[str]:
+            natural = max([len(title), *[len(row) for row in rows], 12])
+            width = min(natural, max_width)
+            capped_rows = [
+                r if len(r) <= width else f"{r[: width - 1]}\u2026" for r in rows
+            ]
             top = f"+- {title} " + "-" * max(1, width - len(title) - 2) + "+"
-            body = [f"| {row.ljust(width)} |" for row in rows]
+            body = [f"| {row.ljust(width)} |" for row in capped_rows]
             bottom = "+" + "-" * (width + 2) + "+"
             return [top, *body, bottom]
 
@@ -2240,9 +2246,9 @@ def launch_tui2(
                         tags_text=tags_text, notes_text=notes_text
                     ),
                     (
-                        "Actions: v reveal | g qr | qr private cfm | a archive"
+                        "Actions: v reveal | g qr | QR Private (cfm) | a archive"
                         if self._dense_hires_layout
-                        else "Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)"
+                        else "Actions: Reveal (v) | QR (g) | QR Private (confirm) | Archive (a)"
                     ),
                 ]
                 return "\n".join(lines)

@@ -1263,7 +1263,7 @@ async def test_tui2_textual_compact_layout_hides_link_panel_and_can_restore() ->
         await pilot.pause()
         link_detail = app.query_one("#link-detail", Static)
         assert link_detail.has_class("hidden")
-        assert "Compact" in _widget_text(app, "#action-strip")
+        assert "Settings (S)" in _widget_text(app, "#action-strip")
         detail = _widget_text(app, "#entry-detail")
         assert "Tags: alpha, beta" in detail
         assert "Notes: compact note" in detail
@@ -1275,7 +1275,7 @@ async def test_tui2_textual_compact_layout_hides_link_panel_and_can_restore() ->
         app._update_responsive_layout(width=120)
         await pilot.pause()
         assert link_detail.has_class("hidden")
-        assert "Compact" in _widget_text(app, "#action-strip")
+        assert "Settings (S)" in _widget_text(app, "#action-strip")
 
 
 @pytest.mark.anyio

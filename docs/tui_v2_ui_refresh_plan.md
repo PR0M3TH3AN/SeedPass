@@ -1248,3 +1248,23 @@ Validation:
 
 1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
 2. Result: `58 passed`.
+
+## 35) Progress Update (2026-03-03, Slice: Final Micro-Polish)
+
+Completed:
+
+1. Added max-width cap (72 chars) to `_board_card` renderer:
+   - Content cards no longer stretch across the full viewport.
+   - Long rows are truncated with ellipsis character.
+   - Note board max line width reduced from ~112 to 76 chars.
+2. Capitalized Nostr action hint:
+   - Before: `qr private confirm`
+   - After: `QR Private (confirm)`
+3. Compact mode global strip now uses verb-first labels:
+   - Before: `S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact`
+   - After: `Settings (S)  Add (A)  Seed+ (C)  Seed- (R)  Reveal (H)  Export (E)  Import (I)  Backup (B)  Cmd (Ctrl+P)`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.
