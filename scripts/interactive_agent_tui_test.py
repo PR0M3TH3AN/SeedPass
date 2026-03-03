@@ -110,6 +110,9 @@ class AgentMockService:
         return [l for l in self.links if l["source"] == eid or l["target"] == eid]
 
     # --- Vault/Profile/Nostr/Sync Support ---
+    def get(self, key):
+        return {"inactivity_timeout": 300, "secret_mode_enabled": True}.get(key)
+
     def unlock(self, req): return SimpleNamespace(status="ok", duration=0.1)
     def lock(self): pass
     def stats(self):
@@ -281,8 +284,9 @@ async def run_full_walkthrough():
         app.on_click(MockEvent("action-strip", 5, 1))
         await pilot.pause(0.5)
         
-        # Check if Settings (which opens palette with 'setting-') opened
-        print(f"    [OK] Palette opened via Settings click: {app.palette_open}")
+        # Check if Settings Board opened
+        inspector_heading = str(app.query_one('#inspector-heading').render())
+        print(f"    [OK] Settings Board opened via click: {'Settings Board' in inspector_heading}")
 
         print("\n--- WALKTHROUGH COMPLETE ---")
         return 0

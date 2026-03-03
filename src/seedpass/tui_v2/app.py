@@ -371,6 +371,7 @@ def launch_tui2(
         palette_open: reactive[bool] = reactive(False)
         help_open: reactive[bool] = reactive(False)
         totp_board_open: reactive[bool] = reactive(False)
+        settings_open: reactive[bool] = reactive(False)
 
         def compose(self) -> ComposeResult:
             yield Input(
@@ -448,6 +449,7 @@ def launch_tui2(
                                 yield Static("", id="link-detail")
                                 yield Static("", id="secret-detail")
                         yield Static("", id="totp-board", classes="hidden")
+                        yield Static("", id="settings-board", classes="hidden")
                     with Vertical(id="right-editor", classes="hidden"):
                         yield Input(placeholder="Document title", id="doc-edit-label")
                         yield Input(
@@ -1056,6 +1058,44 @@ def launch_tui2(
             elif action == "managed_exit":
                 self._run_palette_command("managed-exit")
 
+        def _refresh_settings_board(self) -> None:
+            if self._config_service is None:
+                self.query_one("#settings-board", Static).update("Config service unavailable")
+                return
+
+            def get_val(key, default=""):
+                try:
+                    return self._config_service.get(key) or default
+                except Exception:
+                    return "(error)"
+
+            security_rows = [
+                f"Secret Mode: {get_val('secret_mode_enabled', False)} (setting-secret on|off)",
+                f"Quick Unlock: {get_val('quick_unlock', False)} (setting-quick-unlock on|off)",
+                f"KDF Iter: {get_val('kdf_iterations', 100000)} (setting-kdf-iterations <n>)",
+                f"KDF Mode: {get_val('kdf_mode', 'argon2id')} (setting-kdf-mode <mode>)",
+                f"Lock Timeout: {get_val('inactivity_timeout', 300)}s (setting-timeout <s>)",
+            ]
+            
+            backup_rows = [
+                f"Backup Path: {get_val('additional_backup_path', '(none)')} (db-export <path>)",
+                f"Backup Interval: {get_val('backup_interval', 3600)}s",
+            ]
+
+            nostr_rows = [
+                f"Sync Mode: {get_val('semantic_search_mode', 'keyword')} (search-mode ...)",
+                f"Relays: {len(get_val('relays', []))} (relay-list)",
+            ]
+
+            rendered_lines = [
+                *self._board_card("Security Settings", security_rows),
+                "",
+                *self._board_card("Backup & Data", backup_rows),
+                "",
+                *self._board_card("Nostr & Sync", nostr_rows),
+            ]
+            self.query_one("#settings-board", Static).update("\n".join(rendered_lines))
+
         def _handle_action_strip_click(self, column: int, row: int) -> bool:
             adj_row = row - 1
             adj_col = column - 1
@@ -1100,6 +1140,8 @@ def launch_tui2(
                 heading = f"Document Editor  |  Entry #{self._selected_entry_id}"
             elif self.totp_board_open:
                 heading = "2FA Board  |  Live Codes"
+            elif self.settings_open:
+                heading = "Settings Board  |  Configuration"
             elif (
                 isinstance(self._selected_entry, dict)
                 and self._selected_entry_id is not None
@@ -3023,14 +3065,17 @@ def launch_tui2(
             view = self.query_one("#right-view", Vertical)
             editor = self.query_one("#right-editor", Vertical)
             board = self.query_one("#totp-board", Static)
+            settings_board = self.query_one("#settings-board", Static)
             entry_detail = self.query_one("#entry-detail", Static)
             mode_token = str(mode or "view").strip().lower()
             if mode_token == "edit":
                 view.add_class("hidden")
                 editor.remove_class("hidden")
                 board.add_class("hidden")
+                settings_board.add_class("hidden")
                 entry_detail.remove_class("hidden")
                 self.totp_board_open = False
+                self.settings_open = False
                 self.editing_document = True
                 self._update_inspector_heading()
                 self._refresh_layout_balance()
@@ -3041,22 +3086,40 @@ def launch_tui2(
                 entry_detail.add_class("hidden")
                 self._set_inspector_side_visible(False)
                 board.remove_class("hidden")
+                settings_board.add_class("hidden")
                 self.totp_board_open = True
+                self.settings_open = False
                 self.editing_document = False
                 self._refresh_totp_board(force_reload=True)
                 self._update_inspector_heading()
                 self._refresh_layout_balance()
                 return
+            if mode_token == "settings":
+                editor.add_class("hidden")
+                view.remove_class("hidden")
+                entry_detail.add_class("hidden")
+                self._set_inspector_side_visible(False)
+                board.add_class("hidden")
+                settings_board.remove_class("hidden")
+                self.totp_board_open = False
+                self.settings_open = True
+                self.editing_document = False
+                self._refresh_settings_board()
+                self._update_inspector_heading()
+                self._refresh_layout_balance()
+                return
             # Default "view": entry board + side panels, no editor/2FA board.
-            if mode_token != "view":
+            if mode_token not in {"view", "edit", "totp", "settings"}:
                 mode_token = "view"
             if mode_token == "view":
                 editor.add_class("hidden")
                 view.remove_class("hidden")
                 board.add_class("hidden")
+                settings_board.add_class("hidden")
                 entry_detail.remove_class("hidden")
                 self._apply_entry_inspector_visibility(self._selected_entry)
                 self.totp_board_open = False
+                self.settings_open = False
                 self.editing_document = False
                 self._update_inspector_heading()
                 self._refresh_layout_balance()
@@ -3424,6 +3487,13 @@ def launch_tui2(
                     return
                 self.query_one("#entry-detail", Static).update(self._stats_text())
                 self._set_status("Displayed vault stats")
+                return
+
+            if cmd == "settings":
+                if args:
+                    self._set_status("Usage: settings")
+                    return
+                self.action_toggle_settings()
                 return
             if cmd == "density":
                 if len(args) != 1:
@@ -5898,7 +5968,18 @@ def launch_tui2(
             self._set_status(status)
 
         def action_shortcut_settings(self) -> None:
-            self._open_palette_with_prefix("setting-", "Settings shortcut opened")
+            self.action_toggle_settings()
+
+        def action_toggle_settings(self) -> None:
+            if self._session_locked:
+                self._set_status("Vault is locked. Run: unlock <password>")
+                return
+            if self.settings_open:
+                self._set_right_pane_mode("view")
+                self._set_status("Closed settings board")
+            else:
+                self._set_right_pane_mode("settings")
+                self._set_status("Opened settings board")
 
         def action_shortcut_add_entry(self) -> None:
             self._open_palette_with_prefix("add-", "Add-entry shortcut opened")
