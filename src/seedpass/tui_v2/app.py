@@ -345,6 +345,8 @@ def launch_tui2(
             ("down", "profile_tree_next", "Profile Next"),
             ("ctrl+o", "profile_tree_open", "Profile Open"),
             ("u", "profile_tree_preview", "Profile Preview"),
+            ("space", "profile_tree_toggle", "Toggle Node"),
+            ("right", "profile_tree_toggle", "Expand"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
             ("l", "cycle_link_filter", "Link Filter"),
@@ -505,6 +507,7 @@ def launch_tui2(
             self._density_mode = "compact"
             self._profile_tree_items: list[str] = []
             self._profile_tree_cursor = 0
+            self._profile_tree_expanded: dict[str, bool] = {}
             self._compact_layout = False
             self._dense_hires_layout = False
             self._viewport_width = 0
@@ -789,11 +792,21 @@ def launch_tui2(
                 profiles = [current_fp or "(default)"]
             for fp in profiles:
                 nodes.append({"kind": "profile", "fingerprint": fp})
+                # Auto-expand the active profile if not explicitly tracked
+                if fp not in self._profile_tree_expanded:
+                    self._profile_tree_expanded[fp] = (fp == current_fp)
+                
+                if not self._profile_tree_expanded.get(fp, False):
+                    continue
+                
+                # Only show child nodes for the ACTIVE profile branch for now
+                # (since searching across all profiles is expensive)
                 is_active_branch = fp == current_fp or (
                     not current_fp and fp == "(default)"
                 )
                 if not is_active_branch:
                     continue
+
                 for entry_id, label in managed_nodes[:3]:
                     nodes.append(
                         {
@@ -1487,6 +1500,11 @@ def launch_tui2(
                         label = item if item != "(default)" else "default"
                         fp_short = item if len(item) <= 12 else f"{item[:9]}..."
                         active_branch = item == current_fp
+                        
+                        # Add expand/collapse indicator
+                        expanded = self._profile_tree_expanded.get(item, False)
+                        exp_ind = "[-] " if expanded else "[+] "
+                        
                         branch_suffix = ""
                         if active_branch:
                             managed_count = len(
@@ -1496,8 +1514,9 @@ def launch_tui2(
                                 [n for n in nodes if str(n.get("kind")) == "agent"]
                             )
                             branch_suffix = f"  M:{managed_count} A:{agent_count}"
+                        
                         tree_lines.append(
-                            f"{cursor} {marker} {label[:16]:<16} | Seed: {fp_short}{branch_suffix}"
+                            f"{cursor} {marker} {exp_ind}{label[:12]:<12} | Seed: {fp_short}{branch_suffix}"
                         )
                     elif kind == "managed":
                         if not rendered_managed_header:
@@ -4463,6 +4482,13 @@ def launch_tui2(
                 self.action_profile_tree_open()
                 return
 
+            if cmd == "profile-tree-toggle":
+                if args:
+                    self._set_status("Usage: profile-tree-toggle")
+                    return
+                self.action_profile_tree_toggle()
+                return
+
             if cmd == "setting-secret":
                 if self._config_service is None:
                     self._set_status("Config service unavailable")
@@ -5750,6 +5776,31 @@ def launch_tui2(
             selected = nodes[self._profile_tree_cursor]
             self._update_filters_panel()
             self._set_status(self._profile_tree_selection_text(selected))
+
+        def action_profile_tree_toggle(self) -> None:
+            if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
+                return
+            if self._focus_pane != "left":
+                self._set_status("Focus left pane first (press 1)")
+                return
+            self._refresh_profile_tree()
+            nodes = self._profile_tree_visible_nodes()
+            if not nodes:
+                return
+            self._profile_tree_cursor = min(
+                max(0, self._profile_tree_cursor), len(nodes) - 1
+            )
+            selected = nodes[self._profile_tree_cursor]
+            if selected.get("kind") == "profile":
+                fp = str(selected.get("fingerprint", ""))
+                is_expanded = self._profile_tree_expanded.get(fp, False)
+                self._profile_tree_expanded[fp] = not is_expanded
+                state = "Expanded" if not is_expanded else "Collapsed"
+                self._update_filters_panel()
+                self._set_status(f"{state} profile branch: {fp}")
+            else:
+                self._set_status("Only profile nodes can be expanded/collapsed")
 
         def action_focus_center(self) -> None:
             self._focus_pane = "center"

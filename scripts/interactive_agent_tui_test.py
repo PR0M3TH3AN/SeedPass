@@ -158,6 +158,10 @@ async def run_full_walkthrough():
         app._run_palette_command('add-password "Gmail" 20')
         app._run_palette_command('add-totp "Bank"')
         app._run_palette_command('add-document "Readme" md "Hello World"')
+        # Add managed/agent for hierarchy
+        service.add_entry("SubUser", 10, kind="managed_account")
+        service.add_entry("MyAgent", 10, kind="nostr")
+        
         await pilot.pause()
         print(f"  [OK] Created {len(service.entries)} entries.")
 
@@ -197,6 +201,27 @@ async def run_full_walkthrough():
             print(f"  [DEBUG] QR Panel Content:\n{qr_text}")
 
         print("\n--- PHASE 3: System Operations ---")
+        # Tree Hierarchy
+        print("  Testing tree hierarchy...")
+        # Initial state: current profile expanded (auto-expand logic)
+        nodes_before = app._profile_tree_visible_nodes()
+        has_child = any(n.get("kind") in {"managed", "agent"} for n in nodes_before)
+        print(f"    [OK] Child nodes visible initially: {has_child}")
+        
+        # Collapse via palette
+        app._run_palette_command("profile-tree-toggle")
+        await pilot.pause()
+        nodes_after = app._profile_tree_visible_nodes()
+        has_child_after = any(n.get("kind") in {"managed", "agent"} for n in nodes_after)
+        print(f"    [OK] Child nodes hidden after collapse: {not has_child_after}")
+        
+        # Expand via palette
+        app._run_palette_command("profile-tree-toggle")
+        await pilot.pause()
+        nodes_final = app._profile_tree_visible_nodes()
+        has_child_final = any(n.get("kind") in {"managed", "agent"} for n in nodes_final)
+        print(f"    [OK] Child nodes restored after expand: {has_child_final}")
+
         # Managed Account
         service.add_entry("Sub", 10, kind="managed_account")
         app._load_entries("")
