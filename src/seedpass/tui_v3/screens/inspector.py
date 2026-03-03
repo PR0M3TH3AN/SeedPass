@@ -4,12 +4,17 @@ from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static, Footer
 from textual.containers import Vertical, Horizontal
+from textual.reactive import reactive
 
 class MaximizedInspectorScreen(Screen):
     """
     Full-screen detailed view for a single entry.
     Optimized for long documents, SSH keys, or PGP blocks.
     """
+    reveal_data = reactive[dict[str, Any]]({})
+
+    def watch_reveal_data(self, old, new):
+        self._refresh_detail()
     
     BINDINGS = [
         ("escape", "app.pop_screen", "Back to Vault"),
@@ -61,8 +66,18 @@ class MaximizedInspectorScreen(Screen):
     def _refresh_detail(self) -> None:
         app = self.app
         eid = app.selected_entry_id
+        r = self.reveal_data
+
         if eid is None:
             self.query_one("#max-inspector-content", Static).update("No entry selected.")
+            return
+
+        if r.get("prompt"):
+            self.query_one("#max-inspector-content", Static).update(f"[b]SECURITY ALERT[/b]\n\n{r['prompt']}")
+            return
+
+        if r.get("content") and "##" in r["content"]:
+            self.query_one("#max-inspector-content", Static).update(f"[b]SECURE QR DISPLAY[/b]\n\n{r['content']}")
             return
 
         if "entry" not in app.services:
@@ -88,15 +103,18 @@ class MaximizedInspectorScreen(Screen):
             f"Modified : {entry.get('modified_at', '(unknown)')}",
         ]
         
-        # Content (if note/doc)
+        # Handle revealed content
         content = entry.get('content', '')
-        content_block = f"\n[b]CONTENT / NOTES:[/b]\n{divider}{content}\n" if content else ""
+        if r.get("content"):
+            content = f"[b][cyan]{r['content']}[/b]"
+        
+        content_block = f"\n[b]CONTENT / SECURE DATA:[/b]\n{divider}{content}\n" if content else ""
         
         final_text = header + divider + "\n".join(meta_lines) + content_block
         self.query_one("#max-inspector-content", Static).update(final_text)
 
     def action_reveal(self) -> None:
-        self.app.notify("Reveal triggered (Coming Soon in v3)")
+        self.app.action_reveal_selected()
 
     def action_qr(self) -> None:
-        self.app.notify("QR triggered (Coming Soon in v3)")
+        self.app.action_show_qr()

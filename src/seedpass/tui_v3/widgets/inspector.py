@@ -8,6 +8,10 @@ from textual.reactive import reactive
 class BaseBoard(Static):
     """Base class for all specialized entry boards."""
     entry_data = reactive[dict[str, Any]]({})
+    reveal_data = reactive[dict[str, Any]]({})
+
+    def watch_reveal_data(self, old, new):
+        self.refresh()
 
     def _render_card(self, title: str, rows: list[str]) -> str:
         """Utility to render ASCII cards matching mockup style."""
@@ -35,11 +39,22 @@ class PasswordBoard(BaseBoard):
     """Matches 'Password Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
+        
+        # If we have a direct prompt (confirmation required), show ONLY that
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        # If we have revealed content, show it
+        password_val = "[HIDDEN] (v to reveal)"
+        if r.get("content"):
+            password_val = f"[b]{r['content']}[/b]"
+
         cred_rows = [
             f"Label    : {d.get('label', '')}",
             f"Username : {d.get('username', '')}",
             f"URL      : {d.get('url', '')}",
-            "Password : [HIDDEN]",
+            f"Password : {password_val}",
         ]
         action_rows = [
             "▣ Reveal (v)  ▣ QR (g)",
@@ -56,7 +71,15 @@ class TotpBoard(BaseBoard):
     """Matches '2FA Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
         app = self.app
+        
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        if r.get("content") and "##" in r["content"]:
+            return self._render_card("TOTP QR CODE", r["content"].splitlines())
+
         code = "------"
         if app.services.get("entry") and not app.session_locked:
             try:
@@ -70,10 +93,13 @@ class TotpBoard(BaseBoard):
         filled = int((remaining / 30) * bar_width)
         bar = "█" * filled + "░" * (bar_width - filled)
 
+        secret_val = r.get("content") if r.get("content") else "[HIDDEN] (v to reveal)"
+
         cred_rows = [
             f"Label    : {d.get('label', '')}",
             f"Code     : [b][cyan]{code}[/b]  ({remaining}s)",
             f"Timer    : {bar}",
+            f"Secret   : {secret_val}",
             f"Period   : {d.get('period', 30)}s",
             f"Digits   : {d.get('digits', 6)}",
         ]
@@ -92,12 +118,24 @@ class SeedBoard(BaseBoard):
     """Matches 'BIP-39 Seed Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
+
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        if r.get("content") and "##" in r["content"]:
+            return self._render_card("SEED QR CODE", r["content"].splitlines())
+
+        phrase_val = "[HIDDEN] (vv to reveal)"
+        if r.get("content"):
+            phrase_val = f"[b]{r['content']}[/b]"
+
         cred_rows = [
             f"Label      : {d.get('label', '')}",
             f"Fingerprint: {d.get('fingerprint', 'Pending...')}",
             f"Index      : {d.get('index', 0)}",
             f"Word Count : {d.get('word_count', 24)}",
-            "Seed Phrase: [HIDDEN] (vv to reveal)",
+            f"Seed Phrase: {phrase_val}",
         ]
         action_rows = [
             "▣ Reveal Words (vv)  ▣ Show SeedQR (gg)",
@@ -114,12 +152,21 @@ class SshBoard(BaseBoard):
     """Matches 'SSH Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
+
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        priv_val = "[HIDDEN] (vv to reveal)"
+        if r.get("content"):
+            priv_val = f"[b]{r['content']}[/b]"
+
         cred_rows = [
             f"Label    : {d.get('label', '')}",
             f"Key Type : {d.get('key_type', 'RSA/Ed25519')}",
             f"Index    : {d.get('index', 0)}",
             "Pub Key  : [PREVIEW AVAILABLE]",
-            "Priv Key : [HIDDEN] (vv to reveal)",
+            f"Priv Key : {priv_val}",
         ]
         action_rows = [
             "▣ Copy Pub (c)  ▣ Reveal Priv (vv)",
@@ -136,11 +183,20 @@ class PgpBoard(BaseBoard):
     """Matches 'PGP Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
+
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        priv_val = "[HIDDEN] (vv to reveal)"
+        if r.get("content"):
+            priv_val = f"[b]{r['content']}[/b]"
+
         cred_rows = [
             f"Label    : {d.get('label', '')}",
             f"Identity : {d.get('user_id', '')}",
             f"Fingerpr : {d.get('fingerprint', '')}",
-            "Priv Key : [HIDDEN] (vv to reveal)",
+            f"Priv Key : {priv_val}",
         ]
         action_rows = [
             "▣ Copy Pub (c)  ▣ Reveal Priv (vv)",
@@ -157,10 +213,22 @@ class NostrBoard(BaseBoard):
     """Matches 'Nostr Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
+        r = self.reveal_data
+
+        if r.get("prompt"):
+            return self._render_card("SECURITY ALERT", r["prompt"].splitlines())
+
+        nsec_val = "[HIDDEN] (v to reveal)"
+        if r.get("content") and "##" not in r["content"]:
+            nsec_val = f"[b]{r['content']}[/b]"
+        
+        if r.get("content") and "##" in r["content"]:
+            return self._render_card("NOSTR QR CODE", r["content"].splitlines())
+
         cred_rows = [
             f"Label    : {d.get('label', '')}",
             f"npub     : {d.get('npub', '')[:20]}...",
-            "nsec     : [HIDDEN] (v to reveal)",
+            f"nsec     : {nsec_val}",
         ]
         action_rows = [
             "▣ Reveal (v)    ▣ QR (g)",

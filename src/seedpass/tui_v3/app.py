@@ -136,6 +136,9 @@ class SeedPassTuiV3(App[None]):
     selected_entry_id = reactive[int | None](None)
     session_locked = reactive(True)
 
+    # Internal state for sensitive actions
+    _pending_sensitive_confirm: tuple[str, int, float] | None = None
+
     def __init__(
         self,
         fingerprint: str | None = None,
@@ -245,14 +248,126 @@ class SeedPassTuiV3(App[None]):
             return
         self.push_screen(MaximizedInspectorScreen())
 
-    def action_reveal_selected(self) -> None:
-        self.notify("Reveal Coming Soon in V3")
+    def action_reveal_selected(self, confirm: bool = False) -> None:
+        """Handle reveal shortcut (v)."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+        
+        # Check confirmation
+        if not confirm:
+            confirm = self._consume_confirm("reveal_selected", self.selected_entry_id)
+            
+        self._show_sensitive_view(include_qr=False, confirm=confirm)
 
-    def action_show_qr(self) -> None:
-        self.notify("QR Coming Soon in V3")
+    def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
+        """Handle QR shortcut (g)."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+
+        if not confirm:
+            confirm = self._consume_confirm("show_qr", self.selected_entry_id)
+
+        self._show_sensitive_view(include_qr=True, qr_mode=mode, confirm=confirm)
 
     def action_toggle_archive(self) -> None:
         self.notify("Archive toggle Coming Soon in V3")
 
     def action_copy_selected(self) -> None:
         self.notify("Copy Coming Soon in V3")
+
+    def _consume_confirm(self, action: str, eid: int) -> bool:
+        if self._pending_sensitive_confirm is None: return False
+        p_action, p_eid, p_ts = self._pending_sensitive_confirm
+        now = time.time()
+        if p_action == action and p_eid == eid and (now - p_ts) <= 8.0:
+            self._pending_sensitive_confirm = None
+            return True
+        self._pending_sensitive_confirm = None
+        return False
+
+    def _show_sensitive_view(self, include_qr: bool, qr_mode: str = "default", confirm: bool = False) -> None:
+        try:
+            payload = self._resolve_sensitive_payload(qr_mode=qr_mode)
+            title, body, qr_data, secret, kind = payload
+        except Exception as e:
+            self.notify(f"Reveal failed: {e}", severity="error")
+            return
+
+        # Check if confirmation is required
+        requires = False
+        if include_qr:
+            requires = (kind == "nostr" and qr_mode == "private")
+        else:
+            requires = kind in {"seed", "managed_account", "ssh", "pgp"}
+
+        if requires and not confirm:
+            key = "g" if include_qr else "v"
+            self._pending_sensitive_confirm = ("show_qr" if include_qr else "reveal_selected", self.selected_entry_id, time.time())
+            # Update the board with confirmation prompt
+            self._update_board_sensitive(prompt=f"CONFIRMATION REQUIRED\n\nHigh-risk action for '{kind}'.\nPress '{key}' again within 8s to proceed.")
+            self.notify(f"Press '{key}' again to confirm")
+            return
+
+        # Success - Update Board
+        if include_qr:
+            try:
+                qr_rendered = render_qr_ascii(qr_data)
+                self._update_board_sensitive(content=qr_rendered, title=title)
+            except Exception as e:
+                self.notify(f"QR Render failed: {e}", severity="error")
+        else:
+            self._update_board_sensitive(content=body, title=title)
+
+    def _resolve_sensitive_payload(self, qr_mode="default"):
+        if "entry" not in self.services: raise ValueError("Service offline")
+        eid = self.selected_entry_id
+        entry = self.services["entry"].retrieve_entry(eid)
+        if not entry: raise ValueError("Entry not found")
+        
+        kind = str(entry.get("kind") or entry.get("type") or "").lower()
+        label = entry.get("label", "")
+        
+        if kind == "password":
+            val = self.services["entry"].generate_password(int(entry.get("length", 16)), eid)
+            return ("Password Revealed", f"Label: {label}\nPassword: {val}", None, val, kind)
+        if kind == "totp":
+            secret = self.services["entry"].get_totp_secret(eid)
+            from seedpass.core.totp import TotpManager
+            uri = TotpManager.make_otpauth_uri(label, secret)
+            return ("TOTP Secret Revealed", f"Label: {label}\nSecret: {secret}", uri, secret, kind)
+        if kind in {"seed", "managed_account"}:
+            parent_seed = self.services["vault"]._manager.parent_seed
+            if kind == "seed":
+                phrase = self.services["entry"].get_seed_phrase(eid, parent_seed)
+            else:
+                phrase = self.services["entry"].get_managed_account_seed(eid, parent_seed)
+            from seedpass.core.seedqr import encode_seedqr
+            return ("Seed Words Revealed", f"Label: {label}\nSeed: {phrase}", encode_seedqr(phrase), phrase, kind)
+        
+        # Fallback
+        return ("Data Revealed", f"Label: {label}\nDetails: {entry}", None, None, kind)
+
+    def _update_board_sensitive(self, content: str = None, title: str = None, prompt: str = None):
+        """Push sensitive data to the currently active board or screen."""
+        data = {"content": content, "title": title, "prompt": prompt}
+        
+        # 1. Update full-screen inspector if active
+        if isinstance(self.screen, MaximizedInspectorScreen):
+            self.screen.reveal_data = data
+            return
+
+        # 2. Update standard inspector board
+        try:
+            board_cont = self.query_one("#board-container")
+            if board_cont.children:
+                board = board_cont.children[0]
+                if hasattr(board, "reveal_data"):
+                    board.reveal_data = data
+        except Exception:
+            pass
