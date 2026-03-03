@@ -723,6 +723,100 @@ async def test_tui2_textual_pagination_and_search_flow() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_search_bar_hybrid_mode_includes_semantic_matches() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Alpha Notes", "content": "alpha"},
+            {"id": 2, "kind": "document", "label": "Roadmap Draft", "content": "beta"},
+        ]
+    )
+    semantic = FakeSemanticService()
+
+    def _semantic_search(query: str, *, k: int = 10, kind=None, mode=None):
+        _ = (k, kind)
+        semantic.last_query = str(query)
+        if mode:
+            semantic.mode = str(mode)
+        return [
+            {
+                "entry_id": 2,
+                "kind": "document",
+                "label": "Roadmap Draft",
+                "score": 0.91,
+                "excerpt": "semantic-match",
+            }
+        ]
+
+    semantic.search = _semantic_search
+    app = _build_app(service, semantic_service=semantic)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("search-mode hybrid")
+        await pilot.pause()
+        assert "Search mode set to hybrid" in _status_text(app)
+
+        app.action_focus_search()
+        await pilot.pause()
+        search = app.query_one("#search", Input)
+        search.value = "nonkeyword query"
+        await pilot.press("enter")
+        await pilot.pause()
+
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 1
+        row_text = str(list_view.children[0].children[0].render())
+        assert "Roadmap Draft" in row_text
+        assert "sem:" in row_text
+        assert semantic.last_query == "nonkeyword query"
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_search_bar_hybrid_mode_marks_overlap_as_mix() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Alpha Notes", "content": "alpha"},
+            {"id": 2, "kind": "document", "label": "Roadmap Draft", "content": "beta"},
+        ]
+    )
+    semantic = FakeSemanticService()
+
+    def _semantic_search(query: str, *, k: int = 10, kind=None, mode=None):
+        _ = (k, kind, mode)
+        semantic.last_query = str(query)
+        return [
+            {
+                "entry_id": 2,
+                "kind": "document",
+                "label": "Roadmap Draft",
+                "score": 0.95,
+                "excerpt": "semantic+keyword",
+            }
+        ]
+
+    semantic.search = _semantic_search
+    app = _build_app(service, semantic_service=semantic)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("search-mode hybrid")
+        await pilot.pause()
+        app.action_focus_search()
+        await pilot.pause()
+        search = app.query_one("#search", Input)
+        search.value = "Roadmap"
+        await pilot.press("enter")
+        await pilot.pause()
+
+        list_view = app.query_one("#entry-list", ListView)
+        assert len(list_view.children) == 1
+        row_text = str(list_view.children[0].children[0].render())
+        assert "Roadmap Draft" in row_text
+        assert "mix:" in row_text
+        assert semantic.last_query == "Roadmap"
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_archive_scope_filters() -> None:
     service = FakeEntryService(
         [
@@ -803,6 +897,125 @@ async def test_tui2_textual_document_edit_save_flow() -> None:
         assert entry["file_type"] == "md"
         assert entry["tags"] == ["alpha", "beta"]
         assert "Saved document 1" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_right_pane_transitions_totp_board_and_doc_editor() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Doc A", "content": "hello"},
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Auth",
+                "period": 30,
+                "digits": 6,
+                "secret": "JBSWY3DPEHPK3PXP",
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("2fa-board")
+        await pilot.pause()
+        assert app.totp_board_open is True
+        assert app.editing_document is False
+        assert not app.query_one("#totp-board", Static).has_class("hidden")
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app.action_edit_document()
+        await pilot.pause()
+        assert app.editing_document is True
+        assert app.totp_board_open is False
+        assert app.query_one("#totp-board", Static).has_class("hidden")
+        assert app.query_one("#right-view").has_class("hidden")
+        assert not app.query_one("#right-editor").has_class("hidden")
+
+        app.action_cancel_document_edit()
+        await pilot.pause()
+        assert app.editing_document is False
+        assert app.totp_board_open is False
+        assert app.query_one("#right-editor").has_class("hidden")
+        assert not app.query_one("#right-view").has_class("hidden")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_open_entry_closes_totp_and_blocks_during_edit() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Doc A", "content": "hello"},
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Auth",
+                "period": 30,
+                "digits": 6,
+                "secret": "JBSWY3DPEHPK3PXP",
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("2fa-board")
+        await pilot.pause()
+        assert app.totp_board_open is True
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        assert app.totp_board_open is False
+        assert "Selected entry 1" in _status_text(app)
+
+        app.action_edit_document()
+        await pilot.pause()
+        assert app.editing_document is True
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        assert app.editing_document is True
+        assert "Finish document edit before opening another entry" in _status_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_inspector_heading_tracks_right_pane_mode() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "document", "label": "Doc A", "content": "hello"},
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "Auth",
+                "period": 30,
+                "digits": 6,
+                "secret": "JBSWY3DPEHPK3PXP",
+            },
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert "Inspector Board" in _widget_text(app, "#inspector-heading")
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        heading = _widget_text(app, "#inspector-heading")
+        assert "Inspector  |  #1 (document)" in heading
+        assert "Doc A" in heading
+
+        app.action_edit_document()
+        await pilot.pause()
+        assert "Document Editor  |  Entry #1" in _widget_text(app, "#inspector-heading")
+
+        app.action_cancel_document_edit()
+        await pilot.pause()
+        app._run_palette_command("2fa-board")
+        await pilot.pause()
+        assert "2FA Board  |  Live Codes" in _widget_text(app, "#inspector-heading")
 
 
 @pytest.mark.anyio
@@ -974,7 +1187,14 @@ async def test_tui2_textual_managed_account_keyboard_reveal_and_qr() -> None:
         await pilot.press("v")
         await pilot.pause()
         assert "requires confirmation" in _status_text(app)
-        assert "Run: reveal confirm" in _widget_text(app, "#secret-detail")
+        secret_text = _widget_text(app, "#secret-detail")
+        assert "Press 'v' again to confirm" in secret_text
+        assert "run: reveal confirm" in secret_text.lower()
+
+        await pilot.press("v")
+        await pilot.pause()
+        assert "Managed Account Seed #1" in _widget_text(app, "#secret-detail")
+        assert "legal winner thank year" in _widget_text(app, "#secret-detail")
 
         await pilot.press("g")
         await pilot.pause()
@@ -1076,6 +1296,41 @@ async def test_tui2_textual_viewport_balance_hides_activity_on_short_height() ->
         app._update_responsive_layout(width=170, height=46)
         await pilot.pause()
         assert not activity.has_class("hidden")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_hires_density_compacts_vertical_chrome() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc 1"}])
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        brand = app.query_one("#brand-strip", Static)
+        ribbon = app.query_one("#top-ribbon", Static)
+        status = app.query_one("#status", Static)
+        action_strip = app.query_one("#action-strip", Static)
+        grid_heading = app.query_one("#grid-heading", Static)
+
+        app._update_responsive_layout(width=220, height=55)
+        await pilot.pause()
+        assert str(brand.styles.height) == "1"
+        assert str(ribbon.styles.height) == "2"
+        assert str(status.styles.height) == "2"
+        assert str(action_strip.styles.height) == "2"
+        assert str(grid_heading.styles.height) == "2"
+        assert "Dense" in _widget_text(app, "#action-strip")
+        assert "S Set" in _widget_text(app, "#action-strip")
+        assert "Keys:" in _widget_text(app, "#filters")
+        assert "Profiles:" in _widget_text(app, "#filters")
+
+        app._update_responsive_layout(width=170, height=46)
+        await pilot.pause()
+        assert str(brand.styles.height) == "3"
+        assert str(ribbon.styles.height) == "3"
+        assert str(status.styles.height) == "3"
+        assert str(action_strip.styles.height) == "3"
+        assert str(grid_heading.styles.height) == "4"
+        assert "Dense" not in _widget_text(app, "#action-strip")
 
 
 @pytest.mark.anyio
@@ -1317,6 +1572,40 @@ async def test_tui2_textual_filter_menu_closes_on_escape_and_focus_actions() -> 
         app.action_focus_search()
         await pilot.pause()
         assert filter_input.has_class("hidden")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_inspector_side_is_context_aware() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "hello"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        link_detail = app.query_one("#link-detail", Static)
+        secret_detail = app.query_one("#secret-detail", Static)
+        assert link_detail.has_class("hidden")
+        assert secret_detail.has_class("hidden")
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        assert not secret_detail.has_class("hidden")
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        assert secret_detail.has_class("hidden")
+
+        app.action_reveal_selected()
+        await pilot.pause()
+        assert "Reveal not supported for kind: document" in _status_text(app)
+
+        app.action_show_qr()
+        await pilot.pause()
+        assert "QR not supported for kind: document" in _status_text(app)
 
 
 @pytest.mark.anyio
@@ -2023,6 +2312,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         await pilot.pause()
         assert semantic.mode == "hybrid"
         assert "Search mode set to hybrid" in _status_text(app)
+        assert "(HYBRID)" in _widget_text(app, "#grid-heading")
 
         app._run_palette_command("semantic-build")
         await pilot.pause()
@@ -2170,6 +2460,127 @@ async def test_tui2_textual_profile_switch_restores_filter_state() -> None:
         app._run_palette_command("profile-switch fp-a")
         await pilot.pause()
         assert "Filter : keys" in _widget_text(app, "#filters")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profile_tree_seed_label_formatting() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "managed_account", "label": "Managed User 1"},
+            {"id": 2, "kind": "nostr", "label": "Agent Alpha"},
+        ]
+    )
+    profiles = FakeProfileService(["fp-a"])
+    app = _build_app(service, profile_service=profiles)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        filters = _widget_text(app, "#filters")
+        assert "| Seed: fp-a" in filters
+        assert "👤 Managed Users" in filters
+        assert "🤖 Agents" in filters
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profile_tree_can_open_managed_and_agent_children() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "managed_account", "label": "Managed User 1"},
+            {"id": 2, "kind": "nostr", "label": "Agent Alpha"},
+        ]
+    )
+    profiles = FakeProfileService(["fp-a"])
+    app = _build_app(service, profile_service=profiles)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        app.action_focus_left()
+        await pilot.pause()
+
+        app.action_profile_tree_next()
+        await pilot.pause()
+        assert "Managed selection: #1 Managed User 1" in _status_text(app)
+
+        app.action_profile_tree_open()
+        await pilot.pause()
+        assert "Opened tree entry 1" in _status_text(app)
+        assert "Selected: #1" in _filters_text(app)
+        assert "Managed User 1" in _filters_text(app)
+
+        app.action_focus_left()
+        await pilot.pause()
+        app.action_profile_tree_next()
+        await pilot.pause()
+        assert "Agent selection: #2 Agent Alpha" in _status_text(app)
+
+        app.action_profile_tree_open()
+        await pilot.pause()
+        assert "Opened tree entry 2" in _status_text(app)
+        assert "Selected: #2" in _filters_text(app)
+        assert "Agent Alpha" in _filters_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_search_mode_hotkey_cycles_and_updates_heading() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "document", "label": "Doc 1"}])
+    semantic = FakeSemanticService()
+    app = _build_app(service, semantic_service=semantic)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        heading = _widget_text(app, "#grid-heading")
+        assert "(KEYWORD)" in heading
+
+        await pilot.press("m")
+        await pilot.pause()
+        assert semantic.mode == "hybrid"
+        assert "(HYBRID)" in _widget_text(app, "#grid-heading")
+
+        await pilot.press("m")
+        await pilot.pause()
+        assert semantic.mode == "semantic"
+        assert "(SEMANTIC)" in _widget_text(app, "#grid-heading")
+
+        await pilot.press("m")
+        await pilot.pause()
+        assert semantic.mode == "keyword"
+        assert "(KEYWORD)" in _widget_text(app, "#grid-heading")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profile_switch_restores_sidebar_state() -> None:
+    service = FakeEntryService([{"id": 1, "kind": "password", "label": "Login 1"}])
+    profiles = FakeProfileService(["fp-a", "fp-b"])
+    app = _build_app(service, profile_service=profiles)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        left = app.query_one("#left")
+        assert not left.has_class("sidebar-collapsed")
+
+        app.action_toggle_sidebar()
+        await pilot.pause()
+        assert left.has_class("sidebar-collapsed")
+
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        assert not left.has_class("sidebar-collapsed")
+
+        app.action_toggle_sidebar()
+        await pilot.pause()
+        assert left.has_class("sidebar-collapsed")
+
+        app._run_palette_command("profile-switch fp-b")
+        await pilot.pause()
+        assert not left.has_class("sidebar-collapsed")
+
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        assert left.has_class("sidebar-collapsed")
 
 
 @pytest.mark.anyio

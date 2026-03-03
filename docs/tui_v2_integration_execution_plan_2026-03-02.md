@@ -213,3 +213,34 @@ Rationale:
 - compact filter menu
 - reliable reveal/QR
 - dense readable layout at target resolution.
+
+## 8) Progress Log (2026-03-02 Session)
+
+Completed slices in this session:
+1. Phase A baseline: startup no longer forces first-row selection; neutral inspector empty state is shown.
+2. Phase B baseline: left tree now renders hierarchical managed-user/agent sections and supports sidebar collapse (`Ctrl+B` + button).
+3. Phase C baseline: top ribbon and action strip were simplified toward mockup rhythm; top ribbon now includes entry-type stats.
+4. Phase D baseline: filter controls moved behind menu flow (`f`) with presets (`all|secrets|docs|keys|2fa`), plus multi-kind comma filters.
+5. Phase D persistence: filter state now persists per active profile and restores on profile switch.
+6. Phase G baseline: sensitive panel now reports explicit states (`HIDDEN`, `REVEALED`, `QR`, `COPIED`) and clearer no-selection feedback.
+7. Phase H baseline: density tightened (reduced vertical chrome and panel padding) to increase effective content fit.
+8. Phase F partial: inspector side panels are context-aware (hidden when no selection; restored on selection).
+9. Phase B persistence: sidebar collapse/expand state now persists per active profile and restores on profile switch.
+10. Phase E slice: grid heading now exposes active search mode chips and hotkey mode-cycling (`m`) for keyword/hybrid/semantic workflows.
+11. Phase G slice: confirm-required reveal UX now supports direct keyboard double-confirm (`v` then `v`) with clear expiration guidance, reducing perceived no-op behavior.
+12. Phase B polish: profile tree labels now render cleanly with explicit `| Seed:` separators (fixing merged text artifacts in the left sidebar).
+13. Phase B slice: left tree navigation now traverses child nodes (managed/agent) and `profile-tree-open` can open selected child entries directly, not just switch profiles.
+14. Phase F slice: inspector side is now kind-aware; non-sensitive kinds (for example document/note) keep the secret panel hidden and return clear status messages for unsupported reveal/QR actions.
+15. Phase B polish: active profile branch now renders explicit child group headers (`Managed Users`, `Agents`) for clearer hierarchy scanning.
+16. CLI compatibility guard: added explicit regression tests for `seedpass legacy` and `seedpass --legacy-tui` launch paths to prevent fallback command regressions.
+17. Phase H slice: added high-resolution density mode (reduced top/bottom chrome heights and heading heights at large viewports) to improve functional content fit on 2256x1504-class screens.
+18. Phase H polish: removed extra default vertical whitespace by tightening status and 2FA board top margins.
+19. Phase F/H reliability slice: unified right-pane mode transitions so entry board, 2FA board, and document editor stay mutually exclusive with synchronized state flags.
+20. Phase F context guard: opening an entry now auto-closes 2FA board and entry switches are blocked while document edit mode is active to prevent unsaved-context drift.
+21. Phase H readability slice: dense high-res action strip now uses abbreviated labels to keep bottom command hints visible without clipping at large viewport widths.
+22. Phase F clarity slice: inspector heading is now context-aware and updates by mode (entry view, document editor, 2FA board) for clearer right-pane state awareness.
+
+Validation status:
+1. Current focused TUI gate: `50 passed`
+2. Broader gate (CLI + TUI focused suites): `102 passed`
+3. Verification artifacts captured under `artifacts/ui_eval/audit_20260302_phase*/` (latest: `audit_20260302_phaseF5`).

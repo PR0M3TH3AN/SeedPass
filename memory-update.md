@@ -24,3 +24,49 @@
 - Created `docs/tui_v2_integration_execution_plan_2026-03-02.md` as the consolidated implementation roadmap.
 - Captured user-priority requirements: context-aware inspector lifecycle, true fingerprint/managed/agent tree, collapsible sidebar, filter menu replacing always-visible kind toggles, and unified lexical+tag+semantic search.
 - Reordered near-term execution toward structure and reliability first (Phases A-C, D, G, H), then semantic integration and final board-fidelity polish.
+
+## Session Update (2026-03-02, evening)
+
+### TUI v2 parity slices completed
+- Added per-profile sidebar collapse persistence in `src/seedpass/tui_v2/app.py` (state now restores on `profile-switch` and `profile-tree-open`).
+- Added search mode chips to grid heading and keyboard cycling (`m`) for `keyword -> hybrid -> semantic`.
+- Improved reveal UX for confirm-required secrets (`seed`, `managed_account`, `ssh`, `pgp`): pressing `v` now arms confirm and pressing `v` again (within 8s) confirms reveal.
+- Fixed profile tree label rendering glitch (`fp-aSeed:...`) by normalizing to `| Seed: ...` format.
+
+### Regression coverage added
+- Sidebar state restore per profile.
+- Search-mode chip rendering + `m` hotkey cycle behavior.
+- Managed-account reveal double-confirm keyboard flow.
+- Profile-tree seed label formatting check.
+
+### Verification status
+- Focused TUI v2 gate is green at `45 passed` for:
+  - `src/tests/test_tui_v2_textual_interactions.py`
+  - `src/tests/test_tui_v2_action_matrix.py`
+- New UI artifacts captured:
+  - `artifacts/ui_eval/audit_20260302_phaseB2/`
+  - `artifacts/ui_eval/audit_20260302_phaseE3/`
+  - `artifacts/ui_eval/audit_20260302_phaseG2/`
+  - `artifacts/ui_eval/audit_20260302_phaseB3/`
+
+### Incremental parity progress (2026-03-02 late)
+- Left profile tree now supports child-node traversal and open actions for managed/agent rows via `↑/↓/Ctrl+O`.
+- Inspector behavior is more context-aware: non-sensitive kinds keep secret panel hidden by default and report clean unsupported-action status for `v`/`g`.
+- Tree rendering now includes explicit group headers (`Managed Users`, `Agents`) to match mockup hierarchy clarity.
+- Focused TUI gate remains stable at `46 passed` after these slices.
+- Added CLI regression tests for legacy launch compatibility (`seedpass legacy`, `seedpass --legacy-tui`) in `src/tests/test_typer_cli.py` to guard installer/runtime fallback behavior.
+- Added responsive high-resolution density mode for large viewports (notably 2256x1504 class), reducing chrome heights for brand/ribbon/status/action bars and heading rows to fit more working content.
+- Tightened default vertical whitespace by removing extra top margin on status and TOTP board panels.
+- Focused TUI gate after density updates: 47 passing tests.
+- Added regression check for unsupported QR behavior on non-sensitive kinds (`document`) so `g` returns an explicit status message instead of ambiguous UI behavior.
+- Added a unified right-pane mode switch path so document editor and 2FA board transitions remain mutually exclusive and state flags stay synchronized.
+- Added regression test covering 2FA board -> document editor -> view transitions.
+- Focused TUI gate now at 48 passing tests.
+- Added context guard so opening an entry auto-closes 2FA board and blocks entry switching while document editor is active (prevents unsaved context drift).
+- Added transition regression test for: 2FA board -> open entry (board closes) -> edit doc -> open other entry (blocked).
+- Focused TUI gate now at 49 passing tests.
+- Added dense high-res action strip mode with abbreviated global commands to reduce clipping and keep bottom controls readable on large viewports.
+- Added regression assertions for dense action-strip activation/deactivation tied to responsive layout thresholds.
+- Inspector heading is now context-aware and tracks right-pane mode: selected entry view, document editor, and 2FA board states.
+- Added regression coverage for heading transitions across view/edit/2FA modes.
+- Focused TUI gate now at 50 passing tests.

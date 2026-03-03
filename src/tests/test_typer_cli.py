@@ -19,6 +19,36 @@ import seedpass.core.agent_secret_isolation as isolation_core
 runner = CliRunner()
 
 
+def test_legacy_command_invokes_legacy_tui(monkeypatch):
+    called = {}
+
+    def fake_launch_legacy_tui(*, fingerprint=None):
+        called["fingerprint"] = fingerprint
+        raise typer.Exit(0)
+
+    import typer
+
+    monkeypatch.setattr(cli, "_launch_legacy_tui", fake_launch_legacy_tui)
+    result = runner.invoke(app, ["legacy"])
+    assert result.exit_code == 0
+    assert called["fingerprint"] is None
+
+
+def test_legacy_flag_invokes_legacy_tui(monkeypatch):
+    called = {}
+
+    def fake_launch_legacy_tui(*, fingerprint=None):
+        called["fingerprint"] = fingerprint
+        raise typer.Exit(0)
+
+    import typer
+
+    monkeypatch.setattr(cli, "_launch_legacy_tui", fake_launch_legacy_tui)
+    result = runner.invoke(app, ["--legacy-tui"])
+    assert result.exit_code == 0
+    assert called["fingerprint"] is None
+
+
 def test_entry_list(monkeypatch):
     called = {}
 
