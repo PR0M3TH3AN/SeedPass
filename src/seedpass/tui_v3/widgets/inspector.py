@@ -18,19 +18,18 @@ class BaseBoard(Static):
         for row in rows:
             lines.append(f"│ {row:<{width-4}} │")
         lines.append(bottom)
-        return "
-".join(lines)
+        return "\n".join(lines)
 
 class IdleBoard(Static):
     """Shown when no entry is selected."""
     def render(self) -> str:
-        return "
+        return """
 
 
 [b]Inspector Idle[/b]
 
 Select an entry from the grid
-to view details."
+to view details."""
 
 class PasswordBoard(BaseBoard):
     """Matches 'Password Board.png' mockup."""
@@ -47,8 +46,7 @@ class PasswordBoard(BaseBoard):
             "▣ Edit (e)    ▣ Archive (a)",
         ]
         
-        return "
-".join([
+        return "\n".join([
             self._render_card("Credentials", cred_rows),
             "",
             self._render_card("Quick Actions", action_rows)
@@ -58,7 +56,7 @@ class NoteBoard(BaseBoard):
     """Matches 'Note Board.png' mockup."""
     def render(self) -> str:
         d = self.entry_data
-        content = d.get('content', '')
+        content = str(d.get('content', ''))
         # Truncate for preview
         preview = (content[:200] + '...') if len(content) > 200 else content
         
@@ -68,8 +66,7 @@ class NoteBoard(BaseBoard):
             "▣ Archive (a)",
         ]
         
-        return "
-".join([
+        return "\n".join([
             self._render_card("Content", content_rows),
             "",
             self._render_card("Quick Actions", action_rows)

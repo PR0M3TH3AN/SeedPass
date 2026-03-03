@@ -77,10 +77,8 @@ class MaximizedInspectorScreen(Screen):
         kind = entry.get('kind', 'Unknown')
         
         # Build a large detail view
-        header = f"[b]ENTRY #{eid} - {label.upper()} ({kind})[/b]
-"
-        divider = "=" * 60 + "
-"
+        header = f"[b]ENTRY #{eid} - {label.upper()} ({kind})[/b]\n"
+        divider = "=" * 60 + "\n"
         
         # Meta info
         meta_lines = [
@@ -92,13 +90,9 @@ class MaximizedInspectorScreen(Screen):
         
         # Content (if note/doc)
         content = entry.get('content', '')
-        content_block = f"
-[b]CONTENT / NOTES:[/b]
-{divider}{content}
-" if content else ""
+        content_block = f"\n[b]CONTENT / NOTES:[/b]\n{divider}{content}\n" if content else ""
         
-        final_text = header + divider + "
-".join(meta_lines) + content_block
+        final_text = header + divider + "\n".join(meta_lines) + content_block
         self.query_one("#max-inspector-content", Static).update(final_text)
 
     def action_reveal(self) -> None:
