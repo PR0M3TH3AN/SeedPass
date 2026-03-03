@@ -291,6 +291,13 @@ def launch_tui2(
             padding: 1;
             margin-top: 0;
         }
+        #settings-board {
+            height: 1fr;
+            overflow: auto;
+            border: solid #2abf75;
+            padding: 1;
+            margin-top: 0;
+        }
         #right-view { height: 1fr; }
         #right-editor { height: 1fr; }
         #doc-edit-label { margin-bottom: 1; }
