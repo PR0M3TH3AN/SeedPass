@@ -135,50 +135,52 @@ class CommandProcessor:
         else:
             self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
 
+class BrandFingerprint(Static):
+    """Placeholder for the top left fingerprint block matching mockups."""
+    def render(self) -> str:
+        app = self.app
+        fp = app.active_fingerprint or "No Profile"
+        return f"{fp[:24]}"
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "active_fingerprint", self.refresh)
+
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
         yield CommandPalette(id="palette")
-        yield Static("SeedPass ◈ UI v3", id="brand-strip")
-        yield RibbonHeader(id="top-ribbon")
-        with Vertical(id="body"):
-            with Horizontal(id="top-work"):
-                yield SidebarContainer(id="left")
-                with Vertical(id="center"):
-                    yield GridContainer(id="grid-work")
-            with Vertical(id="right"):
-                yield Static("Inspector Board", id="inspector-heading")
-                yield BoardContainer(id="board-container")
+        with Horizontal(id="body"):
+            with Vertical(id="left-pane"):
+                yield BrandFingerprint(id="brand-fingerprint")
+                yield SidebarContainer(id="sidebar-container")
+            with Vertical(id="right-pane"):
+                yield RibbonHeader(id="ribbon-header")
+                yield GridContainer(id="grid-container")
+                with Vertical(id="inspector-pane"):
+                    yield Static("Inspector Board", id="inspector-heading")
+                    yield BoardContainer(id="board-container")
         yield ActionBar(id="action-bar")
-        yield Footer()
 
 class SeedPassTuiV3(App[None]):
     """
     SeedPass TUI v3 - Rebuilt from scratch for modularity and mockup fidelity.
     """
     CSS = """
-    #brand-strip {
-        background: #0b0f13;
-        color: #58f29d;
+    #brand-fingerprint {
+        background: #000000;
+        color: #ffffff;
         text-style: bold;
-        border: solid #2abf75;
-        margin: 0 1;
-        padding: 0 1;
         height: 3;
         content-align: center middle;
+        border: solid #000000;
+        padding: 0;
     }
     #body { height: 1fr; margin: 0 1; }
-    #top-work { height: 6fr; }
-    #left { width: 31; border: solid #1a3024; background: #0d1114; }
-    #center { width: 1fr; border: solid #1a3024; background: #0d1114; margin-left: 1; }
-    #right { height: 5fr; border: heavy #3ce79c; background: #0d1114; margin-top: 1; }
-    #status {
-        height: 3;
-        padding: 0 1;
-        border: heavy #58f29d;
-        background: #11191f;
-        color: #e4fff2;
-        margin: 0 1;
-    }
+    #left-pane { width: 35; border: solid black; background: #999999; }
+    #right-pane { width: 1fr; border: solid black; background: #999999; margin-left: 0; }
+    #inspector-pane { height: 5fr; border-top: heavy black; background: #000000; margin-top: 0; }
+    #inspector-heading { background: #000000; color: #ffffff; padding: 0 1; }
+    
+    /* Global classes that might be used by children */
     #sidebar-placeholder, #grid-placeholder, #inspector-placeholder {
         height: 1fr;
         content-align: center middle;

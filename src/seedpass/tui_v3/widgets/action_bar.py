@@ -12,12 +12,12 @@ class ActionBar(Static):
     
     DEFAULT_CSS = """
     ActionBar {
-        height: 3;
-        background: #11191f;
-        color: #daf2e5;
-        border: heavy #2abf75;
+        height: 2;
+        background: #999999;
+        color: #000000;
+        border: solid black;
         padding: 0 1;
-        margin: 0 1;
+        margin: 0;
     }
     """
 
@@ -25,20 +25,21 @@ class ActionBar(Static):
         app = self.app
         selected_id = app.selected_entry_id
         
-        # Global Row
+        # Global Row - mockup format
         is_managed = False
         try:
             is_managed = len(getattr(app.services.get("vault")._manager, "profile_stack", [])) > 0
         except:
             pass
             
-        exit_hint = "  Exit (Shift+M)" if is_managed else ""
+        exit_hint = "    [M]anaged Exit" if is_managed else ""
         global_row = (
-            f"Settings (Shift+S)  Add (Shift+A)  Seed+ (Shift+C)  "
-            f"Backup (B)  Cmd (Ctrl+P){exit_hint}"
+            f"[b][S][/b]ettings    [b][A][/b]dd New Entry    "
+            f"[b][C][/b]reate New Seed    [b][R][/b]emove Seed    "
+            f"[b][E][/b]xport Data    [b][I][/b]mport Data    [b][B][/b]ackup Data{exit_hint}"
         )
         
-        # Context Row
+        # Context Row (added from previous phase parity)
         if selected_id is None:
             context = "Select an entry to view actions."
         else:
@@ -46,15 +47,15 @@ class ActionBar(Static):
                 entry = app.services["entry"].retrieve_entry(selected_id)
                 kind = str(entry.get("kind") or entry.get("type") or "").lower()
                 
-                actions = ["Reveal (v)", "QR (g)", "Edit (e)", "Archive (a)", "Copy (c)", "Max (z)"]
+                actions = ["[b][v][/b] Reveal", "[b][g][/b] QR", "[b][e][/b] Edit", "[b][a][/b] Archive", "[b][c][/b] Copy", "[b][z][/b] Maximize"]
                 if kind in {"managed_account", "seed"}:
-                    actions.insert(4, "Load (m)")
+                    actions.insert(4, "[b][m][/b] Load")
                 if kind in {"document", "note"}:
-                    actions.insert(5, "Export (x)")
+                    actions.insert(5, "[b][x][/b] Export")
                     
-                context = f"Entry #{selected_id} ({kind}) " + " ▣ ".join(actions)
+                context = f"   Context ({kind}): " + " ▣ ".join(actions)
             except Exception:
-                context = f"Entry #{selected_id} [Error fetching details]"
+                context = f"   Error fetching context details for Entry #{selected_id}"
             
         return f"{global_row}\n{context}"
 

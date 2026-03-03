@@ -75,34 +75,25 @@ class ProfileTree(Tree):
 class SidebarContainer(Static):
     """Container for the sidebar tree and toggle."""
     def compose(self) -> ComposeResult:
-        yield Static("PROFILES", id="sidebar-title")
         yield ProfileTree("Profiles", id="profile-tree")
 
     DEFAULT_CSS = """
     SidebarContainer {
-        width: 31;
-        background: #0d1114;
-        border-right: solid #1a3024;
-    }
-    #sidebar-title {
-        background: #1a3024;
-        color: #58f29d;
-        text-style: bold;
-        padding: 0 1;
-        height: 1;
+        width: 100%;
+        background: #999999;
     }
     #profile-tree {
-        background: transparent;
-        color: #97b8a6;
+        background: #999999;
+        color: #000000;
         border: none;
         padding: 0;
     }
     #profile-tree > .tree--guides {
-        color: #1a3024;
+        color: #000000;
     }
     #profile-tree > .tree--cursor {
-        background: #122019;
-        color: #58f29d;
+        background: #000000;
+        color: #ffffff;
         text-style: bold;
     }
     """

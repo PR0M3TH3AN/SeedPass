@@ -13,33 +13,41 @@ class RibbonHeader(Static):
     
     DEFAULT_CSS = """
     RibbonHeader {
-        height: 3;
-        background: #10181f;
-        color: #daf2e5;
-        border: heavy #2abf75;
+        height: 1;
+        background: #999999;
+        color: #000000;
         padding: 0 1;
-        margin: 0 1;
+        margin: 0;
         text-style: bold;
     }
     """
 
     def render(self) -> str:
         app = self.app
-        fp = app.active_fingerprint or "No Profile"
-        lock_icon = "🔒" if app.session_locked else "🔓"
-        status = "LOCKED" if app.session_locked else "UNLOCKED"
         
-        # In a real app, we'd fetch stats from the service. 
-        # For the shell, we'll use placeholders that look like the mockup.
-        stats = "Entries: 0 | PWD: 0 | 2FA: 0 | Keys: 0"
-        sync = "Sync: Never"
+        # Gather metrics from actual services
+        managed = 0
+        try:
+            managed = len(getattr(app.services.get("vault")._manager, "profile_stack", []))
+        except:
+            pass
+            
+        entries = 0
+        try:
+            table = app.screen.query_one("#entry-data-table")
+            if table:
+                entries = len(table.rows)
+        except:
+            pass
+            
+        sync = "YYY-MM-DDThh:mm:ssTZD"
         
-        # Layout: [Icon] Status | Fingerprint | Stats | Sync
-        left = f"{lock_icon} {status} | Seed: {fp}"
-        right = f"{stats} | {sync}"
+        # Build the exact string parts from the mockup
+        left = f"Managed Users: {managed}       Entries: {entries}       ◀ ▶ Kind = {app.filter_kind.capitalize()}"
+        right = f"Last Sync: {sync}"
         
-        # Calculate spacing to push sync to the right
-        available_width = self.size.width - len(left) - len(right) - 4
+        # Calculate spacing to push sync to the right edge
+        available_width = self.size.width - len(left) - len(right) - 2
         spacer = " " * max(1, available_width)
         
         return f"{left}{spacer}{right}"
@@ -48,3 +56,4 @@ class RibbonHeader(Static):
         # Refresh the header whenever important app state changes
         self.watch(self.app, "active_fingerprint", self.refresh)
         self.watch(self.app, "session_locked", self.refresh)
+        self.watch(self.app, "filter_kind", self.refresh)

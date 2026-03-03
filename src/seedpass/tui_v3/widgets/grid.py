@@ -172,26 +172,27 @@ class GridContainer(Static):
     DEFAULT_CSS = """
     GridContainer {
         height: 1fr;
-        background: #0d1114;
+        background: #999999;
     }
     #grid-divider {
-        color: #1a3024;
+        color: #000000;
         height: 1;
-        padding: 0 1;
+        padding: 0;
+        background: black;
     }
     #entry-data-table {
-        background: transparent;
-        color: #97b8a6;
+        background: #999999;
+        color: #000000;
         border: none;
         height: 1fr;
     }
     #entry-data-table > .datatable--header {
-        background: #0b0f13;
-        color: #58f29d;
+        background: #999999;
+        color: #000000;
         text-style: bold;
     }
     #entry-data-table > .datatable--cursor {
-        background: #122019;
-        color: #58f29d;
+        background: #000000;
+        color: #ffffff;
     }
     """

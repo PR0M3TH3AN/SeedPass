@@ -51,7 +51,7 @@ We have successfully scaffolded the core v3 shell:
 - [x] **Edit Workflows:** Unified `EditEntryScreen` implemented to support all types.
 
 ### Phase B: High-Fidelity Refinement
-- [ ] **Mockup 1:1 Polish:** Final pass on spacing/density for all 9 PNG mockups.
+- [x] **Mockup 1:1 Polish:** Final pass on spacing/density for all 9 PNG mockups.
 - [x] **Action Bar Hardening:** Bottom bar segments now reflect active entry kind and session state.
 - [x] **Notifications:** Unified snackbar/toast system for service feedback.
 - [x] **Search/Filter Parity:** Filter presets and archive scope controls wired.
