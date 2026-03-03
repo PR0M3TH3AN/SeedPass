@@ -49,7 +49,7 @@ class InspectorHeader(Static):
             yield Label("[b]Black Listed? No[/b]", id="hdr-bl", classes="meta-item")
             yield Label("[b]Index Num*:[/b]\n0", id="hdr-idx", classes="meta-item")
             yield Label("[b]Entry Num:[/b]\n1", id="hdr-enum", classes="meta-item")
-        yield Label("Edit", classes="edit-btn")
+        yield Label("[@click=app.edit_selected]Edit[/]", classes="edit-btn")
 
     def update_data(self, entry: dict, kind_label: str):
         if not self.is_mounted: return
@@ -98,8 +98,8 @@ class PasswordBoard(BaseBoard):
                     yield Label("Password*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("**********", id="fld-pass-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
-                        yield Label("Create New", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label("[@click=app.add_entry]Create New[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Username*", classes="field-title")
                     yield Label("-", id="fld-user-val")
@@ -163,7 +163,7 @@ class TotpBoard(BaseBoard):
                     yield Label("2FA Code*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("------  (30s left)", id="fld-code-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Secret", classes="field-title")
                     yield Label("-", id="fld-secret-val")
@@ -255,7 +255,7 @@ class SeedBoard(BaseBoard):
                     yield Label("Seed Phrase*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-phrase-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Fingerprint", classes="field-title")
                     yield Label("-", id="fld-fp-val")
@@ -312,12 +312,12 @@ class SshBoard(BaseBoard):
                     yield Label("Private Key*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-priv-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Public Key", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[PREVIEW]", id="fld-pub-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Key Type", classes="field-title")
                     yield Label("Ed25519", id="fld-type-val")
@@ -359,7 +359,7 @@ class PgpBoard(BaseBoard):
                     yield Label("Private Key*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-priv-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Fingerprint / ID", classes="field-title")
                     yield Label("-", id="fld-fp-val")
@@ -401,12 +401,12 @@ class NostrBoard(BaseBoard):
                     yield Label("nsec (Secret)*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-nsec-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("npub (Public)", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("-", id="fld-npub-val", classes="field-val")
-                        yield Label("Copy", classes="action-btn")
+                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
                 with Vertical(classes="field-box"):
                     yield Label("Hex Key", classes="field-title")
                     yield Label("-", id="fld-hex-val")
@@ -501,6 +501,7 @@ class BoardContainer(Vertical):
         padding: 0;
         margin: 0;
         background: #000000;
+        overflow: auto;
     }
     """
 

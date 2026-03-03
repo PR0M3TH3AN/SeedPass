@@ -12,7 +12,8 @@ class ActionBar(Static):
     
     DEFAULT_CSS = """
     ActionBar {
-        height: 2;
+        height: auto;
+        min-height: 4;
         background: #999999;
         color: #000000;
         border: solid black;
@@ -32,11 +33,12 @@ class ActionBar(Static):
         except:
             pass
             
-        exit_hint = "    [M]anaged Exit" if is_managed else ""
+        exit_hint = "    [@click='app.managed_exit'][b][M][/b]anaged Exit[/]" if is_managed else ""
         global_row = (
-            f"[b][S][/b]ettings    [b][A][/b]dd New Entry    "
-            f"[b][C][/b]reate New Seed    [b][R][/b]emove Seed    "
-            f"[b][E][/b]xport Data    [b][I][/b]mport Data    [b][B][/b]ackup Data{exit_hint}"
+            f"[@click='app.toggle_settings'][b][S][/b]ettings[/]    [@click='app.add_entry'][b][A][/b]dd New Entry[/]    "
+            f"[@click='app.seed_plus'][b][C][/b]reate New Seed[/]    "
+            f"[@click='app.open_palette'][b][R][/b]emove Seed[/]    "
+            f"[@click='app.action_db_export'][b][E][/b]xport Data[/]    [@click='app.action_db_import'][b][I][/b]mport Data[/]    [@click='app.open_palette'][b][B][/b]ackup Data[/]{exit_hint}"
         )
         
         # Context Row (added from previous phase parity)
@@ -47,11 +49,18 @@ class ActionBar(Static):
                 entry = app.services["entry"].retrieve_entry(selected_id)
                 kind = str(entry.get("kind") or entry.get("type") or "").lower()
                 
-                actions = ["[b][v][/b] Reveal", "[b][g][/b] QR", "[b][e][/b] Edit", "[b][a][/b] Archive", "[b][c][/b] Copy", "[b][z][/b] Maximize"]
+                actions = [
+                    "[@click='app.reveal_selected'][b][v][/b] Reveal[/]", 
+                    "[@click='app.show_qr'][b][g][/b] QR[/]", 
+                    "[@click='app.edit_selected'][b][e][/b] Edit[/]", 
+                    "[@click='app.toggle_archive'][b][a][/b] Archive[/]", 
+                    "[@click='app.copy_selected'][b][c][/b] Copy[/]", 
+                    "[@click='app.maximize_inspector'][b][z][/b] Maximize[/]"
+                ]
                 if kind in {"managed_account", "seed"}:
-                    actions.insert(4, "[b][m][/b] Load")
+                    actions.insert(4, "[@click='app.managed_load'][b][m][/b] Load[/]")
                 if kind in {"document", "note"}:
-                    actions.insert(5, "[b][x][/b] Export")
+                    actions.insert(5, "[@click='app.export_selected'][b][x][/b] Export[/]")
                     
                 context = f"   Context ({kind}): " + " ▣ ".join(actions)
             except Exception:
