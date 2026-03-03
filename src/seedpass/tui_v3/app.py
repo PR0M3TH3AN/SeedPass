@@ -17,6 +17,7 @@ from .widgets.palette import CommandPalette
 from .widgets.action_bar import ActionBar
 from .screens.settings import SettingsScreen
 from .screens.inspector import MaximizedInspectorScreen
+from .screens.relays import RelaysScreen
 
 
 def render_qr_ascii(data: str) -> str:
@@ -52,7 +53,7 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx"
+                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, relay-list, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -103,6 +104,8 @@ class CommandProcessor:
                 self.app.notify("Entry ID must be an integer", severity="error")
         elif cmd == "settings":
             self.app.action_toggle_settings()
+        elif cmd == "relay-list":
+            self.app.action_toggle_relays()
         elif cmd == "maximize":
             self.app.action_maximize_inspector()
         elif cmd == "add":
@@ -324,6 +327,10 @@ class SeedPassTuiV3(App[None]):
     def action_toggle_settings(self) -> None:
         """Push the full-screen settings screen."""
         self.push_screen(SettingsScreen())
+
+    def action_toggle_relays(self) -> None:
+        """Push the Nostr Relay Management screen."""
+        self.push_screen(RelaysScreen())
 
     def action_add_entry(self) -> None:
         """Open the add entry wizard."""

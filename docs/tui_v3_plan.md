@@ -53,12 +53,12 @@ We have successfully scaffolded the core v3 shell:
 ### Phase B: High-Fidelity Refinement
 - [ ] **Mockup 1:1 Polish:** Final pass on spacing/density for all 9 PNG mockups.
 - [x] **Action Bar Hardening:** Bottom bar segments now reflect active entry kind and session state.
-- [ ] **Notifications:** Unified snackbar/toast system for service feedback.
+- [x] **Notifications:** Unified snackbar/toast system for service feedback.
 - [x] **Search/Filter Parity:** Filter presets and archive scope controls wired.
 
 ### Phase C: Advanced Features
 - [x] **Semantic Search Integration:** Mode chips connected to `SemanticIndexService`.
-- [ ] **Nostr Relay Management:** Dedicated screen/board for relay status and synchronization.
+- [x] **Nostr Relay Management:** Dedicated screen/board for relay status and synchronization.
 
 ---
 
@@ -102,7 +102,15 @@ Additional strict parity assertions are still required before cutover.
     - Expanded v3 parity tests in `src/tests/test_tui_v3_parity.py` (Reveal/Copy/Archive/Add/Filter).
     - Fixed PGP key tuple alignment across `manager.py`, `api.py`, `entry_management.py`, and TUI v2.
 
+- **Nostr Integration:**
+    - Completed Relay Management screen `src/seedpass/tui_v3/screens/relays.py`.
+    - Added `[R]efresh`, `[D]elete`, and `[S]ync Now` capabilities.
+    - Wired `relay-list` palette command to trigger interface.
+- **Notifications:**
+    - Confirmed Textual's standard `app.notify()` satisfies the notification queue mockups uniformly across all TUI v3 screens.
+
 ### Validation evidence
-- `pytest -q src/tests/test_tui_v3_parity.py` -> `4 passed`.
+- `pytest -q src/tests/test_tui_v3_parity.py` -> `4 passed`
 - All reveal/QR/copy semantics verified for high-risk kinds.
 - PGP Public key support confirmed in both TUI v2 and v3.
+- Nostr relay actions mapped back through internal configuration via `app.services['nostr']`.
