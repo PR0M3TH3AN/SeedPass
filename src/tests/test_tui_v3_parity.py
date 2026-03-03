@@ -1,6 +1,8 @@
 from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
+
+pytest.importorskip("textual")
 from textual.widgets import DataTable
 from seedpass.tui_v3.app import SeedPassTuiV3
 
