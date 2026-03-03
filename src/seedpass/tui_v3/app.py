@@ -13,11 +13,52 @@ from .widgets.header import RibbonHeader
 from .widgets.sidebar import SidebarContainer
 from .widgets.grid import GridContainer
 from .widgets.inspector import BoardContainer
+from .widgets.palette import CommandPalette
 from .screens.settings import SettingsScreen
 from .screens.inspector import MaximizedInspectorScreen
 
+class CommandProcessor:
+    """Handles logic for palette commands in TUI v3."""
+    def __init__(self, app: SeedPassTuiV3):
+        self.app = app
+
+    def execute(self, raw: str) -> None:
+        import shlex
+        try:
+            parts = shlex.split(raw)
+        except Exception as e:
+            self.app.notify(f"Parse error: {e}", severity="error")
+            return
+        
+        if not parts: return
+        cmd = parts[0].lower()
+        args = parts[1:]
+
+        if cmd == "help":
+            self.app.notify("v3 commands: stats, lock, refresh, settings, maximize")
+        elif cmd == "stats":
+            self.app.notify("Calculating stats...")
+            # We reuse the existing stats logic
+            if "vault" in self.app.services:
+                stats = self.app.services["vault"].stats()
+                self.app.notify(f"Total entries: {stats.get('total_entries', 0)}")
+        elif cmd == "lock":
+            if "vault" in self.app.services:
+                self.app.services["vault"].lock()
+                self.app.session_locked = True
+                self.app.notify("Vault locked")
+        elif cmd == "refresh":
+            self.app.action_refresh()
+        elif cmd == "settings":
+            self.app.action_toggle_settings()
+        elif cmd == "maximize":
+            self.app.action_maximize_inspector()
+        else:
+            self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
+
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
+        yield CommandPalette(id="palette")
         yield Static("SeedPass ◈ UI v3", id="brand-strip")
         yield RibbonHeader(id="top-ribbon")
         with Vertical(id="body"):
@@ -108,6 +149,7 @@ class SeedPassTuiV3(App[None]):
 
     def on_mount(self) -> None:
         """Initialize services and push the main screen."""
+        self.processor = CommandProcessor(self)
         for name, factory in self.factories.items():
             if factory:
                 try:
@@ -119,6 +161,10 @@ class SeedPassTuiV3(App[None]):
         self.push_screen(MainScreen())
         # Global UI Heartbeat (for 2FA ticking etc)
         self.set_interval(1.0, self.action_refresh_ui_quiet)
+
+    def on_command_palette_command_executed(self, message: CommandPalette.CommandExecuted) -> None:
+        """Handle command from palette."""
+        self.processor.execute(message.command)
 
     def action_refresh_ui_quiet(self) -> None:
         """Background refresh for dynamic elements (2FA)."""
@@ -157,8 +203,11 @@ class SeedPassTuiV3(App[None]):
         self.notify("UI Refreshed")
 
     def action_open_palette(self) -> None:
-        # Placeholder for unified command palette
-        self.notify("Palette coming soon in v3")
+        """Toggle the command palette."""
+        try:
+            self.query_one("#palette").toggle()
+        except Exception:
+            pass
 
     def action_toggle_settings(self) -> None:
         """Push the full-screen settings screen."""
