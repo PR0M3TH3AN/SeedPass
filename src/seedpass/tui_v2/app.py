@@ -118,10 +118,100 @@ def launch_tui2(
     except Exception:  # pragma: no cover - runtime fallback for older textual
         TextArea = None
 
+    from textual.screen import Screen
+
     class EntryListItem(ListItem):
         def __init__(self, entry_index: int, text: str) -> None:
             super().__init__(Label(text))
             self.entry_index = int(entry_index)
+
+    class SettingsScreen(Screen):
+        """Full-screen settings management."""
+        BINDINGS = [("escape", "app.pop_screen", "Back")]
+
+        def compose(self) -> ComposeResult:
+            yield Static("SeedPass ◈ Settings", id="settings-title")
+            with Vertical(id="settings-container"):
+                yield Static("", id="settings-content")
+            yield Static("Press ESC to return to vault", id="settings-footer")
+
+        def on_mount(self) -> None:
+            self._refresh_settings()
+
+        def _refresh_settings(self) -> None:
+            # We use app properties via self.app
+            app = self.app
+            if app._config_service is None:
+                self.query_one("#settings-content", Static).update("Config service unavailable")
+                return
+
+            def get_val(key, default=""):
+                try:
+                    return app._config_service.get(key) or default
+                except Exception:
+                    return "(error)"
+
+            security_rows = [
+                f"Secret Mode    : {get_val('secret_mode_enabled', False)}  (setting-secret on|off)",
+                f"Quick Unlock   : {get_val('quick_unlock', False)}  (setting-quick-unlock on|off)",
+                f"KDF Iterations : {get_val('kdf_iterations', 100000)}  (setting-kdf-iterations <n>)",
+                f"KDF Mode       : {get_val('kdf_mode', 'argon2id')}  (setting-kdf-mode <mode>)",
+                f"Lock Timeout   : {get_val('inactivity_timeout', 300)}s  (setting-timeout <s>)",
+            ]
+            
+            backup_rows = [
+                f"Backup Path    : {get_val('additional_backup_path', '(none)')}  (db-export <path>)",
+                f"Backup Interval: {get_val('backup_interval', 3600)}s",
+            ]
+
+            nostr_rows = [
+                f"Sync Mode      : {get_val('semantic_search_mode', 'keyword')}  (search-mode ...)",
+                f"Relays         : {len(get_val('relays', []))}  (relay-list)",
+            ]
+
+            rendered_lines = [
+                *app._board_card("Security Configuration", security_rows),
+                "",
+                *app._board_card("Storage & Backup", backup_rows),
+                "",
+                *app._board_card("Connectivity & Nostr", nostr_rows),
+            ]
+            self.query_one("#settings-content", Static).update("\n".join(rendered_lines))
+
+    class InspectorScreen(Screen):
+        """Full-screen maximized entry detail view."""
+        BINDINGS = [
+            ("escape", "app.pop_screen", "Back"),
+            ("v", "reveal", "Reveal"),
+            ("g", "qr", "QR"),
+        ]
+
+        def compose(self) -> ComposeResult:
+            yield Static("SeedPass ◈ Detailed Inspection", id="inspector-title")
+            with Vertical(id="inspector-container"):
+                yield Static("", id="maximized-detail")
+            yield Static("ESC: Back | v: Reveal | g: QR", id="inspector-footer")
+
+        def on_mount(self) -> None:
+            self._refresh_detail()
+
+        def _refresh_detail(self) -> None:
+            app = self.app
+            if app._selected_entry_id is None:
+                self.query_one("#maximized-detail", Static).update("No entry selected.")
+                return
+            
+            # Use app's rendering logic but formatted for full screen
+            detail = app._entry_detail_text(app._selected_entry)
+            self.query_one("#maximized-detail", Static).update(detail)
+
+        def action_reveal(self) -> None:
+            self.app.action_reveal_selected()
+            self._refresh_detail()
+
+        def action_qr(self) -> None:
+            self.app.action_show_qr()
+            self._refresh_detail()
 
     class SeedPassTuiV2(App[None]):
         RESULT_PAGE_SIZE = 200
@@ -324,6 +414,31 @@ def launch_tui2(
         }
         .pane-focus { border: heavy #58f29d; }
         .hidden { display: none; }
+
+        #settings-title, #inspector-title {
+            background: #0b0f13;
+            color: #58f29d;
+            text-style: bold;
+            text-align: center;
+            height: 3;
+            border: double #2abf75;
+            padding: 0 1;
+        }
+        #settings-container, #inspector-container {
+            height: 1fr;
+            margin: 1 2;
+            border: solid #1a3024;
+            padding: 1;
+            overflow: auto;
+        }
+        #settings-footer, #inspector-footer {
+            height: 3;
+            background: #11191f;
+            color: #daf2e5;
+            text-align: center;
+            border: double #2abf75;
+            padding: 0 1;
+        }
         """
         BINDINGS = [
             ("q", "quit", "Quit"),
@@ -369,6 +484,7 @@ def launch_tui2(
             ("ctrl+p", "open_palette", "Palette"),
             ("ctrl+b", "toggle_sidebar", "Sidebar"),
             ("escape", "cancel_document_edit", "Cancel"),
+            ("z", "maximize_inspector", "Maximize"),
         ]
 
         filter_kind: reactive[str] = reactive("all")
@@ -906,23 +1022,23 @@ def launch_tui2(
                 kind_l = self._entry_kind(self._selected_entry)
             kind = kind_l
             if kind_l in {"password", "stored_password"}:
-                context = "Entry ▣ Reveal (v) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
+                context = "Entry ▣ Reveal (v) ▣ QR (g) ▣ Edit (e) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l == "managed_account":
-                context = "Entry ▣ managed-load ▣ managed-exit ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
+                context = "Entry ▣ managed-load ▣ managed-exit ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l == "seed":
-                context = "Entry ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
+                context = "Entry ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l == "totp":
-                context = "Entry ▣ 2FA Board (6) ▣ Reveal (v) ▣ QR (g) ▣ Archive (a)"
+                context = "Entry ▣ 2FA Board (6) ▣ Reveal (v) ▣ QR (g) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l in {"ssh", "pgp"}:
-                context = "Entry ▣ Reveal (v confirm) ▣ Archive (a) ▣ copy/export-field"
+                context = "Entry ▣ Reveal (v confirm) ▣ Archive (a) ▣ copy/export-field ▣ Maximize (z)"
             elif kind_l == "nostr":
-                context = "Entry ▣ Reveal (v) ▣ QR (g public/private) ▣ Archive (a)"
+                context = "Entry ▣ Reveal (v) ▣ QR (g public/private) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l in {"document", "note"}:
                 context = (
-                    "Entry ▣ Edit Doc (e) ▣ Save (Ctrl+S) ▣ Archive (a) ▣ doc-export"
+                    "Entry ▣ Edit Doc (e) ▣ Save (Ctrl+S) ▣ Archive (a) ▣ Maximize (z) ▣ doc-export"
                 )
             elif kind_l == "key_value":
-                context = "Entry ▣ set-field/clear-field ▣ Archive (a) ▣ notes/tags"
+                context = "Entry ▣ set-field/clear-field ▣ Archive (a) ▣ Maximize (z) ▣ notes/tags"
             else:
                 context = "Select an entry to view context actions."
             if kind:
@@ -1021,6 +1137,8 @@ def launch_tui2(
                 return "edit"
             if lead in {"a", "archive", "arch"}:
                 return "archive"
+            if lead in {"z", "maximize", "max"}:
+                return "maximize"
             if lead in {"6", "2fa"}:
                 return "totp_board"
             if lead in {"managed-load", "managed_load", "ml"}:
@@ -1058,6 +1176,8 @@ def launch_tui2(
                 self.action_edit_document()
             elif action == "archive":
                 self.action_toggle_archive()
+            elif action == "maximize":
+                self.action_maximize_inspector()
             elif action == "totp_board":
                 self.action_toggle_totp_board()
             elif action == "managed_load":
@@ -3495,6 +3615,13 @@ def launch_tui2(
                     self._set_status("Usage: settings")
                     return
                 self.action_toggle_settings()
+                return
+
+            if cmd == "maximize":
+                if args:
+                    self._set_status("Usage: maximize")
+                    return
+                self.action_maximize_inspector()
                 return
             if cmd == "density":
                 if len(args) != 1:
@@ -5975,12 +6102,18 @@ def launch_tui2(
             if self._session_locked:
                 self._set_status("Vault is locked. Run: unlock <password>")
                 return
-            if self.settings_open:
-                self._set_right_pane_mode("view")
-                self._set_status("Closed settings board")
-            else:
-                self._set_right_pane_mode("settings")
-                self._set_status("Opened settings board")
+            self.push_screen(SettingsScreen())
+            self._set_status("Opened settings screen")
+
+        def action_maximize_inspector(self) -> None:
+            if self._session_locked:
+                self._set_status("Vault is locked. Run: unlock <password>")
+                return
+            if self._selected_entry_id is None:
+                self._set_status("Select an entry first to maximize")
+                return
+            self.push_screen(InspectorScreen())
+            self._set_status(f"Maximized entry #{self._selected_entry_id}")
 
         def action_shortcut_add_entry(self) -> None:
             self._open_palette_with_prefix("add-", "Add-entry shortcut opened")
