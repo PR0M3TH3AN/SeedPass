@@ -2,6 +2,7 @@ from __future__ import annotations
 import importlib.util
 from typing import Any
 
+
 def check_tui3_runtime() -> dict[str, Any]:
     """Return runtime capability diagnostics for TUI v3."""
     textual_available = importlib.util.find_spec("textual") is not None
@@ -15,6 +16,7 @@ def check_tui3_runtime() -> dict[str, Any]:
             else "Textual is not installed. Install `textual` to run tui3."
         ),
     }
+
 
 def launch_tui3(
     *,
@@ -35,7 +37,7 @@ def launch_tui3(
         return False
 
     from .app import SeedPassTuiV3
-    
+
     app = SeedPassTuiV3(
         fingerprint=fingerprint,
         entry_service_factory=entry_service_factory,
@@ -47,10 +49,10 @@ def launch_tui3(
         vault_service_factory=vault_service_factory,
         semantic_service_factory=semantic_service_factory,
     )
-    
+
     if callable(app_hook):
         app_hook(app)
         return True
-        
+
     app.run()
     return True

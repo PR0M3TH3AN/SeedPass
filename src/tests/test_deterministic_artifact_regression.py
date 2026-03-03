@@ -150,7 +150,9 @@ def test_deterministic_vectors_index_352_regression():
             hashlib.sha256(ssh_pub.encode("utf-8")).hexdigest() == vector.ssh_pub_sha256
         )
 
-    pgp_key, pgp_fp = derive_pgp_key(bip85, 352, "ed25519", "SeedPass Regression")
+    pgp_key, pgp_pub, pgp_fp = derive_pgp_key(
+        bip85, 352, "ed25519", "SeedPass Regression"
+    )
     assert pgp_fp == "46A5AEB6797495ABCDC91E5687DC058A9B6AF8FA"
     assert (
         hashlib.sha256(pgp_key.encode("utf-8")).hexdigest()
@@ -158,7 +160,7 @@ def test_deterministic_vectors_index_352_regression():
     )
 
     # Pin deterministic RSA behavior at one known vector too.
-    rsa_key, rsa_fp = derive_pgp_key(bip85, 352, "rsa", "SeedPass Regression")
+    rsa_key, rsa_pub, rsa_fp = derive_pgp_key(bip85, 352, "rsa", "SeedPass Regression")
     assert rsa_fp == "A04FE91ED24354AC13E25C43677FE463B8C74495"
     assert (
         hashlib.sha256(rsa_key.encode("utf-8")).hexdigest()
