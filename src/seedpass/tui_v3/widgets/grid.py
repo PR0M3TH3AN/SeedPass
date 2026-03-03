@@ -39,14 +39,14 @@ class EntryDataTable(DataTable):
         )
         self._refresh_data()
 
-    def _refresh_data(self) -> None:
+    def _refresh_data(self, query: str = "") -> None:
         self.clear()
         app = self.app
         if "entry" not in app.services:
             return
 
-        # Fetch real data from service
-        entries = app.services["entry"].search_entries("")
+        # Fetch filtered data from service
+        entries = app.services["entry"].search_entries(query)
         for i, (eid, label, user, url, arch, kind) in enumerate(entries):
             marker = "▶" if eid == app.selected_entry_id else " "
             arch_status = "🔒" if arch else " "

@@ -49,6 +49,19 @@ class CommandProcessor:
                 self.app.notify("Vault locked")
         elif cmd == "refresh":
             self.app.action_refresh()
+        elif cmd == "search":
+            query = " ".join(args)
+            self.app.action_search(query)
+        elif cmd == "open":
+            if not args:
+                self.app.notify("Usage: open <id>", severity="warning")
+                return
+            try:
+                eid = int(args[0])
+                self.app.selected_entry_id = eid
+                self.app.notify(f"Opened Entry #{eid}")
+            except ValueError:
+                self.app.notify("Entry ID must be an integer", severity="error")
         elif cmd == "settings":
             self.app.action_toggle_settings()
         elif cmd == "maximize":
@@ -201,6 +214,14 @@ class SeedPassTuiV3(App[None]):
         self.query_one("#profile-tree")._refresh_tree()
         self.query_one("#entry-data-table")._refresh_data()
         self.notify("UI Refreshed")
+
+    def action_search(self, query: str) -> None:
+        """Search entries and update grid."""
+        try:
+            self.query_one("#entry-data-table")._refresh_data(query)
+            self.notify(f"Search results for: {query}")
+        except Exception:
+            pass
 
     def action_open_palette(self) -> None:
         """Toggle the command palette."""
