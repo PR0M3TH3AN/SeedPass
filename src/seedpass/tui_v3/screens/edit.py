@@ -92,11 +92,11 @@ class EditEntryScreen(Screen):
         with Container(id="editor-container"):
             yield Label(f"EDIT ENTRY #{self.entry_id}", id="screen-title")
             
-            with Horizontal(height=4):
+            with Horizontal(id="edit-row"):
                 with Vertical(id="col-left"):
                     yield Label("Title / Label", classes="field-label")
                     yield Input(placeholder="Title", id="entry-title")
-                with Vertical(id="col-right", margin_left=2):
+                with Vertical(id="col-right"):
                     yield Label("Tags (comma separated)", classes="field-label")
                     yield Input(placeholder="work, personal...", id="entry-tags")
             

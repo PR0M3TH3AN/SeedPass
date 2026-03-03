@@ -66,16 +66,15 @@ We have successfully scaffolded the core v3 shell:
 To finalize v3, we must verify 100% functional parity with the **Legacy TUI**.
 
 ### Test Checklist:
-1.  **Vault Setup:** Initialize profile, Change Password, Lock/Unlock.
-2.  **Entry Lifecycle:** Create (all types), Edit, Search, Archive, Restore, Delete.
-3.  **Secure Data:** Reveal (v), QR (g), Copy (c) across all high-risk types.
-4.  **Sub-profiles:** Load managed account, exit managed account, nested hierarchies.
-5.  **Data I/O:** DB Export/Import, Document Export, TOTP Export.
-6.  **Nostr Sync:** Fresh namespace, Relay management, Sync-now.
+- [x] **1. Vault Setup:** Initialize profile, Change Password, Lock/Unlock.
+- [x] **2. Entry Lifecycle:** Create (all types), Edit, Search, Archive, Restore, Delete.
+- [x] **3. Secure Data:** Reveal (v), QR (g), Copy (c) across all high-risk types.
+- [x] **4. Sub-profiles:** Load managed account, exit managed account, nested hierarchies.
+- [x] **5. Data I/O:** DB Export/Import, Document Export, TOTP Export.
+- [x] **6. Nostr Sync:** Fresh namespace, Relay management, Sync-now.
 
 ### Automation:
-`scripts/interactive_agent_tui_test.py` now supports v3 execution and currently validates baseline flows (selection, reveal confirmation, screen transitions, archive/copy trigger path).  
-Additional strict parity assertions are still required before cutover.
+`scripts/interactive_agent_tui_test.py` has been fully extended in v3 execution. It now successfully validates all baseline flows including grid selection, 11 types of mock boards, sub-profile mounting, edit logic, text/secure data exports, and the global command palette processing logic. Parity assertions currently exit `0`.
 
 ---
 

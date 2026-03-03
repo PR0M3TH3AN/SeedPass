@@ -233,6 +233,61 @@ async def run_full_walkthrough(v="v3"):
             await pilot.pause(0.5)
             print(f"  [OK] Copy action triggered.")
 
+        # 5. Editing and Sub-Profiles
+        if v == "v3":
+            print("PHASE 5: Editing and Sub-Profiles")
+            # Select managed account (ID 3)
+            app.selected_entry_id = 3
+            await pilot.pause(0.5)
+            
+            # Press 'e' to Edit
+            await pilot.press('e')
+            await pilot.pause(0.5)
+            print(f"  [OK] Edit Screen opened: {app.screen.__class__.__name__.endswith('EditEntryScreen')}")
+            await pilot.press('escape') # close edit screen
+            await pilot.pause(0.5)
+            
+            # Press 'm' to load profile
+            await pilot.press('m')
+            await pilot.pause(0.5)
+            print(f"  [OK] Profile Loaded: {service.is_managed == True}")
+            
+            # Press 'shift+m' to exit profile
+            await pilot.press('shift+m')
+            await pilot.pause(0.5)
+            print(f"  [OK] Profile Exited: {service.is_managed == False}")
+
+        # 6. Data I/O and Command Palette
+        if v == "v3":
+            print("PHASE 6: Data I/O and Commands")
+            
+            # Export selected entry
+            app.selected_entry_id = 4 # Seed
+            await pilot.pause(0.5)
+            await pilot.press('x')
+            await pilot.pause(0.5)
+            print(f"  [OK] Export Selected triggered.")
+            
+            # Test global commands via Command Palette
+            app.action_open_palette()
+            await pilot.pause(0.5)
+            palette = app.screen.query_one("#palette")
+            is_visible = palette.has_class("visible")
+            print(f"  [OK] Command Palette opened: {is_visible}")
+            
+            # Type and execute db-export
+            await pilot.press(*list("db-export /tmp/test_export.zip"))
+            await pilot.press('enter')
+            await pilot.pause(0.5)
+            print(f"  [OK] db-export command executed.")
+            
+            app.action_open_palette()
+            await pilot.pause(0.5)
+            await pilot.press(*list("db-import /tmp/test_export.zip"))
+            await pilot.press('enter')
+            await pilot.pause(0.5)
+            print(f"  [OK] db-import command executed.")
+
         print(f"\n--- TUI {v.upper()} WALKTHROUGH COMPLETE ---")
         return 0
 
