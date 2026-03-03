@@ -1073,3 +1073,96 @@ Still needed to match mockup behavior intent:
 - denser row/column presentation,
 - reduced decorative padding.
 3. Next implementation slices should target this density path to effectively fit more content per viewport.
+
+## 29) Progress Update (2026-03-03, Slice: Password/Stored Password/Note Card Geometry)
+
+Completed:
+
+1. Password and Stored Password inspector boards now use stronger card sections:
+- `Credentials`
+- `Quick Actions`
+2. Note/Document board now uses the same card section framing:
+- `Content`
+- `Quick Actions`
+3. Increased note preview payload from 120 to 180 chars for better content-card parity in standard density.
+
+Code references:
+
+1. `src/seedpass/tui_v2/app.py` (`_board_card`, password/stored_password board, note/document board)
+
+Regression coverage:
+
+1. Updated note board metadata test to assert card framing.
+2. Added password board card-section regression test.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `57 passed`.
+
+Remaining strict-closeout slice order unchanged:
+
+1. Final UI-board density pass (table rows + lower inspector balance)
+2. Final action-strip verb/microcopy polish
+
+## 30) Progress Update (2026-03-03, Slice: UI-Board Density Rebalance)
+
+Completed:
+
+1. Dense/high-res layout now rebalances vertical space by context:
+- Idle (no selected entry, no editor, no 2FA board): `top-work=9fr`, `right=3fr`
+- Active inspect/edit/2FA: `top-work=8fr`, `right=4fr`
+2. Added explicit layout rebalance hook so selection and pane-mode transitions re-apply split without requiring window resize.
+3. Rebalance path wired through:
+- page render transitions (empty/non-empty)
+- entry selection/open flow
+- right-pane mode switches (view/edit/2FA)
+
+Code references:
+
+1. `src/seedpass/tui_v2/app.py` (`_update_responsive_layout`, `_refresh_layout_balance`, `_set_right_pane_mode`, `_render_current_page`, `_show_entry`)
+
+Regression coverage:
+
+1. Added dense-mode split behavior test:
+- `test_tui2_textual_hires_density_rebalances_idle_vs_selected`
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.
+
+Remaining strict-closeout slice:
+
+1. Final action-strip verb/microcopy polish.
+
+## 31) Progress Update (2026-03-03, Slice: Action-Strip Verb/Microcopy Polish)
+
+Completed:
+
+1. Context row wording standardized to verb-first labels with key hints:
+- `Reveal (v)`
+- `QR (g)`
+- `Edit (e)` / `Edit Doc (e)`
+- `Archive (a)`
+- `Save (Ctrl+S)`
+- `2FA Board (6)`
+2. Managed account row now retains explicit session controls while matching the same style:
+- `managed-load`
+- `managed-exit`
+- plus reveal/qr/edit/archive with key hints.
+3. Click routing remains compatible after copy update:
+- row-2 parser now recognizes both symbol-led and verb-led tokens (`v`/`Reveal`, `g`/`QR`, etc.).
+
+Code references:
+
+1. `src/seedpass/tui_v2/app.py` (`_update_action_strip`, `_action_strip_context_action`)
+
+Regression coverage:
+
+1. Updated action-strip click + context-update tests to assert verb-led labels.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.

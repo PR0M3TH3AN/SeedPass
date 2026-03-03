@@ -1317,7 +1317,7 @@ async def test_tui2_textual_hires_density_compacts_vertical_chrome() -> None:
         assert str(ribbon.styles.height) == "2"
         assert str(status.styles.height) == "2"
         assert str(action_strip.styles.height) == "2"
-        assert str(grid_heading.styles.height) == "3"
+        assert str(grid_heading.styles.height) == "4"
         assert "Dense" in _widget_text(app, "#action-strip")
         assert "S Set" in _widget_text(app, "#action-strip")
         assert "Keys:" in _widget_text(app, "#filters")
@@ -1336,6 +1336,37 @@ async def test_tui2_textual_hires_density_compacts_vertical_chrome() -> None:
         assert str(action_strip.styles.height) == "3"
         assert str(grid_heading.styles.height) == "4"
         assert "Dense" not in _widget_text(app, "#action-strip")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_hires_density_rebalances_idle_vs_selected() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "hello"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        top_work = app.query_one("#top-work")
+        right = app.query_one("#right")
+
+        app._update_responsive_layout(width=220, height=55)
+        await pilot.pause()
+        assert str(top_work.styles.height) == "9fr"
+        assert str(right.styles.height) == "3fr"
+
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        assert str(top_work.styles.height) == "8fr"
+        assert str(right.styles.height) == "4fr"
+
+        app._set_totp_board_visible(True)
+        await pilot.pause()
+        assert str(top_work.styles.height) == "8fr"
+        assert str(right.styles.height) == "4fr"
 
 
 @pytest.mark.anyio
@@ -1501,6 +1532,8 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "Kind: document | Modified:" in board
         assert "Index Num*:" in board
         assert "Document Fields" in board
+        assert "+- Content " in board
+        assert "+- Quick Actions " in board
 
         app._run_palette_command("open 2")
         await pilot.pause()
@@ -1509,6 +1542,34 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "Kind: totp | Modified:" in board
         assert "Index Num*:" in board
         assert "2FA Fields" in board
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_password_board_uses_card_sections() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "Login 1",
+                "username": "alice",
+                "url": "https://example.com",
+                "length": 18,
+            }
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "Password Board" in board
+        assert "Login Fields" in board
+        assert "+- Credentials " in board
+        assert "Password*: hidden (v reveal, g qr)" in board
+        assert "+- Quick Actions " in board
 
 
 @pytest.mark.anyio
@@ -1682,9 +1743,9 @@ async def test_tui2_textual_action_strip_click_routes_to_shortcuts() -> None:
         app._run_palette_command("open 1")
         await pilot.pause()
         action_line = _widget_text(app, "#action-strip").splitlines()[1]
-        reveal_col = action_line.find("v Reveal")
+        reveal_col = action_line.find("Reveal (v")
         if reveal_col < 0:
-            reveal_col = action_line.find("v Rev")
+            reveal_col = action_line.find("Rev (v")
         assert reveal_col >= 0
         handled = app._handle_action_strip_click(reveal_col + 1, 1)
         await pilot.pause()
@@ -1707,13 +1768,13 @@ async def test_tui2_textual_action_strip_context_updates_for_selected_kind() -> 
         app._run_palette_command("open 1")
         await pilot.pause()
         action_line = _widget_text(app, "#action-strip").splitlines()[1]
-        assert ("v Reveal" in action_line) or ("v Rev" in action_line)
+        assert ("Reveal (v)" in action_line) or ("Rev (v)" in action_line)
         assert "(password)" in action_line
 
         app._run_palette_command("open 2")
         await pilot.pause()
         action_line = _widget_text(app, "#action-strip").splitlines()[1]
-        assert "e Edit Doc" in action_line
+        assert "Edit Doc (e)" in action_line
         assert "(document)" in action_line
 
 

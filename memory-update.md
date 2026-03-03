@@ -110,3 +110,68 @@
 - Focused and gate suite green:
   - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
   - Result: `56 passed`.
+
+## Session Update (2026-03-03, Slice 2)
+
+### UI-board density and hierarchy polish
+- Dense high-resolution mode now keeps `#grid-heading` at 4 rows instead of 3 to avoid header/divider clipping in large viewports.
+- Refined dense top-left header hierarchy to reduce line noise:
+  - retained explicit `Fingerprint` and `Path`
+  - consolidated session/profile/managed state into one line
+  - kept scope line focused on active filters only
+
+### Regression updates
+- Updated `test_tui2_textual_hires_density_compacts_vertical_chrome` to assert the new dense grid-heading height (`4`).
+
+### Verification
+- Focused TUI v2 gate remains green:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `56 passed`.
+
+## Session Update (2026-03-03, Slice 3)
+
+### Board geometry parity pass
+- Added reusable ASCII card renderer for inspector sections (`_board_card`).
+- Password and stored-password boards now render framed `Credentials` and `Quick Actions` blocks.
+- Note/document boards now render framed `Content` and `Quick Actions` blocks.
+- Increased note/document preview length (120 -> 180 chars) for better mockup-like content emphasis.
+
+### Regression coverage
+- Extended note metadata board test to assert card framing.
+- Added password board card-section test.
+
+### Verification
+- Focused TUI v2 gate:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `57 passed`.
+
+## Session Update (2026-03-03, Slice 4)
+
+### UI-board density rebalancing
+- Added dynamic dense/high-res vertical split:
+  - idle: `top-work=9fr`, `right=3fr`
+  - active inspect/edit/2FA: `top-work=8fr`, `right=4fr`
+- Added `_refresh_layout_balance()` and invoked it during key state transitions so layout rebalance is state-driven, not resize-driven.
+
+### Regression coverage
+- Added `test_tui2_textual_hires_density_rebalances_idle_vs_selected`.
+
+### Verification
+- Focused TUI v2 gate:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `58 passed`.
+
+## Session Update (2026-03-03, Slice 5)
+
+### Action-strip microcopy polish
+- Standardized context action wording to verb-first with key hints across entry kinds.
+- Preserved managed account session actions while aligning adjacent wording style.
+- Expanded row-2 click parser to recognize verb-led labels so copy changes do not break mouse interactions.
+
+### Regression coverage
+- Updated action-strip context tests to match polished copy.
+
+### Verification
+- Focused TUI v2 gate:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `58 passed`.

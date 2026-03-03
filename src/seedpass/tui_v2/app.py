@@ -884,21 +884,23 @@ def launch_tui2(
                 kind_l = self._entry_kind(self._selected_entry)
             kind = kind_l
             if kind_l in {"password", "stored_password"}:
-                context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
+                context = "Entry ▣ Reveal (v) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
             elif kind_l == "managed_account":
-                context = "Entry ▣ managed-load ▣ managed-exit ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
+                context = "Entry ▣ managed-load ▣ managed-exit ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
             elif kind_l == "seed":
-                context = "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
+                context = "Entry ▣ Reveal (v confirm) ▣ QR (g) ▣ Edit (e) ▣ Archive (a)"
             elif kind_l == "totp":
-                context = "Entry ▣ 6 2FA Board ▣ v Reveal ▣ g QR ▣ a Archive"
+                context = "Entry ▣ 2FA Board (6) ▣ Reveal (v) ▣ QR (g) ▣ Archive (a)"
             elif kind_l in {"ssh", "pgp"}:
-                context = "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
+                context = "Entry ▣ Reveal (v confirm) ▣ Archive (a) ▣ copy/export-field"
             elif kind_l == "nostr":
-                context = "Entry ▣ v Reveal ▣ g QR (public/private) ▣ a Archive"
+                context = "Entry ▣ Reveal (v) ▣ QR (g public/private) ▣ Archive (a)"
             elif kind_l in {"document", "note"}:
-                context = "Entry ▣ e Edit Doc ▣ Ctrl+S Save ▣ a Archive ▣ doc-export"
+                context = (
+                    "Entry ▣ Edit Doc (e) ▣ Save (Ctrl+S) ▣ Archive (a) ▣ doc-export"
+                )
             elif kind_l == "key_value":
-                context = "Entry ▣ set-field/clear-field ▣ a Archive ▣ notes/tags"
+                context = "Entry ▣ set-field/clear-field ▣ Archive (a) ▣ notes/tags"
             else:
                 context = "Select an entry to view context actions."
             if kind:
@@ -985,15 +987,15 @@ def launch_tui2(
             if not token:
                 return None
             lead = token.split()[0].strip().lower()
-            if lead == "v":
+            if lead in {"v", "reveal", "rev"}:
                 return "reveal"
-            if lead == "g":
+            if lead in {"g", "qr"}:
                 return "qr"
-            if lead == "e":
+            if lead in {"e", "edit"}:
                 return "edit"
-            if lead == "a":
+            if lead in {"a", "archive", "arch"}:
                 return "archive"
-            if lead == "6":
+            if lead in {"6", "2fa"}:
                 return "totp_board"
             if lead in {"managed-load", "managed_load", "ml"}:
                 return "managed_load"
@@ -1243,13 +1245,30 @@ def launch_tui2(
                     right.styles.height = "5fr"
                     activity.add_class("hidden")
                 elif height >= 52:
-                    top_work.styles.height = "8fr"
-                    right.styles.height = "4fr"
+                    if dense_hires and (
+                        self._selected_entry_id is None
+                        and not self.editing_document
+                        and not self.totp_board_open
+                    ):
+                        # In dense high-res idle state, bias vertical space to the grid.
+                        top_work.styles.height = "9fr"
+                        right.styles.height = "3fr"
+                    else:
+                        top_work.styles.height = "8fr"
+                        right.styles.height = "4fr"
                     activity.remove_class("hidden")
                     activity.styles.height = 4
                 else:
-                    top_work.styles.height = "7fr"
-                    right.styles.height = "4fr"
+                    if dense_hires and (
+                        self._selected_entry_id is None
+                        and not self.editing_document
+                        and not self.totp_board_open
+                    ):
+                        top_work.styles.height = "8fr"
+                        right.styles.height = "3fr"
+                    else:
+                        top_work.styles.height = "7fr"
+                        right.styles.height = "4fr"
                     activity.remove_class("hidden")
                     activity.styles.height = 3
 
@@ -1260,7 +1279,7 @@ def launch_tui2(
                     ribbon.styles.height = 2
                     status.styles.height = 2
                     action_strip.styles.height = 2
-                    grid_heading.styles.height = 3
+                    grid_heading.styles.height = 4
                     inspector_heading.styles.height = 2
                 else:
                     brand.styles.height = 3
@@ -1279,6 +1298,11 @@ def launch_tui2(
                     self._update_action_strip()
                 except Exception:
                     pass
+
+        def _refresh_layout_balance(self) -> None:
+            self._update_responsive_layout(
+                width=self._viewport_width, height=self._viewport_height
+            )
 
         def _refresh_doc_edit_help(self) -> None:
             marker = "*" if self._doc_dirty else "clean"
@@ -1535,8 +1559,15 @@ def launch_tui2(
                     "SeedPass ◈ TUI v2",
                     f"Fingerprint: {current_fp}",
                     f"Path: {self._session_breadcrumb_text()}",
-                    f"FP: {current_fp} | Profiles: {profiles_loaded} | Session: {session_state}",
-                    f"Scope: filter={self.filter_kind} arch={self.archive_scope} links={self.link_relation_filter} managed={managed_state}",
+                    (
+                        "Session: "
+                        f"{session_state} | Profiles: {profiles_loaded} | Managed: {managed_state}"
+                    ),
+                    (
+                        "Scope: "
+                        f"filter={self.filter_kind} arch={self.archive_scope} "
+                        f"links={self.link_relation_filter}"
+                    ),
                     self._selected_summary(),
                     (
                         f"Results: {len(self._all_results)} | "
@@ -1742,6 +1773,7 @@ def launch_tui2(
                 else:
                     self._set_status("No entries match current filter/search")
                 self._update_filters_panel()
+                self._refresh_layout_balance()
                 return
 
             self._result_page, start, end, _total_pages = pagination_window(
@@ -1791,6 +1823,7 @@ def launch_tui2(
                 pass
             self._set_status("Entries loaded. Select an entry to inspect.")
             self._update_filters_panel()
+            self._refresh_layout_balance()
 
         def _entry_detail_text(self, entry: dict[str, Any]) -> str:
             payload = truncate_entry_for_display(
@@ -1865,6 +1898,14 @@ def launch_tui2(
                 f"Notes: {notes_preview}",
             ]
 
+        @staticmethod
+        def _board_card(title: str, rows: list[str]) -> list[str]:
+            width = max([len(title), *[len(row) for row in rows], 12])
+            top = f"+- {title} " + "-" * max(1, width - len(title) - 2) + "+"
+            body = [f"| {row.ljust(width)} |" for row in rows]
+            bottom = "+" + "-" * (width + 2) + "+"
+            return [top, *body, bottom]
+
         def _entry_board_header(self, entry: dict[str, Any]) -> list[str]:
             entry_id = (
                 self._selected_entry_id
@@ -1919,6 +1960,13 @@ def launch_tui2(
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
                 label = str(entry.get("label") or "(untitled)")
+                credential_rows = [
+                    "Password*: hidden (v reveal, g qr)",
+                    f"Username*: {username}",
+                    f"URL      : {url}",
+                    f"Length   : {length} chars",
+                ]
+                operation_rows = [action_row]
                 lines = [
                     f"Entry #{entry_id}  {label}",
                     "-" * max(24, len(label) + 10),
@@ -1926,12 +1974,9 @@ def launch_tui2(
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num}",
                     "Login Fields",
-                    "Password*: hidden (v reveal, g qr)",
-                    f"Username*: {username}",
-                    f"URL      : {url}",
-                    f"Length   : {length} chars",
+                    *self._board_card("Credentials", credential_rows),
                     "Operations",
-                    action_row,
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -1948,7 +1993,7 @@ def launch_tui2(
                 content = str(entry.get("content") or "")
                 preview = content.strip()
                 if preview:
-                    preview = preview.replace("\n", " ")[:120]
+                    preview = preview.replace("\n", " ")[:180]
                 else:
                     preview = "(empty)"
                 entry_id = (
@@ -1964,6 +2009,10 @@ def launch_tui2(
                 )
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
+                document_rows = [
+                    f"Content Length: {len(content)} chars",
+                    f"Preview       : {preview}",
+                ]
                 lines = [
                     f"Entry #{entry_id}  {str(entry.get('label') or '(untitled)')}",
                     "-" * 28,
@@ -1971,10 +2020,9 @@ def launch_tui2(
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | File Type: {file_type}",
                     "Document Fields",
-                    f"Content Length: {len(content)} chars",
-                    f"Preview       : {preview}",
+                    *self._board_card("Content", document_rows),
                     "Operations",
-                    "▣ Edit  ▣ Export",
+                    *self._board_card("Quick Actions", ["▣ Edit  ▣ Export"]),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -2397,6 +2445,7 @@ def launch_tui2(
                 self._update_links_panel()
                 self._update_filters_panel()
                 self._set_status(f"Selected entry {entry_index}")
+                self._refresh_layout_balance()
             except Exception as exc:
                 self.query_one("#entry-detail", Static).update(
                     f"Failed to load entry {entry_index}: {exc}"
@@ -2415,6 +2464,7 @@ def launch_tui2(
                     retry=lambda: self._show_entry(entry_index),
                     hint="Press 'x' to retry.",
                 )
+                self._refresh_layout_balance()
 
         def _update_links_panel(self) -> None:
             if self._service is None or self._selected_entry_id is None:
@@ -2926,6 +2976,7 @@ def launch_tui2(
                 self.totp_board_open = False
                 self.editing_document = True
                 self._update_inspector_heading()
+                self._refresh_layout_balance()
                 return
             if mode_token == "totp":
                 editor.add_class("hidden")
@@ -2937,6 +2988,7 @@ def launch_tui2(
                 self.editing_document = False
                 self._refresh_totp_board(force_reload=True)
                 self._update_inspector_heading()
+                self._refresh_layout_balance()
                 return
             # Default "view": entry board + side panels, no editor/2FA board.
             if mode_token != "view":
@@ -2950,6 +3002,7 @@ def launch_tui2(
                 self.totp_board_open = False
                 self.editing_document = False
                 self._update_inspector_heading()
+                self._refresh_layout_balance()
 
         def _set_palette_visible(self, visible: bool) -> None:
             palette = self.query_one("#command-palette", Input)
