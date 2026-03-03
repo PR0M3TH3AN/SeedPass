@@ -70,3 +70,15 @@
 - Inspector heading is now context-aware and tracks right-pane mode: selected entry view, document editor, and 2FA board states.
 - Added regression coverage for heading transitions across view/edit/2FA modes.
 - Focused TUI gate now at 50 passing tests.
+- Refined inspector board typography for password/document/TOTP kinds by grouping fields and operations into clearer compact sections (`Login Fields`, `Document Fields`, `2FA Fields`) to reduce visual clutter.
+- Captured visual/state evidence in `artifacts/ui_eval/audit_20260302_phaseF6/`.
+- Bottom action strip shortcuts are now functional and test-covered via new shift-shortcut actions mapped to palette command prefixes plus reveal action.
+- Added focused artifact: `artifacts/ui_eval/audit_20260302_phaseH6/` for bottom action-strip validation.
+- Added clickable action-strip routing: clicking top-row shortcut segments now triggers the same actions as keyboard shortcuts.
+- Added regression test for action-strip click routing and captured artifact `artifacts/ui_eval/audit_20260302_phaseH7/`.
+- Focused TUI gate now at 53 passing tests.
+- Refined dense-mode top-left sidebar hierarchy: compact FP/profile/session scope lines plus reduced label noise while preserving tree navigation and status cues.
+- Added artifact `artifacts/ui_eval/audit_20260302_phaseH8/` documenting the updated hierarchy.
+- Continued board-rhythm parity pass: aligned TOTP field labels (`Period :`, `Digits :`) to match password/document row style and improve scan consistency.
+- Added artifacts `audit_20260302_phaseF7` and `audit_20260302_phaseF8` for board layout comparison against mockups.
+- Extended dense-mode action verbosity reduction across additional boards (seed/managed, ssh, pgp, nostr) for consistent low-noise inspector language.

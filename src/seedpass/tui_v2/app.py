@@ -332,6 +332,14 @@ def launch_tui2(
             ("shift+f", "cycle_filter", "Filter"),
             ("m", "cycle_search_mode", "Search Mode"),
             ("d", "toggle_density", "Density"),
+            ("shift+s", "shortcut_settings", "Settings"),
+            ("shift+a", "shortcut_add_entry", "Add Entry"),
+            ("shift+c", "shortcut_create_seed", "Create Seed"),
+            ("shift+r", "shortcut_remove_seed", "Remove Seed"),
+            ("shift+h", "shortcut_hide_reveal", "Hide/Reveal"),
+            ("shift+e", "shortcut_export_data", "Export Data"),
+            ("shift+i", "shortcut_import_data", "Import Data"),
+            ("shift+b", "shortcut_backup_data", "Backup Data"),
             ("h", "cycle_archive_scope", "Archive View"),
             ("up", "profile_tree_prev", "Profile Prev"),
             ("down", "profile_tree_next", "Profile Next"),
@@ -730,7 +738,22 @@ def launch_tui2(
         def _profile_tree_child_nodes(self) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
             managed: list[tuple[int, str]] = []
             agent_like: list[tuple[int, str]] = []
-            for row in self._all_results:
+            source_rows: list[tuple[Any, ...]] = []
+            if self._service is not None and self._all_results:
+                try:
+                    source_rows = list(
+                        self._service.search_entries(
+                            "",
+                            kinds=["managed_account", "nostr"],
+                            include_archived=False,
+                            archived_only=False,
+                        )
+                    )
+                except Exception:
+                    source_rows = []
+            if not source_rows:
+                source_rows = list(self._all_results)
+            for row in source_rows:
                 if len(row) < 6:
                     continue
                 entry_id = int(row[0])
@@ -881,7 +904,7 @@ def launch_tui2(
                     context = context.replace("confirm", "cfm")
             elif self._dense_hires_layout:
                 global_row = (
-                    "S Set  A Add  C Seed+  R Seed-  H Reveal  E Export  I Import  "
+                    "Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  "
                     "B Backup  Ctrl+P Cmd  Dense"
                 )
                 context = context.replace("Entry ▣ ", "")
@@ -889,7 +912,7 @@ def launch_tui2(
                 context = context.replace("Archive", "Arch")
                 context = context.replace("confirm", "cfm")
             else:
-                global_row = "S Settings  A Add New Entry  C Create New Seed  R Remove Seed  H Hide/Reveal Sensitive  E Export Data  I Import Data  B Backup Data"
+                global_row = "Shift+S Settings  Shift+A Add Entry  Shift+C Create Seed  Shift+R Remove Seed  Shift+H Hide/Reveal  Shift+E Export  Shift+I Import  Shift+B Backup"
             text = f"{global_row}\n{context}"
             self.query_one("#action-strip", Static).update(text)
 
@@ -907,6 +930,7 @@ def launch_tui2(
                 "Sel Id       Entry#   Label                       Kind            "
                 "Meta                      Arch"
             )
+            divider = "-" * len(table_cols)
             metrics = (
                 f"Pg {self._result_page + 1}/{self._total_pages()}  "
                 f"Rows {len(self._entry_ids_in_view)}/{len(self._all_results)}  "
@@ -917,9 +941,76 @@ def launch_tui2(
                     [
                         f"Entry Grid  |  {metrics}",
                         table_cols,
+                        divider,
                     ]
                 )
             )
+
+        @staticmethod
+        def _action_strip_segment_action(segment: str) -> str | None:
+            token = segment.strip()
+            if token.startswith("Shift+S") or token.startswith("S "):
+                return "settings"
+            if token.startswith("Shift+A") or token.startswith("A "):
+                return "add"
+            if token.startswith("Shift+C") or token.startswith("C "):
+                return "create_seed"
+            if token.startswith("Shift+R") or token.startswith("R "):
+                return "remove_seed"
+            if token.startswith("Shift+H") or token.startswith("H "):
+                return "hide_reveal"
+            if token.startswith("Shift+E") or token.startswith("E "):
+                return "export"
+            if token.startswith("Shift+I") or token.startswith("I "):
+                return "import"
+            if token.startswith("Shift+B") or token.startswith("B "):
+                return "backup"
+            if token.startswith("Ctrl+P"):
+                return "palette"
+            return None
+
+        def _trigger_action_strip_shortcut(self, action: str) -> None:
+            if action == "settings":
+                self.action_shortcut_settings()
+            elif action == "add":
+                self.action_shortcut_add_entry()
+            elif action == "create_seed":
+                self.action_shortcut_create_seed()
+            elif action == "remove_seed":
+                self.action_shortcut_remove_seed()
+            elif action == "hide_reveal":
+                self.action_shortcut_hide_reveal()
+            elif action == "export":
+                self.action_shortcut_export_data()
+            elif action == "import":
+                self.action_shortcut_import_data()
+            elif action == "backup":
+                self.action_shortcut_backup_data()
+            elif action == "palette":
+                self.action_open_palette()
+
+        def _handle_action_strip_click(self, column: int, row: int) -> bool:
+            if row != 0 or column < 0:
+                return False
+            rendered = str(self.query_one("#action-strip", Static).render())
+            first_line = rendered.splitlines()[0] if rendered else ""
+            if not first_line:
+                return False
+            parts = [part for part in first_line.split("  ") if part.strip()]
+            cursor = 0
+            for part in parts:
+                start = first_line.find(part, cursor)
+                if start < 0:
+                    continue
+                end = start + len(part)
+                cursor = end
+                if start <= column < end:
+                    action = self._action_strip_segment_action(part)
+                    if action is None:
+                        return False
+                    self._trigger_action_strip_shortcut(action)
+                    return True
+            return False
 
         def _update_inspector_heading(self) -> None:
             heading = "Inspector Board"
@@ -1103,7 +1194,7 @@ def launch_tui2(
                     ribbon.styles.height = 2
                     status.styles.height = 2
                     action_strip.styles.height = 2
-                    grid_heading.styles.height = 2
+                    grid_heading.styles.height = 3
                     inspector_heading.styles.height = 2
                 else:
                     brand.styles.height = 3
@@ -1252,7 +1343,9 @@ def launch_tui2(
 
         def _update_filters_panel(self) -> None:
             self._refresh_profile_tree()
-            tree_lines = ["Profile Tree", "------------"]
+            tree_lines = (
+                ["Tree", "----"] if self._dense_hires_layout else ["Profile Tree", "------------"]
+            )
             current_fp = self._active_profile_key()
             nodes = self._profile_tree_visible_nodes()
             if nodes:
@@ -1306,11 +1399,21 @@ def launch_tui2(
             if self._dense_hires_layout:
                 nav_line = "Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B"
                 act_line = "Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6"
+                header_lines = [
+                    "SeedPass ◈ TUI v2",
+                    f"Fingerprint: {self._active_profile_key()}",
+                    f"FP: {self._active_profile_key()} | Profiles: {profiles_loaded} | Session: {session_state}",
+                    f"Scope: filter={self.filter_kind} arch={self.archive_scope} links={self.link_relation_filter} managed={managed_state}",
+                    self._selected_summary(),
+                    (
+                        f"Results: {len(self._all_results)} | "
+                        f"Page: {self._result_page + 1}/{self._total_pages()}"
+                    ),
+                ]
             else:
                 nav_line = "Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x"
                 act_line = "Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)"
-            text = "\n".join(
-                [
+                header_lines = [
                     "SeedPass ◈ TUI v2",
                     fp_line,
                     f"Profiles: {profiles_loaded}",
@@ -1326,6 +1429,10 @@ def launch_tui2(
                         f"Results: {len(self._all_results)} | "
                         f"Page: {self._result_page + 1}/{self._total_pages()}"
                     ),
+                ]
+            text = "\n".join(
+                [
+                    *header_lines,
                     "",
                     *tree_lines,
                     "",
@@ -1605,6 +1712,8 @@ def launch_tui2(
         def _notes_tags_panel_hint(
             self, *, tags_text: str, notes_text: str
         ) -> list[str]:
+            if self._dense_hires_layout:
+                return ["Tags/Notes: side panel."]
             if not self._compact_layout:
                 return ["Tags/Notes appear in right panel."]
             tags_preview = tags_text if len(tags_text) <= 88 else f"{tags_text[:85]}..."
@@ -1676,15 +1785,22 @@ def launch_tui2(
                     "-" * max(24, len(label) + 10),
                     f"{self._kind_icon(kind)} {board_name}",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
-                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
+                    f"Index Num*: {index_num}",
+                    "Login Fields",
+                    "Password*: hidden (v reveal, g qr)",
+                    f"Username*: {username}",
+                    f"URL      : {url}",
+                    f"Length   : {length} chars",
+                    "Operations",
                     action_row,
-                    "Credentials",
-                    f"Password*: hidden (v reveal, g qr) | Length: {length} chars",
-                    f"Username*: {username} | URL: {url}",
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Edit (e) | Archive (a)",
+                    (
+                        "Actions: e edit | a archive"
+                        if self._dense_hires_layout
+                        else "Actions: Edit (e) | Archive (a)"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1714,15 +1830,20 @@ def launch_tui2(
                     "-" * 28,
                     f"{self._kind_icon(kind)} Note Board",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
-                    f"Index Num*: {index_num} | Entry Num: {entry_id} | File Type: {file_type}",
+                    f"Index Num*: {index_num} | File Type: {file_type}",
+                    "Document Fields",
                     f"Content Length: {len(content)} chars",
+                    f"Preview       : {preview}",
+                    "Operations",
                     "▣ Edit  ▣ Export",
-                    "Content Preview",
-                    f"{preview}",
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)",
+                    (
+                        "Actions: e edit | Ctrl+S save | Esc cancel | a archive"
+                        if self._dense_hires_layout
+                        else "Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1746,7 +1867,11 @@ def launch_tui2(
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)",
+                    (
+                        "Actions: v reveal(cfm) | g qr | copy seed cfm | export-field seed <path> cfm | a archive"
+                        if self._dense_hires_layout
+                        else "Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1772,15 +1897,22 @@ def launch_tui2(
                     "-" * 28,
                     f"{self._kind_icon(kind)} 2FA Board",
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
-                    f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    f"Period: {period}s | Digits: {digits}",
-                    "▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR",
+                    f"Index Num*: {index_num}",
+                    "2FA Fields",
+                    f"Period : {period}s",
+                    f"Digits : {digits}",
                     "Current Code: hidden (use '6' board or 'v' reveal)",
                     "Secret: hidden | URI via QR",
+                    "Operations",
+                    "▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR",
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)",
+                    (
+                        "Actions: 6 board | 2fa-copy <id> | 2fa-copy-url <id> | v reveal | g qr | a archive"
+                        if self._dense_hires_layout
+                        else "Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1819,7 +1951,11 @@ def launch_tui2(
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field",
+                    (
+                        "Actions: v reveal | e edit | a archive | Ctrl+P copy/export-field"
+                        if self._dense_hires_layout
+                        else "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1853,7 +1989,11 @@ def launch_tui2(
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field",
+                    (
+                        "Actions: v reveal | e edit | a archive | Ctrl+P copy/export-field"
+                        if self._dense_hires_layout
+                        else "Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -1886,7 +2026,11 @@ def launch_tui2(
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
-                    "Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)",
+                    (
+                        "Actions: v reveal | g qr | qr private cfm | a archive"
+                        if self._dense_hires_layout
+                        else "Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)"
+                    ),
                 ]
                 return "\n".join(lines)
 
@@ -5411,6 +5555,47 @@ def launch_tui2(
             self._load_entries(query=self._last_query, reset_page=True)
             self._set_status(f"Applied filter: {self.filter_kind}")
 
+        def _open_palette_with_prefix(self, prefix: str, status: str) -> None:
+            if self.editing_document:
+                self._set_status("Finish document edit before opening shortcuts")
+                return
+            if self.help_open:
+                self.help_open = False
+                self._update_help_overlay()
+            self._set_palette_visible(True)
+            self._focus_pane = "center"
+            self._apply_focus_style()
+            palette = self.query_one("#command-palette", Input)
+            palette.value = prefix
+            palette.cursor_position = len(prefix)
+            self._set_status(status)
+
+        def action_shortcut_settings(self) -> None:
+            self._open_palette_with_prefix("setting-", "Settings shortcut opened")
+
+        def action_shortcut_add_entry(self) -> None:
+            self._open_palette_with_prefix("add-", "Add-entry shortcut opened")
+
+        def action_shortcut_create_seed(self) -> None:
+            self._open_palette_with_prefix("add-seed ", "Create-seed shortcut opened")
+
+        def action_shortcut_remove_seed(self) -> None:
+            self._open_palette_with_prefix("profile-remove ", "Remove-seed shortcut opened")
+
+        def action_shortcut_hide_reveal(self) -> None:
+            self.action_reveal_selected()
+
+        def action_shortcut_export_data(self) -> None:
+            self._open_palette_with_prefix("db-export ", "Export shortcut opened")
+
+        def action_shortcut_import_data(self) -> None:
+            self._open_palette_with_prefix("db-import ", "Import shortcut opened")
+
+        def action_shortcut_backup_data(self) -> None:
+            self._open_palette_with_prefix(
+                "parent-seed-backup ", "Backup shortcut opened"
+            )
+
         def action_cycle_search_mode(self) -> None:
             if self._semantic_service is None:
                 self._set_status("Semantic service unavailable")
@@ -5804,6 +5989,14 @@ def launch_tui2(
         def on_button_pressed(self, event: Button.Pressed) -> None:
             if event.button.id == "sidebar-toggle":
                 self.action_toggle_sidebar()
+
+        def on_click(self, event: Any) -> None:
+            target = getattr(event, "widget", None) or getattr(event, "control", None)
+            if getattr(target, "id", "") != "action-strip":
+                return
+            x = int(getattr(event, "x", -1) or -1)
+            y = int(getattr(event, "y", -1) or -1)
+            self._handle_action_strip_click(x, y)
 
         def on_text_area_changed(self, _event: Any) -> None:
             self._mark_doc_dirty(True)

@@ -1317,11 +1317,16 @@ async def test_tui2_textual_hires_density_compacts_vertical_chrome() -> None:
         assert str(ribbon.styles.height) == "2"
         assert str(status.styles.height) == "2"
         assert str(action_strip.styles.height) == "2"
-        assert str(grid_heading.styles.height) == "2"
+        assert str(grid_heading.styles.height) == "3"
         assert "Dense" in _widget_text(app, "#action-strip")
         assert "S Set" in _widget_text(app, "#action-strip")
         assert "Keys:" in _widget_text(app, "#filters")
         assert "Profiles:" in _widget_text(app, "#filters")
+        assert "Density:" not in _widget_text(app, "#filters")
+        assert "Scope: filter=" in _widget_text(app, "#filters")
+        assert "Fingerprint:" in _widget_text(app, "#filters")
+        assert "Sel Id" in _widget_text(app, "#grid-heading")
+        assert "---" in _widget_text(app, "#grid-heading")
 
         app._update_responsive_layout(width=170, height=46)
         await pilot.pause()
@@ -1331,6 +1336,34 @@ async def test_tui2_textual_hires_density_compacts_vertical_chrome() -> None:
         assert str(action_strip.styles.height) == "3"
         assert str(grid_heading.styles.height) == "4"
         assert "Dense" not in _widget_text(app, "#action-strip")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_dense_mode_reduces_inspector_helper_noise() -> None:
+    service = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "document",
+                "label": "Doc 1",
+                "content": "hello world",
+                "tags": ["alpha"],
+                "notes": "n1",
+            }
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._update_responsive_layout(width=220, height=55)
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "Tags/Notes: side panel." in board
+        assert "Tags/Notes appear in right panel." not in board
+        assert "Actions: e edit | Ctrl+S save | Esc cancel | a archive" in board
 
 
 @pytest.mark.anyio
@@ -1467,6 +1500,7 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "Note Board" in board
         assert "Kind: document | Modified:" in board
         assert "Index Num*:" in board
+        assert "Document Fields" in board
 
         app._run_palette_command("open 2")
         await pilot.pause()
@@ -1474,6 +1508,7 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "2FA Board" in board
         assert "Kind: totp | Modified:" in board
         assert "Index Num*:" in board
+        assert "2FA Fields" in board
 
 
 @pytest.mark.anyio
@@ -1572,6 +1607,80 @@ async def test_tui2_textual_filter_menu_closes_on_escape_and_focus_actions() -> 
         app.action_focus_search()
         await pilot.pause()
         assert filter_input.has_class("hidden")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_shift_shortcuts_open_palette_prefixes() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Login 1", "length": 16}]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        palette = app.query_one("#command-palette", Input)
+
+        app.action_shortcut_settings()
+        await pilot.pause()
+        assert not palette.has_class("hidden")
+        assert palette.value == "setting-"
+
+        app.action_shortcut_create_seed()
+        await pilot.pause()
+        assert palette.value == "add-seed "
+
+        app.action_shortcut_export_data()
+        await pilot.pause()
+        assert palette.value == "db-export "
+
+        app.action_shortcut_import_data()
+        await pilot.pause()
+        assert palette.value == "db-import "
+
+        app.action_shortcut_backup_data()
+        await pilot.pause()
+        assert palette.value == "parent-seed-backup "
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_shortcut_hide_reveal_invokes_reveal_flow() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Login 1", "length": 16}]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        app.action_shortcut_hide_reveal()
+        await pilot.pause()
+        assert "Password : pw-1-16" in _widget_text(app, "#secret-detail")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_action_strip_click_routes_to_shortcuts() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Login 1", "length": 16}]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._update_responsive_layout(width=220, height=55)
+        await pilot.pause()
+        line = _widget_text(app, "#action-strip").splitlines()[0]
+        col = line.find("Shift+E")
+        assert col >= 0
+        handled = app._handle_action_strip_click(col + 1, 0)
+        await pilot.pause()
+        assert handled is True
+        palette = app.query_one("#command-palette", Input)
+        assert not palette.has_class("hidden")
+        assert palette.value == "db-export "
+
+        # Second row click is intentionally ignored.
+        assert app._handle_action_strip_click(1, 1) is False
 
 
 @pytest.mark.anyio
@@ -2522,6 +2631,29 @@ async def test_tui2_textual_profile_tree_can_open_managed_and_agent_children() -
         assert "Opened tree entry 2" in _status_text(app)
         assert "Selected: #2" in _filters_text(app)
         assert "Agent Alpha" in _filters_text(app)
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_profile_tree_children_not_removed_by_kind_filter() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "managed_account", "label": "Managed User 1"},
+            {"id": 2, "kind": "nostr", "label": "Agent Alpha"},
+            {"id": 3, "kind": "document", "label": "Doc 3", "content": "x"},
+        ]
+    )
+    profiles = FakeProfileService(["fp-a"])
+    app = _build_app(service, profile_service=profiles)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("profile-switch fp-a")
+        await pilot.pause()
+        app._run_palette_command("filter docs")
+        await pilot.pause()
+        filters = _widget_text(app, "#filters")
+        assert "Managed User 1" in filters
+        assert "Agent Alpha" in filters
 
 
 @pytest.mark.anyio
