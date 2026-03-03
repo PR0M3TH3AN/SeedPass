@@ -928,7 +928,7 @@ def launch_tui2(
             elif self._dense_hires_layout:
                 global_row = (
                     "Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  "
-                    "B Backup  Ctrl+P Cmd  Dense"
+                    "Shift+B Backup  Ctrl+P Cmd  Dense"
                 )
                 context = context.replace("Entry ▣ ", "")
                 context = context.replace("Reveal", "Rev")
@@ -977,23 +977,24 @@ def launch_tui2(
         @staticmethod
         def _action_strip_segment_action(segment: str) -> str | None:
             token = segment.strip()
-            if token.startswith("Shift+S") or token.startswith("S "):
+            # Be more flexible with shortcut indicators (S), (Shift+S), or "S "
+            if "Settings" in token:
                 return "settings"
-            if token.startswith("Shift+A") or token.startswith("A "):
+            if "Add" in token:
                 return "add"
-            if token.startswith("Shift+C") or token.startswith("C "):
+            if "Seed+" in token:
                 return "create_seed"
-            if token.startswith("Shift+R") or token.startswith("R "):
+            if "Seed-" in token:
                 return "remove_seed"
-            if token.startswith("Shift+H") or token.startswith("H "):
+            if "Reveal" in token or "Rev" in token:
                 return "hide_reveal"
-            if token.startswith("Shift+E") or token.startswith("E "):
+            if "Export" in token:
                 return "export"
-            if token.startswith("Shift+I") or token.startswith("I "):
+            if "Import" in token:
                 return "import"
-            if token.startswith("Shift+B") or token.startswith("B "):
+            if "Backup" in token:
                 return "backup"
-            if token.startswith("Ctrl+P"):
+            if "Cmd" in token or "Ctrl+P" in token:
                 return "palette"
             return None
 
@@ -1056,41 +1057,41 @@ def launch_tui2(
                 self._run_palette_command("managed-exit")
 
         def _handle_action_strip_click(self, column: int, row: int) -> bool:
-            if row not in {0, 1} or column < 0:
+            adj_row = row - 1
+            adj_col = column - 1
+            if adj_row not in {0, 1} or adj_col < 0:
                 return False
+            
             rendered = str(self.query_one("#action-strip", Static).render())
             lines = rendered.splitlines()
-            if not lines:
+            if not lines or adj_row >= len(lines):
                 return False
-            active_line = lines[row] if row < len(lines) else ""
+            
+            active_line = lines[adj_row]
             if not active_line:
                 return False
-            if row == 0:
-                parts = [part for part in active_line.split("  ") if part.strip()]
+
+            import re
+            if adj_row == 0:
+                segments = list(re.finditer(r'\S+.*?(?=\s{2,}|$)', active_line))
             else:
-                parts = [
-                    part.strip() for part in active_line.split("▣") if part.strip()
-                ]
-            cursor = 0
-            for part in parts:
-                start = active_line.find(part, cursor)
-                if start < 0:
-                    continue
-                end = start + len(part)
-                cursor = end
-                if start <= column < end:
+                segments = list(re.finditer(r'[^▣]+', active_line))
+
+            for match in segments:
+                start, end = match.span()
+                if start <= adj_col < end:
+                    segment_text = match.group(0).strip()
                     action = (
-                        self._action_strip_segment_action(part)
-                        if row == 0
-                        else self._action_strip_context_action(part)
+                        self._action_strip_segment_action(segment_text)
+                        if adj_row == 0
+                        else self._action_strip_context_action(segment_text)
                     )
-                    if action is None:
-                        return False
-                    if row == 0:
-                        self._trigger_action_strip_shortcut(action)
-                    else:
-                        self._trigger_action_strip_context(action)
-                    return True
+                    if action:
+                        if adj_row == 0:
+                            self._trigger_action_strip_shortcut(action)
+                        else:
+                            self._trigger_action_strip_context(action)
+                        return True
             return False
 
         def _update_inspector_heading(self) -> None:
