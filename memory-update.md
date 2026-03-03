@@ -221,3 +221,10 @@
 
 ### Verification
 - Focused TUI v2 gate: `58 passed`.
+
+## Session Update (2026-03-03, Slice 10)
+
+### UX bug fixes from interactive walkthrough
+- Fixed `open <non-existent-id>` rendering broken empty board (now shows "not found" and clears selection).
+- Fixed tree nav commands (`profile-tree-next/prev/open`) silently ignoring when focus is on wrong pane (now shows guidance).
+- Added 2 regression tests. Gate: `60 passed`.

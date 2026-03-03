@@ -1268,3 +1268,26 @@ Validation:
 
 1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
 2. Result: `58 passed`.
+
+## 36) Progress Update (2026-03-03, Slice: UX Bug Fixes from Walkthrough)
+
+Completed:
+
+1. Fixed `open <non-existent-id>` showing broken empty board:
+   - Now checks for empty dict (not just None) from retrieve_entry.
+   - Shows clear "Entry #N not found" message in inspector.
+   - Clears selection state so action strip doesn't show stale context.
+2. Fixed tree navigation silently ignoring commands when focus is on wrong pane:
+   - `profile-tree-next`, `profile-tree-prev`, `profile-tree-open` now show
+     "Focus left pane first (press 1)" instead of silently returning.
+   - Also shows "Sidebar is collapsed. Press Ctrl+B to expand." when sidebar is collapsed.
+
+Regression coverage:
+
+1. Added `test_tui2_textual_open_nonexistent_entry_shows_not_found`.
+2. Added `test_tui2_textual_tree_nav_feedback_when_wrong_pane`.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `60 passed`.

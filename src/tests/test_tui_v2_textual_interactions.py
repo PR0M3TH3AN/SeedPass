@@ -1584,6 +1584,45 @@ async def test_tui2_textual_password_board_uses_card_sections() -> None:
 
 
 @pytest.mark.anyio
+async def test_tui2_textual_open_nonexistent_entry_shows_not_found() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Login 1", "length": 16}]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 999")
+        await pilot.pause()
+        board = _widget_text(app, "#entry-detail")
+        assert "not found" in board.lower()
+        status_text = _widget_text(app, "#status")
+        assert "not found" in status_text.lower()
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_tree_nav_feedback_when_wrong_pane() -> None:
+    service = FakeEntryService(
+        [{"id": 1, "kind": "password", "label": "Login 1", "length": 16}]
+    )
+    profile_service = FakeProfileService(["fp-default"])
+    app = _build_app(service, profile_service=profile_service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Focus is on center by default, tree-next should give feedback
+        app._run_palette_command("profile-tree-next")
+        await pilot.pause()
+        status_text = _widget_text(app, "#status")
+        assert "focus" in status_text.lower() or "left" in status_text.lower()
+
+        app._run_palette_command("profile-tree-open")
+        await pilot.pause()
+        status_text = _widget_text(app, "#status")
+        assert "focus" in status_text.lower() or "left" in status_text.lower()
+
+
+@pytest.mark.anyio
 async def test_tui2_textual_filters_panel_tracks_selected_entry() -> None:
     service = FakeEntryService(
         [

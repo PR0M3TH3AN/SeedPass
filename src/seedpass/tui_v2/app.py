@@ -2449,13 +2449,18 @@ def launch_tui2(
                 self._set_totp_board_visible(False)
             try:
                 entry = self._service.retrieve_entry(entry_index)
-                if not isinstance(entry, dict):
-                    self.query_one("#entry-detail", Static).update("Entry not found.")
+                if not isinstance(entry, dict) or not entry:
+                    self.query_one("#entry-detail", Static).update(
+                        f"Entry #{entry_index} not found.\n\nThe entry may have been deleted or the ID is invalid."
+                    )
                     self.query_one("#link-detail", Static).update(
                         "Links: entry not found."
                     )
                     self._current_links = []
                     self._current_link_cursor = 0
+                    self._selected_entry_id = None
+                    self._selected_entry = None
+                    self._update_action_strip()
                     self._set_status(f"Entry {entry_index} not found")
                     return
                 self._selected_entry_id = int(entry_index)
@@ -5635,8 +5640,10 @@ def launch_tui2(
 
         def action_profile_tree_next(self) -> None:
             if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
                 return
             if self._focus_pane != "left":
+                self._set_status("Focus left pane first (press 1)")
                 return
             self._refresh_profile_tree()
             nodes = self._profile_tree_visible_nodes()
@@ -5650,8 +5657,10 @@ def launch_tui2(
 
         def action_profile_tree_prev(self) -> None:
             if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
                 return
             if self._focus_pane != "left":
+                self._set_status("Focus left pane first (press 1)")
                 return
             self._refresh_profile_tree()
             nodes = self._profile_tree_visible_nodes()
@@ -5665,8 +5674,10 @@ def launch_tui2(
 
         def action_profile_tree_open(self) -> None:
             if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
                 return
             if self._focus_pane != "left":
+                self._set_status("Focus left pane first (press 1)")
                 return
             self._refresh_profile_tree()
             nodes = self._profile_tree_visible_nodes()
