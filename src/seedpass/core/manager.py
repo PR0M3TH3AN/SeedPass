@@ -1157,7 +1157,7 @@ class PasswordManager:
         entry = self.entry_manager.retrieve_entry(index)
         if not entry:
             raise ValueError(f"Entry #{index} not found")
-        
+
         kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
         if kind == EntryType.MANAGED_ACCOUNT.value:
             seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
@@ -3876,7 +3876,9 @@ class PasswordManager:
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
             try:
-                _priv, _pub, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
+                _priv, _pub, pgp_fp = self.entry_manager.get_pgp_key(
+                    index, self.parent_seed
+                )
                 if pgp_fp:
                     print(color_text(f"  Fingerprint: {pgp_fp}", "index"))
             except Exception as pgp_err:  # pragma: no cover - best effort logging

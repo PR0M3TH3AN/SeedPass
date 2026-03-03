@@ -5,11 +5,12 @@ from textual.screen import Screen
 from textual.widgets import Static, Footer, DataTable, Input, Button
 from textual.containers import Vertical, Horizontal
 
+
 class RelaysScreen(Screen):
     """
     A dedicated screen for managing Nostr relays and triggering synchronization.
     """
-    
+
     BINDINGS = [
         ("escape", "app.pop_screen", "Back to Vault"),
         ("r", "refresh_relays", "Refresh"),
@@ -83,7 +84,10 @@ class RelaysScreen(Screen):
             with Horizontal(id="relays-controls"):
                 yield Input(placeholder="wss://relay.example.com", id="relay-input")
                 yield Button("Add Relay", id="add-button")
-        yield Static("ESC: Exit | R: Refresh | D: Delete Selected | S: Sync Now", id="relays-footer")
+        yield Static(
+            "ESC: Exit | R: Refresh | D: Delete Selected | S: Sync Now",
+            id="relays-footer",
+        )
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
@@ -107,7 +111,7 @@ class RelaysScreen(Screen):
         table.clear()
         for idx, url in enumerate(relays):
             table.add_row("🟢 Active", url, key=str(idx))
-            
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "add-button":
             self._add_relay()
@@ -121,21 +125,23 @@ class RelaysScreen(Screen):
         url = inp.value.strip()
         if not url:
             return
-        
+
         if not url.startswith("ws://") and not url.startswith("wss://"):
-            self.app.notify("Relay URL must start with ws:// or wss://", severity="error")
+            self.app.notify(
+                "Relay URL must start with ws:// or wss://", severity="error"
+            )
             return
 
         service = self.app.services.get("nostr")
         if not service:
             return
-        
+
         try:
             relays = service.list_relays()
             if url in relays:
                 self.app.notify("Relay already exists", severity="warning")
                 return
-                
+
             service.add_relay(url)
             inp.value = ""
             self.action_refresh_relays()
@@ -160,7 +166,7 @@ class RelaysScreen(Screen):
         service = self.app.services.get("nostr")
         if not service:
             return
-            
+
         try:
             service.remove_relay(idx)
             self.action_refresh_relays()
@@ -181,8 +187,13 @@ class RelaysScreen(Screen):
         sync_service = self.app.services.get("sync")
         try:
             import traceback
+
             sync_service.sync()
-            self.app.call_from_thread(self.app.notify, "Synchronization complete", severity="information")
+            self.app.call_from_thread(
+                self.app.notify, "Synchronization complete", severity="information"
+            )
             self.app.call_from_thread(self.app.action_refresh)
         except Exception as e:
-            self.app.call_from_thread(self.app.notify, f"Sync failed: {e}", severity="error")
+            self.app.call_from_thread(
+                self.app.notify, f"Sync failed: {e}", severity="error"
+            )

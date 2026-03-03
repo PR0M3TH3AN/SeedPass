@@ -4,10 +4,11 @@ from textual.app import ComposeResult
 from textual.widgets import Tree, Static
 from textual.widgets.tree import TreeNode
 
+
 class ProfileTree(Tree):
     """
     A hierarchical sidebar that manages Seed Profiles, Managed Accounts, and Agents.
-    
+
     Structure:
     Root (Hidden)
     ├── Fingerprint (Parent Seed)
@@ -16,7 +17,7 @@ class ProfileTree(Tree):
     │   └── Managed Account 2
     └── External Fingerprint
     """
-    
+
     def on_mount(self) -> None:
         self.root.expand()
         self._refresh_tree()
@@ -31,14 +32,14 @@ class ProfileTree(Tree):
         service = app.services["profile"]
         entry_service = app.services.get("entry")
         profiles = service.list_profiles()
-        
+
         for fp in profiles:
             is_active = fp == app.active_fingerprint
             icon = "■ " if is_active else "□ "
             label = f"{icon}{fp[:12]}..." if len(fp) > 12 else f"{icon}{fp}"
             node = self.root.add(label, data=fp, expand=is_active)
-            
-            # If this is the active profile or we have the entry service, 
+
+            # If this is the active profile or we have the entry service,
             # we can fetch nested managed accounts.
             if entry_service and is_active:
                 # Find managed accounts in the current profile
@@ -46,7 +47,7 @@ class ProfileTree(Tree):
                 managed = entry_service.search_entries("", kinds=["managed_account"])
                 for mid, mlabel, _, _, _, _ in managed:
                     node.add_leaf(f"├─ {mlabel}", data=f"managed:{mid}")
-                
+
                 # Find agents (nostr)
                 agents = entry_service.search_entries("", kinds=["nostr"])
                 for aid, alabel, _, _, _, _ in agents:
@@ -72,8 +73,10 @@ class ProfileTree(Tree):
         self.app.active_fingerprint = value
         self.app.notify(f"Switched to profile: {value[:8]}")
 
+
 class SidebarContainer(Static):
     """Container for the sidebar tree and toggle."""
+
     def compose(self) -> ComposeResult:
         yield ProfileTree("Profiles", id="profile-tree")
 

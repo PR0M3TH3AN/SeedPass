@@ -5,12 +5,13 @@ from textual.widgets import Input, Static
 from textual.containers import Vertical
 from textual.message import Message
 
+
 class CommandPalette(Vertical):
     """
     The TUI v3 Command Palette.
     Docks at the top and provides a unified entry point for all actions.
     """
-    
+
     DEFAULT_CSS = """
     CommandPalette {
         dock: top;
@@ -61,10 +62,11 @@ class CommandPalette(Vertical):
         if cmd:
             self.app.post_message(self.CommandExecuted(cmd))
         self.input.value = ""
-        self.toggle() # Close after execution
+        self.toggle()  # Close after execution
 
     class CommandExecuted(Message):
         """Sent when a command is submitted."""
+
         def __init__(self, command: str) -> None:
             self.command = command
             super().__init__()

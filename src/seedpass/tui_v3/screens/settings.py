@@ -5,12 +5,13 @@ from textual.screen import Screen
 from textual.widgets import Static, Footer
 from textual.containers import Vertical
 
+
 class SettingsScreen(Screen):
     """
     A dedicated, full-screen settings management interface.
     Categorizes configuration into Security, Storage, and Connectivity.
     """
-    
+
     BINDINGS = [
         ("escape", "app.pop_screen", "Back to Vault"),
         ("r", "refresh", "Refresh Settings"),
@@ -54,7 +55,10 @@ class SettingsScreen(Screen):
         yield Static("SeedPass ◈ System Configuration", id="settings-title")
         with Vertical(id="settings-container"):
             yield Static("Loading configuration...", id="settings-content")
-        yield Static("ESC: Exit Settings | R: Reload | Use Palette (Ctrl+P) to change values", id="settings-footer")
+        yield Static(
+            "ESC: Exit Settings | R: Reload | Use Palette (Ctrl+P) to change values",
+            id="settings-footer",
+        )
 
     def on_mount(self) -> None:
         self.action_refresh()
@@ -63,11 +67,13 @@ class SettingsScreen(Screen):
         """Fetch live settings and render them into the content panel."""
         app = self.app
         if "config" not in app.services:
-            self.query_one("#settings-content", Static).update("[red]Config Service Offline[/red]")
+            self.query_one("#settings-content", Static).update(
+                "[red]Config Service Offline[/red]"
+            )
             return
 
         service = app.services["config"]
-        
+
         def get_val(key, default=""):
             try:
                 val = service.get(key)
@@ -83,7 +89,7 @@ class SettingsScreen(Screen):
             f"KDF Mode       : {get_val('kdf_mode', 'argon2id')}  [dim](setting-kdf-mode <mode>)[/dim]",
             f"Lock Timeout   : {get_val('inactivity_timeout', 300)}s  [dim](setting-timeout <s>)[/dim]",
         ]
-        
+
         backup_rows = [
             f"Backup Path    : {get_val('additional_backup_path', '(none)')}  [dim](db-export <path>)[/dim]",
             f"Backup Interval: {get_val('backup_interval', 3600)}s",
@@ -113,6 +119,6 @@ class SettingsScreen(Screen):
             "",
             render_card("CONNECTIVITY & NOSTR SYNC", nostr_rows),
         ]
-        
+
         self.query_one("#settings-content", Static).update("\n".join(rendered_lines))
         self.app.notify("Settings reloaded")
