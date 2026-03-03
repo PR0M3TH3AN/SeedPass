@@ -139,11 +139,11 @@ class BrandFingerprint(Static):
     """Placeholder for the top left fingerprint block matching mockups."""
     def render(self) -> str:
         app = self.app
-        fp = app.active_fingerprint or "No Profile"
-        return f"{fp[:24]}"
+        fp = app.active_breadcrumb or "No Profile"
+        return f"{fp}"
 
     def on_mount(self) -> None:
-        self.watch(self.app, "active_fingerprint", self.refresh)
+        self.watch(self.app, "active_breadcrumb", self.refresh)
 
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
@@ -207,6 +207,7 @@ class SeedPassTuiV3(App[None]):
 
     # Shared Reactive State
     active_fingerprint = reactive("")
+    active_breadcrumb = reactive("")
     selected_entry_id = reactive[int | None](None)
     session_locked = reactive(False)
     search_mode = reactive("keyword")
@@ -287,6 +288,22 @@ class SeedPassTuiV3(App[None]):
         """Refresh components when the profile changes."""
         if not new_fp:
             return
+            
+        try:
+            mgr = self.services["vault"]._manager
+            paths = []
+            for fp, _, _ in getattr(mgr, "profile_stack", []):
+                paths.append(fp[:8])
+            current = mgr.current_fingerprint[:8] if mgr.current_fingerprint else "???"
+            
+            if paths:
+                paths.append(current)
+                self.active_breadcrumb = " > ".join(paths)
+            else:
+                self.active_breadcrumb = mgr.current_fingerprint[:24] if mgr.current_fingerprint else "No Profile"
+        except Exception:
+            self.active_breadcrumb = new_fp[:24]
+
         # Notify sidebar and grid to refresh
         try:
             self.screen.query_one("#profile-tree")._refresh_tree()

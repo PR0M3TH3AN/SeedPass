@@ -38,7 +38,11 @@ class AgentMockService:
         self.is_managed = False
         self.nostr_index = 0
         self.offline = False
-        self._manager = SimpleNamespace(parent_seed="MOCK_PARENT_SEED")
+        self._manager = SimpleNamespace(
+            parent_seed="MOCK_PARENT_SEED", 
+            current_fingerprint="EFBE51E70ED1", 
+            profile_stack=[]
+        )
 
     # --- EntryService Interface ---
     def search_entries(self, query="", kinds=None, include_archived=False, archived_only=False):
@@ -119,8 +123,16 @@ class AgentMockService:
         self.nostr_index += 1
         return self.nostr_index
     
-    def load_managed_account(self, entry_id): self.is_managed = True
-    def exit_managed_account(self): self.is_managed = False
+    def load_managed_account(self, entry_id): 
+        self.is_managed = True
+        self._manager.profile_stack.append((self._manager.current_fingerprint, "path", "seed"))
+        self._manager.current_fingerprint = f"SUBACCT{entry_id}"
+        
+    def exit_managed_account(self): 
+        self.is_managed = False
+        if self._manager.profile_stack:
+            fp, _, _ = self._manager.profile_stack.pop()
+            self._manager.current_fingerprint = fp
 
     # --- Secret Data ---
     def get_totp_code(self, entry_id): return "888999"
@@ -252,10 +264,17 @@ async def run_full_walkthrough(v="v3"):
             await pilot.pause(0.5)
             print(f"  [OK] Profile Loaded: {service.is_managed == True}")
             
+            # Verify breadcrumb display
+            brand_label = str(app.screen.query_one("#brand-fingerprint").render())
+            print(f"    [DEBUG] Breadcrumb text: {brand_label}")
+            print(f"  [OK] Sub-account breadcrumb structure visible: {'>' in brand_label and 'SUBACCT3' in brand_label}")
+            
             # Press 'shift+m' to exit profile
             await pilot.press('shift+m')
             await pilot.pause(0.5)
             print(f"  [OK] Profile Exited: {service.is_managed == False}")
+            brand_label_exit = str(app.screen.query_one("#brand-fingerprint").render())
+            print(f"  [OK] Breadcrumb reverted: {'>' not in brand_label_exit}")
 
         # 6. Data I/O and Command Palette
         if v == "v3":

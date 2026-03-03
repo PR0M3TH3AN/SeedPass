@@ -86,8 +86,10 @@ To finalize v3, we must verify 100% functional parity with the **Legacy TUI**.
     - Updated `derive_pgp_key` and API to support armored PGP Public Key retrieval/copying.
     - Aligned copy/reveal semantics with mockup hints (e.g., SSH/PGP copy Pub by default).
 - **Managed Sessions:**
-    - Added `action_managed_load` (`m`) and `action_managed_exit` (`Shift+M`) to v3.
+    - Added `action_managed_load` (`m`) and `action_managed_exit` (`Shift+M`) to v3 with mock service support.
     - Wired `ml` and `mx` commands to the palette.
+    - Extended `SeedPlusScreen` to manage accurate sub-account derivation correctly.
+    - Added fully functioning dynamic breadcrumb UI via `BrandFingerprint` and `active_breadcrumb`.
 - **Search & Filters:**
     - Integrated `SemanticIndexService` into `EntryDataTable`.
     - Added `filter <kind>` (secrets, docs, keys, 2fa) and `archived` view toggle.
