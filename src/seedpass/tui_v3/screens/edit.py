@@ -6,10 +6,10 @@ from textual.widgets import Header, Footer, Input, TextArea, Label, Button
 from textual.containers import Vertical, Horizontal, Container
 from textual.binding import Binding
 
-class DocumentEditScreen(Screen):
+class EditEntryScreen(Screen):
     """
-    Dedicated full-screen editor for document/note entries.
-    Matches the 'Document Editor' mockup style.
+    Dedicated full-screen editor for all entries.
+    Auto-detects the entry kind and shows relative fields.
     """
     
     BINDINGS = [
@@ -18,35 +18,32 @@ class DocumentEditScreen(Screen):
     ]
     
     CSS = """
-    DocumentEditScreen {
+    EditEntryScreen {
         background: #0d1114;
     }
     #editor-container {
         padding: 1 2;
         border: heavy #2abf75;
         margin: 1 2;
-        height: 1fr;
+        height: auto;
+        min-height: 20;
     }
     .field-label {
         color: #58f29d;
         text-style: bold;
         margin-top: 1;
     }
-    #doc-title, #doc-tags, #doc-type {
+    Input, TextArea {
         background: #11191f;
         color: #e4fff2;
         border: solid #1a3024;
     }
-    #doc-content {
-        height: 1fr;
-        margin-top: 1;
-        background: #11191f;
-        color: #e4fff2;
-        border: solid #1a3024;
+    .hidden {
+        display: none;
     }
     #action-row {
         height: 3;
-        margin-top: 1;
+        margin-top: 2;
         content-align: right middle;
     }
     #btn-save {
@@ -54,39 +51,76 @@ class DocumentEditScreen(Screen):
         color: #0b0f13;
         text-style: bold;
     }
+    #doc-content, #entry-notes {
+        height: 1fr;
+        min-height: 5;
+    }
     """
 
     def __init__(self, entry_id: int, **kwargs) -> None:
         super().__init__(**kwargs)
         self.entry_id = entry_id
         self.entry_data: dict[str, Any] = {}
+        self.kind = ""
 
     def on_mount(self) -> None:
         if "entry" in self.app.services:
             self.entry_data = self.app.services["entry"].retrieve_entry(self.entry_id)
-            self.query_one("#doc-title", Input).value = self.entry_data.get("label", "")
-            self.query_one("#doc-type", Input).value = self.entry_data.get("file_type", "txt")
-            self.query_one("#doc-tags", Input).value = ", ".join(self.entry_data.get("tags", []))
-            self.query_one("#doc-content", TextArea).text = self.entry_data.get("content", "")
+            self.kind = str(self.entry_data.get("kind") or self.entry_data.get("type") or "").lower()
+            
+            # Common fields
+            self.query_one("#entry-title", Input).value = self.entry_data.get("label", "")
+            self.query_one("#entry-tags", Input).value = ", ".join(self.entry_data.get("tags", []) or [])
+            self.query_one("#entry-notes", TextArea).text = self.entry_data.get("notes", "")
+
+            # Kind specific fields
+            if self.kind in {"password", "totp"}:
+                self.query_one("#fields-user-url").remove_class("hidden")
+                self.query_one("#entry-username", Input).value = self.entry_data.get("username", "")
+                self.query_one("#entry-url", Input).value = self.entry_data.get("url", "")
+            elif self.kind == "key_value":
+                self.query_one("#fields-keyvalue").remove_class("hidden")
+                self.query_one("#entry-key", Input).value = self.entry_data.get("key", "")
+                self.query_one("#entry-value", Input).value = self.entry_data.get("value", "")
+            elif self.kind in {"document", "note"}:
+                self.query_one("#fields-document").remove_class("hidden")
+                self.query_one("#doc-type", Input).value = self.entry_data.get("file_type", "txt")
+                self.query_one("#doc-content", TextArea).text = self.entry_data.get("content", "")
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Container(id="editor-container"):
-            yield Label("DOCUMENT EDITOR", id="screen-title")
+            yield Label(f"EDIT ENTRY #{self.entry_id}", id="screen-title")
             
             with Horizontal(height=4):
                 with Vertical(id="col-left"):
-                    yield Label("Title", classes="field-label")
-                    yield Input(placeholder="Title", id="doc-title")
+                    yield Label("Title / Label", classes="field-label")
+                    yield Input(placeholder="Title", id="entry-title")
                 with Vertical(id="col-right", margin_left=2):
-                    yield Label("Type", classes="field-label")
-                    yield Input(placeholder="txt", id="doc-type")
+                    yield Label("Tags (comma separated)", classes="field-label")
+                    yield Input(placeholder="work, personal...", id="entry-tags")
             
-            yield Label("Tags (comma separated)", classes="field-label")
-            yield Input(placeholder="work, personal...", id="doc-tags")
-            
-            yield Label("Content", classes="field-label")
-            yield TextArea(id="doc-content")
+            # Optional fields
+            with Vertical(id="fields-user-url", classes="hidden"):
+                yield Label("Username / Email", classes="field-label")
+                yield Input(placeholder="Username", id="entry-username")
+                yield Label("URL", classes="field-label")
+                yield Input(placeholder="https://...", id="entry-url")
+                
+            with Vertical(id="fields-keyvalue", classes="hidden"):
+                yield Label("Key", classes="field-label")
+                yield Input(placeholder="Key", id="entry-key")
+                yield Label("Value", classes="field-label")
+                yield Input(placeholder="Value", id="entry-value")
+                
+            with Vertical(id="fields-document", classes="hidden"):
+                yield Label("File Type", classes="field-label")
+                yield Input(placeholder="txt", id="doc-type")
+                yield Label("Content", classes="field-label")
+                yield TextArea(id="doc-content")
+
+            yield Label("Notes", classes="field-label")
+            yield TextArea(id="entry-notes")
             
             with Horizontal(id="action-row"):
                 yield Button("Cancel (Esc)", id="btn-cancel", variant="error")
@@ -100,22 +134,34 @@ class DocumentEditScreen(Screen):
             self.app.pop_screen()
 
     def action_save(self) -> None:
-        title = self.query_one("#doc-title", Input).value
-        file_type = self.query_one("#doc-type", Input).value
-        tags_raw = self.query_one("#doc-tags", Input).value
-        content = self.query_one("#doc-content", TextArea).text
-        
+        title = self.query_one("#entry-title", Input).value
+        tags_raw = self.query_one("#entry-tags", Input).value
+        notes = self.query_one("#entry-notes", TextArea).text
         tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
         
+        update_args = {
+            "label": title,
+            "tags": tags,
+            "notes": notes,
+        }
+
+        # Add kind-specific fields
+        if self.kind in {"password", "totp"}:
+            update_args["username"] = self.query_one("#entry-username", Input).value
+            update_args["url"] = self.query_one("#entry-url", Input).value
+        elif self.kind == "key_value":
+            update_args["key"] = self.query_one("#entry-key", Input).value
+            update_args["value"] = self.query_one("#entry-value", Input).value
+        elif self.kind in {"document", "note"}:
+            update_args["file_type"] = self.query_one("#doc-type", Input).value
+            update_args["content"] = self.query_one("#doc-content", TextArea).text
+            
         try:
             self.app.services["entry"].modify_entry(
                 self.entry_id,
-                label=title,
-                file_type=file_type,
-                tags=tags,
-                content=content
+                **update_args
             )
-            self.app.notify(f"Document #{self.entry_id} saved successfully")
+            self.app.notify(f"Entry #{self.entry_id} saved successfully")
             self.app.action_refresh()
             self.app.pop_screen()
         except Exception as e:

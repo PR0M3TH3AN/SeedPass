@@ -53,7 +53,7 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, relay-list, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx"
+                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, relay-list, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx, db-export <path>, db-import <path>"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -124,6 +124,14 @@ class CommandProcessor:
             self.app.action_managed_exit()
         elif cmd in {"archive", "restore"}:
             self.app.action_toggle_archive()
+        elif cmd == "db-export":
+            path = args[0] if args else "backup.enc"
+            self.app.action_db_export(path)
+        elif cmd == "db-import":
+            if not args:
+                self.app.notify("Usage: db-import <path>", severity="warning")
+                return
+            self.app.action_db_import(args[0])
         else:
             self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
 
@@ -516,14 +524,8 @@ class SeedPassTuiV3(App[None]):
             return
         
         try:
-            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
-            kind = str(entry.get("kind") or entry.get("type") or "").lower()
-            
-            if kind in {"document", "note"}:
-                from .screens.edit import DocumentEditScreen
-                self.push_screen(DocumentEditScreen(self.selected_entry_id))
-            else:
-                self.notify(f"Edit mode for '{kind}' not yet implemented in v3", severity="warning")
+            from .screens.edit import EditEntryScreen
+            self.push_screen(EditEntryScreen(self.selected_entry_id))
         except Exception as e:
             self.notify(f"Edit failed: {e}", severity="error")
 
@@ -542,16 +544,60 @@ class SeedPassTuiV3(App[None]):
             if kind in {"document", "note"}:
                 path = self.services["entry"].export_document_file(self.selected_entry_id)
                 self.notify(f"Document exported to: {path}")
-            elif kind in {"ssh", "pgp"}:
-                # For SSH/PGP, we might want to export to a file too.
-                # Currently EntryService doesn't have a direct file export for these,
-                # but we could implement it.
-                self.notify(f"Export for '{kind}' not yet implemented in v3", severity="warning")
+            elif kind in {"ssh", "pgp", "nostr"}:
+                payload = self._resolve_sensitive_payload()
+                if not payload:
+                    return
+                # format: [copy_val, label, public_prefix, sec, pub_prefix, pub]
+                _, label, _, sec, _, pub = payload
+                safe_label = "".join(c for c in str(label) if c.isalnum() or c in ('-', '_')).strip() or f"entry_{self.selected_entry_id}"
+                from pathlib import Path
+                base_path = Path.cwd() / f"{safe_label}_{kind}"
+                Path(f"{base_path}_pub.txt").write_text(str(pub), encoding="utf-8")
+                Path(f"{base_path}_sec.txt").write_text(str(sec), encoding="utf-8")
+                self.notify(f"Exported {kind} keypair to current directory")
+            elif kind == "totp":
+                payload = self._resolve_sensitive_payload()
+                if not payload:
+                    return
+                # format: [copy_val, label, pub_p, secret, sec_p, uri]
+                _, label, _, secret, _, uri = payload
+                safe_label = "".join(c for c in str(label) if c.isalnum() or c in ('-', '_')).strip() or f"entry_{self.selected_entry_id}"
+                from pathlib import Path
+                path = Path.cwd() / f"{safe_label}_totp.txt"
+                path.write_text(f"Secret: {secret}\nURI: {uri}", encoding="utf-8")
+                self.notify(f"Exported TOTP info to {path.name}")
             else:
                 self.notify(f"Export not supported for kind '{kind}'", severity="warning")
         except Exception as e:
             self.notify(f"Export failed: {e}", severity="error")
 
+    def action_db_export(self, path: str) -> None:
+        """Export the entire vault database."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        try:
+            from seedpass.core.api import VaultExportRequest
+            req = VaultExportRequest(path=path)
+            self.services["vault"].export_vault(req)
+            self.notify(f"Exported DB to {path}")
+        except Exception as e:
+            self.notify(f"Export DB failed: {e}", severity="error")
+
+    def action_db_import(self, path: str) -> None:
+        """Import a vault database."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        try:
+            from seedpass.core.api import VaultImportRequest
+            req = VaultImportRequest(path=path)
+            self.services["vault"].import_vault(req)
+            self.notify(f"Imported DB from {path}")
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Import DB failed: {e}", severity="error")
     def _consume_confirm(self, action: str, eid: int) -> bool:
         if self._pending_sensitive_confirm is None: return False
         p_action, p_eid, p_ts = self._pending_sensitive_confirm

@@ -48,7 +48,7 @@ We have successfully scaffolded the core v3 shell:
 - [x] **Clipboard Integration:** `c` copies primary fields (Password, TOTP, PubKey, nsec, etc) as per v3 mockups.
 - [x] **Archive/Restore:** `a` toggle wired with grid refresh.
 - [x] **Managed Account Loading:** Full load/exit parity with reactive fingerprint updates.
-- [x] **Edit Workflows:** `DocumentEditScreen` implemented.
+- [x] **Edit Workflows:** Unified `EditEntryScreen` implemented to support all types.
 
 ### Phase B: High-Fidelity Refinement
 - [ ] **Mockup 1:1 Polish:** Final pass on spacing/density for all 9 PNG mockups.
@@ -108,6 +108,10 @@ Additional strict parity assertions are still required before cutover.
     - Wired `relay-list` palette command to trigger interface.
 - **Notifications:**
     - Confirmed Textual's standard `app.notify()` satisfies the notification queue mockups uniformly across all TUI v3 screens.
+- **Data I/O & Entry Lifecycle:**
+    - Expanded `EditEntryScreen` to support viewing and modifying all entry kind fields seamlessly without throwing unimplemented errors.
+    - Extended `action_export_selected` to save individual `SSH`/`PGP`/`Nostr` key pairs and `TOTP` secrets directly to file identically to TUI v2.
+    - Integrated `db-export` and `db-import` routines into the CommandPalette processor to reach 100% Vault I/O parity.
 
 ### Validation evidence
 - `pytest -q src/tests/test_tui_v3_parity.py` -> `4 passed`
