@@ -2067,7 +2067,7 @@ def launch_tui2(
                     (
                         "Actions: v reveal(cfm) | g qr | copy seed cfm | export cfm | a archive"
                         if self._dense_hires_layout
-                        else "Actions: Reveal (v confirm) | QR (g) | Copy Seed (confirm) | Export (confirm) | Archive (a)"
+                        else "Actions: Reveal (v cfm) | QR (g) | Copy (cfm) | Export (cfm) | Archive (a)"
                     ),
                 ]
                 return "\n".join(lines)
@@ -2112,7 +2112,7 @@ def launch_tui2(
                     (
                         "Actions: 6 board | 2fa-copy | 2fa-copy-url | v reveal | g qr | a archive"
                         if self._dense_hires_layout
-                        else "Actions: 2FA Board (6) | Copy Code (Ctrl+P) | Copy URL (Ctrl+P) | Reveal (v) | QR (g) | Archive (a)"
+                        else "Actions: 2FA Board (6) | Copy Code | Copy URL | Reveal (v) | QR (g) | Archive (a)"
                     ),
                 ]
                 return "\n".join(lines)
