@@ -8,3 +8,5 @@
 
 ## Patterns / reusable knowledge
 - Direct configuration modification of arrays (like `relays`) should favor using dedicated service adapters over direct `ConfigService` modifications if they aren't fully wrapped for list operations. Using `app.services["nostr"]` for relay additions/removals is the preferred pattern.
+- The cohesive retro palette across the TUI v3 mockups hinges on high-contrast `#999999` backgrounds, `#000000` text/borders, and crisp `#ffffff` inputs. All standalone screens (`SettingsScreen`, `MaximizedInspectorScreen`, `AddEntryScreen`, etc.) must strictly conform to these CSS constants rather than the legacy v2 neon green (`#58f29d`, `#080a0c`).
+- In automated Textual UI interactive parity testing (`interactive_agent_tui_test.py`), avoid explicitly sending `await pilot.press('ctrl+p')` if standard textual palettes shadow custom `CommandPalette` widgets. Directly calling `app.action_open_palette()` guarantees stable integration assertions.
