@@ -36,18 +36,21 @@ def render_qr_ascii(data: str) -> str:
 
 class CommandProcessor:
     """Handles logic for palette commands in TUI v3."""
+
     def __init__(self, app: SeedPassTuiV3):
         self.app = app
 
     def execute(self, raw: str) -> None:
         import shlex
+
         try:
             parts = shlex.split(raw)
         except Exception as e:
             self.app.notify(f"Parse error: {e}", severity="error")
             return
-        
-        if not parts: return
+
+        if not parts:
+            return
         cmd = parts[0].lower()
         args = parts[1:]
 
@@ -77,7 +80,9 @@ class CommandProcessor:
             self.app.action_search(query)
         elif cmd == "search-mode":
             if not args:
-                self.app.notify("Usage: search-mode <keyword|hybrid|semantic>", severity="warning")
+                self.app.notify(
+                    "Usage: search-mode <keyword|hybrid|semantic>", severity="warning"
+                )
                 return
             mode = args[0].lower()
             if mode in {"keyword", "hybrid", "semantic"}:
@@ -87,7 +92,9 @@ class CommandProcessor:
                 self.app.notify(f"Invalid search mode: {mode}", severity="error")
         elif cmd == "filter":
             if not args:
-                self.app.notify("Usage: filter <all|secrets|docs|keys|2fa>", severity="warning")
+                self.app.notify(
+                    "Usage: filter <all|secrets|docs|keys|2fa>", severity="warning"
+                )
                 return
             self.app.action_set_kind_filter(args[0])
         elif cmd == "archived":
@@ -135,8 +142,10 @@ class CommandProcessor:
         else:
             self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
 
+
 class BrandFingerprint(Static):
     """Placeholder for the top left fingerprint block matching mockups."""
+
     def render(self) -> str:
         app = self.app
         fp = app.active_breadcrumb or "No Profile"
@@ -144,6 +153,7 @@ class BrandFingerprint(Static):
 
     def on_mount(self) -> None:
         self.watch(self.app, "active_breadcrumb", self.refresh)
+
 
 class MainScreen(Screen):
     def compose(self) -> ComposeResult:
@@ -160,10 +170,12 @@ class MainScreen(Screen):
                     yield BoardContainer(id="board-container")
         yield ActionBar(id="action-bar")
 
+
 class SeedPassTuiV3(App[None]):
     """
     SeedPass TUI v3 - Rebuilt from scratch for modularity and mockup fidelity.
     """
+
     CSS = """
     #brand-fingerprint {
         background: #000000;
@@ -187,7 +199,7 @@ class SeedPassTuiV3(App[None]):
         color: #3ce79c;
     }
     """
-    
+
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("ctrl+p", "open_palette", "Palette", show=True),
@@ -254,13 +266,15 @@ class SeedPassTuiV3(App[None]):
                     self.services[name] = factory()
                 except Exception as e:
                     self.log(f"Failed to init service {name}: {e}")
-        
+
         self.active_fingerprint = self._initial_fingerprint or ""
         self.push_screen(MainScreen())
         # Global UI Heartbeat (for 2FA ticking etc)
         self.set_interval(1.0, self.action_refresh_ui_quiet)
 
-    def on_command_palette_command_executed(self, message: CommandPalette.CommandExecuted) -> None:
+    def on_command_palette_command_executed(
+        self, message: CommandPalette.CommandExecuted
+    ) -> None:
         """Handle command from palette."""
         self.processor.execute(message.command)
 
@@ -288,19 +302,23 @@ class SeedPassTuiV3(App[None]):
         """Refresh components when the profile changes."""
         if not new_fp:
             return
-            
+
         try:
             mgr = self.services["vault"]._manager
             paths = []
             for fp, _, _ in getattr(mgr, "profile_stack", []):
                 paths.append(fp[:8])
             current = mgr.current_fingerprint[:8] if mgr.current_fingerprint else "???"
-            
+
             if paths:
                 paths.append(current)
                 self.active_breadcrumb = " > ".join(paths)
             else:
-                self.active_breadcrumb = mgr.current_fingerprint[:24] if mgr.current_fingerprint else "No Profile"
+                self.active_breadcrumb = (
+                    mgr.current_fingerprint[:24]
+                    if mgr.current_fingerprint
+                    else "No Profile"
+                )
         except Exception:
             self.active_breadcrumb = new_fp[:24]
 
@@ -365,6 +383,7 @@ class SeedPassTuiV3(App[None]):
             self.notify("Vault is locked", severity="error")
             return
         from .screens.add import AddEntryScreen
+
         self.push_screen(AddEntryScreen())
 
     def action_seed_plus(self) -> None:
@@ -373,6 +392,7 @@ class SeedPassTuiV3(App[None]):
             self.notify("Vault is locked", severity="error")
             return
         from .screens.add import SeedPlusScreen
+
         self.push_screen(SeedPlusScreen())
 
     def action_maximize_inspector(self) -> None:
@@ -433,11 +453,11 @@ class SeedPassTuiV3(App[None]):
             return
         if self.selected_entry_id is None:
             return
-        
+
         # Check confirmation
         if not confirm:
             confirm = self._consume_confirm("reveal_selected", self.selected_entry_id)
-            
+
         self._show_sensitive_view(include_qr=False, confirm=confirm)
 
     def action_show_qr(self, mode: str = "default", confirm: bool = False) -> None:
@@ -460,18 +480,18 @@ class SeedPassTuiV3(App[None]):
             return
         if self.selected_entry_id is None:
             return
-        
+
         try:
             entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
             is_archived = entry.get("archived", False)
-            
+
             if is_archived:
                 self.services["entry"].restore_entry(self.selected_entry_id)
                 self.notify(f"Restored Entry #{self.selected_entry_id}")
             else:
                 self.services["entry"].archive_entry(self.selected_entry_id)
                 self.notify(f"Archived Entry #{self.selected_entry_id}")
-            
+
             # Refresh UI
             self.action_refresh()
         except Exception as e:
@@ -507,17 +527,21 @@ class SeedPassTuiV3(App[None]):
             return
         if self.selected_entry_id is None:
             return
-        
+
         try:
             entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
             kind = str(entry.get("kind") or entry.get("type") or "").lower()
             if kind not in {"managed_account", "seed"}:
-                self.notify("Selected entry is not a loadable profile", severity="warning")
+                self.notify(
+                    "Selected entry is not a loadable profile", severity="warning"
+                )
                 return
-            
+
             self.services["entry"].load_managed_account(self.selected_entry_id)
             # Update reactive state to trigger UI refresh
-            self.active_fingerprint = self.services["vault"]._manager.current_fingerprint
+            self.active_fingerprint = self.services[
+                "vault"
+            ]._manager.current_fingerprint
             self.notify(f"Loaded session: {self.active_fingerprint[:8]}...")
             self.action_refresh()
         except Exception as e:
@@ -528,7 +552,9 @@ class SeedPassTuiV3(App[None]):
         try:
             self.services["entry"].exit_managed_account()
             # Update reactive state
-            self.active_fingerprint = self.services["vault"]._manager.current_fingerprint
+            self.active_fingerprint = self.services[
+                "vault"
+            ]._manager.current_fingerprint
             self.notify(f"Exited session. Back to: {self.active_fingerprint[:8]}...")
             self.action_refresh()
         except Exception as e:
@@ -541,9 +567,10 @@ class SeedPassTuiV3(App[None]):
             return
         if self.selected_entry_id is None:
             return
-        
+
         try:
             from .screens.edit import EditEntryScreen
+
             self.push_screen(EditEntryScreen(self.selected_entry_id))
         except Exception as e:
             self.notify(f"Edit failed: {e}", severity="error")
@@ -561,7 +588,9 @@ class SeedPassTuiV3(App[None]):
             kind = str(entry.get("kind") or entry.get("type") or "").lower()
 
             if kind in {"document", "note"}:
-                path = self.services["entry"].export_document_file(self.selected_entry_id)
+                path = self.services["entry"].export_document_file(
+                    self.selected_entry_id
+                )
                 self.notify(f"Document exported to: {path}")
             elif kind in {"ssh", "pgp", "nostr"}:
                 payload = self._resolve_sensitive_payload()
@@ -569,8 +598,14 @@ class SeedPassTuiV3(App[None]):
                     return
                 # format: [copy_val, label, public_prefix, sec, pub_prefix, pub]
                 _, label, _, sec, _, pub = payload
-                safe_label = "".join(c for c in str(label) if c.isalnum() or c in ('-', '_')).strip() or f"entry_{self.selected_entry_id}"
+                safe_label = (
+                    "".join(
+                        c for c in str(label) if c.isalnum() or c in ("-", "_")
+                    ).strip()
+                    or f"entry_{self.selected_entry_id}"
+                )
                 from pathlib import Path
+
                 base_path = Path.cwd() / f"{safe_label}_{kind}"
                 Path(f"{base_path}_pub.txt").write_text(str(pub), encoding="utf-8")
                 Path(f"{base_path}_sec.txt").write_text(str(sec), encoding="utf-8")
@@ -581,13 +616,21 @@ class SeedPassTuiV3(App[None]):
                     return
                 # format: [copy_val, label, pub_p, secret, sec_p, uri]
                 _, label, _, secret, _, uri = payload
-                safe_label = "".join(c for c in str(label) if c.isalnum() or c in ('-', '_')).strip() or f"entry_{self.selected_entry_id}"
+                safe_label = (
+                    "".join(
+                        c for c in str(label) if c.isalnum() or c in ("-", "_")
+                    ).strip()
+                    or f"entry_{self.selected_entry_id}"
+                )
                 from pathlib import Path
+
                 path = Path.cwd() / f"{safe_label}_totp.txt"
                 path.write_text(f"Secret: {secret}\nURI: {uri}", encoding="utf-8")
                 self.notify(f"Exported TOTP info to {path.name}")
             else:
-                self.notify(f"Export not supported for kind '{kind}'", severity="warning")
+                self.notify(
+                    f"Export not supported for kind '{kind}'", severity="warning"
+                )
         except Exception as e:
             self.notify(f"Export failed: {e}", severity="error")
 
@@ -598,6 +641,7 @@ class SeedPassTuiV3(App[None]):
             return
         try:
             from seedpass.core.api import VaultExportRequest
+
             req = VaultExportRequest(path=path)
             self.services["vault"].export_vault(req)
             self.notify(f"Exported DB to {path}")
@@ -611,14 +655,17 @@ class SeedPassTuiV3(App[None]):
             return
         try:
             from seedpass.core.api import VaultImportRequest
+
             req = VaultImportRequest(path=path)
             self.services["vault"].import_vault(req)
             self.notify(f"Imported DB from {path}")
             self.action_refresh()
         except Exception as e:
             self.notify(f"Import DB failed: {e}", severity="error")
+
     def _consume_confirm(self, action: str, eid: int) -> bool:
-        if self._pending_sensitive_confirm is None: return False
+        if self._pending_sensitive_confirm is None:
+            return False
         p_action, p_eid, p_ts = self._pending_sensitive_confirm
         now = time.time()
         if p_action == action and p_eid == eid and (now - p_ts) <= 8.0:
@@ -627,7 +674,9 @@ class SeedPassTuiV3(App[None]):
         self._pending_sensitive_confirm = None
         return False
 
-    def _show_sensitive_view(self, include_qr: bool, qr_mode: str = "default", confirm: bool = False) -> None:
+    def _show_sensitive_view(
+        self, include_qr: bool, qr_mode: str = "default", confirm: bool = False
+    ) -> None:
         try:
             payload = self._resolve_sensitive_payload(qr_mode=qr_mode)
             title, body, qr_data, secret, kind = payload
@@ -638,15 +687,25 @@ class SeedPassTuiV3(App[None]):
         # Check if confirmation is required
         requires = False
         if include_qr:
-            requires = kind in {"seed", "managed_account", "nostr"} # for nostr qr we often show nsec if mode is private
+            requires = kind in {
+                "seed",
+                "managed_account",
+                "nostr",
+            }  # for nostr qr we often show nsec if mode is private
         else:
             requires = kind in {"seed", "managed_account", "ssh", "pgp", "nostr"}
 
         if requires and not confirm:
             key = "g" if include_qr else "v"
-            self._pending_sensitive_confirm = ("show_qr" if include_qr else "reveal_selected", self.selected_entry_id, time.time())
+            self._pending_sensitive_confirm = (
+                "show_qr" if include_qr else "reveal_selected",
+                self.selected_entry_id,
+                time.time(),
+            )
             # Update the board with confirmation prompt
-            self._update_board_sensitive(prompt=f"CONFIRMATION REQUIRED\n\nHigh-risk action for '{kind}'.\nPress '{key}' again within 8s to proceed.")
+            self._update_board_sensitive(
+                prompt=f"CONFIRMATION REQUIRED\n\nHigh-risk action for '{kind}'.\nPress '{key}' again within 8s to proceed."
+            )
             self.notify(f"Press '{key}' again to confirm")
             return
 
@@ -661,20 +720,25 @@ class SeedPassTuiV3(App[None]):
             self._update_board_sensitive(content=body, title=title)
 
     def _resolve_sensitive_payload(self, qr_mode="default"):
-        if "entry" not in self.services: raise ValueError("Service offline")
+        if "entry" not in self.services:
+            raise ValueError("Service offline")
         eid = self.selected_entry_id
         entry = self.services["entry"].retrieve_entry(eid)
-        if not entry: raise ValueError("Entry not found")
-        
+        if not entry:
+            raise ValueError("Entry not found")
+
         kind = str(entry.get("kind") or entry.get("type") or "").lower()
         label = entry.get("label", "")
-        
+
         if kind == "password":
-            val = self.services["entry"].generate_password(int(entry.get("length", 16)), eid)
+            val = self.services["entry"].generate_password(
+                int(entry.get("length", 16)), eid
+            )
             return ("Password Revealed", val, None, val, kind)
         if kind == "totp":
             secret = self.services["entry"].get_totp_secret(eid)
             from seedpass.core.totp import TotpManager
+
             uri = TotpManager.make_otpauth_uri(label, secret)
             return ("TOTP Secret Revealed", secret, uri, secret, kind)
         if kind in {"seed", "managed_account"}:
@@ -682,27 +746,30 @@ class SeedPassTuiV3(App[None]):
             if kind == "seed":
                 phrase = self.services["entry"].get_seed_phrase(eid, parent_seed)
             else:
-                phrase = self.services["entry"].get_managed_account_seed(eid, parent_seed)
+                phrase = self.services["entry"].get_managed_account_seed(
+                    eid, parent_seed
+                )
             from seedpass.core.seedqr import encode_seedqr
+
             return ("Seed Words Revealed", phrase, encode_seedqr(phrase), phrase, kind)
-        
+
         if kind == "ssh":
             priv, pub = self.services["entry"].get_ssh_key_pair(eid)
             return ("SSH Private Key Revealed", priv, pub, pub, kind)
-        
+
         if kind == "pgp":
             priv, pub, fp = self.services["entry"].get_pgp_key(eid)
             return ("PGP Private Key Revealed", priv, pub, pub, kind)
-        
+
         if kind == "nostr":
             npub, nsec = self.services["entry"].get_nostr_key_pair(eid)
             qr_data = nsec if qr_mode == "private" else f"nostr:{npub}"
             return ("Nostr Secret Revealed", nsec, qr_data, nsec, kind)
-        
+
         if kind == "key_value":
             val = entry.get("value", "")
             return ("Key-Value Revealed", val, None, val, kind)
-        
+
         if kind in {"document", "note"}:
             content = entry.get("content", "")
             return ("Document Content", content, None, content, kind)
@@ -710,10 +777,12 @@ class SeedPassTuiV3(App[None]):
         # Fallback
         return ("Data Revealed", f"Label: {label}\nDetails: {entry}", None, None, kind)
 
-    def _update_board_sensitive(self, content: str = None, title: str = None, prompt: str = None):
+    def _update_board_sensitive(
+        self, content: str = None, title: str = None, prompt: str = None
+    ):
         """Push sensitive data to the currently active board or screen."""
         data = {"content": content, "title": title, "prompt": prompt}
-        
+
         # 1. Update full-screen inspector if active
         if isinstance(self.screen, MaximizedInspectorScreen):
             self.screen.reveal_data = data

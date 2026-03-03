@@ -5,8 +5,10 @@ from textual.widgets import Static, Label
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 
+
 class BaseBoard(Static):
     """Base class for all specialized entry boards."""
+
     entry_data = reactive[dict[str, Any]]({})
     reveal_data = reactive[dict[str, Any]]({})
 
@@ -19,8 +21,10 @@ class BaseBoard(Static):
     def update_board(self) -> None:
         pass
 
+
 class InspectorHeader(Static):
     """Reusable high-fidelity header matching the UI Board mockups."""
+
     DEFAULT_CSS = """
     InspectorHeader {
         height: 3;
@@ -39,24 +43,29 @@ class InspectorHeader(Static):
     
     .edit-btn { background: #ffffff; color: #000000; padding: 0 2; height: 1; margin-top: 1; margin-right: 1; text-style: bold; }
     """
-    
+
     def compose(self) -> ComposeResult:
         with Vertical(classes="title-block"):
             yield Label("Title", id="hdr-title", classes="title-text")
             yield Label("Type", id="hdr-type", classes="type-text")
         with Horizontal(classes="meta-block"):
-            yield Label("[b]Date Modified[/b]\nYYYY-MM-DD", id="hdr-date", classes="meta-item")
+            yield Label(
+                "[b]Date Modified[/b]\nYYYY-MM-DD", id="hdr-date", classes="meta-item"
+            )
             yield Label("[b]Black Listed? No[/b]", id="hdr-bl", classes="meta-item")
             yield Label("[b]Index Num*:[/b]\n0", id="hdr-idx", classes="meta-item")
             yield Label("[b]Entry Num:[/b]\n1", id="hdr-enum", classes="meta-item")
         yield Label("[@click=app.edit_selected]Edit[/]", classes="edit-btn")
 
     def update_data(self, entry: dict, kind_label: str):
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         try:
-            self.query_one("#hdr-title", Label).update(f"[b]{entry.get('label', 'Untitled')}[/b]")
+            self.query_one("#hdr-title", Label).update(
+                f"[b]{entry.get('label', 'Untitled')}[/b]"
+            )
             self.query_one("#hdr-type", Label).update(kind_label)
-            idx = str(entry.get('id', 'N/A'))
+            idx = str(entry.get("id", "N/A"))
             self.query_one("#hdr-idx", Label).update(f"[b]Index Num*:[/b]\n{idx}")
             self.query_one("#hdr-enum", Label).update(f"[b]Entry Num:[/b]\n{idx}")
         except Exception:
@@ -65,12 +74,17 @@ class InspectorHeader(Static):
 
 class IdleBoard(BaseBoard):
     """Shown when no entry is selected."""
+
     def compose(self) -> ComposeResult:
-        yield Label("\n\n[b]Inspector Idle[/b]\n\nSelect an entry from the grid\nto view details.", id="idle-text")
+        yield Label(
+            "\n\n[b]Inspector Idle[/b]\n\nSelect an entry from the grid\nto view details.",
+            id="idle-text",
+        )
 
 
 class PasswordBoard(BaseBoard):
     """Matches 'Password Board.png' mockup."""
+
     DEFAULT_CSS = """
     PasswordBoard {
         background: #000000;
@@ -97,9 +111,15 @@ class PasswordBoard(BaseBoard):
                 with Vertical(classes="field-box highlight"):
                     yield Label("Password*", classes="field-title")
                     with Horizontal(classes="field-row"):
-                        yield Label("**********", id="fld-pass-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
-                        yield Label("[@click=app.add_entry]Create New[/]", classes="action-btn")
+                        yield Label(
+                            "**********", id="fld-pass-val", classes="field-val"
+                        )
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
+                        yield Label(
+                            "[@click=app.add_entry]Create New[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Username*", classes="field-title")
                     yield Label("-", id="fld-user-val")
@@ -114,26 +134,29 @@ class PasswordBoard(BaseBoard):
                 yield Label("", id="fld-notes-val")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
-        
+
         try:
-            self.query_one("#password-header", InspectorHeader).update_data(d, "Password")
-            
+            self.query_one("#password-header", InspectorHeader).update_data(
+                d, "Password"
+            )
+
             pwd = "[b]**********[/b] (v to reveal)"
             if r.get("content"):
                 pwd = r.get("content")
-            
+
             self.query_one("#fld-pass-val", Label).update(pwd)
             self.query_one("#fld-user-val", Label).update(d.get("username", "-"))
             self.query_one("#fld-url-val", Label).update(d.get("url", "-"))
-            
-            tags = d.get('tags', [])
+
+            tags = d.get("tags", [])
             tag_str = ", ".join(tags) if isinstance(tags, list) else str(tags)
             self.query_one("#fld-tags-val", Label).update(tag_str or "-")
-            
-            notes = d.get('notes', '')
+
+            notes = d.get("notes", "")
             self.query_one("#fld-notes-val", Label).update(notes)
         except Exception:
             pass
@@ -141,6 +164,7 @@ class PasswordBoard(BaseBoard):
 
 class TotpBoard(BaseBoard):
     """Matches '2FA Board.png' mockup."""
+
     DEFAULT_CSS = """
     TotpBoard { background: #000000; color: #ffffff; padding: 0 1; height: 1fr; }
     .board-body { layout: horizontal; height: 1fr; }
@@ -162,8 +186,12 @@ class TotpBoard(BaseBoard):
                 with Vertical(classes="field-box highlight"):
                     yield Label("2FA Code*", classes="field-title")
                     with Horizontal(classes="field-row"):
-                        yield Label("------  (30s left)", id="fld-code-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "------  (30s left)", id="fld-code-val", classes="field-val"
+                        )
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Secret", classes="field-title")
                     yield Label("-", id="fld-secret-val")
@@ -174,14 +202,15 @@ class TotpBoard(BaseBoard):
                 yield Label("QR Code (Press g)", id="fld-qr-val", classes="qr-text")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
         app = self.app
-        
+
         try:
             self.query_one("#totp-header", InspectorHeader).update_data(d, "2FA")
-            
+
             code = "------"
             if app.services.get("entry") and not app.session_locked:
                 try:
@@ -189,27 +218,33 @@ class TotpBoard(BaseBoard):
                 except:
                     pass
             import time
+
             remaining = 30 - (int(time.time()) % 30)
-            self.query_one("#fld-code-val", Label).update(f"[b]{code}[/b]  ({remaining}s left)")
+            self.query_one("#fld-code-val", Label).update(
+                f"[b]{code}[/b]  ({remaining}s left)"
+            )
 
             secret = "[b]**********[/b] (v to reveal)"
             if r.get("content") and "##" not in r.get("content"):
                 secret = r.get("content")
-            
+
             self.query_one("#fld-secret-val", Label).update(secret)
-            self.query_one("#fld-algo-val", Label).update(d.get("algorithm", "SHA1").upper())
+            self.query_one("#fld-algo-val", Label).update(
+                d.get("algorithm", "SHA1").upper()
+            )
 
             qr_content = "QR Code (Press g)"
             if r.get("content") and "##" in r.get("content"):
                 qr_content = r.get("content")
             self.query_one("#fld-qr-val", Label).update(qr_content)
-            
+
         except Exception:
             pass
 
 
 class NoteBoard(BaseBoard):
     """Matches 'Note Board.png' mockup."""
+
     DEFAULT_CSS = """
     NoteBoard { background: #000000; color: #ffffff; padding: 0 1; height: 1fr; }
     .board-body { layout: horizontal; height: 1fr; border: solid #ffffff; padding: 1; }
@@ -221,18 +256,20 @@ class NoteBoard(BaseBoard):
             yield Label("Content", id="fld-content-val")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         try:
-            kind_label = "Note" if d.get('kind', '') == 'note' else "Document"
+            kind_label = "Note" if d.get("kind", "") == "note" else "Document"
             self.query_one("#note-header", InspectorHeader).update_data(d, kind_label)
-            self.query_one("#fld-content-val", Label).update(d.get('content', ''))
+            self.query_one("#fld-content-val", Label).update(d.get("content", ""))
         except Exception:
             pass
 
 
 class SeedBoard(BaseBoard):
     """Matches 'BIP-39 Seed Board.png' mockup."""
+
     DEFAULT_CSS = """
     SeedBoard { background: #000000; color: #ffffff; padding: 0 1; height: 1fr; }
     .board-body { layout: horizontal; height: 1fr; }
@@ -254,8 +291,12 @@ class SeedBoard(BaseBoard):
                 with Vertical(classes="field-box highlight"):
                     yield Label("Seed Phrase*", classes="field-title")
                     with Horizontal(classes="field-row"):
-                        yield Label("[HIDDEN]", id="fld-phrase-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[HIDDEN]", id="fld-phrase-val", classes="field-val"
+                        )
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Fingerprint", classes="field-title")
                     yield Label("-", id="fld-fp-val")
@@ -266,17 +307,24 @@ class SeedBoard(BaseBoard):
                 yield Label("QR Code (Press gg)", id="fld-qr-val", classes="qr-text")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
         try:
-            kind_label = "BIP-39" if d.get('kind', '') in {'seed', 'managed_account'} else d.get('kind', 'Seed')
-            self.query_one("#seed-header", InspectorHeader).update_data(d, kind_label.capitalize())
+            kind_label = (
+                "BIP-39"
+                if d.get("kind", "") in {"seed", "managed_account"}
+                else d.get("kind", "Seed")
+            )
+            self.query_one("#seed-header", InspectorHeader).update_data(
+                d, kind_label.capitalize()
+            )
 
             phrase = "[b]**********[/b] (vv to reveal)"
             if r.get("content") and "##" not in r.get("content"):
                 phrase = r.get("content")
-            
+
             self.query_one("#fld-phrase-val", Label).update(phrase)
             self.query_one("#fld-fp-val", Label).update(d.get("fingerprint", "-"))
             self.query_one("#fld-wc-val", Label).update(str(d.get("word_count", 24)))
@@ -291,6 +339,7 @@ class SeedBoard(BaseBoard):
 
 class SshBoard(BaseBoard):
     """Matches 'SSH Board.png' mockup."""
+
     DEFAULT_CSS = """
     SshBoard { background: #000000; color: #ffffff; padding: 0 1; height: 1fr; }
     .board-body { layout: horizontal; height: 1fr; }
@@ -312,12 +361,16 @@ class SshBoard(BaseBoard):
                     yield Label("Private Key*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-priv-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Public Key", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[PREVIEW]", id="fld-pub-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Key Type", classes="field-title")
                     yield Label("Ed25519", id="fld-type-val")
@@ -326,7 +379,8 @@ class SshBoard(BaseBoard):
                 yield Label("", id="fld-notes-val")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
         try:
@@ -336,12 +390,15 @@ class SshBoard(BaseBoard):
             if r.get("content"):
                 priv = r.get("content")
             self.query_one("#fld-priv-val", Label).update(priv)
-            
-            pub = d.get('public_key', '[PREVIEW]')
-            if len(pub) > 30: pub = pub[:30] + "..."
+
+            pub = d.get("public_key", "[PREVIEW]")
+            if len(pub) > 30:
+                pub = pub[:30] + "..."
             self.query_one("#fld-pub-val", Label).update(pub)
-            
-            self.query_one("#fld-type-val", Label).update(d.get("key_type", "RSA/Ed25519"))
+
+            self.query_one("#fld-type-val", Label).update(
+                d.get("key_type", "RSA/Ed25519")
+            )
             self.query_one("#fld-notes-val", Label).update(d.get("notes", ""))
         except Exception:
             pass
@@ -349,6 +406,7 @@ class SshBoard(BaseBoard):
 
 class PgpBoard(BaseBoard):
     """Matches 'PGP Board.png' mockup."""
+
     DEFAULT_CSS = SshBoard.DEFAULT_CSS.replace("SshBoard", "PgpBoard")
 
     def compose(self) -> ComposeResult:
@@ -359,7 +417,9 @@ class PgpBoard(BaseBoard):
                     yield Label("Private Key*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-priv-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Fingerprint / ID", classes="field-title")
                     yield Label("-", id="fld-fp-val")
@@ -371,7 +431,8 @@ class PgpBoard(BaseBoard):
                 yield Label("", id="fld-notes-val")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
         try:
@@ -381,7 +442,7 @@ class PgpBoard(BaseBoard):
             if r.get("content"):
                 priv = r.get("content")
             self.query_one("#fld-priv-val", Label).update(priv)
-            
+
             self.query_one("#fld-fp-val", Label).update(d.get("fingerprint", "-"))
             self.query_one("#fld-ident-val", Label).update(d.get("user_id", "-"))
             self.query_one("#fld-notes-val", Label).update(d.get("notes", ""))
@@ -391,6 +452,7 @@ class PgpBoard(BaseBoard):
 
 class NostrBoard(BaseBoard):
     """Matches 'Nostr Board.png' mockup."""
+
     DEFAULT_CSS = TotpBoard.DEFAULT_CSS.replace("TotpBoard", "NostrBoard")
 
     def compose(self) -> ComposeResult:
@@ -401,12 +463,16 @@ class NostrBoard(BaseBoard):
                     yield Label("nsec (Secret)*", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("[HIDDEN]", id="fld-nsec-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("npub (Public)", classes="field-title")
                     with Horizontal(classes="field-row"):
                         yield Label("-", id="fld-npub-val", classes="field-val")
-                        yield Label("[@click=app.copy_selected]Copy[/]", classes="action-btn")
+                        yield Label(
+                            "[@click=app.copy_selected]Copy[/]", classes="action-btn"
+                        )
                 with Vertical(classes="field-box"):
                     yield Label("Hex Key", classes="field-title")
                     yield Label("-", id="fld-hex-val")
@@ -414,7 +480,8 @@ class NostrBoard(BaseBoard):
                 yield Label("QR Code (Press g)", id="fld-qr-val", classes="qr-text")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
         try:
@@ -424,11 +491,12 @@ class NostrBoard(BaseBoard):
             if r.get("content") and "##" not in r.get("content"):
                 nsec = r.get("content")
             self.query_one("#fld-nsec-val", Label).update(nsec)
-            
-            npub = d.get('npub', '-')
-            if len(npub) > 30: npub = npub[:30] + "..."
+
+            npub = d.get("npub", "-")
+            if len(npub) > 30:
+                npub = npub[:30] + "..."
             self.query_one("#fld-npub-val", Label).update(npub)
-            
+
             self.query_one("#fld-hex-val", Label).update(d.get("hex", "-"))
 
             qr_content = "QR Code (Press g)"
@@ -441,6 +509,7 @@ class NostrBoard(BaseBoard):
 
 class GenericBoard(BaseBoard):
     """Fallback high-fidelity board."""
+
     DEFAULT_CSS = """
     GenericBoard { background: #000000; color: #ffffff; padding: 0 1; height: 1fr; }
     .board-body { layout: horizontal; height: 1fr; }
@@ -466,27 +535,28 @@ class GenericBoard(BaseBoard):
                 yield Label("", id="fld-notes-val")
 
     def update_board(self) -> None:
-        if not self.is_mounted: return
+        if not self.is_mounted:
+            return
         d = self.entry_data
         r = self.reveal_data
-        kind = str(d.get('kind', d.get('type', 'Unknown'))).capitalize()
-        
+        kind = str(d.get("kind", d.get("type", "Unknown"))).capitalize()
+
         try:
             self.query_one("#generic-header", InspectorHeader).update_data(d, kind)
-            
+
             secret = "[HIDDEN] (v to reveal)"
             if r.get("content"):
                 secret = rf"{r.get('content')}"
             self.query_one("#fld-secret-val", Label).update(secret)
-            
+
             details = []
             for k, v in d.items():
-                if k not in ('label', 'notes', 'tags', 'kind', 'id', 'type', 'content'):
+                if k not in ("label", "notes", "tags", "kind", "id", "type", "content"):
                     details.append(f"[b]{k.capitalize()}:[/b] {v}")
             self.query_one("#fld-details-val", Label).update("\n".join(details) or "-")
 
-            self.query_one("#fld-notes-val", Label).update(d.get('notes', ''))
-            
+            self.query_one("#fld-notes-val", Label).update(d.get("notes", ""))
+
         except Exception:
             pass
 
@@ -495,6 +565,7 @@ class BoardContainer(Vertical):
     """
     Reactive container that swaps specialized boards based on entry kind.
     """
+
     DEFAULT_CSS = """
     BoardContainer {
         height: 1fr;
@@ -523,7 +594,7 @@ class BoardContainer(Vertical):
             return
 
         kind = str(entry.get("kind") or entry.get("type") or "").lower()
-        
+
         if kind in {"password", "stored_password"}:
             board = self._show_board("password")
         elif kind == "totp":
@@ -540,7 +611,7 @@ class BoardContainer(Vertical):
             board = self._show_board("nostr")
         else:
             board = self._show_board("generic")
-            
+
         board.entry_data = entry
 
     def _show_board(self, board_type: str) -> Any:
