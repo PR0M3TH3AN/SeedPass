@@ -523,7 +523,7 @@ def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
 
 def derive_pgp_key(
     bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     """Derive a deterministic PGP private key and return it with its fingerprint.
 
     For RSA keys the randomness required during key generation is provided by

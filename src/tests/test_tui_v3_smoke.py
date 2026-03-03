@@ -139,11 +139,15 @@ async def test_tui3_sidebar_child_nodes_open_entries() -> None:
     async with app.run_test() as pilot:
         await pilot.pause()
         tree = app.screen.query_one("#profile-tree")
-        tree.on_tree_node_selected(SimpleNamespace(node=SimpleNamespace(data="managed:2")))
+        tree.on_tree_node_selected(
+            SimpleNamespace(node=SimpleNamespace(data="managed:2"))
+        )
         await pilot.pause()
         assert app.selected_entry_id == 2
         assert app.active_fingerprint == "EFBE51E70ED1B53A"
-        tree.on_tree_node_selected(SimpleNamespace(node=SimpleNamespace(data="agent:3")))
+        tree.on_tree_node_selected(
+            SimpleNamespace(node=SimpleNamespace(data="agent:3"))
+        )
         await pilot.pause()
         assert app.selected_entry_id == 3
 

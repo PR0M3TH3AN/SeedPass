@@ -6,16 +6,18 @@ from textual.widgets import Static, Footer
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 
+
 class MaximizedInspectorScreen(Screen):
     """
     Full-screen detailed view for a single entry.
     Optimized for long documents, SSH keys, or PGP blocks.
     """
+
     reveal_data = reactive[dict[str, Any]]({})
 
     def watch_reveal_data(self, old, new):
         self._refresh_detail()
-    
+
     BINDINGS = [
         ("escape", "app.pop_screen", "Back to Vault"),
         ("v", "reveal", "Reveal Secret"),
@@ -71,15 +73,21 @@ class MaximizedInspectorScreen(Screen):
         r = self.reveal_data
 
         if eid is None:
-            self.query_one("#max-inspector-content", Static).update("No entry selected.")
+            self.query_one("#max-inspector-content", Static).update(
+                "No entry selected."
+            )
             return
 
         if r.get("prompt"):
-            self.query_one("#max-inspector-content", Static).update(f"[b]SECURITY ALERT[/b]\n\n{r['prompt']}")
+            self.query_one("#max-inspector-content", Static).update(
+                f"[b]SECURITY ALERT[/b]\n\n{r['prompt']}"
+            )
             return
 
         if r.get("content") and "##" in r["content"]:
-            self.query_one("#max-inspector-content", Static).update(f"[b]SECURE QR DISPLAY[/b]\n\n{r['content']}")
+            self.query_one("#max-inspector-content", Static).update(
+                f"[b]SECURE QR DISPLAY[/b]\n\n{r['content']}"
+            )
             return
 
         if "entry" not in app.services:
@@ -90,13 +98,13 @@ class MaximizedInspectorScreen(Screen):
             return
 
         # Simple render for the full screen view
-        label = entry.get('label', 'Unknown')
-        kind = entry.get('kind', 'Unknown')
-        
+        label = entry.get("label", "Unknown")
+        kind = entry.get("kind", "Unknown")
+
         # Build a large detail view
         header = f"[b]ENTRY #{eid} - {label.upper()} ({kind})[/b]\n"
         divider = "=" * 60 + "\n"
-        
+
         # Meta info
         meta_lines = [
             f"Username : {entry.get('username', '(none)')}",
@@ -104,14 +112,16 @@ class MaximizedInspectorScreen(Screen):
             f"Created  : {entry.get('created_at', '(unknown)')}",
             f"Modified : {entry.get('modified_at', '(unknown)')}",
         ]
-        
+
         # Handle revealed content
-        content = entry.get('content', '')
+        content = entry.get("content", "")
         if r.get("content"):
             content = f"[b][cyan]{r['content']}[/b]"
-        
-        content_block = f"\n[b]CONTENT / SECURE DATA:[/b]\n{divider}{content}\n" if content else ""
-        
+
+        content_block = (
+            f"\n[b]CONTENT / SECURE DATA:[/b]\n{divider}{content}\n" if content else ""
+        )
+
         final_text = header + divider + "\n".join(meta_lines) + content_block
         self.query_one("#max-inspector-content", Static).update(final_text)
 

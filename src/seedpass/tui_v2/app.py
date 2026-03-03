@@ -127,6 +127,7 @@ def launch_tui2(
 
     class SettingsScreen(Screen):
         """Full-screen settings management."""
+
         BINDINGS = [("escape", "app.pop_screen", "Back")]
 
         def compose(self) -> ComposeResult:
@@ -142,7 +143,9 @@ def launch_tui2(
             # We use app properties via self.app
             app = self.app
             if app._config_service is None:
-                self.query_one("#settings-content", Static).update("Config service unavailable")
+                self.query_one("#settings-content", Static).update(
+                    "Config service unavailable"
+                )
                 return
 
             def get_val(key, default=""):
@@ -158,7 +161,7 @@ def launch_tui2(
                 f"KDF Mode       : {get_val('kdf_mode', 'argon2id')}  (setting-kdf-mode <mode>)",
                 f"Lock Timeout   : {get_val('inactivity_timeout', 300)}s  (setting-timeout <s>)",
             ]
-            
+
             backup_rows = [
                 f"Backup Path    : {get_val('additional_backup_path', '(none)')}  (db-export <path>)",
                 f"Backup Interval: {get_val('backup_interval', 3600)}s",
@@ -176,10 +179,13 @@ def launch_tui2(
                 "",
                 *app._board_card("Connectivity & Nostr", nostr_rows),
             ]
-            self.query_one("#settings-content", Static).update("\n".join(rendered_lines))
+            self.query_one("#settings-content", Static).update(
+                "\n".join(rendered_lines)
+            )
 
     class InspectorScreen(Screen):
         """Full-screen maximized entry detail view."""
+
         BINDINGS = [
             ("escape", "app.pop_screen", "Back"),
             ("v", "reveal", "Reveal"),
@@ -200,7 +206,7 @@ def launch_tui2(
             if app._selected_entry_id is None:
                 self.query_one("#maximized-detail", Static).update("No entry selected.")
                 return
-            
+
             # Use app's rendering logic but formatted for full screen
             detail = app._entry_detail_text(app._selected_entry)
             self.query_one("#maximized-detail", Static).update(detail)
@@ -919,11 +925,11 @@ def launch_tui2(
                 nodes.append({"kind": "profile", "fingerprint": fp})
                 # Auto-expand the active profile if not explicitly tracked
                 if fp not in self._profile_tree_expanded:
-                    self._profile_tree_expanded[fp] = (fp == current_fp)
-                
+                    self._profile_tree_expanded[fp] = fp == current_fp
+
                 if not self._profile_tree_expanded.get(fp, False):
                     continue
-                
+
                 # Only show child nodes for the ACTIVE profile branch for now
                 # (since searching across all profiles is expensive)
                 is_active_branch = fp == current_fp or (
@@ -1034,9 +1040,7 @@ def launch_tui2(
             elif kind_l == "nostr":
                 context = "Entry ▣ Reveal (v) ▣ QR (g public/private) ▣ Archive (a) ▣ Maximize (z)"
             elif kind_l in {"document", "note"}:
-                context = (
-                    "Entry ▣ Edit Doc (e) ▣ Save (Ctrl+S) ▣ Archive (a) ▣ Maximize (z) ▣ doc-export"
-                )
+                context = "Entry ▣ Edit Doc (e) ▣ Save (Ctrl+S) ▣ Archive (a) ▣ Maximize (z) ▣ doc-export"
             elif kind_l == "key_value":
                 context = "Entry ▣ set-field/clear-field ▣ Archive (a) ▣ Maximize (z) ▣ notes/tags"
             else:
@@ -1187,7 +1191,9 @@ def launch_tui2(
 
         def _refresh_settings_board(self) -> None:
             if self._config_service is None:
-                self.query_one("#settings-board", Static).update("Config service unavailable")
+                self.query_one("#settings-board", Static).update(
+                    "Config service unavailable"
+                )
                 return
 
             def get_val(key, default=""):
@@ -1203,7 +1209,7 @@ def launch_tui2(
                 f"KDF Mode: {get_val('kdf_mode', 'argon2id')} (setting-kdf-mode <mode>)",
                 f"Lock Timeout: {get_val('inactivity_timeout', 300)}s (setting-timeout <s>)",
             ]
-            
+
             backup_rows = [
                 f"Backup Path: {get_val('additional_backup_path', '(none)')} (db-export <path>)",
                 f"Backup Interval: {get_val('backup_interval', 3600)}s",
@@ -1228,21 +1234,22 @@ def launch_tui2(
             adj_col = column - 1
             if adj_row not in {0, 1} or adj_col < 0:
                 return False
-            
+
             rendered = str(self.query_one("#action-strip", Static).render())
             lines = rendered.splitlines()
             if not lines or adj_row >= len(lines):
                 return False
-            
+
             active_line = lines[adj_row]
             if not active_line:
                 return False
 
             import re
+
             if adj_row == 0:
-                segments = list(re.finditer(r'\S+.*?(?=\s{2,}|$)', active_line))
+                segments = list(re.finditer(r"\S+.*?(?=\s{2,}|$)", active_line))
             else:
-                segments = list(re.finditer(r'[^▣]+', active_line))
+                segments = list(re.finditer(r"[^▣]+", active_line))
 
             for match in segments:
                 start, end = match.span()
@@ -1670,11 +1677,11 @@ def launch_tui2(
                         label = item if item != "(default)" else "default"
                         fp_short = item if len(item) <= 12 else f"{item[:9]}..."
                         active_branch = item == current_fp
-                        
+
                         # Add expand/collapse indicator
                         expanded = self._profile_tree_expanded.get(item, False)
                         exp_ind = "[-] " if expanded else "[+] "
-                        
+
                         branch_suffix = ""
                         if active_branch:
                             managed_count = len(
@@ -1684,7 +1691,7 @@ def launch_tui2(
                                 [n for n in nodes if str(n.get("kind")) == "agent"]
                             )
                             branch_suffix = f"  M:{managed_count} A:{agent_count}"
-                        
+
                         tree_lines.append(
                             f"{cursor} {marker} {exp_ind}{label[:12]:<12} | Seed: {fp_short}{branch_suffix}"
                         )
@@ -3127,7 +3134,7 @@ def launch_tui2(
                 )
                 self._set_secret_panel(prompt, state="HIDDEN")
                 self._set_status(f"Confirmation required (press '{action_key}' again)")
-                
+
                 self._pending_sensitive_confirm = (
                     "show_qr" if include_qr else "reveal_selected",
                     int(self._selected_entry_id),
@@ -3454,14 +3461,18 @@ def launch_tui2(
                 raise ValueError("copy field unsupported for ssh: public|private")
 
             if kind == "pgp":
-                private_key, public_key, fingerprint_text = self._service.get_pgp_key(entry_id)
+                private_key, public_key, fingerprint_text = self._service.get_pgp_key(
+                    entry_id
+                )
                 if key in {"private", "private_key"}:
                     return str(private_key), True, "private_key"
                 if key in {"public", "public_key"}:
                     return str(public_key), False, "public_key"
                 if key in {"fingerprint", "fpr"}:
                     return str(fingerprint_text), False, "fingerprint"
-                raise ValueError("copy field unsupported for pgp: private|public|fingerprint")
+                raise ValueError(
+                    "copy field unsupported for pgp: private|public|fingerprint"
+                )
 
             if kind == "nostr":
                 npub, nsec = self._service.get_nostr_key_pair(entry_id)
@@ -5618,7 +5629,9 @@ def launch_tui2(
                     else ""
                 )
                 if kind not in {"managed_account", "seed"}:
-                    self._set_status("Selected entry is not a loadable profile (managed_account or seed)")
+                    self._set_status(
+                        "Selected entry is not a loadable profile (managed_account or seed)"
+                    )
                     return
                 managed_fp = (
                     str(entry.get("fingerprint") or "").strip()
