@@ -46,6 +46,7 @@ This directory contains SeedPass project documentation.
 
 ## QA and Testing Docs
 
+- `TEST_INVENTORY.md` (central index of all tests and runners)
 - `agent_testing_roadmap.md`
 - `ai_agent_tui_testing.md`
 - `agent_test_format.md`

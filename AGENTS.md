@@ -56,20 +56,30 @@ cd ~/.seedpass/app && source venv/bin/activate
 cd src && python main.py
 ```
 
+## Planning & Strategy
+
+Before starting work, AI agents must consult the following documents to align with the current project trajectory:
+
+1.  **[Dev Control Center](docs/dev_control_center.md)**: The single source of truth for current priorities and "what to do next."
+2.  **[TUI v2 Execution Plan](docs/tui_v2_integration_execution_plan_2026-03-02.md)**: The active roadmap for the TUI v2 mockup parity and hardening phase.
+
 ## Running Tests
 
+SeedPass maintains a comprehensive test infrastructure. Agents should use the central inventory as a guide:
+
+1.  **[Test Infrastructure Inventory](docs/TEST_INVENTORY.md)**: A complete index of all unit, integration, UI, and determinism tests.
+
+### Quick Start: Running Tests
+
 1. Set up a virtual environment and install dependencies:
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --require-hashes -r requirements.lock
-   ```
-
-2. Run the test suite using **pytest**:
-
+...
    ```bash
    pytest
+   ```
+
+   For a full CI-equivalent run (highly recommended before any PR), use:
+   ```bash
+   bash scripts/run_ci_tests.sh
    ```
 
    Currently the test folder is located in `src/tests/`. New tests should be placed there so `pytest` can discover them automatically.

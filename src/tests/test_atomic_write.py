@@ -75,3 +75,19 @@ def test_atomic_write_preserves_existing_on_failure(tmp_path: Path) -> None:
     # Should revert to 1 file
     assert len(list(tmp_path.iterdir())) == 1
     assert dest_path.read_text() == "original content"
+
+
+def test_atomic_write_permissions(tmp_path: Path) -> None:
+    """File permissions should be set to 0o600 (owner read/write only)."""
+    import stat
+
+    test_file = tmp_path / "permissions.txt"
+
+    def write_op(f):
+        f.write("content")
+
+    atomic_write(test_file, write_op)
+
+    st = test_file.stat()
+    mode = stat.S_IMODE(st.st_mode)
+    assert mode == 0o600

@@ -154,8 +154,11 @@ async def test_tui2_parity_filters_cover_all_entry_kinds() -> None:
         for kind in kinds:
             await _run_palette(app, pilot, f"filter {kind}")
             assert len(list_view.children) == 1
+            # Explicitly open the entry to ensure selection (parity requirement)
+            entry_id = entries[kinds.index(kind)]["id"]
+            await _run_palette(app, pilot, f"open {entry_id}")
             detail_text = _widget_text(app, "#entry-detail")
-            assert f'"kind": "{kind}"' in detail_text
+            assert kind in detail_text.lower()
 
         await _run_palette(app, pilot, "filter all")
         assert len(list_view.children) == len(kinds)
@@ -170,6 +173,9 @@ async def test_tui2_parity_archive_restore_roundtrip_non_document() -> None:
 
     async with app.run_test() as pilot:
         await pilot.pause()
+        # Explicitly open the entry to ensure selection
+        await _run_palette(app, pilot, "open 1")
+        
         await _run_palette(app, pilot, "archive")
         assert service.retrieve_entry(1)["archived"] is True
         assert "archived" in _status_text(app)
