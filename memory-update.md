@@ -82,3 +82,31 @@
 - Continued board-rhythm parity pass: aligned TOTP field labels (`Period :`, `Digits :`) to match password/document row style and improve scan consistency.
 - Added artifacts `audit_20260302_phaseF7` and `audit_20260302_phaseF8` for board layout comparison against mockups.
 - Extended dense-mode action verbosity reduction across additional boards (seed/managed, ssh, pgp, nostr) for consistent low-noise inspector language.
+- Improved profile-tree depth readability with active-branch counts (`M:x A:y`) and clearer child group connectors/labels.
+- Added verification artifact `artifacts/ui_eval/audit_20260302_phaseB6/` for tree hierarchy scan quality.
+
+## Session Update (2026-03-03)
+
+### TUI v2 managed-session + action-strip reliability fixes
+- Added managed-session breadcrumb tracking in `src/seedpass/tui_v2/app.py` so left header now shows nested path context:
+  - `Path: <root-fingerprint> > <managed-fingerprint> > ...`
+- Managed session state now tracks nested loads (`managed-load`) with stack semantics and restores the previous layer on each `managed-exit`.
+- `managed-load` now normalizes kind tokens (`managed-account`, `managed account`, `managed_account`) to reduce false negatives.
+- Action strip row-2 is now clickable (context actions), including:
+  - `v` reveal
+  - `g` QR
+  - `e` edit
+  - `a` archive
+  - `6` 2FA board
+  - `managed-load` / `managed-exit` when managed account is selected
+- Added robust kind normalization for context rendering so action hints stay aligned with selected entry kind.
+
+### Regression tests added/updated
+- `test_tui2_textual_action_strip_click_routes_to_shortcuts` now validates row-2 click reveal.
+- Added `test_tui2_textual_action_strip_context_updates_for_selected_kind` to ensure bottom context row updates by selection.
+- Extended `test_tui2_textual_managed_account_session_palette_commands` with nested managed-load + breadcrumb assertions.
+
+### Verification
+- Focused and gate suite green:
+  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+  - Result: `56 passed`.

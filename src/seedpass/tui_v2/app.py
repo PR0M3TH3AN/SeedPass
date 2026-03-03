@@ -344,6 +344,7 @@ def launch_tui2(
             ("up", "profile_tree_prev", "Profile Prev"),
             ("down", "profile_tree_next", "Profile Next"),
             ("ctrl+o", "profile_tree_open", "Profile Open"),
+            ("u", "profile_tree_preview", "Profile Preview"),
             ("p", "prev_page", "Prev Page"),
             ("n", "next_page", "Next Page"),
             ("l", "cycle_link_filter", "Link Filter"),
@@ -499,6 +500,7 @@ def launch_tui2(
             self._totp_rows: list[dict[str, Any]] = []
             self._session_locked = False
             self._managed_session_entry_id: int | None = None
+            self._managed_session_stack: list[dict[str, Any]] = []
             self._last_sync_text = "(none)"
             self._density_mode = "compact"
             self._profile_tree_items: list[str] = []
@@ -510,6 +512,7 @@ def launch_tui2(
             self._pending_sensitive_confirm: tuple[str, int, float] | None = None
             self._sidebar_collapsed = False
             self._active_profile_fp = (fingerprint or "").strip()
+            self._root_profile_fp = self._active_profile_key()
             self._profile_filter_by_fp: dict[str, str] = {}
             self._profile_sidebar_by_fp: dict[str, bool] = {}
             self._totp_tick = self.set_interval(1.0, self._tick_totp_board)
@@ -676,7 +679,14 @@ def launch_tui2(
                     twofa_count += 1
                 elif kind in {"document", "note"}:
                     doc_count += 1
-                elif kind in {"seed", "managed_account", "ssh", "pgp", "nostr", "key_value"}:
+                elif kind in {
+                    "seed",
+                    "managed_account",
+                    "ssh",
+                    "pgp",
+                    "nostr",
+                    "key_value",
+                }:
                     key_count += 1
             fp_text = self._active_profile_key()
             if len(fp_text) > 16:
@@ -735,7 +745,9 @@ def launch_tui2(
             self._profile_tree_items = profiles
             self._profile_tree_cursor = max(0, self._profile_tree_cursor)
 
-        def _profile_tree_child_nodes(self) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+        def _profile_tree_child_nodes(
+            self,
+        ) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
             managed: list[tuple[int, str]] = []
             agent_like: list[tuple[int, str]] = []
             source_rows: list[tuple[Any, ...]] = []
@@ -777,7 +789,9 @@ def launch_tui2(
                 profiles = [current_fp or "(default)"]
             for fp in profiles:
                 nodes.append({"kind": "profile", "fingerprint": fp})
-                is_active_branch = fp == current_fp or (not current_fp and fp == "(default)")
+                is_active_branch = fp == current_fp or (
+                    not current_fp and fp == "(default)"
+                )
                 if not is_active_branch:
                     continue
                 for entry_id, label in managed_nodes[:3]:
@@ -865,26 +879,20 @@ def launch_tui2(
                 link_detail.remove_class("hidden")
 
         def _update_action_strip(self) -> None:
-            kind = ""
+            kind_l = ""
             if isinstance(self._selected_entry, dict):
-                kind = str(
-                    self._selected_entry.get("kind")
-                    or self._selected_entry.get("type")
-                    or ""
-                ).strip()
-            kind_l = kind.lower()
+                kind_l = self._entry_kind(self._selected_entry)
+            kind = kind_l
             if kind_l in {"password", "stored_password"}:
                 context = "Entry ▣ v Reveal ▣ g QR ▣ e Edit ▣ a Archive"
-            elif kind_l in {"seed", "managed_account"}:
-                context = (
-                    "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
-                )
+            elif kind_l == "managed_account":
+                context = "Entry ▣ managed-load ▣ managed-exit ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
+            elif kind_l == "seed":
+                context = "Entry ▣ v Reveal (confirm) ▣ g QR ▣ e Edit ▣ a Archive"
             elif kind_l == "totp":
                 context = "Entry ▣ 6 2FA Board ▣ v Reveal ▣ g QR ▣ a Archive"
             elif kind_l in {"ssh", "pgp"}:
-                context = (
-                    "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
-                )
+                context = "Entry ▣ v Reveal (confirm) ▣ a Archive ▣ copy/export-field"
             elif kind_l == "nostr":
                 context = "Entry ▣ v Reveal ▣ g QR (public/private) ▣ a Archive"
             elif kind_l in {"document", "note"}:
@@ -920,9 +928,11 @@ def launch_tui2(
             modes = ["keyword", "hybrid", "semantic"]
             chips = " ".join(
                 [
-                    f"({item.upper()})"
-                    if str(self._semantic_mode).strip().lower() == item
-                    else item
+                    (
+                        f"({item.upper()})"
+                        if str(self._semantic_mode).strip().lower() == item
+                        else item
+                    )
                     for item in modes
                 ]
             )
@@ -969,6 +979,28 @@ def launch_tui2(
                 return "palette"
             return None
 
+        @staticmethod
+        def _action_strip_context_action(segment: str) -> str | None:
+            token = segment.strip()
+            if not token:
+                return None
+            lead = token.split()[0].strip().lower()
+            if lead == "v":
+                return "reveal"
+            if lead == "g":
+                return "qr"
+            if lead == "e":
+                return "edit"
+            if lead == "a":
+                return "archive"
+            if lead == "6":
+                return "totp_board"
+            if lead in {"managed-load", "managed_load", "ml"}:
+                return "managed_load"
+            if lead in {"managed-exit", "managed_exit", "mx"}:
+                return "managed_exit"
+            return None
+
         def _trigger_action_strip_shortcut(self, action: str) -> None:
             if action == "settings":
                 self.action_shortcut_settings()
@@ -989,26 +1021,57 @@ def launch_tui2(
             elif action == "palette":
                 self.action_open_palette()
 
+        def _trigger_action_strip_context(self, action: str) -> None:
+            if action == "reveal":
+                self.action_reveal_selected()
+            elif action == "qr":
+                self.action_show_qr()
+            elif action == "edit":
+                self.action_edit_document()
+            elif action == "archive":
+                self.action_toggle_archive()
+            elif action == "totp_board":
+                self.action_toggle_totp_board()
+            elif action == "managed_load":
+                self._run_palette_command("managed-load")
+            elif action == "managed_exit":
+                self._run_palette_command("managed-exit")
+
         def _handle_action_strip_click(self, column: int, row: int) -> bool:
-            if row != 0 or column < 0:
+            if row not in {0, 1} or column < 0:
                 return False
             rendered = str(self.query_one("#action-strip", Static).render())
-            first_line = rendered.splitlines()[0] if rendered else ""
-            if not first_line:
+            lines = rendered.splitlines()
+            if not lines:
                 return False
-            parts = [part for part in first_line.split("  ") if part.strip()]
+            active_line = lines[row] if row < len(lines) else ""
+            if not active_line:
+                return False
+            if row == 0:
+                parts = [part for part in active_line.split("  ") if part.strip()]
+            else:
+                parts = [
+                    part.strip() for part in active_line.split("▣") if part.strip()
+                ]
             cursor = 0
             for part in parts:
-                start = first_line.find(part, cursor)
+                start = active_line.find(part, cursor)
                 if start < 0:
                     continue
                 end = start + len(part)
                 cursor = end
                 if start <= column < end:
-                    action = self._action_strip_segment_action(part)
+                    action = (
+                        self._action_strip_segment_action(part)
+                        if row == 0
+                        else self._action_strip_context_action(part)
+                    )
                     if action is None:
                         return False
-                    self._trigger_action_strip_shortcut(action)
+                    if row == 0:
+                        self._trigger_action_strip_shortcut(action)
+                    else:
+                        self._trigger_action_strip_context(action)
                     return True
             return False
 
@@ -1018,7 +1081,10 @@ def launch_tui2(
                 heading = f"Document Editor  |  Entry #{self._selected_entry_id}"
             elif self.totp_board_open:
                 heading = "2FA Board  |  Live Codes"
-            elif isinstance(self._selected_entry, dict) and self._selected_entry_id is not None:
+            elif (
+                isinstance(self._selected_entry, dict)
+                and self._selected_entry_id is not None
+            ):
                 kind = self._entry_kind(self._selected_entry) or "unknown"
                 label = str(self._selected_entry.get("label", "")).strip()
                 suffix = f"  {label}" if label else ""
@@ -1266,13 +1332,40 @@ def launch_tui2(
             fp = str(getattr(self, "_active_profile_fp", "") or "").strip()
             return fp if fp else "(default)"
 
+        @staticmethod
+        def _normalize_kind_token(value: Any) -> str:
+            token = str(value or "").strip().lower()
+            return token.replace("-", "_").replace(" ", "_")
+
+        def _session_fingerprint_path(self) -> list[str]:
+            root = str(getattr(self, "_root_profile_fp", "") or "").strip()
+            if not root:
+                root = self._active_profile_key()
+            path = [root]
+            for node in self._managed_session_stack:
+                fp = str(node.get("fingerprint") or "").strip()
+                if not fp:
+                    entry_id = int(node.get("entry_id", 0) or 0)
+                    fp = f"managed#{entry_id}" if entry_id > 0 else "managed"
+                path.append(fp)
+            return path
+
+        def _current_fingerprint_display(self) -> str:
+            path = self._session_fingerprint_path()
+            return path[-1] if path else self._active_profile_key()
+
+        def _session_breadcrumb_text(self) -> str:
+            return " > ".join(self._session_fingerprint_path())
+
         def _remember_filter_for_active_profile(self) -> None:
             key = self._active_profile_key()
             self._profile_filter_by_fp[key] = self._normalize_filter_kind(
                 self.filter_kind
             )
 
-        def _restore_filter_for_active_profile(self, *, default_filter: str = "all") -> None:
+        def _restore_filter_for_active_profile(
+            self, *, default_filter: str = "all"
+        ) -> None:
             key = self._active_profile_key()
             raw = self._profile_filter_by_fp.get(key, default_filter)
             self.filter_kind = self._normalize_filter_kind(raw)
@@ -1344,7 +1437,9 @@ def launch_tui2(
         def _update_filters_panel(self) -> None:
             self._refresh_profile_tree()
             tree_lines = (
-                ["Tree", "----"] if self._dense_hires_layout else ["Profile Tree", "------------"]
+                ["Tree", "----"]
+                if self._dense_hires_layout
+                else ["Profile Tree", "------------"]
             )
             current_fp = self._active_profile_key()
             nodes = self._profile_tree_visible_nodes()
@@ -1364,29 +1459,64 @@ def launch_tui2(
                         marker = "■" if item == current_fp else "□"
                         label = item if item != "(default)" else "default"
                         fp_short = item if len(item) <= 12 else f"{item[:9]}..."
+                        active_branch = item == current_fp
+                        branch_suffix = ""
+                        if active_branch:
+                            managed_count = len(
+                                [n for n in nodes if str(n.get("kind")) == "managed"]
+                            )
+                            agent_count = len(
+                                [n for n in nodes if str(n.get("kind")) == "agent"]
+                            )
+                            branch_suffix = f"  M:{managed_count} A:{agent_count}"
                         tree_lines.append(
-                            f"{cursor} {marker} {label[:16]:<16} | Seed: {fp_short}"
+                            f"{cursor} {marker} {label[:16]:<16} | Seed: {fp_short}{branch_suffix}"
                         )
                     elif kind == "managed":
                         if not rendered_managed_header:
-                            tree_lines.append("    👤 Managed Users")
+                            managed_count = len(
+                                [n for n in nodes if str(n.get("kind")) == "managed"]
+                            )
+                            if self._dense_hires_layout:
+                                tree_lines.append(f"    👤 Managed ({managed_count})")
+                            else:
+                                tree_lines.append(
+                                    f"    ├─ 👤 Managed Users ({managed_count})"
+                                )
                             rendered_managed_header = True
                         entry_id = int(node.get("entry_id", 0))
                         label = str(node.get("label", ""))[:20]
-                        tree_lines.append(f"{cursor}     #{entry_id:<4} {label}")
+                        if self._dense_hires_layout:
+                            tree_lines.append(f"{cursor}     #{entry_id:<4} {label}")
+                        else:
+                            tree_lines.append(
+                                f"{cursor}    │  └─ #{entry_id:<4} {label}"
+                            )
                     elif kind == "agent":
                         if not rendered_agent_header:
-                            tree_lines.append("    🤖 Agents")
+                            agent_count = len(
+                                [n for n in nodes if str(n.get("kind")) == "agent"]
+                            )
+                            if self._dense_hires_layout:
+                                tree_lines.append(f"    🤖 Agents ({agent_count})")
+                            else:
+                                tree_lines.append(f"    └─ 🤖 Agents ({agent_count})")
                             rendered_agent_header = True
                         entry_id = int(node.get("entry_id", 0))
                         label = str(node.get("label", ""))[:20]
-                        tree_lines.append(f"{cursor}     #{entry_id:<4} {label}")
+                        if self._dense_hires_layout:
+                            tree_lines.append(f"{cursor}     #{entry_id:<4} {label}")
+                        else:
+                            tree_lines.append(
+                                f"{cursor}       └─ #{entry_id:<4} {label}"
+                            )
             else:
                 tree_lines.append("▶ ■ default           | Seed: (default)")
 
+            current_fp = self._current_fingerprint_display()
             fp_line = (
-                f"Fingerprint: {self._active_profile_key()}"
-                if self._active_profile_key() != "(default)"
+                f"Fingerprint: {current_fp}"
+                if current_fp != "(default)"
                 else "Fingerprint: (default)"
             )
             session_state = "locked" if self._session_locked else "unlocked"
@@ -1395,14 +1525,17 @@ def launch_tui2(
                 if self._managed_session_entry_id is not None
                 else "(none)"
             )
-            profiles_loaded = len(self._profile_tree_items) if self._profile_tree_items else 1
+            profiles_loaded = (
+                len(self._profile_tree_items) if self._profile_tree_items else 1
+            )
             if self._dense_hires_layout:
                 nav_line = "Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B"
                 act_line = "Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6"
                 header_lines = [
                     "SeedPass ◈ TUI v2",
-                    f"Fingerprint: {self._active_profile_key()}",
-                    f"FP: {self._active_profile_key()} | Profiles: {profiles_loaded} | Session: {session_state}",
+                    f"Fingerprint: {current_fp}",
+                    f"Path: {self._session_breadcrumb_text()}",
+                    f"FP: {current_fp} | Profiles: {profiles_loaded} | Session: {session_state}",
                     f"Scope: filter={self.filter_kind} arch={self.archive_scope} links={self.link_relation_filter} managed={managed_state}",
                     self._selected_summary(),
                     (
@@ -1416,6 +1549,7 @@ def launch_tui2(
                 header_lines = [
                     "SeedPass ◈ TUI v2",
                     fp_line,
+                    f"Path: {self._session_breadcrumb_text()}",
                     f"Profiles: {profiles_loaded}",
                     "",
                     self._selected_summary(),
@@ -1642,7 +1776,9 @@ def launch_tui2(
             self.query_one("#entry-detail", Static).update(
                 "Inspector idle.\n\nSelect an entry from the grid to inspect details."
             )
-            self.query_one("#link-detail", Static).update("Links: select an entry first.")
+            self.query_one("#link-detail", Static).update(
+                "Links: select an entry first."
+            )
             self._set_secret_panel(
                 "Sensitive data hidden. Select an entry, then use 'v' (reveal) or 'g' (QR)."
             )
@@ -1664,9 +1800,10 @@ def launch_tui2(
 
         @staticmethod
         def _entry_kind(entry: dict[str, Any]) -> str:
-            return (
+            token = (
                 str(entry.get("kind") or entry.get("type") or "unknown").strip().lower()
             )
+            return token.replace("-", "_").replace(" ", "_")
 
         @staticmethod
         def _entry_uses_sensitive_panel(kind: str) -> bool:
@@ -1681,7 +1818,9 @@ def launch_tui2(
                 "nostr",
             }
 
-        def _apply_entry_inspector_visibility(self, entry: dict[str, Any] | None) -> None:
+        def _apply_entry_inspector_visibility(
+            self, entry: dict[str, Any] | None
+        ) -> None:
             if not isinstance(entry, dict):
                 self._set_inspector_side_visible(False)
                 return
@@ -2090,11 +2229,7 @@ def launch_tui2(
                     reasons[int(row[0])] = "keyword"
 
             mode = str(self._semantic_mode or "keyword").strip().lower()
-            if (
-                not query.strip()
-                or mode == "keyword"
-                or self._semantic_service is None
-            ):
+            if not query.strip() or mode == "keyword" or self._semantic_service is None:
                 return rows, reasons
 
             searcher = getattr(self._semantic_service, "search", None)
@@ -2129,7 +2264,9 @@ def launch_tui2(
                     continue
                 if not include_archived and archived:
                     continue
-                label = str(entry.get("label") or match.get("label") or f"entry-{entry_id}")
+                label = str(
+                    entry.get("label") or match.get("label") or f"entry-{entry_id}"
+                )
                 username = entry.get("username")
                 url = entry.get("url")
                 semantic_rows.append(
@@ -2252,7 +2389,9 @@ def launch_tui2(
                         "Sensitive data hidden. Use 'v' to reveal 🔑 or 'g' for QR ▦."
                     )
                 else:
-                    self._set_secret_panel("No sensitive reveal for this entry kind.", state=None)
+                    self._set_secret_panel(
+                        "No sensitive reveal for this entry kind.", state=None
+                    )
                 self._apply_entry_inspector_visibility(entry)
                 self._update_inspector_heading()
                 self._update_links_panel()
@@ -4113,6 +4252,9 @@ def launch_tui2(
                         ProfileSwitchRequest(fingerprint=fp, password=password)
                     )
                     self._active_profile_fp = fp
+                    self._root_profile_fp = self._active_profile_key()
+                    self._managed_session_stack = []
+                    self._managed_session_entry_id = None
                     self._restore_filter_for_active_profile(default_filter="all")
                     self._restore_sidebar_for_active_profile(default_collapsed=False)
                     self._clear_failure()
@@ -5154,15 +5296,26 @@ def launch_tui2(
                     return
                 entry = self._service.retrieve_entry(entry_id)
                 kind = (
-                    str(entry.get("kind") or entry.get("type") or "").strip().lower()
+                    self._normalize_kind_token(entry.get("kind") or entry.get("type"))
                     if isinstance(entry, dict)
                     else ""
                 )
                 if kind != "managed_account":
                     self._set_status("Selected entry is not a managed account")
                     return
+                managed_fp = (
+                    str(entry.get("fingerprint") or "").strip()
+                    if isinstance(entry, dict)
+                    else ""
+                )
                 try:
                     loader(entry_id)
+                    self._managed_session_stack.append(
+                        {
+                            "entry_id": int(entry_id),
+                            "fingerprint": managed_fp,
+                        }
+                    )
                     self._managed_session_entry_id = int(entry_id)
                     self._load_entries(query="", reset_page=True)
                     self._clear_failure()
@@ -5193,7 +5346,14 @@ def launch_tui2(
                     return
                 try:
                     exiter()
-                    self._managed_session_entry_id = None
+                    if self._managed_session_stack:
+                        self._managed_session_stack.pop()
+                    if self._managed_session_stack:
+                        self._managed_session_entry_id = int(
+                            self._managed_session_stack[-1].get("entry_id", 0)
+                        )
+                    else:
+                        self._managed_session_entry_id = None
                     self._load_entries(query="", reset_page=True)
                     self._clear_failure()
                     self._set_status("Exited managed account session")
@@ -5462,6 +5622,9 @@ def launch_tui2(
                     ProfileSwitchRequest(fingerprint=target, password=None)
                 )
                 self._active_profile_fp = target
+                self._root_profile_fp = self._active_profile_key()
+                self._managed_session_stack = []
+                self._managed_session_entry_id = None
                 self._restore_filter_for_active_profile(default_filter="all")
                 self._restore_sidebar_for_active_profile(default_collapsed=False)
                 self._clear_failure()
@@ -5475,6 +5638,22 @@ def launch_tui2(
                     retry=self.action_profile_tree_open,
                     hint="Press 'x' to retry.",
                 )
+
+        def action_profile_tree_preview(self) -> None:
+            if self._sidebar_collapsed:
+                self._set_status("Sidebar is collapsed. Press Ctrl+B to expand.")
+                return
+            self._refresh_profile_tree()
+            nodes = self._profile_tree_visible_nodes()
+            if not nodes:
+                self._set_status("No profiles available")
+                return
+            self._profile_tree_cursor = min(
+                max(0, self._profile_tree_cursor), len(nodes) - 1
+            )
+            selected = nodes[self._profile_tree_cursor]
+            self._update_filters_panel()
+            self._set_status(self._profile_tree_selection_text(selected))
 
         def action_focus_center(self) -> None:
             self._focus_pane = "center"
@@ -5580,7 +5759,9 @@ def launch_tui2(
             self._open_palette_with_prefix("add-seed ", "Create-seed shortcut opened")
 
         def action_shortcut_remove_seed(self) -> None:
-            self._open_palette_with_prefix("profile-remove ", "Remove-seed shortcut opened")
+            self._open_palette_with_prefix(
+                "profile-remove ", "Remove-seed shortcut opened"
+            )
 
         def action_shortcut_hide_reveal(self) -> None:
             self.action_reveal_selected()

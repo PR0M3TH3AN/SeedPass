@@ -1679,8 +1679,42 @@ async def test_tui2_textual_action_strip_click_routes_to_shortcuts() -> None:
         assert not palette.has_class("hidden")
         assert palette.value == "db-export "
 
-        # Second row click is intentionally ignored.
-        assert app._handle_action_strip_click(1, 1) is False
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        action_line = _widget_text(app, "#action-strip").splitlines()[1]
+        reveal_col = action_line.find("v Reveal")
+        if reveal_col < 0:
+            reveal_col = action_line.find("v Rev")
+        assert reveal_col >= 0
+        handled = app._handle_action_strip_click(reveal_col + 1, 1)
+        await pilot.pause()
+        assert handled is True
+        assert "Password : pw-1-16" in _widget_text(app, "#secret-detail")
+
+
+@pytest.mark.anyio
+async def test_tui2_textual_action_strip_context_updates_for_selected_kind() -> None:
+    service = FakeEntryService(
+        [
+            {"id": 1, "kind": "password", "label": "Login 1", "length": 16},
+            {"id": 2, "kind": "document", "label": "Doc 2", "content": "hello"},
+        ]
+    )
+    app = _build_app(service)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app._run_palette_command("open 1")
+        await pilot.pause()
+        action_line = _widget_text(app, "#action-strip").splitlines()[1]
+        assert ("v Reveal" in action_line) or ("v Rev" in action_line)
+        assert "(password)" in action_line
+
+        app._run_palette_command("open 2")
+        await pilot.pause()
+        action_line = _widget_text(app, "#action-strip").splitlines()[1]
+        assert "e Edit Doc" in action_line
+        assert "(document)" in action_line
 
 
 @pytest.mark.anyio
@@ -2588,6 +2622,7 @@ async def test_tui2_textual_profile_tree_seed_label_formatting() -> None:
         await pilot.pause()
         filters = _widget_text(app, "#filters")
         assert "| Seed: fp-a" in filters
+        assert "M:1 A:1" in filters
         assert "👤 Managed Users" in filters
         assert "🤖 Agents" in filters
 
@@ -2719,7 +2754,18 @@ async def test_tui2_textual_profile_switch_restores_sidebar_state() -> None:
 async def test_tui2_textual_managed_account_session_palette_commands() -> None:
     service = FakeEntryService(
         [
-            {"id": 1, "kind": "managed_account", "label": "Acct"},
+            {
+                "id": 1,
+                "kind": "managed_account",
+                "label": "Acct",
+                "fingerprint": "fp-m1",
+            },
+            {
+                "id": 3,
+                "kind": "managed_account",
+                "label": "Acct 2",
+                "fingerprint": "fp-m2",
+            },
             {"id": 2, "kind": "document", "label": "Doc"},
         ]
     )
@@ -2735,12 +2781,27 @@ async def test_tui2_textual_managed_account_session_palette_commands() -> None:
         assert "Loaded managed account session from entry #1" in _status_text(app)
         assert service.managed_load_calls == [1]
         assert "Managed: #1" in _filters_text(app)
+        assert "Path: (default) > fp-m1" in _filters_text(app)
+
+        app._run_palette_command("managed-load 3")
+        await pilot.pause()
+        assert "Loaded managed account session from entry #3" in _status_text(app)
+        assert service.managed_load_calls == [1, 3]
+        assert "Managed: #3" in _filters_text(app)
+        assert "Path: (default) > fp-m1 > fp-m2" in _filters_text(app)
 
         app._run_palette_command("managed-exit")
         await pilot.pause()
         assert "Exited managed account session" in _status_text(app)
         assert service.managed_exit_calls == 1
+        assert "Managed: #1" in _filters_text(app)
+        assert "Path: (default) > fp-m1" in _filters_text(app)
+
+        app._run_palette_command("managed-exit")
+        await pilot.pause()
+        assert service.managed_exit_calls == 2
         assert "Managed: (none)" in _filters_text(app)
+        assert "Path: (default)" in _filters_text(app)
 
         app._run_palette_command("open 2")
         app._run_palette_command("managed-load")
