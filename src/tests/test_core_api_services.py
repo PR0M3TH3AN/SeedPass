@@ -337,12 +337,12 @@ class TestEntryService:
         assert result == ("priv", "pub")
 
     def test_get_pgp_key(self, service, mock_manager):
-        mock_manager.entry_manager.get_pgp_key.return_value = ("priv", "fp")
+        mock_manager.entry_manager.get_pgp_key.return_value = ("priv", "pub", "fp")
         result = service.get_pgp_key(4)
         mock_manager.entry_manager.get_pgp_key.assert_called_once_with(
             4, mock_manager.parent_seed
         )
-        assert result == ("priv", "fp")
+        assert result == ("priv", "pub", "fp")
 
     def test_get_nostr_key_pair(self, service, mock_manager):
         mock_manager.entry_manager.get_nostr_key_pair.return_value = ("npub", "nsec")

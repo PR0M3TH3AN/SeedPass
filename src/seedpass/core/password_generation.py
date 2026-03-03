@@ -623,4 +623,4 @@ def derive_pgp_key(
         compression=[CompressionAlgorithm.ZLIB],
         created=created,
     )
-    return str(key), key.fingerprint
+    return str(key), str(key.pubkey), key.fingerprint

@@ -26,19 +26,38 @@ class ActionBar(Static):
         selected_id = app.selected_entry_id
         
         # Global Row
+        is_managed = False
+        try:
+            is_managed = len(getattr(app.services.get("vault")._manager, "profile_stack", [])) > 0
+        except:
+            pass
+            
+        exit_hint = "  Exit (Shift+M)" if is_managed else ""
         global_row = (
-            "Settings (Shift+S)  Add (Shift+A)  Seed+ (Shift+C)  "
-            "Reveal (Shift+H)  Backup (B)  Cmd (Ctrl+P)"
+            f"Settings (Shift+S)  Add (Shift+A)  Seed+ (Shift+C)  "
+            f"Backup (B)  Cmd (Ctrl+P){exit_hint}"
         )
         
         # Context Row
         if selected_id is None:
             context = "Select an entry to view actions."
         else:
-            # We would normally determine kind here
-            context = f"Entry #{selected_id} ▣ Reveal (v) ▣ QR (g) ▣ Edit (e) ▣ Archive (a) ▣ Max (z)"
+            try:
+                entry = app.services["entry"].retrieve_entry(selected_id)
+                kind = str(entry.get("kind") or entry.get("type") or "").lower()
+                
+                actions = ["Reveal (v)", "QR (g)", "Edit (e)", "Archive (a)", "Copy (c)", "Max (z)"]
+                if kind in {"managed_account", "seed"}:
+                    actions.insert(4, "Load (m)")
+                if kind in {"document", "note"}:
+                    actions.insert(5, "Export (x)")
+                    
+                context = f"Entry #{selected_id} ({kind}) " + " ▣ ".join(actions)
+            except Exception:
+                context = f"Entry #{selected_id} [Error fetching details]"
             
         return f"{global_row}\n{context}"
 
     def on_mount(self) -> None:
         self.watch(self.app, "selected_entry_id", self.refresh)
+        self.watch(self.app, "active_fingerprint", self.refresh)

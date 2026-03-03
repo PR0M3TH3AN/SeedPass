@@ -234,7 +234,7 @@ class DisplayService:
             self.manager.notify("PGP key display cancelled.", level="WARNING")
             return
         try:
-            priv_key, fingerprint = self.manager.entry_manager.get_pgp_key(
+            priv_key, pub_key, fingerprint = self.manager.entry_manager.get_pgp_key(
                 index, self.manager.parent_seed
             )
             print(colored("\n[+] Retrieved PGP Key:\n", "green"))

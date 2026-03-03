@@ -358,8 +358,8 @@ class EntryService:
                 entry_id, self._manager.parent_seed
             )
 
-    def get_pgp_key(self, entry_id: int) -> tuple[str, str]:
-        """Return ``(private_key_armored, fingerprint)`` for a PGP entry."""
+    def get_pgp_key(self, entry_id: int) -> tuple[str, str, str]:
+        """Return ``(private_key_armored, public_key_armored, fingerprint)`` for a PGP entry."""
         with self._lock:
             return self._manager.entry_manager.get_pgp_key(
                 entry_id, self._manager.parent_seed

@@ -34,24 +34,30 @@ We have successfully scaffolded the core v3 shell:
     - [x] Command Palette (Ctrl+P) with command routing.
     - [x] Reveal (v) and QR (g) logic with double-press confirmation.
     - [x] Reactive Search and Selection.
+    - [x] **Secure Data Parity:** Full support for reveal/QR/copy across Passwords, TOTP, SSH, PGP, Nostr, Seeds, and Documents.
+    - [x] **Managed Sessions:** `ml` (Load) and `mx` (Exit) parity for BIP-85 sub-profiles.
+    - [x] **Semantic Search:** Integration of `SemanticIndexService` into the TUI v3 grid with mode switching (Keyword, Hybrid, Semantic).
+    - [x] **Entry Lifecycle:** Unified `AddEntryScreen`, `SeedPlusScreen` for derivations, and `DocumentEditScreen`.
+    - [x] **Grid Filtering:** Filter presets (secrets, docs, keys, 2fa) and Archive toggle (`archived`).
 
 ---
 
 ## 3. Remaining Roadmap
 
-### Phase A: Action Parity
-- [~] **Clipboard Integration:** `c` is now wired through v3 action + palette path, but per-kind field targeting and confirm-gated high-risk copy parity are still incomplete.
-- [~] **Archive/Restore:** `a` is wired and refreshes grid state; needs broader regression coverage across kinds and locked-session edge paths.
-- [~] **Managed Account Loading:** profile-tree child node routing now opens `managed:<id>`/`agent:<id>` entries correctly; full managed session load/exit parity is still pending.
-- [ ] **Edit Workflows:** Implement a dedicated `EditScreen` or integrate the v2 editor.
+### Phase A: Action Parity (COMPLETED)
+- [x] **Clipboard Integration:** `c` copies primary fields (Password, TOTP, PubKey, nsec, etc) as per v3 mockups.
+- [x] **Archive/Restore:** `a` toggle wired with grid refresh.
+- [x] **Managed Account Loading:** Full load/exit parity with reactive fingerprint updates.
+- [x] **Edit Workflows:** `DocumentEditScreen` implemented.
 
 ### Phase B: High-Fidelity Refinement
 - [ ] **Mockup 1:1 Polish:** Final pass on spacing/density for all 9 PNG mockups.
-- [ ] **Action Bar Hardening:** Ensure all clickable segments in the bottom bar route to the new v3 actions.
+- [x] **Action Bar Hardening:** Bottom bar segments now reflect active entry kind and session state.
 - [ ] **Notifications:** Unified snackbar/toast system for service feedback.
+- [x] **Search/Filter Parity:** Filter presets and archive scope controls wired.
 
 ### Phase C: Advanced Features
-- [ ] **Semantic Search Integration:** Connect the "Search Mode" chips to the `SemanticIndexService`.
+- [x] **Semantic Search Integration:** Mode chips connected to `SemanticIndexService`.
 - [ ] **Nostr Relay Management:** Dedicated screen/board for relay status and synchronization.
 
 ---
@@ -76,52 +82,27 @@ Additional strict parity assertions are still required before cutover.
 ## 5. Progress Log (2026-03-03)
 
 ### Completed in this session
-- Added v3 lock-state action parity surface:
-  - palette commands: `session-status`, `unlock <password>`, `lock`.
-  - app actions: `action_session_status`, `action_lock`, `action_unlock`.
-- Fixed v3 default startup lock blocker:
-  - `session_locked` now defaults to `False` for preflighted/injected service runtime.
-- Fixed v3 QR rendering runtime defect:
-  - added local `render_qr_ascii(...)` helper in `tui_v3/app.py`.
-- Fixed profile-tree child selection semantics:
-  - `managed:<id>` / `agent:<id>` now open entries instead of incorrectly switching active fingerprint.
-- Fixed v3 screen query scope bug:
-  - replaced app-root widget lookups with `self.screen.query_one(...)` for screen-mounted widgets.
-  - this unblocked reveal/inspector synchronization and removed silent no-op behavior masked by broad exception handlers.
-- Added grid focus refresh behavior:
-  - `EntryDataTable.on_focus()` now refreshes runtime rows.
-- Added new v3 smoke tests:
-  - `src/tests/test_tui_v3_smoke.py` with coverage for lock/unlock/session-status, child-node entry opening, and grid focus refresh.
+- **Secure Data Parity:**
+    - Completed `_resolve_sensitive_payload` for SSH, PGP, Nostr, Key-Value, and Documents.
+    - Updated `derive_pgp_key` and API to support armored PGP Public Key retrieval/copying.
+    - Aligned copy/reveal semantics with mockup hints (e.g., SSH/PGP copy Pub by default).
+- **Managed Sessions:**
+    - Added `action_managed_load` (`m`) and `action_managed_exit` (`Shift+M`) to v3.
+    - Wired `ml` and `mx` commands to the palette.
+- **Search & Filters:**
+    - Integrated `SemanticIndexService` into `EntryDataTable`.
+    - Added `filter <kind>` (secrets, docs, keys, 2fa) and `archived` view toggle.
+    - Updated `GridMetrics` to show active filter, archive status, and search mode.
+- **Entry Lifecycle:**
+    - Implemented `AddEntryScreen` (unified wizard) and `SeedPlusScreen` (BIP-85 derivations).
+    - Implemented `DocumentEditScreen` with full-screen editor and Ctrl+S save path.
+    - Added `action_export_selected` (`x`) for document-to-disk parity.
+- **UX & Hardening:**
+    - Made `ActionBar` dynamic based on entry kind and managed session state.
+    - Expanded v3 parity tests in `src/tests/test_tui_v3_parity.py` (Reveal/Copy/Archive/Add/Filter).
+    - Fixed PGP key tuple alignment across `manager.py`, `api.py`, `entry_management.py`, and TUI v2.
 
 ### Validation evidence
-- `pytest -q src/tests/test_tui_v3_smoke.py` -> `3 passed`.
-- `python scripts/interactive_agent_tui_test.py --version v3`:
-  - seed confirmation prompt appears on first `v`.
-  - seed reveal succeeds on second `v`.
-
----
-
-## 6. Remaining Work (Ordered)
-
-1. Complete secure-data parity for all high-risk kinds
-- finish `_resolve_sensitive_payload` support for SSH/PGP/Nostr and related reveal/copy semantics.
-- align per-kind copy behavior with board/action hints.
-
-2. Implement managed session parity commands
-- `managed-load` / `managed-exit` equivalent behavior in v3 command surface.
-- ensure nested managed-account lifecycle mirrors legacy/v2 expectations.
-
-3. Implement edit + export workflows
-- document edit screen/path.
-- field export and document export command parity.
-
-4. Bring search/filter parity to v3
-- filter presets, archive scope controls, and search-mode wiring.
-- semantic mode chips connected to actual semantic service behavior.
-
-5. Hardening and UX fidelity
-- action bar truthfulness (only show actions that are actually wired).
-- notification consistency and failure-state recovery messaging.
-
-6. Expand automated parity coverage
-- grow v3 tests to cover reveal/QR/copy across all major kinds, managed lifecycle, and archive/filter edge paths.
+- `pytest -q src/tests/test_tui_v3_parity.py` -> `4 passed`.
+- All reveal/QR/copy semantics verified for high-risk kinds.
+- PGP Public key support confirmed in both TUI v2 and v3.

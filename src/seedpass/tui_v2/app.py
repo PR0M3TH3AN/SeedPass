@@ -3033,7 +3033,7 @@ def launch_tui2(
                 )
 
             if kind == "pgp":
-                priv_key, fingerprint_text = self._service.get_pgp_key(
+                priv_key, _pub_key, fingerprint_text = self._service.get_pgp_key(
                     self._selected_entry_id
                 )
                 return (
@@ -3454,12 +3454,14 @@ def launch_tui2(
                 raise ValueError("copy field unsupported for ssh: public|private")
 
             if kind == "pgp":
-                private_key, fingerprint_text = self._service.get_pgp_key(entry_id)
+                private_key, public_key, fingerprint_text = self._service.get_pgp_key(entry_id)
                 if key in {"private", "private_key"}:
                     return str(private_key), True, "private_key"
+                if key in {"public", "public_key"}:
+                    return str(public_key), False, "public_key"
                 if key in {"fingerprint", "fpr"}:
                     return str(fingerprint_text), False, "fingerprint"
-                raise ValueError("copy field unsupported for pgp: private|fingerprint")
+                raise ValueError("copy field unsupported for pgp: private|public|fingerprint")
 
             if kind == "nostr":
                 npub, nsec = self._service.get_nostr_key_pair(entry_id)

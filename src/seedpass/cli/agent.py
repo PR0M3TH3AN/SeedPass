@@ -279,7 +279,7 @@ def _resolve_secret_for_kind(
         secret, _pub = pm.entry_manager.get_ssh_key_pair(index, pm.parent_seed)
         return secret
     if kind == EntryType.PGP.value:
-        secret, _fp = pm.entry_manager.get_pgp_key(index, pm.parent_seed)
+        secret, _pub, _fp = pm.entry_manager.get_pgp_key(index, pm.parent_seed)
         return secret
     if kind == EntryType.NOSTR.value:
         _npub, secret = pm.entry_manager.get_nostr_key_pair(index, pm.parent_seed)

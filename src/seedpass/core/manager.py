@@ -2567,7 +2567,7 @@ class PasswordManager:
                 notes=notes,
                 tags=tags,
             )
-            priv_key, fingerprint = self.entry_manager.get_pgp_key(
+            priv_key, pub_key, fingerprint = self.entry_manager.get_pgp_key(
                 index, self.parent_seed
             )
             self._mark_dirty()
@@ -3876,7 +3876,7 @@ class PasswordManager:
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
             try:
-                _priv, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
+                _priv, _pub, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
                 if pgp_fp:
                     print(color_text(f"  Fingerprint: {pgp_fp}", "index"))
             except Exception as pgp_err:  # pragma: no cover - best effort logging

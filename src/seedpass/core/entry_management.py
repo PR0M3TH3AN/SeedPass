@@ -486,7 +486,7 @@ class EntryManager:
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        priv_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
+        priv_key, pub_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
         if not validate_pgp_private_key(priv_key, fp):
             raise ValueError("Derived PGP key failed validation")
         now_unix = self._now_unix()
@@ -514,8 +514,8 @@ class EntryManager:
         self.backup_manager.create_backup()
         return index
 
-    def get_pgp_key(self, index: int, parent_seed: str) -> tuple[str, str]:
-        """Return the armored PGP private key and fingerprint for the entry."""
+    def get_pgp_key(self, index: int, parent_seed: str) -> tuple[str, str, str]:
+        """Return the armored PGP private key, public key, and fingerprint for the entry."""
 
         entry = self.retrieve_entry(index)
         etype = entry.get("type") if entry else None

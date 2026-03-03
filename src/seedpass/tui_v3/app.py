@@ -52,7 +52,7 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, open <id>, settings, maximize, copy, archive, restore"
+                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -74,6 +74,23 @@ class CommandProcessor:
         elif cmd == "search":
             query = " ".join(args)
             self.app.action_search(query)
+        elif cmd == "search-mode":
+            if not args:
+                self.app.notify("Usage: search-mode <keyword|hybrid|semantic>", severity="warning")
+                return
+            mode = args[0].lower()
+            if mode in {"keyword", "hybrid", "semantic"}:
+                self.app.search_mode = mode
+                self.app.notify(f"Search mode set to: {mode}")
+            else:
+                self.app.notify(f"Invalid search mode: {mode}", severity="error")
+        elif cmd == "filter":
+            if not args:
+                self.app.notify("Usage: filter <all|secrets|docs|keys|2fa>", severity="warning")
+                return
+            self.app.action_set_kind_filter(args[0])
+        elif cmd == "archived":
+            self.app.action_toggle_archived_view()
         elif cmd == "open":
             if not args:
                 self.app.notify("Usage: open <id>", severity="warning")
@@ -88,8 +105,20 @@ class CommandProcessor:
             self.app.action_toggle_settings()
         elif cmd == "maximize":
             self.app.action_maximize_inspector()
+        elif cmd == "add":
+            self.app.action_add_entry()
+        elif cmd == "seed-plus":
+            self.app.action_seed_plus()
         elif cmd == "copy":
             self.app.action_copy_selected()
+        elif cmd == "edit":
+            self.app.action_edit_selected()
+        elif cmd == "export":
+            self.app.action_export_selected()
+        elif cmd == "ml":
+            self.app.action_managed_load()
+        elif cmd == "mx":
+            self.app.action_managed_exit()
         elif cmd in {"archive", "restore"}:
             self.app.action_toggle_archive()
         else:
@@ -150,7 +179,13 @@ class SeedPassTuiV3(App[None]):
         Binding("q", "quit", "Quit", show=True),
         Binding("ctrl+p", "open_palette", "Palette", show=True),
         Binding("shift+s", "toggle_settings", "Settings", show=True),
+        Binding("shift+a", "add_entry", "Add", show=True),
+        Binding("shift+c", "seed_plus", "Seed+", show=True),
         Binding("z", "maximize_inspector", "Maximize", show=True),
+        Binding("m", "managed_load", "Load", show=True),
+        Binding("shift+m", "managed_exit", "Exit", show=True),
+        Binding("e", "edit_selected", "Edit", show=True),
+        Binding("x", "export_selected", "Export", show=True),
         Binding("v", "reveal_selected", "Reveal", show=False),
         Binding("g", "show_qr", "QR", show=False),
         Binding("a", "toggle_archive", "Archive", show=False),
@@ -161,6 +196,9 @@ class SeedPassTuiV3(App[None]):
     active_fingerprint = reactive("")
     selected_entry_id = reactive[int | None](None)
     session_locked = reactive(False)
+    search_mode = reactive("keyword")
+    filter_kind = reactive("all")
+    show_archived = reactive(False)
 
     # Internal state for sensitive actions
     _pending_sensitive_confirm: tuple[str, int, float] | None = None
@@ -264,6 +302,18 @@ class SeedPassTuiV3(App[None]):
         except Exception:
             pass
 
+    def action_toggle_archived_view(self) -> None:
+        """Toggle between active entries and archived entries."""
+        self.show_archived = not self.show_archived
+        self.notify(f"Showing archived entries: {self.show_archived}")
+        self.action_refresh()
+
+    def action_set_kind_filter(self, kind: str) -> None:
+        """Set a specific entry kind filter (all, secrets, docs, keys, 2fa)."""
+        self.filter_kind = kind.lower()
+        self.notify(f"Applied filter: {self.filter_kind}")
+        self.action_refresh()
+
     def action_open_palette(self) -> None:
         """Toggle the command palette."""
         try:
@@ -274,6 +324,22 @@ class SeedPassTuiV3(App[None]):
     def action_toggle_settings(self) -> None:
         """Push the full-screen settings screen."""
         self.push_screen(SettingsScreen())
+
+    def action_add_entry(self) -> None:
+        """Open the add entry wizard."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        from .screens.add import AddEntryScreen
+        self.push_screen(AddEntryScreen())
+
+    def action_seed_plus(self) -> None:
+        """Open the Seed+ / BIP-85 derivation screen."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        from .screens.add import SeedPlusScreen
+        self.push_screen(SeedPlusScreen())
 
     def action_maximize_inspector(self) -> None:
         """Push the full-screen maximized entry detail screen."""
@@ -400,6 +466,85 @@ class SeedPassTuiV3(App[None]):
         except Exception as e:
             self.notify(f"Copy failed: {e}", severity="error")
 
+    def action_managed_load(self) -> None:
+        """Load the selected managed account or seed profile as the active session."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+        
+        try:
+            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
+            kind = str(entry.get("kind") or entry.get("type") or "").lower()
+            if kind not in {"managed_account", "seed"}:
+                self.notify("Selected entry is not a loadable profile", severity="warning")
+                return
+            
+            self.services["entry"].load_managed_account(self.selected_entry_id)
+            # Update reactive state to trigger UI refresh
+            self.active_fingerprint = self.services["vault"]._manager.current_fingerprint
+            self.notify(f"Loaded session: {self.active_fingerprint[:8]}...")
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Load failed: {e}", severity="error")
+
+    def action_managed_exit(self) -> None:
+        """Exit the current managed session and return to the parent profile."""
+        try:
+            self.services["entry"].exit_managed_account()
+            # Update reactive state
+            self.active_fingerprint = self.services["vault"]._manager.current_fingerprint
+            self.notify(f"Exited session. Back to: {self.active_fingerprint[:8]}...")
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Exit failed: {e}", severity="error")
+
+    def action_edit_selected(self) -> None:
+        """Open the appropriate edit screen for the selected entry."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+        
+        try:
+            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
+            kind = str(entry.get("kind") or entry.get("type") or "").lower()
+            
+            if kind in {"document", "note"}:
+                from .screens.edit import DocumentEditScreen
+                self.push_screen(DocumentEditScreen(self.selected_entry_id))
+            else:
+                self.notify(f"Edit mode for '{kind}' not yet implemented in v3", severity="warning")
+        except Exception as e:
+            self.notify(f"Edit failed: {e}", severity="error")
+
+    def action_export_selected(self) -> None:
+        """Export the selected entry to a file if supported."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+
+        try:
+            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
+            kind = str(entry.get("kind") or entry.get("type") or "").lower()
+
+            if kind in {"document", "note"}:
+                path = self.services["entry"].export_document_file(self.selected_entry_id)
+                self.notify(f"Document exported to: {path}")
+            elif kind in {"ssh", "pgp"}:
+                # For SSH/PGP, we might want to export to a file too.
+                # Currently EntryService doesn't have a direct file export for these,
+                # but we could implement it.
+                self.notify(f"Export for '{kind}' not yet implemented in v3", severity="warning")
+            else:
+                self.notify(f"Export not supported for kind '{kind}'", severity="warning")
+        except Exception as e:
+            self.notify(f"Export failed: {e}", severity="error")
+
     def _consume_confirm(self, action: str, eid: int) -> bool:
         if self._pending_sensitive_confirm is None: return False
         p_action, p_eid, p_ts = self._pending_sensitive_confirm
@@ -421,9 +566,9 @@ class SeedPassTuiV3(App[None]):
         # Check if confirmation is required
         requires = False
         if include_qr:
-            requires = (kind == "nostr" and qr_mode == "private")
+            requires = kind in {"seed", "managed_account", "nostr"} # for nostr qr we often show nsec if mode is private
         else:
-            requires = kind in {"seed", "managed_account", "ssh", "pgp"}
+            requires = kind in {"seed", "managed_account", "ssh", "pgp", "nostr"}
 
         if requires and not confirm:
             key = "g" if include_qr else "v"
@@ -454,12 +599,12 @@ class SeedPassTuiV3(App[None]):
         
         if kind == "password":
             val = self.services["entry"].generate_password(int(entry.get("length", 16)), eid)
-            return ("Password Revealed", f"Label: {label}\nPassword: {val}", None, val, kind)
+            return ("Password Revealed", val, None, val, kind)
         if kind == "totp":
             secret = self.services["entry"].get_totp_secret(eid)
             from seedpass.core.totp import TotpManager
             uri = TotpManager.make_otpauth_uri(label, secret)
-            return ("TOTP Secret Revealed", f"Label: {label}\nSecret: {secret}", uri, secret, kind)
+            return ("TOTP Secret Revealed", secret, uri, secret, kind)
         if kind in {"seed", "managed_account"}:
             parent_seed = self.services["vault"]._manager.parent_seed
             if kind == "seed":
@@ -467,8 +612,29 @@ class SeedPassTuiV3(App[None]):
             else:
                 phrase = self.services["entry"].get_managed_account_seed(eid, parent_seed)
             from seedpass.core.seedqr import encode_seedqr
-            return ("Seed Words Revealed", f"Label: {label}\nSeed: {phrase}", encode_seedqr(phrase), phrase, kind)
+            return ("Seed Words Revealed", phrase, encode_seedqr(phrase), phrase, kind)
         
+        if kind == "ssh":
+            priv, pub = self.services["entry"].get_ssh_key_pair(eid)
+            return ("SSH Private Key Revealed", priv, pub, pub, kind)
+        
+        if kind == "pgp":
+            priv, pub, fp = self.services["entry"].get_pgp_key(eid)
+            return ("PGP Private Key Revealed", priv, pub, pub, kind)
+        
+        if kind == "nostr":
+            npub, nsec = self.services["entry"].get_nostr_key_pair(eid)
+            qr_data = nsec if qr_mode == "private" else f"nostr:{npub}"
+            return ("Nostr Secret Revealed", nsec, qr_data, nsec, kind)
+        
+        if kind == "key_value":
+            val = entry.get("value", "")
+            return ("Key-Value Revealed", val, None, val, kind)
+        
+        if kind in {"document", "note"}:
+            content = entry.get("content", "")
+            return ("Document Content", content, None, content, kind)
+
         # Fallback
         return ("Data Revealed", f"Label: {label}\nDetails: {entry}", None, None, kind)
 

@@ -19,14 +19,35 @@ class GridMetrics(Static):
     """
     
     def render(self) -> str:
+        app = self.app
         # These would eventually come from App reactives
         pg = "1/1"
         rows = "0/0"
+        try:
+            table = app.screen.query_one("#entry-data-table")
+            if table:
+                rows = f"{len(table.rows)}/{len(table.rows)}" # TODO: handle actual total
+        except Exception:
+            pass
+            
         density = "compact"
         # Search mode highlighting
-        search = "[b](KEYWORD)[/b] hybrid semantic"
+        m = app.search_mode
+        keyword = f"[b](KEYWORD)[/b]" if m == "keyword" else "keyword"
+        hybrid = f"[b](HYBRID)[/b]" if m == "hybrid" else "hybrid"
+        semantic = f"[b](SEMANTIC)[/b]" if m == "semantic" else "semantic"
         
-        return f"Entry Grid  |  Pg {pg}  Rows {rows}  Density {density}  Search {search}"
+        search = f"{keyword} {hybrid} {semantic}"
+        filter_text = f"Filter: [b]{app.filter_kind}[/b]"
+        arch_text = " | [reverse] ARCHIVED [/reverse]" if app.show_archived else ""
+        
+        return f"Entry Grid  |  Pg {pg}  Rows {rows}  Density {density}  {filter_text}{arch_text}  Search {search}"
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "search_mode", self.refresh)
+        self.watch(self.app, "selected_entry_id", self.refresh)
+        self.watch(self.app, "filter_kind", self.refresh)
+        self.watch(self.app, "show_archived", self.refresh)
 
 class EntryDataTable(DataTable):
     """
@@ -52,8 +73,55 @@ class EntryDataTable(DataTable):
         if "entry" not in app.services:
             return
 
-        # Fetch filtered data from service
-        entries = app.services["entry"].search_entries(query)
+        # Map filter presets to kind lists
+        kind_map = {
+            "secrets": ["password", "totp", "ssh", "pgp", "nostr", "seed", "managed_account"],
+            "docs": ["document", "note"],
+            "keys": ["ssh", "pgp", "nostr", "seed", "managed_account"],
+            "2fa": ["totp"],
+        }
+        kinds = kind_map.get(app.filter_kind)
+        
+        entries = []
+        # Use semantic search if requested and available
+        if app.search_mode != "keyword" and "semantic" in app.services and query:
+            try:
+                results = app.services["semantic"].search(query, mode=app.search_mode)
+                # results is list of {entry_id, kind, label, score, excerpt}
+                for r in results:
+                    eid = r["entry_id"]
+                    # Fetch full entry to match table columns
+                    entry = app.services["entry"].retrieve_entry(eid)
+                    if entry:
+                        kind_val = str(entry.get("kind") or entry.get("type") or "").lower()
+                        # Filtering for semantic results (best effort)
+                        if kinds and kind_val not in kinds: continue
+                        is_arch = bool(entry.get("archived", False))
+                        if app.show_archived and not is_arch: continue
+                        if not app.show_archived and is_arch: continue
+
+                        from seedpass.core.entry_types import EntryType
+                        try:
+                            etype = EntryType(kind_val)
+                        except ValueError:
+                            etype = kind_val
+                        
+                        entries.append((
+                            eid, 
+                            entry.get("label", ""), 
+                            entry.get("username"), 
+                            entry.get("url"), 
+                            is_arch,
+                            etype
+                        ))
+            except Exception as e:
+                app.notify(f"Semantic search failed: {e}", severity="error")
+                # Fallback to lexical
+                entries = app.services["entry"].search_entries(query, kinds=kinds, include_archived=app.show_archived, archived_only=app.show_archived)
+        else:
+            # Fetch filtered data from standard service
+            entries = app.services["entry"].search_entries(query, kinds=kinds, include_archived=app.show_archived, archived_only=app.show_archived)
+
         for i, (eid, label, user, url, arch, kind) in enumerate(entries):
             marker = "▶" if eid == app.selected_entry_id else " "
             arch_status = "🔒" if arch else " "

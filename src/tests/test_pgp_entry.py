@@ -25,8 +25,8 @@ def test_pgp_key_determinism():
         idx = entry_mgr.add_pgp_key(
             "pgp", TEST_SEED, key_type="ed25519", user_id="Test"
         )
-        key1, fp1 = entry_mgr.get_pgp_key(idx, TEST_SEED)
-        key2, fp2 = entry_mgr.get_pgp_key(idx, TEST_SEED)
+        key1, pub1, fp1 = entry_mgr.get_pgp_key(idx, TEST_SEED)
+        key2, pub2, fp2 = entry_mgr.get_pgp_key(idx, TEST_SEED)
 
         assert fp1 == fp2
         assert key1 == key2
@@ -55,8 +55,8 @@ def test_pgp_rsa_key_determinism():
         entry_mgr = EntryManager(vault, backup_mgr)
 
         idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, key_type="rsa", user_id="Test")
-        key1, fp1 = entry_mgr.get_pgp_key(idx, TEST_SEED)
-        key2, fp2 = entry_mgr.get_pgp_key(idx, TEST_SEED)
+        key1, pub1, fp1 = entry_mgr.get_pgp_key(idx, TEST_SEED)
+        key2, pub2, fp2 = entry_mgr.get_pgp_key(idx, TEST_SEED)
 
         assert fp1 == fp2
         assert key1 == key2

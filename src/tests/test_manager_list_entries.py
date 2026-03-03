@@ -227,7 +227,7 @@ def test_show_pgp_entry_details(monkeypatch, capsys):
         tmp_path = Path(tmpdir)
         pm, entry_mgr = _setup_manager(tmp_path)
         idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, user_id="test")
-        _k, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
+        _k, _pub, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
 
         called = _detail_common(monkeypatch, pm)
 
@@ -335,7 +335,7 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
             extra = pub
         elif entry_type == "pgp":
             idx = entry_mgr.add_pgp_key("pgp", TEST_SEED, user_id="test")
-            priv, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
+            priv, pub, fp = entry_mgr.get_pgp_key(idx, TEST_SEED)
             expected = priv
             extra = fp
         elif entry_type == "nostr":
