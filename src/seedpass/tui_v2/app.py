@@ -2046,11 +2046,19 @@ def launch_tui2(
                     if kind == "managed_account"
                     else "BIP-39 Seed Board"
                 )
-                lines = header + [
-                    f"{self._kind_icon(kind)} {board_name}",
-                    "▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)",
+                seed_rows = [
                     f"Seed Phrase*: hidden (v confirm) | Word Count: {words}",
                     f"Index Num*: {index}",
+                ]
+                operation_rows = [
+                    "▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)",
+                ]
+                lines = header + [
+                    f"{self._kind_icon(kind)} {board_name}",
+                    "Seed Fields",
+                    *self._board_card("Seed Info", seed_rows),
+                    "Operations",
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -2079,6 +2087,15 @@ def launch_tui2(
                 )
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
+                field_rows = [
+                    f"Period : {period}s",
+                    f"Digits : {digits}",
+                    "Current Code: hidden (use '6' board or 'v' reveal)",
+                    "Secret: hidden | URI via QR",
+                ]
+                operation_rows = [
+                    "▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR",
+                ]
                 lines = [
                     f"Entry #{entry_id}  {label}",
                     "-" * 28,
@@ -2086,12 +2103,9 @@ def launch_tui2(
                     f"Kind: {kind} | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num}",
                     "2FA Fields",
-                    f"Period : {period}s",
-                    f"Digits : {digits}",
-                    "Current Code: hidden (use '6' board or 'v' reveal)",
-                    "Secret: hidden | URI via QR",
+                    *self._board_card("Parameters", field_rows),
                     "Operations",
-                    "▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR",
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -2125,16 +2139,24 @@ def launch_tui2(
                 )
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
+                key_rows = [
+                    f"Public Key: {public_preview}",
+                    "Private Key: hidden (use 'v confirm' to reveal)",
+                ]
+                operation_rows = [
+                    "▣ Copy Public  ▣ Export Public",
+                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
+                ]
                 lines = [
                     f"Entry #{entry_id}  {label}",
                     "-" * 28,
                     f"{self._kind_icon(kind)} SSH Board",
                     f"Kind: ssh | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "▣ Copy Public  ▣ Export Public",
-                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
-                    f"Public Key: {public_preview}",
-                    "Private Key: hidden (use 'v confirm' to reveal)",
+                    "Key Material",
+                    *self._board_card("Keys", key_rows),
+                    "Operations",
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -2162,17 +2184,25 @@ def launch_tui2(
                 )
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
+                key_rows = [
+                    f"Fingerprint: {fingerprint_text}",
+                    "Public Key: available",
+                    "Private Key: hidden (use 'v confirm' to reveal)",
+                ]
+                operation_rows = [
+                    "▣ Copy Public  ▣ Export Public",
+                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
+                ]
                 lines = [
                     f"Entry #{entry_id}  {label}",
                     "-" * 28,
                     f"{self._kind_icon(kind)} PGP Board",
                     f"Kind: pgp | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "▣ Copy Public  ▣ Export Public",
-                    "▣ Reveal Private  ▣ Copy Private  ▣ Export Private",
-                    f"Fingerprint: {fingerprint_text}",
-                    "Public Key: available",
-                    "Private Key: hidden (use 'v confirm' to reveal)",
+                    "Key Material",
+                    *self._board_card("Keys", key_rows),
+                    "Operations",
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),
@@ -2200,16 +2230,24 @@ def launch_tui2(
                 )
                 archived = "Yes" if bool(entry.get("archived", False)) else "No"
                 index_num = str(entry.get("index", "(auto)"))
+                key_rows = [
+                    f"npub: {npub}",
+                    "nsec: hidden (use 'v confirm' to reveal)",
+                ]
+                operation_rows = [
+                    "▣ Copy npub  ▣ Copy nsec  ▣ Edit",
+                    "▣ QR Public  ▣ QR Private",
+                ]
                 lines = [
                     f"Entry #{entry_id}  {label}",
                     "-" * 28,
                     f"{self._kind_icon(kind)} Nostr Board",
                     f"Kind: nostr | Modified: {modified} | Archived: {archived}",
                     f"Index Num*: {index_num} | Entry Num: {entry_id}",
-                    "▣ Copy npub  ▣ Copy nsec  ▣ Edit",
-                    "▣ QR Public  ▣ QR Private",
-                    f"npub: {npub}",
-                    "nsec: hidden (use 'v confirm' to reveal)",
+                    "Key Material",
+                    *self._board_card("Keys", key_rows),
+                    "Operations",
+                    *self._board_card("Quick Actions", operation_rows),
                     *self._notes_tags_panel_hint(
                         tags_text=tags_text, notes_text=notes_text
                     ),

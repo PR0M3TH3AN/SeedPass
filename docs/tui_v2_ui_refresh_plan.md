@@ -1166,3 +1166,35 @@ Validation:
 
 1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
 2. Result: `58 passed`.
+
+## 32) Progress Update (2026-03-03, Slice: Universal Card Framing)
+
+Completed:
+
+1. Extended `_board_card` framing to all remaining inspector boards:
+   - TOTP: `Parameters` (period/digits/code/secret) + `Quick Actions`
+   - SSH: `Keys` (public/private) + `Quick Actions`
+   - PGP: `Keys` (fingerprint/public/private) + `Quick Actions`
+   - Nostr: `Keys` (npub/nsec) + `Quick Actions`
+   - Seed/Managed Account: `Seed Info` (phrase/word count/index) + `Quick Actions`
+2. All boards now use consistent card-section visual language matching the Password/Note treatment from Slice 29.
+
+Code references:
+
+1. `src/seedpass/tui_v2/app.py` (TOTP, SSH, PGP, Nostr, Seed board sections)
+
+Regression coverage:
+
+1. Updated SSH/PGP/Nostr board test to assert `+- Keys` and `+- Quick Actions` card framing.
+2. Updated Seed/Managed Seed board test to assert `+- Seed Info` and `+- Quick Actions` card framing.
+3. Updated TOTP board test to assert `+- Parameters` and `+- Quick Actions` card framing.
+
+Validation:
+
+1. `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
+2. Result: `58 passed`.
+
+Strict closeout impact:
+
+1. All 9 board types now have consistent card-section framing.
+2. SSH/PGP/Nostr/Seed boards moved from visual-gap to card-parity with Password/Note.

@@ -175,3 +175,17 @@
 - Focused TUI v2 gate:
   - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
   - Result: `58 passed`.
+
+## Session Update (2026-03-03, Slice 6)
+
+### Universal card framing
+- Extended `_board_card` to TOTP (Parameters), SSH/PGP/Nostr (Keys), and Seed/Managed (Seed Info) boards.
+- All 9 board types now use consistent card-section visual language.
+- Updated regression tests for SSH/PGP/Nostr, Seed/Managed, and TOTP boards.
+
+### Verification
+- Focused TUI v2 gate: `58 passed`.
+
+### Next
+- Capture fresh state dump/screenshots for updated boards.
+- Update strict closeout scoreboard (Password/Stored Password/Note now at card parity; remaining Minor Gap items are density/rhythm only).

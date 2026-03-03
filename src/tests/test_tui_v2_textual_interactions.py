@@ -1433,6 +1433,8 @@ async def test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity() -> None:
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "SSH Board" in board
+        assert "+- Keys " in board
+        assert "+- Quick Actions " in board
         assert "▣ Copy Public" in board
         assert "▣ Reveal Private" in board
 
@@ -1440,6 +1442,8 @@ async def test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity() -> None:
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "PGP Board" in board
+        assert "+- Keys " in board
+        assert "+- Quick Actions " in board
         assert "Fingerprint: FPR-2" in board
         assert "▣ Export Private" in board
 
@@ -1447,6 +1451,8 @@ async def test_tui2_textual_ssh_pgp_nostr_boards_show_action_fidelity() -> None:
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "Nostr Board" in board
+        assert "+- Keys " in board
+        assert "+- Quick Actions " in board
         assert "▣ QR Public" in board
         assert "▣ QR Private" in board
 
@@ -1486,6 +1492,8 @@ async def test_tui2_textual_seed_and_managed_seed_boards_show_fidelity() -> None
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "BIP-39 Seed Board" in board
+        assert "+- Seed Info " in board
+        assert "+- Quick Actions " in board
         assert "Word Count: 12" in board
         assert "copy seed confirm" in board
 
@@ -1493,6 +1501,8 @@ async def test_tui2_textual_seed_and_managed_seed_boards_show_fidelity() -> None
         await pilot.pause()
         board = _widget_text(app, "#entry-detail")
         assert "Managed Account Seed Board" in board
+        assert "+- Seed Info " in board
+        assert "+- Quick Actions " in board
         assert "Word Count: 12" in board
         assert "export-field seed <path> confirm" in board
 
@@ -1542,6 +1552,8 @@ async def test_tui2_textual_note_and_totp_boards_include_common_metadata() -> No
         assert "Kind: totp | Modified:" in board
         assert "Index Num*:" in board
         assert "2FA Fields" in board
+        assert "+- Parameters " in board
+        assert "+- Quick Actions " in board
 
 
 @pytest.mark.anyio
