@@ -1,0 +1,64 @@
+{
+  "timestamp_utc": "20260304T023503Z",
+  "command": [
+    "/tmp/seedpass-beta-blackbox-1772591563/.seedpass/app/venv/bin/python",
+    "/tmp/seedpass-beta-blackbox-1772591563/.seedpass/app/src/main.py",
+    "--no-clipboard"
+  ],
+  "repo_root": "/tmp/seedpass-beta-blackbox-1772591563/.seedpass/app",
+  "home_dir": "/tmp/seedpass-agent-home-rg9v2qw4",
+  "scenario": "core",
+  "stress_cycles": null,
+  "stress_seed": null,
+  "required_coverage_keys": [
+    "startup_onboarding",
+    "main_menu",
+    "invalid_input_resilience",
+    "add_password_quick",
+    "invalid_length_validation",
+    "retrieve_entry",
+    "search_entries",
+    "list_entries",
+    "graceful_exit"
+  ],
+  "required_post_conditions": [],
+  "duration_sec": 3.459,
+  "seedpass_exit_code": -11,
+  "status": "failed",
+  "failure": "SeedPass exited with non-zero code: -11",
+  "steps": [
+    {
+      "step_id": "core_scenario",
+      "description": "Drive deterministic core TUI scenario.",
+      "status": "passed",
+      "duration_sec": 2.958550203999039,
+      "detail": null
+    }
+  ],
+  "coverage_points": {
+    "add_all_entry_types": false,
+    "add_password_quick": true,
+    "add_totp": false,
+    "archive_restore": false,
+    "graceful_exit": true,
+    "invalid_input_resilience": true,
+    "invalid_length_validation": true,
+    "list_entries": true,
+    "main_menu": true,
+    "modify_entry": false,
+    "retrieve_entry": true,
+    "search_entries": true,
+    "seeded_negative_campaign": false,
+    "settings_stats": false,
+    "settings_toggles_lock_unlock": false,
+    "startup_onboarding": true,
+    "stress_cycles": false,
+    "totp_codes_view": false
+  },
+  "post_conditions": {
+    "archive_restore_consistency": false,
+    "lock_unlock_recovers_retrieval": false
+  },
+  "transcript_clean": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test_installed/20260304T023503Z/transcript.clean.txt",
+  "transcript_raw": "/home/user/Documents/GitHub/SeedPass/artifacts/agent_tui_test_installed/20260304T023503Z/transcript.raw.txt"
+}
