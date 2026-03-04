@@ -685,6 +685,8 @@ def test_capabilities_json():
     assert payload["schema_version"] == 1
     assert "cli" in payload["interfaces"]
     assert "agent" in payload["interfaces"]["cli"]["root_commands"]
+    assert "tui3" in payload["interfaces"]["cli"]["root_commands"]
+    assert "legacy" in payload["interfaces"]["cli"]["root_commands"]
     assert (
         "/api/v1/agent/job-profiles/{job_id}/template/verify"
         in payload["interfaces"]["api"]["discovery"]
@@ -742,6 +744,13 @@ def test_api_start_passes_fingerprint(monkeypatch):
     result = runner.invoke(app, ["--fingerprint", "abc", "api", "start"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
+
+
+def test_version_flag(monkeypatch):
+    monkeypatch.setattr(cli, "_get_cli_version", lambda: "9.9.9-test")
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert "SeedPass 9.9.9-test" in result.stdout
 
 
 def test_api_start_unlock_uses_env_broker(monkeypatch):
@@ -1109,6 +1118,27 @@ def test_tui2_fallback_legacy(monkeypatch):
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
     assert "falling back to legacy TUI" in result.stdout
+
+
+def test_tui2_fallback_legacy_strips_subcommand_argv(monkeypatch):
+    called = {}
+    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
+    monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
+
+    def fake_main(*, argv=None, fingerprint=None):
+        called["fp"] = fingerprint
+        called["argv"] = argv
+        return 0
+
+    monkeypatch.setattr(
+        cli,
+        "importlib",
+        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+    )
+    result = runner.invoke(app, ["--fingerprint", "abc", "tui2"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert called.get("argv") == []
 
 
 def test_root_fallback_legacy_when_tui2_unavailable(monkeypatch):

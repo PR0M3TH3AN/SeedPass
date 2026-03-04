@@ -19,7 +19,6 @@ from textual.widgets import Input, ListView, Static
 
 from seedpass.tui_v2.app import launch_tui2
 
-
 # ── Fake services (copied from interaction tests to be self-contained) ──────
 
 
@@ -39,7 +38,9 @@ class FakeEntryService:
     def _next_id(self) -> int:
         return (max(self._entries.keys()) + 1) if self._entries else 1
 
-    def search_entries(self, query, kinds=None, *, include_archived=False, archived_only=False):
+    def search_entries(
+        self, query, kinds=None, *, include_archived=False, archived_only=False
+    ):
         q = (query or "").strip().lower()
         out = []
         for eid in sorted(self._entries):
@@ -64,59 +65,88 @@ class FakeEntryService:
     def add_entry(self, label, length, username=None, url=None):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "password", "label": label,
-            "length": int(length), "username": username, "url": url, "archived": False,
+            "id": eid,
+            "kind": "password",
+            "label": label,
+            "length": int(length),
+            "username": username,
+            "url": url,
+            "archived": False,
         }
         return eid
 
     def add_totp(self, label, *, secret=None, period=30, digits=6, deterministic=False):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "totp", "label": label,
-            "secret": secret or "JBSWY3DPEHPK3PXP", "period": int(period),
-            "digits": int(digits), "archived": False,
+            "id": eid,
+            "kind": "totp",
+            "label": label,
+            "secret": secret or "JBSWY3DPEHPK3PXP",
+            "period": int(period),
+            "digits": int(digits),
+            "archived": False,
         }
         return f"otpauth://totp/{label}"
 
     def add_key_value(self, label, key, value):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "key_value", "label": label,
-            "key": key, "value": value, "archived": False,
+            "id": eid,
+            "kind": "key_value",
+            "label": label,
+            "key": key,
+            "value": value,
+            "archived": False,
         }
         return eid
 
     def add_document(self, label, content, *, file_type="txt"):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "document", "label": label,
-            "content": content, "file_type": file_type, "archived": False,
+            "id": eid,
+            "kind": "document",
+            "label": label,
+            "content": content,
+            "file_type": file_type,
+            "archived": False,
         }
         return eid
 
     def add_ssh_key(self, label, *, index=None, notes=""):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "ssh", "label": label,
-            "private_key": f"SSH_PRIV_{eid}", "public_key": f"ssh-ed25519 AAAA-{eid}",
+            "id": eid,
+            "kind": "ssh",
+            "label": label,
+            "private_key": f"SSH_PRIV_{eid}",
+            "public_key": f"ssh-ed25519 AAAA-{eid}",
             "archived": False,
         }
         return eid
 
-    def add_pgp_key(self, label, *, index=None, key_type="ed25519", user_id="", notes=""):
+    def add_pgp_key(
+        self, label, *, index=None, key_type="ed25519", user_id="", notes=""
+    ):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "pgp", "label": label,
+            "id": eid,
+            "kind": "pgp",
+            "label": label,
             "private_key": "-----BEGIN PGP PRIVATE KEY BLOCK-----",
-            "fingerprint": f"FPR-{eid}", "archived": False,
+            "fingerprint": f"FPR-{eid}",
+            "archived": False,
         }
         return eid
 
     def add_nostr_key(self, label, *, index=None, notes=""):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "nostr", "label": label,
-            "npub": f"npub{eid}", "nsec": f"nsec{eid}", "archived": False,
+            "id": eid,
+            "kind": "nostr",
+            "label": label,
+            "npub": f"npub{eid}",
+            "nsec": f"nsec{eid}",
+            "archived": False,
         }
         return eid
 
@@ -125,15 +155,20 @@ class FakeEntryService:
         phrase = " ".join(["abandon"] * (wc - 1) + ["about"])
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "seed", "label": label,
-            "seed_phrase": phrase, "archived": False,
+            "id": eid,
+            "kind": "seed",
+            "label": label,
+            "seed_phrase": phrase,
+            "archived": False,
         }
         return eid
 
     def add_managed_account(self, label, *, index=None, notes=""):
         eid = self._next_id()
         self._entries[eid] = {
-            "id": eid, "kind": "managed_account", "label": label,
+            "id": eid,
+            "kind": "managed_account",
+            "label": label,
             "seed_phrase": "legal winner thank year wave sausage worth useful legal winner thank yellow",
             "archived": False,
         }
@@ -145,7 +180,7 @@ class FakeEntryService:
             raise ValueError("not a document")
         name = str(e.get("label", f"doc-{eid}")).replace(" ", "_")
         ext = str(e.get("file_type", "txt")).lstrip(".") or "txt"
-        dest = (Path(output_path) if output_path else Path.cwd() / f"{name}.{ext}")
+        dest = Path(output_path) if output_path else Path.cwd() / f"{name}.{ext}"
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(str(e.get("content", "")), encoding="utf-8")
         return dest
@@ -160,10 +195,17 @@ class FakeEntryService:
         return f"pw-{eid}-{length}"
 
     def get_seed_phrase(self, eid):
-        return str(self._entries[int(eid)].get("seed_phrase", "abandon " * 11 + "about")).strip()
+        return str(
+            self._entries[int(eid)].get("seed_phrase", "abandon " * 11 + "about")
+        ).strip()
 
     def get_managed_account_seed(self, eid):
-        return str(self._entries[int(eid)].get("seed_phrase", "legal winner thank year wave sausage worth useful legal winner thank yellow")).strip()
+        return str(
+            self._entries[int(eid)].get(
+                "seed_phrase",
+                "legal winner thank year wave sausage worth useful legal winner thank yellow",
+            )
+        ).strip()
 
     def get_totp_secret(self, eid):
         return str(self._entries[int(eid)].get("secret", "JBSWY3DPEHPK3PXP"))
@@ -176,16 +218,27 @@ class FakeEntryService:
         for eid, e in self._entries.items():
             if str(e.get("kind")) != "totp":
                 continue
-            out[str(eid)] = {"label": e.get("label"), "period": e.get("period", 30), "digits": e.get("digits", 6), "secret": e.get("secret")}
+            out[str(eid)] = {
+                "label": e.get("label"),
+                "period": e.get("period", 30),
+                "digits": e.get("digits", 6),
+                "secret": e.get("secret"),
+            }
         return out
 
     def get_ssh_key_pair(self, eid):
         e = self._entries[int(eid)]
-        return (str(e.get("private_key", "SSH_PRIV")), str(e.get("public_key", "ssh-ed25519 AAAA...")))
+        return (
+            str(e.get("private_key", "SSH_PRIV")),
+            str(e.get("public_key", "ssh-ed25519 AAAA...")),
+        )
 
     def get_pgp_key(self, eid):
         e = self._entries[int(eid)]
-        return (str(e.get("private_key", "-----BEGIN PGP PRIVATE KEY BLOCK-----")), str(e.get("fingerprint", "DEADBEEF")))
+        return (
+            str(e.get("private_key", "-----BEGIN PGP PRIVATE KEY BLOCK-----")),
+            str(e.get("fingerprint", "DEADBEEF")),
+        )
 
     def get_nostr_key_pair(self, eid):
         e = self._entries[int(eid)]
@@ -217,7 +270,12 @@ class FakeEntryService:
 
     def remove_link(self, eid, tid, *, relation=None):
         src = self._links.setdefault(int(eid), [])
-        kept = [l for l in src if int(l.get("target", -1)) != int(tid) or (relation and str(l.get("relation")) != relation)]
+        kept = [
+            l
+            for l in src
+            if int(l.get("target", -1)) != int(tid)
+            or (relation and str(l.get("relation")) != relation)
+        ]
         self._links[int(eid)] = kept
         return [dict(l) for l in kept]
 
@@ -281,7 +339,13 @@ class FakeConfigService:
 
     def set(self, key, value):
         if key == "quick_unlock":
-            self.quick_unlock = str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+            self.quick_unlock = str(value).strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "y",
+                "on",
+            }
         elif key == "inactivity_timeout":
             self.inactivity_timeout = float(value)
         elif key == "kdf_iterations":
@@ -343,7 +407,12 @@ class FakeSemanticService:
         self.mode = "keyword"
 
     def status(self):
-        return {"enabled": self.enabled, "built": self.built, "records": self.records, "mode": self.mode}
+        return {
+            "enabled": self.enabled,
+            "built": self.built,
+            "records": self.records,
+            "mode": self.mode,
+        }
 
     def set_enabled(self, e):
         self.enabled = bool(e)
@@ -422,6 +491,7 @@ class FakeNostrService:
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _build_full_app(service=None, **kw):
     service = service or FakeEntryService()
@@ -648,7 +718,9 @@ async def test_walkthrough_archive_filter_cycle():
         await _cmd(app, pilot, "archive-filter active")
         lv = app.query_one("#entry-list", ListView)
         if len(lv.children) != 2:
-            bugs.append(f"Expected 2 active entries after restore, got {len(lv.children)}")
+            bugs.append(
+                f"Expected 2 active entries after restore, got {len(lv.children)}"
+            )
 
     assert not bugs, "BUGS FOUND:\n" + "\n".join(f"  - {b}" for b in bugs)
 
@@ -678,11 +750,15 @@ async def test_walkthrough_managed_session_lifecycle():
             # Check action strip instead
             action = _action(app)
             if "managed-exit" not in action.lower():
-                bugs.append(f"Managed session not activated. status={stat}, action={action[:200]}")
+                bugs.append(
+                    f"Managed session not activated. status={stat}, action={action[:200]}"
+                )
 
         # Verify managed-load was called
         if managed_id not in svc.managed_load_calls:
-            bugs.append(f"managed_load_calls missing {managed_id}: {svc.managed_load_calls}")
+            bugs.append(
+                f"managed_load_calls missing {managed_id}: {svc.managed_load_calls}"
+            )
 
         # Exit managed session
         await _cmd(app, pilot, "managed-exit")
@@ -695,9 +771,17 @@ async def test_walkthrough_managed_session_lifecycle():
 @pytest.mark.anyio
 async def test_walkthrough_vault_lock_unlock():
     """Lock vault, verify entries hidden, unlock, verify entries restored."""
-    svc = FakeEntryService([
-        {"id": 1, "kind": "password", "label": "Secret Login", "length": 16, "archived": False},
-    ])
+    svc = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "Secret Login",
+                "length": 16,
+                "archived": False,
+            },
+        ]
+    )
     vault = FakeVaultService()
     app, _ = _build_full_app(svc, vault=vault)
 
@@ -747,9 +831,17 @@ async def test_walkthrough_vault_lock_unlock():
 @pytest.mark.anyio
 async def test_walkthrough_density_modes():
     """Cycle through density modes, verify status and grid heading adapt."""
-    svc = FakeEntryService([
-        {"id": 1, "kind": "password", "label": "Test PW", "length": 16, "archived": False},
-    ])
+    svc = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "Test PW",
+                "length": 16,
+                "archived": False,
+            },
+        ]
+    )
     app, _ = _build_full_app(svc)
 
     bugs = []
@@ -783,12 +875,42 @@ async def test_walkthrough_density_modes():
 @pytest.mark.anyio
 async def test_walkthrough_kind_filter():
     """Filter by entry kind and verify grid population."""
-    svc = FakeEntryService([
-        {"id": 1, "kind": "password", "label": "PW1", "length": 16, "archived": False},
-        {"id": 2, "kind": "totp", "label": "OTP1", "secret": "AAA", "period": 30, "digits": 6, "archived": False},
-        {"id": 3, "kind": "document", "label": "Doc1", "content": "hi", "file_type": "md", "archived": False},
-        {"id": 4, "kind": "ssh", "label": "SSH1", "private_key": "pk", "public_key": "pub", "archived": False},
-    ])
+    svc = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "PW1",
+                "length": 16,
+                "archived": False,
+            },
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "OTP1",
+                "secret": "AAA",
+                "period": 30,
+                "digits": 6,
+                "archived": False,
+            },
+            {
+                "id": 3,
+                "kind": "document",
+                "label": "Doc1",
+                "content": "hi",
+                "file_type": "md",
+                "archived": False,
+            },
+            {
+                "id": 4,
+                "kind": "ssh",
+                "label": "SSH1",
+                "private_key": "pk",
+                "public_key": "pub",
+                "archived": False,
+            },
+        ]
+    )
     app, _ = _build_full_app(svc)
 
     bugs = []
@@ -824,10 +946,26 @@ async def test_walkthrough_kind_filter():
 @pytest.mark.anyio
 async def test_walkthrough_links_between_entries():
     """Add and remove links between entries."""
-    svc = FakeEntryService([
-        {"id": 1, "kind": "password", "label": "PW1", "length": 16, "archived": False},
-        {"id": 2, "kind": "totp", "label": "OTP for PW1", "secret": "AAA", "period": 30, "digits": 6, "archived": False},
-    ])
+    svc = FakeEntryService(
+        [
+            {
+                "id": 1,
+                "kind": "password",
+                "label": "PW1",
+                "length": 16,
+                "archived": False,
+            },
+            {
+                "id": 2,
+                "kind": "totp",
+                "label": "OTP for PW1",
+                "secret": "AAA",
+                "period": 30,
+                "digits": 6,
+                "archived": False,
+            },
+        ]
+    )
     app, _ = _build_full_app(svc)
 
     bugs = []
@@ -858,14 +996,70 @@ async def test_walkthrough_links_between_entries():
 async def test_walkthrough_card_frame_rendering():
     """Verify card frames render correctly for every board type."""
     entries = [
-        {"id": 1, "kind": "password", "label": "PW", "length": 16, "username": "u", "url": "https://x.com", "archived": False},
-        {"id": 2, "kind": "document", "label": "Doc", "content": "hello " * 50, "file_type": "md", "archived": False},
-        {"id": 3, "kind": "totp", "label": "OTP", "secret": "AAA", "period": 30, "digits": 6, "archived": False},
-        {"id": 4, "kind": "seed", "label": "Seed", "seed_phrase": "abandon " * 11 + "about", "archived": False},
-        {"id": 5, "kind": "managed_account", "label": "Mgd", "seed_phrase": "legal " * 11 + "about", "archived": False},
-        {"id": 6, "kind": "ssh", "label": "SSH", "private_key": "pk", "public_key": "ssh-ed25519 AAAA", "archived": False},
-        {"id": 7, "kind": "pgp", "label": "PGP", "private_key": "pk", "fingerprint": "FPR-7", "archived": False},
-        {"id": 8, "kind": "nostr", "label": "Nostr", "npub": "npub1demo", "nsec": "nsec1demo", "archived": False},
+        {
+            "id": 1,
+            "kind": "password",
+            "label": "PW",
+            "length": 16,
+            "username": "u",
+            "url": "https://x.com",
+            "archived": False,
+        },
+        {
+            "id": 2,
+            "kind": "document",
+            "label": "Doc",
+            "content": "hello " * 50,
+            "file_type": "md",
+            "archived": False,
+        },
+        {
+            "id": 3,
+            "kind": "totp",
+            "label": "OTP",
+            "secret": "AAA",
+            "period": 30,
+            "digits": 6,
+            "archived": False,
+        },
+        {
+            "id": 4,
+            "kind": "seed",
+            "label": "Seed",
+            "seed_phrase": "abandon " * 11 + "about",
+            "archived": False,
+        },
+        {
+            "id": 5,
+            "kind": "managed_account",
+            "label": "Mgd",
+            "seed_phrase": "legal " * 11 + "about",
+            "archived": False,
+        },
+        {
+            "id": 6,
+            "kind": "ssh",
+            "label": "SSH",
+            "private_key": "pk",
+            "public_key": "ssh-ed25519 AAAA",
+            "archived": False,
+        },
+        {
+            "id": 7,
+            "kind": "pgp",
+            "label": "PGP",
+            "private_key": "pk",
+            "fingerprint": "FPR-7",
+            "archived": False,
+        },
+        {
+            "id": 8,
+            "kind": "nostr",
+            "label": "Nostr",
+            "npub": "npub1demo",
+            "nsec": "nsec1demo",
+            "archived": False,
+        },
     ]
     svc = FakeEntryService(entries)
     app, _ = _build_full_app(svc)
@@ -891,7 +1085,13 @@ async def test_walkthrough_card_frame_rendering():
             # The bottom line starts with "+" so count "+" lines
             # Just check top/bottom pairs
             top_lines = [l for l in detail.split("\n") if l.strip().startswith("+- ")]
-            bottom_lines = [l for l in detail.split("\n") if l.strip().startswith("+") and l.strip().endswith("+") and "- " not in l[:5]]
+            bottom_lines = [
+                l
+                for l in detail.split("\n")
+                if l.strip().startswith("+")
+                and l.strip().endswith("+")
+                and "- " not in l[:5]
+            ]
             if len(top_lines) < 1:
                 bugs.append(f"Entry #{eid} ({kind}): missing card frame top line")
 
@@ -902,7 +1102,9 @@ async def test_walkthrough_card_frame_rendering():
             # Max width check — no line should exceed ~80 chars (72 card + margins)
             for line in detail.split("\n"):
                 if len(line) > 85:
-                    bugs.append(f"Entry #{eid} ({kind}): line too wide ({len(line)} chars): {line[:60]}...")
+                    bugs.append(
+                        f"Entry #{eid} ({kind}): line too wide ({len(line)} chars): {line[:60]}..."
+                    )
                     break
 
     assert not bugs, "BUGS FOUND:\n" + "\n".join(f"  - {b}" for b in bugs)
@@ -979,10 +1181,18 @@ async def test_walkthrough_edge_cases_and_error_handling():
 @pytest.mark.anyio
 async def test_walkthrough_search_flow():
     """Search, clear, verify grid updates."""
-    svc = FakeEntryService([
-        {"id": i, "kind": "password", "label": f"Entry {i}", "length": 16, "archived": False}
-        for i in range(1, 21)
-    ])
+    svc = FakeEntryService(
+        [
+            {
+                "id": i,
+                "kind": "password",
+                "label": f"Entry {i}",
+                "length": 16,
+                "archived": False,
+            }
+            for i in range(1, 21)
+        ]
+    )
     app, _ = _build_full_app(svc)
 
     bugs = []
@@ -1025,7 +1235,9 @@ async def test_walkthrough_full_user_journey():
             bugs.append(f"Seed creation status: {_status(app)}")
 
         # Step 2: Add a password entry
-        await _cmd(app, pilot, 'add-password "GitHub Login" 24 myuser https://github.com')
+        await _cmd(
+            app, pilot, 'add-password "GitHub Login" 24 myuser https://github.com'
+        )
         detail = _detail(app)
         if "myuser" not in detail:
             bugs.append("Password username missing")

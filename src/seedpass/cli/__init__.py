@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import importlib.metadata
 import json
 import subprocess
 import sys
@@ -73,6 +74,22 @@ app.add_typer(semantic.app, name="semantic")
 register_capabilities_command(app)
 
 
+def _get_cli_version() -> str:
+    """Return installed package version, falling back to a dev label."""
+    try:
+        return importlib.metadata.version("seedpass")
+    except importlib.metadata.PackageNotFoundError:
+        return "dev"
+
+
+def _version_callback(value: bool) -> None:
+    """Print version and exit early when --version is provided."""
+    if not value:
+        return
+    typer.echo(f"SeedPass {_get_cli_version()}")
+    raise typer.Exit()
+
+
 def run() -> None:
     """Invoke the CLI, handling SeedPass errors gracefully."""
     try:
@@ -128,12 +145,25 @@ def _prime_tui2_service(
 def _launch_legacy_tui(*, fingerprint: Optional[str]) -> typer.Exit:
     """Launch legacy interactive TUI and return Typer exit."""
     tui = importlib.import_module("main")
-    return typer.Exit(tui.main(fingerprint=fingerprint))
+    legacy_main = getattr(tui, "main")
+    # Ensure fallback from newer subcommands (e.g., tui2/tui3) does not leak
+    # unsupported argv into legacy argparse.
+    try:
+        return typer.Exit(legacy_main(argv=[], fingerprint=fingerprint))
+    except TypeError:
+        return typer.Exit(legacy_main(fingerprint=fingerprint))
 
 
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show SeedPass version and exit",
+    ),
     fingerprint: Optional[str] = fingerprint_option,
     no_clipboard: bool = no_clipboard_option,
     deterministic_totp: bool = deterministic_totp_option,
@@ -147,6 +177,7 @@ def main(
     and security feature discovery.
     """
     ctx.obj = {
+        "version": version,
         "fingerprint": fingerprint,
         "no_clipboard": no_clipboard,
         "deterministic_totp": deterministic_totp,

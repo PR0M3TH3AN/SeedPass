@@ -18,6 +18,8 @@ def build_capabilities() -> dict[str, Any]:
                     "lock",
                     "gui",
                     "tui2",
+                    "tui3",
+                    "legacy",
                     "capabilities",
                     "entry",
                     "vault",

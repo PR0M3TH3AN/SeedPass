@@ -109,3 +109,16 @@ def test_manager_workflow(monkeypatch):
         assert checksum_after_modify != checksum_after_add
         assert first_post in pm.nostr_client.published
         assert pm.nostr_client.published[-1] != first_post
+
+
+def test_terminal_document_editor_help_and_empty_listing(monkeypatch, capsys):
+    pm = PasswordManager.__new__(PasswordManager)
+    inputs = iter(["q"])
+    monkeypatch.setattr("builtins.input", lambda *args, **kwargs: next(inputs))
+
+    result = pm._terminal_document_editor("")
+
+    captured = capsys.readouterr()
+    assert result is None
+    assert "Commands: p | a | i <n> | e <n> | d <n> | w | q" in captured.out
+    assert "[empty]" in captured.out

@@ -3,7 +3,9 @@ set -eo pipefail
 
 mkdir -p artifacts/coverage
 
-./scripts/tui2_check_smoke.sh
+if [[ "${TUI2_SMOKE_GATE:-0}" == "1" ]]; then
+    ./scripts/tui2_check_smoke.sh
+fi
 
 if [[ -x ".venv/bin/python" ]]; then
     py_bin=".venv/bin/python"
@@ -61,7 +63,10 @@ if [[ $status -eq 0 && "${CRITICAL_COVERAGE_GATE:-1}" == "1" ]]; then
         artifacts/coverage/coverage.json \
         --json-output artifacts/coverage/critical_gate.full.json
 fi
-if [[ $status -eq 0 && "${TUI2_COVERAGE_GATE:-1}" == "1" ]]; then
+if [[ $status -eq 0 && "${TUI2_COVERAGE_GATE:-0}" == "1" ]]; then
     ./scripts/tui2_coverage_gate.sh
+fi
+if [[ $status -eq 0 && "${TUI3_COVERAGE_GATE:-1}" == "1" ]]; then
+    ./scripts/tui3_coverage_gate.sh
 fi
 exit $status

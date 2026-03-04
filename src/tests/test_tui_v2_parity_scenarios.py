@@ -175,7 +175,7 @@ async def test_tui2_parity_archive_restore_roundtrip_non_document() -> None:
         await pilot.pause()
         # Explicitly open the entry to ensure selection
         await _run_palette(app, pilot, "open 1")
-        
+
         await _run_palette(app, pilot, "archive")
         assert service.retrieve_entry(1)["archived"] is True
         assert "archived" in _status_text(app)
