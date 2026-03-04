@@ -2,6 +2,8 @@ import importlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import sys
+
 import constants
 import seedpass.core.manager as manager_module
 from utils.fingerprint_manager import FingerprintManager
@@ -14,6 +16,7 @@ OTHER_SEED = (
 
 
 def test_prompt_when_multiple_fingerprints(monkeypatch):
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)

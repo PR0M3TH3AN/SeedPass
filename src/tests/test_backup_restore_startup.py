@@ -1,3 +1,5 @@
+import sys
+
 import main
 from pathlib import Path
 
@@ -29,6 +31,7 @@ def test_cli_flag_restores_before_init(monkeypatch, tmp_path):
 
 
 def test_menu_option_restores_before_init(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     calls = []
     backup = tmp_path / "bak.json"
     backup.write_text("{}")
