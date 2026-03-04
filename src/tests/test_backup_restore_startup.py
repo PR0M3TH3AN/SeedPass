@@ -48,6 +48,7 @@ def test_menu_option_restores_before_init(monkeypatch, tmp_path):
     inputs = iter(["2", str(backup)])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
 
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
     rc = main.main(["--fingerprint", "fp"])
     assert rc == 0
     assert calls[0][0] == "restore"

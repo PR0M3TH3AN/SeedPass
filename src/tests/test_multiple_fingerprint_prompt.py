@@ -58,6 +58,7 @@ def test_prompt_when_multiple_fingerprints(monkeypatch):
             return "1"  # select first fingerprint
 
         monkeypatch.setattr("builtins.input", fake_input)
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
         pm = manager_module.PasswordManager()
         assert calls["count"] == 1
