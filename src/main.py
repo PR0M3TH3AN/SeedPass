@@ -1709,6 +1709,15 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             print(colored(f"Error: Failed to restore backup: {e}", "red"))
             return 1
     elif args.command is None and not args.legacy_tui:
+        if not sys.stdin.isatty():
+            print(
+                colored(
+                    "Error: Interactive startup requires a TTY. "
+                    "Run in a terminal or use non-interactive subcommands.",
+                    "red",
+                )
+            )
+            return 1
         print("Startup Options:")
         print("1. Continue")
         print("2. Restore from backup")
@@ -1895,5 +1904,33 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
     return 0
 
 
+def _exit_as_main_process() -> "NoReturn":
+    """Execute ``main`` and terminate the process without Python finalizers.
+
+    In some runtime builds with native extensions, interpreter teardown can
+    intermittently raise SIGSEGV after the app has already completed a normal
+    shutdown path. Using ``os._exit`` here avoids that nondeterministic
+    interpreter-finalization crash while preserving the intended exit status.
+    """
+    exit_code = 0
+    try:
+        exit_code = int(main())
+    except SystemExit as exc:
+        code = exc.code
+        if isinstance(code, int):
+            exit_code = code
+        elif code is None:
+            exit_code = 0
+        else:
+            exit_code = 1
+    finally:
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        except Exception:
+            pass
+    os._exit(exit_code)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    _exit_as_main_process()

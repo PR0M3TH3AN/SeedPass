@@ -142,6 +142,8 @@ def prompt_new_password(max_retries: int | None = None) -> str:
             print(colored("\nOperation cancelled by user.", "yellow"))
             logging.info("Password prompt interrupted by user.")
             raise PasswordPromptError("Operation cancelled by user")
+        except EOFError:
+            raise PasswordPromptError("Interactive password prompt requires a TTY")
         except Exception as e:
             logging.error(
                 f"Unexpected error during password prompt: {e}", exc_info=True
@@ -204,6 +206,8 @@ def prompt_existing_password(
             print(colored("\nOperation cancelled by user.", "yellow"))
             logging.info("Existing password prompt interrupted by user.")
             raise PasswordPromptError("Operation cancelled by user")
+        except EOFError:
+            raise PasswordPromptError("Interactive password prompt requires a TTY")
         except Exception as e:
             logging.error(
                 f"Unexpected error during existing password prompt: {e}",

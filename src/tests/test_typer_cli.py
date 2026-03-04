@@ -1092,6 +1092,18 @@ def test_tui2_check(monkeypatch):
     assert payload["textual_available"] is True
 
 
+def test_tui3_check(monkeypatch):
+    monkeypatch.setattr(
+        cli,
+        "check_tui2_runtime",
+        lambda: {"status": "ok", "backend": "textual", "textual_available": True},
+    )
+    result = runner.invoke(app, ["tui3", "--check"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert "textual_available" in payload
+
+
 def test_tui2_unavailable_without_fallback(monkeypatch):
     monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)

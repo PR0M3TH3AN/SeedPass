@@ -106,6 +106,8 @@ def _masked_input_posix(prompt: str) -> str:
 
 def masked_input(prompt: str) -> str:
     """Return input from the user while masking typed characters."""
+    if not sys.stdin.isatty():
+        raise EOFError("Interactive input requires a TTY")
     func = _masked_input_windows if sys.platform == "win32" else _masked_input_posix
     pause_console_logging()
     try:

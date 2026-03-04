@@ -302,8 +302,21 @@ def tui2(
 
 
 @app.command("tui3")
-def tui3(ctx: typer.Context) -> None:
+def tui3(
+    ctx: typer.Context,
+    check: bool = typer.Option(
+        False,
+        "--check",
+        help="Check whether TUI v3 runtime dependencies are available",
+    ),
+) -> None:
     """Launch the experimental TUI v3 scratch architecture."""
+    if check:
+        from seedpass.tui_v3 import check_tui3_runtime
+
+        typer.echo(json.dumps(check_tui3_runtime(), indent=2, sort_keys=True))
+        return
+
     fingerprint = (ctx.obj or {}).get("fingerprint")
     services, preflight_error = _prime_tui2_service(ctx)
     if preflight_error is not None:

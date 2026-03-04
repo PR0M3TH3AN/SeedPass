@@ -63,6 +63,7 @@ from utils.password_prompt import (
     prompt_existing_password,
     prompt_new_password,
     confirm_action,
+    PasswordPromptError,
 )
 from utils import masked_input, prompt_seed_words
 from utils.memory_protection import InMemorySecret
@@ -731,6 +732,10 @@ class PasswordManager:
                 )
                 print(colored("Q. Exit", "cyan"))
 
+                if not sys.stdin.isatty():
+                    raise SeedPassError(
+                        "Interactive seed profile selection requires a TTY"
+                    )
                 choice = input("Select a seed profile by number: ").strip()
                 if choice.lower() in {"q", "quit", "exit"}:
                     raise SeedPassError("Operation cancelled by user")
@@ -766,7 +771,14 @@ class PasswordManager:
                 current = self.fingerprint_manager.current_fingerprint
 
         except Exception as e:
-            logger.error(f"Error during seed profile selection: {e}", exc_info=True)
+            is_interactive_err = isinstance(e, (EOFError, PasswordPromptError)) or (
+                isinstance(e, SeedPassError) and "requires a TTY" in str(e)
+            )
+            logger.error(
+                "Error during seed profile selection: %s",
+                e,
+                exc_info=not is_interactive_err,
+            )
             print(colored(f"Error: Failed to select seed profile: {e}", "red"))
             raise SeedPassError(f"Failed to select seed profile: {e}") from e
 
@@ -1094,7 +1106,12 @@ class PasswordManager:
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
+                is_interactive_err = isinstance(e, (EOFError, PasswordPromptError))
+                logger.error(
+                    "Failed to set up EncryptionManager: %s",
+                    e,
+                    exc_info=not is_interactive_err,
+                )
                 print(colored(f"Error: Failed to set up encryption: {e}", "red"))
                 if exit_on_fail:
                     raise SeedPassError(f"Failed to set up encryption: {e}") from e
