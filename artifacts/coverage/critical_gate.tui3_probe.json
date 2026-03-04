@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "failing_modules": [],
+  "modules": {
+    "src/seedpass/tui_v3/app.py": {
+      "threshold_percent": 1.0,
+      "actual_percent": 40.38461538461539,
+      "meets_threshold": true,
+      "uncovered_functions": [],
+      "error": null
+    }
+  },
+  "coverage_json": "/home/user/Documents/GitHub/SeedPass/artifacts/coverage/coverage.tui3_probe.json"
+}

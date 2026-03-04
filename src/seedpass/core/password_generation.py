@@ -523,8 +523,10 @@ def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
 
 def derive_pgp_key(
     bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
-) -> tuple[str, str]:
-    """Derive a deterministic PGP private key and return it with its fingerprint.
+) -> tuple[str, str, str]:
+    """Derive deterministic armored PGP material.
+
+    Returns ``(private_key, public_key, fingerprint)``.
 
     For RSA keys the randomness required during key generation is provided by
     an HMAC-SHA256 based deterministic generator seeded from the BIP-85

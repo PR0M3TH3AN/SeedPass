@@ -1,19 +1,30 @@
 {
-  "status": "passed",
-  "failing_modules": [],
+  "status": "failed",
+  "failing_modules": [
+    "src/seedpass/core/api.py"
+  ],
   "modules": {
     "src/seedpass/core/api.py": {
       "threshold_percent": 85.0,
-      "actual_percent": 86.63793103448276,
-      "meets_threshold": true,
+      "actual_percent": 68.79084967320262,
+      "meets_threshold": false,
       "uncovered_functions": [],
       "error": null
     },
     "src/seedpass/tui_v2/app.py": {
       "threshold_percent": 78.0,
-      "actual_percent": 79.29854576561164,
+      "actual_percent": 78.28963489340848,
       "meets_threshold": true,
-      "uncovered_functions": [],
+      "uncovered_functions": [
+        {
+          "name": "SettingsScreen.get_val",
+          "line": 151
+        },
+        {
+          "name": "SeedPassTuiV2.get_val",
+          "line": 1199
+        }
+      ],
       "error": null
     }
   },
