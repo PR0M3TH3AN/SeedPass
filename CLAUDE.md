@@ -1,5 +1,14 @@
 # SeedPass Agent Guide
 
+## Overstory Ecosystem
+This project is part of the **Overstory** multi-agent development ecosystem. When asked to "update Overstory" or work on the ecosystem, these are the relevant repositories:
+
+- **[Overstory](https://github.com/jayminwest/overstory)** — The coordinator. Orchestrates multi-agent workflows across worktrees.
+- **[Mulch](https://github.com/jayminwest/mulch)** — Structured expertise/memory system for agents.
+- **[Canopy](https://github.com/jayminwest/canopy)** — Prompt management system for agents.
+- **[Seeds](https://github.com/jayminwest/seeds)** — Git-native issue tracker for agents.
+- **[os-eco](https://github.com/jayminwest/os-eco)** — The entire Overstory ecosystem (meta-repo/docs).
+
 ## Planning & Strategy
 Consult these first to align with current objectives:
 - **[Dev Control Center](docs/dev_control_center.md)**: Current priorities.

@@ -3,7 +3,7 @@
 	"agents": {
 		"scout": {
 			"file": "scout.md",
-			"model": "gpt-5.3-codex",
+			"model": "sonnet",
 			"tools": [
 				"Read",
 				"Glob",
@@ -21,7 +21,7 @@
 		},
 		"builder": {
 			"file": "builder.md",
-			"model": "gpt-5.3-codex",
+			"model": "sonnet",
 			"tools": [
 				"Read",
 				"Write",
@@ -40,7 +40,7 @@
 		},
 		"reviewer": {
 			"file": "reviewer.md",
-			"model": "gpt-5.3-codex",
+			"model": "sonnet",
 			"tools": [
 				"Read",
 				"Glob",
@@ -58,7 +58,7 @@
 		},
 		"lead": {
 			"file": "lead.md",
-			"model": "gpt-5.3-codex",
+			"model": "opus",
 			"tools": [
 				"Read",
 				"Write",
@@ -78,7 +78,7 @@
 		},
 		"merger": {
 			"file": "merger.md",
-			"model": "gpt-5.3-codex",
+			"model": "sonnet",
 			"tools": [
 				"Read",
 				"Write",
@@ -96,7 +96,7 @@
 		},
 		"coordinator": {
 			"file": "coordinator.md",
-			"model": "gpt-5.3-codex",
+			"model": "opus",
 			"tools": [
 				"Read",
 				"Glob",
@@ -116,7 +116,7 @@
 		},
 		"monitor": {
 			"file": "monitor.md",
-			"model": "gpt-5.3-codex",
+			"model": "haiku",
 			"tools": [
 				"Read",
 				"Glob",
