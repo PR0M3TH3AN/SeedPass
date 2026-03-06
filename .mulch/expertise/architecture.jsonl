@@ -1,0 +1,1 @@
+{"classification":"tactical","recorded_at":"2026-03-06T18:47:40.029Z","tags":["merge-conflict"],"evidence":{"bead":"SeedPass-57f6"},"type":"pattern","name":"","description":"Merge conflict resolved at tier auto-resolve. Branch: overstory/builder-action-strip/SeedPass-57f6. Agent: builder-action-strip. Conflicting files: src/tests/test_tui_v3_parity.py.","id":"mx-ecd3cf"}
