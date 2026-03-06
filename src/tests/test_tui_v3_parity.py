@@ -164,6 +164,73 @@ class MockVaultService:
         }
 
 
+class MockUtilityService:
+    def __init__(self):
+        self.checksum_verified = False
+        self.checksum_updated = False
+
+    def verify_checksum(self):
+        self.checksum_verified = True
+
+    def update_checksum(self):
+        self.checksum_updated = True
+
+
+class MockSyncService:
+    def __init__(self):
+        self.synced = False
+        self.bg_synced = False
+
+    def sync(self):
+        self.synced = True
+        return {"events": 1}
+
+    def start_background_vault_sync(self, summary=None):
+        self.bg_synced = True
+
+
+class MockNostrService:
+    def __init__(self):
+        self.relays: list[str] = ["wss://relay.example.com"]
+        self.added: list[str] = []
+        self.removed: list[int] = []
+        self.reset_called = False
+
+    def add_relay(self, url: str):
+        self.added.append(url)
+        self.relays.append(url)
+
+    def remove_relay(self, idx: int):
+        self.removed.append(idx)
+
+    def reset_relays(self) -> list[str]:
+        self.reset_called = True
+        self.relays = ["wss://default.relay"]
+        return list(self.relays)
+
+
+class MockConfigService:
+    def __init__(self):
+        self._cfg: dict = {}
+        self.secret_mode_calls: list[tuple] = []
+        self.offline_mode_calls: list[bool] = []
+
+    def get(self, key: str):
+        return self._cfg.get(key)
+
+    def set(self, key: str, value: str):
+        self._cfg[key] = value
+
+    def get_clipboard_clear_delay(self) -> int:
+        return 30
+
+    def set_secret_mode(self, enabled: bool, delay: int):
+        self.secret_mode_calls.append((enabled, delay))
+
+    def set_offline_mode(self, enabled: bool):
+        self.offline_mode_calls.append(enabled)
+
+
 @pytest.mark.anyio
 async def test_v3_reveal_copy_parity():
     app = SeedPassTuiV3(
@@ -312,3 +379,183 @@ async def test_v3_action_bar_only_shows_context_actions_for_selected_kind() -> N
         assert "Load" in rendered
         assert "Delete" in rendered
         assert "Export" not in rendered
+
+
+# ---------------------------------------------------------------------------
+# Parity tests: legacy utility/maintenance commands migrated to v3
+# ---------------------------------------------------------------------------
+
+
+def _make_full_app(**extra_services):
+    """Build a SeedPassTuiV3 with all mock services wired up."""
+    entry_svc = MockEntryService()
+    vault_svc = MockVaultService()
+    utility_svc = MockUtilityService()
+    sync_svc = MockSyncService()
+    nostr_svc = MockNostrService()
+    config_svc = MockConfigService()
+
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: entry_svc,
+        vault_service_factory=lambda: vault_svc,
+        utility_service_factory=lambda: utility_svc,
+        sync_service_factory=lambda: sync_svc,
+        nostr_service_factory=lambda: nostr_svc,
+        config_service_factory=lambda: config_svc,
+    )
+    return app, entry_svc, vault_svc, utility_svc, sync_svc, nostr_svc, config_svc
+
+
+@pytest.mark.anyio
+async def test_v3_checksum_commands() -> None:
+    app, *_, utility_svc, _, _, _ = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_checksum_verify()
+        assert utility_svc.checksum_verified is True
+
+        app.action_checksum_update()
+        assert utility_svc.checksum_updated is True
+
+
+@pytest.mark.anyio
+async def test_v3_totp_export_no_path() -> None:
+    app, entry_svc, *_ = _make_full_app()
+    # Provide a basic export_totp_entries method
+    entry_svc.export_totp_entries = lambda: {"1": "otpauth://totp/label?secret=ABC"}
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Should not raise; notifies count
+        app.action_totp_export(None)
+
+
+@pytest.mark.anyio
+async def test_v3_sync_commands() -> None:
+    app, _, _, _, sync_svc, _, _ = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_sync_now()
+        assert sync_svc.synced is True
+
+        app.action_sync_bg()
+        assert sync_svc.bg_synced is True
+
+
+@pytest.mark.anyio
+async def test_v3_relay_commands() -> None:
+    app, _, _, _, _, nostr_svc, _ = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app.action_relay_add("wss://new.relay")
+        assert "wss://new.relay" in nostr_svc.added
+
+        app.action_relay_rm(0)
+        assert 0 in nostr_svc.removed
+
+        app.action_relay_reset()
+        assert nostr_svc.reset_called is True
+
+
+@pytest.mark.anyio
+async def test_v3_setting_secret() -> None:
+    app, _, _, _, _, _, config_svc = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_setting_secret("on")
+        assert config_svc.secret_mode_calls[-1][0] is True
+
+        app.action_setting_secret("off")
+        assert config_svc.secret_mode_calls[-1][0] is False
+
+
+@pytest.mark.anyio
+async def test_v3_setting_offline() -> None:
+    app, _, _, _, _, _, config_svc = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_setting_offline("on")
+        assert config_svc.offline_mode_calls[-1] is True
+
+        app.action_setting_offline("off")
+        assert config_svc.offline_mode_calls[-1] is False
+
+
+@pytest.mark.anyio
+async def test_v3_setting_config_keys() -> None:
+    app, _, _, _, _, _, config_svc = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_setting_quick_unlock("on")
+        assert config_svc._cfg.get("quick_unlock") == "on"
+
+        app.action_setting_timeout("600")
+        assert config_svc._cfg.get("inactivity_timeout") == "600"
+
+        app.action_setting_kdf_mode("argon2id")
+        assert config_svc._cfg.get("kdf_mode") == "argon2id"
+
+        app.action_setting_kdf_iterations("200000")
+        assert config_svc._cfg.get("kdf_iterations") == "200000"
+
+
+@pytest.mark.anyio
+async def test_v3_archive_filter() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        app.action_archive_filter("active")
+        assert app.show_archived is False
+        assert app.filter_archived_only is False
+
+        app.action_archive_filter("all")
+        assert app.show_archived is True
+        assert app.filter_archived_only is False
+
+        app.action_archive_filter("archived")
+        assert app.show_archived is True
+        assert app.filter_archived_only is True
+
+
+@pytest.mark.anyio
+async def test_v3_density() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_set_density("compact")
+        assert app.density_mode == "compact"
+
+        app.action_set_density("comfortable")
+        assert app.density_mode == "comfortable"
+
+
+@pytest.mark.anyio
+async def test_v3_command_processor_routes_utility_commands() -> None:
+    """Verify the CommandProcessor correctly routes new utility commands."""
+    app, *_, utility_svc, sync_svc, nostr_svc, _ = _make_full_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        proc = app.processor
+
+        proc.execute("checksum-verify")
+        assert utility_svc.checksum_verified is True
+
+        proc.execute("sync-now")
+        assert sync_svc.synced is True
+
+        proc.execute("relay-add wss://proc.relay")
+        assert "wss://proc.relay" in nostr_svc.added
+
+        proc.execute("archive-filter archived")
+        assert app.show_archived is True
+        assert app.filter_archived_only is True
+
+        proc.execute("density compact")
+        assert app.density_mode == "compact"

@@ -63,7 +63,18 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, atlas, wayfinder, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, sort <relevance|modified_desc|modified_asc|label_asc|kind|created_desc|most_linked>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, profiles, relay-list, npub, nostr-pubkey, nostr-reset-sync-state, nostr-fresh-namespace, change-password, backup-parent-seed <path> (optional: password), maximize, copy, edit, export, add, seed-plus, archive, restore, delete, ml, mx, db-export <path>, db-import <path>"
+                "v3 commands: help, stats, atlas, wayfinder, session-status, lock, unlock <password>, refresh, "
+                "search <query>, search-mode <keyword|hybrid|semantic>, sort <relevance|modified_desc|modified_asc|label_asc|kind|created_desc|most_linked>, "
+                "filter <all|secrets|docs|keys|2fa>, archived, archive-filter <active|all|archived>, "
+                "open <id>, settings, profiles, relay-list, relay-add <url>, relay-rm <idx>, relay-reset, "
+                "npub, nostr-pubkey, nostr-reset-sync-state, nostr-fresh-namespace, "
+                "sync-now, sync-bg, "
+                "checksum-verify, checksum-update, totp-export [path], "
+                "setting-secret <on|off>, setting-quick-unlock <on|off>, setting-offline <on|off>, "
+                "setting-timeout <s>, setting-kdf-mode <mode>, setting-kdf-iterations <n>, "
+                "density <compact|comfortable>, onboarding, "
+                "change-password, backup-parent-seed <path> (optional: password), maximize, copy, edit, export, "
+                "add, seed-plus, archive, restore, delete, ml, mx, db-export <path>, db-import <path>"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -182,6 +193,84 @@ class CommandProcessor:
                 self.app.notify("Usage: db-import <path>", severity="warning")
                 return
             self.app.action_db_import(args[0])
+        elif cmd == "checksum-verify":
+            self.app.action_checksum_verify()
+        elif cmd == "checksum-update":
+            self.app.action_checksum_update()
+        elif cmd == "totp-export":
+            path = args[0] if args else None
+            self.app.action_totp_export(path)
+        elif cmd == "sync-now":
+            self.app.action_sync_now()
+        elif cmd == "sync-bg":
+            self.app.action_sync_bg()
+        elif cmd == "relay-add":
+            if not args:
+                self.app.notify("Usage: relay-add <url>", severity="warning")
+                return
+            self.app.action_relay_add(args[0])
+        elif cmd == "relay-rm":
+            if not args:
+                self.app.notify("Usage: relay-rm <idx>", severity="warning")
+                return
+            try:
+                idx = int(args[0])
+            except ValueError:
+                self.app.notify("relay-rm: index must be an integer", severity="error")
+                return
+            self.app.action_relay_rm(idx)
+        elif cmd == "relay-reset":
+            self.app.action_relay_reset()
+        elif cmd == "setting-secret":
+            if not args:
+                self.app.notify("Usage: setting-secret <on|off>", severity="warning")
+                return
+            self.app.action_setting_secret(args[0])
+        elif cmd == "setting-quick-unlock":
+            if not args:
+                self.app.notify(
+                    "Usage: setting-quick-unlock <on|off>", severity="warning"
+                )
+                return
+            self.app.action_setting_quick_unlock(args[0])
+        elif cmd == "setting-offline":
+            if not args:
+                self.app.notify("Usage: setting-offline <on|off>", severity="warning")
+                return
+            self.app.action_setting_offline(args[0])
+        elif cmd == "setting-timeout":
+            if not args:
+                self.app.notify("Usage: setting-timeout <seconds>", severity="warning")
+                return
+            self.app.action_setting_timeout(args[0])
+        elif cmd == "setting-kdf-mode":
+            if not args:
+                self.app.notify("Usage: setting-kdf-mode <mode>", severity="warning")
+                return
+            self.app.action_setting_kdf_mode(args[0])
+        elif cmd == "setting-kdf-iterations":
+            if not args:
+                self.app.notify(
+                    "Usage: setting-kdf-iterations <n>", severity="warning"
+                )
+                return
+            self.app.action_setting_kdf_iterations(args[0])
+        elif cmd == "archive-filter":
+            if not args:
+                self.app.notify(
+                    "Usage: archive-filter <active|all|archived>", severity="warning"
+                )
+                return
+            self.app.action_archive_filter(args[0])
+        elif cmd == "density":
+            if not args:
+                self.app.notify(
+                    "Usage: density <compact|comfortable>", severity="warning"
+                )
+                return
+            self.app.action_set_density(args[0])
+        elif cmd in {"onboarding", "welcome", "quickstart"}:
+            self.app.action_show_onboarding()
         else:
             self.app.notify(f"Unknown v3 command: {cmd}", severity="warning")
 
@@ -837,6 +926,8 @@ class SeedPassTuiV3(App[None]):
     search_sort = reactive("relevance")
     filter_kind = reactive("all")
     show_archived = reactive(False)
+    filter_archived_only = reactive(False)
+    density_mode = reactive("comfortable")
 
     # Internal state for sensitive actions
     _pending_sensitive_confirm: tuple[str, int, float] | None = None
@@ -1884,3 +1975,231 @@ class SeedPassTuiV3(App[None]):
                     board.reveal_data = data
         except Exception:
             pass
+
+    # ---------------------------------------------------------------------------
+    # Utility / maintenance actions (legacy parity)
+    # ---------------------------------------------------------------------------
+
+    def action_checksum_verify(self) -> None:
+        """Verify the application checksum."""
+        utility = self.services.get("utility")
+        if not utility:
+            self.notify("Utility service offline", severity="error")
+            return
+        try:
+            utility.verify_checksum()
+            self.notify("Checksum verified")
+        except Exception as e:
+            self.notify(f"Checksum verify failed: {e}", severity="error")
+
+    def action_checksum_update(self) -> None:
+        """Update / regenerate the application checksum."""
+        utility = self.services.get("utility")
+        if not utility:
+            self.notify("Utility service offline", severity="error")
+            return
+        try:
+            utility.update_checksum()
+            self.notify("Checksum updated")
+        except Exception as e:
+            self.notify(f"Checksum update failed: {e}", severity="error")
+
+    def action_totp_export(self, path: str | None = None) -> None:
+        """Export all TOTP entries, optionally writing to a file."""
+        entry = self.services.get("entry")
+        if not entry:
+            self.notify("Entry service offline", severity="error")
+            return
+        try:
+            data = entry.export_totp_entries()
+            if path:
+                import json
+                from pathlib import Path
+
+                Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")
+                self.notify(f"TOTP entries exported to {path}")
+            else:
+                count = len(data) if isinstance(data, dict) else 0
+                self.notify(
+                    f"TOTP export: {count} entries (provide a path to save to file)"
+                )
+        except Exception as e:
+            self.notify(f"TOTP export failed: {e}", severity="error")
+
+    def action_sync_now(self) -> None:
+        """Synchronise vault to Nostr immediately."""
+        sync = self.services.get("sync")
+        if not sync:
+            self.notify("Sync service offline", severity="error")
+            return
+        try:
+            self.notify("Syncing vault to Nostr…")
+            result = sync.sync()
+            if result:
+                self.notify("Sync complete")
+            else:
+                self.notify("Sync returned no events", severity="warning")
+        except Exception as e:
+            self.notify(f"Sync failed: {e}", severity="error")
+
+    def action_sync_bg(self) -> None:
+        """Start a background Nostr vault sync."""
+        sync = self.services.get("sync")
+        if not sync:
+            self.notify("Sync service offline", severity="error")
+            return
+        try:
+            sync.start_background_vault_sync()
+            self.notify("Background sync started")
+        except Exception as e:
+            self.notify(f"Background sync failed: {e}", severity="error")
+
+    def action_relay_add(self, url: str) -> None:
+        """Add a Nostr relay."""
+        nostr = self.services.get("nostr")
+        if not nostr:
+            self.notify("Nostr service offline", severity="error")
+            return
+        try:
+            nostr.add_relay(url)
+            self.notify(f"Relay added: {url}")
+        except Exception as e:
+            self.notify(f"Relay add failed: {e}", severity="error")
+
+    def action_relay_rm(self, idx: int) -> None:
+        """Remove a Nostr relay by index."""
+        nostr = self.services.get("nostr")
+        if not nostr:
+            self.notify("Nostr service offline", severity="error")
+            return
+        try:
+            nostr.remove_relay(idx)
+            self.notify(f"Relay #{idx} removed")
+        except Exception as e:
+            self.notify(f"Relay remove failed: {e}", severity="error")
+
+    def action_relay_reset(self) -> None:
+        """Reset Nostr relays to built-in defaults."""
+        nostr = self.services.get("nostr")
+        if not nostr:
+            self.notify("Nostr service offline", severity="error")
+            return
+        try:
+            relays = nostr.reset_relays()
+            self.notify(f"Relays reset to defaults ({len(relays)} relays)")
+        except Exception as e:
+            self.notify(f"Relay reset failed: {e}", severity="error")
+
+    def action_setting_secret(self, value: str) -> None:
+        """Toggle secret mode on or off."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            enabled = value.lower() in {"on", "1", "true", "yes", "y"}
+            delay = config.get_clipboard_clear_delay()
+            config.set_secret_mode(enabled, delay)
+            self.notify(f"Secret mode: {'on' if enabled else 'off'}")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_setting_quick_unlock(self, value: str) -> None:
+        """Enable or disable quick-unlock."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            config.set("quick_unlock", value)
+            self.notify(f"Quick unlock: {value}")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_setting_offline(self, value: str) -> None:
+        """Enable or disable offline mode."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            enabled = value.lower() in {"on", "1", "true", "yes", "y"}
+            config.set_offline_mode(enabled)
+            self.notify(f"Offline mode: {'on' if enabled else 'off'}")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_setting_timeout(self, seconds: str) -> None:
+        """Set the inactivity auto-lock timeout in seconds."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            config.set("inactivity_timeout", seconds)
+            self.notify(f"Inactivity timeout: {seconds}s")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_setting_kdf_mode(self, mode: str) -> None:
+        """Set the KDF algorithm (e.g. argon2id, pbkdf2)."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            config.set("kdf_mode", mode)
+            self.notify(f"KDF mode: {mode}")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_setting_kdf_iterations(self, n: str) -> None:
+        """Set the number of KDF iterations."""
+        config = self.services.get("config")
+        if not config:
+            self.notify("Config service offline", severity="error")
+            return
+        try:
+            config.set("kdf_iterations", n)
+            self.notify(f"KDF iterations: {n}")
+        except Exception as e:
+            self.notify(f"Setting failed: {e}", severity="error")
+
+    def action_archive_filter(self, mode: str) -> None:
+        """Set the archive visibility scope: active, all, or archived."""
+        normalized = mode.lower()
+        if normalized not in {"active", "all", "archived"}:
+            self.notify(
+                "Usage: archive-filter <active|all|archived>", severity="warning"
+            )
+            return
+        if normalized == "archived":
+            self.show_archived = True
+            self.filter_archived_only = True
+        elif normalized == "all":
+            self.show_archived = True
+            self.filter_archived_only = False
+        else:
+            self.show_archived = False
+            self.filter_archived_only = False
+        self.notify(f"Archive filter: {normalized}")
+        self.action_refresh()
+
+    def action_set_density(self, mode: str) -> None:
+        """Switch display density between compact and comfortable."""
+        normalized = mode.lower()
+        if normalized not in {"compact", "comfortable"}:
+            self.notify(
+                "Usage: density <compact|comfortable>", severity="warning"
+            )
+            return
+        self.density_mode = normalized
+        self.notify(f"Density: {normalized}")
+
+    def action_show_onboarding(self) -> None:
+        """Show onboarding / quickstart guidance."""
+        self.notify(
+            "Onboarding: add your first entry with 'add', reveal it with 'v', "
+            "inspect fields in the inspector pane, and use Ctrl+P to open the "
+            "command palette for all available operations."
+        )
