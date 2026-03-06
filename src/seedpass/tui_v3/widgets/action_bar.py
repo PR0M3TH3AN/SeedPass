@@ -34,7 +34,7 @@ class ActionBar(Static):
                 len(getattr(app.services.get("vault")._manager, "profile_stack", []))
                 > 0
             )
-        except:
+        except Exception:
             pass
 
         exit_hint = (
@@ -113,7 +113,6 @@ class ActionBar(Static):
             ],
             "managed_account": [
                 "reveal",
-                "qr",
                 "edit",
                 "archive",
                 "delete",

@@ -336,3 +336,30 @@ async def test_v3_action_bar_only_shows_context_actions_for_selected_kind() -> N
         assert "Load" in rendered
         assert "Delete" in rendered
         assert "Export" not in rendered
+
+
+@pytest.mark.anyio
+async def test_v3_action_bar_managed_account_excludes_qr() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    # Inject a managed_account entry into the mock service
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.services["entry"].entries[99] = {
+            "id": 99,
+            "label": "test-managed",
+            "kind": "managed_account",
+            "index": 0,
+        }
+        bar = app.screen.query_one("#action-bar")
+
+        app.selected_entry_id = 99
+        await pilot.pause()
+        rendered = Text.from_markup(bar.render()).plain.splitlines()[1]
+        assert "Context (managed_account):" in rendered
+        assert "Reveal" in rendered
+        assert "Load" in rendered
+        assert "Delete" in rendered
+        assert " QR" not in rendered
