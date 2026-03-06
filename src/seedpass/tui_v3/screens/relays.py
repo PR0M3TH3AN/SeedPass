@@ -24,7 +24,7 @@ class RelaysScreen(Screen):
         ("s", "sync_now", "Sync Now"),
     ]
 
-    DEFAULT_CSS = (
+    CSS = (
         MAINTENANCE_CSS
         + """
     RelaysScreen {
@@ -58,6 +58,11 @@ class RelaysScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Nostr Relay Management", classes="maintenance-title")
         with Vertical(id="relays-container", classes="maintenance-panel-light"):
+            yield Static(
+                "Manage Nostr relay endpoints for this profile. Add new relays or remove existing ones. Deletions require a second confirmation press.",
+                id="relays-intro",
+                classes="maintenance-intro-light",
+            )
             yield DataTable(id="relays-table")
             with Horizontal(id="relays-controls"):
                 yield Input(
@@ -67,15 +72,12 @@ class RelaysScreen(Screen):
                 )
                 yield Button("Add Relay", id="add-button", classes="maintenance-primary")
             yield Static(
-                format_status(
-                    "ready",
-                    "Manage relay endpoints for this profile. Deleting a relay requires a second confirm action.",
-                ),
+                format_status("ready", "Select a relay or add a new endpoint."),
                 id="relays-status",
                 classes="maintenance-status-light",
             )
         yield Static(
-            "ESC: Exit | R: Refresh | D: Delete Selected | S: Sync Now",
+            "ESC: Back | R: Refresh | D: Delete selected | S: Sync now",
             classes="maintenance-footer",
         )
 

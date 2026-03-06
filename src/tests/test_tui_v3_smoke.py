@@ -648,7 +648,7 @@ async def test_tui3_change_password_and_seed_backup_flows_use_vault_service() ->
         await pilot.pause()
         assert isinstance(app.screen, ChangePasswordScreen)
         assert (
-            "current password is required"
+            "current password to authorize"
             in str(
                 app.screen.query_one("#change-password-intro", Static).render()
             ).lower()
@@ -691,7 +691,7 @@ async def test_tui3_profile_management_switch_and_remove_flow_use_profile_servic
         await pilot.pause()
         assert isinstance(app.screen, ProfileManagementScreen)
         intro = str(app.screen.query_one("#profile-intro", Static).render()).lower()
-        assert "remove a non-active profile" in intro
+        assert "removing a profile requires confirmation" in intro
         listing = str(app.screen.query_one("#profile-list", Static).render())
         assert "Primary Ops Seed" in listing
         assert "Recovery Seed" in listing
@@ -711,7 +711,7 @@ async def test_tui3_profile_management_switch_and_remove_flow_use_profile_servic
         await pilot.pause()
         assert profile.remove_calls == []
         status = str(app.screen.query_one("#profile-status", Static).render())
-        assert "Press Remove again" in status
+        assert "press Remove again" in status
         app.screen.on_button_pressed(
             SimpleNamespace(button=SimpleNamespace(id="profile-remove"))
         )

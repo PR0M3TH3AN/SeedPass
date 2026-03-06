@@ -8,39 +8,39 @@ MAINTENANCE_CSS = """
     text-style: bold;
     text-align: center;
     height: 3;
-    border: solid #000000;
+    border: solid #333333;
     padding: 0 1;
     margin: 1 2;
 }
 
 .maintenance-footer {
-    background: #000000;
-    color: #ffffff;
+    background: #111111;
+    color: #aaaaaa;
     text-align: center;
     height: 3;
-    border: solid #000000;
+    border: solid #333333;
     padding: 0 1;
-    margin: 1 2;
+    margin: 0 2 1 2;
 }
 
 .maintenance-panel-dark {
     padding: 1 2;
-    border: heavy black;
+    border: heavy #444444;
     background: #000000;
-    margin: 1 2;
+    margin: 0 2 1 2;
 }
 
 .maintenance-panel-light {
     padding: 1 2;
-    border: heavy #000000;
+    border: heavy #444444;
     background: #f3f3f3;
-    margin: 1 2;
+    margin: 0 2 1 2;
 }
 
 .maintenance-intro-dark {
     color: #d7d7d7;
     background: #111111;
-    border: solid #666666;
+    border: round #555555;
     padding: 1;
     margin-bottom: 1;
 }
@@ -48,7 +48,7 @@ MAINTENANCE_CSS = """
 .maintenance-intro-light {
     color: #222222;
     background: #e6e6e6;
-    border: solid #666666;
+    border: round #555555;
     padding: 1;
     margin-bottom: 1;
 }
@@ -56,7 +56,7 @@ MAINTENANCE_CSS = """
 .maintenance-status-dark {
     color: #ffffff;
     background: #111111;
-    border: solid #666666;
+    border: solid #444444;
     padding: 1;
     margin-top: 1;
     min-height: 3;
@@ -65,7 +65,7 @@ MAINTENANCE_CSS = """
 .maintenance-status-light {
     color: #000000;
     background: #e6e6e6;
-    border: solid #666666;
+    border: solid #444444;
     padding: 1;
     margin-top: 1;
     min-height: 3;
@@ -103,9 +103,9 @@ MAINTENANCE_CSS = """
 }
 
 .maintenance-danger {
-    background: #000000;
+    background: #880000;
     color: #ffffff;
-    border: solid #ffffff;
+    border: solid #ff4444;
 }
 
 .maintenance-secondary {

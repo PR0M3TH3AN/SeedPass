@@ -46,17 +46,17 @@ class ProfileManagementScreen(Screen):
         yield Static("SeedPass ◈ Profile Management", classes="maintenance-title")
         with Container(id="profile-container", classes="maintenance-panel-dark"):
             yield Static(
-                "Switch profiles from inside the active session, or remove a non-active profile after confirming the action.",
+                "Switch between profiles or remove unused ones. The active profile is marked with *. Removing a profile requires confirmation.",
                 id="profile-intro",
                 classes="maintenance-intro-dark",
             )
             yield Static("", id="profile-list", classes="maintenance-intro-dark")
-            yield Label("Profile Number", classes="maintenance-label")
-            yield Input(placeholder="1", id="profile-choice", classes="maintenance-input")
-            yield Label("Password (optional for switch)", classes="maintenance-label")
+            yield Label("Select Profile", classes="maintenance-label")
+            yield Input(placeholder="Profile number", id="profile-choice", classes="maintenance-input")
+            yield Label("Password (required for switch)", classes="maintenance-label")
             yield Input(password=True, id="profile-password", classes="maintenance-input")
             yield Static(
-                format_status("ready", "Select a profile number, then switch or remove it."),
+                format_status("ready", "Choose a profile number, then use Switch or Remove."),
                 id="profile-status",
                 classes="maintenance-status-dark",
             )
@@ -65,7 +65,7 @@ class ProfileManagementScreen(Screen):
                 yield Button("Remove", id="profile-remove", classes="maintenance-danger")
                 yield Button("Back", id="profile-back", classes="maintenance-secondary")
         yield Static(
-            "ESC: Back | Ctrl+R: Refresh | Switch/Remove use the selected profile number",
+            "ESC: Back | Ctrl+R: Refresh | Select a profile number to switch or remove",
             classes="maintenance-footer",
         )
 
@@ -101,7 +101,7 @@ class ProfileManagementScreen(Screen):
             return
         current = self.app.active_fingerprint
         profiles = self._available_profiles()
-        lines = ["Available Profiles:"]
+        lines = ["Profiles"]
         for idx, profile in enumerate(profiles, start=1):
             fingerprint = profile["fingerprint"]
             label = profile["label"]
@@ -113,7 +113,7 @@ class ProfileManagementScreen(Screen):
         if profiles:
             self.query_one("#profile-choice", Input).value = "1"
             self._set_status(
-                format_status("ready", "Select a profile number, then switch or remove it.")
+                format_status("ready", "Choose a profile number, then use Switch or Remove.")
             )
 
     def _selected_profile(self) -> dict[str, str] | None:
@@ -160,7 +160,7 @@ class ProfileManagementScreen(Screen):
                 self._pending_remove_fingerprint = fingerprint
                 self._set_status(
                     format_status(
-                        "warning", f"Press Remove again to delete profile '{label}'."
+                        "warning", f"Confirm: press Remove again to permanently delete profile '{label}'."
                     )
                 )
                 return

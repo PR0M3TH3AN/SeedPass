@@ -16,7 +16,7 @@ class NostrPubkeyScreen(Screen):
         ("c", "copy_pubkey", "Copy npub"),
     ]
 
-    DEFAULT_CSS = (
+    CSS = (
         MAINTENANCE_CSS
         + """
     NostrPubkeyScreen {
@@ -41,7 +41,7 @@ class NostrPubkeyScreen(Screen):
         yield Static("SeedPass ◈ Active Profile npub", classes="maintenance-title")
         with Vertical(id="pubkey-container", classes="maintenance-panel-light"):
             yield Static(
-                "This is the active profile's public Nostr identifier and QR payload. Sharing the npub is safe; do not share private keys.",
+                "Your active profile public Nostr identifier (npub). This is safe to share. Never share private keys.",
                 id="pubkey-intro",
                 classes="maintenance-intro-light",
             )
@@ -52,7 +52,7 @@ class NostrPubkeyScreen(Screen):
             )
             with Horizontal(id="pubkey-actions", classes="maintenance-actions"):
                 yield Button("Copy npub", id="pubkey-copy", classes="maintenance-primary")
-        yield Static("ESC: Back | C: Copy npub", classes="maintenance-footer")
+        yield Static("ESC: Back | C: Copy npub to clipboard", classes="maintenance-footer")
 
     def on_mount(self) -> None:
         self._refresh_view()

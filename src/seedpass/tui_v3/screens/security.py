@@ -37,7 +37,7 @@ class ChangePasswordScreen(Screen):
         yield Static("SeedPass ◈ Change Vault Password", classes="maintenance-title")
         with Container(id="change-password-container", classes="maintenance-panel-dark"):
             yield Static(
-                "Update the active vault password for this profile. The current password is required to re-encrypt the vault.",
+                "Change the vault password for the active profile. You must provide the current password to authorize re-encryption.",
                 id="change-password-intro",
                 classes="maintenance-intro-dark",
             )
@@ -55,7 +55,7 @@ class ChangePasswordScreen(Screen):
             with Horizontal(id="change-password-actions", classes="maintenance-actions"):
                 yield Button("Cancel", id="change-password-cancel", classes="maintenance-danger")
                 yield Button("Update Password", id="change-password-submit", classes="maintenance-primary")
-        yield Static("ESC: Cancel | Ctrl+S: Update Password", classes="maintenance-footer")
+        yield Static("ESC: Cancel | Ctrl+S: Submit", classes="maintenance-footer")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "change-password-submit":
@@ -108,7 +108,7 @@ class BackupParentSeedScreen(Screen):
         yield Static("SeedPass ◈ Backup Parent Seed", classes="maintenance-title")
         with Container(id="backup-seed-container", classes="maintenance-panel-dark"):
             yield Static(
-                "Export an encrypted backup of the parent seed. Store the destination path and backup password securely.",
+                "Export an encrypted copy of the parent seed. Choose a destination path and an optional backup password. Store both securely.",
                 id="backup-seed-intro",
                 classes="maintenance-intro-dark",
             )
@@ -124,7 +124,7 @@ class BackupParentSeedScreen(Screen):
             with Horizontal(id="backup-seed-actions", classes="maintenance-actions"):
                 yield Button("Cancel", id="backup-seed-cancel", classes="maintenance-danger")
                 yield Button("Export Backup", id="backup-seed-submit", classes="maintenance-primary")
-        yield Static("ESC: Cancel | Ctrl+S: Export Backup", classes="maintenance-footer")
+        yield Static("ESC: Cancel | Ctrl+S: Submit", classes="maintenance-footer")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "backup-seed-submit":
