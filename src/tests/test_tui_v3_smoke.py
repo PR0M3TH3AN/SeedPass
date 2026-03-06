@@ -22,6 +22,8 @@ from seedpass.tui_v3.screens.atlas import AtlasWayfinderScreen
 from seedpass.tui_v3.screens.pubkey import NostrPubkeyScreen
 from seedpass.tui_v3.screens.relays import RelaysScreen
 from seedpass.tui_v3.screens.security import ChangePasswordScreen
+from seedpass.tui_v3.screens.settings import SettingsScreen
+from seedpass.tui_v3.widgets.inspector import UtilityHintsBar
 
 
 class V3EntryService:
@@ -983,3 +985,46 @@ async def test_tui3_word_entry_flags_invalid_bip39_word() -> None:
         progress = str(app.screen.query_one("#seed-words-progress").render())
         assert "not in the BIP-39 wordlist" in status
         assert "invalid: 1" in progress
+
+
+@pytest.mark.anyio
+async def test_tui3_settings_screen_shows_utility_maintenance_section() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_toggle_settings()
+        await pilot.pause()
+        assert isinstance(app.screen, SettingsScreen)
+        content = str(app.screen.query_one("#settings-content", Static).render())
+        assert "UTILITY & MAINTENANCE" in content
+        assert "db-export" in content
+        assert "db-import" in content
+        assert "checksum-verify" in content
+        assert "stats" in content
+
+
+@pytest.mark.anyio
+async def test_tui3_inspector_utility_hints_update_by_entry_kind() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        # Select password entry (id=1)
+        app.selected_entry_id = 1
+        await pilot.pause()
+        hints_bar = app.screen.query_one("#utility-hints-bar", UtilityHintsBar)
+        hints_text = str(hints_bar.render())
+        assert "reveal" in hints_text.lower()
+        assert "copy" in hints_text.lower()
+
+        # Select nostr entry (id=3) — should show npub hint
+        app.selected_entry_id = 3
+        await pilot.pause()
+        hints_text = str(hints_bar.render())
+        assert "npub" in hints_text.lower()
+
+        # Deselect — hints bar should be empty
+        app.selected_entry_id = None
+        await pilot.pause()
+        hints_text = str(hints_bar.render())
+        assert "Actions" not in hints_text
