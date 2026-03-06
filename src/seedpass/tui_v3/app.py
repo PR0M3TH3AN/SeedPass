@@ -2,12 +2,14 @@ from __future__ import annotations
 import time
 from typing import Any, Callable
 
+from constants import APP_DIR
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static
+from textual.widgets import Button, Input, Label, Static
 from textual.containers import Horizontal, Vertical
+from utils.fingerprint_manager import FingerprintManager
 
 from .widgets.header import RibbonHeader
 from .widgets.sidebar import SidebarContainer
@@ -171,6 +173,507 @@ class MainScreen(Screen):
         yield ActionBar(id="action-bar")
 
 
+class StartupScreen(Screen):
+    """Profile-selection and unlock screen for TUI v3 startup."""
+
+    BINDINGS = [
+        Binding("enter", "submit", "Unlock", show=False),
+        Binding("escape", "app.quit", "Quit", show=False),
+    ]
+
+    def __init__(
+        self,
+        *,
+        selected_fingerprint: str | None = None,
+        prompt: str | None = None,
+    ) -> None:
+        super().__init__()
+        self.selected_fingerprint = selected_fingerprint
+        self.prompt = prompt or "Select a seed profile and unlock to continue."
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="startup-shell"):
+            yield Label("SeedPass TUI v3", id="startup-title")
+            yield Static(self.prompt, id="startup-prompt")
+            yield Static("", id="startup-profiles")
+            yield Input(placeholder="Profile number", id="startup-profile-choice")
+            yield Input(
+                placeholder="Master password",
+                password=True,
+                id="startup-password",
+            )
+            with Horizontal(id="startup-actions"):
+                yield Button("Unlock", id="startup-unlock", variant="primary")
+                yield Button("Refresh", id="startup-refresh")
+                yield Button("Add New", id="startup-add")
+                yield Button("Recover", id="startup-recover")
+            yield Static("", id="startup-status")
+
+    def on_mount(self) -> None:
+        self.refresh_profiles()
+
+    def refresh_profiles(self) -> None:
+        profiles = self.app._list_boot_profiles()
+        lines = ["Available Seed Profiles:"]
+        if profiles:
+            for idx, profile in enumerate(profiles, start=1):
+                marker = (
+                    " *" if profile["fingerprint"] == self.selected_fingerprint else ""
+                )
+                lines.append(f"{idx}. {profile['label']}{marker}")
+        else:
+            lines.append("No existing seed profiles found.")
+        lines.append(f"{len(profiles) + 1}. Add a new seed profile")
+        lines.append(
+            f"{len(profiles) + 2}. Recover existing profile with blank local index"
+        )
+        lines.append("Q. Exit")
+        self.query_one("#startup-profiles", Static).update("\n".join(lines))
+        profile_input = self.query_one("#startup-profile-choice", Input)
+        if self.selected_fingerprint:
+            for idx, profile in enumerate(profiles, start=1):
+                if profile["fingerprint"] == self.selected_fingerprint:
+                    profile_input.value = str(idx)
+                    break
+        elif len(profiles) == 1 and not profile_input.value:
+            profile_input.value = "1"
+
+    def action_submit(self) -> None:
+        self._submit_unlock()
+
+    def on_input_submitted(self, _event: Input.Submitted) -> None:
+        self._submit_unlock()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        if button_id == "startup-unlock":
+            self._submit_unlock()
+            return
+        if button_id == "startup-refresh":
+            self.refresh_profiles()
+            self._set_status("Profile list refreshed.")
+            return
+        if button_id == "startup-add":
+            self.app.push_screen(CreateProfileScreen())
+            return
+        if button_id == "startup-recover":
+            self.app.push_screen(RecoverProfileScreen())
+            return
+
+    def _set_status(self, message: str) -> None:
+        self.query_one("#startup-status", Static).update(message)
+
+    def _submit_unlock(self) -> None:
+        profiles = self.app._list_boot_profiles()
+        choice = self.query_one("#startup-profile-choice", Input).value.strip()
+        password = self.query_one("#startup-password", Input).value
+        if choice.lower() in {"q", "quit", "exit"}:
+            self.app.exit()
+            return
+        if not choice.isdigit():
+            self._set_status("Enter the profile number from the list above.")
+            return
+        selected = int(choice)
+        add_idx = len(profiles) + 1
+        recover_idx = len(profiles) + 2
+        if selected == add_idx:
+            self.app.push_screen(CreateProfileScreen())
+            return
+        if selected == recover_idx:
+            self.app.push_screen(RecoverProfileScreen())
+            return
+        if not (1 <= selected <= len(profiles)):
+            self._set_status("Invalid selection.")
+            return
+        if not password:
+            self._set_status("Enter the master password for the selected profile.")
+            return
+        fingerprint = profiles[selected - 1]["fingerprint"]
+        self.app._bootstrap_profile_session(fingerprint, password)
+
+    DEFAULT_CSS = """
+    StartupScreen {
+        align: center middle;
+        background: #999999;
+    }
+    #startup-shell {
+        width: 90;
+        max-width: 90;
+        border: heavy black;
+        background: #000000;
+        color: #ffffff;
+        padding: 1 2;
+    }
+    #startup-title {
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    #startup-prompt {
+        color: #cccccc;
+        margin-bottom: 1;
+    }
+    #startup-profiles {
+        border: solid #ffffff;
+        padding: 1;
+        margin-bottom: 1;
+        min-height: 10;
+    }
+    #startup-profile-choice, #startup-password {
+        margin-bottom: 1;
+    }
+    #startup-actions {
+        height: auto;
+        margin-bottom: 1;
+    }
+    #startup-actions Button {
+        margin-right: 1;
+    }
+    #startup-status {
+        min-height: 2;
+        color: #daf2e5;
+    }
+    """
+
+
+class CreateProfileScreen(Screen):
+    """Create a new profile or import an existing seed inside TUI v3."""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="startup-shell"):
+            yield Label("Create Seed Profile", id="startup-title")
+            yield Static(
+                "Modes: existing, words, generate, nostr, backup. This screen now covers the main legacy onboarding branches inside v3.",
+                id="startup-prompt",
+            )
+            yield Input(
+                placeholder="Mode: existing | words | generate | nostr | backup",
+                id="create-mode",
+            )
+            yield Input(
+                placeholder="Seed phrase (paste full phrase; for 'words' you can type the 12 words space-separated)",
+                id="create-seed",
+            )
+            yield Input(
+                placeholder="Backup path (required for backup mode)",
+                id="create-backup-path",
+            )
+            yield Input(
+                placeholder="Continue without remote backup? yes | no (used for nostr mode)",
+                id="create-nostr-empty-ok",
+            )
+            yield Input(
+                placeholder="Master password",
+                password=True,
+                id="create-password",
+            )
+            with Horizontal(id="startup-actions"):
+                yield Button("Word Entry", id="create-words")
+                yield Button("Generate Seed", id="create-generate")
+                yield Button("Create Profile", id="create-submit", variant="primary")
+                yield Button("Back", id="create-back")
+            yield Static("", id="create-status")
+
+    def on_mount(self) -> None:
+        self.query_one("#create-mode", Input).value = "existing"
+        self.query_one("#create-nostr-empty-ok", Input).value = "no"
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        if button_id == "create-back":
+            self.app.pop_screen()
+            return
+        if button_id == "create-words":
+            self.app.push_screen(SeedWordsScreen(on_done=self._apply_seed_words))
+            return
+        if button_id == "create-generate":
+            self._generate_seed()
+            return
+        if button_id == "create-submit":
+            self._submit()
+
+    def on_input_submitted(self, _event: Input.Submitted) -> None:
+        self._submit()
+
+    def _set_status(self, message: str) -> None:
+        self.query_one("#create-status", Static).update(message)
+
+    def _apply_seed_words(self, seed_phrase: str) -> None:
+        self.query_one("#create-mode", Input).value = "words"
+        self.query_one("#create-seed", Input).value = seed_phrase
+        self._set_status("Seed phrase captured from word-by-word entry.")
+
+    def _generate_seed(self) -> None:
+        try:
+            seed = self.app._generate_bootstrap_seed()
+            self.query_one("#create-mode", Input).value = "generate"
+            self.query_one("#create-seed", Input).value = seed
+            self._set_status(
+                "Generated new seed. Review it carefully and store it before creating the profile."
+            )
+        except Exception as e:
+            self._set_status(f"Seed generation failed: {e}")
+
+    def _submit(self) -> None:
+        mode = self.query_one("#create-mode", Input).value.strip().lower() or "existing"
+        seed = self.query_one("#create-seed", Input).value.strip()
+        backup_path = self.query_one("#create-backup-path", Input).value.strip()
+        continue_without_backup = self.query_one(
+            "#create-nostr-empty-ok", Input
+        ).value.strip().lower() in {"y", "yes", "true", "1"}
+        password = self.query_one("#create-password", Input).value
+        if not password:
+            self._set_status("Enter a master password.")
+            return
+        try:
+            if mode == "generate":
+                if not seed:
+                    seed = self.app._generate_bootstrap_seed()
+                fingerprint = self.app._create_generated_profile(
+                    password=password, seed=seed
+                )
+            elif mode == "nostr":
+                if not seed:
+                    self._set_status("Enter the seed phrase for Nostr restore.")
+                    return
+                fingerprint = self.app._restore_from_nostr_profile(
+                    seed=seed,
+                    password=password,
+                    continue_without_backup=continue_without_backup,
+                )
+            elif mode == "backup":
+                if not seed:
+                    self._set_status("Enter the seed phrase for backup restore.")
+                    return
+                if not backup_path:
+                    self._set_status("Enter the backup path for backup mode.")
+                    return
+                fingerprint = self.app._restore_from_backup_profile(
+                    seed=seed,
+                    password=password,
+                    backup_path=backup_path,
+                )
+            else:
+                if not seed:
+                    self._set_status("Enter the seed phrase to import.")
+                    return
+                fingerprint = self.app._create_existing_profile(
+                    seed=seed,
+                    password=password,
+                )
+            self.app._bootstrap_profile_session(fingerprint, password)
+        except Exception as e:
+            self._set_status(f"Profile creation failed: {e}")
+
+
+class SeedWordsScreen(Screen):
+    """Guided word-by-word seed entry for onboarding parity."""
+
+    def __init__(self, *, on_done: Callable[[str], None]) -> None:
+        super().__init__()
+        self._on_done = on_done
+        from mnemonic import Mnemonic
+
+        self._mnemonic = Mnemonic("english")
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="startup-shell"):
+            yield Label("Enter Seed Words", id="startup-title")
+            yield Static(
+                "Enter the 12-word seed phrase one word per field, following the legacy flow.",
+                id="startup-prompt",
+            )
+            yield Static("Progress: 0/12 words entered", id="seed-words-progress")
+            for idx in range(12):
+                yield Input(placeholder=f"Word {idx + 1}", id=f"seed-word-{idx + 1}")
+            with Horizontal(id="startup-actions"):
+                yield Button("Use Phrase", id="seed-words-submit", variant="primary")
+                yield Button("Back", id="seed-words-back")
+            yield Static("", id="seed-words-status")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "seed-words-back":
+            self.app.pop_screen()
+            return
+        if event.button.id == "seed-words-submit":
+            self._submit()
+
+    def on_input_submitted(self, _event: Input.Submitted) -> None:
+        self._submit()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        input_id = event.input.id or ""
+        if not input_id.startswith("seed-word-"):
+            return
+        self._refresh_progress()
+        value = event.value.strip().lower()
+        if not value:
+            self.query_one("#seed-words-status", Static).update(
+                f"{input_id.replace('seed-word-', 'Word ')} is empty."
+            )
+            return
+        if value not in self._mnemonic.wordlist:
+            self.query_one("#seed-words-status", Static).update(
+                f"{input_id.replace('seed-word-', 'Word ')} is not in the BIP-39 wordlist."
+            )
+            return
+        self.query_one("#seed-words-status", Static).update(
+            f"{input_id.replace('seed-word-', 'Word ')} accepted."
+        )
+
+    def _refresh_progress(self) -> None:
+        count = 0
+        invalid = 0
+        for idx in range(12):
+            value = self.query_one(f"#seed-word-{idx + 1}", Input).value.strip().lower()
+            if not value:
+                continue
+            count += 1
+            if value not in self._mnemonic.wordlist:
+                invalid += 1
+        suffix = f" | invalid: {invalid}" if invalid else ""
+        self.query_one("#seed-words-progress", Static).update(
+            f"Progress: {count}/12 words entered{suffix}"
+        )
+
+    def _submit(self) -> None:
+        words: list[str] = []
+        for idx in range(12):
+            value = self.query_one(f"#seed-word-{idx + 1}", Input).value.strip().lower()
+            if not value:
+                self.query_one("#seed-words-status", Static).update(
+                    f"Word {idx + 1} is required."
+                )
+                return
+            if value not in self._mnemonic.wordlist:
+                self.query_one("#seed-words-status", Static).update(
+                    f"Word {idx + 1} is not in the BIP-39 wordlist."
+                )
+                return
+            words.append(value)
+        phrase = " ".join(words)
+        if not self._mnemonic.check(phrase):
+            self.query_one("#seed-words-status", Static).update(
+                "The full 12-word phrase failed BIP-39 validation."
+            )
+            return
+        self.app.push_screen(
+            SeedWordsReviewScreen(
+                phrase=phrase,
+                on_confirm=self._confirm_phrase,
+            )
+        )
+
+    def _confirm_phrase(self, phrase: str) -> None:
+        self._on_done(phrase)
+        self.app.pop_screen()
+        self.app.pop_screen()
+
+
+class SeedWordsReviewScreen(Screen):
+    """Confirmation screen for the assembled seed phrase."""
+
+    def __init__(self, *, phrase: str, on_confirm: Callable[[str], None]) -> None:
+        super().__init__()
+        self._phrase = phrase
+        self._on_confirm = on_confirm
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="startup-shell"):
+            yield Label("Review Seed Phrase", id="startup-title")
+            yield Static(
+                "Confirm this phrase before it is applied to the create flow.",
+                id="startup-prompt",
+            )
+            yield Static(self._phrase, id="seed-review-phrase")
+            with Horizontal(id="startup-actions"):
+                yield Button(
+                    "Confirm Phrase", id="seed-review-confirm", variant="primary"
+                )
+                yield Button("Edit Words", id="seed-review-back")
+            yield Static("", id="seed-review-status")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "seed-review-back":
+            self.app.pop_screen()
+            return
+        if event.button.id == "seed-review-confirm":
+            self._on_confirm(self._phrase)
+
+
+class RecoverProfileScreen(Screen):
+    """Recover an existing profile with a blank local index inside TUI v3."""
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="startup-shell"):
+            yield Label("Recover Existing Profile", id="startup-title")
+            yield Static(
+                "This matches the legacy recovery path: select an existing profile, provide the matching seed, and reset the local index.",
+                id="startup-prompt",
+            )
+            yield Static("", id="recover-profiles")
+            yield Input(placeholder="Profile number", id="recover-choice")
+            yield Input(placeholder="Seed phrase", id="recover-seed")
+            yield Input(
+                placeholder="Master password",
+                password=True,
+                id="recover-password",
+            )
+            with Horizontal(id="startup-actions"):
+                yield Button("Recover Profile", id="recover-submit", variant="primary")
+                yield Button("Back", id="recover-back")
+            yield Static("", id="recover-status")
+
+    def on_mount(self) -> None:
+        self.refresh_profiles()
+
+    def refresh_profiles(self) -> None:
+        profiles = self.app._list_boot_profiles()
+        lines = ["Available Seed Profiles:"]
+        for idx, profile in enumerate(profiles, start=1):
+            lines.append(f"{idx}. {profile['label']}")
+        self.query_one("#recover-profiles", Static).update("\n".join(lines))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        if button_id == "recover-back":
+            self.app.pop_screen()
+            return
+        if button_id == "recover-submit":
+            self._submit()
+
+    def on_input_submitted(self, _event: Input.Submitted) -> None:
+        self._submit()
+
+    def _set_status(self, message: str) -> None:
+        self.query_one("#recover-status", Static).update(message)
+
+    def _submit(self) -> None:
+        profiles = self.app._list_boot_profiles()
+        choice = self.query_one("#recover-choice", Input).value.strip()
+        seed = self.query_one("#recover-seed", Input).value.strip()
+        password = self.query_one("#recover-password", Input).value
+        if not choice.isdigit():
+            self._set_status("Enter the profile number to recover.")
+            return
+        idx = int(choice)
+        if not (1 <= idx <= len(profiles)):
+            self._set_status("Invalid profile selection.")
+            return
+        if not seed or not password:
+            self._set_status("Seed phrase and master password are required.")
+            return
+        fingerprint = profiles[idx - 1]["fingerprint"]
+        try:
+            self.app._recover_profile(
+                fingerprint=fingerprint,
+                seed=seed,
+                password=password,
+            )
+            self.app._bootstrap_profile_session(fingerprint, password)
+        except Exception as e:
+            self._set_status(f"Recovery failed: {e}")
+
+
 class SeedPassTuiV3(App[None]):
     """
     SeedPass TUI v3 - Rebuilt from scratch for modularity and mockup fidelity.
@@ -256,21 +759,176 @@ class SeedPassTuiV3(App[None]):
         # Initialized services
         self.services: dict[str, Any] = {}
         self._initial_fingerprint = fingerprint
+        self._main_screen_initialized = False
 
     def on_mount(self) -> None:
-        """Initialize services and push the main screen."""
+        """Initialize provided services or start in profile-unlock mode."""
         self.processor = CommandProcessor(self)
+        self._initialize_factory_services()
+        if self.services:
+            self._enter_main_workspace(initial=True)
+        else:
+            self.present_startup_screen(
+                selected_fingerprint=self._initial_fingerprint,
+                prompt="Select a seed profile and unlock to enter SeedPass.",
+            )
+        # Global UI Heartbeat (for 2FA ticking etc)
+        self.set_interval(1.0, self.action_refresh_ui_quiet)
+
+    def _initialize_factory_services(self) -> None:
         for name, factory in self.factories.items():
             if factory:
                 try:
-                    self.services[name] = factory()
+                    service = factory()
                 except Exception as e:
                     self.log(f"Failed to init service {name}: {e}")
+                    continue
+                if service is not None:
+                    self.services[name] = service
 
-        self.active_fingerprint = self._initial_fingerprint or ""
-        self.push_screen(MainScreen())
-        # Global UI Heartbeat (for 2FA ticking etc)
-        self.set_interval(1.0, self.action_refresh_ui_quiet)
+    def _list_boot_profiles(self) -> list[dict[str, str]]:
+        try:
+            manager = FingerprintManager(APP_DIR)
+            return [
+                {"fingerprint": fp, "label": manager.display_name(fp)}
+                for fp in manager.list_fingerprints()
+            ]
+        except Exception as e:
+            self.log(f"Failed to list startup profiles: {e}")
+            return []
+
+    def present_startup_screen(
+        self,
+        *,
+        selected_fingerprint: str | None = None,
+        prompt: str | None = None,
+    ) -> None:
+        self.push_screen(
+            StartupScreen(
+                selected_fingerprint=selected_fingerprint,
+                prompt=prompt,
+            )
+        )
+
+    def _bootstrap_profile_session(self, fingerprint: str, password: str) -> None:
+        try:
+            from seedpass.core.api import (
+                ConfigService,
+                EntryService,
+                NostrService,
+                ProfileService,
+                SemanticIndexService,
+                SyncService,
+                UtilityService,
+                VaultService,
+            )
+            from seedpass.core.manager import PasswordManager
+
+            pm = PasswordManager(fingerprint=fingerprint, password=password)
+            self.services = {
+                "entry": EntryService(pm),
+                "profile": ProfileService(pm),
+                "config": ConfigService(pm),
+                "nostr": NostrService(pm),
+                "sync": SyncService(pm),
+                "utility": UtilityService(pm),
+                "vault": VaultService(pm),
+                "semantic": SemanticIndexService(pm),
+            }
+            self.active_fingerprint = pm.current_fingerprint or fingerprint
+            self.session_locked = False
+            self._enter_main_workspace(initial=not self._main_screen_initialized)
+            self.notify(f"Unlocked profile {self.active_fingerprint[:12]}")
+        except Exception as e:
+            try:
+                if isinstance(self.screen, StartupScreen):
+                    self.screen._set_status(f"Unlock failed: {e}")
+            except Exception:
+                pass
+            self.notify(f"Unlock failed: {e}", severity="error")
+
+    def _make_bootstrap_manager(self):
+        from seedpass.core.manager import PasswordManager
+
+        return PasswordManager(bootstrap_only=True)
+
+    def _generate_bootstrap_seed(self) -> str:
+        manager = self._make_bootstrap_manager()
+        return manager.generate_bip85_seed()
+
+    def _create_existing_profile(self, *, seed: str, password: str) -> str:
+        manager = self._make_bootstrap_manager()
+        fingerprint = manager.setup_existing_seed(seed=seed, password=password)
+        if not fingerprint:
+            raise RuntimeError("Profile creation did not return a fingerprint.")
+        return fingerprint
+
+    def _create_generated_profile(
+        self, *, password: str, seed: str | None = None
+    ) -> str:
+        manager = self._make_bootstrap_manager()
+        fingerprint, _generated_seed = manager.create_profile_from_generated_seed(
+            password=password,
+            seed=seed,
+        )
+        return fingerprint
+
+    def _recover_profile(self, *, fingerprint: str, seed: str, password: str) -> None:
+        manager = self._make_bootstrap_manager()
+        manager.recover_profile_with_blank_index_data(
+            fingerprint=fingerprint,
+            parent_seed=seed,
+            password=password,
+        )
+
+    def _restore_from_nostr_profile(
+        self,
+        *,
+        seed: str,
+        password: str,
+        continue_without_backup: bool,
+    ) -> str:
+        manager = self._make_bootstrap_manager()
+        fingerprint, _have_backup = manager.restore_from_nostr_with_guidance_data(
+            seed_phrase=seed,
+            password=password,
+            continue_without_backup=continue_without_backup,
+        )
+        return fingerprint
+
+    def _restore_from_backup_profile(
+        self,
+        *,
+        seed: str,
+        password: str,
+        backup_path: str,
+    ) -> str:
+        manager = self._make_bootstrap_manager()
+        return manager.restore_from_local_backup_data(
+            seed_phrase=seed,
+            password=password,
+            backup_path=backup_path,
+        )
+
+    def _resolve_active_fingerprint(self) -> str:
+        try:
+            manager = self.services["vault"]._manager
+            current = getattr(manager, "current_fingerprint", None)
+            if current:
+                return str(current)
+        except Exception:
+            pass
+        return self._initial_fingerprint or self.active_fingerprint or ""
+
+    def _enter_main_workspace(self, *, initial: bool) -> None:
+        self.active_fingerprint = self._resolve_active_fingerprint()
+        if initial or not self._main_screen_initialized:
+            self.push_screen(MainScreen())
+            self._main_screen_initialized = True
+            return
+        if isinstance(self.screen, StartupScreen):
+            self.pop_screen()
+        self.action_refresh()
 
     def on_command_palette_command_executed(
         self, message: CommandPalette.CommandExecuted
@@ -338,6 +996,8 @@ class SeedPassTuiV3(App[None]):
 
     def action_refresh(self) -> None:
         """Force a global UI refresh."""
+        if not self._main_screen_initialized:
+            return
         self.screen.query_one("#profile-tree")._refresh_tree()
         self.screen.query_one("#entry-data-table")._refresh_data()
         self.notify("UI Refreshed")
@@ -421,6 +1081,10 @@ class SeedPassTuiV3(App[None]):
             locker()
             self.session_locked = True
             self.notify("Vault locked")
+            self.present_startup_screen(
+                selected_fingerprint=self.active_fingerprint or None,
+                prompt="Vault locked. Re-enter your master password to continue.",
+            )
         except Exception as e:
             self.notify(f"Lock failed: {e}", severity="error")
 
@@ -442,6 +1106,9 @@ class SeedPassTuiV3(App[None]):
             except Exception:
                 unlocker(password)
             self.session_locked = False
+            if isinstance(self.screen, StartupScreen) and self._main_screen_initialized:
+                self.pop_screen()
+                self.action_refresh()
             self.notify("Vault unlocked")
         except Exception as e:
             self.notify(f"Unlock failed: {e}", severity="error")

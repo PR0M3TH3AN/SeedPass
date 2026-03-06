@@ -245,7 +245,11 @@ class PasswordManager:
     deterministic_totp: bool = False
 
     def __init__(
-        self, fingerprint: Optional[str] = None, *, password: Optional[str] = None
+        self,
+        fingerprint: Optional[str] = None,
+        *,
+        password: Optional[str] = None,
+        bootstrap_only: bool = False,
     ) -> None:
         """Initialize the PasswordManager.
 
@@ -321,13 +325,16 @@ class PasswordManager:
         if fingerprint:
             # Load the specified profile without prompting
             self.select_fingerprint(fingerprint, password=password)
-        else:
+        elif not bootstrap_only:
             # Ensure a parent seed is set up before accessing the fingerprint directory
             self.setup_parent_seed()
             # Set the current fingerprint directory after selection
             self.fingerprint_dir = (
                 self.fingerprint_manager.get_current_fingerprint_dir()
             )
+        else:
+            self.current_fingerprint = None
+            self.fingerprint_dir = None
 
     @requires_unlocked
     def get_bip85_entropy(
@@ -1017,6 +1024,77 @@ class PasswordManager:
             print(colored(f"Error: Profile recovery failed: {exc}", "red"))
             return False
 
+    def recover_profile_with_blank_index_data(
+        self,
+        *,
+        fingerprint: str,
+        parent_seed: str,
+        password: str,
+    ) -> bool:
+        """Recover ``fingerprint`` with ``parent_seed`` and a blank local index."""
+        fingerprints = self.fingerprint_manager.list_fingerprints()
+        if fingerprint not in fingerprints:
+            raise SeedPassError("Selected profile does not exist.")
+
+        fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
+            fingerprint
+        )
+        if not fingerprint_dir:
+            raise SeedPassError("Profile directory not found.")
+
+        if not self.validate_bip85_seed(parent_seed):
+            raise SeedPassError("Invalid BIP-85 seed phrase.")
+
+        computed_fp = generate_fingerprint(parent_seed)
+        if computed_fp != fingerprint:
+            raise SeedPassError("Seed does not match selected profile fingerprint.")
+
+        try:
+            self.current_fingerprint = fingerprint
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            self.fingerprint_dir = fingerprint_dir
+            self.parent_seed = parent_seed
+
+            seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
+            index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
+            seed_key = self._derive_seed_key(password, fingerprint)
+
+            self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
+
+            self._encrypt_parent_seed_compat(
+                seed_mgr,
+                parent_seed,
+                fingerprint,
+                mode=self._get_kdf_mode(),
+            )
+            self.store_hashed_password(password)
+
+            for stale_file in (
+                fingerprint_dir / "seedpass_entries_db.json.enc",
+                fingerprint_dir / "seedpass_passwords_db.json.enc",
+                fingerprint_dir / "seedpass_entries_db_checksum.txt",
+                fingerprint_dir / "seedpass_passwords_db_checksum.txt",
+            ):
+                try:
+                    stale_file.unlink()
+                except FileNotFoundError:
+                    pass
+
+            self.initialize_bip85()
+            self.initialize_managers()
+            self.start_background_sync()
+            return True
+        except Exception as exc:
+            logger.error("Profile recovery failed: %s", exc, exc_info=True)
+            raise SeedPassError(f"Profile recovery failed: {exc}") from exc
+
     def setup_encryption_manager(
         self,
         fingerprint_dir: Path,
@@ -1604,6 +1682,19 @@ class PasswordManager:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
+
+    def create_profile_from_generated_seed(
+        self,
+        *,
+        password: str,
+        seed: Optional[str] = None,
+    ) -> tuple[str, str]:
+        """Create a new profile from a generated seed and return ``(fingerprint, seed)``."""
+        new_seed = seed or self.generate_bip85_seed()
+        fingerprint = self._finalize_existing_seed(new_seed, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to create profile from generated seed.")
+        return fingerprint, new_seed
 
     @requires_unlocked
     def save_and_encrypt_seed(
@@ -2233,6 +2324,47 @@ class PasswordManager:
         else:
             self.notify("Starting with a new, empty vault.", level="INFO")
             return
+
+    def restore_from_nostr_with_guidance_data(
+        self,
+        *,
+        seed_phrase: str,
+        password: str,
+        continue_without_backup: bool = False,
+    ) -> tuple[str, bool]:
+        """Restore a profile from Nostr without interactive prompts.
+
+        Returns ``(fingerprint, have_backup)``.
+        """
+        have_backup = self.check_nostr_backup_exists(seed_phrase)
+        if not have_backup and not continue_without_backup:
+            raise SeedPassError("No Nostr backup found for this seed profile.")
+
+        fingerprint = self._finalize_existing_seed(seed_phrase, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to initialize profile from provided seed.")
+
+        if have_backup:
+            success = self.attempt_initial_sync()
+            if not success:
+                raise SeedPassError("Failed to download or decrypt vault from Nostr.")
+        return fingerprint, have_backup
+
+    def restore_from_local_backup_data(
+        self,
+        *,
+        seed_phrase: str,
+        password: str,
+        backup_path: str,
+    ) -> str:
+        """Restore a profile from a local encrypted backup without prompts."""
+        fingerprint = self._finalize_existing_seed(seed_phrase, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to initialize profile from provided seed.")
+        if not self.backup_manager:
+            raise SeedPassError("Backup manager is not initialized.")
+        self.backup_manager.restore_from_backup(backup_path)
+        return fingerprint
 
     def _clear_header_add_entry(self, subtitle: str) -> None:
         fp, parent_fp, child_fp = self.header_fingerprint_args

@@ -14,6 +14,7 @@ from .encryption import (
     USE_ORJSON,
     json_lib,
 )
+from .index0 import ensure_index0_payload
 from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 from utils.password_prompt import prompt_existing_password
 
@@ -232,12 +233,14 @@ class Vault:
         self.migrated_from_legacy = (
             legacy_detected or migration_performed or schema_migrated
         )
+        data = ensure_index0_payload(data)
         if return_migration_flags:
             return data, self.migrated_from_legacy, migration_performed
         return data
 
     def save_index(self, data: dict) -> None:
         """Encrypt and write password index."""
+        data = ensure_index0_payload(data)
         self.encryption_manager.save_json_data(
             data, self.index_file, kdf=self._hkdf_kdf()
         )

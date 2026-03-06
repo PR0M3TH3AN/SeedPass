@@ -114,6 +114,7 @@ class SnapshotHandler:
                 "chunks": [meta.__dict__ for meta in manifest.chunks],
                 "delta_since": manifest.delta_since,
                 "nonce": manifest.nonce,
+                "index0": manifest.index0,
             }
         )
 
@@ -151,6 +152,9 @@ class SnapshotHandler:
                     else None
                 ),
                 nonce=data.get("nonce"),
+                index0=(
+                    data.get("index0") if isinstance(data.get("index0"), dict) else None
+                ),
             )
         except Exception:
             return None
@@ -376,6 +380,7 @@ class SnapshotHandler:
                         ],
                         "delta_since": self.current_manifest.delta_since,
                         "nonce": self.current_manifest.nonce,
+                        "index0": self.current_manifest.index0,
                     }
                 )
                 manifest_event = (

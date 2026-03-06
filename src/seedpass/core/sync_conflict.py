@@ -4,6 +4,8 @@ import hashlib
 import json
 from typing import Any
 
+from .index0 import ensure_index0_payload, merge_system_index0
+
 TOMBSTONE_RETENTION_CAP = 2048
 
 
@@ -190,7 +192,8 @@ def merge_index_payloads(
     current: dict[str, Any], incoming: dict[str, Any], *, source_tag: str = ""
 ) -> dict[str, Any]:
     """Merge two index payloads using deterministic conflict resolution."""
-    out = dict(current) if isinstance(current, dict) else {}
+    out = ensure_index0_payload(dict(current) if isinstance(current, dict) else {})
+    incoming = ensure_index0_payload(incoming if isinstance(incoming, dict) else {})
     cur_entries = out.get("entries", {})
     if not isinstance(cur_entries, dict):
         cur_entries = {}
@@ -318,4 +321,14 @@ def merge_index_payloads(
         }
     )
     out["_sync_meta"] = meta
+    out_system = out.get("_system", {})
+    inc_system = incoming.get("_system", {})
+    if not isinstance(out_system, dict):
+        out_system = {}
+    if not isinstance(inc_system, dict):
+        inc_system = {}
+    out_system["index0"] = merge_system_index0(
+        out_system.get("index0"), inc_system.get("index0")
+    )
+    out["_system"] = out_system
     return out

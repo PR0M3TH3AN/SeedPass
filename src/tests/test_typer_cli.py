@@ -684,6 +684,7 @@ def test_capabilities_json():
     payload = json.loads(result.stdout)
     assert payload["schema_version"] == 1
     assert "cli" in payload["interfaces"]
+    assert payload["interfaces"]["cli"]["default_interface"] == "tui3"
     assert "agent" in payload["interfaces"]["cli"]["root_commands"]
     assert "tui3" in payload["interfaces"]["cli"]["root_commands"]
     assert "legacy" in payload["interfaces"]["cli"]["root_commands"]
@@ -1011,8 +1012,23 @@ def test_update_checksum_command(monkeypatch):
     assert called.get("called") is True
 
 
-def test_root_tui2_forward_fingerprint(monkeypatch):
-    """Ensure --fingerprint is forwarded when launching default TUI v2."""
+def test_root_tui3_forward_fingerprint(monkeypatch):
+    """Ensure --fingerprint is forwarded when launching default TUI v3."""
+    called = {}
+
+    def fake_launch(**kwargs):
+        called["fp"] = kwargs.get("fingerprint")
+        called["factory"] = kwargs.get("entry_service_factory")
+        return True
+
+    monkeypatch.setattr(cli, "launch_tui3", fake_launch)
+    result = runner.invoke(app, ["--fingerprint", "abc"])
+    assert result.exit_code == 0
+    assert called.get("fp") == "abc"
+    assert called.get("factory") is None
+
+
+def test_root_explicit_tui2_forward_fingerprint(monkeypatch):
     called = {}
 
     def fake_launch(**kwargs):
@@ -1022,7 +1038,7 @@ def test_root_tui2_forward_fingerprint(monkeypatch):
 
     monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
     monkeypatch.setattr(cli, "launch_tui2", fake_launch)
-    result = runner.invoke(app, ["--fingerprint", "abc"])
+    result = runner.invoke(app, ["--tui", "v2", "--fingerprint", "abc"])
     assert result.exit_code == 0
     assert called.get("fp") == "abc"
     assert callable(called.get("factory"))
@@ -1095,8 +1111,8 @@ def test_tui2_check(monkeypatch):
 def test_tui3_check(monkeypatch):
     monkeypatch.setattr(
         cli,
-        "check_tui2_runtime",
-        lambda: {"status": "ok", "backend": "textual", "textual_available": True},
+        "check_tui3_runtime",
+        lambda: {"status": "ok", "backend": "textual-v3", "textual_available": True},
     )
     result = runner.invoke(app, ["tui3", "--check"])
     assert result.exit_code == 0
@@ -1153,24 +1169,24 @@ def test_tui2_fallback_legacy_strips_subcommand_argv(monkeypatch):
     assert called.get("argv") == []
 
 
-def test_root_fallback_legacy_when_tui2_unavailable(monkeypatch):
-    called = {}
-    monkeypatch.setattr(cli, "_get_entry_service", lambda _ctx: object())
-    monkeypatch.setattr(cli, "launch_tui2", lambda **_: False)
+def test_root_tui3_unavailable_returns_error(monkeypatch):
+    monkeypatch.setattr(cli, "launch_tui3", lambda **_: False)
+    result = runner.invoke(app, ["--fingerprint", "abc"])
+    assert result.exit_code == 1
+    assert "TUI v3 runtime unavailable" in result.stderr
+    assert "seedpass tui2" in result.stderr
+    assert "seedpass legacy" in result.stderr
 
-    def fake_main(*, fingerprint=None):
-        called["fp"] = fingerprint
-        return 0
 
+def test_root_tui3_does_not_preflight_entry_service(monkeypatch):
     monkeypatch.setattr(
         cli,
-        "importlib",
-        SimpleNamespace(import_module=lambda _: SimpleNamespace(main=fake_main)),
+        "_get_entry_service",
+        lambda _ctx: (_ for _ in ()).throw(RuntimeError("should not run")),
     )
-    result = runner.invoke(app, ["--fingerprint", "abc"])
+    monkeypatch.setattr(cli, "launch_tui3", lambda **_: True)
+    result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert called.get("fp") == "abc"
-    assert "falling back to legacy TUI" in result.stdout
 
 
 def test_tui2_preflight_failure_without_fallback(monkeypatch):

@@ -5,9 +5,17 @@ from types import SimpleNamespace
 import pytest
 
 pytest.importorskip("textual")
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Input
 
 from seedpass.tui_v3 import launch_tui3
+from seedpass.tui_v3.app import (
+    CreateProfileScreen,
+    RecoverProfileScreen,
+    SeedPassTuiV3,
+    SeedWordsScreen,
+    SeedWordsReviewScreen,
+    StartupScreen,
+)
 
 
 class V3EntryService:
@@ -126,6 +134,7 @@ async def test_tui3_palette_lock_unlock_and_session_status() -> None:
         await pilot.pause()
         assert app.session_locked is True
         assert vault.locked is True
+        assert isinstance(app.screen, StartupScreen)
         app.processor.execute("unlock hunter2")
         await pilot.pause()
         assert app.session_locked is False
@@ -169,3 +178,245 @@ async def test_tui3_grid_focus_refresh_enables_selection_after_runtime_add() -> 
         table._refresh_data()
         await pilot.pause()
         assert table.row_count >= 4
+
+
+@pytest.mark.anyio
+async def test_tui3_starts_with_unlock_screen_when_services_are_not_preloaded() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: [
+        {"fingerprint": "EFBE51E70ED1B53A", "label": "Primary (EFBE51E70ED1B53A)"}
+    ]
+    captured: dict[str, str] = {}
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        captured["fingerprint"] = fingerprint
+        captured["password"] = password
+
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, StartupScreen)
+        assert app.screen.query_one("#startup-profile-choice", Input).value == "1"
+        app.screen.query_one("#startup-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert captured == {
+            "fingerprint": "EFBE51E70ED1B53A",
+            "password": "hunter2",
+        }
+
+
+@pytest.mark.anyio
+async def test_tui3_create_profile_screen_uses_in_app_bootstrap_helpers() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: []
+    created: dict[str, str] = {}
+    booted: dict[str, str] = {}
+
+    def _create_existing_profile(*, seed: str, password: str) -> str:
+        created["seed"] = seed
+        created["password"] = password
+        return "NEWFP123"
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        booted["fingerprint"] = fingerprint
+        booted["password"] = password
+
+    app._create_existing_profile = _create_existing_profile
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(CreateProfileScreen())
+        await pilot.pause()
+        screen = app.screen
+        screen.query_one("#create-mode", Input).value = "existing"
+        screen.query_one("#create-seed", Input).value = (
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+        screen.query_one("#create-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert created["password"] == "hunter2"
+        assert booted == {"fingerprint": "NEWFP123", "password": "hunter2"}
+
+
+@pytest.mark.anyio
+async def test_tui3_recover_profile_screen_uses_in_app_bootstrap_helpers() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: [
+        {"fingerprint": "EFBE51E70ED1B53A", "label": "Primary (EFBE51E70ED1B53A)"}
+    ]
+    recovered: dict[str, str] = {}
+    booted: dict[str, str] = {}
+
+    def _recover_profile(*, fingerprint: str, seed: str, password: str) -> None:
+        recovered["fingerprint"] = fingerprint
+        recovered["seed"] = seed
+        recovered["password"] = password
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        booted["fingerprint"] = fingerprint
+        booted["password"] = password
+
+    app._recover_profile = _recover_profile
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(RecoverProfileScreen())
+        await pilot.pause()
+        screen = app.screen
+        screen.query_one("#recover-choice", Input).value = "1"
+        screen.query_one("#recover-seed", Input).value = (
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+        screen.query_one("#recover-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert recovered["fingerprint"] == "EFBE51E70ED1B53A"
+        assert booted == {
+            "fingerprint": "EFBE51E70ED1B53A",
+            "password": "hunter2",
+        }
+
+
+@pytest.mark.anyio
+async def test_tui3_create_profile_screen_supports_nostr_restore_mode() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: []
+    restored: dict[str, object] = {}
+    booted: dict[str, str] = {}
+
+    def _restore_from_nostr_profile(
+        *, seed: str, password: str, continue_without_backup: bool
+    ) -> str:
+        restored["seed"] = seed
+        restored["password"] = password
+        restored["continue_without_backup"] = continue_without_backup
+        return "NOSTRFP1"
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        booted["fingerprint"] = fingerprint
+        booted["password"] = password
+
+    app._restore_from_nostr_profile = _restore_from_nostr_profile
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(CreateProfileScreen())
+        await pilot.pause()
+        screen = app.screen
+        screen.query_one("#create-mode", Input).value = "nostr"
+        screen.query_one("#create-seed", Input).value = (
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+        screen.query_one("#create-nostr-empty-ok", Input).value = "yes"
+        screen.query_one("#create-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert restored["continue_without_backup"] is True
+        assert booted == {"fingerprint": "NOSTRFP1", "password": "hunter2"}
+
+
+@pytest.mark.anyio
+async def test_tui3_create_profile_screen_supports_backup_restore_mode() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: []
+    restored: dict[str, str] = {}
+    booted: dict[str, str] = {}
+
+    def _restore_from_backup_profile(
+        *, seed: str, password: str, backup_path: str
+    ) -> str:
+        restored["seed"] = seed
+        restored["password"] = password
+        restored["backup_path"] = backup_path
+        return "BACKUPFP1"
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        booted["fingerprint"] = fingerprint
+        booted["password"] = password
+
+    app._restore_from_backup_profile = _restore_from_backup_profile
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(CreateProfileScreen())
+        await pilot.pause()
+        screen = app.screen
+        screen.query_one("#create-mode", Input).value = "backup"
+        screen.query_one("#create-seed", Input).value = (
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+        screen.query_one("#create-backup-path", Input).value = "/tmp/profile-backup.enc"
+        screen.query_one("#create-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert restored["backup_path"] == "/tmp/profile-backup.enc"
+        assert booted == {"fingerprint": "BACKUPFP1", "password": "hunter2"}
+
+
+@pytest.mark.anyio
+async def test_tui3_word_by_word_seed_entry_feeds_create_profile_screen() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: []
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(CreateProfileScreen())
+        await pilot.pause()
+        create_screen = app.screen
+        assert isinstance(create_screen, CreateProfileScreen)
+        create_screen.query_one("#create-words").press()
+        await pilot.pause()
+        assert isinstance(app.screen, SeedWordsScreen)
+        for idx, word in enumerate(
+            [
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "abandon",
+                "about",
+            ],
+            start=1,
+        ):
+            app.screen.query_one(f"#seed-word-{idx}", Input).value = word
+        await pilot.press("enter")
+        await pilot.pause()
+        assert isinstance(app.screen, SeedWordsReviewScreen)
+        app.screen.query_one("#seed-review-confirm").press()
+        await pilot.pause()
+        assert isinstance(app.screen, CreateProfileScreen)
+        assert app.screen.query_one("#create-mode", Input).value == "words"
+        assert (
+            app.screen.query_one("#create-seed", Input).value
+            == "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+
+
+@pytest.mark.anyio
+async def test_tui3_word_entry_flags_invalid_bip39_word() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: []
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(SeedWordsScreen(on_done=lambda _phrase: None))
+        await pilot.pause()
+        app.screen.query_one("#seed-word-1", Input).value = "notaword"
+        await pilot.pause()
+        status = str(app.screen.query_one("#seed-words-status").render())
+        progress = str(app.screen.query_one("#seed-words-progress").render())
+        assert "not in the BIP-39 wordlist" in status
+        assert "invalid: 1" in progress

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 # Event kind constants used for SeedPass backups
 KIND_MANIFEST = 30070
@@ -26,3 +26,4 @@ class Manifest:
     chunks: List[ChunkMeta]
     delta_since: Optional[int] = None
     nonce: Optional[str] = None
+    index0: Optional[dict[str, Any]] = None

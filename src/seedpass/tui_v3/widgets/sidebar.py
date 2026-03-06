@@ -70,8 +70,13 @@ class ProfileTree(Tree):
             self.app.notify(f"Opened Entry #{entry_id} from profile tree")
             return
 
-        self.app.active_fingerprint = value
-        self.app.notify(f"Switched to profile: {value[:8]}")
+        if value == self.app.active_fingerprint:
+            self.app.notify(f"Profile already active: {value[:8]}")
+            return
+        self.app.present_startup_screen(
+            selected_fingerprint=value,
+            prompt=f"Unlock {value[:12]} to switch profiles.",
+        )
 
 
 class SidebarContainer(Static):

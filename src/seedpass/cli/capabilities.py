@@ -14,11 +14,12 @@ def build_capabilities() -> dict[str, Any]:
         "product": "SeedPass",
         "interfaces": {
             "cli": {
+                "default_interface": "tui3",
                 "root_commands": [
                     "lock",
                     "gui",
-                    "tui2",
                     "tui3",
+                    "tui2",
                     "legacy",
                     "capabilities",
                     "entry",
@@ -266,8 +267,9 @@ def build_capabilities() -> dict[str, Any]:
             "Run `seedpass --help` for top-level commands.",
             "Run `seedpass <group> --help` for detailed options.",
             "Use `seedpass capabilities --format json` for machine-readable discovery.",
-            "Run `seedpass tui2 --check` before adopting Textual-based TUI v2.",
-            "Use `seedpass --legacy-tui` to force the legacy interface during cutover.",
+            "Run `seedpass` or `seedpass tui3` to launch the current TUI v3.",
+            "Run `seedpass tui2 --check` before using the maintained-but-non-default TUI v2.",
+            "Use `seedpass legacy` or `seedpass --legacy-tui` for the legacy interface.",
             "In TUI v2, use `?` for help, `j` to jump to entry id, `1/2/3` to focus panes, `Ctrl+P` for palette, `p/n` for paging, and `x` to retry.",
             "For graph workflows, start with `seedpass entry link-add --help` and `seedpass entry links --help`.",
             "For semantic KB retrieval, run `seedpass semantic --help` and check `seedpass semantic status`.",

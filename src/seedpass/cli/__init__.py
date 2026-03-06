@@ -14,7 +14,7 @@ from .common import _get_entry_service, _get_services
 from seedpass.core.errors import SeedPassError
 from constants import GUI_BACKEND_CONFIG
 from seedpass.tui_v2.app import check_tui2_runtime, launch_tui2
-from seedpass.tui_v3 import launch_tui3
+from seedpass.tui_v3 import check_tui3_runtime, launch_tui3
 
 app = typer.Typer(
     help=(
@@ -49,11 +49,11 @@ deterministic_totp_option = typer.Option(
 legacy_tui_option = typer.Option(
     False,
     "--legacy-tui",
-    help="Use legacy interactive TUI (temporary fallback during TUI v2 cutover)",
+    help="Use legacy interactive TUI explicitly",
 )
 
 tui_version_option = typer.Option(
-    "v2",
+    "v3",
     "--tui",
     help="Select TUI version: legacy, v2, v3",
 )
@@ -154,6 +154,36 @@ def _launch_legacy_tui(*, fingerprint: Optional[str]) -> typer.Exit:
         return typer.Exit(legacy_main(fingerprint=fingerprint))
 
 
+def _launch_tui3_or_exit(
+    *,
+    fingerprint: Optional[str],
+    services: Optional[dict[str, object]] = None,
+) -> None:
+    kwargs: dict[str, object] = {"fingerprint": fingerprint}
+    if services is not None:
+        kwargs.update(
+            {
+                "entry_service_factory": lambda: services["entry"],
+                "profile_service_factory": lambda: services["profile"],
+                "config_service_factory": lambda: services["config"],
+                "nostr_service_factory": lambda: services["nostr"],
+                "sync_service_factory": lambda: services["sync"],
+                "utility_service_factory": lambda: services["utility"],
+                "vault_service_factory": lambda: services["vault"],
+                "semantic_service_factory": lambda: services["semantic"],
+            }
+        )
+    launched = launch_tui3(**kwargs)
+    if launched:
+        return
+    typer.echo(
+        "TUI v3 runtime unavailable. Run `seedpass tui3 --check` for diagnostics, "
+        "`seedpass tui2` to launch TUI v2, or `seedpass legacy` for the legacy interface.",
+        err=True,
+    )
+    raise typer.Exit(1)
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -188,27 +218,17 @@ def main(
         if legacy_tui or tui_version == "legacy":
             raise _launch_legacy_tui(fingerprint=fingerprint)
 
+        if tui_version == "v3":
+            _launch_tui3_or_exit(fingerprint=fingerprint)
+            return
+
         services, preflight_error = _prime_tui2_service(ctx)
         if preflight_error is not None:
             typer.echo(
-                f"TUI {tui_version} preflight failed; falling back to legacy TUI. "
-                f"Details: {preflight_error}"
+                f"TUI {tui_version} preflight failed: {preflight_error}",
+                err=True,
             )
-            raise _launch_legacy_tui(fingerprint=fingerprint)
-
-        if tui_version == "v3":
-            launch_tui3(
-                fingerprint=fingerprint,
-                entry_service_factory=lambda: services["entry"],
-                profile_service_factory=lambda: services["profile"],
-                config_service_factory=lambda: services["config"],
-                nostr_service_factory=lambda: services["nostr"],
-                sync_service_factory=lambda: services["sync"],
-                utility_service_factory=lambda: services["utility"],
-                vault_service_factory=lambda: services["vault"],
-                semantic_service_factory=lambda: services["semantic"],
-            )
-            return
+            raise typer.Exit(1)
 
         launched = launch_tui2(
             fingerprint=fingerprint,
@@ -225,10 +245,10 @@ def main(
             return
 
         typer.echo(
-            f"TUI {tui_version} runtime unavailable; falling back to legacy TUI. "
-            "Run `seedpass tui2 --check` for diagnostics."
+            "TUI v2 runtime unavailable. Run `seedpass tui2 --check` for diagnostics, "
+            "or use `seedpass legacy` for the legacy interface."
         )
-        raise _launch_legacy_tui(fingerprint=fingerprint)
+        raise typer.Exit(1)
 
 
 @app.command("lock")
@@ -310,30 +330,13 @@ def tui3(
         help="Check whether TUI v3 runtime dependencies are available",
     ),
 ) -> None:
-    """Launch the experimental TUI v3 scratch architecture."""
+    """Launch the current TUI v3 interface."""
     if check:
-        from seedpass.tui_v3 import check_tui3_runtime
-
         typer.echo(json.dumps(check_tui3_runtime(), indent=2, sort_keys=True))
         return
 
     fingerprint = (ctx.obj or {}).get("fingerprint")
-    services, preflight_error = _prime_tui2_service(ctx)
-    if preflight_error is not None:
-        typer.echo(f"TUI v3 preflight failed: {preflight_error}", err=True)
-        raise typer.Exit(1)
-
-    launch_tui3(
-        fingerprint=fingerprint,
-        entry_service_factory=lambda: services["entry"],
-        profile_service_factory=lambda: services["profile"],
-        config_service_factory=lambda: services["config"],
-        nostr_service_factory=lambda: services["nostr"],
-        sync_service_factory=lambda: services["sync"],
-        utility_service_factory=lambda: services["utility"],
-        vault_service_factory=lambda: services["vault"],
-        semantic_service_factory=lambda: services["semantic"],
-    )
+    _launch_tui3_or_exit(fingerprint=fingerprint)
 
 
 @app.command("legacy")

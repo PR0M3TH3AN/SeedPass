@@ -37,6 +37,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 - TUI v2 integration execution plan (current working plan): `docs/tui_v2_integration_execution_plan_2026-03-02.md`
 - TUI v2 mockup gap audit: `docs/tui_v2_mockup_gap_audit_2026-03-02.md`
 - Semantic vector index integration plan: `docs/semantic_vector_index_plan.md`
+- Index0 atlas execution plan: `docs/index0_atlas_execution_plan_2026-03-05.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
 - Supply-chain integrity: `docs/supply_chain_release_integrity.md`
@@ -79,6 +80,28 @@ Use these docs as inputs, but treat this file as the decision layer:
   - Phase C complete baseline (legacy + TUI v2 semantic workflows and mode toggles)
   - Next: incremental mutation hooks + hybrid quality hardening
 
+### Index0 Atlas Roadmap
+- New architecture/spec track drafted:
+  - `docs/index0_atlas_execution_plan_2026-03-05.md`
+- Phase 0 implementation spec drafted:
+  - `docs/index0_phase0_spec_2026-03-05.md`
+- Phase 1 foundation slice landed:
+  - reserved `_system.index0` namespace normalization
+  - deterministic `index0` merge helper
+  - Nostr manifest optional `index0` metadata support
+  - focused tests in `src/tests/test_index0_core.py`
+- Intent:
+  - add canonical encrypted atlas state inside the existing payload for audit, hierarchy wayfinding, and future KB/chat navigation
+- Key implementation direction:
+  - reserved `_system.index0` namespace inside the synced payload
+  - deterministic merge + checkpointed hash-chain validation
+  - rebuildable wayfinder views layered on top
+- Sequencing:
+  - Phase 0 spec/schema is drafted
+  - Phase 1 foundation is partially implemented
+  - next implementation slice: event emission hooks from entry CRUD/link flows
+  - implementation phases should not preempt current TUI cutover-critical or security-readiness blockers
+
 ## 4) Recommended Next Steps (Priority Order)
 
 1. Execute Phases A-C from `docs/tui_v2_integration_execution_plan_2026-03-02.md`:
@@ -91,6 +114,12 @@ Use these docs as inputs, but treat this file as the decision layer:
 : unified lexical+tag+semantic search integration.
 5. Execute Phase F:
 : final per-board fidelity pass and strict mockup closeout.
+6. Start Index0 Atlas Phase 0 from `docs/index0_atlas_execution_plan_2026-03-05.md`:
+: lock schema, merge contract extension, manifest checkpoint fields, and compaction rules.
+7. After cutover-critical TUI/security slices stabilize, execute Index0 Atlas Phases 1-3:
+: canonical storage, event emission hooks, and manifest checkpoint validation.
+8. After semantic hardening resumes, execute Index0 Atlas Phase 5:
+: atlas read APIs/views and semantic interplay.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
