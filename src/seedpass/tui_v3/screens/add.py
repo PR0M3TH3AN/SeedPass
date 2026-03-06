@@ -94,7 +94,7 @@ class AddEntryScreen(Screen):
             kinds = [(k.value.title(), k.value) for k in supported_kinds]
             yield Select(kinds, value="password", id="kind-select")
             yield Label(
-                "Use `seed-plus` for Seed / Managed Account derivations.",
+                "Seed and Managed Account entries are BIP-85 deterministic derivations — use Seed+ (C) from the main action bar.",
                 id="seedplus-hint",
             )
 
@@ -215,7 +215,7 @@ class AddEntryScreen(Screen):
                 )
                 return
 
-            self.app.notify(f"Added {kind}: {label}")
+            self.app.notify(f"'{label}' ({kind}) saved — press v to reveal or c to copy.")
             self.app.action_refresh()
             self.app.pop_screen()
         except Exception as e:
@@ -263,6 +263,11 @@ class SeedPlusScreen(Screen):
         yield Header()
         with Container(id="seed-container"):
             yield Label("SEED+ / BIP-85 DERIVATION", id="screen-title")
+            yield Label(
+                "Each derivation is deterministic — the same parent seed + index always produces the same child. "
+                "Choose a unique index per derivation. This entry cannot be deleted without losing the derived key.",
+                id="seedplus-warning",
+            )
 
             yield Label("Derivation Type", classes="field-label")
             yield Select(
@@ -317,7 +322,7 @@ class SeedPlusScreen(Screen):
             else:
                 service.add_managed_account(label=label, index=index, tags=tags)
 
-            self.app.notify(f"Derived {kind}: {label} (Index {index})")
+            self.app.notify(f"'{label}' ({kind}) derived at index {index} — reproducible from your parent seed.")
             self.app.action_refresh()
             self.app.pop_screen()
         except Exception as e:
