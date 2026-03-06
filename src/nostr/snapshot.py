@@ -71,6 +71,8 @@ class SnapshotHandler:
         await self.ensure_manifest_is_current()
         await self._connect_async()
         manifest, chunks = prepare_snapshot(encrypted_bytes, limit)
+        if isinstance(getattr(self, "manifest_index0_metadata", None), dict):
+            manifest.index0 = dict(self.manifest_index0_metadata)
 
         existing: dict[str, str] = {}
         if self.current_manifest:

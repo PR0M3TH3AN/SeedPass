@@ -5,11 +5,17 @@ from textual.screen import Screen
 from textual.widgets import Static, Footer, DataTable, Input, Button
 from textual.containers import Vertical, Horizontal
 
+from .maintenance import MAINTENANCE_CSS, format_status
+
 
 class RelaysScreen(Screen):
     """
     A dedicated screen for managing Nostr relays and triggering synchronization.
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._pending_delete_idx: int | None = None
 
     BINDINGS = [
         ("escape", "app.pop_screen", "Back to Vault"),
@@ -18,75 +24,59 @@ class RelaysScreen(Screen):
         ("s", "sync_now", "Sync Now"),
     ]
 
-    DEFAULT_CSS = """
+    DEFAULT_CSS = (
+        MAINTENANCE_CSS
+        + """
     RelaysScreen {
         background: #999999;
     }
-    #relays-title {
-        background: #000000;
-        color: #ffffff;
-        text-style: bold;
-        text-align: center;
-        height: 3;
-        border: solid #000000;
-        padding: 0 1;
-        margin: 1 2;
-    }
     #relays-container {
         height: 1fr;
-        margin: 0 2;
-        border: solid #000000;
-        padding: 1;
-        background: #999999;
     }
     #relays-table {
         height: 1fr;
-        border: solid #000000;
-        background: #ffffff;
-        color: #000000;
+        border: solid #666666;
     }
     #relays-controls {
         height: 3;
         margin-top: 1;
         align: left middle;
     }
+    #relays-status {
+        min-height: 3;
+    }
     #relay-input {
         width: 1fr;
-        border: solid black;
-        background: #ffffff;
-        color: #000000;
     }
     #add-button {
-        background: #000000;
-        color: #ffffff;
-        border: solid black;
         margin-left: 1;
-    }
-    #add-button:hover {
-        background: #ffffff;
-        color: #000000;
-    }
-    #relays-footer {
-        height: 3;
-        background: #000000;
-        color: #ffffff;
-        text-align: center;
-        border: solid #000000;
-        padding: 0 1;
-        margin: 1 2;
+        min-width: 16;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
-        yield Static("SeedPass ◈ Nostr Relay Management", id="relays-title")
-        with Vertical(id="relays-container"):
+        yield Static("SeedPass ◈ Nostr Relay Management", classes="maintenance-title")
+        with Vertical(id="relays-container", classes="maintenance-panel-light"):
             yield DataTable(id="relays-table")
             with Horizontal(id="relays-controls"):
-                yield Input(placeholder="wss://relay.example.com", id="relay-input")
-                yield Button("Add Relay", id="add-button")
+                yield Input(
+                    placeholder="wss://relay.example.com",
+                    id="relay-input",
+                    classes="maintenance-input",
+                )
+                yield Button("Add Relay", id="add-button", classes="maintenance-primary")
+            yield Static(
+                format_status(
+                    "ready",
+                    "Manage relay endpoints for this profile. Deleting a relay requires a second confirm action.",
+                ),
+                id="relays-status",
+                classes="maintenance-status-light",
+            )
         yield Static(
             "ESC: Exit | R: Refresh | D: Delete Selected | S: Sync Now",
-            id="relays-footer",
+            classes="maintenance-footer",
         )
 
     def on_mount(self) -> None:
@@ -96,6 +86,7 @@ class RelaysScreen(Screen):
         self.action_refresh_relays()
 
     def action_refresh_relays(self) -> None:
+        self._pending_delete_idx = None
         app = self.app
         if "nostr" not in app.services:
             self.app.notify("Nostr Service Offline", severity="error")
@@ -111,6 +102,10 @@ class RelaysScreen(Screen):
         table.clear()
         for idx, url in enumerate(relays):
             table.add_row("🟢 Active", url, key=str(idx))
+        self._set_status(format_status("ready", f"{len(relays)} relay(s) loaded."))
+
+    def _set_status(self, message: str) -> None:
+        self.query_one("#relays-status", Static).update(message)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "add-button":
@@ -146,8 +141,10 @@ class RelaysScreen(Screen):
             inp.value = ""
             self.action_refresh_relays()
             self.app.notify(f"Added relay: {url}")
+            self._set_status(format_status("success", f"Added relay {url}"))
         except Exception as e:
             self.app.notify(f"Failed to add relay: {e}", severity="error")
+            self._set_status(format_status("error", f"Add relay failed: {e}"))
 
     def action_delete_relay(self) -> None:
         table = self.query_one(DataTable)
@@ -163,16 +160,26 @@ class RelaysScreen(Screen):
             self.app.notify("No relay selected", severity="warning")
             return
 
+        if self._pending_delete_idx != idx:
+            self._pending_delete_idx = idx
+            self._set_status(
+                format_status("warning", f"Press Delete again to remove relay {url}")
+            )
+            return
+
         service = self.app.services.get("nostr")
         if not service:
             return
 
         try:
+            self._pending_delete_idx = None
             service.remove_relay(idx)
             self.action_refresh_relays()
             self.app.notify(f"Removed relay: {url}")
+            self._set_status(format_status("success", f"Removed relay {url}"))
         except Exception as e:
             self.app.notify(f"Failed to remove relay: {e}", severity="error")
+            self._set_status(format_status("error", f"Delete relay failed: {e}"))
 
     def action_sync_now(self) -> None:
         sync_service = self.app.services.get("sync")
@@ -181,6 +188,7 @@ class RelaysScreen(Screen):
             return
 
         self.app.notify("Starting Nostr synchronization...", severity="information")
+        self._set_status(format_status("working", "Starting Nostr synchronization..."))
         self.run_worker(self._perform_sync, exclusive=True)
 
     async def _perform_sync(self) -> None:
@@ -192,8 +200,14 @@ class RelaysScreen(Screen):
             self.app.call_from_thread(
                 self.app.notify, "Synchronization complete", severity="information"
             )
+            self.app.call_from_thread(
+                self._set_status, format_status("success", "Synchronization complete.")
+            )
             self.app.call_from_thread(self.app.action_refresh)
         except Exception as e:
             self.app.call_from_thread(
                 self.app.notify, f"Sync failed: {e}", severity="error"
+            )
+            self.app.call_from_thread(
+                self._set_status, format_status("error", f"Sync failed: {e}")
             )

@@ -1,8 +1,50 @@
 # Index0 Atlas Execution Plan (2026-03-05)
 
-Status: Proposed  
+Status: In Progress  
 Branch target: `beta`  
 Scope: Core index payload, Nostr sync, hierarchy navigation, future KB and agent workflows
+Companion plan:
+- `docs/atlas_search_graph_integration_plan_2026-03-05.md`
+
+Progress update (2026-03-05):
+
+1. Phase 1 foundation landed:
+   - reserved `_system.index0` payload namespace
+   - deterministic normalization and merge helpers
+   - optional manifest metadata model support
+2. Phase 1 CRUD/link emission landed:
+   - `index0_event` emission for entry create/modify/archive/restore/delete
+   - `index0_event` emission for link add/remove
+   - writer head updates and profile-path-derived scope stamping
+3. Phase 1 checkpoint/manifest slice landed:
+   - deterministic daily checkpoint rebuild from canonical event streams
+   - bounded checkpoint retention per writer
+   - manifest publication of current `index0` checkpoint hashes and stream heads
+4. Phase 1 canonical views slice landed:
+   - deterministic synced `children_of`, `counts_by_kind`, and `recent_activity`
+   - view rebuild integrated into the same payload compaction path as checkpoints
+   - lightweight atlas read helpers for future clients
+5. Atlas consumer slice landed:
+   - `AtlasService` added at the core API boundary
+   - first v3 wayfinder/atlas consumer landed via palette command and screen
+   - main workspace now shows an always-visible atlas strip
+   - atlas screen now supports direct entry jumps and quick filter jumps
+6. Next:
+   - deeper search/navigation handoff
+   - agent-facing atlas workflows
+   - later event-pruning compaction policy if needed
+
+Current accomplished scope summary:
+
+1. canonical atlas storage exists inside `_system.index0`
+2. canonical event emission exists for CRUD and link flows
+3. checkpoint rebuild and manifest validation metadata exist
+4. first synced canonical views exist
+5. service-layer atlas reads exist
+6. v3 already exposes atlas data in:
+   - dedicated wayfinder screen
+   - workspace strip
+   - actionable entry and filter jumps
 
 ## 1) Goal
 

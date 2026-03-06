@@ -1,12 +1,36 @@
 # Index0 Phase 0 Implementation Spec (2026-03-05)
 
-Status: Proposed  
+Status: In Progress  
 Branch target: `beta`  
 Depends on: `docs/index0_atlas_execution_plan_2026-03-05.md`
+Companion next-layer plan: `docs/atlas_search_graph_integration_plan_2026-03-05.md`
 
 ## 1) Goal
 
 Lock the Phase 0 implementation contract for `index0` so coding can begin without schema drift.
+
+Implementation update (2026-03-05):
+
+1. namespace normalization is implemented
+2. deterministic merge helpers are implemented
+3. manifest model round-trip support is implemented
+4. CRUD/link event emission is implemented
+5. daily checkpoint rebuild and bounded checkpoint retention are implemented
+6. manifest head/checkpoint publication from live vault state is implemented
+7. canonical synced `children_of`, `counts_by_kind`, and `recent_activity` views are implemented
+8. atlas read service and first v3 wayfinder consumer are implemented
+9. first actionable v3 wayfinder navigation flows are implemented
+Remaining follow-on work for this spec:
+   - deeper search/navigation handoff from atlas wayfinder data
+   - agent-facing atlas workflows over canonical views/events
+   - any later event-pruning compaction policy
+
+Delivered foundation summary:
+
+1. `index0` is no longer speculative in `beta`
+2. canonical storage, merge, event emission, checkpoints, manifest metadata, and first synced views are implemented
+3. atlas reads are exposed via `AtlasService`
+4. v3 already consumes atlas data in both passive and actionable ways
 
 This document defines:
 

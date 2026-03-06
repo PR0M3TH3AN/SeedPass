@@ -1,6 +1,7 @@
 from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
+from rich.text import Text
 from textual.widgets import DataTable
 from seedpass.tui_v3.app import SeedPassTuiV3
 
@@ -78,6 +79,9 @@ class MockEntryService:
 
     def restore_entry(self, eid):
         self.entries[eid]["archived"] = False
+
+    def delete_entry(self, eid):
+        self.entries.pop(eid, None)
 
     def load_managed_account(self, eid):
         pass
@@ -256,3 +260,55 @@ async def test_v3_seed_payload_accepts_single_arg_seed_getter() -> None:
         payload = app._resolve_sensitive_payload()
         assert payload[0] == "Seed Words Revealed"
         assert payload[1] == "abandon ability able about"
+
+
+@pytest.mark.anyio
+async def test_v3_action_bar_labels_include_leading_hotkey_letters() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        bar = app.screen.query_one("#action-bar")
+        rendered = Text.from_markup(bar.render()).plain
+        assert "Settings" in rendered
+        assert "Add New Entry" in rendered
+        assert "Create New Seed" in rendered
+        assert "Remove Seed" in rendered
+        assert "Export Data" in rendered
+        assert "Import Data" in rendered
+        assert "Backup Data" in rendered
+
+
+@pytest.mark.anyio
+async def test_v3_action_bar_only_shows_context_actions_for_selected_kind() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        bar = app.screen.query_one("#action-bar")
+
+        app.selected_entry_id = 5
+        await pilot.pause()
+        rendered = Text.from_markup(bar.render()).plain.splitlines()[1]
+        assert "Context (document):" in rendered
+        assert "Edit" in rendered
+        assert "Export" in rendered
+        assert "Copy" in rendered
+        assert "Delete" in rendered
+        assert "Reveal" not in rendered
+        assert " QR" not in rendered
+        assert "Load" not in rendered
+
+        app.selected_entry_id = 6
+        await pilot.pause()
+        rendered = Text.from_markup(bar.render()).plain.splitlines()[1]
+        assert "Context (seed):" in rendered
+        assert "Reveal" in rendered
+        assert "QR" in rendered
+        assert "Load" in rendered
+        assert "Delete" in rendered
+        assert "Export" not in rendered

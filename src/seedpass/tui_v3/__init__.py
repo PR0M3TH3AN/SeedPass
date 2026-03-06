@@ -29,6 +29,8 @@ def launch_tui3(
     utility_service_factory: Any | None = None,
     vault_service_factory: Any | None = None,
     semantic_service_factory: Any | None = None,
+    atlas_service_factory: Any | None = None,
+    search_service_factory: Any | None = None,
     app_hook: Any | None = None,
 ) -> bool:
     """Launch TUI v3 from scratch architecture."""
@@ -48,6 +50,8 @@ def launch_tui3(
         utility_service_factory=utility_service_factory,
         vault_service_factory=vault_service_factory,
         semantic_service_factory=semantic_service_factory,
+        atlas_service_factory=atlas_service_factory,
+        search_service_factory=search_service_factory,
     )
 
     if callable(app_hook):

@@ -14,7 +14,7 @@ from .encryption import (
     USE_ORJSON,
     json_lib,
 )
-from .index0 import ensure_index0_payload
+from .index0 import compact_index0_payload, ensure_index0_payload
 from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 from utils.password_prompt import prompt_existing_password
 
@@ -240,7 +240,7 @@ class Vault:
 
     def save_index(self, data: dict) -> None:
         """Encrypt and write password index."""
-        data = ensure_index0_payload(data)
+        data = compact_index0_payload(data, fingerprint_dir=self.fingerprint_dir)
         self.encryption_manager.save_json_data(
             data, self.index_file, kdf=self._hkdf_kdf()
         )

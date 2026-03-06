@@ -50,6 +50,7 @@ from utils.key_validation import (
 from .vault import Vault
 from .backup import BackupManager
 from .errors import SeedPassError
+from .index0 import append_index0_event
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -193,6 +194,43 @@ class EntryManager:
             logger.error(f"Failed to save index: {e}")
             raise
 
+    def _entry_kind(self, entry: dict[str, Any]) -> str:
+        return str(
+            entry.get("kind", entry.get("type", EntryType.PASSWORD.value))
+        ).strip()
+
+    def _emit_index0_event(
+        self,
+        data: Dict[str, Any],
+        *,
+        event_type: str,
+        entry_id: int | str,
+        entry: dict[str, Any],
+        modified_ts: int | None = None,
+        payload_ref: dict[str, Any] | None = None,
+        links: list[dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
+        summary: str = "",
+    ) -> Dict[str, Any]:
+        entry_kind = self._entry_kind(entry)
+        payload_ref = dict(payload_ref or {})
+        payload_ref.setdefault("entry_id", str(entry_id))
+        return append_index0_event(
+            data,
+            event_type=event_type,
+            subject_type="entry",
+            subject_id=str(entry_id),
+            subject_kind=entry_kind,
+            modified_ts=modified_ts
+            or int(entry.get("modified_ts", 0) or self._now_unix()),
+            fingerprint_dir=self.fingerprint_dir,
+            payload_ref=payload_ref,
+            links=links if links is not None else entry.get("links", []),
+            tags=tags if tags is not None else entry.get("tags", []),
+            summary=summary,
+            source="entry_management",
+        )
+
     def get_next_index(self) -> int:
         """
         Retrieves the next available index for a new entry.
@@ -289,6 +327,14 @@ class EntryManager:
                 entry["policy"] = policy
 
             data["entries"][str(index)] = entry
+            data = self._emit_index0_event(
+                data,
+                event_type="entry_created",
+                entry_id=index,
+                entry=entry,
+                modified_ts=now_unix,
+                summary=f"Created {entry.get('kind', entry.get('type', 'entry'))} entry",
+            )
 
             logger.debug(
                 f"Added entry at index {index} with label '{entry.get('label', '')}'."
@@ -390,6 +436,14 @@ class EntryManager:
             }
 
         data["entries"][str(entry_id)] = entry
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=entry_id,
+            entry=entry,
+            modified_ts=now_unix,
+            summary=f"Created {entry.get('kind', entry.get('type', 'entry'))} entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -444,6 +498,14 @@ class EntryManager:
             "custom_fields": [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created ssh entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -509,6 +571,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created pgp entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -579,6 +649,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created nostr entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -618,6 +696,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created key_value entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -656,6 +742,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created document entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -797,6 +891,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created seed entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -878,6 +980,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created managed_account entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -1093,6 +1203,11 @@ class EntryManager:
         try:
             data = self._load_index()
             entry = data.get("entries", {}).get(str(index))
+            previous_archived = (
+                bool(entry.get("archived", entry.get("blacklisted", False)))
+                if isinstance(entry, dict)
+                else False
+            )
 
             if not entry:
                 logger.warning(
@@ -1331,6 +1446,18 @@ class EntryManager:
             entry["date_modified"] = self._iso_from_unix(entry["modified_ts"])
 
             data["entries"][str(index)] = entry
+            event_type = "entry_modified"
+            current_archived = bool(entry.get("archived", False))
+            if current_archived != previous_archived:
+                event_type = "entry_archived" if current_archived else "entry_restored"
+            data = self._emit_index0_event(
+                data,
+                event_type=event_type,
+                entry_id=index,
+                entry=entry,
+                modified_ts=entry["modified_ts"],
+                summary=f"{event_type.replace('_', ' ')} for {self._entry_kind(entry)}",
+            )
             logger.debug(
                 f"Modified entry at index {index} with label '{entry.get('label', '')}'."
             )
@@ -1386,6 +1513,20 @@ class EntryManager:
         )
         src["modified_ts"] = self._now_unix()
         src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+        data = self._emit_index0_event(
+            data,
+            event_type="link_added",
+            entry_id=index,
+            entry=src,
+            modified_ts=src["modified_ts"],
+            payload_ref={
+                "entry_id": str(index),
+                "target_id": str(target_id),
+                "relation": relation_norm,
+            },
+            links=[candidate],
+            summary="Added entry link",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -1417,6 +1558,7 @@ class EntryManager:
                 continue
             filtered.append(link)
         if len(filtered) != len(links):
+            removed_links = [link for link in links if link not in filtered]
             src["links"] = filtered
             src.setdefault(
                 "date_added",
@@ -1424,6 +1566,20 @@ class EntryManager:
             )
             src["modified_ts"] = self._now_unix()
             src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+            data = self._emit_index0_event(
+                data,
+                event_type="link_removed",
+                entry_id=index,
+                entry=src,
+                modified_ts=src["modified_ts"],
+                payload_ref={
+                    "entry_id": str(index),
+                    "target_id": str(target_id),
+                    "relation": relation_norm or "",
+                },
+                links=removed_links,
+                summary="Removed entry link",
+            )
             self._save_index(data)
             self.update_checksum()
             self.backup_manager.create_backup()
@@ -1743,6 +1899,18 @@ class EntryManager:
                         "event_hash": event_hash,
                         "source": "local-delete",
                     }
+                data = self._emit_index0_event(
+                    data,
+                    event_type="entry_deleted",
+                    entry_id=index,
+                    entry=entry,
+                    modified_ts=deleted_ts,
+                    payload_ref={
+                        "entry_id": str(index),
+                        "tombstone_event_hash": event_hash,
+                    },
+                    summary=f"Deleted {self._entry_kind(entry)} entry",
+                )
                 del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self._save_index(data)

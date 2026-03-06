@@ -4404,6 +4404,27 @@ class PasswordManager:
                         "Offline mode is enabled. Disable it in Settings to sync."
                     )
                 return None
+            try:
+                from .index0 import (
+                    build_manifest_index0_metadata,
+                    compact_index0_payload,
+                )
+
+                current_index = self.vault.load_index()
+                compacted_index = compact_index0_payload(current_index)
+                if compacted_index != current_index:
+                    self.vault.save_index(compacted_index)
+                    current_index = compacted_index
+                if client is not None:
+                    client.manifest_index0_metadata = build_manifest_index0_metadata(
+                        current_index,
+                        fingerprint_dir=self.fingerprint_dir,
+                    )
+            except Exception as index0_error:
+                logging.warning(
+                    "Failed to build manifest index0 metadata: %s",
+                    index0_error,
+                )
             encrypted = self.get_encrypted_data()
             if not encrypted:
                 if client is not None and hasattr(client, "last_error"):

@@ -1,6 +1,6 @@
 # SeedPass Dev Control Center
 
-Last updated: 2026-03-02  
+Last updated: 2026-03-05  
 Branch baseline: `beta`
 
 This is the single source-of-truth document to decide what to work on next.
@@ -21,23 +21,21 @@ Latest verification in this session:
   - full suite: `979 passed, 16 skipped`
   - coverage: `85.65%`
 - Focused TUI validation slices:
-  - `poetry run pytest -q src/tests/test_tui_v2_textual_interactions.py src/tests/test_tui_v2_action_matrix.py`
-  - latest result: `35 passed`
-  - includes profile-tree keyboard navigation/select command coverage
+  - `./.venv/bin/pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_typer_cli.py`
+  - latest result in the current v3/default-launch track: `77 passed`
+  - latest focused v3 UX/context regression slice: `18 passed`
 
 ## 2) Canonical Status Sources
 
 Use these docs as inputs, but treat this file as the decision layer:
 
+- TUI v3 plan (current working UI roadmap): `docs/tui_v3_plan.md`
 - TUI v2 plan: `docs/tui_v2_plan.md`
-- TUI parity backlog: `docs/tui_v2_parity_backlog.md`
-- TUI parity checklist: `docs/tui_v2_parity_checklist.md`
-- TUI legacy parity matrix: `docs/tui_v2_legacy_parity_matrix.md`
-- TUI v2 UI refresh plan (mockup-aligned): `docs/tui_v2_ui_refresh_plan.md`
-- TUI v2 integration execution plan (current working plan): `docs/tui_v2_integration_execution_plan_2026-03-02.md`
-- TUI v2 mockup gap audit: `docs/tui_v2_mockup_gap_audit_2026-03-02.md`
+- TUI v2 artifacts remain logic/reference material only unless explicitly reactivated
 - Semantic vector index integration plan: `docs/semantic_vector_index_plan.md`
 - Index0 atlas execution plan: `docs/index0_atlas_execution_plan_2026-03-05.md`
+- Atlas/search/graph integration plan: `docs/atlas_search_graph_integration_plan_2026-03-05.md`
+- Nostr communications future capability reference: `docs/nostr_comms_reference_and_future_capability_2026-03-05.md`
 - Cutover memo: `docs/tui_v2_cutover_decision.md`
 - Security readiness: `docs/security_readiness_checklist.md`
 - Supply-chain integrity: `docs/supply_chain_release_integrity.md`
@@ -49,11 +47,19 @@ Use these docs as inputs, but treat this file as the decision layer:
 ## 3) What Is Still Open
 
 ### Parity / Product
-- TUI v2 legacy parity closure is now documented as complete:
-  - `docs/tui_v2_parity_checklist.md` (“Full legacy workflow coverage: Yes”)
-  - bug-bash evidence reports:
-    - `artifacts/agent_tui_test/20260302T135526Z/report.json`
-    - `artifacts/agent_tui2_test/20260302T135526Z/report.json`
+- TUI v3 is now the default launch target (`seedpass` -> v3).
+- TUI v3 now owns:
+  - startup profile selection / unlock
+  - add-new / recover / restore onboarding
+  - inspector boards and context-aware lower pane behavior
+  - default-shell UX work
+- TUI v2 remains available via `seedpass tui2`, but is no longer the active UI development target.
+- Remaining v3 parity/hardening gaps still visible from the shipped code:
+  - context-aware action strip should continue being tightened per entry kind
+  - restore / import guidance and final visual polish still need iteration
+  - additional legacy utility and maintenance affordances should continue moving into v3 screens where they improve discoverability
+  - profile-management flows now exist in-app, but still need broader polish around naming, confirmations, and operator guidance
+  - maintenance screens now have shared styling/status helpers, but still need final mockup-level polish and any future screens should adopt the shared pattern from the start
 
 ### Security Readiness
 - `docs/security_readiness_checklist.md` still marks:
@@ -80,6 +86,35 @@ Use these docs as inputs, but treat this file as the decision layer:
   - Phase C complete baseline (legacy + TUI v2 semantic workflows and mode toggles)
   - Next: incremental mutation hooks + hybrid quality hardening
 
+### Search / Graph Integration Roadmap
+- New cross-system plan drafted and linked:
+  - `docs/atlas_search_graph_integration_plan_2026-03-05.md`
+- Purpose:
+  - unify `index0`, tags, links, and local semantic search into one search/navigation model
+- Phase A baseline landed:
+  - `SearchService` added in `src/seedpass/core/api.py`
+  - unified result payload with score breakdown, match reasons, safe excerpts, tags, and linked-hit summaries
+  - deterministic filter/sort pipeline added for keyword / hybrid / semantic search modes
+  - v3 entry grid now routes through the unified search path instead of branching search logic in the widget layer
+  - focused regression coverage added in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
+- Next planned implementation:
+  - richer sort/filter controls in v3
+  - linked-item navigation service methods and inspector consumers
+  - deeper atlas/search handoff and graph-aware result workflows
+
+### Future Capability: Nostr Communications
+- Research/reference doc added:
+  - `docs/nostr_comms_reference_and_future_capability_2026-03-05.md`
+- Purpose:
+  - capture the relevant NIPs for future DMs and team/community chat in SeedPass
+  - align that capability with managed deterministic identities, `index0`, and future institutional knowledge workflows
+- Current planning direction:
+  - prefer `NIP-17` + `NIP-44` + `NIP-59` for private DMs
+  - evaluate `NIP-29` as the strongest candidate for managed institutional group chat
+  - treat `NIP-28` and `NIP-72` as public/community-oriented layers
+- Not current implementation work:
+  - this is documented as a future addition and should not preempt the current v3/search/index0/security priorities
+
 ### Index0 Atlas Roadmap
 - New architecture/spec track drafted:
   - `docs/index0_atlas_execution_plan_2026-03-05.md`
@@ -90,6 +125,32 @@ Use these docs as inputs, but treat this file as the decision layer:
   - deterministic `index0` merge helper
   - Nostr manifest optional `index0` metadata support
   - focused tests in `src/tests/test_index0_core.py`
+- Phase 1 CRUD/link emission slice landed:
+  - deterministic `index0_event` emission from entry create/modify/archive/restore/delete flows
+  - deterministic `index0_event` emission from link add/remove flows
+  - writer-head updates and hierarchy-aware scope derivation from active profile path
+  - focused regression coverage in `src/tests/test_index0_events.py`
+- Phase 1 checkpoint/manifest slice landed:
+  - deterministic daily checkpoint rebuild from canonical `index0_event` streams
+  - bounded checkpoint retention per writer
+  - manifest `index0` publication of checkpoint hashes and stream heads during sync
+  - focused regression coverage in `src/tests/test_index0_checkpoints.py`
+- Phase 1 canonical views slice landed:
+  - deterministic synced `children_of`, `counts_by_kind`, and `recent_activity` views
+  - view rebuild runs in the same compaction path as checkpoints
+  - lightweight atlas read helpers landed in core
+  - focused regression coverage in `src/tests/test_index0_views.py`
+- Atlas consumer slice landed:
+  - `AtlasService` added in `src/seedpass/core/api.py`
+  - v3 palette can open an atlas/wayfinder screen backed by the service layer
+  - v3 main workspace now shows an always-visible atlas strip in the shell chrome
+  - v3 atlas screen now supports direct entry jumps and quick filter jumps
+  - focused regression coverage updated in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
+- Current accomplishments summary:
+  - v3 is the default UI and owns unlock/onboarding/maintenance/profile/security flows
+  - semantic index is integrated as a local derived retrieval layer
+  - canonical tags and typed links already exist at the entry model level
+  - `index0` now covers canonical atlas events, checkpoints, manifest metadata, synced views, service reads, and first v3 consumers
 - Intent:
   - add canonical encrypted atlas state inside the existing payload for audit, hierarchy wayfinding, and future KB/chat navigation
 - Key implementation direction:
@@ -98,42 +159,41 @@ Use these docs as inputs, but treat this file as the decision layer:
   - rebuildable wayfinder views layered on top
 - Sequencing:
   - Phase 0 spec/schema is drafted
-  - Phase 1 foundation is partially implemented
-  - next implementation slice: event emission hooks from entry CRUD/link flows
+  - Phase 1 foundation + CRUD/link emission + checkpoint/manifest publication + first canonical views are implemented
+  - atlas read service layer and first v3 consumers are implemented
+  - first actionable v3 wayfinder navigation flows are implemented
+  - next implementation slice: broader agent-facing atlas workflows and deeper search/navigation handoff, plus any later event-pruning compaction policy
   - implementation phases should not preempt current TUI cutover-critical or security-readiness blockers
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Execute Phases A-C from `docs/tui_v2_integration_execution_plan_2026-03-02.md`:
-: selection lifecycle, real hierarchy tree, and dense header/footer rebuild.
-2. Execute Phases D and G:
-: filter menu model and reveal/QR reliability hardening.
-3. Execute Phase H:
-: responsive and density polish for high-resolution and compact terminals.
-4. Execute Phase E:
-: unified lexical+tag+semantic search integration.
-5. Execute Phase F:
-: final per-board fidelity pass and strict mockup closeout.
-6. Start Index0 Atlas Phase 0 from `docs/index0_atlas_execution_plan_2026-03-05.md`:
-: lock schema, merge contract extension, manifest checkpoint fields, and compaction rules.
-7. After cutover-critical TUI/security slices stabilize, execute Index0 Atlas Phases 1-3:
-: canonical storage, event emission hooks, and manifest checkpoint validation.
-8. After semantic hardening resumes, execute Index0 Atlas Phase 5:
-: atlas read APIs/views and semantic interplay.
+1. Execute the remaining active v3 parity slices from `docs/tui_v3_plan.md`:
+: context-aware actions, maintenance affordances, and final board fidelity polish.
+2. Continue TUI v3 utility/maintenance carryover:
+: remaining settings-linked operational flows, discoverable security maintenance, and final maintenance-screen mockup polish passes.
+3. Continue v3 startup/restore hardening:
+: clearer restore warnings, success summaries, and import/recovery guidance.
+4. Continue Phase B/C from `docs/atlas_search_graph_integration_plan_2026-03-05.md`:
+: linked-item navigation, richer filter/sort controls, and deeper v3 search/navigation handoff.
+5. Resume Index0 Atlas and graph follow-on work after current v3 UX slices stabilize:
+: agent-facing atlas workflows, linked-item navigation, deeper search/navigation handoff, and any later event-pruning compaction policy.
+6. Continue security-readiness blockers in parallel where they do not conflict with the v3 path.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
-### Slice A: “Post-Parity Cutover Readiness”
+### Slice A: “Search Graph Navigation”
 
 Deliverables:
-- Keep parity docs in sync with shipped behavior and evidence.
-- Raise test gates/coverage thresholds for the TUI v2 critical path.
-- Capture remaining cutover blockers as explicit release criteria.
+- Add linked-neighbor and relation-summary methods above the current atlas/search foundations.
+- Expose explicit sort and filter controls in v3 on top of the existing unified `SearchService`.
+- Add inspector linked-item navigation so users can browse outgoing/incoming relationships without raw JSON inspection.
+- Keep the atlas/search/graph plan and control center synchronized with shipped behavior as this slice lands.
 
 Exit criteria:
-- Matrix exists, reviewed, and linked from this document.
-- New tests pass in CI-equivalent run.
-- Remaining parity gaps are explicit and severity-ranked.
+- one service-layer path can return linked neighbors and relation summaries for an entry
+- v3 exposes explicit sort/filter affordances instead of relying only on command-state
+- linked items can be viewed and opened from the inspector
+- focused search/atlas/v3 suites stay green
 
 Progress update (2026-03-02):
 - Matrix added: `docs/tui_v2_legacy_parity_matrix.md`

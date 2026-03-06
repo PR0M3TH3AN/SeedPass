@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+from types import SimpleNamespace
 from textual.app import ComposeResult
 from textual.widgets import Static, DataTable
 from textual.reactive import reactive
@@ -59,6 +60,10 @@ class EntryDataTable(DataTable):
     High-fidelity data table for entry browsing.
     """
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._suppress_next_highlight = True
+
     def on_mount(self) -> None:
         self.cursor_type = "row"
         self.add_columns("Sel", "Id", "Entry#", "Label", "Kind", "Meta", "Arch")
@@ -76,6 +81,8 @@ class EntryDataTable(DataTable):
         app = self.app
         if "entry" not in app.services:
             return
+        if app.selected_entry_id is None:
+            self._suppress_next_highlight = True
 
         # Map filter presets to kind lists
         kind_map = {
@@ -95,8 +102,36 @@ class EntryDataTable(DataTable):
         kinds = kind_map.get(app.filter_kind)
 
         entries = []
-        # Use semantic search if requested and available
-        if app.search_mode != "keyword" and "semantic" in app.services and query:
+        if "search" in app.services:
+            try:
+                results = app.services["search"].search(
+                    query,
+                    kinds=kinds,
+                    include_archived=app.show_archived,
+                    archived_only=app.show_archived,
+                    mode=app.search_mode,
+                )
+                for result in results:
+                    try:
+                        kind_val = str(result.get("kind", "")).lower()
+                        entry_id = int(result.get("entry_id", 0))
+                    except Exception:
+                        continue
+                    entries.append(
+                        (
+                            entry_id,
+                            str(result.get("label", "")),
+                            None,
+                            str(result.get("meta", "")) or None,
+                            bool(result.get("archived", False)),
+                            SimpleNamespace(value=kind_val),
+                        )
+                    )
+            except Exception as e:
+                app.notify(f"Search failed: {e}", severity="error")
+                entries = []
+        # Fallback to direct semantic search if requested and available
+        elif app.search_mode != "keyword" and "semantic" in app.services and query:
             try:
                 results = app.services["semantic"].search(query, mode=app.search_mode)
                 # results is list of {entry_id, kind, label, score, excerpt}
@@ -173,6 +208,9 @@ class EntryDataTable(DataTable):
         """Update selection when moving cursor."""
         rk = str(event.row_key.value) if event.row_key else None
         if rk:
+            if self._suppress_next_highlight and self.app.selected_entry_id is None:
+                self._suppress_next_highlight = False
+                return
             try:
                 self.app.selected_entry_id = int(rk)
             except ValueError:
@@ -182,6 +220,7 @@ class EntryDataTable(DataTable):
         """Handle explicit entry selection (Enter)."""
         rk = str(event.row_key.value) if event.row_key else None
         if rk:
+            self._suppress_next_highlight = False
             try:
                 eid = int(rk)
                 self.app.selected_entry_id = eid

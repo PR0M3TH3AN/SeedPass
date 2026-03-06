@@ -11,15 +11,20 @@ from textual.widgets import Button, Input, Label, Static
 from textual.containers import Horizontal, Vertical
 from utils.fingerprint_manager import FingerprintManager
 
-from .widgets.header import RibbonHeader
+from .widgets.header import AtlasStrip, RibbonHeader
 from .widgets.sidebar import SidebarContainer
 from .widgets.grid import GridContainer
 from .widgets.inspector import BoardContainer
 from .widgets.palette import CommandPalette
 from .widgets.action_bar import ActionBar
+from .screens.atlas import AtlasWayfinderScreen
 from .screens.settings import SettingsScreen
 from .screens.inspector import MaximizedInspectorScreen
+from .screens.maintenance import format_status
+from .screens.pubkey import NostrPubkeyScreen
+from .screens.profile import ProfileManagementScreen
 from .screens.relays import RelaysScreen
+from .screens.security import BackupParentSeedScreen, ChangePasswordScreen
 
 
 def render_qr_ascii(data: str) -> str:
@@ -58,7 +63,7 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, relay-list, maximize, copy, edit, export, add, seed-plus, archive, restore, ml, mx, db-export <path>, db-import <path>"
+                "v3 commands: help, stats, atlas, wayfinder, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, profiles, relay-list, npub, nostr-pubkey, nostr-reset-sync-state, nostr-fresh-namespace, change-password, backup-parent-seed <path> (optional: password), maximize, copy, edit, export, add, seed-plus, archive, restore, delete, ml, mx, db-export <path>, db-import <path>"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -66,6 +71,8 @@ class CommandProcessor:
             if "vault" in self.app.services:
                 stats = self.app.services["vault"].stats()
                 self.app.notify(f"Total entries: {stats.get('total_entries', 0)}")
+        elif cmd in {"atlas", "wayfinder"}:
+            self.app.action_open_atlas_wayfinder()
         elif cmd == "session-status":
             self.app.action_session_status()
         elif cmd == "lock":
@@ -113,8 +120,37 @@ class CommandProcessor:
                 self.app.notify("Entry ID must be an integer", severity="error")
         elif cmd == "settings":
             self.app.action_toggle_settings()
+        elif cmd == "profiles":
+            self.app.action_open_profile_management()
         elif cmd == "relay-list":
             self.app.action_toggle_relays()
+        elif cmd in {"npub", "nostr-pubkey"}:
+            if args:
+                self.app.notify("Usage: npub", severity="warning")
+                return
+            self.app.action_show_profile_pubkey()
+        elif cmd == "nostr-reset-sync-state":
+            if args:
+                self.app.notify("Usage: nostr-reset-sync-state", severity="warning")
+                return
+            self.app.action_nostr_reset_sync_state()
+        elif cmd == "nostr-fresh-namespace":
+            if args:
+                self.app.notify("Usage: nostr-fresh-namespace", severity="warning")
+                return
+            self.app.action_nostr_fresh_namespace()
+        elif cmd == "change-password":
+            if args:
+                self.app.notify("Usage: change-password", severity="warning")
+                return
+            self.app.action_open_change_password()
+        elif cmd == "backup-parent-seed":
+            if not args:
+                self.app.action_open_backup_parent_seed()
+                return
+            path = args[0]
+            password = args[1] if len(args) > 1 else None
+            self.app.action_backup_parent_seed(path, password)
         elif cmd == "maximize":
             self.app.action_maximize_inspector()
         elif cmd == "add":
@@ -133,6 +169,8 @@ class CommandProcessor:
             self.app.action_managed_exit()
         elif cmd in {"archive", "restore"}:
             self.app.action_toggle_archive()
+        elif cmd == "delete":
+            self.app.action_delete_selected()
         elif cmd == "db-export":
             path = args[0] if args else "backup.enc"
             self.app.action_db_export(path)
@@ -166,9 +204,12 @@ class MainScreen(Screen):
                 yield SidebarContainer(id="sidebar-container")
             with Vertical(id="right-pane"):
                 yield RibbonHeader(id="ribbon-header")
+                yield AtlasStrip(id="atlas-strip")
                 yield GridContainer(id="grid-container")
-                with Vertical(id="inspector-pane"):
-                    yield Static("Inspector Board", id="inspector-heading")
+                with Vertical(id="inspector-pane", classes="hidden"):
+                    with Horizontal(id="inspector-header"):
+                        yield Static("Inspector Board", id="inspector-heading")
+                        yield Button("Close", id="inspector-close", variant="default")
                     yield BoardContainer(id="board-container")
         yield ActionBar(id="action-bar")
 
@@ -376,6 +417,9 @@ class CreateProfileScreen(Screen):
     def on_mount(self) -> None:
         self.query_one("#create-mode", Input).value = "existing"
         self.query_one("#create-nostr-empty-ok", Input).value = "no"
+        self._set_status(
+            "Import an existing seed, generate a new one, or restore from Nostr/local backup."
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -393,6 +437,23 @@ class CreateProfileScreen(Screen):
 
     def on_input_submitted(self, _event: Input.Submitted) -> None:
         self._submit()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id != "create-mode":
+            return
+        mode = event.value.strip().lower()
+        guidance = {
+            "existing": "Import an existing seed phrase to create a local profile.",
+            "words": "Use guided word entry or paste the full phrase once all 12 words are confirmed.",
+            "generate": "Generate a new deterministic seed, then store it safely before finishing setup.",
+            "nostr": "Restore from Nostr using the seed phrase. Use 'yes' only if you want to continue without a remote backup present.",
+            "backup": "Restore from a local encrypted backup. Provide both the seed phrase and the backup file path.",
+        }
+        self._set_status(
+            guidance.get(
+                mode, "Choose a mode: existing, words, generate, nostr, or backup."
+            )
+        )
 
     def _set_status(self, message: str) -> None:
         self.query_one("#create-status", Static).update(message)
@@ -435,6 +496,9 @@ class CreateProfileScreen(Screen):
                 if not seed:
                     self._set_status("Enter the seed phrase for Nostr restore.")
                     return
+                self._set_status(
+                    "Attempting Nostr restore for the supplied seed profile..."
+                )
                 fingerprint = self.app._restore_from_nostr_profile(
                     seed=seed,
                     password=password,
@@ -445,8 +509,11 @@ class CreateProfileScreen(Screen):
                     self._set_status("Enter the seed phrase for backup restore.")
                     return
                 if not backup_path:
-                    self._set_status("Enter the backup path for backup mode.")
+                    self._set_status("Enter the encrypted backup path for backup mode.")
                     return
+                self._set_status(
+                    "Attempting local backup restore from the supplied path..."
+                )
                 fingerprint = self.app._restore_from_backup_profile(
                     seed=seed,
                     password=password,
@@ -625,6 +692,9 @@ class RecoverProfileScreen(Screen):
 
     def on_mount(self) -> None:
         self.refresh_profiles()
+        self._set_status(
+            "Recovery resets the local index for the selected profile and rebinds it to the supplied seed phrase."
+        )
 
     def refresh_profiles(self) -> None:
         profiles = self.app._list_boot_profiles()
@@ -693,7 +763,31 @@ class SeedPassTuiV3(App[None]):
     #left-pane { width: 35; border: solid black; background: #999999; }
     #right-pane { width: 1fr; border: solid black; background: #999999; margin-left: 0; }
     #inspector-pane { height: 5fr; border-top: heavy black; background: #000000; margin-top: 0; }
-    #inspector-heading { background: #000000; color: #ffffff; padding: 0 1; }
+    #inspector-pane.hidden { display: none; }
+    #inspector-header {
+        height: 3;
+        layout: horizontal;
+        background: #000000;
+        color: #ffffff;
+        border-bottom: solid #ffffff;
+    }
+    #inspector-heading {
+        width: 1fr;
+        background: #000000;
+        color: #ffffff;
+        padding: 1 1 0 1;
+        text-style: bold;
+    }
+    #inspector-close {
+        width: 10;
+        min-width: 10;
+        height: 1;
+        margin: 1 1 0 0;
+        background: #ffffff;
+        color: #000000;
+        border: none;
+        text-style: bold;
+    }
     
     /* Global classes that might be used by children */
     #sidebar-placeholder, #grid-placeholder, #inspector-placeholder {
@@ -706,6 +800,7 @@ class SeedPassTuiV3(App[None]):
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("ctrl+p", "open_palette", "Palette", show=True),
+        Binding("w", "open_atlas_wayfinder", "Wayfinder", show=True),
         Binding("shift+s", "toggle_settings", "Settings", show=True),
         Binding("shift+a", "add_entry", "Add", show=True),
         Binding("shift+c", "seed_plus", "Seed+", show=True),
@@ -714,6 +809,7 @@ class SeedPassTuiV3(App[None]):
         Binding("shift+m", "managed_exit", "Exit", show=True),
         Binding("e", "edit_selected", "Edit", show=True),
         Binding("x", "export_selected", "Export", show=True),
+        Binding("d", "delete_selected", "Delete", show=False),
         Binding("v", "reveal_selected", "Reveal", show=False),
         Binding("g", "show_qr", "QR", show=False),
         Binding("a", "toggle_archive", "Archive", show=False),
@@ -732,6 +828,10 @@ class SeedPassTuiV3(App[None]):
     # Internal state for sensitive actions
     _pending_sensitive_confirm: tuple[str, int, float] | None = None
 
+    @staticmethod
+    def render_qr_ascii(data: str) -> str:
+        return render_qr_ascii(data)
+
     def __init__(
         self,
         fingerprint: str | None = None,
@@ -743,6 +843,8 @@ class SeedPassTuiV3(App[None]):
         utility_service_factory: Callable | None = None,
         vault_service_factory: Callable | None = None,
         semantic_service_factory: Callable | None = None,
+        atlas_service_factory: Callable | None = None,
+        search_service_factory: Callable | None = None,
     ) -> None:
         super().__init__()
         # Store factories
@@ -755,6 +857,8 @@ class SeedPassTuiV3(App[None]):
             "utility": utility_service_factory,
             "vault": vault_service_factory,
             "semantic": semantic_service_factory,
+            "atlas": atlas_service_factory,
+            "search": search_service_factory,
         }
         # Initialized services
         self.services: dict[str, Any] = {}
@@ -817,10 +921,12 @@ class SeedPassTuiV3(App[None]):
                 EntryService,
                 NostrService,
                 ProfileService,
+                SearchService,
                 SemanticIndexService,
                 SyncService,
                 UtilityService,
                 VaultService,
+                AtlasService,
             )
             from seedpass.core.manager import PasswordManager
 
@@ -834,6 +940,8 @@ class SeedPassTuiV3(App[None]):
                 "utility": UtilityService(pm),
                 "vault": VaultService(pm),
                 "semantic": SemanticIndexService(pm),
+                "atlas": AtlasService(pm),
+                "search": SearchService(pm),
             }
             self.active_fingerprint = pm.current_fingerprint or fingerprint
             self.session_locked = False
@@ -990,16 +1098,34 @@ class SeedPassTuiV3(App[None]):
     def watch_selected_entry_id(self, old_id: int | None, new_id: int | None) -> None:
         """Update inspectors when an entry is selected."""
         try:
+            inspector = self.screen.query_one("#inspector-pane")
+            if new_id is None:
+                inspector.add_class("hidden")
+            else:
+                inspector.remove_class("hidden")
             self.screen.query_one("#board-container").update_entry(new_id)
         except Exception:
             pass
+
+    def action_close_inspector(self) -> None:
+        """Collapse the inspector and clear the active selection."""
+        self.selected_entry_id = None
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle local button actions that should not require a full screen."""
+        if event.button.id == "inspector-close":
+            self.action_close_inspector()
+            event.stop()
 
     def action_refresh(self) -> None:
         """Force a global UI refresh."""
         if not self._main_screen_initialized:
             return
-        self.screen.query_one("#profile-tree")._refresh_tree()
-        self.screen.query_one("#entry-data-table")._refresh_data()
+        try:
+            self.screen.query_one("#profile-tree")._refresh_tree()
+            self.screen.query_one("#entry-data-table")._refresh_data()
+        except Exception:
+            pass
         self.notify("UI Refreshed")
 
     def action_search(self, query: str) -> None:
@@ -1033,9 +1159,205 @@ class SeedPassTuiV3(App[None]):
         """Push the full-screen settings screen."""
         self.push_screen(SettingsScreen())
 
+    def action_open_atlas_wayfinder(self) -> None:
+        atlas = self.services.get("atlas")
+        if atlas is None:
+            self.notify("Atlas service unavailable.", severity="warning")
+            return
+        try:
+            payload = atlas.wayfinder()
+        except Exception as exc:
+            self.notify(f"Atlas load failed: {exc}", severity="error")
+            return
+        self.push_screen(AtlasWayfinderScreen(payload))
+
+    def action_open_profile_management(self) -> None:
+        """Open the in-app profile management screen."""
+        if "profile" not in self.services:
+            self.notify("Profile service offline", severity="error")
+            return
+        self.push_screen(ProfileManagementScreen())
+
+    def action_switch_profile(
+        self, fingerprint: str | None, password: str | None = None
+    ) -> None:
+        """Switch the active profile through the service layer."""
+        if not fingerprint:
+            return
+        profile_service = self.services.get("profile")
+        if not profile_service:
+            self.notify("Profile service offline", severity="error")
+            return
+        try:
+            from seedpass.core.api import ProfileSwitchRequest
+
+            profile_service.switch_profile(
+                ProfileSwitchRequest(fingerprint=fingerprint, password=password)
+            )
+            self.active_fingerprint = fingerprint
+            self.notify(f"Switched to profile {fingerprint[:12]}")
+            if isinstance(self.screen, ProfileManagementScreen):
+                self.screen._set_status(
+                    format_status(
+                        "success",
+                        f"Switched to profile {fingerprint[:12]}. Refreshing workspace...",
+                    )
+                )
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Profile switch failed: {e}", severity="error")
+            if isinstance(self.screen, ProfileManagementScreen):
+                self.screen._set_status(
+                    format_status("error", f"Profile switch failed: {e}")
+                )
+
+    def action_remove_profile(self, fingerprint: str | None) -> None:
+        """Remove a profile through the service layer."""
+        if not fingerprint:
+            return
+        current = self.active_fingerprint
+        if fingerprint == current:
+            self.notify("Cannot remove the active profile", severity="warning")
+            return
+        profile_service = self.services.get("profile")
+        if not profile_service:
+            self.notify("Profile service offline", severity="error")
+            return
+        try:
+            from seedpass.core.api import ProfileRemoveRequest
+
+            profile_service.remove_profile(
+                ProfileRemoveRequest(fingerprint=fingerprint)
+            )
+            self.notify(f"Removed profile {fingerprint[:12]}")
+            if isinstance(self.screen, ProfileManagementScreen):
+                self.screen._set_status(
+                    format_status(
+                        "success",
+                        f"Removed profile {fingerprint[:12]}. List refreshed.",
+                    )
+                )
+                self.screen.action_refresh_profiles()
+        except Exception as e:
+            self.notify(f"Profile removal failed: {e}", severity="error")
+            if isinstance(self.screen, ProfileManagementScreen):
+                self.screen._set_status(
+                    format_status("error", f"Profile removal failed: {e}")
+                )
+
     def action_toggle_relays(self) -> None:
         """Push the Nostr Relay Management screen."""
         self.push_screen(RelaysScreen())
+
+    def action_show_profile_pubkey(self) -> None:
+        """Show the active profile npub and public QR payload."""
+        if "nostr" not in self.services:
+            self.notify("Nostr service offline", severity="error")
+            return
+        self.push_screen(NostrPubkeyScreen())
+
+    def action_open_change_password(self) -> None:
+        """Open the vault password-change flow."""
+        if "vault" not in self.services:
+            self.notify("Vault service offline", severity="error")
+            return
+        self.push_screen(ChangePasswordScreen())
+
+    def action_change_password(self, old_password: str, new_password: str) -> None:
+        """Change the active vault password via the service layer."""
+        vault = self.services.get("vault")
+        if not vault:
+            self.notify("Vault service offline", severity="error")
+            return
+        try:
+            from seedpass.core.api import ChangePasswordRequest
+
+            vault.change_password(
+                ChangePasswordRequest(
+                    old_password=old_password,
+                    new_password=new_password,
+                )
+            )
+            self.notify("Vault password updated")
+            if isinstance(self.screen, ChangePasswordScreen):
+                self.screen._set_status(
+                    format_status(
+                        "success",
+                        "Vault password updated successfully. Returning to the previous screen.",
+                    )
+                )
+                self.pop_screen()
+        except Exception as e:
+            self.notify(f"Change password failed: {e}", severity="error")
+            if isinstance(self.screen, ChangePasswordScreen):
+                self.screen._set_status(
+                    format_status("error", f"Change password failed: {e}")
+                )
+
+    def action_open_backup_parent_seed(self) -> None:
+        """Open the encrypted parent-seed backup flow."""
+        if "vault" not in self.services:
+            self.notify("Vault service offline", severity="error")
+            return
+        self.push_screen(BackupParentSeedScreen())
+
+    def action_backup_parent_seed(
+        self, path: str | None, password: str | None = None
+    ) -> None:
+        """Export an encrypted parent-seed backup via the service layer."""
+        vault = self.services.get("vault")
+        if not vault:
+            self.notify("Vault service offline", severity="error")
+            return
+        try:
+            from pathlib import Path
+            from seedpass.core.api import BackupParentSeedRequest
+
+            req = BackupParentSeedRequest(
+                path=Path(path) if path else None,
+                password=password,
+            )
+            vault.backup_parent_seed(req)
+            target = str(req.path) if req.path is not None else "(default path)"
+            self.notify(f"Parent seed backup exported to {target}")
+            if isinstance(self.screen, BackupParentSeedScreen):
+                self.screen._set_status(
+                    format_status(
+                        "success",
+                        f"Parent seed backup exported to {target}. Returning to the previous screen.",
+                    )
+                )
+                self.pop_screen()
+        except Exception as e:
+            self.notify(f"Parent seed backup failed: {e}", severity="error")
+            if isinstance(self.screen, BackupParentSeedScreen):
+                self.screen._set_status(
+                    format_status("error", f"Parent seed backup failed: {e}")
+                )
+
+    def action_nostr_reset_sync_state(self) -> None:
+        """Reset manifest and delta sync metadata for the active profile."""
+        nostr = self.services.get("nostr")
+        if not nostr:
+            self.notify("Nostr service offline", severity="error")
+            return
+        try:
+            idx = nostr.reset_sync_state()
+            self.notify(f"Reset Nostr sync state at account index {idx}")
+        except Exception as e:
+            self.notify(f"Reset sync state failed: {e}", severity="error")
+
+    def action_nostr_fresh_namespace(self) -> None:
+        """Advance to a fresh deterministic Nostr namespace."""
+        nostr = self.services.get("nostr")
+        if not nostr:
+            self.notify("Nostr service offline", severity="error")
+            return
+        try:
+            idx = nostr.start_fresh_namespace()
+            self.notify(f"Started fresh Nostr namespace at account index {idx}")
+        except Exception as e:
+            self.notify(f"Fresh namespace failed: {e}", severity="error")
 
     def action_add_entry(self) -> None:
         """Open the add entry wizard."""
@@ -1186,6 +1508,48 @@ class SeedPassTuiV3(App[None]):
                 self.notify("No value to copy", severity="warning")
         except Exception as e:
             self.notify(f"Copy failed: {e}", severity="error")
+
+    def action_delete_selected(self, confirm: bool = False) -> None:
+        """Delete the selected entry after explicit confirmation."""
+        if self.session_locked:
+            self.notify("Vault is locked", severity="error")
+            return
+        if self.selected_entry_id is None:
+            return
+
+        try:
+            entry = self.services["entry"].retrieve_entry(self.selected_entry_id)
+            kind = str(entry.get("kind") or entry.get("type") or "entry").lower()
+            label = str(entry.get("label") or f"Entry #{self.selected_entry_id}")
+
+            if not confirm:
+                confirm = self._consume_confirm(
+                    "delete_selected", self.selected_entry_id
+                )
+
+            if not confirm:
+                self._pending_sensitive_confirm = (
+                    "delete_selected",
+                    self.selected_entry_id,
+                    time.time(),
+                )
+                self._update_board_sensitive(
+                    prompt=(
+                        "CONFIRMATION REQUIRED\n\n"
+                        f"Delete '{label}' ({kind}).\n"
+                        "Press 'd' again within 8s to permanently delete."
+                    )
+                )
+                self.notify("Press 'd' again to confirm deletion")
+                return
+
+            delete_id = self.selected_entry_id
+            self.services["entry"].delete_entry(delete_id)
+            self.selected_entry_id = None
+            self.notify(f"Deleted Entry #{delete_id}")
+            self.action_refresh()
+        except Exception as e:
+            self.notify(f"Delete failed: {e}", severity="error")
 
     def action_managed_load(self) -> None:
         """Load the selected managed account or seed profile as the active session."""

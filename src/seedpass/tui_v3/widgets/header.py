@@ -60,3 +60,54 @@ class RibbonHeader(Static):
         self.watch(self.app, "active_fingerprint", self.refresh)
         self.watch(self.app, "session_locked", self.refresh)
         self.watch(self.app, "filter_kind", self.refresh)
+
+
+class AtlasStrip(Static):
+    """Compact wayfinder strip for the active scope."""
+
+    DEFAULT_CSS = """
+    AtlasStrip {
+        height: 2;
+        background: #d9d9d9;
+        color: #000000;
+        padding: 0 1;
+        border-top: solid black;
+        border-bottom: solid black;
+        text-style: bold;
+    }
+    """
+
+    def render(self) -> str:
+        app = self.app
+        atlas = app.services.get("atlas")
+        if atlas is None:
+            return "Wayfinder  |  Atlas unavailable"
+        try:
+            payload = atlas.wayfinder()
+        except Exception:
+            return "Wayfinder  |  Atlas unavailable"
+
+        scope = str(payload.get("scope_path", "unknown"))
+        counts = ((payload.get("counts_by_kind") or {}).get("data") or {}).get(
+            "counts", {}
+        )
+        recent_items = ((payload.get("recent_activity") or {}).get("data") or {}).get(
+            "items", []
+        )
+        top_counts = ", ".join(
+            f"{kind}:{count}" for kind, count in sorted(counts.items())[:3]
+        )
+        if not top_counts:
+            top_counts = "no entries"
+        recent = "no recent activity"
+        if recent_items:
+            item = recent_items[0]
+            recent = (
+                f"{item.get('event_type', 'event')} #{item.get('subject_id', '?')} "
+                f"({item.get('subject_kind', 'entry')})"
+            )
+        return f"Wayfinder  |  {scope}  |  Counts {top_counts}  |  Recent {recent}"
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "active_fingerprint", self.refresh)
+        self.watch(self.app, "selected_entry_id", self.refresh)

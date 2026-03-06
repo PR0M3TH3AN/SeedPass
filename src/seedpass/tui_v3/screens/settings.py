@@ -88,16 +88,22 @@ class SettingsScreen(Screen):
             f"KDF Iterations : {get_val('kdf_iterations', 100000)}  [dim](setting-kdf-iterations <n>)[/dim]",
             f"KDF Mode       : {get_val('kdf_mode', 'argon2id')}  [dim](setting-kdf-mode <mode>)[/dim]",
             f"Lock Timeout   : {get_val('inactivity_timeout', 300)}s  [dim](setting-timeout <s>)[/dim]",
+            "Password Flow  : [dim](change-password)[/dim]",
+            "Profiles       : [dim](profiles)[/dim]",
         ]
 
         backup_rows = [
             f"Backup Path    : {get_val('additional_backup_path', '(none)')}  [dim](db-export <path>)[/dim]",
             f"Backup Interval: {get_val('backup_interval', 3600)}s",
+            "Seed Backup    : [dim](backup-parent-seed <path>)[/dim]",
         ]
 
         nostr_rows = [
             f"Sync Mode      : {get_val('semantic_search_mode', 'keyword')}  [dim](search-mode ...)[/dim]",
             f"Relays         : {len(get_val('relays', []))} connected  [dim](relay-list)[/dim]",
+            "Profile npub   : [dim](npub)[/dim]",
+            "Reset Sync     : [dim](nostr-reset-sync-state)[/dim]",
+            "Fresh Namespace: [dim](nostr-fresh-namespace)[/dim]",
         ]
 
         # Use the app's card rendering utility if available, or fallback

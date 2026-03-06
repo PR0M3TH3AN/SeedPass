@@ -12,12 +12,14 @@ from threading import Lock
 from typing import List, Optional, Dict, Any
 import dataclasses
 import json
+import time
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .manager import PasswordManager
 from .pubsub import bus
 from .entry_types import EntryType
+from .index0 import derive_index0_context, get_canonical_view, list_canonical_views
 from .semantic_index import SemanticIndex
 from utils import copy_to_clipboard
 
@@ -113,6 +115,24 @@ class GeneratePasswordRequest(PasswordPolicyOptions):
 
 class GeneratePasswordResponse(BaseModel):
     password: str
+
+
+class SearchResult(BaseModel):
+    """Normalized search result used across UI surfaces."""
+
+    entry_id: int
+    label: str
+    kind: str
+    scope_path: str
+    archived: bool = False
+    score: float = 0.0
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    match_reasons: list[str] = Field(default_factory=list)
+    excerpt: str = ""
+    linked_hits: list[dict[str, Any]] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    modified_ts: int = 0
+    meta: str = ""
 
 
 class VaultService:
@@ -715,6 +735,11 @@ class EntryService:
             self._manager.entry_manager.restore_entry(entry_id)
             self._manager.start_background_vault_sync()
 
+    def delete_entry(self, entry_id: int) -> None:
+        with self._lock:
+            self._manager.entry_manager.delete_entry(entry_id)
+            self._manager.start_background_vault_sync()
+
     def export_totp_entries(self) -> dict:
         with self._lock:
             key = getattr(self._manager, "KEY_TOTP_DET", None) or getattr(
@@ -1047,6 +1072,501 @@ class SemanticIndexService:
         for row in items:
             row["score"] = round(float(row.get("score", 0.0)), 6)
         return items[: max(1, int(k))]
+
+
+class SearchService:
+    """Thread-safe unified search wrapper for lexical, semantic, and atlas-aware ranking."""
+
+    _SECRET_EXCERPT_KINDS = {
+        "password",
+        "stored_password",
+        "totp",
+        "seed",
+        "managed_account",
+        "ssh",
+        "pgp",
+        "nostr",
+    }
+    _SEMANTIC_MODES = {"hybrid", "semantic"}
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def _scope_path(self) -> str:
+        profile_dir = getattr(self._manager, "fingerprint_dir", None)
+        if profile_dir is None:
+            return ""
+        return derive_index0_context(profile_dir)["scope_path"]
+
+    def _all_entries(self) -> list[dict[str, Any]]:
+        em = getattr(self._manager, "entry_manager", None)
+        if em is None:
+            return []
+        try:
+            rows = em.search_entries(
+                "",
+                kinds=None,
+                include_archived=True,
+                archived_only=False,
+            )
+        except TypeError:
+            rows = em.search_entries("", kinds=None)
+        entries: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                entry_id = int(row[0])
+            except Exception:
+                continue
+            entry = em.retrieve_entry(entry_id)
+            if isinstance(entry, dict) and entry:
+                payload = dict(entry)
+                payload.setdefault("id", entry_id)
+                entries.append(payload)
+        entries.sort(key=lambda item: int(item.get("id", 0) or 0))
+        return entries
+
+    @staticmethod
+    def _entry_kind(entry: dict[str, Any]) -> str:
+        return str(entry.get("kind") or entry.get("type") or "").strip().lower()
+
+    @staticmethod
+    def _normalize_kind_filters(kinds: list[str] | None) -> set[str]:
+        if not kinds:
+            return set()
+        return {
+            str(kind).strip().lower() for kind in kinds if str(kind).strip().lower()
+        }
+
+    @staticmethod
+    def _safe_excerpt(entry: dict[str, Any], kind: str) -> str:
+        fields = ["notes"]
+        if kind in {"document", "note"}:
+            fields.append("content")
+        elif kind in {"password", "stored_password"}:
+            fields.extend(["username", "url"])
+        elif kind == "key_value":
+            fields.append("key")
+        elif kind == "totp":
+            fields.append("issuer")
+        elif kind == "nostr":
+            fields.append("npub")
+        elif kind in {"ssh", "pgp"}:
+            fields.append("fingerprint")
+        for field in fields:
+            value = str(entry.get(field, "")).strip()
+            if value:
+                return value[:220]
+        return ""
+
+    @staticmethod
+    def _meta(entry: dict[str, Any], kind: str) -> str:
+        for field in ("username", "url", "key", "file_type"):
+            value = str(entry.get(field, "")).strip()
+            if value:
+                return value
+        if kind == "managed_account":
+            return "managed"
+        return ""
+
+    @staticmethod
+    def _custom_field_text(entry: dict[str, Any]) -> str:
+        parts: list[str] = []
+        raw_fields = entry.get("custom_fields", [])
+        if not isinstance(raw_fields, list):
+            return ""
+        for item in raw_fields:
+            if not isinstance(item, dict):
+                continue
+            for key in ("name", "label", "key", "value"):
+                value = str(item.get(key, "")).strip()
+                if value:
+                    parts.append(value)
+        return "\n".join(parts)
+
+    @staticmethod
+    def _normalized_tags(entry: dict[str, Any]) -> list[str]:
+        raw = entry.get("tags", [])
+        if not isinstance(raw, list):
+            return []
+        tags = sorted({str(tag).strip() for tag in raw if str(tag).strip()})
+        return tags
+
+    @staticmethod
+    def _normalized_links(entry: dict[str, Any]) -> list[dict[str, Any]]:
+        raw = entry.get("links", [])
+        if not isinstance(raw, list):
+            return []
+        links: list[dict[str, Any]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            try:
+                target_id = int(item.get("target_id", 0))
+            except Exception:
+                continue
+            relation = str(item.get("relation", "")).strip()
+            note = str(item.get("note", "")).strip()
+            if target_id <= 0 or not relation:
+                continue
+            link = {"target_id": target_id, "relation": relation}
+            if note:
+                link["note"] = note
+            links.append(link)
+        links.sort(
+            key=lambda link: (
+                str(link.get("relation", "")),
+                int(link.get("target_id", 0)),
+                str(link.get("note", "")),
+            )
+        )
+        return links
+
+    def _entry_search_text(self, entry: dict[str, Any], kind: str) -> str:
+        parts = [
+            SemanticIndex._extract_text(entry, kind),
+            self._custom_field_text(entry),
+        ]
+        return "\n".join(part for part in parts if str(part).strip())
+
+    def _semantic_scores(
+        self,
+        query: str,
+        *,
+        limit: int,
+        mode: str,
+    ) -> dict[int, dict[str, Any]]:
+        if not query or mode not in self._SEMANTIC_MODES:
+            return {}
+        cfg = getattr(self._manager, "config_manager", None)
+        if cfg is not None:
+            try:
+                if not bool(cfg.get_semantic_index_enabled()):
+                    return {}
+            except Exception:
+                pass
+        rows = SemanticIndexService(self._manager).search(
+            query, k=max(10, int(limit)), mode="semantic"
+        )
+        out: dict[int, dict[str, Any]] = {}
+        for row in rows:
+            try:
+                entry_id = int(row.get("entry_id", 0))
+            except Exception:
+                continue
+            if entry_id <= 0:
+                continue
+            out[entry_id] = row
+        return out
+
+    @staticmethod
+    def _recency_score(modified_ts: int) -> float:
+        ts = int(modified_ts or 0)
+        if ts <= 0:
+            return 0.0
+        age_days = max(0.0, (time.time() - float(ts)) / 86400.0)
+        return round(1.0 / (1.0 + age_days), 6)
+
+    def search(
+        self,
+        query: str,
+        *,
+        kinds: list[str] | None = None,
+        include_archived: bool = False,
+        archived_only: bool = False,
+        mode: str | None = None,
+        sort: str = "relevance",
+        limit: int = 200,
+        tags: list[str] | None = None,
+        linked_to: int | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            scope_path = self._scope_path()
+            active_mode = str(mode or "").strip().lower()
+            if active_mode not in {"keyword", "hybrid", "semantic"}:
+                cfg = getattr(self._manager, "config_manager", None)
+                if cfg is not None:
+                    try:
+                        active_mode = (
+                            str(cfg.get_semantic_search_mode()).strip().lower()
+                        )
+                    except Exception:
+                        active_mode = "keyword"
+                else:
+                    active_mode = "keyword"
+            if active_mode not in {"keyword", "hybrid", "semantic"}:
+                active_mode = "keyword"
+
+            semantic_scores = self._semantic_scores(
+                query, limit=max(10, int(limit)), mode=active_mode
+            )
+            query_tokens = SemanticIndex._tokenize(str(query or ""))
+            kind_filters = self._normalize_kind_filters(kinds)
+            tag_filters = {
+                str(tag).strip().lower() for tag in (tags or []) if str(tag).strip()
+            }
+            atlas_recent = {}
+            try:
+                payload = self._manager.vault.load_index()
+                index0 = payload.get("_system", {}).get("index0", {})
+                recent = get_canonical_view(
+                    index0, view_type="recent_activity", scope_path=scope_path
+                )
+                for idx, item in enumerate(recent.get("data", {}).get("items", [])):
+                    try:
+                        subject_id = int(item.get("subject_id", 0))
+                    except Exception:
+                        continue
+                    atlas_recent[subject_id] = max(
+                        atlas_recent.get(subject_id, 0.0), 1.0 - (idx * 0.1)
+                    )
+            except Exception:
+                atlas_recent = {}
+
+            results: list[dict[str, Any]] = []
+            for entry in self._all_entries():
+                entry_id = int(entry.get("id", 0) or 0)
+                if entry_id <= 0:
+                    continue
+                kind = self._entry_kind(entry)
+                if kind_filters and kind not in kind_filters:
+                    continue
+                archived = bool(entry.get("archived", False))
+                if archived_only and not archived:
+                    continue
+                if not include_archived and archived:
+                    continue
+                tags_list = self._normalized_tags(entry)
+                tags_lower = {tag.lower() for tag in tags_list}
+                if tag_filters and not tag_filters.issubset(tags_lower):
+                    continue
+                links = self._normalized_links(entry)
+                if linked_to is not None and not any(
+                    int(link.get("target_id", 0)) == int(linked_to) for link in links
+                ):
+                    continue
+
+                lexical_score = 0.0
+                structural_score = 0.0
+                semantic_score = 0.0
+                recency_score = 0.0
+                reasons: list[str] = []
+                linked_hits: list[dict[str, Any]] = []
+
+                modified_ts = int(entry.get("modified_ts", 0) or 0)
+                if query_tokens:
+                    label = str(entry.get("label", "")).strip()
+                    label_tokens = SemanticIndex._tokenize(label)
+                    search_text = self._entry_search_text(entry, kind)
+                    text_tokens = SemanticIndex._tokenize(search_text)
+                    text_overlap = len(query_tokens.intersection(text_tokens))
+                    lexical_score = min(
+                        1.0, text_overlap / float(len(query_tokens) or 1)
+                    )
+                    if label and str(query).strip().lower() == label.lower():
+                        lexical_score = max(lexical_score, 1.0)
+                        reasons.append("label_exact")
+                    elif query_tokens.intersection(label_tokens):
+                        reasons.append("label_match")
+                    matching_tags = sorted(
+                        tag for tag in tags_list if tag.lower() in query_tokens
+                    )
+                    if matching_tags:
+                        structural_score += min(1.0, 0.25 * len(matching_tags))
+                        reasons.extend(f"tag:{tag}" for tag in matching_tags)
+                    for link in links:
+                        relation_tokens = SemanticIndex._tokenize(
+                            " ".join(
+                                [
+                                    str(link.get("relation", "")),
+                                    str(link.get("note", "")),
+                                ]
+                            )
+                        )
+                        if query_tokens.intersection(relation_tokens):
+                            linked_hits.append(
+                                {
+                                    "target_id": int(link.get("target_id", 0)),
+                                    "relation": str(link.get("relation", "")),
+                                }
+                            )
+                    if linked_hits:
+                        structural_score += min(1.0, 0.2 + (0.1 * len(linked_hits)))
+                        reasons.append("link_match")
+                    semantic_row = semantic_scores.get(entry_id)
+                    if semantic_row is not None:
+                        semantic_score = float(semantic_row.get("score", 0.0))
+                        reasons.append("semantic_match")
+                    recency_score = min(
+                        1.0,
+                        max(
+                            atlas_recent.get(entry_id, 0.0),
+                            self._recency_score(modified_ts),
+                        ),
+                    )
+                else:
+                    linked_hits = [
+                        {
+                            "target_id": int(link.get("target_id", 0)),
+                            "relation": str(link.get("relation", "")),
+                        }
+                        for link in links[:5]
+                    ]
+                    structural_score = min(1.0, 0.1 * len(links))
+                    recency_score = atlas_recent.get(entry_id, 0.0)
+
+                if linked_to is not None:
+                    reasons.append(f"linked_to:{linked_to}")
+                    structural_score = min(1.0, structural_score + 0.35)
+
+                if query_tokens and not any(
+                    score > 0.0
+                    for score in (
+                        lexical_score,
+                        structural_score,
+                        semantic_score,
+                    )
+                ):
+                    continue
+
+                if active_mode == "keyword":
+                    total_score = (lexical_score * 0.8) + (structural_score * 0.15)
+                    total_score += recency_score * 0.05
+                    semantic_score = 0.0
+                elif active_mode == "semantic":
+                    total_score = (semantic_score * 0.7) + (structural_score * 0.2)
+                    total_score += recency_score * 0.1
+                    total_score += lexical_score * 0.0
+                else:
+                    total_score = (lexical_score * 0.4) + (semantic_score * 0.35)
+                    total_score += structural_score * 0.2
+                    total_score += recency_score * 0.05
+
+                result = SearchResult(
+                    entry_id=entry_id,
+                    label=str(entry.get("label", "")).strip(),
+                    kind=kind,
+                    scope_path=scope_path,
+                    archived=archived,
+                    score=round(total_score, 6),
+                    score_breakdown={
+                        "lexical": round(lexical_score, 6),
+                        "semantic": round(semantic_score, 6),
+                        "structural": round(structural_score, 6),
+                        "recency": round(recency_score, 6),
+                    },
+                    match_reasons=sorted(set(reasons)),
+                    excerpt=(
+                        ""
+                        if kind in self._SECRET_EXCERPT_KINDS
+                        else self._safe_excerpt(entry, kind)
+                    ),
+                    linked_hits=linked_hits,
+                    tags=tags_list,
+                    modified_ts=modified_ts,
+                    meta=self._meta(entry, kind),
+                ).model_dump()
+                results.append(result)
+
+            sort_key = str(sort or "relevance").strip().lower()
+
+            def _result_key(item: dict[str, Any]) -> tuple[Any, ...]:
+                label = str(item.get("label", "")).lower()
+                kind = str(item.get("kind", "")).lower()
+                modified_ts = int(item.get("modified_ts", 0) or 0)
+                linked_count = len(item.get("linked_hits", []))
+                entry_id = int(item.get("entry_id", 0))
+                if sort_key == "modified_desc":
+                    return (-modified_ts, label, entry_id)
+                if sort_key == "modified_asc":
+                    return (modified_ts, label, entry_id)
+                if sort_key == "label_asc":
+                    return (label, entry_id)
+                if sort_key == "kind":
+                    return (kind, label, entry_id)
+                if sort_key == "most_linked":
+                    return (-linked_count, label, entry_id)
+                if sort_key == "created_desc":
+                    created_ts = int(item.get("created_ts", modified_ts) or modified_ts)
+                    return (-created_ts, label, entry_id)
+                if query_tokens:
+                    return (
+                        -float(item.get("score", 0.0)),
+                        -modified_ts,
+                        label,
+                        entry_id,
+                    )
+                return (entry_id,)
+
+            results.sort(key=_result_key)
+            return results[: max(1, int(limit))]
+
+
+class AtlasService:
+    """Thread-safe wrapper around canonical atlas/index0 read operations."""
+
+    def __init__(self, manager: PasswordManager) -> None:
+        self._manager = manager
+        self._lock = Lock()
+
+    def _payload(self) -> dict[str, Any]:
+        vault = getattr(self._manager, "vault", None)
+        if vault is None:
+            raise ValueError("vault unavailable")
+        return vault.load_index()
+
+    def _scope_path(self) -> str:
+        profile_dir = getattr(self._manager, "fingerprint_dir", None)
+        if profile_dir is None:
+            raise ValueError("active profile directory unavailable")
+        return derive_index0_context(profile_dir)["scope_path"]
+
+    def status(self) -> Dict[str, Any]:
+        with self._lock:
+            payload = self._payload()
+            index0 = payload.get("_system", {}).get("index0", {})
+            return {
+                "scope_path": self._scope_path(),
+                "stats": dict(index0.get("stats", {})),
+                "view_count": len(index0.get("canonical_views", {})),
+                "view_types": list(
+                    index0.get("view_manifest", {}).get("canonical_view_types", [])
+                ),
+            }
+
+    def list_views(self) -> list[dict[str, Any]]:
+        with self._lock:
+            payload = self._payload()
+            index0 = payload.get("_system", {}).get("index0", {})
+            return list_canonical_views(index0)
+
+    def get_view(
+        self, view_type: str, *, scope_path: str | None = None
+    ) -> dict[str, Any] | None:
+        with self._lock:
+            payload = self._payload()
+            index0 = payload.get("_system", {}).get("index0", {})
+            scope = scope_path or self._scope_path()
+            return get_canonical_view(index0, view_type=view_type, scope_path=scope)
+
+    def wayfinder(self, *, scope_path: str | None = None) -> Dict[str, Any]:
+        with self._lock:
+            payload = self._payload()
+            index0 = payload.get("_system", {}).get("index0", {})
+            scope = scope_path or self._scope_path()
+            return {
+                "scope_path": scope,
+                "stats": dict(index0.get("stats", {})),
+                "children_of": get_canonical_view(
+                    index0, view_type="children_of", scope_path=scope
+                ),
+                "counts_by_kind": get_canonical_view(
+                    index0, view_type="counts_by_kind", scope_path=scope
+                ),
+                "recent_activity": get_canonical_view(
+                    index0, view_type="recent_activity", scope_path=scope
+                ),
+            }
 
 
 class UtilityService:

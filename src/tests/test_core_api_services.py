@@ -10,9 +10,11 @@ from seedpass.core.api import (
     ProfileService,
     SyncService,
     EntryService,
+    SearchService,
     ConfigService,
     UtilityService,
     NostrService,
+    AtlasService,
     VaultExportRequest,
     VaultExportResponse,
     VaultImportRequest,
@@ -255,6 +257,216 @@ class TestEntryService:
         ]
         results = service.search_entries("q")
         assert [row[0] for row in results] == [1]
+
+
+class TestAtlasService:
+    @pytest.fixture
+    def service(self, mock_manager):
+        return AtlasService(mock_manager)
+
+    def test_status(self, service, mock_manager, tmp_path):
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.vault.load_index.return_value = {
+            "_system": {
+                "index0": {
+                    "stats": {"event_count": 3},
+                    "canonical_views": {"a": {}, "b": {}},
+                    "view_manifest": {"canonical_view_types": ["children_of"]},
+                }
+            }
+        }
+
+        status = service.status()
+
+        assert status["stats"]["event_count"] == 3
+        assert status["view_count"] == 2
+        assert status["view_types"] == ["children_of"]
+
+    def test_wayfinder(self, service, mock_manager, tmp_path):
+        mock_manager.fingerprint_dir = tmp_path
+        scope_path = f"seed/{tmp_path.name}"
+        mock_manager.vault.load_index.return_value = {
+            "_system": {
+                "index0": {
+                    "canonical_views": {
+                        f"children_of:{scope_path}": {
+                            "view_id": f"children_of:{scope_path}",
+                            "view_type": "children_of",
+                            "scope_path": scope_path,
+                            "source_checkpoint_ids": [],
+                            "source_event_ids": [],
+                            "data": {"children": [{"entry_id": "1"}]},
+                            "modified_ts": 1,
+                            "view_hash": "abc",
+                        },
+                        f"counts_by_kind:{scope_path}": {
+                            "view_id": f"counts_by_kind:{scope_path}",
+                            "view_type": "counts_by_kind",
+                            "scope_path": scope_path,
+                            "source_checkpoint_ids": [],
+                            "source_event_ids": [],
+                            "data": {"counts": {"document": 1}},
+                            "modified_ts": 1,
+                            "view_hash": "def",
+                        },
+                    },
+                    "stats": {"event_count": 2},
+                }
+            }
+        }
+
+        payload = service.wayfinder()
+
+        assert payload["scope_path"] == scope_path
+        assert payload["children_of"]["data"]["children"][0]["entry_id"] == "1"
+        assert payload["counts_by_kind"]["data"]["counts"]["document"] == 1
+        assert payload["recent_activity"] is None
+
+
+class TestSearchService:
+    @pytest.fixture
+    def service(self, mock_manager):
+        return SearchService(mock_manager)
+
+    def test_keyword_search_returns_unified_results(
+        self, service, mock_manager, tmp_path
+    ):
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Project Plan", None, None, False, EntryType.DOCUMENT),
+            (2, "Ops Vault", "ops", "https://ops", False, EntryType.PASSWORD),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "Project Plan",
+                "content": "SeedPass atlas project plan and roadmap",
+                "tags": ["planning", "docs"],
+                "links": [{"target_id": 2, "relation": "references"}],
+                "modified_ts": 200,
+            },
+            2: {
+                "id": 2,
+                "kind": "password",
+                "label": "Ops Vault",
+                "username": "ops",
+                "url": "https://ops",
+                "notes": "team login",
+                "tags": ["ops"],
+                "modified_ts": 100,
+            },
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+        scope_path = f"seed/{tmp_path.name}"
+        mock_manager.vault.load_index.return_value = {
+            "_system": {
+                "index0": {
+                    "canonical_views": {
+                        f"recent_activity:{scope_path}": {
+                            "view_id": f"recent_activity:{scope_path}",
+                            "view_type": "recent_activity",
+                            "scope_path": scope_path,
+                            "source_checkpoint_ids": [],
+                            "source_event_ids": [],
+                            "data": {
+                                "items": [
+                                    {"subject_id": "1", "event_type": "entry_modified"}
+                                ]
+                            },
+                            "modified_ts": 1,
+                            "view_hash": "abc",
+                        }
+                    }
+                }
+            }
+        }
+
+        results = service.search("references plan", mode="keyword")
+
+        assert [row["entry_id"] for row in results] == [1]
+        assert results[0]["scope_path"] == scope_path
+        assert results[0]["score_breakdown"]["lexical"] > 0
+        assert "planning" in results[0]["tags"]
+        assert results[0]["linked_hits"][0]["relation"] == "references"
+        assert results[0]["excerpt"].startswith("SeedPass atlas")
+
+    @patch("seedpass.core.api.SemanticIndexService.search")
+    def test_hybrid_search_combines_semantic_and_filters(
+        self, semantic_search, service, mock_manager, tmp_path
+    ):
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.config_manager.get_semantic_index_enabled.return_value = True
+        mock_manager.config_manager.get_semantic_search_mode.return_value = "hybrid"
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Alpha Notes", None, None, False, EntryType.DOCUMENT),
+            (2, "Beta Notes", None, None, True, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "Alpha Notes",
+                "content": "hello atlas world",
+                "tags": ["alpha"],
+                "modified_ts": 100,
+            },
+            2: {
+                "id": 2,
+                "kind": "document",
+                "label": "Beta Notes",
+                "content": "hello beta world",
+                "tags": ["beta"],
+                "archived": True,
+                "modified_ts": 200,
+            },
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+        mock_manager.vault.load_index.return_value = {"_system": {"index0": {}}}
+        semantic_search.return_value = [
+            {
+                "entry_id": 1,
+                "kind": "document",
+                "label": "Alpha Notes",
+                "score": 0.9,
+                "excerpt": "hello atlas world",
+            }
+        ]
+
+        results = service.search(
+            "hello alpha atlas",
+            mode="hybrid",
+            include_archived=False,
+            tags=["alpha"],
+        )
+
+        assert [row["entry_id"] for row in results] == [1]
+        assert results[0]["score_breakdown"]["semantic"] == 0.9
+        assert "semantic_match" in results[0]["match_reasons"]
+        assert "tag:alpha" in results[0]["match_reasons"]
+
+    def test_sort_by_modified_desc_without_query(self, service, mock_manager, tmp_path):
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Older", None, None, False, EntryType.DOCUMENT),
+            (2, "Newer", None, None, False, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {"id": 1, "kind": "document", "label": "Older", "modified_ts": 100},
+            2: {"id": 2, "kind": "document", "label": "Newer", "modified_ts": 200},
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+        mock_manager.vault.load_index.return_value = {"_system": {"index0": {}}}
+
+        results = service.search("", sort="modified_desc")
+
+        assert [row["entry_id"] for row in results[:2]] == [2, 1]
+
+
+class TestEntryServiceExtended:
+    @pytest.fixture
+    def service(self, mock_manager):
+        return EntryService(mock_manager)
 
     def test_search_entries_include_archived(self, service, mock_manager):
         mock_manager.entry_manager.search_entries.return_value = [
