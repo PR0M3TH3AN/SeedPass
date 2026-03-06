@@ -66,20 +66,20 @@ class SettingsScreen(Screen):
     def action_refresh(self) -> None:
         """Fetch live settings and render them into the content panel."""
         app = self.app
-        if "config" not in app.services:
-            self.query_one("#settings-content", Static).update(
-                "[red]Config Service Offline[/red]"
-            )
-            return
+        config_online = "config" in app.services
 
-        service = app.services["config"]
+        if config_online:
+            service = app.services["config"]
 
-        def get_val(key, default=""):
-            try:
-                val = service.get(key)
-                return val if val is not None else default
-            except Exception:
-                return "[red](error)[/red]"
+            def get_val(key, default=""):
+                try:
+                    val = service.get(key)
+                    return val if val is not None else default
+                except Exception:
+                    return "[red](error)[/red]"
+        else:
+            def get_val(key, default=""):  # type: ignore[misc]
+                return "[dim](offline)[/dim]"
 
         # Categorized Rows
         security_rows = [
@@ -106,6 +106,15 @@ class SettingsScreen(Screen):
             "Fresh Namespace: [dim](nostr-fresh-namespace)[/dim]",
         ]
 
+        utility_rows = [
+            "Statistics     : [dim](stats)[/dim]",
+            "DB Export      : [dim](db-export <path>)[/dim]",
+            "DB Import      : [dim](db-import <path>)[/dim]",
+            "Checksum       : [dim](checksum-verify)[/dim] | [dim](checksum-update)[/dim]",
+            "TOTP Export    : [dim](totp-export)[/dim]",
+            "Offline Mode   : [dim](setting-offline on|off)[/dim]",
+        ]
+
         # Use the app's card rendering utility if available, or fallback
         # In v3, we keep card logic in a central place or widget.
         # For now, we'll implement a clean local version.
@@ -124,6 +133,8 @@ class SettingsScreen(Screen):
             render_card("STORAGE & BACKUP POLICY", backup_rows),
             "",
             render_card("CONNECTIVITY & NOSTR SYNC", nostr_rows),
+            "",
+            render_card("UTILITY & MAINTENANCE", utility_rows),
         ]
 
         self.query_one("#settings-content", Static).update("\n".join(rendered_lines))

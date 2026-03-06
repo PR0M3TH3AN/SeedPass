@@ -561,6 +561,43 @@ class GenericBoard(BaseBoard):
             pass
 
 
+class UtilityHintsBar(Static):
+    """Shows kind-specific palette command hints at the bottom of the inspector."""
+
+    DEFAULT_CSS = """
+    UtilityHintsBar {
+        height: auto;
+        min-height: 2;
+        background: #111111;
+        color: #888888;
+        border-top: solid #333333;
+        padding: 0 1;
+    }
+    """
+
+    _HINTS: dict[str, list[str]] = {
+        "idle": [],
+        "password": ["copy", "v: reveal", "edit", "export", "archive"],
+        "totp": ["copy (2FA code)", "v: reveal secret", "g: QR", "archive"],
+        "note": ["copy (content)", "edit", "archive"],
+        "document": ["copy (content)", "edit", "archive"],
+        "seed": ["vv: reveal phrase", "gg: QR", "archive"],
+        "managed_account": ["ml: managed-load", "vv: reveal phrase", "archive"],
+        "ssh": ["copy (private key)", "vv: reveal", "archive"],
+        "pgp": ["copy (private key)", "vv: reveal", "archive"],
+        "nostr": ["copy (nsec/npub)", "v: reveal nsec", "g: QR", "npub", "archive"],
+        "generic": ["copy", "v: reveal", "archive"],
+    }
+
+    def update_kind(self, board_type: str) -> None:
+        hints = self._HINTS.get(board_type, self._HINTS["generic"])
+        if not hints:
+            self.update("")
+            return
+        hint_str = "  |  ".join(hints)
+        self.update(f"[b]Actions:[/b]  {hint_str}  [dim](Ctrl+P: palette)[/dim]")
+
+
 class BoardContainer(Vertical):
     """
     Reactive container that swaps specialized boards based on entry kind.
@@ -574,7 +611,15 @@ class BoardContainer(Vertical):
         background: #000000;
         overflow: auto;
     }
+    #board-slot {
+        height: 1fr;
+        overflow: auto;
+    }
     """
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(id="board-slot")
+        yield UtilityHintsBar(id="utility-hints-bar")
 
     def on_mount(self) -> None:
         self._show_board("idle")
@@ -582,6 +627,7 @@ class BoardContainer(Vertical):
     def update_entry(self, entry_id: int | None) -> None:
         if entry_id is None:
             self._show_board("idle")
+            self._update_hints("idle")
             return
 
         app = self.app
@@ -591,37 +637,53 @@ class BoardContainer(Vertical):
         entry = app.services["entry"].retrieve_entry(entry_id)
         if not entry:
             self._show_board("idle")
+            self._update_hints("idle")
             return
 
         kind = str(entry.get("kind") or entry.get("type") or "").lower()
 
         if kind in {"password", "stored_password"}:
-            board = self._show_board("password")
+            board_type = "password"
         elif kind == "totp":
-            board = self._show_board("totp")
+            board_type = "totp"
         elif kind in {"document", "note"}:
-            board = self._show_board("note")
-        elif kind in {"seed", "managed_account"}:
-            board = self._show_board("seed")
+            board_type = "note"
+        elif kind == "managed_account":
+            board_type = "managed_account"
+        elif kind == "seed":
+            board_type = "seed"
         elif kind == "ssh":
-            board = self._show_board("ssh")
+            board_type = "ssh"
         elif kind == "pgp":
-            board = self._show_board("pgp")
+            board_type = "pgp"
         elif kind == "nostr":
-            board = self._show_board("nostr")
+            board_type = "nostr"
         else:
-            board = self._show_board("generic")
+            board_type = "generic"
 
+        board = self._show_board(board_type)
         board.entry_data = entry
+        self._update_hints(board_type)
+
+    def _update_hints(self, board_type: str) -> None:
+        try:
+            self.query_one("#utility-hints-bar", UtilityHintsBar).update_kind(board_type)
+        except Exception:
+            pass
 
     def _show_board(self, board_type: str) -> Any:
-        self.remove_children()
+        try:
+            slot = self.query_one("#board-slot", Vertical)
+        except Exception:
+            slot = self
+        slot.remove_children()
         mapping = {
             "idle": IdleBoard,
             "password": PasswordBoard,
             "totp": TotpBoard,
             "note": NoteBoard,
             "seed": SeedBoard,
+            "managed_account": SeedBoard,
             "ssh": SshBoard,
             "pgp": PgpBoard,
             "nostr": NostrBoard,
@@ -629,7 +691,7 @@ class BoardContainer(Vertical):
         }
         board_cls = mapping.get(board_type, GenericBoard)
         new_board = board_cls()
-        self.mount(new_board)
+        slot.mount(new_board)
         return new_board
 
 
