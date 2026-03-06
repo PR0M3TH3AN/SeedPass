@@ -46,8 +46,8 @@ class ActionBar(Static):
             f"[@click='app.toggle_settings'][b]S[/b]ettings[/]    [@click='app.add_entry'][b]A[/b]dd New Entry[/]    "
             f"[@click='app.seed_plus'][b]C[/b]reate New Seed[/]    "
             f"[@click='app.open_atlas_wayfinder'][b]W[/b]ayfinder[/]    "
-            f"[@click='app.open_palette'][b]R[/b]emove Seed[/]    "
-            f"[@click='app.action_db_export'][b]E[/b]xport Data[/]    [@click='app.action_db_import'][b]I[/b]mport Data[/]    [@click='app.open_palette'][b]B[/b]ackup Data[/]{exit_hint}"
+            f"[@click='app.open_profile_management'][b]R[/b]emove Seed[/]    "
+            f"[@click='app.open_palette'][b]E[/b]xport Data[/]    [@click='app.open_palette'][b]I[/b]mport Data[/]    [@click='app.open_backup_parent_seed'][b]B[/b]ackup Data[/]{exit_hint}"
         )
 
         # Context Row (added from previous phase parity)

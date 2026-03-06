@@ -282,6 +282,30 @@ async def test_v3_action_bar_labels_include_leading_hotkey_letters() -> None:
 
 
 @pytest.mark.anyio
+async def test_v3_action_bar_global_row_uses_correct_handlers() -> None:
+    app = SeedPassTuiV3(
+        entry_service_factory=lambda: MockEntryService(),
+        vault_service_factory=lambda: MockVaultService(),
+    )
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        bar = app.screen.query_one("#action-bar")
+        markup = bar.render()
+        # Backup Data must route to open_backup_parent_seed (has its own screen)
+        assert "open_backup_parent_seed" in markup
+        # Remove Seed must route to open_profile_management (not open_palette)
+        assert "open_profile_management" in markup
+        # Export/Import Data use open_palette because they need a path argument
+        # Verify both labels still present
+        from rich.text import Text
+        rendered = Text.from_markup(markup).plain
+        assert "Export Data" in rendered
+        assert "Import Data" in rendered
+        assert "Backup Data" in rendered
+        assert "Remove Seed" in rendered
+
+
+@pytest.mark.anyio
 async def test_v3_action_bar_only_shows_context_actions_for_selected_kind() -> None:
     app = SeedPassTuiV3(
         entry_service_factory=lambda: MockEntryService(),

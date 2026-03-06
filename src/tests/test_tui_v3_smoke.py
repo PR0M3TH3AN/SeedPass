@@ -969,6 +969,73 @@ async def test_tui3_word_by_word_seed_entry_feeds_create_profile_screen() -> Non
 
 
 @pytest.mark.anyio
+async def test_tui3_recover_profile_sets_success_status_before_bootstrap() -> None:
+    app = SeedPassTuiV3()
+    app._list_boot_profiles = lambda: [
+        {"fingerprint": "EFBE51E70ED1B53A", "label": "Primary (EFBE51E70ED1B53A)"}
+    ]
+    booted: dict[str, str] = {}
+    status_at_boot: list[str] = []
+
+    def _recover_profile(*, fingerprint: str, seed: str, password: str) -> None:
+        pass
+
+    def _bootstrap(fingerprint: str, password: str) -> None:
+        booted["fingerprint"] = fingerprint
+        # Capture status text at the moment bootstrap fires
+        try:
+            status_at_boot.append(
+                str(app.screen.query_one("#recover-status").render())
+            )
+        except Exception:
+            pass
+
+    app._recover_profile = _recover_profile
+    app._bootstrap_profile_session = _bootstrap
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.push_screen(RecoverProfileScreen())
+        await pilot.pause()
+        screen = app.screen
+        screen.query_one("#recover-choice", Input).value = "1"
+        screen.query_one("#recover-seed", Input).value = (
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        )
+        screen.query_one("#recover-password", Input).value = "hunter2"
+        await pilot.press("enter")
+        await pilot.pause()
+        assert booted.get("fingerprint") == "EFBE51E70ED1B53A"
+        assert status_at_boot and "Recovery successful" in status_at_boot[0]
+
+
+@pytest.mark.anyio
+async def test_tui3_add_entry_screen_seedplus_hint_mentions_bip85() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_add_entry()
+        await pilot.pause()
+        screen = app.screen
+        hint = str(screen.query_one("#seedplus-hint").render())
+        assert "BIP-85" in hint
+        assert "Seed+" in hint
+
+
+@pytest.mark.anyio
+async def test_tui3_seed_plus_screen_shows_deterministic_warning() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_seed_plus()
+        await pilot.pause()
+        screen = app.screen
+        warning = str(screen.query_one("#seedplus-warning").render())
+        assert "deterministic" in warning.lower()
+        assert "index" in warning.lower()
+
+
+@pytest.mark.anyio
 async def test_tui3_word_entry_flags_invalid_bip39_word() -> None:
     app = SeedPassTuiV3()
     app._list_boot_profiles = lambda: []

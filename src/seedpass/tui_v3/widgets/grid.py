@@ -145,6 +145,7 @@ class EntryDataTable(DataTable):
         kind_map = {
             "secrets": [
                 "password",
+                "stored_password",
                 "totp",
                 "ssh",
                 "pgp",

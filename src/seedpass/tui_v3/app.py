@@ -508,12 +508,16 @@ class CreateProfileScreen(Screen):
                     self._set_status("Enter the seed phrase for Nostr restore.")
                     return
                 self._set_status(
-                    "Attempting Nostr restore for the supplied seed profile..."
+                    "Restoring from Nostr — this replays remote events onto the seed. "
+                    "Your entries will be recovered from the network. This may take a moment..."
                 )
                 fingerprint = self.app._restore_from_nostr_profile(
                     seed=seed,
                     password=password,
                     continue_without_backup=continue_without_backup,
+                )
+                self._set_status(
+                    f"Nostr restore complete ({fingerprint[:12]}) — launching session."
                 )
             elif mode == "backup":
                 if not seed:
@@ -523,12 +527,15 @@ class CreateProfileScreen(Screen):
                     self._set_status("Enter the encrypted backup path for backup mode.")
                     return
                 self._set_status(
-                    "Attempting local backup restore from the supplied path..."
+                    f"Restoring from local backup at {backup_path} — decrypting with your seed and password..."
                 )
                 fingerprint = self.app._restore_from_backup_profile(
                     seed=seed,
                     password=password,
                     backup_path=backup_path,
+                )
+                self._set_status(
+                    f"Backup restore complete ({fingerprint[:12]}) — launching session."
                 )
             else:
                 if not seed:
@@ -537,6 +544,9 @@ class CreateProfileScreen(Screen):
                 fingerprint = self.app._create_existing_profile(
                     seed=seed,
                     password=password,
+                )
+                self._set_status(
+                    f"Profile imported ({fingerprint[:12]}) — launching session."
                 )
             self.app._bootstrap_profile_session(fingerprint, password)
         except Exception as e:
@@ -749,6 +759,9 @@ class RecoverProfileScreen(Screen):
                 fingerprint=fingerprint,
                 seed=seed,
                 password=password,
+            )
+            self._set_status(
+                f"Recovery successful for {fingerprint[:12]} — launching profile session."
             )
             self.app._bootstrap_profile_session(fingerprint, password)
         except Exception as e:
