@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 from textual.app import ComposeResult
-from textual.widgets import Static, Label
+from textual.widgets import Static, Label, Button
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 
@@ -631,3 +631,115 @@ class BoardContainer(Vertical):
         new_board = board_cls()
         self.mount(new_board)
         return new_board
+
+
+class LinkedItemsPanel(Vertical):
+    """Inspector panel for browsing explicit incoming and outgoing relationships."""
+
+    DEFAULT_CSS = """
+    LinkedItemsPanel {
+        height: auto;
+        max-height: 12;
+        min-height: 6;
+        background: #111111;
+        color: #ffffff;
+        border-top: solid #ffffff;
+        padding: 1;
+    }
+    #linked-items-title {
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    .linked-summary {
+        color: #cccccc;
+        margin-bottom: 1;
+    }
+    .linked-empty {
+        color: #aaaaaa;
+    }
+    .linked-open {
+        width: 100%;
+        height: auto;
+        margin-bottom: 1;
+        content-align: left middle;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Label("Linked Items", id="linked-items-title")
+        yield Label("No linked items.", id="linked-items-summary", classes="linked-summary")
+        with Vertical(id="linked-items-list"):
+            yield Label("Select an entry to inspect relationships.", classes="linked-empty")
+
+    def update_entry(self, entry_id: int | None) -> None:
+        summary_label = self.query_one("#linked-items-summary", Label)
+        list_container = self.query_one("#linked-items-list", Vertical)
+        list_container.remove_children()
+
+        if entry_id is None:
+            summary_label.update("No linked items.")
+            list_container.mount(
+                Label(
+                    "Select an entry to inspect relationships.",
+                    classes="linked-empty",
+                )
+            )
+            return
+
+        search = self.app.services.get("search")
+        if search is None or not hasattr(search, "linked_neighbors"):
+            summary_label.update("Search graph service unavailable.")
+            list_container.mount(
+                Label(
+                    "Linked navigation requires SearchService graph helpers.",
+                    classes="linked-empty",
+                )
+            )
+            return
+
+        try:
+            neighbors = search.linked_neighbors(entry_id, direction="both", limit=8)
+            summary = search.relation_summary(entry_id)
+        except Exception as exc:
+            summary_label.update(f"Linked navigation failed: {exc}")
+            list_container.mount(Label("Unable to load linked items.", classes="linked-empty"))
+            return
+
+        outgoing = ", ".join(
+            f"{relation}:{count}" for relation, count in summary.get("outgoing", {}).items()
+        ) or "none"
+        incoming = ", ".join(
+            f"{relation}:{count}" for relation, count in summary.get("incoming", {}).items()
+        ) or "none"
+        summary_label.update(f"Outgoing {outgoing}  |  Incoming {incoming}")
+
+        if not neighbors:
+            list_container.mount(Label("No linked items for this entry.", classes="linked-empty"))
+            return
+
+        for item in neighbors:
+            direction = "->" if item.get("direction") == "outgoing" else "<-"
+            relation = str(item.get("relation", "")).strip() or "related_to"
+            label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
+            kind = str(item.get("kind", "")).strip() or "entry"
+            archived = " archived" if item.get("archived") else ""
+            line = f"{direction} {relation}  #{item.get('entry_id')}  {label} [{kind}{archived}]"
+            list_container.mount(
+                Button(
+                    f"{line}  |  Open",
+                    id=f"linked-open-{int(item.get('entry_id', 0) or 0)}",
+                    classes="linked-open",
+                )
+            )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id or ""
+        if not button_id.startswith("linked-open-"):
+            return
+        try:
+            entry_id = int(button_id.removeprefix("linked-open-"))
+        except ValueError:
+            self.app.notify("Invalid linked item target", severity="error")
+            return
+        self.app.selected_entry_id = entry_id
+        self.app.notify(f"Opened linked entry #{entry_id}")

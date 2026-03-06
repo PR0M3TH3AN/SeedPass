@@ -27,9 +27,24 @@ from seedpass.tui_v3.screens.security import ChangePasswordScreen
 class V3EntryService:
     def __init__(self) -> None:
         self._entries: dict[int, dict] = {
-            1: {"id": 1, "kind": "password", "label": "Email", "length": 16},
-            2: {"id": 2, "kind": "managed_account", "label": "Managed Ops"},
-            3: {"id": 3, "kind": "nostr", "label": "Agent Nostr"},
+            1: {
+                "id": 1,
+                "kind": "password",
+                "label": "Email",
+                "length": 16,
+                "links": [{"target_id": 2, "relation": "references"}],
+            },
+            2: {
+                "id": 2,
+                "kind": "managed_account",
+                "label": "Managed Ops",
+            },
+            3: {
+                "id": 3,
+                "kind": "nostr",
+                "label": "Agent Nostr",
+                "links": [{"target_id": 1, "relation": "uses"}],
+            },
         }
         self.copied: list[str] = []
 
@@ -199,6 +214,7 @@ class V3SearchService:
     def __init__(self, entry: V3EntryService) -> None:
         self.entry = entry
         self.calls: list[dict] = []
+        self.link_calls: list[dict] = []
 
     def search(
         self,
@@ -258,6 +274,62 @@ class V3SearchService:
                 }
             )
         return out
+
+    def linked_neighbors(
+        self,
+        entry_id: int,
+        *,
+        relation: str | None = None,
+        direction: str = "both",
+        include_archived: bool = True,
+        limit: int = 50,
+    ) -> list[dict]:
+        _ = (include_archived, limit)
+        self.link_calls.append(
+            {
+                "entry_id": entry_id,
+                "relation": relation,
+                "direction": direction,
+            }
+        )
+        if int(entry_id) == 1:
+            rows = [
+                {
+                    "entry_id": 2,
+                    "label": "Managed Ops",
+                    "kind": "managed_account",
+                    "archived": False,
+                    "direction": "outgoing",
+                    "relation": "references",
+                },
+                {
+                    "entry_id": 3,
+                    "label": "Agent Nostr",
+                    "kind": "nostr",
+                    "archived": False,
+                    "direction": "incoming",
+                    "relation": "uses",
+                },
+            ]
+            if relation:
+                return [row for row in rows if row["relation"] == relation]
+            return rows
+        return []
+
+    def relation_summary(
+        self,
+        entry_id: int,
+        *,
+        include_archived: bool = True,
+    ) -> dict[str, dict[str, int]]:
+        _ = include_archived
+        if int(entry_id) != 1:
+            return {"incoming": {}, "outgoing": {}, "combined": {}}
+        return {
+            "incoming": {"uses": 1},
+            "outgoing": {"references": 1},
+            "combined": {"references": 1, "uses": 1},
+        }
 
 
 def _build_app() -> tuple[object, V3EntryService, V3VaultService, V3SearchService]:
@@ -358,6 +430,98 @@ async def test_tui3_grid_uses_search_service_for_query_and_mode() -> None:
         assert search.calls[-1]["query"] == "Email"
         assert search.calls[-1]["mode"] == "hybrid"
         assert table.row_count >= 1
+
+
+@pytest.mark.anyio
+async def test_tui3_main_grid_has_default_focus_and_keyboard_navigation() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.screen.query_one("#entry-data-table", DataTable)
+        assert app.focused is table
+        assert app.selected_entry_id is None
+
+        await pilot.press("down")
+        await pilot.pause()
+
+        assert app.focused is table
+        assert app.selected_entry_id == 2
+        assert table.cursor_coordinate.row == 1
+
+
+@pytest.mark.anyio
+async def test_tui3_palette_close_restores_focus_to_main_grid() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        table = app.screen.query_one("#entry-data-table", DataTable)
+        palette_input = app.screen.query_one("#palette-input", Input)
+
+        app.action_open_palette()
+        await pilot.pause()
+        assert app.focused is palette_input
+
+        app.action_open_palette()
+        await pilot.pause()
+        assert app.focused is table
+
+        await pilot.press("down")
+        await pilot.pause()
+        assert app.selected_entry_id == 2
+
+
+@pytest.mark.anyio
+async def test_tui3_grid_toolbar_updates_filter_mode_and_sort() -> None:
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.query_one("#grid-filter-keys", Button).press()
+        await pilot.pause()
+        assert app.filter_kind == "keys"
+
+        app.screen.query_one("#grid-mode-hybrid", Button).press()
+        await pilot.pause()
+        assert app.search_mode == "hybrid"
+
+        app.screen.query_one("#grid-sort-most_linked", Button).press()
+        await pilot.pause()
+        assert app.search_sort == "most_linked"
+        assert search.calls
+        assert search.calls[-1]["sort"] == "most_linked"
+
+
+@pytest.mark.anyio
+async def test_tui3_search_query_persists_across_refresh() -> None:
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_search("Email")
+        await pilot.pause()
+        assert app.search_query == "Email"
+        assert search.calls[-1]["query"] == "Email"
+
+        app.action_set_kind_filter("all")
+        await pilot.pause()
+        assert search.calls[-1]["query"] == "Email"
+
+
+@pytest.mark.anyio
+async def test_tui3_linked_items_panel_shows_neighbors_and_opens_entry() -> None:
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.selected_entry_id = 1
+        await pilot.pause()
+
+        summary = app.screen.query_one("#linked-items-summary", Static)
+        assert "Outgoing references:1" in str(summary.render())
+        assert "Incoming uses:1" in str(summary.render())
+        assert search.link_calls[-1]["entry_id"] == 1
+
+        open_button = app.screen.query_one("#linked-open-2", Button)
+        open_button.press()
+        await pilot.pause()
+        assert app.selected_entry_id == 2
 
 
 @pytest.mark.anyio

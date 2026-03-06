@@ -51,7 +51,10 @@ class CommandPalette(Vertical):
     def toggle(self) -> None:
         if self.has_class("visible"):
             self.remove_class("visible")
-            self.app.set_focus(None)
+            try:
+                self.app.screen.query_one("#entry-data-table").focus()
+            except Exception:
+                self.app.set_focus(None)
         else:
             self.add_class("visible")
             self.input.focus()

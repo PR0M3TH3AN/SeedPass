@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import Any
 from types import SimpleNamespace
 from textual.app import ComposeResult
-from textual.widgets import Static, DataTable
+from textual.widgets import Static, DataTable, Button
+from textual.containers import Horizontal
 from textual.reactive import reactive
 
 
@@ -23,7 +24,6 @@ class GridMetrics(Static):
 
     def render(self) -> str:
         app = self.app
-        # These would eventually come from App reactives
         pg = "1/1"
         rows = "0/0"
         try:
@@ -36,7 +36,6 @@ class GridMetrics(Static):
             pass
 
         density = "compact"
-        # Search mode highlighting
         m = app.search_mode
         keyword = f"[b](KEYWORD)[/b]" if m == "keyword" else "keyword"
         hybrid = f"[b](HYBRID)[/b]" if m == "hybrid" else "hybrid"
@@ -44,15 +43,72 @@ class GridMetrics(Static):
 
         search = f"{keyword} {hybrid} {semantic}"
         filter_text = f"Filter: [b]{app.filter_kind}[/b]"
+        sort_text = f"Sort: [b]{app.search_sort}[/b]"
+        query_text = (
+            f' Query: [b]"{app.search_query}"[/b]' if str(app.search_query).strip() else ""
+        )
         arch_text = " | [reverse] ARCHIVED [/reverse]" if app.show_archived else ""
 
-        return f"Entry Grid  |  Pg {pg}  Rows {rows}  Density {density}  {filter_text}{arch_text}  Search {search}"
+        return (
+            f"Entry Grid  |  Pg {pg}  Rows {rows}  Density {density}  "
+            f"{filter_text}  {sort_text}{arch_text}{query_text}  Search {search}"
+        )
 
     def on_mount(self) -> None:
         self.watch(self.app, "search_mode", self.refresh)
         self.watch(self.app, "selected_entry_id", self.refresh)
         self.watch(self.app, "filter_kind", self.refresh)
         self.watch(self.app, "show_archived", self.refresh)
+        self.watch(self.app, "search_sort", self.refresh)
+        self.watch(self.app, "search_query", self.refresh)
+
+
+class GridToolbar(Horizontal):
+    """Explicit filter/sort/search-mode controls for the main grid."""
+
+    DEFAULT_CSS = """
+    GridToolbar {
+        height: 3;
+        background: #d9d9d9;
+        color: #000000;
+        padding: 0 1;
+    }
+    GridToolbar Button {
+        min-width: 8;
+        width: auto;
+        margin-right: 1;
+        height: 1;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Button("All", id="grid-filter-all")
+        yield Button("Secrets", id="grid-filter-secrets")
+        yield Button("Docs", id="grid-filter-docs")
+        yield Button("Keys", id="grid-filter-keys")
+        yield Button("2FA", id="grid-filter-2fa")
+        yield Button("Archived", id="grid-toggle-archived")
+        yield Button("Keyword", id="grid-mode-keyword")
+        yield Button("Hybrid", id="grid-mode-hybrid")
+        yield Button("Semantic", id="grid-mode-semantic")
+        yield Button("Relevance", id="grid-sort-relevance")
+        yield Button("Recent", id="grid-sort-modified_desc")
+        yield Button("Label", id="grid-sort-label_asc")
+        yield Button("Linked", id="grid-sort-most_linked")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id or ""
+        if button_id.startswith("grid-filter-"):
+            self.app.action_set_kind_filter(button_id.removeprefix("grid-filter-"))
+            return
+        if button_id == "grid-toggle-archived":
+            self.app.action_toggle_archived_view()
+            return
+        if button_id.startswith("grid-mode-"):
+            self.app.action_set_search_mode(button_id.removeprefix("grid-mode-"))
+            return
+        if button_id.startswith("grid-sort-"):
+            self.app.action_set_search_sort(button_id.removeprefix("grid-sort-"))
 
 
 class EntryDataTable(DataTable):
@@ -76,11 +132,12 @@ class EntryDataTable(DataTable):
         except Exception:
             pass
 
-    def _refresh_data(self, query: str = "") -> None:
+    def _refresh_data(self, query: str | None = None) -> None:
         self.clear()
         app = self.app
         if "entry" not in app.services:
             return
+        active_query = app.search_query if query is None else query
         if app.selected_entry_id is None:
             self._suppress_next_highlight = True
 
@@ -105,11 +162,12 @@ class EntryDataTable(DataTable):
         if "search" in app.services:
             try:
                 results = app.services["search"].search(
-                    query,
+                    active_query,
                     kinds=kinds,
                     include_archived=app.show_archived,
                     archived_only=app.show_archived,
                     mode=app.search_mode,
+                    sort=app.search_sort,
                 )
                 for result in results:
                     try:
@@ -131,9 +189,9 @@ class EntryDataTable(DataTable):
                 app.notify(f"Search failed: {e}", severity="error")
                 entries = []
         # Fallback to direct semantic search if requested and available
-        elif app.search_mode != "keyword" and "semantic" in app.services and query:
+        elif app.search_mode != "keyword" and "semantic" in app.services and active_query:
             try:
-                results = app.services["semantic"].search(query, mode=app.search_mode)
+                results = app.services["semantic"].search(active_query, mode=app.search_mode)
                 # results is list of {entry_id, kind, label, score, excerpt}
                 for r in results:
                     eid = r["entry_id"]
@@ -173,7 +231,7 @@ class EntryDataTable(DataTable):
                 app.notify(f"Semantic search failed: {e}", severity="error")
                 # Fallback to lexical
                 entries = app.services["entry"].search_entries(
-                    query,
+                    active_query,
                     kinds=kinds,
                     include_archived=app.show_archived,
                     archived_only=app.show_archived,
@@ -181,7 +239,7 @@ class EntryDataTable(DataTable):
         else:
             # Fetch filtered data from standard service
             entries = app.services["entry"].search_entries(
-                query,
+                active_query,
                 kinds=kinds,
                 include_archived=app.show_archived,
                 archived_only=app.show_archived,
@@ -236,6 +294,7 @@ class GridContainer(Static):
 
     def compose(self) -> ComposeResult:
         yield GridMetrics()
+        yield GridToolbar()
         # Header divider
         yield Static("-" * 120, id="grid-divider")
         yield EntryDataTable(id="entry-data-table")

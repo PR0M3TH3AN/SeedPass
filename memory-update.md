@@ -46,3 +46,19 @@
 - Added regression tests in `src/tests/test_tui_v3_parity.py` to lock this compatibility behavior.
 - Current CI-equivalent state:
   - Full main suite passes (`1064 passed, 16 skipped`), but existing `tui2_coverage_gate.sh` still fails `src/seedpass/core/api.py >= 85` on its focused subset (`68.79%`) and needs separate gate policy/workload adjustment.
+
+## Session addendum — v3 grid focus + graph navigation baseline (2026-03-06)
+- Root cause for the reported v3 "main index list / scrolling" bug was focus management, not `DataTable` scrolling itself:
+  - first render focus landed on the hidden command palette input
+  - arrow-key navigation did nothing until the entry table was manually focused
+- Stable fix:
+  - `MainScreen.on_mount()` now focuses `#entry-data-table`
+  - closing the command palette restores focus to `#entry-data-table` instead of clearing focus
+- Reusable v3 search/navigation pattern:
+  - persist the active search query in app state so refresh/filter/sort changes do not silently clear the current result set
+  - keep sort and mode changes as explicit app actions (`action_set_search_mode`, `action_set_search_sort`) so toolbar buttons and palette commands stay aligned
+- Search/graph baseline shipped:
+  - `SearchService.linked_neighbors(...)` now returns deterministic incoming/outgoing link cards
+  - `SearchService.relation_summary(...)` now returns grouped relation counts
+  - TUI v3 inspector now exposes a linked-items panel with direct open-entry actions
+  - TUI v3 grid now has explicit filter/mode/sort buttons instead of palette-only control

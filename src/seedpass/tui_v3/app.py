@@ -14,7 +14,7 @@ from utils.fingerprint_manager import FingerprintManager
 from .widgets.header import AtlasStrip, RibbonHeader
 from .widgets.sidebar import SidebarContainer
 from .widgets.grid import GridContainer
-from .widgets.inspector import BoardContainer
+from .widgets.inspector import BoardContainer, LinkedItemsPanel
 from .widgets.palette import CommandPalette
 from .widgets.action_bar import ActionBar
 from .screens.atlas import AtlasWayfinderScreen
@@ -63,7 +63,7 @@ class CommandProcessor:
 
         if cmd == "help":
             self.app.notify(
-                "v3 commands: help, stats, atlas, wayfinder, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, profiles, relay-list, npub, nostr-pubkey, nostr-reset-sync-state, nostr-fresh-namespace, change-password, backup-parent-seed <path> (optional: password), maximize, copy, edit, export, add, seed-plus, archive, restore, delete, ml, mx, db-export <path>, db-import <path>"
+                "v3 commands: help, stats, atlas, wayfinder, session-status, lock, unlock <password>, refresh, search <query>, search-mode <keyword|hybrid|semantic>, sort <relevance|modified_desc|modified_asc|label_asc|kind|created_desc|most_linked>, filter <all|secrets|docs|keys|2fa>, archived, open <id>, settings, profiles, relay-list, npub, nostr-pubkey, nostr-reset-sync-state, nostr-fresh-namespace, change-password, backup-parent-seed <path> (optional: password), maximize, copy, edit, export, add, seed-plus, archive, restore, delete, ml, mx, db-export <path>, db-import <path>"
             )
         elif cmd == "stats":
             self.app.notify("Calculating stats...")
@@ -93,12 +93,15 @@ class CommandProcessor:
                     "Usage: search-mode <keyword|hybrid|semantic>", severity="warning"
                 )
                 return
-            mode = args[0].lower()
-            if mode in {"keyword", "hybrid", "semantic"}:
-                self.app.search_mode = mode
-                self.app.notify(f"Search mode set to: {mode}")
-            else:
-                self.app.notify(f"Invalid search mode: {mode}", severity="error")
+            self.app.action_set_search_mode(args[0])
+        elif cmd == "sort":
+            if not args:
+                self.app.notify(
+                    "Usage: sort <relevance|modified_desc|modified_asc|label_asc|kind|created_desc|most_linked>",
+                    severity="warning",
+                )
+                return
+            self.app.action_set_search_sort(args[0])
         elif cmd == "filter":
             if not args:
                 self.app.notify(
@@ -211,7 +214,15 @@ class MainScreen(Screen):
                         yield Static("Inspector Board", id="inspector-heading")
                         yield Button("Close", id="inspector-close", variant="default")
                     yield BoardContainer(id="board-container")
+                    yield LinkedItemsPanel(id="linked-items-panel")
         yield ActionBar(id="action-bar")
+
+    def on_mount(self) -> None:
+        """Keep keyboard navigation on the main entry grid by default."""
+        try:
+            self.query_one("#entry-data-table").focus()
+        except Exception:
+            pass
 
 
 class StartupScreen(Screen):
@@ -821,7 +832,9 @@ class SeedPassTuiV3(App[None]):
     active_breadcrumb = reactive("")
     selected_entry_id = reactive[int | None](None)
     session_locked = reactive(False)
+    search_query = reactive("")
     search_mode = reactive("keyword")
+    search_sort = reactive("relevance")
     filter_kind = reactive("all")
     show_archived = reactive(False)
 
@@ -1104,6 +1117,7 @@ class SeedPassTuiV3(App[None]):
             else:
                 inspector.remove_class("hidden")
             self.screen.query_one("#board-container").update_entry(new_id)
+            self.screen.query_one("#linked-items-panel").update_entry(new_id)
         except Exception:
             pass
 
@@ -1131,10 +1145,40 @@ class SeedPassTuiV3(App[None]):
     def action_search(self, query: str) -> None:
         """Search entries and update grid."""
         try:
-            self.screen.query_one("#entry-data-table")._refresh_data(query)
+            self.search_query = str(query or "")
+            self.screen.query_one("#entry-data-table")._refresh_data()
             self.notify(f"Search results for: {query}")
         except Exception:
             pass
+
+    def action_set_search_mode(self, mode: str) -> None:
+        """Set the active search mode and refresh the grid."""
+        normalized = str(mode or "").strip().lower()
+        if normalized not in {"keyword", "hybrid", "semantic"}:
+            self.notify(f"Invalid search mode: {mode}", severity="error")
+            return
+        self.search_mode = normalized
+        self.notify(f"Search mode set to: {normalized}")
+        self.action_refresh()
+
+    def action_set_search_sort(self, sort_key: str) -> None:
+        """Set the active grid sort mode and refresh the grid."""
+        normalized = str(sort_key or "").strip().lower()
+        allowed = {
+            "relevance",
+            "modified_desc",
+            "modified_asc",
+            "label_asc",
+            "kind",
+            "created_desc",
+            "most_linked",
+        }
+        if normalized not in allowed:
+            self.notify(f"Invalid sort mode: {sort_key}", severity="error")
+            return
+        self.search_sort = normalized
+        self.notify(f"Grid sort set to: {normalized}")
+        self.action_refresh()
 
     def action_toggle_archived_view(self) -> None:
         """Toggle between active entries and archived entries."""

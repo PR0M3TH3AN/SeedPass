@@ -1,6 +1,6 @@
 # TUI v3 Modular Architecture & Parity Plan
 
-Last updated: 2026-03-05  
+Last updated: 2026-03-06  
 Branch target: `beta`  
 Status: Active (Default UI / parity hardening in progress)
 Companion search/atlas plan: `docs/atlas_search_graph_integration_plan_2026-03-05.md`
@@ -168,3 +168,22 @@ To finalize v3, we must verify 100% functional parity with the **Legacy TUI**.
 - All reveal/QR/copy semantics verified for high-risk kinds.
 - PGP Public key support confirmed in both TUI v2 and v3.
 - Nostr relay actions mapped back through internal configuration via `app.services['nostr']`.
+
+## 6. Progress Log (2026-03-06)
+
+### Completed in this session
+- **Main grid reliability:**
+  - fixed v3 main-grid keyboard navigation by restoring focus ownership to `#entry-data-table` on workspace mount
+  - closing the command palette now restores focus to the main grid instead of leaving focus on a hidden input
+  - added focused regression coverage for default grid focus and post-palette keyboard navigation
+- **Search graph navigation baseline:**
+  - added `SearchService.linked_neighbors(...)` for deterministic incoming/outgoing link traversal
+  - added `SearchService.relation_summary(...)` for grouped relation counts
+  - v3 inspector now includes a linked-items panel with direct open-entry actions
+- **Grid control hardening:**
+  - v3 grid now persists the active search query across refresh/filter/sort changes
+  - added explicit in-app filter, search-mode, archived, and sort controls on the main grid surface
+  - palette command surface now includes `sort <...>` and routes search-mode changes through app actions for one consistent control path
+
+### Validation evidence
+- `pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_core_api_services.py` -> `107 passed`

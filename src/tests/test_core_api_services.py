@@ -391,6 +391,73 @@ class TestSearchService:
         assert results[0]["linked_hits"][0]["relation"] == "references"
         assert results[0]["excerpt"].startswith("SeedPass atlas")
 
+    def test_linked_neighbors_and_relation_summary(
+        self, service, mock_manager, tmp_path
+    ):
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Project Plan", None, None, False, EntryType.DOCUMENT),
+            (2, "Ops Vault", "ops", "https://ops", False, EntryType.PASSWORD),
+            (3, "Runbook", None, None, False, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "Project Plan",
+                "links": [{"target_id": 2, "relation": "references"}],
+            },
+            2: {
+                "id": 2,
+                "kind": "password",
+                "label": "Ops Vault",
+                "username": "ops",
+                "url": "https://ops",
+            },
+            3: {
+                "id": 3,
+                "kind": "document",
+                "label": "Runbook",
+                "links": [{"target_id": 1, "relation": "depends_on"}],
+            },
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+
+        neighbors = service.linked_neighbors(1)
+        summary = service.relation_summary(1)
+
+        assert neighbors == [
+            {
+                "entry_id": 3,
+                "label": "Runbook",
+                "kind": "document",
+                "scope_path": f"seed/{tmp_path.name}",
+                "archived": False,
+                "direction": "incoming",
+                "relation": "depends_on",
+                "note": "",
+                "tags": [],
+                "meta": "",
+            },
+            {
+                "entry_id": 2,
+                "label": "Ops Vault",
+                "kind": "password",
+                "scope_path": f"seed/{tmp_path.name}",
+                "archived": False,
+                "direction": "outgoing",
+                "relation": "references",
+                "note": "",
+                "tags": [],
+                "meta": "ops",
+            },
+        ]
+        assert summary == {
+            "incoming": {"depends_on": 1},
+            "outgoing": {"references": 1},
+            "combined": {"depends_on": 1, "references": 1},
+        }
+
     @patch("seedpass.core.api.SemanticIndexService.search")
     def test_hybrid_search_combines_semantic_and_filters(
         self, semantic_search, service, mock_manager, tmp_path

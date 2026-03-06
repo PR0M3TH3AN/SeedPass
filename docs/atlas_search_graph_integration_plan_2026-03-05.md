@@ -258,6 +258,12 @@ Required linked item card data:
 4. `relation`
 5. `scope_path`
 6. `archived`
+
+Baseline now implemented in code:
+1. `SearchService.linked_neighbors(...)` returns deterministic incoming/outgoing neighbor cards
+2. `SearchService.relation_summary(...)` returns grouped incoming/outgoing/combined relation counts
+3. TUI v3 inspector now surfaces linked-item summaries and direct open-entry actions
+4. TUI v3 grid now exposes explicit sort/filter/mode controls and preserves the active search query across refreshes
 7. `modified_ts`
 
 Required actions:

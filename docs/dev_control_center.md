@@ -1,6 +1,6 @@
 # SeedPass Dev Control Center
 
-Last updated: 2026-03-05  
+Last updated: 2026-03-06  
 Branch baseline: `beta`
 
 This is the single source-of-truth document to decide what to work on next.
@@ -97,9 +97,14 @@ Use these docs as inputs, but treat this file as the decision layer:
   - deterministic filter/sort pipeline added for keyword / hybrid / semantic search modes
   - v3 entry grid now routes through the unified search path instead of branching search logic in the widget layer
   - focused regression coverage added in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
+- Phase B baseline landed:
+  - `SearchService.linked_neighbors(...)` and `relation_summary(...)` now provide explicit outgoing/incoming graph navigation data
+  - v3 grid now preserves active search query across refresh/filter/sort changes
+  - v3 grid now exposes explicit in-app filter/mode/sort controls instead of palette-only command flow
+  - v3 inspector now includes a linked-items panel with direct open-entry actions
+  - focused regression coverage expanded in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
 - Next planned implementation:
-  - richer sort/filter controls in v3
-  - linked-item navigation service methods and inspector consumers
+  - deeper linked-navigation workflows and richer graph-oriented pivots
   - deeper atlas/search handoff and graph-aware result workflows
 
 ### Future Capability: Nostr Communications
@@ -174,7 +179,7 @@ Use these docs as inputs, but treat this file as the decision layer:
 3. Continue v3 startup/restore hardening:
 : clearer restore warnings, success summaries, and import/recovery guidance.
 4. Continue Phase B/C from `docs/atlas_search_graph_integration_plan_2026-03-05.md`:
-: linked-item navigation, richer filter/sort controls, and deeper v3 search/navigation handoff.
+: deeper v3 search/navigation handoff, graph pivots, and next-level linked-item workflows.
 5. Resume Index0 Atlas and graph follow-on work after current v3 UX slices stabilize:
 : agent-facing atlas workflows, linked-item navigation, deeper search/navigation handoff, and any later event-pruning compaction policy.
 6. Continue security-readiness blockers in parallel where they do not conflict with the v3 path.
@@ -184,9 +189,9 @@ Use these docs as inputs, but treat this file as the decision layer:
 ### Slice A: “Search Graph Navigation”
 
 Deliverables:
-- Add linked-neighbor and relation-summary methods above the current atlas/search foundations.
-- Expose explicit sort and filter controls in v3 on top of the existing unified `SearchService`.
-- Add inspector linked-item navigation so users can browse outgoing/incoming relationships without raw JSON inspection.
+- Extend the new linked-neighbor and relation-summary methods with deeper graph pivots above the current atlas/search foundations.
+- Continue iterating on the new explicit v3 sort/filter controls on top of the unified `SearchService`.
+- Expand the new inspector linked-item navigation so users can pivot through relationships more fluidly without raw JSON inspection.
 - Keep the atlas/search/graph plan and control center synchronized with shipped behavior as this slice lands.
 
 Exit criteria:

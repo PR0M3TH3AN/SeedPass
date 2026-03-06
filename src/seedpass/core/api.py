@@ -1501,6 +1501,135 @@ class SearchService:
             results.sort(key=_result_key)
             return results[: max(1, int(limit))]
 
+    def linked_neighbors(
+        self,
+        entry_id: int,
+        *,
+        relation: str | None = None,
+        direction: str = "both",
+        include_archived: bool = True,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            target_entry_id = int(entry_id or 0)
+            if target_entry_id <= 0:
+                return []
+
+            direction_key = str(direction or "both").strip().lower()
+            if direction_key not in {"incoming", "outgoing", "both"}:
+                direction_key = "both"
+            relation_filter = str(relation or "").strip().lower()
+            scope_path = self._scope_path()
+
+            entries = self._all_entries()
+            entry_map = {
+                int(item.get("id", 0) or 0): item
+                for item in entries
+                if int(item.get("id", 0) or 0) > 0
+            }
+            current_entry = entry_map.get(target_entry_id)
+            if current_entry is None:
+                return []
+
+            neighbors: list[dict[str, Any]] = []
+
+            if direction_key in {"outgoing", "both"}:
+                for link in self._normalized_links(current_entry):
+                    link_relation = str(link.get("relation", "")).strip().lower()
+                    if relation_filter and link_relation != relation_filter:
+                        continue
+                    neighbor_id = int(link.get("target_id", 0) or 0)
+                    neighbor = entry_map.get(neighbor_id)
+                    if neighbor is None:
+                        continue
+                    archived = bool(neighbor.get("archived", False))
+                    if not include_archived and archived:
+                        continue
+                    kind = self._entry_kind(neighbor)
+                    neighbors.append(
+                        {
+                            "entry_id": neighbor_id,
+                            "label": str(neighbor.get("label", "")).strip(),
+                            "kind": kind,
+                            "scope_path": scope_path,
+                            "archived": archived,
+                            "direction": "outgoing",
+                            "relation": link_relation,
+                            "note": str(link.get("note", "")).strip(),
+                            "tags": self._normalized_tags(neighbor),
+                            "meta": self._meta(neighbor, kind),
+                        }
+                    )
+
+            if direction_key in {"incoming", "both"}:
+                for source in entries:
+                    source_id = int(source.get("id", 0) or 0)
+                    if source_id <= 0 or source_id == target_entry_id:
+                        continue
+                    archived = bool(source.get("archived", False))
+                    if not include_archived and archived:
+                        continue
+                    for link in self._normalized_links(source):
+                        if int(link.get("target_id", 0) or 0) != target_entry_id:
+                            continue
+                        link_relation = str(link.get("relation", "")).strip().lower()
+                        if relation_filter and link_relation != relation_filter:
+                            continue
+                        kind = self._entry_kind(source)
+                        neighbors.append(
+                            {
+                                "entry_id": source_id,
+                                "label": str(source.get("label", "")).strip(),
+                                "kind": kind,
+                                "scope_path": scope_path,
+                                "archived": archived,
+                                "direction": "incoming",
+                                "relation": link_relation,
+                                "note": str(link.get("note", "")).strip(),
+                                "tags": self._normalized_tags(source),
+                                "meta": self._meta(source, kind),
+                            }
+                        )
+
+            neighbors.sort(
+                key=lambda item: (
+                    str(item.get("direction", "")),
+                    str(item.get("relation", "")),
+                    str(item.get("label", "")).lower(),
+                    int(item.get("entry_id", 0) or 0),
+                )
+            )
+            return neighbors[: max(1, int(limit))]
+
+    def relation_summary(
+        self,
+        entry_id: int,
+        *,
+        include_archived: bool = True,
+    ) -> dict[str, dict[str, int]]:
+        neighbors = self.linked_neighbors(
+            entry_id,
+            include_archived=include_archived,
+            direction="both",
+            limit=1000,
+        )
+        summary = {
+            "incoming": {},
+            "outgoing": {},
+            "combined": {},
+        }
+        for item in neighbors:
+            relation = str(item.get("relation", "")).strip().lower()
+            direction = str(item.get("direction", "")).strip().lower()
+            if not relation or direction not in {"incoming", "outgoing"}:
+                continue
+            summary[direction][relation] = summary[direction].get(relation, 0) + 1
+            summary["combined"][relation] = summary["combined"].get(relation, 0) + 1
+        return {
+            key: dict(sorted(value.items()))
+            for key, value in summary.items()
+        }
+
 
 class AtlasService:
     """Thread-safe wrapper around canonical atlas/index0 read operations."""
