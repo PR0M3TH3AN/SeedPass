@@ -342,7 +342,7 @@ async def test_v3_action_bar_labels_include_leading_hotkey_letters() -> None:
         assert "Settings" in rendered
         assert "Add New Entry" in rendered
         assert "Create New Seed" in rendered
-        assert "Remove Seed" in rendered
+        assert "Profiles" in rendered
         assert "Export Data" in rendered
         assert "Import Data" in rendered
         assert "Backup Data" in rendered
@@ -360,7 +360,7 @@ async def test_v3_action_bar_global_row_uses_correct_handlers() -> None:
         markup = bar.render()
         # Backup Data must route to open_backup_parent_seed (has its own screen)
         assert "open_backup_parent_seed" in markup
-        # Remove Seed must route to open_profile_management (not open_palette)
+        # Profiles must route to open_profile_management (not open_palette)
         assert "open_profile_management" in markup
         # Export/Import Data use open_palette because they need a path argument
         # Verify both labels still present
@@ -369,7 +369,7 @@ async def test_v3_action_bar_global_row_uses_correct_handlers() -> None:
         assert "Export Data" in rendered
         assert "Import Data" in rendered
         assert "Backup Data" in rendered
-        assert "Remove Seed" in rendered
+        assert "Profiles" in rendered
 
 
 @pytest.mark.anyio

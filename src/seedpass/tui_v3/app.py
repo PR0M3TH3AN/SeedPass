@@ -592,12 +592,15 @@ class CreateProfileScreen(Screen):
                 fingerprint = self.app._create_generated_profile(
                     password=password, seed=seed
                 )
+                self._set_status(
+                    f"New profile generated ({fingerprint[:12]}) — launching session."
+                )
             elif mode == "nostr":
                 if not seed:
                     self._set_status("Enter the seed phrase for Nostr restore.")
                     return
                 self._set_status(
-                    "Restoring from Nostr — this replays remote events onto the seed. "
+                    "⚠ Restoring from Nostr — this replays remote events onto the seed. "
                     "Your entries will be recovered from the network. This may take a moment..."
                 )
                 fingerprint = self.app._restore_from_nostr_profile(
@@ -616,7 +619,7 @@ class CreateProfileScreen(Screen):
                     self._set_status("Enter the encrypted backup path for backup mode.")
                     return
                 self._set_status(
-                    f"Restoring from local backup at {backup_path} — decrypting with your seed and password..."
+                    f"⚠ Restoring from local backup at {backup_path} — decrypting with your seed and password..."
                 )
                 fingerprint = self.app._restore_from_backup_profile(
                     seed=seed,
@@ -635,7 +638,7 @@ class CreateProfileScreen(Screen):
                     password=password,
                 )
                 self._set_status(
-                    f"Profile imported ({fingerprint[:12]}) — launching session."
+                    f"Profile imported successfully ({fingerprint[:12]}) — launching session."
                 )
             self.app._bootstrap_profile_session(fingerprint, password)
         except Exception as e:
