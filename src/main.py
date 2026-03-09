@@ -251,7 +251,7 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
                 password_manager.is_dirty = False
                 getattr(password_manager, "cleanup", lambda: None)()
                 print(colored("All seed profiles removed. Exiting.", "yellow"))
-                sys.exit(0)
+                os._exit(0)
 
             if password_manager.fingerprint_manager.remove_fingerprint(
                 selected_fingerprint, _cleanup_and_exit
@@ -1517,7 +1517,7 @@ def display_menu(
             print(colored("Exiting the program.", "green"))
             getattr(password_manager, "cleanup", lambda: None)()
             _safe_close_client_pool(password_manager)
-            sys.exit(0)
+            os._exit(0)
         try:
             if choice == "1":
                 while True:
@@ -1859,7 +1859,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
             print(colored(f"Error during shutdown: {exc}", "red"))
-        sys.exit(0)
+        os._exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
