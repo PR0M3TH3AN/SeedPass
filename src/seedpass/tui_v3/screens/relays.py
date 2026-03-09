@@ -196,8 +196,6 @@ class RelaysScreen(Screen):
     async def _perform_sync(self) -> None:
         sync_service = self.app.services.get("sync")
         try:
-            import traceback
-
             sync_service.sync()
             self.app.call_from_thread(
                 self.app.notify, "Synchronization complete", severity="information"

@@ -71,6 +71,15 @@ MAINTENANCE_CSS = """
     min-height: 3;
 }
 
+.maintenance-status-warning {
+    background: #4a3800;
+    color: #ffdd88;
+    border: solid #aa7700;
+    padding: 1;
+    margin-top: 1;
+    min-height: 3;
+}
+
 .maintenance-label {
     color: #ffffff;
     text-style: bold;
@@ -116,6 +125,19 @@ MAINTENANCE_CSS = """
 """
 
 
+_STATUS_ICONS: dict[str, str] = {
+    "ready": "◎",
+    "working": "⟳",
+    "success": "✓",
+    "warning": "⚠",
+    "error": "✗",
+    "danger": "⚠",
+    "info": "ℹ",
+}
+
+
 def format_status(level: str, message: str) -> str:
-    prefix = level.strip().capitalize() or "Info"
-    return f"{prefix}: {message}"
+    key = level.strip().lower()
+    icon = _STATUS_ICONS.get(key, "◉")
+    prefix = key.capitalize() or "Info"
+    return f"{icon} {prefix}: {message}"
