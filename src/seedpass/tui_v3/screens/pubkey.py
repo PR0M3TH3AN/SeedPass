@@ -12,8 +12,8 @@ class NostrPubkeyScreen(Screen):
     """Display the active profile npub and its public QR payload."""
 
     BINDINGS = [
-        ("escape", "app.pop_screen", "Back"),
-        ("c", "copy_pubkey", "Copy npub"),
+        Binding("escape", "app.pop_screen", "Back", show=True),
+        Binding("c", "copy_pubkey", "Copy npub", show=True),
     ]
 
     CSS = (

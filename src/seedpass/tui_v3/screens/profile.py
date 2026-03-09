@@ -46,7 +46,7 @@ class ProfileManagementScreen(Screen):
         yield Static("SeedPass ◈ Profile Management", classes="maintenance-title")
         with Container(id="profile-container", classes="maintenance-panel-dark"):
             yield Static(
-                "Switch between profiles or remove unused ones. The active profile is marked with *. Removing a profile requires confirmation.",
+                "Switch between profiles or remove unused ones. The active profile is marked with ►. Each profile is identified by its fingerprint. Removing a profile is permanent and requires confirmation.",
                 id="profile-intro",
                 classes="maintenance-intro-dark",
             )
@@ -105,7 +105,7 @@ class ProfileManagementScreen(Screen):
         for idx, profile in enumerate(profiles, start=1):
             fingerprint = profile["fingerprint"]
             label = profile["label"]
-            marker = "*" if fingerprint == current else " "
+            marker = "►" if fingerprint == current else " "
             lines.append(f"{idx}. {marker} {label}")
         if not profiles:
             lines.append("(none)")

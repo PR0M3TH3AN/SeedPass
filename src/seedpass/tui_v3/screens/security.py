@@ -114,7 +114,7 @@ class BackupParentSeedScreen(Screen):
             )
             yield Label("Destination Path", classes="maintenance-label")
             yield Input(placeholder="seed-backup.enc", id="backup-seed-path", classes="maintenance-input")
-            yield Label("Backup Password (optional)", classes="maintenance-label")
+            yield Label("Backup Passphrase (optional — encrypts the exported seed bundle)", classes="maintenance-label")
             yield Input(password=True, id="backup-seed-password", classes="maintenance-input")
             yield Static(
                 format_status("ready", "Enter the backup destination path to export an encrypted seed bundle."),
