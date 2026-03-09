@@ -1021,6 +1021,7 @@ def test_root_tui3_forward_fingerprint(monkeypatch):
         called["factory"] = kwargs.get("entry_service_factory")
         return True
 
+    monkeypatch.setattr(cli, "_stdin_is_tty", lambda: True)
     monkeypatch.setattr(cli, "launch_tui3", fake_launch)
     result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 0
@@ -1170,6 +1171,7 @@ def test_tui2_fallback_legacy_strips_subcommand_argv(monkeypatch):
 
 
 def test_root_tui3_unavailable_returns_error(monkeypatch):
+    monkeypatch.setattr(cli, "_stdin_is_tty", lambda: True)
     monkeypatch.setattr(cli, "launch_tui3", lambda **_: False)
     result = runner.invoke(app, ["--fingerprint", "abc"])
     assert result.exit_code == 1
@@ -1179,6 +1181,7 @@ def test_root_tui3_unavailable_returns_error(monkeypatch):
 
 
 def test_root_tui3_does_not_preflight_entry_service(monkeypatch):
+    monkeypatch.setattr(cli, "_stdin_is_tty", lambda: True)
     monkeypatch.setattr(
         cli,
         "_get_entry_service",
@@ -1187,6 +1190,14 @@ def test_root_tui3_does_not_preflight_entry_service(monkeypatch):
     monkeypatch.setattr(cli, "launch_tui3", lambda **_: True)
     result = runner.invoke(app, [])
     assert result.exit_code == 0
+
+
+def test_tui3_non_interactive_stdin_exits_with_error(monkeypatch):
+    """tui3 must exit cleanly with an error message when stdin is not a TTY."""
+    monkeypatch.setattr(cli, "_stdin_is_tty", lambda: False)
+    result = runner.invoke(app, ["tui3"])
+    assert result.exit_code == 1
+    assert "not a TTY" in result.stderr
 
 
 def test_tui2_preflight_failure_without_fallback(monkeypatch):

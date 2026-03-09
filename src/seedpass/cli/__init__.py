@@ -154,11 +154,21 @@ def _launch_legacy_tui(*, fingerprint: Optional[str]) -> typer.Exit:
         return typer.Exit(legacy_main(fingerprint=fingerprint))
 
 
+def _stdin_is_tty() -> bool:
+    return sys.stdin.isatty()
+
+
 def _launch_tui3_or_exit(
     *,
     fingerprint: Optional[str],
     services: Optional[dict[str, object]] = None,
 ) -> None:
+    if not _stdin_is_tty():
+        typer.echo(
+            "seedpass tui3: requires an interactive terminal (stdin is not a TTY).",
+            err=True,
+        )
+        raise typer.Exit(1)
     kwargs: dict[str, object] = {"fingerprint": fingerprint}
     if services is not None:
         kwargs.update(
