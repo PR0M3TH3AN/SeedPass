@@ -1095,3 +1095,128 @@ async def test_tui3_inspector_utility_hints_update_by_entry_kind() -> None:
         await pilot.pause()
         hints_text = str(hints_bar.render())
         assert "Actions" not in hints_text
+
+
+@pytest.mark.anyio
+async def test_tui3_keyboard_sort_shortcuts_change_sort() -> None:
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        # Default sort is relevance
+        assert app.search_sort == "relevance"
+
+        # n → sort by label_asc
+        await pilot.press("n")
+        await pilot.pause()
+        assert app.search_sort == "label_asc"
+        assert search.calls and search.calls[-1]["sort"] == "label_asc"
+
+        # r → sort by modified_desc
+        await pilot.press("r")
+        await pilot.pause()
+        assert app.search_sort == "modified_desc"
+        assert search.calls[-1]["sort"] == "modified_desc"
+
+        # k → sort by kind
+        await pilot.press("k")
+        await pilot.pause()
+        assert app.search_sort == "kind"
+        assert search.calls[-1]["sort"] == "kind"
+
+
+@pytest.mark.anyio
+async def test_tui3_clear_filter_button_resets_state() -> None:
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        # Set non-default filter/sort/query state
+        app.action_set_kind_filter("docs")
+        app.action_set_search_sort("modified_desc")
+        app.action_search("Email")
+        await pilot.pause()
+        assert app.filter_kind == "docs"
+        assert app.search_sort == "modified_desc"
+        assert app.search_query == "Email"
+
+        # Press Clear button
+        app.screen.query_one("#grid-clear-filter", Button).press()
+        await pilot.pause()
+        assert app.filter_kind == "all"
+        assert app.search_sort == "relevance"
+        assert app.search_query == ""
+
+
+@pytest.mark.anyio
+async def test_tui3_clear_filter_keyboard_shortcut_resets_state() -> None:
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.action_set_kind_filter("keys")
+        app.action_set_search_sort("label_asc")
+        await pilot.pause()
+        assert app.filter_kind == "keys"
+
+        await pilot.press("f")
+        await pilot.pause()
+        assert app.filter_kind == "all"
+        assert app.search_sort == "relevance"
+
+
+@pytest.mark.anyio
+async def test_tui3_filter_sort_state_persists_across_screen_transitions() -> None:
+    """Filter and sort state must survive pushing/popping overlay screens."""
+    app, _entry, _vault, search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        # Establish non-default state
+        app.action_set_kind_filter("secrets")
+        app.action_set_search_sort("modified_desc")
+        await pilot.pause()
+        assert app.filter_kind == "secrets"
+        assert app.search_sort == "modified_desc"
+
+        # Push a screen (atlas wayfinder)
+        app.action_open_atlas_wayfinder()
+        await pilot.pause()
+        assert isinstance(app.screen, AtlasWayfinderScreen)
+
+        # Pop back to main
+        app.pop_screen()
+        await pilot.pause()
+        # State must be unchanged
+        assert app.filter_kind == "secrets"
+        assert app.search_sort == "modified_desc"
+
+        # Grid refresh triggered after pop should use persisted sort
+        table = app.screen.query_one("#entry-data-table", DataTable)
+        table._refresh_data()
+        await pilot.pause()
+        assert search.calls and search.calls[-1]["sort"] == "modified_desc"
+
+
+@pytest.mark.anyio
+async def test_tui3_toolbar_active_class_reflects_app_state() -> None:
+    """GridToolbar buttons must gain/lose the 'active' CSS class as state changes."""
+    app, _entry, _vault, _search = _build_app()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        # Default: filter=all, mode=keyword, sort=relevance
+        assert app.screen.query_one("#grid-filter-all", Button).has_class("active")
+        assert app.screen.query_one("#grid-mode-keyword", Button).has_class("active")
+        assert app.screen.query_one("#grid-sort-relevance", Button).has_class("active")
+        assert not app.screen.query_one("#grid-filter-docs", Button).has_class("active")
+
+        # Change filter to docs
+        app.action_set_kind_filter("docs")
+        await pilot.pause()
+        assert app.screen.query_one("#grid-filter-docs", Button).has_class("active")
+        assert not app.screen.query_one("#grid-filter-all", Button).has_class("active")
+
+        # Change sort to label_asc
+        app.action_set_search_sort("label_asc")
+        await pilot.pause()
+        assert app.screen.query_one("#grid-sort-label_asc", Button).has_class("active")
+        assert not app.screen.query_one("#grid-sort-relevance", Button).has_class("active")

@@ -79,6 +79,11 @@ class GridToolbar(Horizontal):
         margin-right: 1;
         height: 1;
     }
+    GridToolbar Button.active {
+        background: #007700;
+        color: #ffffff;
+        text-style: bold;
+    }
     """
 
     def compose(self) -> ComposeResult:
@@ -93,11 +98,57 @@ class GridToolbar(Horizontal):
         yield Button("Semantic", id="grid-mode-semantic")
         yield Button("Relevance", id="grid-sort-relevance")
         yield Button("Recent", id="grid-sort-modified_desc")
-        yield Button("Label", id="grid-sort-label_asc")
+        yield Button("Label ↑", id="grid-sort-label_asc")
+        yield Button("Kind", id="grid-sort-kind")
         yield Button("Linked", id="grid-sort-most_linked")
+        yield Button("[X] Clear", id="grid-clear-filter")
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "filter_kind", self._sync_active_states)
+        self.watch(self.app, "search_mode", self._sync_active_states)
+        self.watch(self.app, "search_sort", self._sync_active_states)
+        self._sync_active_states()
+
+    def _sync_active_states(self, *_args: Any) -> None:
+        """Update button active CSS classes to reflect current app state."""
+        try:
+            app = self.app
+            filter_kind = app.filter_kind
+            search_mode = app.search_mode
+            search_sort = app.search_sort
+
+            filter_map = {
+                "grid-filter-all": filter_kind == "all",
+                "grid-filter-secrets": filter_kind == "secrets",
+                "grid-filter-docs": filter_kind == "docs",
+                "grid-filter-keys": filter_kind == "keys",
+                "grid-filter-2fa": filter_kind == "2fa",
+                "grid-mode-keyword": search_mode == "keyword",
+                "grid-mode-hybrid": search_mode == "hybrid",
+                "grid-mode-semantic": search_mode == "semantic",
+                "grid-sort-relevance": search_sort == "relevance",
+                "grid-sort-modified_desc": search_sort == "modified_desc",
+                "grid-sort-label_asc": search_sort == "label_asc",
+                "grid-sort-kind": search_sort == "kind",
+                "grid-sort-most_linked": search_sort == "most_linked",
+            }
+            for btn_id, is_active in filter_map.items():
+                try:
+                    btn = self.query_one(f"#{btn_id}", Button)
+                    if is_active:
+                        btn.add_class("active")
+                    else:
+                        btn.remove_class("active")
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
+        if button_id == "grid-clear-filter":
+            self.app.action_clear_filter()
+            return
         if button_id.startswith("grid-filter-"):
             self.app.action_set_kind_filter(button_id.removeprefix("grid-filter-"))
             return
