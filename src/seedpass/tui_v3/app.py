@@ -930,6 +930,10 @@ class SeedPassTuiV3(App[None]):
         Binding("g", "show_qr", "QR", show=False),
         Binding("a", "toggle_archive", "Archive", show=False),
         Binding("c", "copy_selected", "Copy", show=False),
+        Binding("n", "sort_label", "Sort:Name", show=False),
+        Binding("r", "sort_recent", "Sort:Recent", show=False),
+        Binding("k", "sort_kind", "Sort:Kind", show=False),
+        Binding("f", "clear_filter", "Clear Filter", show=False),
     ]
 
     # Shared Reactive State
@@ -1297,6 +1301,26 @@ class SeedPassTuiV3(App[None]):
         """Set a specific entry kind filter (all, secrets, docs, keys, 2fa)."""
         self.filter_kind = kind.lower()
         self.notify(f"Applied filter: {self.filter_kind}")
+        self.action_refresh()
+
+    def action_sort_label(self) -> None:
+        """Keyboard shortcut: sort grid by label (A→Z)."""
+        self.action_set_search_sort("label_asc")
+
+    def action_sort_recent(self) -> None:
+        """Keyboard shortcut: sort grid by most-recently modified."""
+        self.action_set_search_sort("modified_desc")
+
+    def action_sort_kind(self) -> None:
+        """Keyboard shortcut: sort grid by entry kind."""
+        self.action_set_search_sort("kind")
+
+    def action_clear_filter(self) -> None:
+        """Clear active filter, search query, and reset sort to relevance."""
+        self.filter_kind = "all"
+        self.search_query = ""
+        self.search_sort = "relevance"
+        self.notify("Filter and sort cleared")
         self.action_refresh()
 
     def action_open_palette(self) -> None:
