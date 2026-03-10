@@ -8,7 +8,7 @@ allow easy validation and documentation.
 """
 
 from pathlib import Path
-from threading import Lock
+from threading import Lock, RLock
 from typing import List, Optional, Dict, Any
 import dataclasses
 import json
@@ -1091,7 +1091,7 @@ class SearchService:
 
     def __init__(self, manager: PasswordManager) -> None:
         self._manager = manager
-        self._lock = Lock()
+        self._lock = RLock()
 
     def _scope_path(self) -> str:
         profile_dir = getattr(self._manager, "fingerprint_dir", None)
@@ -1629,6 +1629,191 @@ class SearchService:
             key: dict(sorted(value.items()))
             for key, value in summary.items()
         }
+
+    def multi_hop_neighbors(
+        self,
+        entry_id: int,
+        *,
+        hops: int = 2,
+        relation: str | None = None,
+        direction: str = "both",
+        kinds: list[str] | None = None,
+        include_archived: bool = True,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Return all neighbors reachable within ``hops`` graph hops from ``entry_id``.
+
+        Each result includes ``hop`` (1-indexed distance from origin) and ``path``
+        (ordered list of entry_ids from origin to this neighbor). Direct neighbors
+        have ``hop=1``. When the same entry is reachable via multiple paths only
+        the shortest-hop path is retained.
+        """
+        with self._lock:
+            target_id = int(entry_id or 0)
+            if target_id <= 0:
+                return []
+            hops = max(1, int(hops or 1))
+            direction_key = str(direction or "both").strip().lower()
+            if direction_key not in {"incoming", "outgoing", "both"}:
+                direction_key = "both"
+            relation_filter = str(relation or "").strip().lower()
+            kind_filters = self._normalize_kind_filters(kinds)
+            scope_path = self._scope_path()
+
+            entries = self._all_entries()
+            entry_map: dict[int, dict[str, Any]] = {
+                int(e.get("id", 0) or 0): e
+                for e in entries
+                if int(e.get("id", 0) or 0) > 0
+            }
+
+            # BFS: visited maps neighbor_id -> best result dict
+            visited: dict[int, dict[str, Any]] = {}
+            # frontier: (current_id, current_hop, path_so_far)
+            frontier: list[tuple[int, int, list[int]]] = [
+                (target_id, 0, [target_id])
+            ]
+
+            while frontier:
+                next_frontier: list[tuple[int, int, list[int]]] = []
+                for current_id, current_hop, path in frontier:
+                    if current_hop >= hops:
+                        continue
+                    current_entry = entry_map.get(current_id)
+                    if current_entry is None:
+                        continue
+                    path_set = set(path)
+
+                    if direction_key in {"outgoing", "both"}:
+                        for link in self._normalized_links(current_entry):
+                            link_relation = str(link.get("relation", "")).strip().lower()
+                            if relation_filter and link_relation != relation_filter:
+                                continue
+                            neighbor_id = int(link.get("target_id", 0) or 0)
+                            if neighbor_id <= 0 or neighbor_id == target_id:
+                                continue
+                            neighbor = entry_map.get(neighbor_id)
+                            if neighbor is None:
+                                continue
+                            archived = bool(neighbor.get("archived", False))
+                            if not include_archived and archived:
+                                continue
+                            neighbor_kind = self._entry_kind(neighbor)
+                            if kind_filters and neighbor_kind not in kind_filters:
+                                continue
+                            hop_num = current_hop + 1
+                            neighbor_path = path + [neighbor_id]
+                            if (
+                                neighbor_id not in visited
+                                or visited[neighbor_id]["hop"] > hop_num
+                            ):
+                                visited[neighbor_id] = {
+                                    "entry_id": neighbor_id,
+                                    "label": str(neighbor.get("label", "")).strip(),
+                                    "kind": neighbor_kind,
+                                    "scope_path": scope_path,
+                                    "archived": archived,
+                                    "direction": "outgoing",
+                                    "relation": link_relation,
+                                    "note": str(link.get("note", "")).strip(),
+                                    "tags": self._normalized_tags(neighbor),
+                                    "meta": self._meta(neighbor, neighbor_kind),
+                                    "hop": hop_num,
+                                    "path": list(neighbor_path),
+                                }
+                            if hop_num < hops and neighbor_id not in path_set:
+                                next_frontier.append(
+                                    (neighbor_id, hop_num, neighbor_path)
+                                )
+
+                    if direction_key in {"incoming", "both"}:
+                        for source in entries:
+                            source_id = int(source.get("id", 0) or 0)
+                            if source_id <= 0 or source_id == target_id or source_id in path_set:
+                                continue
+                            archived = bool(source.get("archived", False))
+                            if not include_archived and archived:
+                                continue
+                            for link in self._normalized_links(source):
+                                if int(link.get("target_id", 0) or 0) != current_id:
+                                    continue
+                                link_relation = str(link.get("relation", "")).strip().lower()
+                                if relation_filter and link_relation != relation_filter:
+                                    continue
+                                source_kind = self._entry_kind(source)
+                                if kind_filters and source_kind not in kind_filters:
+                                    continue
+                                hop_num = current_hop + 1
+                                source_path = path + [source_id]
+                                if (
+                                    source_id not in visited
+                                    or visited[source_id]["hop"] > hop_num
+                                ):
+                                    visited[source_id] = {
+                                        "entry_id": source_id,
+                                        "label": str(source.get("label", "")).strip(),
+                                        "kind": source_kind,
+                                        "scope_path": scope_path,
+                                        "archived": archived,
+                                        "direction": "incoming",
+                                        "relation": link_relation,
+                                        "note": str(link.get("note", "")).strip(),
+                                        "tags": self._normalized_tags(source),
+                                        "meta": self._meta(source, source_kind),
+                                        "hop": hop_num,
+                                        "path": list(source_path),
+                                    }
+                                if hop_num < hops and source_id not in path_set:
+                                    next_frontier.append(
+                                        (source_id, hop_num, source_path)
+                                    )
+                frontier = next_frontier
+
+            results = sorted(
+                visited.values(),
+                key=lambda item: (
+                    int(item.get("hop", 1)),
+                    str(item.get("direction", "")),
+                    str(item.get("relation", "")),
+                    str(item.get("label", "")).lower(),
+                    int(item.get("entry_id", 0) or 0),
+                ),
+            )
+            return results[: max(1, int(limit))]
+
+    def filtered_neighbors(
+        self,
+        entry_id: int,
+        *,
+        kinds: list[str] | None = None,
+        relation: str | None = None,
+        direction: str = "both",
+        include_archived: bool = True,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return direct neighbors filtered by entry kind(s).
+
+        Convenience wrapper around :meth:`linked_neighbors` that applies an
+        additional kind-based filter. When ``kinds`` is ``None`` or empty this
+        is equivalent to calling :meth:`linked_neighbors` directly.
+        """
+        if not kinds:
+            return self.linked_neighbors(
+                entry_id,
+                relation=relation,
+                direction=direction,
+                include_archived=include_archived,
+                limit=limit,
+            )
+        return self.multi_hop_neighbors(
+            entry_id,
+            hops=1,
+            relation=relation,
+            direction=direction,
+            kinds=kinds,
+            include_archived=include_archived,
+            limit=limit,
+        )
 
 
 class AtlasService:

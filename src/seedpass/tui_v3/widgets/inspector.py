@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any
 from textual.app import ComposeResult
+from textual.events import Key
 from textual.widgets import Static, Label, Button
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
@@ -696,12 +697,20 @@ class BoardContainer(Vertical):
 
 
 class LinkedItemsPanel(Vertical):
-    """Inspector panel for browsing explicit incoming and outgoing relationships."""
+    """Inspector panel for browsing explicit incoming and outgoing relationships.
+
+    Supports:
+    - Kind-filtered views (press 'f' to cycle through available kinds)
+    - Keyboard navigation between items (↑/↓ arrows, Enter to open)
+    - Richer item display showing relation type, tags, and hop distance
+    - Atlas context: when ``atlas_source_scope`` is set a back-navigation
+      button is shown at the top of the panel
+    """
 
     DEFAULT_CSS = """
     LinkedItemsPanel {
         height: auto;
-        max-height: 12;
+        max-height: 14;
         min-height: 6;
         background: #111111;
         color: #ffffff;
@@ -716,6 +725,10 @@ class LinkedItemsPanel(Vertical):
         color: #cccccc;
         margin-bottom: 1;
     }
+    .linked-filter-bar {
+        color: #888888;
+        margin-bottom: 1;
+    }
     .linked-empty {
         color: #aaaaaa;
     }
@@ -725,32 +738,159 @@ class LinkedItemsPanel(Vertical):
         margin-bottom: 1;
         content-align: left middle;
     }
+    .linked-open.focused-item {
+        background: #333333;
+        color: #ffffff;
+        text-style: bold;
+    }
+    .linked-atlas-back {
+        width: 100%;
+        height: auto;
+        margin-bottom: 1;
+        background: #1a1a2e;
+        color: #aaaaff;
+    }
+    .linked-nav-hint {
+        color: #555555;
+        margin-top: 1;
+    }
     """
+
+    # Available kind filters — None means "all"
+    _KIND_CYCLE: list[str | None] = [None, "password", "nostr", "seed", "document", "note", "totp"]
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._current_filter_idx: int = 0
+        self._nav_items: list[dict[str, Any]] = []
+        self._focused_idx: int = -1
+        # Set by the app when the user arrived here from an atlas wayfinder view.
+        # Format: scope_path string or None
+        self.atlas_source_scope: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Label("Linked Items", id="linked-items-title")
         yield Label("No linked items.", id="linked-items-summary", classes="linked-summary")
+        yield Label("", id="linked-filter-bar", classes="linked-filter-bar")
         with Vertical(id="linked-items-list"):
             yield Label("Select an entry to inspect relationships.", classes="linked-empty")
+        yield Label("", id="linked-nav-hint", classes="linked-nav-hint")
+
+    def _active_kind_filter(self) -> str | None:
+        return self._KIND_CYCLE[self._current_filter_idx % len(self._KIND_CYCLE)]
+
+    def _cycle_kind_filter(self, neighbors_all: list[dict[str, Any]]) -> None:
+        """Advance to the next kind filter that has at least one matching neighbor."""
+        start = self._current_filter_idx
+        n = len(self._KIND_CYCLE)
+        for step in range(1, n + 1):
+            idx = (start + step) % n
+            kind = self._KIND_CYCLE[idx]
+            if kind is None:
+                self._current_filter_idx = idx
+                return
+            if any(str(item.get("kind", "")).strip().lower() == kind for item in neighbors_all):
+                self._current_filter_idx = idx
+                return
+        # No other kind found — stay at all
+        self._current_filter_idx = 0
+
+    def _render_items(
+        self,
+        neighbors: list[dict[str, Any]],
+        list_container: Vertical,
+        entry_id: int,
+    ) -> None:
+        list_container.remove_children()
+        self._nav_items = []
+        self._focused_idx = -1
+
+        kind_filter = self._active_kind_filter()
+
+        # Optional atlas back-navigation
+        if self.atlas_source_scope:
+            list_container.mount(
+                Button(
+                    f"↩ Back to atlas: {self.atlas_source_scope}",
+                    id="linked-atlas-back",
+                    classes="linked-atlas-back",
+                )
+            )
+
+        if not neighbors:
+            list_container.mount(
+                Label("No linked items for this entry.", classes="linked-empty")
+            )
+            return
+
+        visible = [
+            item for item in neighbors
+            if kind_filter is None
+            or str(item.get("kind", "")).strip().lower() == kind_filter
+        ]
+
+        if not visible:
+            list_container.mount(
+                Label(
+                    f"No linked items of kind '{kind_filter}'.",
+                    classes="linked-empty",
+                )
+            )
+            return
+
+        self._nav_items = list(visible)
+
+        for item in visible:
+            direction_arrow = "->" if item.get("direction") == "outgoing" else "<-"
+            relation = str(item.get("relation", "")).strip() or "related_to"
+            label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
+            kind = str(item.get("kind", "")).strip() or "entry"
+            archived_tag = " [archived]" if item.get("archived") else ""
+            tags = item.get("tags", [])
+            tag_str = f"  tags:{','.join(tags[:3])}" if tags else ""
+            hop = item.get("hop")
+            hop_str = f"  hop:{hop}" if hop and int(hop) > 1 else ""
+            note = str(item.get("note", "")).strip()
+            note_str = f"  ({note[:30]})" if note else ""
+            line = (
+                f"{direction_arrow} [{relation}]  #{item.get('entry_id')}  "
+                f"{label} <{kind}>{archived_tag}{tag_str}{hop_str}{note_str}"
+            )
+            list_container.mount(
+                Button(
+                    f"{line}  |  Open",
+                    id=f"linked-open-{int(item.get('entry_id', 0) or 0)}",
+                    classes="linked-open",
+                )
+            )
 
     def update_entry(self, entry_id: int | None) -> None:
         summary_label = self.query_one("#linked-items-summary", Label)
+        filter_bar = self.query_one("#linked-filter-bar", Label)
         list_container = self.query_one("#linked-items-list", Vertical)
-        list_container.remove_children()
+        nav_hint = self.query_one("#linked-nav-hint", Label)
 
         if entry_id is None:
             summary_label.update("No linked items.")
+            filter_bar.update("")
+            nav_hint.update("")
+            list_container.remove_children()
             list_container.mount(
                 Label(
                     "Select an entry to inspect relationships.",
                     classes="linked-empty",
                 )
             )
+            self._nav_items = []
+            self._focused_idx = -1
             return
 
         search = self.app.services.get("search")
         if search is None or not hasattr(search, "linked_neighbors"):
             summary_label.update("Search graph service unavailable.")
+            filter_bar.update("")
+            nav_hint.update("")
+            list_container.remove_children()
             list_container.mount(
                 Label(
                     "Linked navigation requires SearchService graph helpers.",
@@ -760,42 +900,107 @@ class LinkedItemsPanel(Vertical):
             return
 
         try:
-            neighbors = search.linked_neighbors(entry_id, direction="both", limit=8)
-            summary = search.relation_summary(entry_id)
+            neighbors = search.linked_neighbors(entry_id, direction="both", limit=20)
+            rel_summary = search.relation_summary(entry_id)
         except Exception as exc:
             summary_label.update(f"Linked navigation failed: {exc}")
-            list_container.mount(Label("Unable to load linked items.", classes="linked-empty"))
+            filter_bar.update("")
+            nav_hint.update("")
+            list_container.remove_children()
+            list_container.mount(
+                Label("Unable to load linked items.", classes="linked-empty")
+            )
             return
 
         outgoing = ", ".join(
-            f"{relation}:{count}" for relation, count in summary.get("outgoing", {}).items()
+            f"{relation}:{count}"
+            for relation, count in rel_summary.get("outgoing", {}).items()
         ) or "none"
         incoming = ", ".join(
-            f"{relation}:{count}" for relation, count in summary.get("incoming", {}).items()
+            f"{relation}:{count}"
+            for relation, count in rel_summary.get("incoming", {}).items()
         ) or "none"
         summary_label.update(f"Outgoing {outgoing}  |  Incoming {incoming}")
 
-        if not neighbors:
-            list_container.mount(Label("No linked items for this entry.", classes="linked-empty"))
-            return
-
-        for item in neighbors:
-            direction = "->" if item.get("direction") == "outgoing" else "<-"
-            relation = str(item.get("relation", "")).strip() or "related_to"
-            label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
-            kind = str(item.get("kind", "")).strip() or "entry"
-            archived = " archived" if item.get("archived") else ""
-            line = f"{direction} {relation}  #{item.get('entry_id')}  {label} [{kind}{archived}]"
-            list_container.mount(
-                Button(
-                    f"{line}  |  Open",
-                    id=f"linked-open-{int(item.get('entry_id', 0) or 0)}",
-                    classes="linked-open",
-                )
+        kind_filter = self._active_kind_filter()
+        if kind_filter:
+            filter_bar.update(f"[b]Filter:[/b] {kind_filter}  (f: cycle kinds)")
+        else:
+            kinds_present = sorted(
+                {str(item.get("kind", "")).strip().lower() for item in neighbors if item.get("kind")}
             )
+            kinds_str = ", ".join(kinds_present) if kinds_present else "none"
+            filter_bar.update(f"[dim]All kinds: {kinds_str}  (f: filter by kind)[/dim]")
+
+        self._render_items(neighbors, list_container, entry_id)
+
+        if self._nav_items:
+            nav_hint.update("[dim]↑↓: navigate  Enter: open  f: filter by kind[/dim]")
+        else:
+            nav_hint.update("")
+
+    def _update_focus_highlight(self) -> None:
+        """Update button CSS classes to reflect current keyboard focus."""
+        try:
+            list_container = self.query_one("#linked-items-list", Vertical)
+            buttons = list(list_container.query(".linked-open"))
+            for idx, btn in enumerate(buttons):
+                if idx == self._focused_idx:
+                    btn.add_class("focused-item")
+                else:
+                    btn.remove_class("focused-item")
+        except Exception:
+            pass
+
+    def on_key(self, event: Key) -> None:
+        if not self._nav_items:
+            return
+        if event.key == "f":
+            # Cycle kind filter — need to re-fetch and re-render
+            app = self.app
+            entry_id = getattr(app, "selected_entry_id", None)
+            if entry_id is None:
+                return
+            search = app.services.get("search")
+            if search is None:
+                return
+            try:
+                all_neighbors = search.linked_neighbors(entry_id, direction="both", limit=20)
+            except Exception:
+                return
+            self._cycle_kind_filter(all_neighbors)
+            self.update_entry(entry_id)
+            event.stop()
+        elif event.key == "up":
+            if self._focused_idx > 0:
+                self._focused_idx -= 1
+            else:
+                self._focused_idx = len(self._nav_items) - 1
+            self._update_focus_highlight()
+            event.stop()
+        elif event.key == "down":
+            if self._focused_idx < len(self._nav_items) - 1:
+                self._focused_idx += 1
+            else:
+                self._focused_idx = 0
+            self._update_focus_highlight()
+            event.stop()
+        elif event.key == "enter" and self._focused_idx >= 0:
+            item = self._nav_items[self._focused_idx]
+            target_id = int(item.get("entry_id", 0) or 0)
+            if target_id > 0:
+                self.app.selected_entry_id = target_id
+                self.app.notify(f"Opened linked entry #{target_id}")
+            event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
+        if button_id == "linked-atlas-back":
+            # Pivot back to atlas wayfinder
+            self.atlas_source_scope = None
+            if hasattr(self.app, "action_open_atlas_wayfinder"):
+                self.app.action_open_atlas_wayfinder()
+            return
         if not button_id.startswith("linked-open-"):
             return
         try:
