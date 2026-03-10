@@ -693,7 +693,7 @@ async def test_tui3_profile_management_switch_and_remove_flow_use_profile_servic
         await pilot.pause()
         assert isinstance(app.screen, ProfileManagementScreen)
         intro = str(app.screen.query_one("#profile-intro", Static).render()).lower()
-        assert "removing a profile requires confirmation" in intro
+        assert "removing a profile is permanent and requires confirmation" in intro
         listing = str(app.screen.query_one("#profile-list", Static).render())
         assert "Primary Ops Seed" in listing
         assert "Recovery Seed" in listing
