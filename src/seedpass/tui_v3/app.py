@@ -952,6 +952,10 @@ class SeedPassTuiV3(App[None]):
     # Internal state for sensitive actions
     _pending_sensitive_confirm: tuple[str, int, float] | None = None
 
+    # Pivot navigation history (entry_ids visited before current via LinkedItemsPanel)
+    _pivot_history: list[int]
+    _pivot_in_progress: bool
+
     @staticmethod
     def render_qr_ascii(data: str) -> str:
         return render_qr_ascii(data)
@@ -988,6 +992,9 @@ class SeedPassTuiV3(App[None]):
         self.services: dict[str, Any] = {}
         self._initial_fingerprint = fingerprint
         self._main_screen_initialized = False
+        # Pivot history for multi-hop linked entry navigation
+        self._pivot_history: list[int] = []
+        self._pivot_in_progress: bool = False
 
     def on_mount(self) -> None:
         """Initialize provided services or start in profile-unlock mode."""
@@ -1221,6 +1228,10 @@ class SeedPassTuiV3(App[None]):
 
     def watch_selected_entry_id(self, old_id: int | None, new_id: int | None) -> None:
         """Update inspectors when an entry is selected."""
+        if not self._pivot_in_progress:
+            # External selection (grid, search) — reset pivot chain
+            self._pivot_history.clear()
+        self._pivot_in_progress = False
         try:
             inspector = self.screen.query_one("#inspector-pane")
             if new_id is None:
@@ -1231,6 +1242,24 @@ class SeedPassTuiV3(App[None]):
             self.screen.query_one("#linked-items-panel").update_entry(new_id)
         except Exception:
             pass
+
+    def pivot_to_entry(self, entry_id: int) -> None:
+        """Navigate to a linked entry, pushing current entry onto the pivot history stack."""
+        if self.selected_entry_id is not None:
+            self._pivot_history.append(self.selected_entry_id)
+        self._pivot_in_progress = True
+        self.selected_entry_id = entry_id
+        self.notify(f"Opened linked entry #{entry_id}")
+
+    def action_pivot_back(self) -> None:
+        """Return to the previous entry in the pivot chain."""
+        if not self._pivot_history:
+            self.notify("No previous entry in pivot chain", severity="warning")
+            return
+        prev_id = self._pivot_history.pop()
+        self._pivot_in_progress = True
+        self.selected_entry_id = prev_id
+        self.notify(f"Back: entry #{prev_id}")
 
     def action_close_inspector(self) -> None:
         """Collapse the inspector and clear the active selection."""

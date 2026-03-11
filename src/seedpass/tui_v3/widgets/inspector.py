@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 from typing import Any
 from textual.app import ComposeResult
 from textual.events import Key
@@ -599,6 +600,41 @@ class UtilityHintsBar(Static):
         self.update(f"[b]Actions:[/b]  {hint_str}  [dim](Ctrl+P: palette)[/dim]")
 
 
+class PivotBreadcrumbBar(Static):
+    """Shows navigation breadcrumb for multi-hop pivot chain."""
+
+    DEFAULT_CSS = """
+    PivotBreadcrumbBar {
+        height: auto;
+        min-height: 1;
+        background: #0a0a1a;
+        color: #6666aa;
+        padding: 0 1;
+        border-bottom: solid #222244;
+        display: none;
+    }
+    PivotBreadcrumbBar.visible {
+        display: block;
+    }
+    """
+
+    def set_crumbs(self, history: list[dict], current_label: str = "") -> None:
+        """Render the breadcrumb trail from pivot history + current entry."""
+        if not history:
+            self.update("")
+            self.remove_class("visible")
+            return
+        parts = [f"#{c['entry_id']} {c['label']}" for c in history]
+        if current_label:
+            parts.append(f"[b]{current_label}[/b]")
+        self.update("  >  ".join(parts))
+        self.add_class("visible")
+
+    def clear(self) -> None:
+        self.update("")
+        self.remove_class("visible")
+
+
 class BoardContainer(Vertical):
     """
     Reactive container that swaps specialized boards based on entry kind.
@@ -754,6 +790,12 @@ class LinkedItemsPanel(Vertical):
         color: #555555;
         margin-top: 1;
     }
+    .linked-group-header {
+        color: #aaaaff;
+        text-style: bold;
+        margin-top: 1;
+        margin-bottom: 0;
+    }
     """
 
     # Available kind filters — None means "all"
@@ -769,6 +811,7 @@ class LinkedItemsPanel(Vertical):
         self.atlas_source_scope: str | None = None
 
     def compose(self) -> ComposeResult:
+        yield PivotBreadcrumbBar(id="pivot-breadcrumb-bar")
         yield Label("Linked Items", id="linked-items-title")
         yield Label("No linked items.", id="linked-items-summary", classes="linked-summary")
         yield Label("", id="linked-filter-bar", classes="linked-filter-bar")
@@ -838,37 +881,82 @@ class LinkedItemsPanel(Vertical):
             )
             return
 
-        self._nav_items = list(visible)
-
+        # Group by (direction, relation) for a cleaner grouped display
+        groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
         for item in visible:
-            direction_arrow = "->" if item.get("direction") == "outgoing" else "<-"
+            direction = str(item.get("direction", "outgoing")).strip()
             relation = str(item.get("relation", "")).strip() or "related_to"
-            label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
-            kind = str(item.get("kind", "")).strip() or "entry"
-            archived_tag = " [archived]" if item.get("archived") else ""
-            tags = item.get("tags", [])
-            tag_str = f"  tags:{','.join(tags[:3])}" if tags else ""
-            hop = item.get("hop")
-            hop_str = f"  hop:{hop}" if hop and int(hop) > 1 else ""
-            note = str(item.get("note", "")).strip()
-            note_str = f"  ({note[:30]})" if note else ""
-            line = (
-                f"{direction_arrow} [{relation}]  #{item.get('entry_id')}  "
-                f"{label} <{kind}>{archived_tag}{tag_str}{hop_str}{note_str}"
-            )
+            groups[(direction, relation)].append(item)
+
+        # Sort: outgoing first, then incoming; alphabetically within each direction
+        sorted_keys = sorted(
+            groups.keys(),
+            key=lambda k: (0 if k[0] == "outgoing" else 1, k[1]),
+        )
+
+        nav_items: list[dict[str, Any]] = []
+        for direction, relation in sorted_keys:
+            arrow = "->" if direction == "outgoing" else "<-"
             list_container.mount(
-                Button(
-                    f"{line}  |  Open",
-                    id=f"linked-open-{int(item.get('entry_id', 0) or 0)}",
-                    classes="linked-open",
+                Label(
+                    f"[b]{arrow} [{relation}][/b]",
+                    classes="linked-group-header",
                 )
             )
+            for item in groups[(direction, relation)]:
+                label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
+                kind = str(item.get("kind", "")).strip() or "entry"
+                archived_tag = " [archived]" if item.get("archived") else ""
+                tags = item.get("tags", [])
+                tag_str = f"  tags:{','.join(tags[:3])}" if tags else ""
+                hop = item.get("hop")
+                hop_str = f"  hop:{hop}" if hop and int(hop) > 1 else ""
+                note = str(item.get("note", "")).strip()
+                note_str = f"  ({note[:30]})" if note else ""
+                line = (
+                    f"  #{item.get('entry_id')}  "
+                    f"{label} <{kind}>{archived_tag}{tag_str}{hop_str}{note_str}"
+                )
+                nav_items.append(item)
+                list_container.mount(
+                    Button(
+                        f"{line}  |  Open",
+                        id=f"linked-open-{int(item.get('entry_id', 0) or 0)}",
+                        classes="linked-open",
+                    )
+                )
+
+        self._nav_items = nav_items
+
+    def _get_entry_label(self, entry_id: int) -> str:
+        """Fetch label for an entry, falling back to its ID string."""
+        try:
+            entry = self.app.services["entry"].retrieve_entry(entry_id)
+            return str(entry.get("label") or f"#{entry_id}") if entry else f"#{entry_id}"
+        except Exception:
+            return f"#{entry_id}"
+
+    def _refresh_breadcrumb(self, current_entry_id: int | None) -> None:
+        """Render breadcrumb bar from app._pivot_history."""
+        try:
+            bar = self.query_one("#pivot-breadcrumb-bar", PivotBreadcrumbBar)
+        except Exception:
+            return
+        history: list[int] = getattr(self.app, "_pivot_history", [])
+        if not history or current_entry_id is None:
+            bar.clear()
+            return
+        crumbs = [{"entry_id": eid, "label": self._get_entry_label(eid)} for eid in history]
+        current_label = self._get_entry_label(current_entry_id)
+        bar.set_crumbs(crumbs, current_label)
 
     def update_entry(self, entry_id: int | None) -> None:
         summary_label = self.query_one("#linked-items-summary", Label)
         filter_bar = self.query_one("#linked-filter-bar", Label)
         list_container = self.query_one("#linked-items-list", Vertical)
         nav_hint = self.query_one("#linked-nav-hint", Label)
+
+        self._refresh_breadcrumb(entry_id)
 
         if entry_id is None:
             summary_label.update("No linked items.")
@@ -953,11 +1041,17 @@ class LinkedItemsPanel(Vertical):
             pass
 
     def on_key(self, event: Key) -> None:
+        app = self.app
+        if event.key == "b":
+            # Back navigation: pop from pivot history
+            if hasattr(app, "action_pivot_back"):
+                app.action_pivot_back()
+            event.stop()
+            return
         if not self._nav_items:
             return
         if event.key == "f":
             # Cycle kind filter — need to re-fetch and re-render
-            app = self.app
             entry_id = getattr(app, "selected_entry_id", None)
             if entry_id is None:
                 return
@@ -989,8 +1083,11 @@ class LinkedItemsPanel(Vertical):
             item = self._nav_items[self._focused_idx]
             target_id = int(item.get("entry_id", 0) or 0)
             if target_id > 0:
-                self.app.selected_entry_id = target_id
-                self.app.notify(f"Opened linked entry #{target_id}")
+                if hasattr(app, "pivot_to_entry"):
+                    app.pivot_to_entry(target_id)
+                else:
+                    app.selected_entry_id = target_id
+                    app.notify(f"Opened linked entry #{target_id}")
             event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -1008,5 +1105,8 @@ class LinkedItemsPanel(Vertical):
         except ValueError:
             self.app.notify("Invalid linked item target", severity="error")
             return
-        self.app.selected_entry_id = entry_id
-        self.app.notify(f"Opened linked entry #{entry_id}")
+        if hasattr(self.app, "pivot_to_entry"):
+            self.app.pivot_to_entry(entry_id)
+        else:
+            self.app.selected_entry_id = entry_id
+            self.app.notify(f"Opened linked entry #{entry_id}")
