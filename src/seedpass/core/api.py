@@ -1815,6 +1815,126 @@ class SearchService:
             limit=limit,
         )
 
+    def graph_pivot_results(
+        self,
+        pivot_entry_id: int,
+        *,
+        pivot_scope: str | None = None,
+        direction: str = "both",
+        include_archived: bool = True,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return neighbors of ``pivot_entry_id`` as :class:`SearchResult`-compatible dicts.
+
+        Wraps graph-traversal results in the unified SearchResult model so that
+        atlas-pivot navigation produces results with proper ``match_reasons``,
+        ``score``, and relation context — identical in shape to
+        :meth:`search` output and ready for any UI surface that consumes it.
+
+        Scoring:
+        - Direct (hop-1) outgoing links score highest (~1.0).
+        - Incoming links get a small direction penalty (−0.1).
+        - Each additional hop beyond 1 reduces the score by 0.3.
+        """
+        with self._lock:
+            scope_path = self._scope_path()
+            target_id = int(pivot_entry_id or 0)
+            if target_id <= 0:
+                return []
+
+            neighbors = self.linked_neighbors(
+                target_id,
+                direction=direction,
+                include_archived=include_archived,
+                limit=limit,
+            )
+
+            em = getattr(self._manager, "entry_manager", None)
+            results: list[dict[str, Any]] = []
+
+            for neighbor in neighbors:
+                neighbor_id = int(neighbor.get("entry_id", 0) or 0)
+                if neighbor_id <= 0:
+                    continue
+
+                # Fetch full entry for excerpt / meta
+                entry: dict[str, Any] = {}
+                if em is not None:
+                    try:
+                        entry = em.retrieve_entry(neighbor_id) or {}
+                    except Exception:
+                        pass
+
+                kind = str(neighbor.get("kind", "")).strip()
+                relation = str(neighbor.get("relation", "")).strip()
+                direction_val = str(neighbor.get("direction", "")).strip()
+                hop = int(neighbor.get("hop", 1) or 1)
+
+                # Score: hop-1 outgoing ≈ 1.0, incoming −0.1, each extra hop −0.3
+                hop_penalty = (hop - 1) * 0.3
+                direction_penalty = 0.1 if direction_val == "incoming" else 0.0
+                total_score = round(max(0.05, 1.0 - hop_penalty - direction_penalty), 6)
+
+                match_reasons: list[str] = ["graph_pivot"]
+                if relation:
+                    match_reasons.append(f"relation:{relation}")
+                if direction_val:
+                    match_reasons.append(f"direction:{direction_val}")
+                if pivot_scope:
+                    match_reasons.append(f"atlas:{pivot_scope}")
+
+                # Relation context visible as meta string
+                arrow = "->" if direction_val == "outgoing" else "<-"
+                meta_parts: list[str] = []
+                if relation:
+                    meta_parts.append(f"{arrow}[{relation}]")
+                if pivot_scope:
+                    meta_parts.append(f"atlas:{pivot_scope}")
+                meta_str = "  ".join(meta_parts) or self._meta(entry, kind)
+
+                modified_ts = int(entry.get("modified_ts", 0) or 0)
+
+                result = SearchResult(
+                    entry_id=neighbor_id,
+                    label=str(neighbor.get("label", "")).strip(),
+                    kind=kind,
+                    scope_path=scope_path,
+                    archived=bool(neighbor.get("archived", False)),
+                    score=total_score,
+                    score_breakdown={
+                        "lexical": 0.0,
+                        "semantic": 0.0,
+                        "structural": total_score,
+                        "recency": 0.0,
+                    },
+                    match_reasons=sorted(set(match_reasons)),
+                    excerpt=(
+                        ""
+                        if kind in self._SECRET_EXCERPT_KINDS
+                        else self._safe_excerpt(entry, kind)
+                    ),
+                    linked_hits=[
+                        {
+                            "target_id": target_id,
+                            "relation": relation,
+                        }
+                    ],
+                    tags=list(neighbor.get("tags", [])),
+                    modified_ts=modified_ts,
+                    meta=meta_str,
+                ).model_dump()
+
+                results.append(result)
+
+            results.sort(
+                key=lambda r: (
+                    -float(r.get("score", 0.0)),
+                    str(r.get("label", "")).lower(),
+                    int(r.get("entry_id", 0)),
+                )
+            )
+            return results[: max(1, int(limit))]
+
 
 class AtlasService:
     """Thread-safe wrapper around canonical atlas/index0 read operations."""
