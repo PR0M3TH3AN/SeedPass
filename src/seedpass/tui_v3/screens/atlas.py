@@ -114,6 +114,17 @@ class AtlasWayfinderScreen(Screen):
                 classes="maintenance-footer",
             )
 
+    def _propagate_atlas_context(self, scope_path: str) -> None:
+        """Set atlas_source_scope on the inspector LinkedItemsPanel if present."""
+        if not scope_path:
+            return
+        try:
+            from ..widgets.inspector import LinkedItemsPanel  # noqa: PLC0415
+            panel = self.app.query_one(LinkedItemsPanel)
+            panel.atlas_source_scope = scope_path
+        except Exception:
+            pass
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id == "atlas-filter-all":
@@ -133,6 +144,7 @@ class AtlasWayfinderScreen(Screen):
                 entry_id = int(button_id.removeprefix("atlas-open-entry-"))
             except ValueError:
                 return
+            self._propagate_atlas_context(str(self.payload.get("scope_path", "")))
             self.app.selected_entry_id = entry_id
             self.app.pop_screen()
             return
@@ -141,5 +153,6 @@ class AtlasWayfinderScreen(Screen):
                 entry_id = int(button_id.removeprefix("atlas-open-recent-"))
             except ValueError:
                 return
+            self._propagate_atlas_context(str(self.payload.get("scope_path", "")))
             self.app.selected_entry_id = entry_id
             self.app.pop_screen()

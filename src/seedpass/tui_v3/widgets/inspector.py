@@ -786,6 +786,11 @@ class LinkedItemsPanel(Vertical):
         background: #1a1a2e;
         color: #aaaaff;
     }
+    #linked-atlas-context {
+        color: #7777cc;
+        margin-bottom: 1;
+        height: auto;
+    }
     .linked-nav-hint {
         color: #555555;
         margin-top: 1;
@@ -808,11 +813,22 @@ class LinkedItemsPanel(Vertical):
         self._focused_idx: int = -1
         # Set by the app when the user arrived here from an atlas wayfinder view.
         # Format: scope_path string or None
-        self.atlas_source_scope: str | None = None
+        self._atlas_source_scope: str | None = None
+
+    @property
+    def atlas_source_scope(self) -> str | None:
+        return self._atlas_source_scope
+
+    @atlas_source_scope.setter
+    def atlas_source_scope(self, value: str | None) -> None:
+        self._atlas_source_scope = value
+        if self.is_mounted:
+            self._update_atlas_context_label()
 
     def compose(self) -> ComposeResult:
         yield PivotBreadcrumbBar(id="pivot-breadcrumb-bar")
         yield Label("Linked Items", id="linked-items-title")
+        yield Label("", id="linked-atlas-context")
         yield Label("No linked items.", id="linked-items-summary", classes="linked-summary")
         yield Label("", id="linked-filter-bar", classes="linked-filter-bar")
         with Vertical(id="linked-items-list"):
@@ -950,13 +966,24 @@ class LinkedItemsPanel(Vertical):
         current_label = self._get_entry_label(current_entry_id)
         bar.set_crumbs(crumbs, current_label)
 
+    def _update_atlas_context_label(self) -> None:
+        """Refresh the atlas context label based on current atlas_source_scope."""
+        try:
+            ctx_label = self.query_one("#linked-atlas-context", Label)
+            if self.atlas_source_scope:
+                ctx_label.update(f"[dim]◈ Atlas context: {self.atlas_source_scope}[/dim]")
+            else:
+                ctx_label.update("")
+        except Exception:
+            pass
+
     def update_entry(self, entry_id: int | None) -> None:
         summary_label = self.query_one("#linked-items-summary", Label)
         filter_bar = self.query_one("#linked-filter-bar", Label)
         list_container = self.query_one("#linked-items-list", Vertical)
         nav_hint = self.query_one("#linked-nav-hint", Label)
 
-        self._refresh_breadcrumb(entry_id)
+        self._update_atlas_context_label()
 
         if entry_id is None:
             summary_label.update("No linked items.")
@@ -1105,8 +1132,12 @@ class LinkedItemsPanel(Vertical):
         except ValueError:
             self.app.notify("Invalid linked item target", severity="error")
             return
-        if hasattr(self.app, "pivot_to_entry"):
-            self.app.pivot_to_entry(entry_id)
-        else:
-            self.app.selected_entry_id = entry_id
-            self.app.notify(f"Opened linked entry #{entry_id}")
+        # Preserve atlas context across linked-panel pivots so the scope
+        # label remains visible and the back button stays available.
+        current_scope = self.atlas_source_scope
+        self.app.selected_entry_id = entry_id
+        if current_scope:
+            # Re-apply after entry selection (selected_entry_id may trigger
+            # update_entry which clears the panel but keeps atlas_source_scope).
+            self.atlas_source_scope = current_scope
+        self.app.notify(f"Opened linked entry #{entry_id}")
