@@ -1,6 +1,6 @@
 # SeedPass Dev Control Center
 
-Last updated: 2026-03-06  
+Last updated: 2026-03-10
 Branch baseline: `beta`
 
 This is the single source-of-truth document to decide what to work on next.
@@ -18,12 +18,10 @@ Latest verification in this session:
 - `origin/beta` matched local `beta` (no new remote commits to pull).
 - `scripts/run_ci_tests.sh`: PASS
   - determinism gate: PASS
-  - full suite: `979 passed, 16 skipped`
-  - coverage: `85.65%`
+  - full suite: `1145 collected`
 - Focused TUI validation slices:
-  - `./.venv/bin/pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_typer_cli.py`
-  - latest result in the current v3/default-launch track: `77 passed`
-  - latest focused v3 UX/context regression slice: `18 passed`
+  - `./.venv/bin/pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_typer_cli.py src/tests/test_core_api_services.py`
+  - latest result in the current v3/CLI/API suite: `181 passed`
 
 ## 2) Canonical Status Sources
 
@@ -54,12 +52,19 @@ Use these docs as inputs, but treat this file as the decision layer:
   - inspector boards and context-aware lower pane behavior
   - default-shell UX work
 - TUI v2 remains available via `seedpass tui2`, but is no longer the active UI development target.
-- Remaining v3 parity/hardening gaps still visible from the shipped code:
-  - context-aware action strip should continue being tightened per entry kind
-  - restore / import guidance and final visual polish still need iteration
-  - additional legacy utility and maintenance affordances should continue moving into v3 screens where they improve discoverability
-  - profile-management flows now exist in-app, but still need broader polish around naming, confirmations, and operator guidance
-  - maintenance screens now have shared styling/status helpers, but still need final mockup-level polish and any future screens should adopt the shared pattern from the start
+- Recent v3 hardening shipped (2026-03-10):
+  - **Bug fixes:** replaced `sys.exit(0)` with `os._exit(0)` to prevent SIGSEGV on graceful exit; added TTY check to guard against non-interactive stdin preflight/password loops in tui3; fixed missing Binding import in pubkey screen.
+  - **Action strip rename:** "Seed" -> "Profiles" button for clarity.
+  - **Restore/import guidance:** more explicit warning messaging and mode guidance surfaced before recovery paths execute.
+  - **Profile management polish:** improved visual hierarchy, clearer success/failure summaries, and status icon treatment on profile and maintenance screens.
+  - **Maintenance screen visual polish:** status icons, bordered intro cards, stronger visual hierarchy across all maintenance screens.
+  - **Search graph navigation:** `multi_hop_neighbors` and `filtered_neighbors` added to `SearchService`; `LinkedItemsPanel` enhanced with keyboard navigation, kind filtering, and atlas context display.
+  - **Sort/filter controls:** keyboard shortcuts `s`/`f`/`\` for cycling sort/filter/clear; active-state toolbar highlighting; Clear All button on the main grid surface.
+- Remaining v3 hardening gaps:
+  - deeper graph-pivot workflows and richer atlas/search handoff remain
+  - additional legacy utility and maintenance affordances can continue moving to v3 as discovered
+  - profile-management flows may benefit from further naming and operator-guidance polish
+  - maintenance screen mockup-level polish passes may be needed for any new screens added
 
 ### Security Readiness
 - `docs/security_readiness_checklist.md` still marks:
@@ -103,9 +108,19 @@ Use these docs as inputs, but treat this file as the decision layer:
   - v3 grid now exposes explicit in-app filter/mode/sort controls instead of palette-only command flow
   - v3 inspector now includes a linked-items panel with direct open-entry actions
   - focused regression coverage expanded in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
+- Phase B extended (2026-03-10):
+  - `SearchService.multi_hop_neighbors(...)` for multi-hop linked graph traversal beyond direct neighbors
+  - `SearchService.filtered_neighbors(...)` for kind-filtered neighbor queries
+  - `LinkedItemsPanel` keyboard navigation: arrow keys to move through linked items, open via enter
+  - `LinkedItemsPanel` kind filter: filter displayed linked items by entry kind
+  - `LinkedItemsPanel` atlas context display: show atlas metadata alongside linked entries
+  - sort/filter keyboard shortcuts landed: `s` cycles sort, `f` cycles filter, `\` clears filter
+  - main grid toolbar now highlights active sort/filter state visually
+  - Clear All button on the grid for single-action filter/sort reset
+  - focused regression coverage updated in `src/tests/test_core_api_services.py` and `src/tests/test_tui_v3_smoke.py`
 - Next planned implementation:
-  - deeper linked-navigation workflows and richer graph-oriented pivots
   - deeper atlas/search handoff and graph-aware result workflows
+  - broader agent-facing atlas navigation and deeper search/navigation integration
 
 ### Future Capability: Nostr Communications
 - Research/reference doc added:
@@ -172,32 +187,35 @@ Use these docs as inputs, but treat this file as the decision layer:
 
 ## 4) Recommended Next Steps (Priority Order)
 
-1. Execute the remaining active v3 parity slices from `docs/tui_v3_plan.md`:
-: context-aware actions, maintenance affordances, and final board fidelity polish.
+1. Continue deeper graph navigation and atlas/search handoff:
+: multi-hop graph pivots, kind-filtered navigation, and richer atlas-aware result workflows built on the new `multi_hop_neighbors` and `filtered_neighbors` service methods.
 2. Continue TUI v3 utility/maintenance carryover:
-: remaining settings-linked operational flows, discoverable security maintenance, and final maintenance-screen mockup polish passes.
-3. Continue v3 startup/restore hardening:
-: clearer restore warnings, success summaries, and import/recovery guidance.
-4. Continue Phase B/C from `docs/atlas_search_graph_integration_plan_2026-03-05.md`:
-: deeper v3 search/navigation handoff, graph pivots, and next-level linked-item workflows.
-5. Resume Index0 Atlas and graph follow-on work after current v3 UX slices stabilize:
-: agent-facing atlas workflows, linked-item navigation, deeper search/navigation handoff, and any later event-pruning compaction policy.
-6. Continue security-readiness blockers in parallel where they do not conflict with the v3 path.
+: any remaining settings-linked operational flows, discoverable security maintenance, and final maintenance-screen polish for new screens added going forward.
+3. Resume Index0 Atlas and graph follow-on work:
+: agent-facing atlas workflows, deeper search/navigation handoff, event-pruning compaction policy.
+4. Continue security-readiness blockers in parallel where they do not conflict with the v3 path.
 
 ## 5) Next Slice Definition (Recommended Immediate Work)
 
-### Slice A: “Search Graph Navigation”
+### Slice A: “Search Graph Navigation” — COMPLETED (2026-03-10)
+
+All exit criteria met:
+- `SearchService.linked_neighbors`, `multi_hop_neighbors`, `filtered_neighbors`, and `relation_summary` are implemented
+- v3 exposes explicit sort/filter/clear affordances via `s`/`f`/`\` keyboard shortcuts and toolbar highlighting
+- linked items can be viewed, filtered by kind, and opened via keyboard from the inspector panel
+- focused search/atlas/v3 suites green at `181 passed`
+
+### Slice B: “Deep Graph + Atlas Handoff”
 
 Deliverables:
-- Extend the new linked-neighbor and relation-summary methods with deeper graph pivots above the current atlas/search foundations.
-- Continue iterating on the new explicit v3 sort/filter controls on top of the unified `SearchService`.
-- Expand the new inspector linked-item navigation so users can pivot through relationships more fluidly without raw JSON inspection.
+- Deepen multi-hop graph traversal with richer pivot UX (breadcrumb trail, back navigation, grouped by relation type).
+- Extend atlas/search handoff so graph-pivot results flow through the unified `SearchService` result model.
+- Continue expanding inspector linked-items panel with atlas context and relation-type labels.
 - Keep the atlas/search/graph plan and control center synchronized with shipped behavior as this slice lands.
 
 Exit criteria:
-- one service-layer path can return linked neighbors and relation summaries for an entry
-- v3 exposes explicit sort/filter affordances instead of relying only on command-state
-- linked items can be viewed and opened from the inspector
+- multi-hop graph navigation is accessible from the inspector without leaving the main workspace
+- atlas context is surfaced alongside linked items in the inspector panel
 - focused search/atlas/v3 suites stay green
 
 Progress update (2026-03-02):

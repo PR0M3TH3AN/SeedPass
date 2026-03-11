@@ -187,3 +187,35 @@ To finalize v3, we must verify 100% functional parity with the **Legacy TUI**.
 
 ### Validation evidence
 - `pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_core_api_services.py` -> `107 passed`
+
+## 7. Progress Log (2026-03-10)
+
+### Completed in this session
+- **Bug fixes:**
+  - replaced `sys.exit(0)` with `os._exit(0)` in the graceful exit path to prevent SIGSEGV on shutdown
+  - added TTY check (`sys.stdin.isatty()`) to guard against non-interactive stdin causing preflight/password prompt loops in tui3
+  - fixed missing `Binding` import in the pubkey screen
+  - updated profile removal assertion to match new intro text after UX copy changes
+- **Action strip rename:**
+  - renamed the "Seed" label to "Profiles" in the global action bar for clarity and discoverability
+- **Restore/import guidance:**
+  - create/recover flows now surface more explicit mode guidance and warning messaging (⚠ prefix) before Nostr/backup recovery paths execute
+- **Profile/maintenance screen polish:**
+  - stronger visual hierarchy with status icons on profile and maintenance screens
+  - bordered intro cards, clearer success/failure in-screen summaries
+  - improvements applied uniformly across profile, security, pubkey, and relay maintenance screens
+- **Search graph navigation (deep):**
+  - added `SearchService.multi_hop_neighbors(...)` for traversal beyond direct neighbors across multiple hops
+  - added `SearchService.filtered_neighbors(...)` for kind-filtered neighbor queries
+  - `LinkedItemsPanel` now supports keyboard navigation (arrow keys + enter to open)
+  - `LinkedItemsPanel` now supports kind filtering to narrow displayed linked items
+  - `LinkedItemsPanel` now shows atlas context metadata alongside linked entries
+- **Sort/filter keyboard controls:**
+  - `s` key cycles sort order on the main grid
+  - `f` key cycles filter preset on the main grid
+  - `\` (backslash) clears active filter/sort to default
+  - main grid toolbar now highlights active sort/filter state with visual active-state treatment
+  - Clear All button added for single-action grid reset
+
+### Validation evidence
+- `pytest -q src/tests/test_tui_v3_smoke.py src/tests/test_tui_v3_parity.py src/tests/test_typer_cli.py src/tests/test_core_api_services.py` -> `181 passed`
