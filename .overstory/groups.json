@@ -10,5 +10,30 @@
 		"status": "completed",
 		"createdAt": "2026-03-06T18:15:54.676Z",
 		"completedAt": "2026-03-06T18:40:28.735Z"
+	},
+	{
+		"id": "group-8f7fcbaf",
+		"name": "bugfix-and-v3-polish",
+		"memberIssueIds": [
+			"SeedPass-1d93",
+			"SeedPass-6d26",
+			"SeedPass-36fb",
+			"SeedPass-c211"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-07T03:32:03.525Z",
+		"completedAt": "2026-03-10T00:55:36.367Z"
+	},
+	{
+		"id": "group-6ac0330a",
+		"name": "search-graph-and-mulch",
+		"memberIssueIds": [
+			"SeedPass-dd29",
+			"SeedPass-de11",
+			"SeedPass-2603"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-10T01:41:12.693Z",
+		"completedAt": "2026-03-10T19:14:21.103Z"
 	}
 ]
