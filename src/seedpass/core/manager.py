@@ -53,10 +53,7 @@ from utils.key_derivation import (
 from utils.key_hierarchy import kd
 from utils.checksum import (
     calculate_checksum,
-    verify_checksum,
     json_checksum,
-    initialize_checksum,
-    update_checksum_file,
 )
 from utils.password_prompt import (
     prompt_for_password,
@@ -400,9 +397,22 @@ class PasswordManager:
         *,
         mode: str | None = None,
         iterations: int | None = None,
+        kdf_config: KdfConfig | None = None,
     ) -> bytes:
         """Derive the profile seed-encryption key from current KDF settings."""
 
+        if kdf_config is not None:
+            chosen_mode = mode or kdf_config.name
+            if chosen_mode.startswith("argon2"):
+                return derive_key_from_password_argon2(password, kdf_config)
+            if chosen_mode == "pbkdf2":
+                iter_count = int(kdf_config.params.get("iterations", 100_000))
+                salt = (
+                    base64.b64decode(kdf_config.salt_b64)
+                    if kdf_config.salt_b64
+                    else fingerprint
+                )
+                return derive_key_from_password(password, salt, iterations=iter_count)
         chosen_mode = mode or self._get_kdf_mode()
         if chosen_mode == "argon2":
             salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
@@ -454,6 +464,94 @@ class PasswordManager:
             salt_b64=salt_b64,
         )
 
+    @staticmethod
+    def _load_seed_kdf_config(fingerprint_dir: Path) -> KdfConfig | None:
+        """Read the parent-seed KDF metadata without attempting decryption."""
+
+        seed_file = fingerprint_dir / "parent_seed.enc"
+        if not seed_file.exists():
+            return None
+        try:
+            payload = json.loads(seed_file.read_text(encoding="utf-8"))
+            raw_kdf = payload.get("kdf")
+            if not isinstance(raw_kdf, dict):
+                return None
+            return KdfConfig(**raw_kdf)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _resolve_script_checksum_target() -> Path | None:
+        """Return the launched script path when available."""
+
+        main_module = sys.modules.get("__main__")
+        main_file = getattr(main_module, "__file__", None)
+        if main_file:
+            candidate = Path(main_file).expanduser().resolve()
+            if candidate.exists():
+                return candidate
+        argv0 = (sys.argv[0] or "").strip()
+        if argv0 and argv0 not in {"-c", "-m"}:
+            candidate = Path(argv0).expanduser().resolve()
+            if candidate.exists():
+                return candidate
+        return None
+
+    @staticmethod
+    def _read_script_checksum_record() -> dict[str, Any] | None:
+        """Load checksum metadata, supporting the legacy plain-text format."""
+
+        if not SCRIPT_CHECKSUM_FILE.exists():
+            return None
+        raw = SCRIPT_CHECKSUM_FILE.read_text().strip()
+        if not raw:
+            return None
+        try:
+            payload = json.loads(raw)
+            if isinstance(payload, dict):
+                checksum = str(payload.get("checksum", "")).strip()
+                target = str(payload.get("target", "")).strip()
+                if checksum:
+                    return {"checksum": checksum, "target": target or None}
+        except Exception:
+            pass
+        return {"checksum": raw, "target": None}
+
+    @staticmethod
+    def _write_script_checksum_record(script_path: Path) -> bool:
+        """Persist checksum metadata for the provided script path."""
+
+        checksum = calculate_checksum(str(script_path))
+        if not checksum:
+            return False
+        payload = {"target": str(script_path), "checksum": checksum}
+        atomic_write(
+            SCRIPT_CHECKSUM_FILE,
+            lambda f: json.dump(payload, f, indent=2),
+        )
+        return True
+
+    def _script_checksum_status(self) -> tuple[bool | None, Path | None]:
+        """Return checksum verification status for the launched script."""
+
+        script_path = self._resolve_script_checksum_target()
+        if script_path is None:
+            return None, None
+        record = self._read_script_checksum_record()
+        if record is None:
+            return None, script_path
+        target = record.get("target")
+        if target and Path(target).expanduser().resolve() != script_path:
+            return None, script_path
+        if not target:
+            # Legacy plain-text checksum files do not identify which script
+            # they were generated from, so avoid noisy false mismatches.
+            return None, script_path
+        checksum = calculate_checksum(str(script_path))
+        if not checksum:
+            return None, script_path
+        return record.get("checksum") == checksum, script_path
+
     def _encrypt_parent_seed_compat(
         self,
         seed_mgr: EncryptionManager,
@@ -492,12 +590,19 @@ class PasswordManager:
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""
-        script_path = Path(__file__).resolve()
-        if not SCRIPT_CHECKSUM_FILE.exists():
-            initialize_checksum(str(script_path), SCRIPT_CHECKSUM_FILE)
+        status, script_path = self._script_checksum_status()
+        if script_path is None:
             return
-        checksum = calculate_checksum(str(script_path))
-        if checksum and not verify_checksum(checksum, SCRIPT_CHECKSUM_FILE):
+        if not SCRIPT_CHECKSUM_FILE.exists():
+            self._write_script_checksum_record(script_path)
+            return
+        if status is None:
+            logger.info(
+                "Script checksum verification skipped; regenerate checksum for launch target '%s'.",
+                script_path,
+            )
+            return
+        if not status:
             logging.warning("Script checksum mismatch detected on startup")
             print(
                 colored(
@@ -1123,31 +1228,39 @@ class PasswordManager:
                 )
                 print("Deriving key...")
                 salt_fp = fingerprint_dir.name
-
-                iter_candidates: list[int] = [iterations]
-                if mode != "argon2":
-                    iter_candidates.extend(
-                        getattr(
-                            ConfigManager,
-                            "LEGACY_PBKDF2_ITERATION_FALLBACKS",
-                            (50_000, 100_000),
-                        )
+                seed_kdf = self._load_seed_kdf_config(fingerprint_dir)
+                attempt_specs: list[tuple[str, int | None, KdfConfig | None]] = []
+                if seed_kdf is not None:
+                    attempt_specs.append((seed_kdf.name, None, seed_kdf))
+                if mode == "argon2" and seed_kdf is None:
+                    attempt_specs.append(("argon2", None, None))
+                pbkdf2_iters: list[int] = [iterations]
+                pbkdf2_iters.extend(
+                    getattr(
+                        ConfigManager,
+                        "LEGACY_PBKDF2_ITERATION_FALLBACKS",
+                        (50_000, 100_000),
                     )
+                )
+                for iter_try in dict.fromkeys(pbkdf2_iters):
+                    attempt_specs.append(("pbkdf2", iter_try, None))
 
                 seed_mgr: EncryptionManager | None = None
-                for iter_try in dict.fromkeys(iter_candidates):
+                for chosen_mode, iter_try, chosen_kdf in attempt_specs:
                     try:
                         seed_key = self._derive_seed_key(
                             password,
                             salt_fp,
-                            mode=mode,
-                            iterations=iter_try if mode != "argon2" else None,
+                            mode=chosen_mode,
+                            iterations=iter_try if chosen_mode != "argon2" else None,
+                            kdf_config=chosen_kdf,
                         )
                         seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                         print("Decrypting seed...")
                         self.parent_seed = seed_mgr.decrypt_parent_seed()
                         if (
-                            mode != "argon2"
+                            chosen_mode == "pbkdf2"
+                            and iter_try is not None
                             and iter_try != iterations
                             and getattr(self, "config_manager", None)
                         ):
@@ -1221,11 +1334,35 @@ class PasswordManager:
                 else getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
             )
             salt_fp = fingerprint_dir.name
-            seed_key = self._derive_seed_key(
-                password, salt_fp, mode=mode, iterations=iterations
-            )
-            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-            self.parent_seed = seed_mgr.decrypt_parent_seed()
+            seed_kdf = self._load_seed_kdf_config(fingerprint_dir)
+            attempt_specs: list[tuple[str, int | None, KdfConfig | None]] = []
+            if seed_kdf is not None:
+                attempt_specs.append((seed_kdf.name, None, seed_kdf))
+            elif mode == "argon2":
+                attempt_specs.append(("argon2", None, None))
+            attempt_specs.append(("pbkdf2", iterations, None))
+            for iter_try in getattr(
+                ConfigManager, "LEGACY_PBKDF2_ITERATION_FALLBACKS", (50_000, 100_000)
+            ):
+                attempt_specs.append(("pbkdf2", int(iter_try), None))
+
+            last_exc: Exception | None = None
+            for chosen_mode, iter_try, chosen_kdf in attempt_specs:
+                try:
+                    seed_key = self._derive_seed_key(
+                        password,
+                        salt_fp,
+                        mode=chosen_mode,
+                        iterations=iter_try if chosen_mode != "argon2" else None,
+                        kdf_config=chosen_kdf,
+                    )
+                    seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                    break
+                except DecryptionError as exc:
+                    last_exc = exc
+            else:
+                raise DecryptionError("Failed to decrypt seed") from last_exc
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.derive_key_hierarchy(seed_bytes)
             self.bip85 = BIP85(seed_bytes)
@@ -4296,15 +4433,22 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
-            current_checksum = calculate_checksum(__file__)
-            try:
-                verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
-            except FileNotFoundError:
+            verified, script_path = self._script_checksum_status()
+            if script_path is None or not SCRIPT_CHECKSUM_FILE.exists():
                 self.notify(
                     "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
                     level="WARNING",
                 )
                 logging.warning("Checksum file missing during verification.")
+                return
+            if verified is None:
+                print(
+                    colored(
+                        f"Checksum file does not match the current launch target '{script_path.name}'. Regenerate it first.",
+                        "yellow",
+                    )
+                )
+                logging.warning("Checksum verification skipped due to target mismatch.")
                 return
 
             if verified:
@@ -4337,8 +4481,11 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
-            script_path = Path(__file__).resolve()
-            if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
+            script_path = self._resolve_script_checksum_target()
+            if script_path is None:
+                print(colored("Unable to determine the launched script path.", "red"))
+                return
+            if self._write_script_checksum_record(script_path):
                 print(
                     colored(
                         f"Checksum updated at '{SCRIPT_CHECKSUM_FILE}'.",
@@ -5025,8 +5172,7 @@ class PasswordManager:
 
         # Schema version and database checksum status
         stats["schema_version"] = data.get("schema_version")
-        json_content = json.dumps(data, indent=4)
-        current_checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
+        current_checksum = json_checksum(data)
         chk_path = self.entry_manager.checksum_file
         if chk_path.exists():
             stored = chk_path.read_text().strip()
@@ -5037,17 +5183,8 @@ class PasswordManager:
         stats["checksum"] = stored
 
         # Script checksum status
-        script_path = Path(__file__).resolve()
-        try:
-            script_checksum = calculate_checksum(str(script_path))
-        except Exception:
-            script_checksum = None
-
-        if SCRIPT_CHECKSUM_FILE.exists() and script_checksum:
-            stored_script = SCRIPT_CHECKSUM_FILE.read_text().strip()
-            stats["script_checksum_ok"] = stored_script == script_checksum
-        else:
-            stats["script_checksum_ok"] = False
+        script_status, _script_path = self._script_checksum_status()
+        stats["script_checksum_ok"] = bool(script_status)
 
         # Relay info
         cfg = self.config_manager.load_config(require_pin=False)

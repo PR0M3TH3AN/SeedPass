@@ -1,40 +1,1387 @@
 {
-  "status": "passed",
-  "failing_modules": [],
+  "status": "failed",
+  "failing_modules": [
+    "src/main.py",
+    "src/seedpass/core/api.py",
+    "src/seedpass/core/encryption.py",
+    "src/seedpass/core/manager.py",
+    "src/seedpass/core/migrations.py"
+  ],
   "modules": {
     "src/main.py": {
       "threshold_percent": 50.0,
-      "actual_percent": 59.13107511045656,
-      "meets_threshold": true,
-      "uncovered_functions": [],
+      "actual_percent": 0.0,
+      "meets_threshold": false,
+      "uncovered_functions": [
+        {
+          "name": "_warn_missing_optional_dependencies",
+          "line": 60
+        },
+        {
+          "name": "load_global_config",
+          "line": 73
+        },
+        {
+          "name": "configure_logging",
+          "line": 86
+        },
+        {
+          "name": "confirm_action",
+          "line": 119
+        },
+        {
+          "name": "drain_notifications",
+          "line": 136
+        },
+        {
+          "name": "get_notification_text",
+          "line": 151
+        },
+        {
+          "name": "handle_switch_fingerprint",
+          "line": 168
+        },
+        {
+          "name": "handle_add_new_fingerprint",
+          "line": 212
+        },
+        {
+          "name": "handle_remove_fingerprint",
+          "line": 225
+        },
+        {
+          "name": "_cleanup_and_exit",
+          "line": 249
+        },
+        {
+          "name": "handle_list_fingerprints",
+          "line": 278
+        },
+        {
+          "name": "handle_display_npub",
+          "line": 300
+        },
+        {
+          "name": "_display_live_stats",
+          "line": 318
+        },
+        {
+          "name": "handle_display_stats",
+          "line": 365
+        },
+        {
+          "name": "print_matches",
+          "line": 374
+        },
+        {
+          "name": "handle_post_to_nostr",
+          "line": 410
+        },
+        {
+          "name": "handle_retrieve_from_nostr",
+          "line": 447
+        },
+        {
+          "name": "handle_view_relays",
+          "line": 485
+        },
+        {
+          "name": "_safe_close_client_pool",
+          "line": 502
+        },
+        {
+          "name": "_reload_relays",
+          "line": 513
+        },
+        {
+          "name": "handle_add_relay",
+          "line": 526
+        },
+        {
+          "name": "handle_remove_relay",
+          "line": 557
+        },
+        {
+          "name": "handle_reset_relays",
+          "line": 594
+        },
+        {
+          "name": "_get_profile_state_manager",
+          "line": 613
+        },
+        {
+          "name": "_clear_nostr_runtime_state",
+          "line": 626
+        },
+        {
+          "name": "handle_reset_nostr_sync_state",
+          "line": 643
+        },
+        {
+          "name": "handle_start_fresh_nostr_namespace",
+          "line": 669
+        },
+        {
+          "name": "handle_set_inactivity_timeout",
+          "line": 712
+        },
+        {
+          "name": "handle_set_kdf_iterations",
+          "line": 746
+        },
+        {
+          "name": "handle_set_additional_backup_location",
+          "line": 795
+        },
+        {
+          "name": "handle_set_profile_name",
+          "line": 844
+        },
+        {
+          "name": "handle_toggle_secret_mode",
+          "line": 863
+        },
+        {
+          "name": "handle_toggle_quick_unlock",
+          "line": 914
+        },
+        {
+          "name": "handle_toggle_offline_mode",
+          "line": 951
+        },
+        {
+          "name": "handle_profiles_menu",
+          "line": 989
+        },
+        {
+          "name": "handle_nostr_menu",
+          "line": 1042
+        },
+        {
+          "name": "handle_semantic_index_menu",
+          "line": 1116
+        },
+        {
+          "name": "handle_settings",
+          "line": 1247
+        },
+        {
+          "name": "display_menu",
+          "line": 1404
+        },
+        {
+          "name": "main",
+          "line": 1622
+        },
+        {
+          "name": "signal_handler",
+          "line": 1852
+        },
+        {
+          "name": "_exit_as_main_process",
+          "line": 1907
+        }
+      ],
       "error": null
     },
     "src/seedpass/core/api.py": {
       "threshold_percent": 85.0,
-      "actual_percent": 89.86928104575163,
-      "meets_threshold": true,
-      "uncovered_functions": [],
+      "actual_percent": 0.0,
+      "meets_threshold": false,
+      "uncovered_functions": [
+        {
+          "name": "VaultService.__init__",
+          "line": 141
+        },
+        {
+          "name": "VaultService.export_vault",
+          "line": 145
+        },
+        {
+          "name": "VaultService.import_vault",
+          "line": 152
+        },
+        {
+          "name": "VaultService.export_profile",
+          "line": 159
+        },
+        {
+          "name": "VaultService.import_profile",
+          "line": 169
+        },
+        {
+          "name": "VaultService.change_password",
+          "line": 180
+        },
+        {
+          "name": "VaultService.unlock",
+          "line": 186
+        },
+        {
+          "name": "VaultService.lock",
+          "line": 193
+        },
+        {
+          "name": "VaultService.backup_parent_seed",
+          "line": 199
+        },
+        {
+          "name": "VaultService.stats",
+          "line": 207
+        },
+        {
+          "name": "ProfileService.__init__",
+          "line": 217
+        },
+        {
+          "name": "ProfileService.list_profiles",
+          "line": 221
+        },
+        {
+          "name": "ProfileService.add_profile",
+          "line": 227
+        },
+        {
+          "name": "ProfileService.remove_profile",
+          "line": 236
+        },
+        {
+          "name": "ProfileService.switch_profile",
+          "line": 242
+        },
+        {
+          "name": "ProfileService.rename_profile",
+          "line": 248
+        },
+        {
+          "name": "SyncService.__init__",
+          "line": 260
+        },
+        {
+          "name": "SyncService.sync",
+          "line": 264
+        },
+        {
+          "name": "SyncService.start_background_sync",
+          "line": 275
+        },
+        {
+          "name": "SyncService.start_background_vault_sync",
+          "line": 281
+        },
+        {
+          "name": "EntryService.__init__",
+          "line": 291
+        },
+        {
+          "name": "EntryService.list_entries",
+          "line": 295
+        },
+        {
+          "name": "EntryService.search_entries",
+          "line": 308
+        },
+        {
+          "name": "EntryService.retrieve_entry",
+          "line": 334
+        },
+        {
+          "name": "EntryService.generate_password",
+          "line": 338
+        },
+        {
+          "name": "EntryService.get_totp_code",
+          "line": 346
+        },
+        {
+          "name": "EntryService.get_totp_secret",
+          "line": 353
+        },
+        {
+          "name": "EntryService.get_seed_phrase",
+          "line": 360
+        },
+        {
+          "name": "EntryService.get_managed_account_seed",
+          "line": 367
+        },
+        {
+          "name": "EntryService.get_ssh_key_pair",
+          "line": 374
+        },
+        {
+          "name": "EntryService.get_pgp_key",
+          "line": 381
+        },
+        {
+          "name": "EntryService.get_nostr_key_pair",
+          "line": 388
+        },
+        {
+          "name": "EntryService.get_secret_mode_enabled",
+          "line": 395
+        },
+        {
+          "name": "EntryService.get_clipboard_clear_delay",
+          "line": 406
+        },
+        {
+          "name": "EntryService.copy_to_clipboard",
+          "line": 417
+        },
+        {
+          "name": "EntryService.add_entry",
+          "line": 430
+        },
+        {
+          "name": "EntryService.add_totp",
+          "line": 475
+        },
+        {
+          "name": "EntryService.add_ssh_key",
+          "line": 499
+        },
+        {
+          "name": "EntryService.add_pgp_key",
+          "line": 516
+        },
+        {
+          "name": "EntryService.add_nostr_key",
+          "line": 537
+        },
+        {
+          "name": "EntryService.add_seed",
+          "line": 554
+        },
+        {
+          "name": "EntryService.add_key_value",
+          "line": 573
+        },
+        {
+          "name": "EntryService.add_managed_account",
+          "line": 583
+        },
+        {
+          "name": "EntryService.add_document",
+          "line": 600
+        },
+        {
+          "name": "EntryService.import_document_file",
+          "line": 622
+        },
+        {
+          "name": "EntryService.export_document_file",
+          "line": 642
+        },
+        {
+          "name": "EntryService.modify_entry",
+          "line": 656
+        },
+        {
+          "name": "EntryService.add_link",
+          "line": 695
+        },
+        {
+          "name": "EntryService.remove_link",
+          "line": 710
+        },
+        {
+          "name": "EntryService.get_links",
+          "line": 724
+        },
+        {
+          "name": "EntryService.archive_entry",
+          "line": 728
+        },
+        {
+          "name": "EntryService.restore_entry",
+          "line": 733
+        },
+        {
+          "name": "EntryService.delete_entry",
+          "line": 738
+        },
+        {
+          "name": "EntryService.export_totp_entries",
+          "line": 743
+        },
+        {
+          "name": "EntryService.display_totp_codes",
+          "line": 750
+        },
+        {
+          "name": "EntryService.load_managed_account",
+          "line": 754
+        },
+        {
+          "name": "EntryService.exit_managed_account",
+          "line": 758
+        },
+        {
+          "name": "ConfigService.__init__",
+          "line": 766
+        },
+        {
+          "name": "ConfigService.get",
+          "line": 770
+        },
+        {
+          "name": "ConfigService.set",
+          "line": 774
+        },
+        {
+          "name": "ConfigService.get_secret_mode_enabled",
+          "line": 829
+        },
+        {
+          "name": "ConfigService.get_clipboard_clear_delay",
+          "line": 833
+        },
+        {
+          "name": "ConfigService.set_secret_mode",
+          "line": 837
+        },
+        {
+          "name": "ConfigService.get_offline_mode",
+          "line": 845
+        },
+        {
+          "name": "ConfigService.set_offline_mode",
+          "line": 849
+        },
+        {
+          "name": "ConfigService.set_semantic_index_enabled",
+          "line": 855
+        },
+        {
+          "name": "ConfigService.get_semantic_index_enabled",
+          "line": 860
+        },
+        {
+          "name": "ConfigService.set_semantic_search_mode",
+          "line": 864
+        },
+        {
+          "name": "ConfigService.get_semantic_search_mode",
+          "line": 868
+        },
+        {
+          "name": "SemanticIndexService.__init__",
+          "line": 876
+        },
+        {
+          "name": "SemanticIndexService._index",
+          "line": 880
+        },
+        {
+          "name": "SemanticIndexService._all_entries",
+          "line": 886
+        },
+        {
+          "name": "SemanticIndexService.status",
+          "line": 907
+        },
+        {
+          "name": "SemanticIndexService.set_enabled",
+          "line": 917
+        },
+        {
+          "name": "SemanticIndexService.set_mode",
+          "line": 927
+        },
+        {
+          "name": "SemanticIndexService.get_mode",
+          "line": 938
+        },
+        {
+          "name": "SemanticIndexService.build",
+          "line": 942
+        },
+        {
+          "name": "SemanticIndexService.rebuild",
+          "line": 948
+        },
+        {
+          "name": "SemanticIndexService.search",
+          "line": 954
+        },
+        {
+          "name": "SemanticIndexService._lexical_search",
+          "line": 979
+        },
+        {
+          "name": "SemanticIndexService._merge_hybrid",
+          "line": 1028
+        },
+        {
+          "name": "SearchService.__init__",
+          "line": 1092
+        },
+        {
+          "name": "SearchService._scope_path",
+          "line": 1096
+        },
+        {
+          "name": "SearchService._all_entries",
+          "line": 1102
+        },
+        {
+          "name": "SearchService._entry_kind",
+          "line": 1130
+        },
+        {
+          "name": "SearchService._normalize_kind_filters",
+          "line": 1134
+        },
+        {
+          "name": "SearchService._safe_excerpt",
+          "line": 1142
+        },
+        {
+          "name": "SearchService._meta",
+          "line": 1163
+        },
+        {
+          "name": "SearchService._custom_field_text",
+          "line": 1173
+        },
+        {
+          "name": "SearchService._normalized_tags",
+          "line": 1188
+        },
+        {
+          "name": "SearchService._normalized_links",
+          "line": 1196
+        },
+        {
+          "name": "SearchService._entry_search_text",
+          "line": 1225
+        },
+        {
+          "name": "SearchService._semantic_scores",
+          "line": 1232
+        },
+        {
+          "name": "SearchService._recency_score",
+          "line": 1263
+        },
+        {
+          "name": "SearchService.search",
+          "line": 1270
+        },
+        {
+          "name": "SearchService._result_key",
+          "line": 1473
+        },
+        {
+          "name": "SearchService.linked_neighbors",
+          "line": 1504
+        },
+        {
+          "name": "SearchService.relation_summary",
+          "line": 1604
+        },
+        {
+          "name": "SearchService.multi_hop_neighbors",
+          "line": 1633
+        },
+        {
+          "name": "SearchService.filtered_neighbors",
+          "line": 1784
+        },
+        {
+          "name": "AtlasService.__init__",
+          "line": 1822
+        },
+        {
+          "name": "AtlasService._payload",
+          "line": 1826
+        },
+        {
+          "name": "AtlasService._scope_path",
+          "line": 1832
+        },
+        {
+          "name": "AtlasService.status",
+          "line": 1838
+        },
+        {
+          "name": "AtlasService.list_views",
+          "line": 1851
+        },
+        {
+          "name": "AtlasService.get_view",
+          "line": 1857
+        },
+        {
+          "name": "AtlasService.wayfinder",
+          "line": 1866
+        },
+        {
+          "name": "UtilityService.__init__",
+          "line": 1889
+        },
+        {
+          "name": "UtilityService.generate_password",
+          "line": 1893
+        },
+        {
+          "name": "UtilityService.verify_checksum",
+          "line": 1938
+        },
+        {
+          "name": "UtilityService.update_checksum",
+          "line": 1942
+        },
+        {
+          "name": "NostrService.__init__",
+          "line": 1950
+        },
+        {
+          "name": "NostrService.get_pubkey",
+          "line": 1954
+        },
+        {
+          "name": "NostrService.list_relays",
+          "line": 1958
+        },
+        {
+          "name": "NostrService.add_relay",
+          "line": 1962
+        },
+        {
+          "name": "NostrService.remove_relay",
+          "line": 1969
+        },
+        {
+          "name": "NostrService.reset_relays",
+          "line": 1976
+        },
+        {
+          "name": "NostrService._clear_runtime_sync_state",
+          "line": 1988
+        },
+        {
+          "name": "NostrService.reset_sync_state",
+          "line": 2004
+        },
+        {
+          "name": "NostrService.start_fresh_namespace",
+          "line": 2017
+        }
+      ],
       "error": null
     },
     "src/seedpass/core/encryption.py": {
       "threshold_percent": 80.0,
-      "actual_percent": 82.83132530120481,
-      "meets_threshold": true,
-      "uncovered_functions": [],
+      "actual_percent": 14.071856287425149,
+      "meets_threshold": false,
+      "uncovered_functions": [
+        {
+          "name": "EncryptionManager._process",
+          "line": 478
+        }
+      ],
       "error": null
     },
     "src/seedpass/core/manager.py": {
       "threshold_percent": 60.0,
-      "actual_percent": 61.20317002881844,
-      "meets_threshold": true,
-      "uncovered_functions": [],
+      "actual_percent": 0.0,
+      "meets_threshold": false,
+      "uncovered_functions": [
+        {
+          "name": "AuditLogger.__init__",
+          "line": 124
+        },
+        {
+          "name": "AuditLogger.log",
+          "line": 141
+        },
+        {
+          "name": "calculate_profile_id",
+          "line": 158
+        },
+        {
+          "name": "restore_backup_index",
+          "line": 164
+        },
+        {
+          "name": "requires_unlocked",
+          "line": 197
+        },
+        {
+          "name": "wrapper",
+          "line": 201
+        },
+        {
+          "name": "AuthGuard.__init__",
+          "line": 212
+        },
+        {
+          "name": "AuthGuard.check_timeout",
+          "line": 218
+        },
+        {
+          "name": "PasswordManager.__init__",
+          "line": 244
+        },
+        {
+          "name": "PasswordManager.get_bip85_entropy",
+          "line": 337
+        },
+        {
+          "name": "PasswordManager.clear_bip85_cache",
+          "line": 349
+        },
+        {
+          "name": "PasswordManager.derive_key_hierarchy",
+          "line": 354
+        },
+        {
+          "name": "PasswordManager._get_kdf_mode",
+          "line": 364
+        },
+        {
+          "name": "PasswordManager._get_kdf_iterations",
+          "line": 371
+        },
+        {
+          "name": "PasswordManager._get_argon2_time_cost",
+          "line": 386
+        },
+        {
+          "name": "PasswordManager._derive_seed_key",
+          "line": 393
+        },
+        {
+          "name": "PasswordManager._build_seed_kdf_config",
+          "line": 436
+        },
+        {
+          "name": "PasswordManager._load_seed_kdf_config",
+          "line": 468
+        },
+        {
+          "name": "PasswordManager._resolve_script_checksum_target",
+          "line": 484
+        },
+        {
+          "name": "PasswordManager._read_script_checksum_record",
+          "line": 501
+        },
+        {
+          "name": "PasswordManager._write_script_checksum_record",
+          "line": 521
+        },
+        {
+          "name": "PasswordManager._script_checksum_status",
+          "line": 534
+        },
+        {
+          "name": "PasswordManager._encrypt_parent_seed_compat",
+          "line": 555
+        },
+        {
+          "name": "PasswordManager.ensure_key_hierarchy",
+          "line": 577
+        },
+        {
+          "name": "PasswordManager.ensure_script_checksum",
+          "line": 591
+        },
+        {
+          "name": "PasswordManager.get_password_prompt",
+          "line": 616
+        },
+        {
+          "name": "PasswordManager.parent_seed",
+          "line": 621
+        },
+        {
+          "name": "PasswordManager.parent_seed",
+          "line": 628
+        },
+        {
+          "name": "PasswordManager.header_fingerprint",
+          "line": 637
+        },
+        {
+          "name": "PasswordManager.header_fingerprint_args",
+          "line": 652
+        },
+        {
+          "name": "PasswordManager.update_activity",
+          "line": 661
+        },
+        {
+          "name": "PasswordManager.notify",
+          "line": 670
+        },
+        {
+          "name": "PasswordManager.get_current_notification",
+          "line": 679
+        },
+        {
+          "name": "PasswordManager.poll_background_errors",
+          "line": 694
+        },
+        {
+          "name": "PasswordManager.menu_handler",
+          "line": 707
+        },
+        {
+          "name": "PasswordManager.profile_service",
+          "line": 713
+        },
+        {
+          "name": "PasswordManager.entry_service",
+          "line": 719
+        },
+        {
+          "name": "PasswordManager.display_service",
+          "line": 727
+        },
+        {
+          "name": "PasswordManager.lock_vault",
+          "line": 734
+        },
+        {
+          "name": "PasswordManager.unlock_vault",
+          "line": 742
+        },
+        {
+          "name": "PasswordManager.initialize_fingerprint_manager",
+          "line": 788
+        },
+        {
+          "name": "PasswordManager.setup_parent_seed",
+          "line": 802
+        },
+        {
+          "name": "PasswordManager.select_or_add_fingerprint",
+          "line": 814
+        },
+        {
+          "name": "PasswordManager.add_new_fingerprint",
+          "line": 897
+        },
+        {
+          "name": "PasswordManager.select_fingerprint",
+          "line": 974
+        },
+        {
+          "name": "PasswordManager.recover_profile_with_blank_index",
+          "line": 1013
+        },
+        {
+          "name": "PasswordManager.recover_profile_with_blank_index_data",
+          "line": 1132
+        },
+        {
+          "name": "PasswordManager.setup_encryption_manager",
+          "line": 1203
+        },
+        {
+          "name": "PasswordManager.load_parent_seed",
+          "line": 1314
+        },
+        {
+          "name": "PasswordManager.handle_switch_fingerprint",
+          "line": 1380
+        },
+        {
+          "name": "PasswordManager.load_managed_account",
+          "line": 1384
+        },
+        {
+          "name": "PasswordManager.exit_managed_account",
+          "line": 1426
+        },
+        {
+          "name": "PasswordManager.handle_existing_seed",
+          "line": 1451
+        },
+        {
+          "name": "PasswordManager.handle_new_seed_setup",
+          "line": 1528
+        },
+        {
+          "name": "PasswordManager.setup_existing_seed",
+          "line": 1572
+        },
+        {
+          "name": "PasswordManager.setup_existing_seed_word_by_word",
+          "line": 1611
+        },
+        {
+          "name": "PasswordManager._finalize_existing_seed",
+          "line": 1617
+        },
+        {
+          "name": "PasswordManager.generate_new_seed",
+          "line": 1701
+        },
+        {
+          "name": "PasswordManager.validate_bip85_seed",
+          "line": 1782
+        },
+        {
+          "name": "PasswordManager.generate_bip85_seed",
+          "line": 1802
+        },
+        {
+          "name": "PasswordManager.create_profile_from_generated_seed",
+          "line": 1823
+        },
+        {
+          "name": "PasswordManager.save_and_encrypt_seed",
+          "line": 1837
+        },
+        {
+          "name": "PasswordManager.initialize_bip85",
+          "line": 1905
+        },
+        {
+          "name": "PasswordManager.cached_derive",
+          "line": 1916
+        },
+        {
+          "name": "PasswordManager.initialize_managers",
+          "line": 1935
+        },
+        {
+          "name": "PasswordManager._initialize_config_and_state",
+          "line": 1963
+        },
+        {
+          "name": "PasswordManager._initialize_entry_manager",
+          "line": 1975
+        },
+        {
+          "name": "PasswordManager._initialize_password_generator",
+          "line": 2002
+        },
+        {
+          "name": "PasswordManager._initialize_nostr_client",
+          "line": 2012
+        },
+        {
+          "name": "PasswordManager._handle_migration",
+          "line": 2077
+        },
+        {
+          "name": "PasswordManager.sync_index_from_nostr_async",
+          "line": 2112
+        },
+        {
+          "name": "PasswordManager.sync_index_from_nostr",
+          "line": 2226
+        },
+        {
+          "name": "PasswordManager.start_background_sync",
+          "line": 2229
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 2240
+        },
+        {
+          "name": "PasswordManager.cleanup",
+          "line": 2260
+        },
+        {
+          "name": "PasswordManager.start_background_relay_check",
+          "line": 2268
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 2277
+        },
+        {
+          "name": "PasswordManager.start_background_vault_sync",
+          "line": 2297
+        },
+        {
+          "name": "PasswordManager._worker",
+          "line": 2302
+        },
+        {
+          "name": "PasswordManager._async_worker",
+          "line": 2318
+        },
+        {
+          "name": "PasswordManager.attempt_initial_sync_async",
+          "line": 2325
+        },
+        {
+          "name": "PasswordManager.attempt_initial_sync",
+          "line": 2388
+        },
+        {
+          "name": "PasswordManager.sync_index_from_nostr_if_missing",
+          "line": 2391
+        },
+        {
+          "name": "PasswordManager.sync_index_from_nostr_if_missing_async",
+          "line": 2399
+        },
+        {
+          "name": "PasswordManager.check_nostr_backup_exists",
+          "line": 2410
+        },
+        {
+          "name": "PasswordManager.restore_from_nostr_with_guidance",
+          "line": 2436
+        },
+        {
+          "name": "PasswordManager.restore_from_nostr_with_guidance_data",
+          "line": 2465
+        },
+        {
+          "name": "PasswordManager.restore_from_local_backup_data",
+          "line": 2490
+        },
+        {
+          "name": "PasswordManager._clear_header_add_entry",
+          "line": 2506
+        },
+        {
+          "name": "PasswordManager._mark_dirty",
+          "line": 2516
+        },
+        {
+          "name": "PasswordManager._sync_and_pause",
+          "line": 2521
+        },
+        {
+          "name": "PasswordManager._entry_op_context",
+          "line": 2534
+        },
+        {
+          "name": "PasswordManager._terminal_document_editor",
+          "line": 2543
+        },
+        {
+          "name": "PasswordManager.print_help",
+          "line": 2562
+        },
+        {
+          "name": "PasswordManager.print_lines",
+          "line": 2565
+        },
+        {
+          "name": "PasswordManager.handle_add_password",
+          "line": 2619
+        },
+        {
+          "name": "PasswordManager.handle_add_totp",
+          "line": 2623
+        },
+        {
+          "name": "PasswordManager.handle_add_ssh_key",
+          "line": 2738
+        },
+        {
+          "name": "PasswordManager.handle_add_seed",
+          "line": 2777
+        },
+        {
+          "name": "PasswordManager.handle_add_pgp",
+          "line": 2828
+        },
+        {
+          "name": "PasswordManager.handle_add_nostr_key",
+          "line": 2877
+        },
+        {
+          "name": "PasswordManager.handle_add_key_value",
+          "line": 2919
+        },
+        {
+          "name": "PasswordManager.handle_add_document",
+          "line": 2982
+        },
+        {
+          "name": "PasswordManager.handle_add_managed_account",
+          "line": 3045
+        },
+        {
+          "name": "PasswordManager.show_entry_details_by_index",
+          "line": 3089
+        },
+        {
+          "name": "PasswordManager._prompt_toggle_archive",
+          "line": 3116
+        },
+        {
+          "name": "PasswordManager._entry_type_str",
+          "line": 3133
+        },
+        {
+          "name": "PasswordManager._generate_password_for_entry",
+          "line": 3140
+        },
+        {
+          "name": "PasswordManager._entry_actions_menu",
+          "line": 3163
+        },
+        {
+          "name": "PasswordManager.refresh_entry",
+          "line": 3169
+        },
+        {
+          "name": "PasswordManager.toggle_archive",
+          "line": 3175
+        },
+        {
+          "name": "PasswordManager.add_note",
+          "line": 3187
+        },
+        {
+          "name": "PasswordManager.add_custom_field",
+          "line": 3197
+        },
+        {
+          "name": "PasswordManager.edit_tags",
+          "line": 3212
+        },
+        {
+          "name": "PasswordManager.edit_entry",
+          "line": 3233
+        },
+        {
+          "name": "PasswordManager.show_qr",
+          "line": 3237
+        },
+        {
+          "name": "PasswordManager.export_document",
+          "line": 3242
+        },
+        {
+          "name": "PasswordManager.get_options",
+          "line": 3256
+        },
+        {
+          "name": "PasswordManager._entry_edit_menu",
+          "line": 3287
+        },
+        {
+          "name": "PasswordManager.refresh_entry",
+          "line": 3293
+        },
+        {
+          "name": "PasswordManager.edit_label",
+          "line": 3299
+        },
+        {
+          "name": "PasswordManager.edit_key",
+          "line": 3307
+        },
+        {
+          "name": "PasswordManager.edit_value",
+          "line": 3315
+        },
+        {
+          "name": "PasswordManager.edit_document_content",
+          "line": 3323
+        },
+        {
+          "name": "PasswordManager.edit_document_file_type",
+          "line": 3336
+        },
+        {
+          "name": "PasswordManager.edit_username",
+          "line": 3347
+        },
+        {
+          "name": "PasswordManager.edit_url",
+          "line": 3354
+        },
+        {
+          "name": "PasswordManager.edit_period",
+          "line": 3361
+        },
+        {
+          "name": "PasswordManager.edit_digits",
+          "line": 3371
+        },
+        {
+          "name": "PasswordManager.get_options",
+          "line": 3381
+        },
+        {
+          "name": "PasswordManager._entry_qr_menu",
+          "line": 3407
+        },
+        {
+          "name": "PasswordManager.refresh_entry",
+          "line": 3431
+        },
+        {
+          "name": "PasswordManager.show_public_key",
+          "line": 3437
+        },
+        {
+          "name": "PasswordManager.show_private_key",
+          "line": 3446
+        },
+        {
+          "name": "PasswordManager.get_options",
+          "line": 3455
+        },
+        {
+          "name": "PasswordManager.display_sensitive_entry_info",
+          "line": 3473
+        },
+        {
+          "name": "PasswordManager.handle_retrieve_entry",
+          "line": 3487
+        },
+        {
+          "name": "PasswordManager.handle_modify_entry",
+          "line": 3522
+        },
+        {
+          "name": "PasswordManager.handle_search_entries",
+          "line": 4035
+        },
+        {
+          "name": "PasswordManager.display_entry_details",
+          "line": 4092
+        },
+        {
+          "name": "PasswordManager.handle_list_entries",
+          "line": 4281
+        },
+        {
+          "name": "PasswordManager.delete_entry",
+          "line": 4284
+        },
+        {
+          "name": "PasswordManager.handle_archive_entry",
+          "line": 4322
+        },
+        {
+          "name": "PasswordManager.handle_view_archived_entries",
+          "line": 4341
+        },
+        {
+          "name": "PasswordManager._load_archived_entries",
+          "line": 4345
+        },
+        {
+          "name": "PasswordManager.handle_display_totp_codes",
+          "line": 4419
+        },
+        {
+          "name": "PasswordManager.handle_verify_checksum",
+          "line": 4423
+        },
+        {
+          "name": "PasswordManager.handle_update_script_checksum",
+          "line": 4470
+        },
+        {
+          "name": "PasswordManager.get_encrypted_data",
+          "line": 4501
+        },
+        {
+          "name": "PasswordManager.decrypt_and_save_index_from_nostr",
+          "line": 4521
+        },
+        {
+          "name": "PasswordManager.sync_vault_async",
+          "line": 4542
+        },
+        {
+          "name": "PasswordManager.sync_vault",
+          "line": 4631
+        },
+        {
+          "name": "PasswordManager.backup_database",
+          "line": 4636
+        },
+        {
+          "name": "PasswordManager.restore_database",
+          "line": 4647
+        },
+        {
+          "name": "PasswordManager.handle_export_database",
+          "line": 4663
+        },
+        {
+          "name": "PasswordManager.handle_import_database",
+          "line": 4730
+        },
+        {
+          "name": "PasswordManager.handle_export_totp_codes",
+          "line": 4812
+        },
+        {
+          "name": "PasswordManager.handle_backup_reveal_parent_seed",
+          "line": 4883
+        },
+        {
+          "name": "PasswordManager.verify_password",
+          "line": 4979
+        },
+        {
+          "name": "PasswordManager.is_valid_filename",
+          "line": 5024
+        },
+        {
+          "name": "PasswordManager.store_hashed_password",
+          "line": 5041
+        },
+        {
+          "name": "PasswordManager.change_password",
+          "line": 5082
+        },
+        {
+          "name": "PasswordManager.get_profile_stats",
+          "line": 5156
+        },
+        {
+          "name": "PasswordManager.display_stats",
+          "line": 5218
+        }
+      ],
       "error": null
     },
     "src/seedpass/core/migrations.py": {
       "threshold_percent": 90.0,
-      "actual_percent": 96.55172413793103,
-      "meets_threshold": true,
-      "uncovered_functions": [],
+      "actual_percent": 0.0,
+      "meets_threshold": false,
+      "uncovered_functions": [
+        {
+          "name": "migration",
+          "line": 10
+        },
+        {
+          "name": "decorator",
+          "line": 15
+        },
+        {
+          "name": "_v0_to_v1",
+          "line": 23
+        },
+        {
+          "name": "_v1_to_v2",
+          "line": 30
+        },
+        {
+          "name": "_v2_to_v3",
+          "line": 47
+        },
+        {
+          "name": "_v3_to_v4",
+          "line": 62
+        },
+        {
+          "name": "apply_migrations",
+          "line": 74
+        }
+      ],
       "error": null
     }
   },
