@@ -39,9 +39,6 @@ jobs:
       HYPOTHESIS_SEED: 123456
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install build tools (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
@@ -69,6 +66,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: echo "${{ steps.msys.outputs.msys2-location }}/mingw64/bin" >> $GITHUB_PATH
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Cache pip
         uses: actions/cache@v3
         with:
