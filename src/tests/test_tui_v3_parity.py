@@ -1,5 +1,7 @@
 from __future__ import annotations
 import pytest
+
+pytest.importorskip("textual")
 from unittest.mock import MagicMock
 from rich.text import Text
 from textual.widgets import DataTable
