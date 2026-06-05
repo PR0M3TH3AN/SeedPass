@@ -49,7 +49,30 @@ derivation, vault compatibility, sync compatibility, and safety tests pass.
 - Do not depend on a large frontend dependency graph for cryptographic behavior.
 - Do not retire the Python implementation until TypeScript parity is proven.
 
-## 4. Current Python Reference Surface
+## 4. Design Principles
+
+1. Core before UI:
+   implement the shared protocol, schemas, and deterministic functions first.
+   UI work should wait until fixtures prove that the TypeScript core can
+   reproduce Python behavior.
+2. One core, many adapters:
+   CLI, web, extension, desktop, and automation surfaces must call the same
+   TypeScript core rather than duplicating derivation, vault, or sync logic.
+3. Local-first by default:
+   normal use must work without a hosted backend. Nostr relay sync is optional
+   and remains explicitly user-controlled.
+4. Security posture over polish:
+   browser ergonomics are valuable only if they do not silently weaken secret
+   handling, high-risk approvals, or recovery guarantees.
+5. Versioned compatibility:
+   every format, derivation, and migration must have an explicit compatibility
+   version so unavoidable TypeScript differences can be isolated instead of
+   becoming silent regressions.
+6. CLI remains first-class:
+   the terminal workflow should be preserved as a product surface with equal
+   priority to web and extension interfaces.
+
+## 5. Current Python Reference Surface
 
 The current Python implementation provides the following reference points:
 
@@ -67,9 +90,43 @@ The current Python implementation provides the following reference points:
 The TypeScript implementation must treat Python behavior as normative until a
 formal TypeScript spec replaces it.
 
-## 5. Target Architecture
+## 6. Reference-to-Spec Governance
 
-### 5.1 Shared Core
+The current Python code is the reference implementation, but the TypeScript
+project should gradually extract a language-neutral protocol spec. Without this
+step, the port risks encoding Python implementation accidents into a second
+implementation.
+
+Required spec artifacts:
+
+- `docs/seedpass_protocol_spec.md`: canonical derivation, vault, sync, entry,
+  backup, and migration behavior
+- `docs/typescript_port_compatibility_matrix.md`: feature-by-feature parity
+  status, fixture coverage, and known mismatches
+- `docs/typescript_dependency_review.md`: dependency and supply-chain review for
+  TypeScript, browser, extension, and optional WASM packages
+- `docs/browser_security_model.md`: browser/PWA/extension-specific threat model
+  and mitigations
+- `js/packages/test-vectors/fixtures/manifest.json`: fixture inventory with
+  Python commit, fixture version, secret-redaction policy, and expected outputs
+
+Governance rules:
+
+- Python behavior is normative until a protocol spec section is marked
+  `accepted`.
+- Once a spec section is accepted, both Python and TypeScript should be tested
+  against the spec fixtures.
+- Any intentional TypeScript divergence must include:
+  - a compatibility version
+  - a migration or fallback path
+  - user-visible release notes
+  - tests proving old and new behavior are not silently confused
+- The TypeScript core cannot become authoritative until the P0 compatibility
+  matrix is green.
+
+## 7. Target Architecture
+
+### 7.1 Shared Core
 
 `packages/core` should contain all reusable logic:
 
@@ -91,7 +148,7 @@ The core must not depend on browser DOM APIs, Node filesystem APIs, React, or
 extension APIs. It may depend on small cross-platform crypto/encoding libraries
 only when WebCrypto or Node crypto cannot reasonably cover the need.
 
-### 5.2 Storage Adapters
+### 7.2 Storage Adapters
 
 Use explicit adapters instead of letting each interface invent storage behavior.
 
@@ -106,7 +163,7 @@ Required adapters:
 All adapters must store encrypted vault payloads by default. Plaintext export
 must be an explicit high-risk operation guarded by policy and warnings.
 
-### 5.3 Crypto Providers
+### 7.3 Crypto Providers
 
 Define a provider interface so Node, browser, and optional WASM can share the
 same high-level code:
@@ -129,7 +186,19 @@ Providers:
 - Node CLI: Node `crypto.webcrypto` first
 - Optional: audited WASM/Rust for BIP-85 edge cases or memory-hard operations
 
-### 5.4 Interfaces
+Implementation cautions:
+
+- WebCrypto does not expose every primitive in the same shape as Python
+  dependencies. Do not assume parity until fixtures prove byte-for-byte output.
+- AES-GCM, PBKDF2, HKDF, HMAC, and SHA-256 are realistic browser targets.
+- secp256k1/Schnorr/Nostr, BIP-85, PGP, and SSH key generation may require
+  carefully selected third-party libraries or WASM.
+- Argon2 support is not native in WebCrypto and requires a reviewed WASM or JS
+  implementation if Argon2 parity is required.
+- PGP parity is a likely risk area because Python currently relies on PGPy
+  behavior, and browser PGP libraries may serialize keys differently.
+
+### 7.4 Interfaces
 
 #### CLI
 
@@ -207,12 +276,12 @@ Tauri can provide:
 - packaged app distribution
 - reuse of the static web UI
 
-## 6. Compatibility Requirements
+## 8. Compatibility Requirements
 
 The TypeScript version must preserve these behaviors unless an explicit migration
 document says otherwise.
 
-### 6.1 Deterministic Artifact Parity
+### 8.1 Deterministic Artifact Parity
 
 The same parent seed, profile, entry parameters, and policy must produce the same:
 
@@ -228,7 +297,7 @@ The same parent seed, profile, entry parameters, and policy must produce the sam
 If any artifact cannot be reproduced exactly in TypeScript, the mismatch must be
 documented before release and fenced behind a compatibility version.
 
-### 6.2 Vault Compatibility
+### 8.2 Vault Compatibility
 
 The TypeScript version must be able to:
 
@@ -239,7 +308,7 @@ The TypeScript version must be able to:
 - export data that the Python reference can read during the transition window
 - preserve KDF metadata and legacy migration behavior
 
-### 6.3 Sync Compatibility
+### 8.3 Sync Compatibility
 
 The TypeScript version must support the current Nostr sync model:
 
@@ -253,7 +322,7 @@ The TypeScript version must support the current Nostr sync model:
 - stale/replay detection
 - relay failure handling
 
-### 6.4 Entry Compatibility
+### 8.4 Entry Compatibility
 
 Supported entry kinds:
 
@@ -280,7 +349,27 @@ Shared fields:
 - `links`
 - `modified_ts`
 
-### 6.5 Agent Compatibility
+### 8.5 Compatibility Priority Matrix
+
+| Area | Priority | Required before first public TypeScript beta | Notes |
+|---|---|---:|---|
+| Password derivation | P0 | Yes | Core product identity; must be byte-for-byte compatible. |
+| BIP-39 seed handling | P0 | Yes | Required for seed-first recovery. |
+| BIP-85 managed seeds | P0 | Yes | Required for managed account workflows. |
+| Fingerprints | P0 | Yes | Required for profile identity and migration confidence. |
+| Vault decrypt/import | P0 | Yes | Existing users must not be stranded. |
+| Entry schemas | P0 | Yes | All current kinds must roundtrip even if some derived artifacts are deferred. |
+| Nostr manifest/chunk restore | P0 | Yes | Existing Nostr recovery path must work before broad beta. |
+| Deterministic conflict merge | P0 | Yes | Prevents cross-client state corruption. |
+| TOTP | P1 | Strongly preferred | Product-relevant, but can be staged if password/vault parity lands first. |
+| Nostr keys | P1 | Strongly preferred | Needed for complete Nostr workflows. |
+| SSH keys | P1 | Maybe | Can be imported/roundtripped before exact derivation is complete. |
+| PGP keys | P1/P2 | Maybe | Highest parity risk; may require compatibility warning. |
+| Semantic search | P2 | No | Local derived index can be rebuilt and may differ by implementation. |
+| TUI v3 visual layout | P2 | No | UI should be redesigned for web/extension instead of copied. |
+| Agent controls | P2 | No | Architecture should preserve them, but full port can come after user core. |
+
+### 8.6 Agent Compatibility
 
 Agent features should be ported after user-facing core functionality, but the
 architecture must not block them.
@@ -301,7 +390,7 @@ Reference features:
 - posture checks
 - HMAC-chained audit records
 
-## 7. Security Model for Browser-Based SeedPass
+## 9. Security Model for Browser-Based SeedPass
 
 Browser support improves usability, but it changes the threat model. The browser
 version must explicitly account for:
@@ -333,7 +422,42 @@ Required browser rules:
 - secrets cleared from UI and extension background state after timeout
 - explicit user action for high-risk reveal/export/parent-seed operations
 
-## 8. Dependency Strategy
+### 9.1 Browser Secret-Handling Requirements
+
+The browser version cannot guarantee perfect memory erasure. It should still
+reduce exposure by design:
+
+- keep decrypted vault state in memory only while unlocked
+- store only encrypted payloads at rest
+- derive session keys after unlock instead of persisting them
+- minimize React/component state copies of secret values
+- avoid placing secrets in URLs, DOM attributes, logs, analytics, or error
+  messages
+- clear clipboard after a short user-configurable timeout when the platform
+  permits it
+- require a fresh unlock or high-risk factor for parent seed, private key, full
+  export, and destructive migration flows
+- use separate message types for metadata queries and secret retrieval in the
+  extension background/content-script boundary
+
+### 9.2 Extension Boundary Rules
+
+The extension must treat content scripts as less trusted than the extension
+background/popup state.
+
+Required rules:
+
+- content scripts may request a fill for the current tab; they must not receive
+  vault-wide data
+- popup/background must verify active tab origin before returning a fill payload
+- fill payloads should be single-use and short-lived
+- extension storage must not contain plaintext secrets
+- autofill should never submit forms automatically by default
+- site matching must be explainable to the user before filling
+- extension permissions must be documented in release notes and reviewed before
+  store submission
+
+## 10. Dependency Strategy
 
 Prefer small, audited, stable packages. Avoid convenience dependencies that
 increase supply-chain risk in the crypto path.
@@ -360,7 +484,7 @@ Likely avoid:
 
 Every crypto dependency must be listed in a dedicated dependency review doc.
 
-## 9. Repository Strategy
+## 11. Repository Strategy
 
 Two viable paths exist.
 
@@ -411,7 +535,7 @@ Cons:
 
 Recommended only after the TypeScript core has stabilized.
 
-## 10. Build Tooling
+## 12. Build Tooling
 
 Recommended baseline:
 
@@ -429,7 +553,7 @@ Recommended baseline:
 
 The core package must emit both ESM and browser-compatible bundles.
 
-## 11. Milestones
+## 13. Milestones
 
 ### Milestone 0: Planning and Fixtures
 
@@ -446,6 +570,7 @@ Exit criteria:
 - at least 20 deterministic fixtures cover password, TOTP, Nostr, seed,
   managed account, vault KDF metadata, and entry schemas
 - fixtures can be regenerated from Python with one command
+- compatibility matrix includes P0/P1/P2 status for every current feature
 
 ### Milestone 1: TypeScript Core Skeleton
 
@@ -462,6 +587,8 @@ Exit criteria:
 
 - TypeScript tests run in Node and browser-like environment
 - schemas validate Python-generated fixtures
+- package exports are side-effect-free and do not import Node or browser APIs
+  from shared schema modules
 
 ### Milestone 2: Deterministic Derivation Parity
 
@@ -479,6 +606,7 @@ Exit criteria:
 
 - Python-vs-TypeScript parity tests pass for deterministic artifacts
 - mismatches are either fixed or formally documented as versioned incompatibilities
+- P0 derivations pass in both Node and browser-compatible test environments
 
 ### Milestone 3: Vault and Entry Compatibility
 
@@ -496,6 +624,8 @@ Exit criteria:
 - TypeScript imports Python encrypted export fixtures
 - TypeScript exports can be read by Python reference where intended
 - entry schema roundtrip passes for every supported kind
+- migration refuses unknown future schema versions instead of silently writing
+  incompatible data
 
 ### Milestone 4: Nostr Sync Compatibility
 
@@ -513,6 +643,8 @@ Exit criteria:
 - offline fixture replay matches Python state
 - local test relay roundtrip succeeds
 - stale/replayed/missing chunk cases are covered
+- restored state is not published back to relays until the user explicitly
+  confirms migration/sync
 
 ### Milestone 5: Node CLI
 
@@ -531,6 +663,8 @@ Exit criteria:
 - CLI can operate a real encrypted vault from Node
 - core commands match Python behavior for fixtures
 - CLI usability is good enough to preserve terminal-first workflow
+- CLI supports `--format json` for machine-readable command output where
+  Python already exposes automation behavior
 
 ### Milestone 6: Static/PWA Web App
 
@@ -553,6 +687,8 @@ Exit criteria:
 - static build can run without a server backend
 - browser tests cover lock/unlock, CRUD, sync fixture replay, and secret reveal timeout
 - strict CSP passes
+- app can be opened from static hosting and does not require a server process
+  for normal vault operations
 
 ### Milestone 7: Browser Extension
 
@@ -572,6 +708,8 @@ Exit criteria:
 - extension can retrieve/fill a test login in Chromium and Firefox-compatible target if supported
 - content script does not hold vault-wide secrets
 - permission set is documented and minimal
+- extension service worker session expiry is tested so unlocked state does not
+  persist indefinitely by accident
 
 ### Milestone 8: Agent and Automation Features
 
@@ -592,6 +730,7 @@ Exit criteria:
 - core security controls match Python capability map
 - CLI JSON mode supports automation workflows
 - high-risk operations require explicit approval/token/factor where configured
+- audit records can be verified after cross-process CLI runs
 
 ### Milestone 9: Release and Migration
 
@@ -610,8 +749,9 @@ Exit criteria:
 - users can export/import or directly migrate from Python vaults
 - release artifacts have checksums and signatures
 - production beta can run side-by-side with Python reference
+- rollback path is tested with a migrated fixture before public release
 
-## 12. Work Breakdown
+## 14. Work Breakdown
 
 ### Core Work Packages
 
@@ -651,9 +791,9 @@ Exit criteria:
 7. dependency audit
 8. release artifact integrity
 
-## 13. Testing Strategy
+## 15. Testing Strategy
 
-### 13.1 Fixture Types
+### 15.1 Fixture Types
 
 Generate fixture families from Python:
 
@@ -678,7 +818,17 @@ Each fixture should include:
 - compatibility version
 - notes for secret redaction
 
-### 13.2 Test Layers
+Fixture safety rules:
+
+- fixtures must not contain Adam's real seed, vault, passwords, keys, or Nostr
+  secrets
+- use deterministic test mnemonics only
+- fixture names should make it obvious when values are fake
+- if a fixture includes a secret-shaped expected output, it must live under
+  `test-vectors/` and be labeled as generated test material
+- never publish a fixture generated from a live profile
+
+### 15.2 Test Layers
 
 Core tests:
 
@@ -713,7 +863,7 @@ Extension tests:
 - service worker session expiry
 - permission boundaries
 
-### 13.3 Release Gates
+### 15.3 Release Gates
 
 Minimum gates before public beta:
 
@@ -726,7 +876,7 @@ Minimum gates before public beta:
 - Nostr fixture replay works
 - CLI JSON mode works for automation
 
-## 14. Migration Strategy
+## 16. Migration Strategy
 
 Migration should be explicit and reversible during beta.
 
@@ -745,7 +895,7 @@ The migration UI should:
 - keep a pre-migration backup
 - avoid publishing migrated Nostr state until the user confirms sync
 
-## 15. UX Principles
+## 17. UX Principles
 
 ### CLI
 
@@ -770,7 +920,40 @@ The migration UI should:
 - show lock state and profile clearly
 - keep permissions narrow and understandable
 
-## 16. Open Decisions
+## 18. Portability Risk Register
+
+| Risk | Severity | Why it matters | Mitigation |
+|---|---|---|---|
+| PGP byte-for-byte parity fails | High | Different PGP libraries may serialize keys differently. | Treat PGP as P1/P2 until fixtures prove parity; preserve import/roundtrip first. |
+| Browser memory exposure | High | JS cannot guarantee strong zeroization. | Minimize secret copies, lock quickly, isolate high-risk flows, document limits. |
+| Extension content script leakage | High | Content scripts run near untrusted page DOMs. | Keep vault state in background/popup; send only single-use fill payloads. |
+| Nostr replay/stale restore bug | High | Could corrupt or roll back vault state. | Fixture replay tests, tombstone tests, explicit sync confirmation after migration. |
+| Dependency supply-chain attack | High | Frontend dependencies expand attack surface. | Minimal dependency set, lockfile, audit, dependency review, signed artifacts. |
+| Python/TypeScript silent derivation drift | Critical | Users could regenerate wrong passwords. | P0 parity fixtures before beta; compatibility versioning; no silent fallback. |
+| Static app hosted from compromised origin | Medium | Static hosting can serve malicious JS. | Signed release bundles, checksums, extension/desktop packaging, verification docs. |
+| CLI and web behavior drift | Medium | Multi-interface product could fragment. | One shared core, cross-interface fixture tests, capability map parity. |
+
+## 19. Recommended Defaults for Open Decisions
+
+These defaults should stand unless maintainers intentionally choose otherwise:
+
+1. Start in this repo under `js/` so Python parity fixtures and TypeScript code
+   evolve together.
+2. Build the command-first CLI before a rich terminal UI. Add a fuzzy/interactive
+   mode after core command behavior is stable.
+3. Require P0 parity for passwords, seeds, fingerprints, vault import, and Nostr
+   restore before beta. Defer exact PGP/SSH derivation if needed, while preserving
+   import and schema roundtrip.
+4. Ship Chromium extension first if cross-browser support slows the first beta.
+   Keep Firefox compatibility in the architecture.
+5. Do not persist the parent seed by default in the web app. Allow encrypted
+   persistence only behind an explicit setting and warning.
+6. Do not introduce Rust/WASM until fixture work proves where TypeScript/WebCrypto
+   is insufficient, except for primitives such as Argon2 if required.
+7. Public beta should target CLI + static/PWA first, then extension. The extension
+   should not block core parity.
+
+## 20. Open Decisions
 
 1. Should the TypeScript work live in this repo under `js/`, or start as a new
    repo after core parity?
@@ -787,28 +970,43 @@ The migration UI should:
    or only after TypeScript parity identifies weak spots?
 7. What is the public beta cutoff: CLI + web app, or CLI + web app + extension?
 
-## 17. Recommended First Slice
+## 21. Recommended First Slice
 
 Start with the smallest slice that proves the whole strategy:
 
-1. Add Python fixture generator for deterministic password, TOTP, Nostr key,
-   managed seed, and entry schema fixtures.
-2. Create `js/packages/core` with strict TypeScript, Vitest, schema validation,
-   and crypto provider abstraction.
-3. Make TypeScript pass the first fixture set.
-4. Add a minimal Node CLI command:
+1. Add a Python fixture generator, for example
+   `scripts/generate_ts_port_fixtures.py`, covering deterministic password,
+   TOTP, Nostr key, managed seed, fingerprint, entry schema, and a small
+   encrypted vault export.
+2. Create `js/` with `pnpm-workspace.yaml`, `packages/core`, and
+   `packages/test-vectors`.
+3. Add strict TypeScript, Vitest, schema validation, and crypto provider
+   abstraction.
+4. Make TypeScript pass the first fixture set in Node.
+5. Add a browser-compatible test run for the same fixture set.
+6. Add a minimal Node CLI command:
 
    ```bash
    seedpass-js derive password --fixture fixtures/password-001.json
    seedpass-js capabilities --format json
    ```
 
-5. Document mismatches immediately.
+7. Document mismatches immediately in
+   `docs/typescript_port_compatibility_matrix.md`.
 
 This slice avoids premature UI work and tells the truth about feasibility before
 time is spent on polish.
 
-## 18. Success Criteria
+Exit criteria for this first slice:
+
+- `pnpm test` passes in `js/`
+- fixture generator output is deterministic across two runs
+- at least one Python-generated encrypted vault fixture validates in TypeScript
+- P0 derivation fixtures pass in Node
+- browser-compatible test environment passes the same P0 derivation fixtures
+- no web app or extension UI work has started before core fixture parity
+
+## 22. Success Criteria
 
 The port should be considered successful when:
 
@@ -820,4 +1018,3 @@ The port should be considered successful when:
 - security controls are preserved or deliberately redesigned with documented
   rationale
 - release artifacts are reproducible enough to verify and audit
-
