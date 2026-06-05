@@ -35,5 +35,28 @@
 		"status": "completed",
 		"createdAt": "2026-03-10T01:41:12.693Z",
 		"completedAt": "2026-03-10T19:14:21.103Z"
+	},
+	{
+		"id": "group-1ee89895",
+		"name": "slice-b-deep-graph-atlas",
+		"memberIssueIds": [
+			"SeedPass-4a47",
+			"SeedPass-63f4"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-11T01:40:50.732Z",
+		"completedAt": "2026-03-11T18:34:41.447Z"
+	},
+	{
+		"id": "group-6d40a159",
+		"name": "slice-c-utility-security",
+		"memberIssueIds": [
+			"SeedPass-8781",
+			"SeedPass-5b75",
+			"SeedPass-e0e7"
+		],
+		"status": "active",
+		"createdAt": "2026-03-11T18:39:35.519Z",
+		"completedAt": null
 	}
 ]
