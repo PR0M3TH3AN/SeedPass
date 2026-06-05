@@ -29,6 +29,7 @@ This directory contains SeedPass project documentation.
 
 - `ARCHITECTURE.md`
 - `SPEC.md`
+- `typescript_web_extension_port_plan.md`
 - `entry_types.md`
 - `entry_graph.md`
 - `tui_v3_plan.md` (active roadmap for scratch rebuild)
