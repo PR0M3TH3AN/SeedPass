@@ -2,6 +2,53 @@
 
 This file tracks the remaining work from the latest bug search and security evaluation.
 
+## Entropy audit (2026-07-31)
+
+[`docs/entropy_audit_2026-07-31.md`](docs/entropy_audit_2026-07-31.md) — RNG and
+randomness-integration audit. **No predictable-fallback defect:** every non-deterministic secret
+uses `os.urandom` / `secrets`, and the `random` module is not imported anywhere in non-test source.
+
+**Read the compatibility constraint in that document before touching
+`core/password_generation.py`.** Passwords are never stored — they are re-derived on demand from
+`(seed, index, length, policy)`, and entries carry no algorithm version. Any change to
+`generate_password` silently changes every existing password in every vault, unrecoverably. All
+fixes land behind a new `gen_version` field; v1 output must stay byte-identical.
+
+- [x] **M4 (done)** — v1 password vectors frozen, plus fail-closed RNG tests, in
+      `src/tests/test_entropy_integrity.py` (26 tests, inside the `--determinism-only` CI gate).
+      18 vectors cover every policy and both sides of the 32-byte stream-wrap boundary.
+      Mutation-verified: removing `_balance_distribution` (M1), altering the `DeterministicStream`
+      wrap (M3) and changing the character mapping (M2) each turn all 18 red; adding a
+      hash-of-timestamp fallback to `generate_bip85_seed` turns the fail-closed test red.
+      **M1/M2/M3 are now safe to attempt.**
+- [x] **L1 (done)** — deleted the dead HKDF block in `_derive_password_entropy`, dropped the three
+      now-unused imports (`HKDF`, `hashes`, `default_backend`), and corrected the docstrings that
+      named HKDF instead of PBKDF2. Verified as a negative control: all 18 v1 vectors stayed green,
+      confirming the harness does not produce false alarms on behaviour-preserving edits.
+- [x] **M1 / M2 / M3 (done)** — password generation is now versioned. `gen_version` defaults to 1
+      everywhere, so existing entries and every untouched caller keep deriving v1 byte-identically;
+      new password entries are stamped `gen_version: 2`. v2 drops the forced equal-quarters class
+      quota (M1), draws by rejection sampling (M2) from an unbounded HMAC-expanded stream (M3), and
+      enforces only the policy minima — choosing donor positions from classes that have a surplus,
+      so raising one minimum can no longer break another.
+
+      Measured at length 16 over 200 samples: v1 produced **1** distinct class composition, v2
+      produces **82**. Per-character entropy 6.42 → 6.53 bits against a 6.555 ceiling. Chi-square
+      96.1 (df=93) confirms the modulo bias is gone; lag-32 repeat rate sits within one standard
+      error of chance, confirming the repeating pad is gone.
+- [ ] **Opt-in upgrade UX for existing entries** — a per-entry action that re-derives at v2, with a
+      confirmation making the consequence unmissable ("this changes the password; update it at the
+      site first"). Never bulk-migrate. Until this ships, existing entries stay on v1 by design.
+- [ ] **L2** — master seed is `os.urandom(32)` reduced to a hardcoded 12-word (128-bit) mnemonic
+      while derived seeds default to 24 words. Not a defect; offer 24 words at profile creation.
+- [ ] **L4** — `torch/`: predictable temp filename (`services/memory/index.js:60`), a `Math.random`
+      value misnamed `nonce` (`relay-health.mjs:95`), and three stale `_backups/` code copies that
+      pollute security greps.
+- [ ] **L5** — no CycloneDX SBOM; folds into the supply-chain item below.
+
+L3 (broad `except Exception` around crypto — these re-raise, so no silent fallback) overlaps the
+Robustness item further down.
+
 ## Security
 
 - [ ] Complete checklist item #8 (Supply chain and release integrity):

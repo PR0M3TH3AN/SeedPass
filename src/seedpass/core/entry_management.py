@@ -283,6 +283,10 @@ class EntryManager:
         :return: The assigned index of the new entry.
         """
         try:
+            # Local import to match this module's convention for
+            # password_generation (keeps its heavy deps off the import path).
+            from .password_generation import CURRENT_PASSWORD_GEN_VERSION
+
             index = self.get_next_index()
             data = self._load_index()
             now_unix = self._now_unix()
@@ -292,6 +296,10 @@ class EntryManager:
             entry = {
                 "label": label,
                 "length": length,
+                # Which generation algorithm derives this entry's password.
+                # Entries written before versioning have no field and fall back
+                # to v1, which is frozen. See docs/entropy_audit_2026-07-31.md.
+                "gen_version": CURRENT_PASSWORD_GEN_VERSION,
                 "username": username if username else "",
                 "url": url if url else "",
                 "archived": archived,

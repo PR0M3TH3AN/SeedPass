@@ -34,7 +34,10 @@ from constants import MAX_RETRIES, RETRY_DELAY
 
 from .encryption import EncryptionManager
 from .entry_management import EntryManager
-from .password_generation import PasswordGenerator
+from .password_generation import (
+    PasswordGenerator,
+    LEGACY_PASSWORD_GEN_VERSION,
+)
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup, PortableMode
@@ -3140,14 +3143,34 @@ class PasswordManager:
     def _generate_password_for_entry(
         self, entry: dict, index: int, length: int | None = None
     ) -> str:
-        """Generate a password for ``entry`` honoring any policy overrides."""
+        """Generate a password for ``entry`` honoring policy and generation version."""
+        entry = entry if isinstance(entry, dict) else {}
         if length is None:
             length = int(entry.get("length", DEFAULT_PASSWORD_LENGTH))
         overrides = entry.get("policy", {})
 
+        # Entries written before versioning carry no field and must keep
+        # deriving via v1 -- their stored passwords depend on it.
+        raw_version = entry.get("gen_version", LEGACY_PASSWORD_GEN_VERSION)
+        try:
+            gen_version = int(raw_version)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Entry {index} has an unreadable gen_version {raw_version!r}; "
+                f"refusing to guess which algorithm produced its password."
+            ) from None
+
+        # Only forward the argument when it is non-legacy. Keeping the legacy
+        # call shape means every existing caller and test double that defines
+        # generate_password(length, index) keeps working untouched.
+        kwargs = (
+            {} if gen_version == LEGACY_PASSWORD_GEN_VERSION
+            else {"gen_version": gen_version}
+        )
+
         pg = self.password_generator
         if not hasattr(pg, "policy") or not isinstance(overrides, dict):
-            return pg.generate_password(length, index)
+            return pg.generate_password(length, index, **kwargs)
 
         base_policy = pg.policy
         merged = dataclasses.replace(
@@ -3156,7 +3179,7 @@ class PasswordManager:
         )
         pg.policy = merged
         try:
-            return pg.generate_password(length, index)
+            return pg.generate_password(length, index, **kwargs)
         finally:
             pg.policy = base_policy
 
