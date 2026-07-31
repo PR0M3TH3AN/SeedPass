@@ -10,9 +10,11 @@ uses `os.urandom` / `secrets`, and the `random` module is not imported anywhere 
 
 **Read the compatibility constraint in that document before touching
 `core/password_generation.py`.** Passwords are never stored — they are re-derived on demand from
-`(seed, index, length, policy)`, and entries carry no algorithm version. Any change to
-`generate_password` silently changes every existing password in every vault, unrecoverably. All
-fixes land behind a new `gen_version` field; v1 output must stay byte-identical.
+`(seed, index, length, policy, gen_version)`. Entries now carry `gen_version`, and an absent field
+means v1. **The rule is permanent: never alter the output of a version that already exists in the
+wild.** v1 is frozen; a fix that changes derivation goes into a new version, never into an old one.
+`src/tests/test_entropy_integrity.py` enforces this with 18 v1 vectors — a failure there is never
+"update the expected value".
 
 - [x] **M4 (done)** — v1 password vectors frozen, plus fail-closed RNG tests, in
       `src/tests/test_entropy_integrity.py` (26 tests, inside the `--determinism-only` CI gate).
