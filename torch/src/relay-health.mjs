@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import WebSocket from 'ws';
@@ -92,8 +93,11 @@ async function probePublishRead(relayUrl, namespace, timeoutMs) {
   const sk = generateSecretKey();
   const pk = getPublicKey(sk);
   const createdAt = Math.floor(Date.now() / MS_PER_SECOND);
-  const nonce = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-  const probeTag = `${namespace}-health-probe-${nonce}`;
+  // Named "suffix", not "nonce" (entropy audit L4): this is a public probe tag
+  // used to correlate one publish with its readback, not a cryptographic nonce.
+  // The old name invited someone to reuse this pattern where it would matter.
+  const probeSuffix = randomBytes(6).toString('hex');
+  const probeTag = `${namespace}-health-probe-${probeSuffix}`;
   const event = finalizeEvent({
     kind: PROBE_KIND,
     created_at: createdAt,
@@ -101,10 +105,10 @@ async function probePublishRead(relayUrl, namespace, timeoutMs) {
       ['t', `${namespace}-relay-health`],
       ['d', probeTag],
     ],
-    content: JSON.stringify({ type: 'relay_health_probe', nonce, namespace, pubkey: pk }),
+    content: JSON.stringify({ type: 'relay_health_probe', probeSuffix, namespace, pubkey: pk }),
   }, sk);
 
-  const subId = `probe-${nonce}`;
+  const subId = `probe-${probeSuffix}`;
 
   return withTimeout(new Promise((resolve, reject) => {
     let okAck = false;

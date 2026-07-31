@@ -352,7 +352,27 @@ should be narrowed to the specific exceptions each path can raise.
 
 ---
 
-### L4 — `torch/` subsystem
+### L4 — `torch/` subsystem — **PARTLY DONE 2026-07-31**
+
+Fixed: the temp filename in `services/memory/index.js` now uses
+`randomBytes(8)` instead of `Date.now()` + `Math.random()`, and the
+`Math.random`-derived value in `relay-health.mjs` that was called a `nonce` is
+renamed `probeSuffix` and drawn from `randomBytes(6)` — it is a public probe
+tag, but the name invited reuse of the pattern somewhere it would matter.
+
+**Still open, and it needs a decision:** `torch/_backups/` holds **5240 tracked
+files** across six dated snapshots. Untracking them is a large deletion, so it
+is not something to do as a side effect of an entropy audit. Two concrete costs
+today: they duplicate every security-relevant grep hit, and bare `node --test`
+in `torch/` discovers them and fails 18 tests from stale snapshot code. (The
+`npm test` script uses explicit paths, so CI is unaffected.)
+
+Separately noted: `torch/` has **no `test/` directory in the repo at all**, so
+`npm test` there cannot run as written. Out of scope here, but worth knowing.
+
+The original note follows.
+
+### L4 (original) — `torch/` subsystem
 
 - `torch/src/services/memory/index.js:60` builds a temp filename from
   `Date.now()` + `Math.random()` before an atomic rename. Predictable name;
@@ -368,7 +388,20 @@ should be narrowed to the specific exceptions each path can raise.
 
 ---
 
-### L5 — No SBOM
+### L5 — No SBOM — **DONE 2026-07-31**
+
+`dependency-audit.yml` now generates a CycloneDX SBOM from `requirements.lock`
+and uploads it. Verified locally with the real tool rather than assumed: the
+first flag spelling I wrote (`--output-format` / `--outfile`) does not exist in
+`cyclonedx-py` and would have failed in CI. The working form is
+`--of json --output-reproducible -o <file>`, which emits CycloneDX 1.6 with 96
+components and records the crypto chain at exact versions — `cryptography@46.0.5`,
+`bip-utils@2.9.3`, `coincurve@21.0.0`, `pynacl@1.6.2`, `argon2-cffi@25.1.0`,
+`bcrypt@4.3.0`, `pycryptodome@3.23.0`.
+
+The original note follows.
+
+### L5 (original) — No SBOM
 
 `dependency-audit.yml` and `release-integrity.yml` cover part of §11/§12, but
 no workflow emits a dependency manifest artifact. Add CycloneDX generation

@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { createMemoryCache } from './cache.js';
 import { ingestMemoryWindow } from './ingestor.js';
 import { listPruneCandidates, selectPrunableMemories } from './pruner.js';
@@ -57,7 +59,10 @@ async function performSave(store) {
     const dir = path.dirname(MEMORY_FILE_PATH);
     await fs.promises.mkdir(dir, { recursive: true });
     const entries = [...store.entries()];
-    const tmpPath = `${MEMORY_FILE_PATH}.${Date.now()}.${Math.random()}.tmp`;
+    // Unguessable temp name (entropy audit L4). Date.now()+Math.random() is
+    // predictable enough to pre-create or symlink from a shared directory
+    // between this line and the rename below.
+    const tmpPath = `${MEMORY_FILE_PATH}.${randomBytes(8).toString('hex')}.tmp`;
     await fs.promises.writeFile(tmpPath, JSON.stringify(entries, null, 2), 'utf8');
     await fs.promises.rename(tmpPath, MEMORY_FILE_PATH);
     lastSaveTime = Date.now();

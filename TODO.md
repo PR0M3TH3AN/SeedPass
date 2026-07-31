@@ -41,10 +41,18 @@ fixes land behind a new `gen_version` field; v1 output must stay byte-identical.
       site first"). Never bulk-migrate. Until this ships, existing entries stay on v1 by design.
 - [ ] **L2** — master seed is `os.urandom(32)` reduced to a hardcoded 12-word (128-bit) mnemonic
       while derived seeds default to 24 words. Not a defect; offer 24 words at profile creation.
-- [ ] **L4** — `torch/`: predictable temp filename (`services/memory/index.js:60`), a `Math.random`
-      value misnamed `nonce` (`relay-health.mjs:95`), and three stale `_backups/` code copies that
-      pollute security greps.
-- [ ] **L5** — no CycloneDX SBOM; folds into the supply-chain item below.
+- [x] **L4 (code fixes done)** — `torch/` temp filename now uses `randomBytes(8)`; the
+      `Math.random` value misnamed `nonce` in `relay-health.mjs` is now `probeSuffix` from
+      `randomBytes(6)`.
+- [ ] **⚠️ Decision needed: `torch/_backups/` holds 5240 tracked files** across six dated
+      snapshots. Untracking is a large deletion, so it is not an audit side effect. Costs today:
+      duplicates every security grep hit, and bare `node --test` in `torch/` discovers them and
+      fails 18 tests from stale snapshot code (`npm test` uses explicit paths, so CI is unaffected).
+      Separately: `torch/` has no `test/` directory in the repo, so its `npm test` cannot run as
+      written.
+- [x] **L5 (done)** — `dependency-audit.yml` generates and uploads a CycloneDX SBOM from
+      `requirements.lock`. Verified with the real tool: CycloneDX 1.6, 96 components, crypto chain
+      recorded at exact versions.
 
 L3 (broad `except Exception` around crypto — these re-raise, so no silent fallback) overlaps the
 Robustness item further down.
