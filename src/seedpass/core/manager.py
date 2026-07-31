@@ -89,6 +89,8 @@ from constants import (
     DEFAULT_PASSWORD_LENGTH,
     INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    DEFAULT_SEED_WORD_COUNT,
+    SUPPORTED_SEED_WORD_COUNTS,
     NOTIFICATION_DURATION,
     initialize_app,
 )
@@ -1802,23 +1804,36 @@ class PasswordManager:
             logging.error(f"Error validating BIP-85 seed: {e}")
             return False
 
-    def generate_bip85_seed(self) -> str:
+    def generate_bip85_seed(self, words_num: int = DEFAULT_SEED_WORD_COUNT) -> str:
         """
         Generates a new BIP-85 seed phrase.
 
+        Parameters:
+            words_num (int): 12 (128-bit, default) or 24 (256-bit). The default
+                stays 12 so existing callers are unaffected; 24 is offered
+                because the master seed protects the whole vault and was
+                previously shorter than the seeds derived beneath it, which
+                default to 24 (entropy audit L2).
+
         Returns:
-            str: The generated 12-word mnemonic seed phrase.
+            str: The generated mnemonic seed phrase.
         """
+        if words_num not in SUPPORTED_SEED_WORD_COUNTS:
+            raise SeedPassError(
+                f"Seed word count must be one of {sorted(SUPPORTED_SEED_WORD_COUNTS)}, "
+                f"got {words_num!r}."
+            )
+
+        # Deliberately OUTSIDE the try block (entropy audit L3). Nothing below
+        # may catch an entropy failure and substitute a value -- that is the
+        # COLDCARD defect class. If os.urandom raises, it propagates unchanged
+        # and the operation aborts, which is the only acceptable outcome.
+        master_seed = os.urandom(32)
+
         try:
-            master_seed = os.urandom(32)  # Generate a random 32-byte seed
             bip85 = BIP85(master_seed)
-            mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
-            return mnemonic
+            return bip85.derive_mnemonic(index=0, words_num=words_num)
         except Bip85Error as e:
-            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
-            print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
-            raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
-        except Exception as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
@@ -1828,9 +1843,15 @@ class PasswordManager:
         *,
         password: str,
         seed: Optional[str] = None,
+        words_num: int = DEFAULT_SEED_WORD_COUNT,
     ) -> tuple[str, str]:
-        """Create a new profile from a generated seed and return ``(fingerprint, seed)``."""
-        new_seed = seed or self.generate_bip85_seed()
+        """Create a new profile from a generated seed and return ``(fingerprint, seed)``.
+
+        ``words_num`` selects the master seed length (12 or 24) and is ignored
+        when ``seed`` is supplied, since that phrase already fixes its own
+        length.
+        """
+        new_seed = seed or self.generate_bip85_seed(words_num=words_num)
         fingerprint = self._finalize_existing_seed(new_seed, password=password)
         if not fingerprint:
             raise SeedPassError("Failed to create profile from generated seed.")

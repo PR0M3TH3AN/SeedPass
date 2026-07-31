@@ -41,8 +41,13 @@ wild.** v1 is frozen; a fix that changes derivation goes into a new version, nev
 - [ ] **Opt-in upgrade UX for existing entries** — a per-entry action that re-derives at v2, with a
       confirmation making the consequence unmissable ("this changes the password; update it at the
       site first"). Never bulk-migrate. Until this ships, existing entries stay on v1 by design.
-- [ ] **L2** — master seed is `os.urandom(32)` reduced to a hardcoded 12-word (128-bit) mnemonic
-      while derived seeds default to 24 words. Not a defect; offer 24 words at profile creation.
+- [x] **L2 (done)** — `generate_bip85_seed(words_num=...)` accepts 12 or 24 and rejects anything
+      else; threaded through `create_profile_from_generated_seed`. Default stays 12 so existing
+      profiles and callers are unaffected.
+- [x] **L3 (done for the RNG path)** — `os.urandom(32)` moved outside the try block in
+      `generate_bip85_seed`, so no handler can stand between the entropy draw and the caller, and
+      the redundant duplicate `except Exception` is gone. A test asserts the `OSError` arrives as
+      the same object that was thrown, which is only true if nothing repackaged it.
 - [x] **L4 (code fixes done)** — `torch/` temp filename now uses `randomBytes(8)`; the
       `Math.random` value misnamed `nonce` in `relay-health.mjs` is now `probeSuffix` from
       `randomBytes(6)`.
@@ -56,8 +61,9 @@ wild.** v1 is frozen; a fix that changes derivation goes into a new version, nev
       `requirements.lock`. Verified with the real tool: CycloneDX 1.6, 96 components, crypto chain
       recorded at exact versions.
 
-L3 (broad `except Exception` around crypto — these re-raise, so no silent fallback) overlaps the
-Robustness item further down.
+The remaining broad `except Exception` handlers in `password_generation.py` wrap deterministic
+derivation with no RNG in it and re-raise rather than substituting; they belong to the Robustness
+item further down, not to this audit.
 
 ## Security
 

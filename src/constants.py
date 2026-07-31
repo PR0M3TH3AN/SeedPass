@@ -49,6 +49,17 @@ MAX_PASSWORD_LENGTH = 128  # Maximum allowed password length
 # Characters considered safe for passwords when limiting punctuation
 SAFE_SPECIAL_CHARS = "!@#$%^*-_+=?"
 
+# Master seed word count.
+# -----------------------------------
+# 12 words = 128 bits, 24 words = 256 bits. The default stays 12: it is
+# entirely adequate and every existing profile uses it, so changing the default
+# would alter nothing about existing vaults but would surprise. 24 is offered
+# because the master seed protects the whole vault and was previously the one
+# secret shorter than the seeds derived beneath it, which default to 24
+# (entropy audit L2, docs/entropy_audit_2026-07-31.md).
+DEFAULT_SEED_WORD_COUNT = 12
+SUPPORTED_SEED_WORD_COUNTS = frozenset({12, 24})
+
 # Timeout in seconds before the vault locks due to inactivity
 INACTIVITY_TIMEOUT = 15 * 60  # 15 minutes
 

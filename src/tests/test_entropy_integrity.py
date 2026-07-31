@@ -191,6 +191,56 @@ def test_seed_generation_aborts_on_short_read(monkeypatch):
         manager_module.PasswordManager.generate_bip85_seed(object())
 
 
+def test_entropy_draw_sits_outside_the_try_block(monkeypatch):
+    """L3: no except clause may stand between os.urandom and the caller.
+
+    The generator's exception handling wraps BIP-85 failures in SeedPassError,
+    which is fine -- but an entropy failure must never be reachable by any
+    handler that could substitute a value. Keeping the draw outside the try is
+    the structural version of that guarantee, stronger than narrowing which
+    exception types get caught.
+    """
+    from seedpass.core import manager as manager_module
+
+    sentinel = OSError("entropy pool unavailable")
+
+    def _explode(_n):
+        raise sentinel
+
+    monkeypatch.setattr(manager_module.os, "urandom", _explode)
+
+    with pytest.raises(OSError) as excinfo:
+        manager_module.PasswordManager.generate_bip85_seed(object())
+
+    # Propagates as itself, not repackaged -- proof nothing caught it.
+    assert excinfo.value is sentinel
+
+
+@pytest.mark.parametrize("words_num,expected", [(12, 12), (24, 24)])
+def test_master_seed_word_count_is_selectable(words_num, expected):
+    """L2: the master seed can now be 256-bit, not only 128-bit."""
+    from seedpass.core.manager import PasswordManager
+
+    mnemonic = PasswordManager.generate_bip85_seed(object(), words_num=words_num)
+    assert len(mnemonic.split()) == expected
+
+
+def test_master_seed_default_is_unchanged():
+    """Existing profiles are 12-word; the default must not move under them."""
+    from seedpass.core.manager import PasswordManager
+
+    assert len(PasswordManager.generate_bip85_seed(object()).split()) == 12
+
+
+def test_unsupported_word_count_is_rejected():
+    from seedpass.core.errors import SeedPassError
+    from seedpass.core.manager import PasswordManager
+
+    for bad in (0, 11, 18, 25, -12):
+        with pytest.raises(SeedPassError, match="Seed word count"):
+            PasswordManager.generate_bip85_seed(object(), words_num=bad)
+
+
 def test_all_zero_entropy_is_not_currently_detected(monkeypatch):
     """Recorded gap, not an endorsement.
 

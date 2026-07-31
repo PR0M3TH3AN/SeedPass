@@ -320,7 +320,19 @@ anyway, to prove that.
 
 ---
 
-### L2 — Master seed entropy accounting
+### L2 — Master seed entropy accounting — **DONE 2026-07-31**
+
+`generate_bip85_seed` and `create_profile_from_generated_seed` now take
+`words_num`, accepting 12 or 24 and rejecting anything else. **The default stays
+12**: every existing profile uses it, it is entirely adequate, and moving the
+default would surprise without improving any existing vault. 24 is now available
+for a 256-bit master seed, which removes the oddity that the secret protecting
+the whole vault was shorter than the seeds derived beneath it (those default to
+24).
+
+The original note follows.
+
+### L2 (original) — Master seed entropy accounting
 
 `generate_bip85_seed` (`core/manager.py:1810-1812`) draws `os.urandom(32)` —
 256 bits — then derives a **12-word** mnemonic, which encodes 128. The word
@@ -338,7 +350,28 @@ unaffected — this only changes what new seeds look like.
 
 ---
 
-### L3 — Broad `except Exception` around crypto
+### L3 — Broad `except Exception` around crypto — **DONE 2026-07-31** (for the RNG path)
+
+Fixed structurally rather than by narrowing exception types. `os.urandom(32)`
+now sits **outside** the try block in `generate_bip85_seed`, so no handler can
+stand between the entropy draw and the caller. The redundant duplicate
+`except Exception` — whose body was identical to the `Bip85Error` branch above
+it — is gone.
+
+This is stronger than listing which exceptions to catch: an entropy failure is
+now unreachable by any handler that could substitute a value, and
+`test_entropy_draw_sits_outside_the_try_block` asserts the raised `OSError`
+arrives as the *same object* that `os.urandom` threw, which is only true if
+nothing caught and repackaged it.
+
+The remaining broad handlers in `password_generation.py` (lines 280, 485) wrap
+deterministic derivation with no RNG in it, and they log and re-raise rather
+than substituting. They are covered by the general "replace broad
+`except Exception`" item in `TODO.md` rather than being an entropy concern.
+
+The original note follows.
+
+### L3 (original) — Broad `except Exception` around crypto
 
 `password_generation.py:280`, `:485`, `core/manager.py:1817`. All of these
 log-and-re-raise, so **there is no silent fallback** — the operation aborts, as
