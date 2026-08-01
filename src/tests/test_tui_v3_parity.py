@@ -56,7 +56,7 @@ class MockEntryService:
     def retrieve_entry(self, eid):
         return self.entries.get(eid)
 
-    def generate_password(self, length, eid):
+    def generate_password(self, length, eid, **_):
         return "gen-pwd"
 
     def get_ssh_key_pair(self, eid):

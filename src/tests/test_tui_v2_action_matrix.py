@@ -287,7 +287,7 @@ class MatrixEntryService:
             if value is not None:
                 entry[key] = value
 
-    def generate_password(self, length: int, entry_id: int) -> str:
+    def generate_password(self, length: int, entry_id: int, **_) -> str:
         return f"pw-{entry_id}-{length}"
 
     def get_seed_phrase(self, entry_id: int) -> str:

@@ -14,7 +14,7 @@ def make_pm(search_results, entry=None, totp_code="123456"):
         retrieve_entry=lambda idx: entry,
         get_totp_code=lambda idx, seed: totp_code,
     )
-    pg = SimpleNamespace(generate_password=lambda l, i: "pw")
+    pg = SimpleNamespace(generate_password=lambda l, i, **_: "pw")
     pm = SimpleNamespace(
         entry_manager=entry_mgr,
         password_generator=pg,

@@ -191,7 +191,7 @@ class FakeEntryService:
             if v is not None:
                 e[k] = v
 
-    def generate_password(self, length, eid):
+    def generate_password(self, length, eid, **_):
         return f"pw-{eid}-{length}"
 
     def get_seed_phrase(self, eid):

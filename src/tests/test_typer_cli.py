@@ -93,7 +93,7 @@ def test_entry_get_password(monkeypatch):
             retrieve_entry=lambda i: entry,
             get_totp_code=lambda i, s: "",
         ),
-        password_generator=SimpleNamespace(generate_password=lambda l, i: "pw"),
+        password_generator=SimpleNamespace(generate_password=lambda l, i, **_: "pw"),
         parent_seed="seed",
         select_fingerprint=lambda fp: None,
     )

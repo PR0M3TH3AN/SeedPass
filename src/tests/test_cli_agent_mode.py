@@ -218,7 +218,7 @@ def test_agent_get_password_json(monkeypatch):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
@@ -464,7 +464,7 @@ def test_agent_get_safe_output_masks_by_default(monkeypatch):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
@@ -510,7 +510,7 @@ def test_agent_token_issue_and_use_limit(monkeypatch, tmp_path):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
@@ -860,7 +860,7 @@ def test_agent_token_denied_when_identity_revoked(monkeypatch, tmp_path):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
@@ -948,7 +948,7 @@ def test_agent_token_denied_when_identity_missing(monkeypatch, tmp_path):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)
@@ -1598,7 +1598,7 @@ def test_agent_get_keyring_defaults_account_to_fingerprint(monkeypatch):
         def retrieve_entry(self, _i):
             return {"type": EntryType.PASSWORD.value, "label": "Example", "length": 12}
 
-        def generate_password(self, _length, _index):
+        def generate_password(self, _length, _index, **_):
             return "secret-pass"
 
     monkeypatch.setattr(agent_cli, "EntryService", DummyEntryService)

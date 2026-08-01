@@ -75,7 +75,7 @@ class LargeKbService:
         _ = entry_id
         return []
 
-    def generate_password(self, length: int, entry_id: int) -> str:
+    def generate_password(self, length: int, entry_id: int, **_) -> str:
         return f"pw-{entry_id}-{length}"
 
 

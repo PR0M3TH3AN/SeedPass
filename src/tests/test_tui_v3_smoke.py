@@ -84,7 +84,7 @@ class V3EntryService:
     def retrieve_entry(self, entry_id: int):
         return dict(self._entries.get(int(entry_id), {}))
 
-    def generate_password(self, length: int, entry_id: int) -> str:
+    def generate_password(self, length: int, entry_id: int, **_) -> str:
         return f"pw-{entry_id}-{length}"
 
     def archive_entry(self, entry_id: int) -> None:

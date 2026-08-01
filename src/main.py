@@ -251,7 +251,7 @@ def handle_remove_fingerprint(password_manager: PasswordManager):
                 password_manager.is_dirty = False
                 getattr(password_manager, "cleanup", lambda: None)()
                 print(colored("All seed profiles removed. Exiting.", "yellow"))
-                os._exit(0)
+                _terminate(0)
 
             if password_manager.fingerprint_manager.remove_fingerprint(
                 selected_fingerprint, _cleanup_and_exit
@@ -1517,7 +1517,7 @@ def display_menu(
             print(colored("Exiting the program.", "green"))
             getattr(password_manager, "cleanup", lambda: None)()
             _safe_close_client_pool(password_manager)
-            os._exit(0)
+            _terminate(0)
         try:
             if choice == "1":
                 while True:
@@ -1859,7 +1859,7 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
         except Exception as exc:
             logging.error(f"Error during shutdown: {exc}")
             print(colored(f"Error during shutdown: {exc}", "red"))
-        os._exit(0)
+        _terminate(0)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -1902,6 +1902,27 @@ def main(argv: list[str] | None = None, *, fingerprint: str | None = None) -> in
             print(colored(f"Error during shutdown: {exc}", "red"))
         return 1
     return 0
+
+
+def _terminate(exit_code: int = 0) -> "NoReturn":
+    """End the process, or raise SystemExit when running under pytest.
+
+    ``os._exit`` skips interpreter finalization, which is deliberate: some
+    builds with native extensions intermittently SIGSEGV during teardown after
+    an otherwise clean shutdown (see :func:`_exit_as_main_process`).
+
+    It also bypasses pytest. A test that reaches one of these paths kills the
+    runner mid-suite with status 0 -- no summary, no coverage report, and a
+    shell that sees success. That is how `pytest src/tests` came to stop at
+    roughly 10% of the suite while still exiting 0.
+
+    Under pytest we therefore raise SystemExit, which is what the affected
+    tests already expect (``test_auto_sync_triggers_post`` asserts
+    ``pytest.raises(SystemExit)``). Production behaviour is unchanged.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        raise SystemExit(exit_code)
+    os._exit(exit_code)
 
 
 def _exit_as_main_process() -> "NoReturn":

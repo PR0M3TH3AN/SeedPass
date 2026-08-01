@@ -6,7 +6,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 class FakePasswordGenerator:
-    def generate_password(self, length: int, index: int) -> str:  # noqa: D401
+    def generate_password(self, length: int, index: int, **_) -> str:  # noqa: D401
         return "pw"
 
 

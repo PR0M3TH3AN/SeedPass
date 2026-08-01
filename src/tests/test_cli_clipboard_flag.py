@@ -15,7 +15,7 @@ def _stub_service(ctx, raise_error=True):
         def retrieve_entry(self, idx):
             return {"type": EntryType.PASSWORD.value, "length": 12}
 
-        def generate_password(self, length, index):
+        def generate_password(self, length, index, **_):
             if raise_error and not ctx.obj.get("no_clipboard"):
                 raise ClipboardUnavailableError("missing")
             return "pwd"

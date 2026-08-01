@@ -25,7 +25,7 @@ def setup_pm(tmp_path):
     pm.vault = vault
     pm.entry_manager = entry_mgr
     pm.backup_manager = backup_mgr
-    pm.password_generator = SimpleNamespace(generate_password=lambda l, i: "pw")
+    pm.password_generator = SimpleNamespace(generate_password=lambda l, i, **_: "pw")
     pm.parent_seed = TEST_SEED
     pm.nostr_client = SimpleNamespace()
     pm.fingerprint_dir = tmp_path
