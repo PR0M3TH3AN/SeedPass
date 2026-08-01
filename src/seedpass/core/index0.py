@@ -458,6 +458,26 @@ def _normalize_entry_summary(entry_id: str, entry: dict[str, Any]) -> dict[str, 
     }
 
 
+def _entry_sort_key(entry_id: Any) -> tuple[int, int, str]:
+    """Order entry ids numerically, tolerating ids that are not numbers.
+
+    Entry ids are normally decimal strings, but an index that has been hand
+    edited, partially restored, or written by another tool can hold anything.
+    ``int()`` on such a value raised ValueError from inside view building,
+    which made the entire index fail to load -- for a password manager, a
+    vault that will not open is indistinguishable from one that is lost.
+
+    A malformed id should degrade the ordering, not brick the index, so
+    non-numeric ids sort after numeric ones, lexicographically among
+    themselves.
+    """
+    text = str(entry_id)
+    try:
+        return (0, int(text), "")
+    except ValueError:
+        return (1, 0, text)
+
+
 def _build_children_view(
     scope_path: str,
     entries: dict[str, Any],
@@ -467,7 +487,7 @@ def _build_children_view(
     items = [
         _normalize_entry_summary(entry_id, entry)
         for entry_id, entry in sorted(
-            _normalize_mapping(entries).items(), key=lambda item: int(str(item[0]))
+            _normalize_mapping(entries).items(), key=lambda item: _entry_sort_key(item[0])
         )
         if isinstance(entry, dict)
     ]

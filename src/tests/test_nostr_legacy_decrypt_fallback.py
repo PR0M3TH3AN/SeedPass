@@ -5,7 +5,7 @@ import unicodedata
 import logging
 from cryptography.fernet import Fernet
 
-from helpers import create_vault, TEST_PASSWORD
+from helpers import create_vault, user_data, TEST_PASSWORD
 import seedpass.core.encryption as enc_module
 
 
@@ -35,6 +35,6 @@ def test_legacy_password_only_fallback(monkeypatch, tmp_path, caplog):
 
     caplog.set_level(logging.WARNING)
     assert enc_mgr.decrypt_and_save_index_from_nostr(encrypted)
-    assert vault.load_index() == data
+    assert user_data(vault.load_index()) == data
     assert any("legacy password-only" in rec.message for rec in caplog.records)
     assert calls == [50_000, 50_000, 100_000, 50_000]

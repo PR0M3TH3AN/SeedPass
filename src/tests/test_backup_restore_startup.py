@@ -47,6 +47,9 @@ def test_menu_option_restores_before_init(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "display_menu", lambda pm, **k: None)
     inputs = iter(["2", str(backup)])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(inputs))
+    # Interactive startup refuses a non-TTY stdin before reaching the menu,
+    # so stubbing input alone leaves main() returning 1 under pytest.
+    monkeypatch.setattr(main.sys.stdin, "isatty", lambda: True)
 
     rc = main.main(["--fingerprint", "fp"])
     assert rc == 0

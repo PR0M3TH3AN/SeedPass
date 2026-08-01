@@ -2,7 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from seedpass.core.api import VaultService
-from helpers import create_vault, TEST_SEED, TEST_PASSWORD
+from helpers import create_vault, user_data, TEST_SEED, TEST_PASSWORD
 
 
 def test_profile_export_import_round_trip(tmp_path):
@@ -30,4 +30,4 @@ def test_profile_export_import_round_trip(tmp_path):
     service2.import_profile(blob)
 
     assert called.get("synced") is True
-    assert vault2.load_index() == data
+    assert user_data(vault2.load_index()) == data

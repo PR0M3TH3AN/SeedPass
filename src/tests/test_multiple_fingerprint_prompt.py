@@ -58,6 +58,9 @@ def test_prompt_when_multiple_fingerprints(monkeypatch):
             return "1"  # select first fingerprint
 
         monkeypatch.setattr("builtins.input", fake_input)
+        # The prompt refuses to read from a non-TTY before it ever calls
+        # input(), so stubbing input alone is not enough under pytest.
+        monkeypatch.setattr(manager_module.sys.stdin, "isatty", lambda: True)
 
         pm = manager_module.PasswordManager()
         assert calls["count"] == 1

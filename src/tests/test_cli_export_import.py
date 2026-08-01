@@ -9,7 +9,7 @@ import main
 from seedpass.core.portable_backup import export_backup, import_backup
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.backup import BackupManager
-from helpers import create_vault, TEST_SEED
+from helpers import create_vault, user_data, TEST_SEED
 
 
 def _setup_pm(tmp_path: Path):
@@ -90,7 +90,7 @@ def test_cli_import_round_trip(monkeypatch, tmp_path):
 
     rc = main.main(["import", "--file", str(export_path)])
     assert rc == 0
-    assert vault.load_index() == original
+    assert user_data(vault.load_index()) == original
 
 
 def test_cli_export_import_unencrypted(monkeypatch, tmp_path):
@@ -123,7 +123,7 @@ def test_cli_export_import_unencrypted(monkeypatch, tmp_path):
     vault.save_index({"schema_version": 4, "entries": {}})
     rc = main.main(["import", "--file", str(export_path)])
     assert rc == 0
-    assert vault.load_index() == data
+    assert user_data(vault.load_index()) == data
 
 
 def test_cli_export_requires_file(monkeypatch, tmp_path, capsys):
