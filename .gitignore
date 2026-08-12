@@ -51,3 +51,9 @@ src/seedpass.egg-info/top_level.txt
 !src/vendor/
 torch/node_modules
 torch/torch/
+
+# Agent runtime state (local only)
+.scheduler-memory/
+memory-update.md
+memory-update.json
+.claude/
