@@ -55,6 +55,14 @@ export {
   type Entry,
   type VaultIndex,
 } from "./schema/entries.js";
+export {
+  importBackup,
+  exportBackup,
+  portableBackupSchema,
+  BackupImportError,
+  PORTABLE_FORMAT_VERSION,
+  type PortableBackup,
+} from "./vault/portableBackup.js";
 export { canonicalJson, canonicalHash } from "./sync/canonical.js";
 export {
   mergeIndexPayloads,

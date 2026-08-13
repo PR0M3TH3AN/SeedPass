@@ -1,0 +1,27 @@
+{
+  "name": "@seedpass/cli",
+  "version": "0.0.1",
+  "description": "SeedPass command-line interface (TypeScript port) — reference-first, agent-blind by default",
+  "type": "module",
+  "bin": {
+    "seedpass-js": "./bin/seedpass-js.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@seedpass/core": "workspace:*",
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@seedpass/test-vectors": "workspace:*",
+    "@types/node": "^26.2.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

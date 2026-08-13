@@ -1,0 +1,60 @@
+name: TypeScript Parity
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - "scripts/generate_ts_port_fixtures.py"
+      - ".github/workflows/ts-parity.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - "scripts/generate_ts_port_fixtures.py"
+      - ".github/workflows/ts-parity.yml"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm -r typecheck
+      - name: Parity tests (Node + jsdom)
+        run: pnpm -r test
+
+  # The fixtures are committed, so the parity job never regenerates them.
+  # This job proves the committed fixtures actually come from the committed
+  # generator: it regenerates from Python and fails on any drift.
+  fixture-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+      - name: Regenerate fixtures
+        run: poetry run python scripts/generate_ts_port_fixtures.py
+      - name: Fail on drift
+        # manifest.json records the generating commit, which legitimately
+        # differs from the checked-out commit — everything else must match.
+        run: >
+          git diff --exit-code --
+          js/packages/test-vectors/fixtures
+          ':(exclude)js/packages/test-vectors/fixtures/manifest.json'

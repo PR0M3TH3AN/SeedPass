@@ -812,6 +812,53 @@ def gen_delta_replay() -> dict:
     }
 
 
+def gen_portable_backup(entries: dict) -> dict:
+    from utils.checksum import canonical_json_dumps, json_checksum
+
+    mnemonic = MNEMONICS[PRIMARY]
+    index_data = entries
+    canonical = canonical_json_dumps(index_data)
+    checksum = json_checksum(index_data)
+
+    key = base64.urlsafe_b64decode(derive_index_key(mnemonic))
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-export-nonce").digest()[:12]
+    payload = b"V3|" + nonce + AESGCM(key).encrypt(nonce, canonical.encode(), None)
+
+    encrypted_wrapper = {
+        "format_version": 1,
+        "created_at": FIXED_UNIX,
+        "fingerprint": generate_fingerprint(mnemonic),
+        "encryption_mode": "seed-only",
+        "cipher": "aes-gcm",
+        "checksum": checksum,
+        "payload": base64.b64encode(payload).decode(),
+    }
+    plaintext_wrapper = {
+        "format_version": 1,
+        "created_at": FIXED_UNIX,
+        "fingerprint": generate_fingerprint(mnemonic),
+        "encryption_mode": "none",
+        "cipher": "none",
+        "checksum": checksum,
+        "payload": base64.b64encode(canonical.encode()).decode(),
+    }
+
+    return {
+        "description": (
+            "Portable backup wrapper (portable_backup.py, format_version 1). "
+            "payload = V3 AES-GCM over canonical JSON of the index, key = "
+            "index key of the parent seed; checksum = "
+            "sha256(canonical_json(index)). Nonce/created_at pinned "
+            "(fixture-only)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "index": index_data,
+        "canonical_json_sha256": checksum,
+        "encrypted_wrapper": encrypted_wrapper,
+        "plaintext_wrapper": plaintext_wrapper,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -861,6 +908,7 @@ def main() -> None:
     files["entries_index.json"] = entries_fixture
     files["vault_v3_payload.json"] = vault_fixture
     files["nostr_snapshot.json"] = gen_nostr_snapshot(vault_fixture["payload_b64"])
+    files["portable_backup.json"] = gen_portable_backup(entries_fixture["entries"])
     files["sync_merge.json"] = gen_sync_merge()
     files["delta_replay.json"] = gen_delta_replay()
 

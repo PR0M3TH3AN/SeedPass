@@ -25,6 +25,7 @@ import legacyPayloadsJson from "../fixtures/legacy_payloads.json";
 import nostrSnapshotJson from "../fixtures/nostr_snapshot.json";
 import syncMergeJson from "../fixtures/sync_merge.json";
 import deltaReplayJson from "../fixtures/delta_replay.json";
+import portableBackupJson from "../fixtures/portable_backup.json";
 
 export interface Bip39Case {
   id: string;
@@ -182,6 +183,24 @@ export const deltaReplay = deltaReplayJson as {
   delta_payloads_b64: string[];
   delta_plaintexts: Record<string, unknown>[];
   final_state: Record<string, unknown>;
+};
+
+export interface PortableWrapper {
+  format_version: number;
+  created_at: number;
+  fingerprint: string;
+  encryption_mode: string;
+  cipher: string;
+  checksum: string;
+  payload: string;
+}
+
+export const portableBackup = portableBackupJson as {
+  mnemonic_id: string;
+  index: Record<string, unknown>;
+  canonical_json_sha256: string;
+  encrypted_wrapper: PortableWrapper;
+  plaintext_wrapper: PortableWrapper;
 };
 
 export const legacyPayloads = legacyPayloadsJson as {
