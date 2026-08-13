@@ -390,6 +390,10 @@ Reference features:
 - posture checks
 - HMAC-chained audit records
 
+In addition to porting these, the TypeScript version adds the agent-blind
+provision/reference/use lifecycle defined in section 9.3, which composes the
+token, lease, and approval primitives into a default-safe agent surface.
+
 ## 9. Security Model for Browser-Based SeedPass
 
 Browser support improves usability, but it changes the threat model. The browser
@@ -456,6 +460,65 @@ Required rules:
 - site matching must be explainable to the user before filling
 - extension permissions must be documented in release notes and reviewed before
   store submission
+
+### 9.3 Agent-Blind Secret Lifecycle (Provision / Reference / Use)
+
+AI agents and automation are first-class SeedPass clients, but an agent's
+transcript, context window, and logs are hostile territory for plaintext
+secrets. The TypeScript port must support the full credential lifecycle without
+the secret value ever entering the agent's input or output by default.
+
+Lifecycle model:
+
+1. Provision: a permitted agent may create entries of any supported kind
+   (password, totp, ssh, nostr, key_value, managed_account, ...). The creation
+   response contains only the entry id/index, label, kind, and non-secret
+   metadata — never the derived or imported secret value.
+2. Reference: every entry is programmatically addressable by stable entry id,
+   derivation index, label, or search query. References are safe to store in
+   agent context, scripts, job templates, and chat transcripts.
+3. Use: the agent requests a one-time lease for an entry and directs it to a
+   sink. SeedPass delivers the plaintext directly from vault to sink; the agent
+   orchestrates but never carries the value.
+4. Backup: agent-created artifacts inherit the normal guarantees automatically.
+   Deterministic artifacts re-derive from the parent seed plus synced entry
+   metadata; non-deterministic artifacts live in the encrypted vault and sync
+   over Nostr like any user-created entry. Nothing an agent provisions can
+   exist only in a session transcript.
+
+Required CLI/API semantics:
+
+- `--format json` agent surfaces return references and metadata, never secret
+  values. Plaintext egress to stdout is a distinct operation behind an explicit
+  flag, a separate permission grant, and (where configured) an approval gate.
+- Sink delivery commands, for example:
+  - `seedpass use <ref> --clipboard` (with timed clear)
+  - `seedpass use <ref> --exec -- <cmd>` (injected as env var or fd into the
+    child process, never interpolated into a shell string)
+  - `seedpass use <ref> --stdin-to <cmd>`
+  - `seedpass use <ref> --fill` (hand off to the browser extension for the
+    active, origin-verified tab)
+- Leases are single-use or short-TTL, so a leaked handle is worthless after
+  the fact.
+- Every provision, lease, sink delivery, and reveal is recorded in the
+  HMAC-chained audit log with the requesting identity/token, so the user can
+  reconstruct exactly what an agent did with which credential.
+
+Permission model (builds on the token/lease/approval features in section 8.6):
+
+- per-agent identity with scoped tokens
+- separate scopes for create, use (sink delivery), and reveal (plaintext
+  egress), grantable per entry kind, per secret class, or per entry
+- high-risk classes (parent seed, managed seeds, PGP/SSH private keys, full
+  export) require approval gates or a fresh user factor regardless of token
+  scope
+- default deny: an unscoped agent can search metadata at most, and even that
+  can be restricted
+
+This section is a design constraint on Milestone 5 (CLI) and Milestone 8
+(agent features): the CLI command and JSON output design must be
+reference-first from the start, so agent-blind operation is the default shape
+of the product rather than a retrofit.
 
 ## 10. Dependency Strategy
 
@@ -655,7 +718,9 @@ Deliverables:
 - entry add/get/search/list/modify/archive/restore/delete
 - vault lock/unlock/export/import
 - Nostr sync commands
-- JSON output mode
+- JSON output mode (reference-first: returns entry ids/metadata, not secret
+  values, per section 9.3)
+- sink delivery commands (`seedpass use <ref> --clipboard|--exec|--stdin-to`)
 - interactive terminal mode MVP
 
 Exit criteria:
@@ -719,6 +784,8 @@ Deliverables:
 - identity model
 - approval gates
 - leases
+- agent-blind provision/reference/use lifecycle (section 9.3): scoped create,
+  sink-only use, reveal as a separate high-risk grant
 - policy lint/review/apply
 - audit chain
 - high-risk secret partition model
