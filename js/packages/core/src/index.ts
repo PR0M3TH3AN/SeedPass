@@ -28,4 +28,31 @@ export {
 export { generateFingerprint } from "./derive/fingerprint.js";
 export { deriveIndexKey, deriveIndexKeyBytes } from "./vault/indexKey.js";
 export { decryptV3, encryptV3, isV3Payload } from "./vault/aead.js";
+export {
+  deriveKeyFromPassword,
+  deriveKeyFromPasswordArgon2,
+  kdfConfigSchema,
+  type KdfConfig,
+} from "./vault/passwordKdf.js";
+export { fernetDecrypt, FernetError } from "./vault/fernet.js";
+export { decryptPayload, parseEncryptedFile, type EncryptedFile } from "./vault/payload.js";
+export {
+  entrySchema,
+  vaultIndexSchema,
+  parseVaultIndex,
+  customFieldSchema,
+  passwordEntrySchema,
+  totpEntrySchema,
+  sshEntrySchema,
+  seedEntrySchema,
+  pgpEntrySchema,
+  nostrEntrySchema,
+  keyValueEntrySchema,
+  managedAccountEntrySchema,
+  documentEntrySchema,
+  UnsupportedSchemaVersionError,
+  CURRENT_SCHEMA_VERSION,
+  type Entry,
+  type VaultIndex,
+} from "./schema/entries.js";
 export * from "./util/bytes.js";

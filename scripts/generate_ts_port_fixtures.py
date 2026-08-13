@@ -426,6 +426,123 @@ def gen_entries_and_vault() -> tuple[dict, dict]:
     return entries_fixture, vault_fixture
 
 
+def gen_password_kdf() -> dict:
+    from utils.key_derivation import (
+        KdfConfig,
+        derive_key_from_password,
+        derive_key_from_password_argon2,
+    )
+
+    fp = generate_fingerprint(MNEMONICS[PRIMARY])
+    pbkdf2_cases = []
+    for password in ("fixture-password", "correct horse battery staple", "  pässwörd  "):
+        for iterations in (50_000, 100_000):
+            key = derive_key_from_password(password, fp, iterations=iterations)
+            pbkdf2_cases.append(
+                {
+                    "password": password,
+                    "fingerprint": fp,
+                    "iterations": iterations,
+                    "key_urlsafe_b64": key.decode(),
+                }
+            )
+
+    argon2_cases = []
+    for params in (
+        {"time_cost": 2, "memory_cost": 64 * 1024, "parallelism": 8},
+        {"time_cost": 1, "memory_cost": 8 * 1024, "parallelism": 1},
+    ):
+        kdf = KdfConfig(
+            name="argon2id",
+            version=1,
+            params=params,
+            salt_b64=base64.b64encode(b"fixture-salt-16b").decode(),
+        )
+        key = derive_key_from_password_argon2("fixture-password", kdf)
+        argon2_cases.append(
+            {
+                "password": "fixture-password",
+                "kdf": {
+                    "name": kdf.name,
+                    "version": kdf.version,
+                    "params": kdf.params,
+                    "salt_b64": kdf.salt_b64,
+                },
+                "key_urlsafe_b64": key.decode(),
+            }
+        )
+
+    return {
+        "description": (
+            "Password-based key derivation. PBKDF2: NFKD-normalized+stripped "
+            "password, salt = SHA256(fingerprint)[:16], PBKDF2-HMAC-SHA256, "
+            "32 bytes, urlsafe b64. Argon2id: NFKD+strip, salt from config, "
+            "hash_len 32, urlsafe b64. Salts pinned for fixtures only."
+        ),
+        "pbkdf2_cases": pbkdf2_cases,
+        "argon2id_cases": argon2_cases,
+    }
+
+
+def gen_legacy_payloads() -> dict:
+    from cryptography.fernet import Fernet
+
+    mnemonic = MNEMONICS[PRIMARY]
+    key_b64 = derive_index_key(mnemonic)
+    raw_key = base64.urlsafe_b64decode(key_b64)
+    fernet = Fernet(key_b64)
+
+    plaintext = b'{"legacy": true, "hello": "fixture"}'
+    iv = hashlib.sha256(b"seedpass-ts-fixture-fernet-iv").digest()[:16]
+    token = fernet._encrypt_from_parts(plaintext, FIXED_UNIX, iv)
+
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-v2-nonce").digest()[:12]
+    v2_gcm = b"V2:" + nonce + AESGCM(raw_key).encrypt(nonce, plaintext, None)
+    v2_fernet = b"V2:" + token
+
+    # Serialized parent-seed file: JSON {"kdf": ..., "ct": b64(V3 blob)},
+    # encrypted with the password-derived key (not the index key).
+    from utils.key_derivation import derive_key_from_password
+
+    fp = generate_fingerprint(mnemonic)
+    seed_key_b64 = derive_key_from_password("fixture-password", fp)
+    seed_key = base64.urlsafe_b64decode(seed_key_b64)
+    seed_nonce = hashlib.sha256(b"seedpass-ts-fixture-seed-nonce").digest()[:12]
+    seed_ct = b"V3|" + seed_nonce + AESGCM(seed_key).encrypt(
+        seed_nonce, mnemonic.encode(), None
+    )
+    kdf_dict = {
+        "name": "pbkdf2-sha256",
+        "version": 1,
+        "params": {"iterations": 100000},
+        "salt_b64": "",
+    }
+    wrapper = json.dumps(
+        {"kdf": kdf_dict, "ct": base64.b64encode(seed_ct).decode()},
+        separators=(",", ":"),
+    ).encode()
+
+    return {
+        "description": (
+            "Legacy/migration payload formats the TS port must read: raw "
+            "Fernet token, V2-prefixed AES-GCM, V2-prefixed Fernet "
+            "(wrong-header case), and the JSON kdf/ct file wrapper around a "
+            "V3 blob. IVs/nonces/timestamps pinned for fixtures only."
+        ),
+        "mnemonic_id": PRIMARY,
+        "plaintext_utf8": plaintext.decode(),
+        "fernet_token_b64": base64.b64encode(token).decode(),
+        "v2_gcm_payload_b64": base64.b64encode(v2_gcm).decode(),
+        "v2_fernet_payload_b64": base64.b64encode(v2_fernet).decode(),
+        "parent_seed_file": {
+            "password": "fixture-password",
+            "fingerprint": generate_fingerprint(mnemonic),
+            "wrapper_b64": base64.b64encode(wrapper).decode(),
+            "expected_seed_mnemonic_id": PRIMARY,
+        },
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -468,6 +585,8 @@ def main() -> None:
         "fingerprints.json": gen_fingerprints(),
         "index_keys.json": gen_index_keys(),
         "kdf_metadata.json": gen_kdf_metadata(),
+        "password_kdf.json": gen_password_kdf(),
+        "legacy_payloads.json": gen_legacy_payloads(),
     }
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture

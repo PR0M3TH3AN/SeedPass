@@ -18,7 +18,8 @@
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^2.0.0",
     "@scure/bip32": "^2.0.0",
-    "@scure/bip39": "^2.0.0"
+    "@scure/bip39": "^2.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@seedpass/test-vectors": "workspace:*",

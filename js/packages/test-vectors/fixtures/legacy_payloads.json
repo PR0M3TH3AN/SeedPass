@@ -1,0 +1,15 @@
+{
+  "description": "Legacy/migration payload formats the TS port must read: raw Fernet token, V2-prefixed AES-GCM, V2-prefixed Fernet (wrong-header case), and the JSON kdf/ct file wrapper around a V3 blob. IVs/nonces/timestamps pinned for fixtures only.",
+  "fernet_token_b64": "Z0FBQUFBQmxVX0VBRUl2aGEzal9oSk5vN0FvN3ZWWHRVR0IzMmd0TFdtaFZKSUh1c1FrUmJya1dDU29jNXZmRzZ4ODRyX09pdUdVajhpQnBsaWthYWpiRlM0MUlYLXYwQmM5NVEwVktKOUtxMU9taEsxWFE2Y1FmdER0aGo4RERPR1V5dWc5LTg5V3E=",
+  "fixture_version": 1,
+  "mnemonic_id": "abandon12",
+  "parent_seed_file": {
+    "expected_seed_mnemonic_id": "abandon12",
+    "fingerprint": "C557EEC878DFD852",
+    "password": "fixture-password",
+    "wrapper_b64": "eyJrZGYiOnsibmFtZSI6InBia2RmMi1zaGEyNTYiLCJ2ZXJzaW9uIjoxLCJwYXJhbXMiOnsiaXRlcmF0aW9ucyI6MTAwMDAwfSwic2FsdF9iNjQiOiIifSwiY3QiOiJWak44WTc3TnlqWHlmQVVNdDBZR1huVDlKQ24rMFh1RDhQbDNkSm4vYWFPdUZVVjdKR2k0dGZCRzFrdHVXN29RYlBwbzI0eXNoS3k4YUprVFB5ZGNldHg5dzhZaXlyOGl3L0lENEcwWUIwaDRLUXpZZ2RSTHhEYlB4UGlVUkQvYWVOM3B4NWNHZFJWc3lsa3RiVkZqaENXM01kRXFXZVdidmpUZ1dBPT0ifQ=="
+  },
+  "plaintext_utf8": "{\"legacy\": true, \"hello\": \"fixture\"}",
+  "v2_fernet_payload_b64": "VjI6Z0FBQUFBQmxVX0VBRUl2aGEzal9oSk5vN0FvN3ZWWHRVR0IzMmd0TFdtaFZKSUh1c1FrUmJya1dDU29jNXZmRzZ4ODRyX09pdUdVajhpQnBsaWthYWpiRlM0MUlYLXYwQmM5NVEwVktKOUtxMU9taEsxWFE2Y1FmdER0aGo4RERPR1V5dWc5LTg5V3E=",
+  "v2_gcm_payload_b64": "VjI6XJEC/e68AV++OljKbkWm7L2iE/wwcyA3etcmBeFDyOKWs5NqeDRIOomms+lp7hDNl1T8cWLexqgx6ahy+ln5mA=="
+}

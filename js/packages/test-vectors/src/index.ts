@@ -20,6 +20,8 @@ import indexKeysJson from "../fixtures/index_keys.json";
 import kdfMetadataJson from "../fixtures/kdf_metadata.json";
 import entriesIndexJson from "../fixtures/entries_index.json";
 import vaultV3Json from "../fixtures/vault_v3_payload.json";
+import passwordKdfJson from "../fixtures/password_kdf.json";
+import legacyPayloadsJson from "../fixtures/legacy_payloads.json";
 
 export interface Bip39Case {
   id: string;
@@ -124,4 +126,39 @@ export const vaultV3Payload = vaultV3Json as {
   nonce_hex: string;
   payload_b64: string;
   plaintext_sha256: string;
+};
+
+export interface Pbkdf2Case {
+  password: string;
+  fingerprint: string;
+  iterations: number;
+  key_urlsafe_b64: string;
+}
+
+export interface Argon2Case {
+  password: string;
+  kdf: {
+    name: string;
+    version: number;
+    params: { time_cost: number; memory_cost: number; parallelism: number };
+    salt_b64: string;
+  };
+  key_urlsafe_b64: string;
+}
+
+export const pbkdf2Cases = passwordKdfJson.pbkdf2_cases as Pbkdf2Case[];
+export const argon2idCases = passwordKdfJson.argon2id_cases as Argon2Case[];
+
+export const legacyPayloads = legacyPayloadsJson as {
+  mnemonic_id: string;
+  plaintext_utf8: string;
+  fernet_token_b64: string;
+  v2_gcm_payload_b64: string;
+  v2_fernet_payload_b64: string;
+  parent_seed_file: {
+    password: string;
+    fingerprint: string;
+    wrapper_b64: string;
+    expected_seed_mnemonic_id: string;
+  };
 };
