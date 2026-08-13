@@ -55,4 +55,30 @@ export {
   type Entry,
   type VaultIndex,
 } from "./schema/entries.js";
+export { canonicalJson, canonicalHash } from "./sync/canonical.js";
+export {
+  mergeIndexPayloads,
+  emptyIndex0,
+  safeInt,
+  TOMBSTONE_RETENTION_CAP,
+  MERGE_STRATEGY,
+} from "./sync/merge.js";
+export {
+  KIND_MANIFEST,
+  KIND_SNAPSHOT_CHUNK,
+  KIND_DELTA,
+  chunkMetaSchema,
+  manifestSchema,
+  parseManifest,
+  prepareSnapshot,
+  reassembleSnapshot,
+  gzipCompress,
+  gzipDecompress,
+  deriveKeyIndex,
+  manifestIdFromNonce,
+  newManifestId,
+  ChunkVerificationError,
+  type ChunkMeta,
+  type Manifest,
+} from "./sync/snapshot.js";
 export * from "./util/bytes.js";

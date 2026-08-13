@@ -543,6 +543,275 @@ def gen_legacy_payloads() -> dict:
     }
 
 
+def _derive_key_index(mnemonic: str) -> bytes:
+    from utils.key_hierarchy import kd
+
+    seed = Bip39SeedGenerator(mnemonic).Generate()
+    master = kd(seed, b"seedpass:v1:master")
+    return kd(master, b"seedpass:v1:index")
+
+
+def gen_nostr_snapshot(vault_payload_b64: str) -> dict:
+    import gzip as gzip_mod
+    import hmac as hmac_mod
+
+    from nostr.snapshot import prepare_snapshot
+
+    mnemonic = MNEMONICS[PRIMARY]
+    encrypted = base64.b64decode(vault_payload_b64)
+
+    # mtime=0 pins the gzip header; production uses current time, which only
+    # affects the compressed bytes, not decompression.
+    compressed = gzip_mod.compress(encrypted, mtime=0)
+    limit = 800
+    manifest, chunks = prepare_snapshot(encrypted, limit)
+    # Re-chunk the pinned compression so chunk bytes/hashes are deterministic
+    pinned_chunks = [compressed[i : i + limit] for i in range(0, len(compressed), limit)]
+    metas = [
+        {
+            "id": f"seedpass-chunk-{i:04d}",
+            "size": len(c),
+            "hash": hashlib.sha256(c).hexdigest(),
+            "event_id": None,
+        }
+        for i, c in enumerate(pinned_chunks)
+    ]
+
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-manifest-nonce").digest()[:16]
+    key_index = _derive_key_index(mnemonic)
+    manifest_id = hmac_mod.new(
+        key_index, b"manifest|" + nonce, hashlib.sha256
+    ).hexdigest()
+
+    manifest_json = json.dumps(
+        {
+            "ver": 1,
+            "algo": "gzip",
+            "chunks": metas,
+            "delta_since": FIXED_UNIX,
+            "nonce": base64.b64encode(nonce).decode(),
+            "index0": None,
+        }
+    )
+
+    return {
+        "description": (
+            "Nostr snapshot model: gzip(encrypted index) split into <=limit "
+            "chunks; chunk id 'seedpass-chunk-%04d', sha256 hash; manifest "
+            "kind 30070 (d-tag = manifest id), chunks kind 30071 (d-tag = "
+            "chunk id, content = b64), deltas kind 30072. Manifest id = "
+            "HMAC-SHA256(key_index, b'manifest|' + nonce) hex, key_index = "
+            "HKDF chain master->'seedpass:v1:index'. gzip mtime pinned to 0 "
+            "for the fixture."
+        ),
+        "mnemonic_id": PRIMARY,
+        "event_kinds": {"manifest": 30070, "snapshot_chunk": 30071, "delta": 30072},
+        "chunk_limit": limit,
+        "encrypted_b64": vault_payload_b64,
+        "compressed_b64": base64.b64encode(compressed).decode(),
+        "chunks_b64": [base64.b64encode(c).decode() for c in pinned_chunks],
+        "chunk_metas": metas,
+        "key_index_hex": key_index.hex(),
+        "manifest_nonce_b64": base64.b64encode(nonce).decode(),
+        "manifest_id": manifest_id,
+        "manifest_json": manifest_json,
+        "unpinned_chunk_count": len(chunks),
+    }
+
+
+def _merge_case(name: str, current: dict, incoming: dict, source_tag: str) -> dict:
+    import copy
+
+    from seedpass.core.sync_conflict import merge_index_payloads
+
+    merged = merge_index_payloads(
+        copy.deepcopy(current), copy.deepcopy(incoming), source_tag=source_tag
+    )
+    return {
+        "name": name,
+        "current": current,
+        "incoming": incoming,
+        "source_tag": source_tag,
+        "merged": merged,
+    }
+
+
+def gen_sync_merge() -> dict:
+    t = FIXED_UNIX
+
+    def entry(label: str, ts: int, **kw) -> dict:
+        base = {
+            "type": "password",
+            "kind": "password",
+            "label": label,
+            "length": 16,
+            "archived": False,
+            "notes": "",
+            "tags": [],
+            "modified_ts": ts,
+        }
+        base.update(kw)
+        return base
+
+    cases = [
+        _merge_case(
+            "newer-incoming-wins",
+            {"schema_version": 4, "entries": {"0": entry("site", t)}},
+            {"schema_version": 4, "entries": {"0": entry("site-renamed", t + 10)}},
+            "tag-newer",
+        ),
+        _merge_case(
+            "older-incoming-loses",
+            {"schema_version": 4, "entries": {"0": entry("site", t + 10)}},
+            {"schema_version": 4, "entries": {"0": entry("site-old", t)}},
+            "tag-older",
+        ),
+        _merge_case(
+            "equal-ts-field-union",
+            {
+                "schema_version": 4,
+                "entries": {
+                    "0": entry("site", t, notes="", tags=["a", "c"], username="")
+                },
+            },
+            {
+                "schema_version": 4,
+                "entries": {
+                    "0": entry(
+                        "site", t, notes="from-incoming", tags=["b", "a"],
+                        username="alice", archived=True,
+                    )
+                },
+            },
+            "tag-equal",
+        ),
+        _merge_case(
+            "incoming-delete-creates-tombstone",
+            {"schema_version": 4, "entries": {"0": entry("site", t), "1": entry("keep", t)}},
+            {
+                "schema_version": 4,
+                "entries": {"0": {**entry("site", t + 5), "_deleted": True}},
+            },
+            "tag-delete",
+        ),
+        _merge_case(
+            "entry-newer-than-tombstone-survives",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {"deleted_ts": t, "entry_hash": "", "event_hash": "", "source": "x"}
+                    }
+                },
+            },
+            {"schema_version": 4, "entries": {"0": entry("revived", t + 20)}},
+            "tag-revive",
+        ),
+        _merge_case(
+            "tombstone-beats-older-entry",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {"deleted_ts": t + 20, "entry_hash": "", "event_hash": "", "source": "x"}
+                    }
+                },
+            },
+            {"schema_version": 4, "entries": {"0": entry("stale", t)}},
+            "tag-stale",
+        ),
+        _merge_case(
+            "tombstone-vs-tombstone-newer-wins",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {"deleted_ts": t + 1, "entry_hash": "aa", "event_hash": "", "source": "one"}
+                    }
+                },
+            },
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {"deleted_ts": t + 9, "entry_hash": "bb", "event_hash": "", "source": "two"}
+                    }
+                },
+            },
+            "tag-tt",
+        ),
+        _merge_case(
+            "empty-current-adopts-incoming",
+            {},
+            {"schema_version": 4, "entries": {"3": entry("new", t)}},
+            "tag-adopt",
+        ),
+    ]
+    return {
+        "description": (
+            "merge_index_payloads parity cases. merged output includes the "
+            "normalized empty _system.index0 skeleton and _sync_meta with "
+            "strategy modified_ts_hash_tombstone_v2."
+        ),
+        "cases": cases,
+    }
+
+
+def gen_delta_replay() -> dict:
+    import copy
+
+    from seedpass.core.index0 import ensure_index0_payload
+    from seedpass.core.sync_conflict import merge_index_payloads
+
+    key = base64.urlsafe_b64decode(derive_index_key(MNEMONICS[PRIMARY]))
+    t = FIXED_UNIX
+
+    def entry(label: str, ts: int) -> dict:
+        return {
+            "type": "password", "kind": "password", "label": label,
+            "length": 16, "archived": False, "notes": "", "tags": [],
+            "modified_ts": ts,
+        }
+
+    snapshot_index = {"schema_version": 4, "entries": {"0": entry("base", t)}}
+    delta1 = {"schema_version": 4, "entries": {"0": entry("base-renamed", t + 10), "1": entry("added", t + 10)}}
+    delta2 = {"schema_version": 4, "entries": {"1": {**entry("added", t + 20), "_deleted": True}}}
+
+    def encrypt(payload: dict, nonce_seed: bytes) -> bytes:
+        nonce = hashlib.sha256(nonce_seed).digest()[:12]
+        plaintext = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return b"V3|" + nonce + AESGCM(key).encrypt(nonce, plaintext, None)
+
+    enc_deltas = [
+        encrypt(delta1, b"seedpass-ts-fixture-delta-1"),
+        encrypt(delta2, b"seedpass-ts-fixture-delta-2"),
+    ]
+
+    # Reproduce decrypt_and_save_index_from_nostr(merge=True) semantics
+    state = ensure_index0_payload(copy.deepcopy(snapshot_index))
+    for enc, payload in zip(enc_deltas, [delta1, delta2]):
+        source_tag = hashlib.sha256(enc).hexdigest()[:16]
+        incoming = ensure_index0_payload(copy.deepcopy(payload))
+        state = merge_index_payloads(state, incoming, source_tag=source_tag)
+
+    return {
+        "description": (
+            "Delta replay: start from a snapshot index, decrypt each V3 delta "
+            "payload, merge in order with source_tag = "
+            "sha256(encrypted_delta)[:16]. Nonces pinned (fixture-only)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "snapshot_index": snapshot_index,
+        "delta_payloads_b64": [base64.b64encode(e).decode() for e in enc_deltas],
+        "delta_plaintexts": [delta1, delta2],
+        "final_state": state,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -591,6 +860,9 @@ def main() -> None:
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture
     files["vault_v3_payload.json"] = vault_fixture
+    files["nostr_snapshot.json"] = gen_nostr_snapshot(vault_fixture["payload_b64"])
+    files["sync_merge.json"] = gen_sync_merge()
+    files["delta_replay.json"] = gen_delta_replay()
 
     for name, data in files.items():
         data["fixture_version"] = FIXTURE_VERSION

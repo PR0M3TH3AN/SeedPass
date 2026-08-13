@@ -22,6 +22,9 @@ import entriesIndexJson from "../fixtures/entries_index.json";
 import vaultV3Json from "../fixtures/vault_v3_payload.json";
 import passwordKdfJson from "../fixtures/password_kdf.json";
 import legacyPayloadsJson from "../fixtures/legacy_payloads.json";
+import nostrSnapshotJson from "../fixtures/nostr_snapshot.json";
+import syncMergeJson from "../fixtures/sync_merge.json";
+import deltaReplayJson from "../fixtures/delta_replay.json";
 
 export interface Bip39Case {
   id: string;
@@ -148,6 +151,38 @@ export interface Argon2Case {
 
 export const pbkdf2Cases = passwordKdfJson.pbkdf2_cases as Pbkdf2Case[];
 export const argon2idCases = passwordKdfJson.argon2id_cases as Argon2Case[];
+
+export interface SyncMergeCase {
+  name: string;
+  current: Record<string, unknown>;
+  incoming: Record<string, unknown>;
+  source_tag: string;
+  merged: Record<string, unknown>;
+}
+
+export const nostrSnapshot = nostrSnapshotJson as {
+  mnemonic_id: string;
+  event_kinds: { manifest: number; snapshot_chunk: number; delta: number };
+  chunk_limit: number;
+  encrypted_b64: string;
+  compressed_b64: string;
+  chunks_b64: string[];
+  chunk_metas: { id: string; size: number; hash: string; event_id: string | null }[];
+  key_index_hex: string;
+  manifest_nonce_b64: string;
+  manifest_id: string;
+  manifest_json: string;
+};
+
+export const syncMergeCases = (syncMergeJson as { cases: SyncMergeCase[] }).cases;
+
+export const deltaReplay = deltaReplayJson as {
+  mnemonic_id: string;
+  snapshot_index: Record<string, unknown>;
+  delta_payloads_b64: string[];
+  delta_plaintexts: Record<string, unknown>[];
+  final_state: Record<string, unknown>;
+};
 
 export const legacyPayloads = legacyPayloadsJson as {
   mnemonic_id: string;

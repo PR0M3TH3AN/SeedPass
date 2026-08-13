@@ -31,16 +31,18 @@ until a later milestone.
 | KDF metadata parsing | P0 | green | `kdf_metadata.json`, `legacy_payloads.json` | KdfConfig schema with Python-default fallbacks. |
 | SSH key derivation | P1 | todo | — | Ed25519 from BIP-85 app 32; PEM serialization parity risk. |
 | PGP key derivation | P1/P2 | todo | — | Highest parity risk (PGPy serialization); import/roundtrip first. |
-| Nostr sync events 30070/30071/30072 | P0 | todo | — | Milestone 4. |
-| Conflict merge / tombstones | P0 | todo | — | Milestone 4. |
+| Nostr snapshot chunk/manifest model | P0 | green | `nostr_snapshot.json` | Kinds 30070/30071/30072; gzip chunking, chunk-hash verify, reassembly of Python-produced chunks, manifest JSON parse, manifest id HMAC (key_index chain). Compressed bytes are deliberately not byte-pinned (deflate encoders differ); cross-decompression verified both ways. Relay WebSocket adapter: todo. |
+| Deterministic conflict merge | P0 | green | `sync_merge.json` | Full `merge_index_payloads` port: ts precedence, canonical-hash tie-breaks (Python-compatible ensure_ascii canonical JSON), equal-ts field union incl. the `custom_fields: null` quirk, tombstone lifecycle, retention cap, `_sync_meta`. |
+| Tombstones / delta replay | P0 | green | `delta_replay.json` | Encrypted V3 deltas decrypted and merged in order with `source_tag = sha256(payload)[:16]`, final state matches Python. |
+| index0 content merge (`_system.index0`) | P2 | partial | — | Empty-skeleton normalization matches Python; merging populated index0 event logs throws loudly instead of silently dropping data. Full port belongs to the atlas milestone. |
 | Portable backup import/export | P0 | todo | — | Milestone 3. |
 
 ## Environment coverage
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 100/100 |
-| jsdom browser-like env | green — 100/100 |
+| Node 22 (vitest) | green — 117/117 |
+| jsdom browser-like env | green — 117/117 |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
 ## Dependency notes (to expand into docs/typescript_dependency_review.md)

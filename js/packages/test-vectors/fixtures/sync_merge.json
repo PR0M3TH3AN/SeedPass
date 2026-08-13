@@ -1,0 +1,653 @@
+{
+  "cases": [
+    {
+      "current": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site-renamed",
+            "length": 16,
+            "modified_ts": 1700000010,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000010,
+          "source_count": 1,
+          "sources": [
+            "tag-newer"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {}
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site-renamed",
+            "length": 16,
+            "modified_ts": 1700000010,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "newer-incoming-wins",
+      "source_tag": "tag-newer"
+    },
+    {
+      "current": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000010,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site-old",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000010,
+          "source_count": 1,
+          "sources": [
+            "tag-older"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {}
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000010,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "older-incoming-loses",
+      "source_tag": "tag-older"
+    },
+    {
+      "current": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [
+              "a",
+              "c"
+            ],
+            "type": "password",
+            "username": ""
+          }
+        },
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "archived": true,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "from-incoming",
+            "tags": [
+              "b",
+              "a"
+            ],
+            "type": "password",
+            "username": "alice"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000000,
+          "source_count": 1,
+          "sources": [
+            "tag-equal"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {}
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "0": {
+            "archived": true,
+            "custom_fields": null,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "links": null,
+            "modified_ts": 1700000000,
+            "notes": "from-incoming",
+            "tags": [
+              "a",
+              "b",
+              "c"
+            ],
+            "type": "password",
+            "username": "alice"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "equal-ts-field-union",
+      "source_tag": "tag-equal"
+    },
+    {
+      "current": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          },
+          "1": {
+            "archived": false,
+            "kind": "password",
+            "label": "keep",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "_deleted": true,
+            "archived": false,
+            "kind": "password",
+            "label": "site",
+            "length": 16,
+            "modified_ts": 1700000005,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000005,
+          "source_count": 1,
+          "sources": [
+            "tag-delete"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000005,
+              "entry_hash": "",
+              "event_hash": "54256f38e047c9c99df60917aa2ad798ac232df7c56247e6b1681875f9ec5e97",
+              "source": "tag-delete"
+            }
+          }
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "1": {
+            "archived": false,
+            "kind": "password",
+            "label": "keep",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "incoming-delete-creates-tombstone",
+      "source_tag": "tag-delete"
+    },
+    {
+      "current": {
+        "_sync_meta": {
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000000,
+              "entry_hash": "",
+              "event_hash": "",
+              "source": "x"
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "revived",
+            "length": 16,
+            "modified_ts": 1700000020,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000020,
+          "source_count": 1,
+          "sources": [
+            "tag-revive"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {}
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "revived",
+            "length": 16,
+            "modified_ts": 1700000020,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "entry-newer-than-tombstone-survives",
+      "source_tag": "tag-revive"
+    },
+    {
+      "current": {
+        "_sync_meta": {
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000020,
+              "entry_hash": "",
+              "event_hash": "",
+              "source": "x"
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "incoming": {
+        "entries": {
+          "0": {
+            "archived": false,
+            "kind": "password",
+            "label": "stale",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000020,
+          "source_count": 1,
+          "sources": [
+            "tag-stale"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000020,
+              "entry_hash": "",
+              "event_hash": "",
+              "source": "x"
+            }
+          }
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "name": "tombstone-beats-older-entry",
+      "source_tag": "tag-stale"
+    },
+    {
+      "current": {
+        "_sync_meta": {
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000001,
+              "entry_hash": "aa",
+              "event_hash": "",
+              "source": "one"
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "incoming": {
+        "_sync_meta": {
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000009,
+              "entry_hash": "bb",
+              "event_hash": "",
+              "source": "two"
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000009,
+          "source_count": 1,
+          "sources": [
+            "tag-tt"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {
+            "0": {
+              "deleted_ts": 1700000009,
+              "entry_hash": "bb",
+              "event_hash": "",
+              "source": "two"
+            }
+          }
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {},
+        "schema_version": 4
+      },
+      "name": "tombstone-vs-tombstone-newer-wins",
+      "source_tag": "tag-tt"
+    },
+    {
+      "current": {},
+      "incoming": {
+        "entries": {
+          "3": {
+            "archived": false,
+            "kind": "password",
+            "label": "new",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "merged": {
+        "_sync_meta": {
+          "last_merge_ts": 1700000000,
+          "source_count": 1,
+          "sources": [
+            "tag-adopt"
+          ],
+          "strategy": "modified_ts_hash_tombstone_v2",
+          "tombstones": {}
+        },
+        "_system": {
+          "index0": {
+            "canonical_views": {},
+            "checkpoints": {},
+            "events": {},
+            "heads": {},
+            "schema_version": 1,
+            "stats": {
+              "checkpoint_count": 0,
+              "event_count": 0,
+              "last_compaction_ts": 0,
+              "last_validation_ts": 0,
+              "writer_count": 0
+            },
+            "view_manifest": {
+              "builder_versions": {},
+              "canonical_view_types": [],
+              "local_only_view_types": [],
+              "version": 1
+            }
+          }
+        },
+        "entries": {
+          "3": {
+            "archived": false,
+            "kind": "password",
+            "label": "new",
+            "length": 16,
+            "modified_ts": 1700000000,
+            "notes": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "empty-current-adopts-incoming",
+      "source_tag": "tag-adopt"
+    }
+  ],
+  "description": "merge_index_payloads parity cases. merged output includes the normalized empty _system.index0 skeleton and _sync_meta with strategy modified_ts_hash_tombstone_v2.",
+  "fixture_version": 1
+}
