@@ -250,3 +250,10 @@ new `kind` (for example, SSH keys or BIP‑39 seeds) use the checklist below:
 This procedure keeps the UI consistent and ensures new data types integrate
 smoothly with existing functionality.
 
+
+## Repo memory
+
+Curated agent memory lives in `.agents/` (index: `.agents/MEMORY.md`). Read it
+before substantive work. Propose additions as files in `.agents/proposals/`;
+trusted memory under `.agents/memory/` changes only through reviewed commits.
+Code, tests, and configuration always outrank memory.

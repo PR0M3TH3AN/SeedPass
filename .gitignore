@@ -57,3 +57,7 @@ torch/torch/
 memory-update.md
 memory-update.json
 .claude/
+
+# Agent-local memory state (never committed)
+.agents/private/
+.agents/state/
