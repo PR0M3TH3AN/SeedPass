@@ -1,0 +1,26 @@
+{
+  "configs": [
+    {
+      "name": "argon2id",
+      "params": {
+        "memory_cost": 65536,
+        "parallelism": 8,
+        "time_cost": 2
+      },
+      "salt_b64": "Zml4dHVyZS1zYWx0LTE2Yg==",
+      "version": 1
+    },
+    {
+      "name": "pbkdf2-sha256",
+      "params": {
+        "dklen": 32,
+        "iterations": 100000
+      },
+      "salt_note": "salt = SHA256(fingerprint)[:16] \u2014 deterministic",
+      "version": 1
+    }
+  ],
+  "current_kdf_version": 1,
+  "description": "Vault KDF metadata shapes the TS port must parse. Salts here are pinned for the fixture; production salts come from os.urandom.",
+  "fixture_version": 1
+}

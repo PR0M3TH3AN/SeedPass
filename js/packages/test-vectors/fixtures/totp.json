@@ -1,0 +1,78 @@
+{
+  "cases": [
+    {
+      "codes_at": {
+        "0": "158046",
+        "1700000000": "919492",
+        "1700000030": "970092"
+      },
+      "digits": 6,
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "period": 30,
+      "secret_b32": "DRUATVCMCPFH4EEQXM5FEJZMU3BUTQ47"
+    },
+    {
+      "codes_at": {
+        "0": "848918",
+        "1700000000": "125654",
+        "1700000030": "046394"
+      },
+      "digits": 6,
+      "index": 1,
+      "mnemonic_id": "abandon12",
+      "period": 30,
+      "secret_b32": "CLQCBCRIBIBSJUBKQVSLUUQIFZBNDHOG"
+    },
+    {
+      "codes_at": {
+        "0": "246526",
+        "1700000000": "440630",
+        "1700000030": "533595"
+      },
+      "digits": 6,
+      "index": 7,
+      "mnemonic_id": "abandon12",
+      "period": 30,
+      "secret_b32": "4Y4WAUJWF6P6TFNN22SVO63Q4Z5BFEGM"
+    },
+    {
+      "codes_at": {
+        "0": "766863",
+        "1700000000": "971548",
+        "1700000030": "905753"
+      },
+      "digits": 6,
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "period": 30,
+      "secret_b32": "LLDPB5WFX35G3TRPZIODS3BYRBYK3R6Q"
+    },
+    {
+      "codes_at": {
+        "0": "710059",
+        "1700000000": "840452",
+        "1700000030": "439506"
+      },
+      "digits": 6,
+      "index": 1,
+      "mnemonic_id": "zoo24",
+      "period": 30,
+      "secret_b32": "EYBIHENYQXMFYJLBQRN5TDYSBX5RCDTA"
+    },
+    {
+      "codes_at": {
+        "0": "407368",
+        "1700000000": "468402",
+        "1700000030": "974135"
+      },
+      "digits": 6,
+      "index": 7,
+      "mnemonic_id": "zoo24",
+      "period": 30,
+      "secret_b32": "JC427EAPASFZD7N5HFSHL56SP6ROUZFF"
+    }
+  ],
+  "description": "TOTP secret derivation: path m/83696968'/39'/1414485072'/{index}' (1414485072 = 0x544F5450 = int.from_bytes(b'TOTP')), entropy = HMAC-SHA512(b'bip-entropy-from-k', k), secret = base32(SHA256(entropy[:32])[:20]); codes are RFC 6238 SHA-1 6-digit",
+  "fixture_version": 1
+}

@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "index_key_urlsafe_b64": "d9CpAFt_CxZwHdiKTJ01JQB_MUMbdyQRovRYYYxhpWo=",
+      "mnemonic_id": "abandon12"
+    },
+    {
+      "index_key_urlsafe_b64": "GzntOv4ek8ozlxVHbL3VWepfCGF36eUVBjTrfoj4h7M=",
+      "mnemonic_id": "legal12"
+    },
+    {
+      "index_key_urlsafe_b64": "gxmkBMKlJxr4X4EPkwdoeqvV1Bzsi_QsZmz9FU1ciuU=",
+      "mnemonic_id": "zoo24"
+    }
+  ],
+  "description": "Vault index key (seed-only mode): seed = BIP39(mnemonic); master = HKDF-SHA256(seed, salt=None, info=b'seedpass:v1:master'); key = HKDF-SHA256(master, salt=None, info=b'seedpass:v1:storage'); urlsafe base64",
+  "fixture_version": 1
+}
