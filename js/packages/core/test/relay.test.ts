@@ -18,6 +18,7 @@ import {
   decryptV3,
   encryptV3,
   mergeIndexPayloads,
+  parseEncryptedFile,
   utf8,
   bytesToHex,
 } from "@seedpass/core";
@@ -104,6 +105,37 @@ describe.skipIf(IS_JSDOM)("relay snapshot round trip", () => {
     }
     const entries = state["entries"] as Record<string, { label: string }>;
     expect(entries["99"]!.label).toBe("from-delta");
+  });
+
+  it("restores a snapshot whose payload is a kdf/ct wrapper (Python's format)", async () => {
+    // Python index files wrap the ciphertext in a JSON envelope, and a
+    // published snapshot carries whatever the local file held. Restoring
+    // must parse that wrapper rather than decrypting the envelope bytes.
+    const key = deriveIndexKeyBytes(MNEMONIC);
+    const inner = base64.decode(vaultV3Payload.payload_b64);
+    const wrapped = utf8(
+      JSON.stringify({
+        kdf: { name: "pbkdf2", version: 1, params: { iterations: 200000 }, salt_b64: "" },
+        ct: Buffer.from(inner).toString("base64"),
+      }),
+    );
+
+    const wrapRelay = new MockRelay();
+    await wrapRelay.start();
+    const wrapPool = new RelayPool([wrapRelay.url], { timeoutMs: 3000 });
+    try {
+      await publishSnapshot(wrapPool, PRIVKEY, deriveKeyIndex(MNEMONIC), wrapped, {
+        limit: 500,
+      });
+      const fetched = await fetchLatestSnapshot(wrapPool, PRIVKEY);
+      expect(fetched).not.toBeNull();
+      const { ciphertext } = parseEncryptedFile(fetched!.encrypted);
+      const plain = await decryptV3(key, ciphertext);
+      expect(bytesToHex(sha256(plain))).toBe(vaultV3Payload.plaintext_sha256);
+    } finally {
+      await wrapPool.close();
+      await wrapRelay.stop();
+    }
   });
 
   it("rejects snapshots whose chunks fail hash verification", async () => {

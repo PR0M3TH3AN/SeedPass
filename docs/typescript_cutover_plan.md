@@ -42,18 +42,19 @@ P0 gate is green, Python remains the normative reference
 4. **Sync protocol is compatible.**
    Evidence: event ids cross-verified against rust-nostr fixtures; snapshot
    chunking/manifest/delta parity; live relay round trip in
-   `js/packages/core/test/relay.test.ts`. **Green.**
-   Remaining: a live Python-publishes → TS-restores test through one relay
-   (currently each side is tested against the shared protocol, not against
-   the other end to end).
+   `js/packages/core/test/relay.test.ts`, plus a live end-to-end round trip
+   in cross-impl phase F: Python publishes a snapshot through a real relay
+   and the TS CLI restores it with secrets intact. **Green.**
 
-5. **Feature parity for real daily use.** **Partial.** Missing:
-   - SSH and PGP key material (entries round-trip; derivation not ported)
+5. **Feature parity for real daily use.** **Partial.** Remaining:
+   - PGP key material (entries round-trip; derivation not ported — highest
+     parity risk, PGPy serialization)
    - document import/export commands
-   - index schema migrations 0→3 (TS refuses old indexes rather than
-     migrating them — safe, but a Python user with an old profile is stuck)
    - `semantic` and `api` command groups (deliberately deferred; decide
      whether they block cutover or ship post-cutover)
+
+   Done since this list was written: SSH key derivation (PEM byte-for-byte)
+   and schema migrations 0→4, so legacy Python profiles now open in TS.
 
 6. **Packaging and distribution exist.** Not started. Needs: an installable
    artifact (npm bin, single-file build, or both), checksums and signatures

@@ -535,6 +535,125 @@ def phase_e(tmp: Path) -> None:
     )
 
 
+class relay_running:
+    """Run the in-process NIP-01 test relay and yield its ws:// URL."""
+
+    SCRIPT = """
+import { register } from "tsx/esm/api";
+register();
+const { MockRelay } = await import("REPO/js/packages/core/test/mockRelay.ts");
+const relay = new MockRelay();
+console.log(await relay.start());
+process.on("SIGTERM", () => relay.stop().then(() => process.exit(0)));
+await new Promise(() => {});
+"""
+
+    def __init__(self, tmp: Path) -> None:
+        self.tmp = tmp
+        self.proc: subprocess.Popen | None = None
+        self.url = ""
+
+    def __enter__(self) -> "relay_running":
+        # Must live inside the workspace so pnpm's node_modules resolve.
+        script = CLI_BIN.parent / "_cross_impl_relay.mjs"
+        script.write_text(self.SCRIPT.replace("REPO", str(REPO)))
+        self.script = script
+        self.proc = subprocess.Popen(
+            ["node", str(script)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            cwd=str(CLI_BIN.parent),
+        )
+        assert self.proc.stdout is not None
+        self.url = self.proc.stdout.readline().strip()
+        if not self.url.startswith("ws://"):
+            raise RuntimeError(f"relay failed to start: {self.url!r}")
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self.proc is not None:
+            self.proc.terminate()
+            self.proc.wait(timeout=10)
+        self.script.unlink(missing_ok=True)
+
+
+def phase_f(tmp: Path) -> None:
+    print("\nPhase F: Nostr sync interop through a live relay")
+    import asyncio
+
+    from seedpass.core.encryption import EncryptionManager
+    from seedpass.core.vault import Vault
+    from utils.fingerprint import generate_fingerprint
+    from utils.key_derivation import derive_index_key
+
+    app_dir = tmp / "f"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    fp_dir = app_dir / fp
+
+    with relay_running(tmp) as relay:
+        # --- Python publishes -------------------------------------------------
+        try:
+            from nostr.client import NostrClient
+            from seedpass.core.config_manager import ConfigManager
+            from utils.key_hierarchy import kd
+            from bip_utils import Bip39SeedGenerator
+
+            enc_mgr = EncryptionManager(derive_index_key(SEED_A), fp_dir)
+            vault = Vault(enc_mgr, fp_dir)
+            cfg_mgr = ConfigManager(vault, fp_dir)
+            cfg = cfg_mgr.load_config(require_pin=False)
+            cfg["relays"] = [relay.url]
+            cfg_mgr.save_config(cfg)
+
+            seed_bytes = Bip39SeedGenerator(SEED_A).Generate()
+            key_index = kd(kd(seed_bytes, b"seedpass:v1:master"), b"seedpass:v1:index")
+            client = NostrClient(
+                encryption_manager=enc_mgr,
+                fingerprint=fp,
+                relays=[relay.url],
+                config_manager=cfg_mgr,
+                parent_seed=SEED_A,
+                key_index=key_index,
+                account_index=0,
+            )
+            encrypted = vault.get_encrypted_index()
+            manifest, manifest_id = asyncio.run(client.publish_snapshot(encrypted))
+            published = bool(manifest_id) and bool(manifest.chunks)
+            check("Python publishes a snapshot to the relay", published, str(manifest_id))
+        except Exception as exc:
+            check("Python publishes a snapshot to the relay", False, f"{type(exc).__name__}: {exc}")
+            return
+
+        # --- TypeScript restores from what Python published -------------------
+        ts_dir = tmp / "f-ts"
+        ts_dir.mkdir()
+        env = {"SEEDPASS_MNEMONIC": SEED_A, "SEEDPASS_PASSWORD": PASSWORD}
+        run_cli(ts_dir, "fingerprint", "add", "--name", "ts-restore", env_extra=env)
+        run_cli(ts_dir, "nostr", "add-relay", relay.url, env_extra=env)
+        for _ in range(3):
+            try:
+                run_cli(ts_dir, "nostr", "remove-relay", "1", env_extra=env)
+            except Exception:
+                break
+        try:
+            restored = json.loads(run_cli(ts_dir, "nostr", "restore", env_extra=env))
+            py_index = vault.load_index()
+            py_labels = sorted(e["label"] for e in py_index.get("entries", {}).values())
+            rows = json.loads(run_cli(ts_dir, "entry", "list", env_extra=env))
+            ts_labels = sorted(r["label"] for r in rows)
+            check(
+                "TS restores the Python-published snapshot",
+                ts_labels == py_labels,
+                f"{ts_labels} != {py_labels}",
+            )
+            revealed = run_cli(ts_dir, "entry", "reveal", "python-api", env_extra=env)
+            check("restored secrets are intact", revealed == "py-secret-value", revealed)
+        except Exception as exc:
+            check("TS restores the Python-published snapshot", False, str(exc))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-relay", action="store_true")
@@ -553,6 +672,8 @@ def main() -> int:
         phase_c(tmp)
         phase_d(tmp)
         phase_e(tmp)
+        if not args.skip_relay:
+            phase_f(tmp)
     finally:
         if not args.keep:
             shutil.rmtree(tmp, ignore_errors=True)

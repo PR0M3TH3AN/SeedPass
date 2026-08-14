@@ -37,6 +37,7 @@ import {
   fetchLatestSnapshot,
   fetchDeltasSince,
   decryptPayload,
+  parseEncryptedFile,
   mergeIndexPayloads,
   parseVaultIndex,
   sha256Hex,
@@ -813,8 +814,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         const fetched = await fetchLatestSnapshot(pool, keys.privateKeyHex);
         if (!fetched) throw new Error("no snapshot found on the configured relays");
         const indexKey = deriveIndexKeyBytes(mnemonic);
+        // A published snapshot carries whatever the local index file held.
+        // Python's index files wrap the ciphertext in a kdf/ct JSON envelope
+        // (TS writes bare ciphertext), so parse the wrapper first — exactly
+        // as Python's decrypt_and_save_index_from_nostr does.
+        const snapshotPayload = parseEncryptedFile(fetched.encrypted).ciphertext;
         let state = JSON.parse(
-          new TextDecoder().decode(await decryptPayload(indexKey, fetched.encrypted)),
+          new TextDecoder().decode(await decryptPayload(indexKey, snapshotPayload)),
         ) as Record<string, unknown>;
 
         let deltaCount = 0;
@@ -826,7 +832,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           );
           for (const delta of deltas) {
             const incoming = JSON.parse(
-              new TextDecoder().decode(await decryptPayload(indexKey, delta)),
+              new TextDecoder().decode(
+                await decryptPayload(indexKey, parseEncryptedFile(delta).ciphertext),
+              ),
             );
             state = mergeIndexPayloads(state, incoming, sha256Hex(delta).slice(0, 16));
             deltaCount++;

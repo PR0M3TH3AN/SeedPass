@@ -51,7 +51,7 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 170/170 core + 44 CLI |
+| Node 22 (vitest) | green — 171/171 core + 44 CLI |
 | jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
