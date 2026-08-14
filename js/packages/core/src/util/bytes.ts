@@ -1,9 +1,14 @@
 /** Small byte/string helpers shared across the core. No Node or DOM APIs. */
 
 import { sha256 } from "@noble/hashes/sha2.js";
+import { hmac } from "@noble/hashes/hmac.js";
 
 export function sha256Hex(data: Uint8Array): string {
   return bytesToHex(sha256(data));
+}
+
+export function hmacSha256Hex(key: Uint8Array, data: Uint8Array): string {
+  return bytesToHex(hmac(sha256, key, data));
 }
 
 export function utf8(s: string): Uint8Array {

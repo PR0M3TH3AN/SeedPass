@@ -35,11 +35,22 @@ export function capabilities(): Record<string, unknown> {
       layout: "python-compatible ~/.seedpass",
       commands: ["fingerprint list/add/switch/remove", "config get/set"],
     },
+    tokens: {
+      commands: ["agent token-issue/token-list/token-revoke"],
+      scopes: ["read", "use", "reveal"],
+      constraints: ["kinds", "label_regex", "ttl", "uses"],
+      token_env_var: "SEEDPASS_TOKEN",
+      enforcement: "session agent (secrets materialized agent-side in token mode)",
+      escalation: "token mode can never fall back to owner access",
+    },
+    audit: {
+      commands: ["agent audit-verify", "agent audit-tail"],
+      chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
+    },
     not_yet_ported: [
       "ssh/pgp key material",
-      "relay sync commands",
       "index0/atlas",
-      "leases and scoped tokens (design: plan section 9.3; enforcement point: session agent)",
+      "approval gates and high-risk partitions",
     ],
   };
 }

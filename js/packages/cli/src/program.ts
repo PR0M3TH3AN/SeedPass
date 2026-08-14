@@ -55,6 +55,7 @@ import { join } from "node:path";
 import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
 import { loadConfig, saveConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
+import { AuditLog } from "./audit.js";
 
 export interface ProgramIo {
   out(line: string): void;
@@ -86,6 +87,15 @@ async function currentFingerprint(app: AppDir, opts: GlobalOpts): Promise<string
 async function resolveMnemonic(app: AppDir, opts: GlobalOpts): Promise<string> {
   const env = process.env["SEEDPASS_MNEMONIC"];
   if (env) return env;
+  // A process that authenticates with a scoped token has declared itself a
+  // constrained principal: it must never escalate to owner access by
+  // pulling the mnemonic from the unlocked agent.
+  if (process.env["SEEDPASS_TOKEN"]) {
+    throw new Error(
+      "token mode: this operation requires owner access (unset SEEDPASS_TOKEN " +
+        "and unlock as the owner)",
+    );
+  }
   try {
     const fp = await currentFingerprint(app, opts);
     const client = new AgentClient(agentSocketPath(app.root));
@@ -121,6 +131,60 @@ async function openFromOptions(opts: GlobalOpts): Promise<OpenedVault> {
   return openVault(path, await resolveMnemonic(app, opts));
 }
 
+/**
+ * Read/secret access that works in two modes:
+ *  - owner mode (mnemonic via env or agent): full local access
+ *  - token mode (SEEDPASS_TOKEN set, no mnemonic): every read and secret
+ *    goes through the agent, which enforces the token's scopes/kinds/label
+ *    constraints and writes the audit trail. The mnemonic never reaches
+ *    this process.
+ */
+interface ReadAccess {
+  index: import("@seedpass/core").VaultIndex;
+  mode: "owner" | "token";
+  secretFor(
+    id: string,
+    action: "use" | "reveal",
+    timestamp?: number,
+  ): Promise<{ value: string; descriptor: string }>;
+}
+
+async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
+  const token = process.env["SEEDPASS_TOKEN"];
+  const app = new AppDir(resolveAppDir(opts.appDir));
+  if (token && !process.env["SEEDPASS_MNEMONIC"]) {
+    const fp = await currentFingerprint(app, opts);
+    const client = new AgentClient(agentSocketPath(app.root));
+    const index = parseVaultIndex(await client.vaultIndex(fp, token));
+    return {
+      index,
+      mode: "token",
+      secretFor: async (id, action, timestamp) => {
+        return client.secret({
+          fingerprint: fp,
+          id,
+          token,
+          action,
+          ...(timestamp !== undefined && { timestamp }),
+        });
+      },
+    };
+  }
+  const vault = await openFromOptions(opts);
+  return {
+    index: vault.index,
+    mode: "owner",
+    secretFor: async (id, action, timestamp) => {
+      void action;
+      const entry = vault.index.entries[id];
+      if (!entry) throw new Error(`no entry ${id}`);
+      return materializeSecret(vault.index, id, entry, vault.mnemonic, {
+        ...(timestamp !== undefined && { timestamp }),
+      });
+    },
+  };
+}
+
 export function buildProgram(io: ProgramIo = defaultIo): Command {
   const program = new Command();
   program
@@ -148,8 +212,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("list")
     .description("list entries as references + metadata (no secrets)")
     .action(async () => {
-      const vault = await openFromOptions(program.opts());
-      const rows = Object.entries(vault.index.entries).map(([id, e]) =>
+      const access = await openReadAccess(program.opts());
+      const rows = Object.entries(access.index.entries).map(([id, e]) =>
         entryMetadata(id, e),
       );
       io.out(JSON.stringify(rows, null, 2));
@@ -159,8 +223,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("get <refOrQuery>")
     .description("show one entry's reference + metadata (no secrets)")
     .action(async (refOrQuery: string) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
+      const access = await openReadAccess(program.opts());
+      const hit = resolveEntry(access.index, refOrQuery);
       io.out(JSON.stringify(entryMetadata(hit.id, hit.entry), null, 2));
     });
 
@@ -168,9 +232,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("search <text>")
     .description("substring search over labels/tags/notes (no secrets)")
     .action(async (text: string) => {
-      const vault = await openFromOptions(program.opts());
+      const access = await openReadAccess(program.opts());
       const needle = text.toLowerCase();
-      const rows = Object.entries(vault.index.entries)
+      const rows = Object.entries(access.index.entries)
         .filter(([, e]) => {
           const hay = [e.label, e.notes ?? "", ...(e.tags ?? [])].join("\n").toLowerCase();
           return hay.includes(needle);
@@ -460,11 +524,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("PLAINTEXT EGRESS: print the secret to stdout")
     .option("--at <timestamp>", "TOTP: unix time to compute the code at")
     .action(async (refOrQuery: string, cmdOpts: { at?: string }) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
-      const secret = materializeSecret(vault.index, hit.id, hit.entry, vault.mnemonic, {
-        ...(cmdOpts.at !== undefined && { timestamp: Number(cmdOpts.at) }),
-      });
+      const access = await openReadAccess(program.opts());
+      const hit = resolveEntry(access.index, refOrQuery);
+      const secret = await access.secretFor(
+        hit.id,
+        "reveal",
+        cmdOpts.at !== undefined ? Number(cmdOpts.at) : undefined,
+      );
       io.out(secret.value);
     });
 
@@ -486,11 +552,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         if (chosen !== 1) {
           throw new Error("choose exactly one sink: --clipboard, --exec, or --stdin-to");
         }
-        const vault = await openFromOptions(program.opts());
-        const hit = resolveEntry(vault.index, refOrQuery);
-        const secret = materializeSecret(vault.index, hit.id, hit.entry, vault.mnemonic, {
-          ...(cmdOpts.at !== undefined && { timestamp: Number(cmdOpts.at) }),
-        });
+        const access = await openReadAccess(program.opts());
+        const hit = resolveEntry(access.index, refOrQuery);
+        const secret = await access.secretFor(
+          hit.id,
+          "use",
+          cmdOpts.at !== undefined ? Number(cmdOpts.at) : undefined,
+        );
 
         let result;
         if (cmdOpts.clipboard) {
@@ -747,10 +815,97 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--ttl <seconds>", "default unlock TTL", String(DEFAULT_TTL_SECONDS))
     .action(async (o: { ttl: string }) => {
       const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
-      const daemon = new AgentDaemon(agentSocketPath(app.root), Number(o.ttl));
+      const daemon = new AgentDaemon(agentSocketPath(app.root), Number(o.ttl), app.root);
       await daemon.start();
       io.out(JSON.stringify({ agent: "running", socket: agentSocketPath(app.root) }));
       await new Promise(() => {}); // run until killed
+    });
+
+  agent
+    .command("token-issue")
+    .description("issue a scoped bearer token (printed exactly once)")
+    .option("--name <name>", "token name", "agent")
+    .option("--scope <scope...>", "read/use/reveal (repeatable)", ["read"])
+    .option("--kind <kind...>", "restrict to entry kinds (repeatable)")
+    .option("--label-regex <re>", "restrict to matching labels", ".*")
+    .option("--ttl <seconds>", "token lifetime", "300")
+    .option("--uses <n>", "max secret deliveries", "1")
+    .action(
+      async (o: {
+        name: string; scope: string[]; kind?: string[]; labelRegex: string;
+        ttl: string; uses: string;
+      }) => {
+        const opts = program.opts() as GlobalOpts;
+        const app = new AppDir(resolveAppDir(opts.appDir));
+        const fp = await currentFingerprint(app, opts);
+        const client = new AgentClient(agentSocketPath(app.root));
+        const issued = await client.tokenIssue({
+          fingerprint: fp,
+          name: o.name,
+          scopes: o.scope as ("read" | "use" | "reveal")[],
+          ...(o.kind !== undefined && { kinds: o.kind }),
+          labelRegex: o.labelRegex,
+          ttl: Number(o.ttl),
+          uses: Number(o.uses),
+        });
+        io.out(
+          JSON.stringify(
+            { token: issued.token, note: "shown once — store it now", record: issued.record },
+            null,
+            2,
+          ),
+        );
+      },
+    );
+
+  agent
+    .command("token-list")
+    .description("list issued tokens (no secrets)")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const client = new AgentClient(agentSocketPath(app.root));
+      io.out(JSON.stringify(await client.tokenList(fp), null, 2));
+    });
+
+  agent
+    .command("token-revoke <tokenId>")
+    .description("revoke a token immediately")
+    .action(async (tokenId: string) => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const client = new AgentClient(agentSocketPath(app.root));
+      await client.tokenRevoke(tokenId);
+      io.out(JSON.stringify({ revoked: tokenId }));
+    });
+
+  agent
+    .command("audit-verify")
+    .description("verify the profile's HMAC-chained audit log (owner only)")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const mnemonic = await resolveMnemonic(app, opts);
+      const path = join(app.profileDir(fp), "audit.log");
+      const records = await AuditLog.verify(path, deriveKeyIndex(mnemonic));
+      io.out(JSON.stringify({ verified: true, records: records.length, path }));
+    });
+
+  agent
+    .command("audit-tail")
+    .description("show the last audit records after verifying the chain (owner only)")
+    .option("-n <count>", "records to show", "10")
+    .action(async (o: { n: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const mnemonic = await resolveMnemonic(app, opts);
+      const records = await AuditLog.verify(
+        join(app.profileDir(fp), "audit.log"),
+        deriveKeyIndex(mnemonic),
+      );
+      io.out(JSON.stringify(records.slice(-Number(o.n)), null, 2));
     });
 
   agent

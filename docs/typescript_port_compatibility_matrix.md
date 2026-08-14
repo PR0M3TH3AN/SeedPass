@@ -43,13 +43,14 @@ until a later milestone.
 | Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
 | CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password, nostr get-pubkey/list-relays/add-relay/remove-relay/sync/restore. Milestone 5 command surface complete except ssh/pgp adds and document import/export; leases/tokens are Milestone 8. |
 | Profiles + config (Python `~/.seedpass` layout) | P1 | green* | — | `fingerprint list/add/switch/remove`, `config get/set` over the Python directory layout (fingerprints.json, parent_seed.enc kdf/ct wrapper, index-key-encrypted config with ConfigManager defaults). *Layout-compatible and tested end-to-end in TS; opening a real Python-created profile is verified indirectly via the parent-seed wrapper fixture — direct cross-open test TODO. |
+| Scoped tokens + audit chain (plan §9.3 / M8 core) | P1 | green | — (live agent tests) | Bearer tokens issued/held by the agent (hash-stored, shown once) with read/use/reveal scopes, kind + label-regex constraints, TTL and use counts; token-mode CLI reads the index and materializes secrets agent-side, never sees the mnemonic, and can never escalate to owner ops. Audit log uses Python AuditLogger's chain scheme (HMAC(prev_sig+canonical payload), KEY_INDEX key); verify/tail commands; tamper detection tested. Not yet: approval gates, high-risk partitions, persistent token store. |
 | Session agent (vault unlock/lock) | new (TS-only) | green | — | ssh-agent-style unix-socket daemon holding seeds with TTL (0600 socket, in-memory only); seed resolution env -> agent; full lifecycle tested with no mnemonic in the environment. Designed enforcement point for the section-9.3 lease/token layer. Python has no equivalent (its lock is in-process TUI state). |
 
 ## Environment coverage
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 151/151 core + 32 CLI |
+| Node 22 (vitest) | green — 151/151 core + 41 CLI |
 | jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
