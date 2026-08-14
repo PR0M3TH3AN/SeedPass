@@ -240,6 +240,23 @@ describe("sink delivery keeps secrets out of CLI output", () => {
     expect(r.stdout).not.toContain("abc123");
   });
 
+  it("accepts a quoted command spec so flags survive option parsing", async () => {
+    // Regression: commander's variadic options stop at the next "-token",
+    // so `--stdin-to wc -c` lost the flag. A quoted spec is the documented
+    // way to include flags.
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-spec-"));
+    const capture = join(dir, "captured.txt");
+    const script = join(dir, "cap.sh");
+    await writeFile(script, `#!/bin/sh\nprintf '%s %s' "$1" "$(cat)" > "${capture}"\n`, {
+      mode: 0o755,
+    });
+    const r = await run(
+      "--vault", vaultPath, "use", "api-token", "--stdin-to", `${script} -flagged`,
+    );
+    expect(JSON.parse(r.stdout).sink).toBe("stdin");
+    expect(await readFile(capture, "utf8")).toBe("-flagged abc123");
+  });
+
   it("use refuses ambiguous sink selection", async () => {
     const r = await run(
       "--vault", vaultPath, "use", "api-token", "--clipboard", "--stdin-to", "cat",
@@ -333,15 +350,51 @@ describe("util generate-password", () => {
 });
 
 describe("vault export/import", () => {
-  it("exports an encrypted portable backup the importer accepts", async () => {
+  it("exports an encrypted portable backup and inspects it without writing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-export-"));
     const dest = join(dir, "backup.json");
     const exportResult = await run("--vault", vaultPath, "vault", "export", dest);
     expect(JSON.parse(exportResult.stdout).encrypted).toBe(true);
 
-    const importResult = await run("vault", "import", dest);
+    const importResult = await run("vault", "import", dest, "--inspect");
     const summary = JSON.parse(importResult.stdout);
     expect(summary.schema_version).toBe(4);
     expect(summary.entry_count).toBe(10);
+    expect(summary.written).toBe(false);
+  });
+
+  it("import actually restores into a vault and guards non-empty targets", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-import-"));
+    const backup = join(dir, "backup.json");
+    await run("--vault", vaultPath, "vault", "export", backup);
+
+    // Fresh empty vault: import writes without --yes
+    const target = join(dir, "target.enc");
+    await writeFile(
+      target,
+      await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify({ schema_version: 4, entries: {} }))),
+    );
+    const first = await run("--vault", target, "vault", "import", backup);
+    expect(JSON.parse(first.stdout).entry_count).toBe(10);
+    const listed = JSON.parse((await run("--vault", target, "entry", "list")).stdout);
+    expect(listed).toHaveLength(10);
+
+    // Now non-empty: refuses without --yes, proceeds with it
+    const guarded = await run("--vault", target, "vault", "import", backup);
+    expect(String((guarded.error as Error).message)).toContain("--yes");
+    const forced = await run("--vault", target, "vault", "import", backup, "--yes");
+    expect(JSON.parse(forced.stdout).entry_count).toBe(10);
+  });
+});
+
+describe("error messages", () => {
+  it("explains a corrupt or foreign vault file instead of leaking a codec error", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-corrupt-"));
+    const broken = join(dir, "broken.enc");
+    await writeFile(broken, "not a seedpass vault");
+    const r = await run("--vault", broken, "entry", "list");
+    const msg = String((r.error as Error).message);
+    expect(msg).toContain("could not decrypt vault");
+    expect(msg).toContain("different seed");
   });
 });

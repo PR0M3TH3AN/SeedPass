@@ -11,7 +11,7 @@ import { Command } from "commander";
 import process from "node:process";
 import { entryMetadata, resolveEntry } from "./refs.js";
 import { materializeSecret } from "./secrets.js";
-import { clipboardSink, execSink, stdinSink } from "./sinks.js";
+import { clipboardSink, execSink, parseCommandSpec, stdinSink } from "./sinks.js";
 import { capabilities } from "./capabilities.js";
 import { openVault, saveVault, type OpenedVault } from "./vaultFile.js";
 import {
@@ -51,6 +51,7 @@ import {
   addNostrKeyEntry,
 } from "@seedpass/core";
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
 import { loadConfig, saveConfig } from "./configFile.js";
@@ -538,8 +539,14 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("use <refOrQuery>")
     .description("deliver a secret to a sink without printing it")
     .option("--clipboard", "copy to the system clipboard")
-    .option("--exec <cmd...>", "run a command with SEEDPASS_SECRET in its env")
-    .option("--stdin-to <cmd...>", "pipe the secret to a command's stdin")
+    .option(
+      "--exec <cmd...>",
+      'run a command with SEEDPASS_SECRET in its env (quote it to include flags: --exec "cmd -f")',
+    )
+    .option(
+      "--stdin-to <cmd...>",
+      'pipe the secret to a command\'s stdin (quote it to include flags: --stdin-to "wc -c")',
+    )
     .option("--at <timestamp>", "TOTP: unix time to compute the code at")
     .action(
       async (
@@ -564,11 +571,11 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         if (cmdOpts.clipboard) {
           result = await clipboardSink(secret.value);
         } else if (cmdOpts.exec) {
-          const [cmd, ...args] = cmdOpts.exec;
-          result = await execSink(secret.value, cmd!, args);
+          const [cmd, args] = parseCommandSpec(cmdOpts.exec);
+          result = await execSink(secret.value, cmd, args);
         } else {
-          const [cmd, ...args] = cmdOpts.stdinTo!;
-          result = await stdinSink(secret.value, cmd!, args);
+          const [cmd, args] = parseCommandSpec(cmdOpts.stdinTo!);
+          result = await stdinSink(secret.value, cmd, args);
         }
         io.out(
           JSON.stringify({
@@ -1030,19 +1037,54 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   vaultCmd
     .command("import <srcFile>")
-    .description("read a portable backup and print its reference summary")
-    .action(async (srcFile: string) => {
+    .description("restore a portable backup into the active vault")
+    .option("--inspect", "verify and summarize without writing")
+    .option("--yes", "confirm replacing a vault that already has entries")
+    .action(async (srcFile: string, o: { inspect?: boolean; yes?: boolean }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
       const raw = await readFile(srcFile);
-      const mnemonic = process.env["SEEDPASS_MNEMONIC"];
-      const index = await importBackup(new Uint8Array(raw), {
-        ...(mnemonic && { mnemonic }),
+      // Encrypted backups need the seed; plaintext ones do not, so only
+      // resolve when required (and use the agent, not just the env).
+      const isEncrypted = !/"encryption_mode"\s*:\s*"none"/.test(raw.toString("utf8"));
+      const mnemonic = isEncrypted ? await resolveMnemonic(app, opts) : undefined;
+      const parsed = await importBackup(new Uint8Array(raw), {
+        ...(mnemonic !== undefined && { mnemonic }),
       });
-      const entries = (index["entries"] ?? {}) as Record<string, { label?: string }>;
+      const index = parseVaultIndex(parsed);
+      const entryCount = Object.keys(index.entries).length;
+
+      if (o.inspect) {
+        io.out(
+          JSON.stringify({
+            inspected: srcFile,
+            schema_version: index.schema_version,
+            entry_count: entryCount,
+            written: false,
+          }),
+        );
+        return;
+      }
+
+      const targetMnemonic = mnemonic ?? (await resolveMnemonic(app, opts));
+      const fp = await currentFingerprint(app, opts);
+      const vaultPath = opts.vault ?? join(app.profileDir(fp), INDEX_FILENAME);
+      if (existsSync(vaultPath) && !o.yes) {
+        const current = await openVault(vaultPath, targetMnemonic);
+        if (Object.keys(current.index.entries).length > 0) {
+          throw new Error(
+            "refusing to replace a non-empty vault without --yes " +
+              "(use --inspect to check the backup first)",
+          );
+        }
+      }
+      await saveVault({ index, mnemonic: targetMnemonic, path: vaultPath });
       io.out(
         JSON.stringify({
           imported: srcFile,
-          schema_version: index["schema_version"],
-          entry_count: Object.keys(entries).length,
+          into: vaultPath,
+          schema_version: index.schema_version,
+          entry_count: entryCount,
         }),
       );
     });
