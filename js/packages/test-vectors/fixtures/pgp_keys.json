@@ -1,0 +1,55 @@
+{
+  "cases": [
+    {
+      "fingerprint": "A1FD9970389E8B5DD9F32FC5690C0D46AC5AC415",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAkZTLTsNAGTw+TqfXWFto1FaCK/PRyTYNWPjn\nNbYaDpcAAP9pQKAlkDpTjHzrG9McVv8KADX2ubTR8dIGw638+TlcMRFDzRNmaXh0\ndXJlQGV4YW1wbGUuY29twoQEExYIACwFAjhtQ4ACGw4CCwkCFQgCFgICHgEWIQSh\n/ZlwOJ6LXdnzL8VpDA1GrFrEFQAKCRBpDA1GrFrEFe9mAP9IEU0fQzBTW02Q3hLI\ntZmxACnMcSrYOonKRDalHeVYLAD+P6HW8hh6MScyxx6wFSELuIdu8bZrZJeLHXCd\nYrWyHQk=\n=4wML\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAkZTLTsNAGTw+TqfXWFto1FaCK/PRyTYNWPjn\nNbYaDpfNE2ZpeHR1cmVAZXhhbXBsZS5jb23ChAQTFggALAUCOG1DgAIbDgILCQIV\nCAIWAgIeARYhBKH9mXA4notd2fMvxWkMDUasWsQVAAoJEGkMDUasWsQV72YA/0gR\nTR9DMFNbTZDeEsi1mbEAKcxxKtg6icpENqUd5VgsAP4/odbyGHoxJzLHHrAVIQu4\nh27xtmtkl4sdcJ1itbIdCQ==\n=ouu/\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": "fixture@example.com"
+    },
+    {
+      "fingerprint": "56A49AC503F357A039E66FBAFC4E95D1D939DB41",
+      "index": 3,
+      "mnemonic_id": "abandon12",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAlusLgX7VuAW6RER7CGb3kcGuq+60/aYu1Z9X\nxegaGvgAAQDnLfInZCMHVXnP62Qm8j+pWeUj4fHalHAdGPUW7icwUw+RzQDChAQT\nFggALAUCOG1DgAIbDgILCQIVCAIWAgIeARYhBFakmsUD81egOeZvuvxOldHZOdtB\nAAoJEPxOldHZOdtB/LgBANMy16X21C7eXQP4Gb+1Uq2vAzyCiftyoL+vN03VxuYD\nAQCKUMr/KfTrrkiPzXWYrRIpd1Vz2e4fuaaHsUSRs/SpCw==\n=TVns\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAlusLgX7VuAW6RER7CGb3kcGuq+60/aYu1Z9X\nxegaGvjNAMKEBBMWCAAsBQI4bUOAAhsOAgsJAhUIAhYCAh4BFiEEVqSaxQPzV6A5\n5m+6/E6V0dk520EACgkQ/E6V0dk520H8uAEA0zLXpfbULt5dA/gZv7VSra8DPIKJ\n+3Kgv683TdXG5gMBAIpQyv8p9OuuSI/NdZitEil3VXPZ7h+5poexRJGz9KkL\n=kO2i\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": ""
+    },
+    {
+      "fingerprint": "D90DFDCD71D3EDA25D2988034274C4BD6C0BE425",
+      "index": 7,
+      "mnemonic_id": "abandon12",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAucdMbY9nhDIXqCy/UmQSpPOS86xTw8JmdcPx\n/al1S+UAAQDNkTt5UqUBi3Ru4QsjIFUVb78vNE6yCmbsGb8Qr2eYgQ0VzRJUZXN0\nIFVzZXIgPHRAZS5jbz7ChAQTFggALAUCOG1DgAIbDgILCQIVCAIWAgIeARYhBNkN\n/c1x0+2iXSmIA0J0xL1sC+QlAAoJEEJ0xL1sC+QlE9IA/jyKLvnR0eVWFPnur95Z\nendZ/SgeVk1SZf/7bsCZPErtAP981xFy0RxUN22P8YmMegcacHmNjjK/aE4dgLnz\n1Yo0CA==\n=8KEz\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAucdMbY9nhDIXqCy/UmQSpPOS86xTw8JmdcPx\n/al1S+XNElRlc3QgVXNlciA8dEBlLmNvPsKEBBMWCAAsBQI4bUOAAhsOAgsJAhUI\nAhYCAh4BFiEE2Q39zXHT7aJdKYgDQnTEvWwL5CUACgkQQnTEvWwL5CUT0gD+PIou\n+dHR5VYU+e6v3ll6d1n9KB5WTVJl//tuwJk8Su0A/3zXEXLRHFQ3bY/xiYx6Bxpw\neY2OMr9oTh2AufPVijQI\n=2pjl\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": "Test User <t@e.co>"
+    },
+    {
+      "fingerprint": "47BE49AAB11F6DCB279D62ECC0FB1165C17E88A1",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAx1kImQEAloaiNQruTKiotGmAVg3FzYEOp1Y/\nl6uPdvIAAQC64iWutMskN5yZk6hL1U2gd2P7sO/S5UEhG3ka4pzGxhIMzRNmaXh0\ndXJlQGV4YW1wbGUuY29twoQEExYIACwFAjhtQ4ACGw4CCwkCFQgCFgICHgEWIQRH\nvkmqsR9tyyedYuzA+xFlwX6IoQAKCRDA+xFlwX6IoWI5AQC3/sTXQHoOKPiPDEfa\nVubphoUPnqPB5sSSyDy7+yn5EAD/R9YavLTvpbai3qJ1ie6AJwv5eUap6iW/+Wyt\nDf6kiAg=\n=liuC\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAx1kImQEAloaiNQruTKiotGmAVg3FzYEOp1Y/\nl6uPdvLNE2ZpeHR1cmVAZXhhbXBsZS5jb23ChAQTFggALAUCOG1DgAIbDgILCQIV\nCAIWAgIeARYhBEe+SaqxH23LJ51i7MD7EWXBfoihAAoJEMD7EWXBfoihYjkBALf+\nxNdAeg4o+I8MR9pW5umGhQ+eo8HmxJLIPLv7KfkQAP9H1hq8tO+ltqLeonWJ7oAn\nC/l5RqnqJb/5bK0N/qSICA==\n=yr1d\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": "fixture@example.com"
+    },
+    {
+      "fingerprint": "4B8DC6C9F0B545A24EEA6C5666C292A5BF2B363A",
+      "index": 3,
+      "mnemonic_id": "zoo24",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAONRHiXm78/sEeZcIAyKiUKtCm6jkmWInRa4D\ntczel2oAAQD/jMxuhlf8SLcOX/riCIQ3LXl7gIkj1hDkk7o8wjz/rBDzzQDChAQT\nFggALAUCOG1DgAIbDgILCQIVCAIWAgIeARYhBEuNxsnwtUWiTupsVmbCkqW/KzY6\nAAoJEGbCkqW/KzY6iTYBANFecrbHgskgDzdNzNWH8RcKdJQrexHmwMD5SRkk959P\nAP4uE6iTgN/74it/2UrfzrIoWEZt4LlkLb6RzlqZuqswAA==\n=Hfbe\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAONRHiXm78/sEeZcIAyKiUKtCm6jkmWInRa4D\ntczel2rNAMKEBBMWCAAsBQI4bUOAAhsOAgsJAhUIAhYCAh4BFiEES43GyfC1RaJO\n6mxWZsKSpb8rNjoACgkQZsKSpb8rNjqJNgEA0V5ytseCySAPN03M1YfxFwp0lCt7\nEebAwPlJGST3n08A/i4TqJOA3/viK3/ZSt/OsihYRm3guWQtvpHOWpm6qzAA\n=LnpU\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": ""
+    },
+    {
+      "fingerprint": "94445E12BC9E19AAB560E6B76E3AC22AFCB6D2A9",
+      "index": 7,
+      "mnemonic_id": "zoo24",
+      "private_key_armored": "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nxVgEOG1DgBYJKwYBBAHaRw8BAQdAYpwMrnTUCa1NpM3bD3SjnYvUdxHQsqZvtvl3\nK4KTcLkAAQDHYRMgnfrdAVQpd8rTkfWO9KNvtEwABOrDLx3uzCkbhw/+zRJUZXN0\nIFVzZXIgPHRAZS5jbz7ChAQTFggALAUCOG1DgAIbDgILCQIVCAIWAgIeARYhBJRE\nXhK8nhmqtWDmt246wir8ttKpAAoJEG46wir8ttKpqIQA/1XQgXc+1ncTirpIQCaw\n499Cpq3nuOB7R8wbPaSCYShfAP9SEtn2rRTUA+dWRZPx+wdFU0AD4Qo6gHBZipgP\npik8DA==\n=hcQE\n-----END PGP PRIVATE KEY BLOCK-----\n",
+      "public_key_armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxjMEOG1DgBYJKwYBBAHaRw8BAQdAYpwMrnTUCa1NpM3bD3SjnYvUdxHQsqZvtvl3\nK4KTcLnNElRlc3QgVXNlciA8dEBlLmNvPsKEBBMWCAAsBQI4bUOAAhsOAgsJAhUI\nAhYCAh4BFiEElEReEryeGaq1YOa3bjrCKvy20qkACgkQbjrCKvy20qmohAD/VdCB\ndz7WdxOKukhAJrDj30Kmree44HtHzBs9pIJhKF8A/1IS2fatFNQD51ZFk/H7B0VT\nQAPhCjqAcFmKmA+mKTwM\n=K1M2\n-----END PGP PUBLIC KEY BLOCK-----\n",
+      "user_id": "Test User <t@e.co>"
+    }
+  ],
+  "created_at": 946684800,
+  "description": "Deterministic PGP (Ed25519/EdDSA) keys from BIP-85 app 32, created 2000-01-01T00:00:00Z, as PGPy serializes them. EdDSA signatures are deterministic, so the armored output is byte-reproducible.",
+  "fixture_version": 1
+}

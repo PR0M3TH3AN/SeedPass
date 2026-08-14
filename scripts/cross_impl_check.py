@@ -183,6 +183,7 @@ def py_create_profile(app_dir: Path, seed: str, password: str) -> str:
     em.add_managed_account("python-managed", seed)
     em.add_nostr_key("python-nostr", seed)
     em.add_ssh_key("python-ssh", seed)
+    em.add_pgp_key("python-pgp", seed, user_id="python@example.com")
 
     mgr = FingerprintManager(app_dir)
     if fp not in mgr.fingerprints:
@@ -276,6 +277,16 @@ def py_secrets_for(index: dict, seed: str) -> dict[str, str]:
             )
         elif kind == "managed_account":
             out[label] = derive_seed_phrase(bip85, int(entry.get("index", int(idx))), 12)
+        elif kind == "pgp":
+            from seedpass.core.password_generation import derive_pgp_key
+
+            priv, _pub, _fp = derive_pgp_key(
+                bip85,
+                int(entry.get("index", int(idx))),
+                entry.get("key_type", "ed25519"),
+                entry.get("user_id", ""),
+            )
+            out[label] = priv
         elif kind == "ssh":
             from seedpass.core.password_generation import derive_ssh_key_pair
 
@@ -378,6 +389,10 @@ def phase_b(tmp: Path) -> None:
     run_cli(app_dir, "entry", "add", "managed-account", "ts-managed", env_extra=env)
     run_cli(app_dir, "entry", "add", "ssh", "ts-ssh", env_extra=env)
     run_cli(app_dir, "entry", "add", "nostr", "ts-nostr", env_extra=env)
+    run_cli(
+        app_dir, "entry", "add", "pgp", "ts-pgp", "--user-id", "ts@example.com",
+        env_extra=env,
+    )
     run_cli(app_dir, "entry", "add", "document", "ts-doc", "ts document body", env_extra=env)
     run_cli(app_dir, "entry", "add", "seed", "ts-seed", "--words", "24", env_extra=env)
     run_cli(

@@ -52,7 +52,9 @@ import {
   addManagedAccountEntry,
   addNostrKeyEntry,
   addSshKeyEntry,
+  addPgpKeyEntry,
   deriveSshKeyPair,
+  derivePgpKey,
   sshPublicKeyOpenSsh,
 } from "@seedpass/core";
 import { readFile, writeFile } from "node:fs/promises";
@@ -406,6 +408,40 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     const id = addSshKeyEntry(vault.index, label, commonOpts(o));
     await finishAdd(vault, id);
   });
+
+  commonAddOptions(
+    add
+      .command("pgp <label>")
+      .description("derived Ed25519 PGP key entry")
+      .option("--user-id <uid>", "PGP user id", ""),
+  ).action(
+    async (
+      label: string,
+      o: { userId: string; notes?: string; tags?: string[]; archived?: boolean },
+    ) => {
+      const vault = await openFromOptions(program.opts());
+      const id = addPgpKeyEntry(vault.index, label, {
+        ...commonOpts(o),
+        userId: o.userId,
+      });
+      await finishAdd(vault, id);
+    },
+  );
+
+  entry
+    .command("pgp-public <refOrQuery>")
+    .description("print a PGP entry's public key block (not secret material)")
+    .action(async (refOrQuery: string) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      if (hit.entry.kind !== "pgp") throw new Error(`${hit.ref} is not a pgp entry`);
+      const key = derivePgpKey(vault.mnemonic, hit.entry.index, {
+        userId: hit.entry.user_id,
+        keyType: hit.entry.key_type,
+      });
+      io.out(JSON.stringify({ fingerprint: key.fingerprint }));
+      io.out(key.publicKeyArmored.trimEnd());
+    });
 
   entry
     .command("ssh-public <refOrQuery>")

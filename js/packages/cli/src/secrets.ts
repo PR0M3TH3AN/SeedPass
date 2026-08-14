@@ -15,6 +15,7 @@ import {
   hexToBech32,
   bytesToHex,
   deriveSshKeyPair,
+  derivePgpKey,
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
@@ -82,10 +83,16 @@ export function materializeSecret(
       // only by `entry ssh-public`, which is not a secret-bearing command.
       return { value: pair.privateKeyPem, descriptor: `SSH private key for ${entry.label}` };
     }
-    case "pgp":
-      throw new Error(
-        "PGP key material is not ported yet (see the compatibility matrix)",
-      );
+    case "pgp": {
+      const key = derivePgpKey(mnemonic, entry.index, {
+        userId: entry.user_id,
+        keyType: entry.key_type,
+      });
+      return {
+        value: key.privateKeyArmored,
+        descriptor: `PGP private key for ${entry.label}`,
+      };
+    }
     default: {
       const kind: string = (entry as { kind: string }).kind;
       throw new Error(`unsupported entry kind: ${kind}`);

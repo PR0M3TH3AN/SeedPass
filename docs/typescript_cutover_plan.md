@@ -17,7 +17,7 @@ P0 gate is green, Python remains the normative reference
 | Cross-implementation profile interop | green |
 | Sync protocol parity | green |
 | Agent security model | green (TS ahead of Python) |
-| Feature parity for daily use | partial |
+| Feature parity for daily use | partial (all derivations green) |
 | Packaging + release | not started |
 | Migration + rollback story | not started |
 
@@ -47,14 +47,15 @@ P0 gate is green, Python remains the normative reference
    and the TS CLI restores it with secrets intact. **Green.**
 
 5. **Feature parity for real daily use.** **Partial.** Remaining:
-   - PGP key material (entries round-trip; derivation not ported — highest
-     parity risk, PGPy serialization)
    - document import/export commands
    - `semantic` and `api` command groups (deliberately deferred; decide
      whether they block cutover or ship post-cutover)
+   - PGP RSA keys: unsupported by design (not byte-reproducible). Decide
+     whether existing RSA entries block cutover; ed25519 is at parity.
 
-   Done since this list was written: SSH key derivation (PEM byte-for-byte)
-   and schema migrations 0→4, so legacy Python profiles now open in TS.
+   Done since this list was written: SSH and PGP key derivation (both
+   byte-for-byte) and schema migrations 0→4, so legacy Python profiles now
+   open in TS.
 
 6. **Packaging and distribution exist.** Not started. Needs: an installable
    artifact (npm bin, single-file build, or both), checksums and signatures

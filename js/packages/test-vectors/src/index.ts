@@ -31,6 +31,7 @@ import nostrEventsJson from "../fixtures/nostr_events.json";
 import entryModsJson from "../fixtures/entry_mods.json";
 import migrationsJson from "../fixtures/migrations.json";
 import sshKeysJson from "../fixtures/ssh_keys.json";
+import pgpKeysJson from "../fixtures/pgp_keys.json";
 
 export interface Bip39Case {
   id: string;
@@ -243,6 +244,18 @@ export interface SshKeyCase {
 }
 
 export const sshKeyCases = (sshKeysJson as { cases: SshKeyCase[] }).cases;
+
+export interface PgpKeyCase {
+  mnemonic_id: string;
+  index: number;
+  user_id: string;
+  fingerprint: string;
+  private_key_armored: string;
+  public_key_armored: string;
+}
+
+export const pgpKeyCases = (pgpKeysJson as { cases: PgpKeyCase[] }).cases;
+export const pgpCreatedAt = (pgpKeysJson as { created_at: number }).created_at;
 
 export interface MigrationCase {
   name: string;

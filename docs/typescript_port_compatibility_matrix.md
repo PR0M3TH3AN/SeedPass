@@ -31,7 +31,7 @@ until a later milestone.
 | Password KDF (Argon2id) | P0 | green | `password_kdf.json` | `@noble/hashes` argon2id (pure JS, audited family); default (t=2, m=64MiB, p=8) and light params verified. |
 | KDF metadata parsing | P0 | green | `kdf_metadata.json`, `legacy_payloads.json` | KdfConfig schema with Python-default fallbacks. |
 | SSH key derivation | P1 | green | `ssh_keys.json` | Ed25519 from BIP-85 app 32; PKCS#8 and SubjectPublicKeyInfo PEM match Python `cryptography` byte-for-byte (fixed DER prefixes, no ASN.1 dependency). CLI: `entry add ssh`, reveal (private PEM), `entry ssh-public` (PEM or OpenSSH line — the OpenSSH format is a TS-only convenience Python does not emit). Cross-impl phases A/B include an ssh entry. |
-| PGP key derivation | P1/P2 | todo | — | Highest parity risk (PGPy serialization); import/roundtrip first. |
+| PGP key derivation | P1/P2 | green | `pgp_keys.json` | Ed25519/EdDSA from BIP-85 app 32, creation time pinned to 2000-01-01Z. OpenPGP packets are emitted directly (no OpenPGP dependency): new-format headers, secret-key/user-id/self-signature packets, ASCII armor with CRC-24. Armored private and public blocks match PGPy byte-for-byte across two seeds, three indices and three user-id shapes. **RSA is deliberately unsupported** — PyCryptodome's seeded prime search is not reproducible, so TS refuses rather than emitting a different key. CLI: `entry add pgp`, reveal, `entry pgp-public`. |
 | Nostr snapshot chunk/manifest model | P0 | green | `nostr_snapshot.json` | Kinds 30070/30071/30072; gzip chunking, chunk-hash verify, reassembly of Python-produced chunks, manifest JSON parse, manifest id HMAC (key_index chain). Compressed bytes are deliberately not byte-pinned (deflate encoders differ); cross-decompression verified both ways. |
 | Relay transport + sync flows | P0 | green | — (live mock relay) | RelayPool over platform WebSocket (multi-relay publish/fetch, dedupe, signature verification on ingest); publish/fetch snapshot with chunk-hash verify, delta publish/replay. End-to-end tested against an in-process NIP-01 relay incl. corrupted-chunk rejection, and at the CLI level: sync -> destroy local vault -> restore. jsdom skips transport tests (real-browser run: Milestone 6 CI). |
 | Deterministic conflict merge | P0 | green | `sync_merge.json` | Full `merge_index_payloads` port: ts precedence, canonical-hash tie-breaks (Python-compatible ensure_ascii canonical JSON), equal-ts field union incl. the `custom_fields: null` quirk, tombstone lifecycle, retention cap, `_sync_meta`. |
@@ -51,7 +51,7 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 173/173 core + 44 CLI |
+| Node 22 (vitest) | green — 193/193 core + 44 CLI |
 | jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
@@ -83,7 +83,7 @@ the same values:
 
 Entry coverage in phases A/B: password (plain and policy-constrained), TOTP
 (deterministic and imported), key_value, document, seed, managed_account,
-nostr, ssh.
+nostr, ssh, pgp — every creatable kind.
 
 ## Known intentional divergences
 

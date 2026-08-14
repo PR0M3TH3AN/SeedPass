@@ -33,6 +33,12 @@ export {
 } from "./derive/nostr.js";
 export { generateFingerprint } from "./derive/fingerprint.js";
 export {
+  derivePgpKey,
+  pgpFingerprint,
+  PGP_CREATED_AT,
+  type PgpKeyPair,
+} from "./derive/pgp.js";
+export {
   deriveSshKeyPair,
   deriveSshEntropy,
   sshPublicKeyOpenSsh,

@@ -1133,6 +1133,36 @@ def gen_ssh_keys() -> dict:
     }
 
 
+def gen_pgp_keys() -> dict:
+    from seedpass.core.password_generation import derive_pgp_key
+
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        bip85 = _bip85(MNEMONICS[mid])
+        for index, user_id in ((0, "fixture@example.com"), (3, ""), (7, "Test User <t@e.co>")):
+            priv, pub, fp = derive_pgp_key(bip85, index, "ed25519", user_id)
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "index": index,
+                    "user_id": user_id,
+                    "fingerprint": fp,
+                    "private_key_armored": priv,
+                    "public_key_armored": pub,
+                }
+            )
+    return {
+        "description": (
+            "Deterministic PGP (Ed25519/EdDSA) keys from BIP-85 app 32, "
+            "created 2000-01-01T00:00:00Z, as PGPy serializes them. EdDSA "
+            "signatures are deterministic, so the armored output is "
+            "byte-reproducible."
+        ),
+        "created_at": 946684800,
+        "cases": cases,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -1177,6 +1207,7 @@ def main() -> None:
         "kdf_metadata.json": gen_kdf_metadata(),
         "migrations.json": gen_migrations(),
         "ssh_keys.json": gen_ssh_keys(),
+        "pgp_keys.json": gen_pgp_keys(),
         "password_kdf.json": gen_password_kdf(),
         "legacy_payloads.json": gen_legacy_payloads(),
     }
