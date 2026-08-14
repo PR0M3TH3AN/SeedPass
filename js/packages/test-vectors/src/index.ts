@@ -28,6 +28,7 @@ import deltaReplayJson from "../fixtures/delta_replay.json";
 import portableBackupJson from "../fixtures/portable_backup.json";
 import entrySecretsJson from "../fixtures/entry_secrets.json";
 import nostrEventsJson from "../fixtures/nostr_events.json";
+import entryModsJson from "../fixtures/entry_mods.json";
 
 export interface Bip39Case {
   id: string;
@@ -229,6 +230,13 @@ export const nostrEvents = nostrEventsJson as {
   signer_private_key_hex: string;
   signer_public_key_hex: string;
   events: { name: string; event: SignedNostrEvent }[];
+};
+
+export const entryMods = entryModsJson as {
+  fixed_unix: number;
+  mod_unix: number;
+  mnemonic_id: string;
+  entries: Record<string, unknown>;
 };
 
 export const legacyPayloads = legacyPayloadsJson as {

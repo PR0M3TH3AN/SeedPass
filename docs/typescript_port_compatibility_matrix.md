@@ -37,16 +37,17 @@ until a later milestone.
 | index0 content merge (`_system.index0`) | P2 | partial | — | Empty-skeleton normalization matches Python; merging populated index0 event logs throws loudly instead of silently dropping data. Full port belongs to the atlas milestone. |
 | Nostr event layer (NIP-01 ids, BIP-340 sign/verify, framing) | P0 | green | `nostr_events.json` | Event ids match rust-nostr (Python nostr_sdk) fixtures byte-for-byte; fixture signatures verify in TS; TS-signed events reproduce the same ids and verify. REQ/EVENT/EOSE/OK/NOTICE/CLOSED framing round-trips. Fixture signatures are cached across generator runs (BIP-340 aux randomness). WebSocket relay transport: todo (interface milestones). |
 | Portable backup import/export | P0 | green | `portable_backup.json` | format_version 1, seed-only and plaintext modes; TS imports the Python export, re-exports byte-identically under pinned nonce/timestamp, verifies canonical checksum, rejects tampering/unknown versions. |
-| Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission, modify/archive ops. |
+| Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission. |
+| Entry modify/archive/links | P0 | green | `entry_mods.json` | TS replays a Python `EntryManager` op sequence (modify with kind-checked field matrix + policy merge, archive/restore, link add/remove with normalization and dedupe) byte-for-byte, including timestamp touching. |
 | Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
-| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Not yet: modify/archive, profiles, relay sync, leases/tokens. |
+| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password. Not yet: profiles/config, relay sync, leases/tokens. |
 
 ## Environment coverage
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 143/143 core + 16 CLI |
-| jsdom browser-like env | green — 143/143 core |
+| Node 22 (vitest) | green — 148/148 core + 22 CLI |
+| jsdom browser-like env | green — 148/148 core |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
 ## Dependency notes (to expand into docs/typescript_dependency_review.md)

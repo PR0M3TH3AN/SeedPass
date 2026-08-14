@@ -80,6 +80,18 @@ export {
   systemClock,
   type Clock,
 } from "./vault/entryOps.js";
+export {
+  modifyEntry,
+  archiveEntry,
+  restoreEntry,
+  addLink,
+  removeLink,
+  getLinks,
+  normalizeLinks,
+  type ModifyChanges,
+  type EntryLink,
+  type ResolvedLink,
+} from "./vault/entryMod.js";
 export { canonicalJson, canonicalHash } from "./sync/canonical.js";
 export {
   mergeIndexPayloads,

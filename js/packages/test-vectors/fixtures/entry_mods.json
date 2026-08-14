@@ -1,0 +1,186 @@
+{
+  "description": "Entries index after a modification sequence (modify_entry, archive/restore, add_link/remove_link) applied by the real EntryManager at MOD_UNIX. TS replays the same ops from the creation state and must match.",
+  "entries": {
+    "entries": {
+      "0": {
+        "archived": false,
+        "custom_fields": [],
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:15:00+00:00",
+        "gen_version": 2,
+        "kind": "password",
+        "label": "example.com",
+        "length": 16,
+        "links": [
+          {
+            "note": "2fa for site",
+            "relation": "totp",
+            "target_id": 1
+          }
+        ],
+        "modified_ts": 1700000100,
+        "notes": "updated note",
+        "policy": {
+          "min_digits": 3,
+          "special_mode": "safe"
+        },
+        "tags": [
+          "web",
+          "prod"
+        ],
+        "type": "password",
+        "url": "https://example.org",
+        "username": "alice2"
+      },
+      "1": {
+        "archived": false,
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:15:00+00:00",
+        "deterministic": true,
+        "digits": 8,
+        "index": 0,
+        "kind": "totp",
+        "label": "example-totp",
+        "links": [],
+        "modified_ts": 1700000100,
+        "notes": "",
+        "period": 60,
+        "tags": [
+          "otp"
+        ],
+        "type": "totp"
+      },
+      "2": {
+        "archived": false,
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:13:20+00:00",
+        "deterministic": false,
+        "digits": 8,
+        "kind": "totp",
+        "label": "imported-totp",
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "period": 45,
+        "secret": "JBSWY3DPEHPK3PXP",
+        "tags": [],
+        "type": "totp"
+      },
+      "3": {
+        "archived": true,
+        "custom_fields": [],
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:15:00+00:00",
+        "index": 3,
+        "kind": "ssh",
+        "label": "example-ssh",
+        "links": [],
+        "modified_ts": 1700000100,
+        "notes": "ssh note",
+        "tags": [],
+        "type": "ssh"
+      },
+      "4": {
+        "archived": false,
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:13:20+00:00",
+        "index": 4,
+        "kind": "nostr",
+        "label": "example-nostr",
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [],
+        "type": "nostr"
+      },
+      "5": {
+        "archived": false,
+        "custom_fields": [],
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:15:00+00:00",
+        "key": "token",
+        "kind": "key_value",
+        "label": "api-token-renamed",
+        "links": [
+          {
+            "note": "",
+            "relation": "related_to",
+            "target_id": 0
+          }
+        ],
+        "modified_ts": 1700000100,
+        "notes": "",
+        "tags": [
+          "api"
+        ],
+        "type": "key_value",
+        "value": "rotated-value"
+      },
+      "6": {
+        "archived": false,
+        "content": "hello fixture world",
+        "custom_fields": [],
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:15:00+00:00",
+        "file_type": "txt",
+        "kind": "document",
+        "label": "example-doc",
+        "links": [],
+        "modified_ts": 1700000100,
+        "notes": "",
+        "tags": [],
+        "type": "document"
+      },
+      "7": {
+        "archived": false,
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:13:20+00:00",
+        "index": 7,
+        "kind": "seed",
+        "label": "example-seed",
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [],
+        "type": "seed",
+        "word_count": 24
+      },
+      "8": {
+        "archived": false,
+        "custom_fields": [],
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:13:20+00:00",
+        "fingerprint": "DC982FD44E32F59A",
+        "index": 8,
+        "kind": "managed_account",
+        "label": "example-managed",
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [],
+        "type": "managed_account",
+        "word_count": 12
+      },
+      "9": {
+        "archived": false,
+        "date_added": "2023-11-14T22:13:20+00:00",
+        "date_modified": "2023-11-14T22:13:20+00:00",
+        "index": 9,
+        "key_type": "ed25519",
+        "kind": "pgp",
+        "label": "example-pgp",
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [],
+        "type": "pgp",
+        "user_id": "fixture@example.com"
+      }
+    },
+    "schema_version": 4
+  },
+  "fixed_unix": 1700000000,
+  "fixture_version": 1,
+  "mnemonic_id": "abandon12",
+  "mod_unix": 1700000100
+}

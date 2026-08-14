@@ -18,14 +18,18 @@ export function capabilities(): Record<string, unknown> {
     agent_surface: {
       reference_scheme: "sp://entry/<id>",
       reference_first_output: true,
-      plaintext_egress_commands: ["entry reveal"],
+      plaintext_egress_commands: [
+        "entry reveal",
+        "entry totp-codes",
+        "util generate-password",
+      ],
       sinks: ["clipboard", "exec-env", "stdin-to"],
       exec_env_var: "SEEDPASS_SECRET",
     },
     not_yet_ported: [
       "ssh/pgp key material",
       "relay sync commands",
-      "profile management",
+      "profile and config management",
       "index0/atlas",
       "leases and scoped tokens (design: plan section 9.3)",
     ],

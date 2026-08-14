@@ -335,8 +335,12 @@ def gen_index_keys() -> dict:
     }
 
 
-def _build_entries_index() -> dict:
-    """Build a real entries index with one entry of each kind, timestamps pinned."""
+def _build_entries_index(post_add=None) -> dict:
+    """Build a real entries index with one entry of each kind, timestamps pinned.
+
+    ``post_add(em)`` runs extra EntryManager operations before the index is
+    read back (used by the modification-parity fixture).
+    """
     from seedpass.core.backup import BackupManager
     from seedpass.core.config_manager import ConfigManager
     from seedpass.core.entry_management import EntryManager
@@ -384,6 +388,9 @@ def _build_entries_index() -> dict:
         em.add_seed("example-seed", mnemonic, words_num=24)
         em.add_managed_account("example-managed", mnemonic)
         em.add_pgp_key("example-pgp", mnemonic, user_id="fixture@example.com")
+
+        if post_add is not None:
+            post_add(em)
 
         index = vault.load_index()
         entries = {
@@ -978,6 +985,51 @@ def gen_nostr_events(snapshot: dict, delta_replay: dict) -> dict:
     }
 
 
+MOD_UNIX = FIXED_UNIX + 100
+
+
+def gen_entry_mods() -> dict:
+    """Apply a modification sequence via the real EntryManager and capture
+    the result; TS replicates the same ops and must match byte-for-byte."""
+    from seedpass.core.entry_management import EntryManager
+
+    def mods(em: EntryManager) -> None:
+        # Later timestamp so touched entries visibly differ from creation
+        EntryManager._now_unix = staticmethod(lambda: MOD_UNIX)
+        em.modify_entry(
+            0,
+            username="alice2",
+            url="https://example.org",
+            notes="updated note",
+            tags=["web", "prod"],
+            min_digits=3,
+            special_mode="safe",
+        )
+        em.modify_entry(1, period=60, digits=8)
+        em.modify_entry(5, label="api-token-renamed", value="rotated-value")
+        em.archive_entry(6)
+        em.restore_entry(6)
+        em.archive_entry(3)
+        em.add_link(0, 1, relation="totp", note="2fa for site")
+        em.add_link(0, 5, relation="related_to")
+        em.add_link(5, 0)
+        em.remove_link(0, 5)
+
+    entries = _build_entries_index(post_add=mods)
+    return {
+        "description": (
+            "Entries index after a modification sequence (modify_entry, "
+            "archive/restore, add_link/remove_link) applied by the real "
+            "EntryManager at MOD_UNIX. TS replays the same ops from the "
+            "creation state and must match."
+        ),
+        "fixed_unix": FIXED_UNIX,
+        "mod_unix": MOD_UNIX,
+        "mnemonic_id": PRIMARY,
+        "entries": entries,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -1029,6 +1081,7 @@ def main() -> None:
     files["nostr_snapshot.json"] = gen_nostr_snapshot(vault_fixture["payload_b64"])
     files["portable_backup.json"] = gen_portable_backup(entries_fixture["entries"])
     files["entry_secrets.json"] = gen_entry_secrets()
+    files["entry_mods.json"] = gen_entry_mods()
     files["sync_merge.json"] = gen_sync_merge()
     files["delta_replay.json"] = gen_delta_replay()
     files["nostr_events.json"] = gen_nostr_events(

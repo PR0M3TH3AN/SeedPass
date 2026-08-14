@@ -18,6 +18,18 @@ import {
   importBackup,
   exportBackup,
   generateFingerprint,
+  modifyEntry,
+  archiveEntry,
+  restoreEntry,
+  addLink,
+  removeLink,
+  getLinks,
+  generatePassword,
+  Bip85,
+  totpCodeAt,
+  deriveTotpSecret,
+  type ModifyChanges,
+  type PasswordPolicy,
   addPasswordEntry,
   addTotpDeterministic,
   addTotpImported,
@@ -257,6 +269,137 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
   });
 
   entry
+    .command("modify <refOrQuery>")
+    .description("update entry fields (kind-checked); prints the new metadata")
+    .option("--label <text>")
+    .option("--username <text>")
+    .option("--url <text>")
+    .option("--notes <text>")
+    .option("--tags <tag...>")
+    .option("--period <n>")
+    .option("--digits <n>")
+    .option("--key <text>")
+    .option("--value <text>", "new secret value (key_value/managed_account)")
+    .option("--content <text>", "new document content")
+    .option("--file-type <ext>")
+    .action(
+      async (
+        refOrQuery: string,
+        o: {
+          label?: string; username?: string; url?: string; notes?: string;
+          tags?: string[]; period?: string; digits?: string; key?: string;
+          value?: string; content?: string; fileType?: string;
+        },
+      ) => {
+        const vault = await openFromOptions(program.opts());
+        const hit = resolveEntry(vault.index, refOrQuery);
+        const changes: ModifyChanges = {
+          ...(o.label !== undefined && { label: o.label }),
+          ...(o.username !== undefined && { username: o.username }),
+          ...(o.url !== undefined && { url: o.url }),
+          ...(o.notes !== undefined && { notes: o.notes }),
+          ...(o.tags !== undefined && { tags: o.tags }),
+          ...(o.period !== undefined && { period: Number(o.period) }),
+          ...(o.digits !== undefined && { digits: Number(o.digits) }),
+          ...(o.key !== undefined && { key: o.key }),
+          ...(o.value !== undefined && { value: o.value }),
+          ...(o.content !== undefined && { content: o.content }),
+          ...(o.fileType !== undefined && { file_type: o.fileType }),
+        };
+        if (Object.keys(changes).length === 0) throw new Error("no changes given");
+        modifyEntry(vault.index, hit.id, changes);
+        await saveVault(vault);
+        io.out(JSON.stringify(entryMetadata(hit.id, vault.index.entries[hit.id]!), null, 2));
+      },
+    );
+
+  entry
+    .command("archive <refOrQuery>")
+    .description("archive an entry")
+    .action(async (refOrQuery: string) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      archiveEntry(vault.index, hit.id);
+      await saveVault(vault);
+      io.out(JSON.stringify({ ref: hit.ref, archived: true }));
+    });
+
+  entry
+    .command("unarchive <refOrQuery>")
+    .description("restore an archived entry")
+    .action(async (refOrQuery: string) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      restoreEntry(vault.index, hit.id);
+      await saveVault(vault);
+      io.out(JSON.stringify({ ref: hit.ref, archived: false }));
+    });
+
+  entry
+    .command("links <refOrQuery>")
+    .description("list an entry's links with resolved targets")
+    .action(async (refOrQuery: string) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      io.out(JSON.stringify(getLinks(vault.index, hit.id), null, 2));
+    });
+
+  entry
+    .command("link-add <refOrQuery> <target>")
+    .description("link an entry to another")
+    .option("--relation <name>", "relation type", "related_to")
+    .option("--note <text>", "link note", "")
+    .action(async (refOrQuery: string, target: string, o: { relation: string; note: string }) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      const targetHit = resolveEntry(vault.index, target);
+      const links = addLink(vault.index, hit.id, Number(targetHit.id), {
+        relation: o.relation,
+        note: o.note,
+      });
+      await saveVault(vault);
+      io.out(JSON.stringify({ ref: hit.ref, links }, null, 2));
+    });
+
+  entry
+    .command("link-remove <refOrQuery> <target>")
+    .description("remove links to a target entry")
+    .option("--relation <name>", "only remove this relation")
+    .action(async (refOrQuery: string, target: string, o: { relation?: string }) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      const targetHit = resolveEntry(vault.index, target);
+      const links = removeLink(vault.index, hit.id, Number(targetHit.id), {
+        ...(o.relation !== undefined && { relation: o.relation }),
+      });
+      await saveVault(vault);
+      io.out(JSON.stringify({ ref: hit.ref, links }, null, 2));
+    });
+
+  entry
+    .command("totp-codes")
+    .description("PLAINTEXT EGRESS: current codes for all active TOTP entries")
+    .option("--at <timestamp>", "unix time to compute codes at")
+    .action(async (cmdOpts: { at?: string }) => {
+      const vault = await openFromOptions(program.opts());
+      const ts = cmdOpts.at !== undefined ? Number(cmdOpts.at) : Math.floor(Date.now() / 1000);
+      const rows = Object.entries(vault.index.entries)
+        .filter(([, e]) => e.kind === "totp" && !e.archived)
+        .map(([id, e]) => {
+          const totp = e as { secret?: string; index?: number; period: number; digits: number; label: string };
+          const secret = totp.secret ?? deriveTotpSecret(vault.mnemonic, totp.index ?? 0);
+          return {
+            ref: `sp://entry/${id}`,
+            label: totp.label,
+            code: totpCodeAt(secret, ts, totp.period, totp.digits),
+            period: totp.period,
+            seconds_remaining: totp.period - (ts % totp.period),
+          };
+        });
+      io.out(JSON.stringify(rows, null, 2));
+    });
+
+  entry
     .command("reveal <refOrQuery>")
     .description("PLAINTEXT EGRESS: print the secret to stdout")
     .option("--at <timestamp>", "TOTP: unix time to compute the code at")
@@ -308,6 +451,50 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             delivered: secret.descriptor,
             ref: hit.ref,
             ...result,
+          }),
+        );
+      },
+    );
+
+  const util = program.command("util").description("utility commands");
+
+  util
+    .command("generate-password")
+    .description("derive a password (Python parity: index 0, gen v1 by default)")
+    .option("--length <n>", "password length", "24")
+    .option("--index <n>", "derivation index", "0")
+    .option("--gen-version <v>", "generation version (1 or 2)", "1")
+    .option("--no-special", "exclude special characters")
+    .option("--allowed-special-chars <set>")
+    .option("--special-mode <mode>")
+    .option("--exclude-ambiguous")
+    .option("--min-uppercase <n>")
+    .option("--min-lowercase <n>")
+    .option("--min-digits <n>")
+    .option("--min-special <n>")
+    .action(
+      (o: {
+        length: string; index: string; genVersion: string; special: boolean;
+        allowedSpecialChars?: string; specialMode?: string; excludeAmbiguous?: boolean;
+        minUppercase?: string; minLowercase?: string; minDigits?: string; minSpecial?: string;
+      }) => {
+        const policy: PasswordPolicy = {
+          ...(o.special === false && { includeSpecialChars: false }),
+          ...(o.allowedSpecialChars !== undefined && { allowedSpecialChars: o.allowedSpecialChars }),
+          ...(o.specialMode !== undefined && { specialMode: o.specialMode }),
+          ...(o.excludeAmbiguous !== undefined && { excludeAmbiguous: o.excludeAmbiguous }),
+          ...(o.minUppercase !== undefined && { minUppercase: Number(o.minUppercase) }),
+          ...(o.minLowercase !== undefined && { minLowercase: Number(o.minLowercase) }),
+          ...(o.minDigits !== undefined && { minDigits: Number(o.minDigits) }),
+          ...(o.minSpecial !== undefined && { minSpecial: Number(o.minSpecial) }),
+        };
+        const bip85 = Bip85.fromMnemonic(requireMnemonic());
+        io.out(
+          generatePassword(bip85, {
+            length: Number(o.length),
+            index: Number(o.index),
+            genVersion: Number(o.genVersion),
+            policy,
           }),
         );
       },

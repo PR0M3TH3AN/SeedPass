@@ -14,6 +14,7 @@ import process from "node:process";
 import {
   entriesIndex,
   entrySecrets,
+  passwordV1Cases,
   passwordV2Cases,
   totpCases,
   mnemonics,
@@ -244,6 +245,90 @@ describe("sink delivery keeps secrets out of CLI output", () => {
       "--vault", vaultPath, "use", "api-token", "--clipboard", "--stdin-to", "cat",
     );
     expect(String((r.error as Error).message)).toContain("exactly one sink");
+  });
+});
+
+describe("modification commands", () => {
+  let modPath: string;
+
+  beforeAll(async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-mod-"));
+    modPath = join(dir, "vault.enc");
+    await writeFile(modPath, await readFile(vaultPath));
+  });
+
+  it("entry modify updates fields and bumps timestamps", async () => {
+    const before = JSON.parse(
+      (await run("--vault", modPath, "entry", "get", "example.com")).stdout,
+    );
+    const r = await run(
+      "--vault", modPath, "entry", "modify", "example.com",
+      "--username", "carol", "--tags", "web", "staging",
+    );
+    const row = JSON.parse(r.stdout);
+    expect(row.username).toBe("carol");
+    expect(row.tags).toEqual(["web", "staging"]);
+    expect(row.modified_ts).toBeGreaterThan(before.modified_ts);
+  });
+
+  it("entry modify rejects fields the kind does not allow", async () => {
+    const r = await run(
+      "--vault", modPath, "entry", "modify", "example-totp", "--username", "x",
+    );
+    expect(String((r.error as Error).message)).toContain("does not support fields");
+  });
+
+  it("archive hides from totp-codes; unarchive restores", async () => {
+    await run("--vault", modPath, "entry", "archive", "example-totp");
+    const archived = JSON.parse(
+      (await run("--vault", modPath, "entry", "totp-codes", "--at", "1700000000")).stdout,
+    ) as { label: string }[];
+    expect(archived.map((x) => x.label)).not.toContain("example-totp");
+
+    await run("--vault", modPath, "entry", "unarchive", "example-totp");
+    const restored = JSON.parse(
+      (await run("--vault", modPath, "entry", "totp-codes", "--at", "1700000000")).stdout,
+    ) as { label: string; code: string }[];
+    const det = restored.find((x) => x.label === "example-totp")!;
+    expect(det.code).toBe(entrySecrets.totp_entry_1_code_at["1700000000"]);
+  });
+
+  it("link-add/links/link-remove round-trip with resolved targets", async () => {
+    await run(
+      "--vault", modPath, "entry", "link-add", "example.com", "example-totp",
+      "--relation", "totp", "--note", "2fa",
+    );
+    const links = JSON.parse(
+      (await run("--vault", modPath, "entry", "links", "example.com")).stdout,
+    );
+    expect(links).toEqual([
+      { target_id: 1, relation: "totp", note: "2fa", target_label: "example-totp", target_kind: "totp" },
+    ]);
+    const after = await run(
+      "--vault", modPath, "entry", "link-remove", "example.com", "example-totp",
+    );
+    expect(JSON.parse(after.stdout).links).toEqual([]);
+  });
+});
+
+describe("util generate-password", () => {
+  it("matches the v1 fixture at default index/version", async () => {
+    const expected = passwordV1Cases.find(
+      (c) => c.policy === "default" && c.length === 16 && c.index === 0,
+    )!.password;
+    const r = await run("util", "generate-password", "--length", "16");
+    expect(r.stdout).toBe(expected);
+  });
+
+  it("matches v2 and policy fixtures", async () => {
+    const v2 = passwordV2Cases.find(
+      (c) => c.policy === "safe_special" && c.length === 40 && c.index === 2,
+    )!.password;
+    const r = await run(
+      "util", "generate-password", "--length", "40", "--index", "2",
+      "--gen-version", "2", "--special-mode", "safe",
+    );
+    expect(r.stdout).toBe(v2);
   });
 });
 
