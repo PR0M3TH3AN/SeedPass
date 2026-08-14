@@ -26,6 +26,7 @@ import { base64 } from "@scure/base";
 import {
   Bip85,
   generatePassword,
+  passwordPolicyFromRecord,
   deriveTotpSecret,
   totpCodeAt,
   deriveNostrKeys,
@@ -103,6 +104,31 @@ describe("password derivation v2", () => {
       policy: toPolicy(c),
     });
     expect(password).toBe(c.password);
+  });
+});
+
+describe("entry policy blocks", () => {
+  it("derives via the entry's stored policy, matching Python", () => {
+    // Python's _generate_password_for_entry merges an entry's `policy` block
+    // over the base policy; ignoring it silently yields a different password.
+    const cases = passwordV2Cases.filter((c) => Object.keys(c.policy_params).length > 0);
+    expect(cases.length).toBeGreaterThan(0);
+    for (const c of cases) {
+      const fromRecord = passwordPolicyFromRecord(c.policy_params);
+      const password = generatePassword(bip85For(c.mnemonic_id), {
+        length: c.length,
+        index: c.index,
+        genVersion: 2,
+        policy: fromRecord,
+      });
+      expect(password).toBe(c.password);
+    }
+  });
+
+  it("ignores unknown keys and a non-object policy", () => {
+    expect(passwordPolicyFromRecord({ nonsense: 1 })).toEqual({});
+    expect(passwordPolicyFromRecord(null)).toEqual({});
+    expect(passwordPolicyFromRecord("nope")).toEqual({});
   });
 });
 

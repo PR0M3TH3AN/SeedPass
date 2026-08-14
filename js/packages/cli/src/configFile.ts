@@ -6,7 +6,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { decryptPayload, deriveIndexKeyBytes, encryptV3, utf8 } from "@seedpass/core";
+import {
+  decryptPayload,
+  deriveIndexKeyBytes,
+  encryptV3,
+  parseEncryptedFile,
+  utf8,
+} from "@seedpass/core";
 import { CONFIG_FILENAME } from "./appDir.js";
 
 export const DEFAULT_RELAYS = [
@@ -49,7 +55,10 @@ export async function loadConfig(
   if (!existsSync(path)) return defaultConfig();
   const key = deriveIndexKeyBytes(mnemonic);
   const blob = new Uint8Array(await readFile(path));
-  const plain = await decryptPayload(key, blob);
+  // Python writes config through EncryptionManager.save_json_data, which
+  // wraps the ciphertext in a kdf/ct JSON envelope; TS writes it bare.
+  // parseEncryptedFile handles both.
+  const plain = await decryptPayload(key, parseEncryptedFile(blob).ciphertext);
   return { ...defaultConfig(), ...(JSON.parse(new TextDecoder().decode(plain)) as object) };
 }
 

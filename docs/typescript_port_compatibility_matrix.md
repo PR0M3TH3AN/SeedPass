@@ -51,7 +51,7 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 171/171 core + 44 CLI |
+| Node 22 (vitest) | green — 173/173 core + 44 CLI |
 | jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
@@ -62,7 +62,49 @@ Crypto path uses the audited noble/scure family only: `@noble/hashes`,
 platform WebCrypto (Node `crypto.subtle` / browser). No other runtime
 dependencies in the core.
 
+## Cross-implementation suite
+
+`scripts/cross_impl_check.py` (30 checks, in CI) proves the two
+implementations read each other's real artifacts, not just that they compute
+the same values:
+
+| Phase | Covers |
+|---|---|
+| A | Python creates a profile -> TS opens it, derives every secret, unlocks from the master password |
+| B | TS creates a profile -> Python decrypts the parent seed and index, derives every secret |
+| C | Portable backups both directions, incl. Python's checksum verification |
+| D | Both reject a bad-checksum mnemonic |
+| E | A legacy v2 Python index migrates and opens in TS; Python still reads it after |
+| F | Live relay: Python publishes a snapshot, TS restores it with secrets intact |
+| G | Edits (modify/archive/links) made by either side are seen by the other |
+| H | Deterministic conflict merge produces identical output on both sides |
+| I | An Argon2id-protected Python profile unlocks in TS |
+| J | The encrypted config file interoperates both directions |
+
+Entry coverage in phases A/B: password (plain and policy-constrained), TOTP
+(deterministic and imported), key_value, document, seed, managed_account,
+nostr, ssh.
+
 ## Known intentional divergences
 
-None yet. Any future divergence must carry a compatibility version, a
+1. **TOTP codes for entries with a non-default period/digits.** Python's
+   `TotpManager.current_code_from_secret` constructs `pyotp.TOTP(secret)`
+   with library defaults (6 digits, 30s) and ignores the entry's stored
+   `period`/`digits`; TS honors them. For an imported 8-digit/45s secret the
+   two produce different codes — and Python's would be rejected by the
+   issuing service. **TS behavior is believed correct; awaiting a product
+   decision on whether Python should be fixed to match.** Recorded by the
+   cross-impl suite as a `[DIVERGE]` line so it can never become silent.
+
+2. **`kind` backfill on legacy entries** (see the migrations row): TS fills
+   `kind` from `type` at parse time for pre-v2 entries; Python leaves them
+   `type`-only and falls back on read. The filled shape matches what Python
+   writes for new entries, and Python reads it unchanged.
+
+3. **Index/config file envelope**: Python wraps ciphertext in a kdf/ct JSON
+   envelope; TS writes bare ciphertext. Both implementations read both forms
+   (Python via its legacy fallback, TS via `parseEncryptedFile`), verified in
+   cross-impl phases A/B/F/J.
+
+Any future divergence must carry a compatibility version, a
 migration/fallback path, release notes, and tests (plan §6).

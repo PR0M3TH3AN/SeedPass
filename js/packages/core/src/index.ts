@@ -13,6 +13,7 @@ export {
 } from "./derive/bip85.js";
 export {
   generatePassword,
+  passwordPolicyFromRecord,
   derivePasswordDk,
   type PasswordPolicy,
   LEGACY_PASSWORD_GEN_VERSION,

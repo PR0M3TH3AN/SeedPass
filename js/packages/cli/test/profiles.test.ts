@@ -5,13 +5,20 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
-import { generateFingerprint, sha256Hex, hexToBytes, utf8 } from "@seedpass/core";
+import {
+  generateFingerprint,
+  sha256Hex,
+  hexToBytes,
+  utf8,
+  encryptV3,
+  deriveIndexKeyBytes,
+} from "@seedpass/core";
 import { buildProgram, AgentDaemon, agentSocketPath, type ProgramIo } from "../src/index.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
@@ -161,6 +168,23 @@ describe("agent unlock lifecycle (no mnemonic in env)", () => {
 
     const denied = await run({ SEEDPASS_MNEMONIC: undefined }, "entry", "list");
     expect(String((denied.error as Error).message)).toContain("vault is locked");
+  });
+});
+
+describe("config file compatibility", () => {
+  it("reads a config written in Python's kdf/ct wrapper format", async () => {
+    // Python's EncryptionManager.save_json_data wraps ciphertext in a JSON
+    // envelope; TS writes it bare. Reading must handle both.
+    const key = deriveIndexKeyBytes(MNEMONIC);
+    const inner = await encryptV3(key, utf8(JSON.stringify({ clipboard_clear_delay: 99 })));
+    const wrapped = JSON.stringify({
+      kdf: { name: "argon2id", version: 1, params: {}, salt_b64: "" },
+      ct: Buffer.from(inner).toString("base64"),
+    });
+    await writeFile(join(appDir, FINGERPRINT, "seedpass_config.json.enc"), wrapped);
+
+    const r = await run({ SEEDPASS_MNEMONIC: MNEMONIC }, "config", "get");
+    expect(JSON.parse(r.stdout).clipboard_clear_delay).toBe(99);
   });
 });
 

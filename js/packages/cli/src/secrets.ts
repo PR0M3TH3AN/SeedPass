@@ -9,6 +9,7 @@
 import {
   Bip85,
   generatePassword,
+  passwordPolicyFromRecord,
   deriveTotpSecret,
   totpCodeAt,
   hexToBech32,
@@ -35,14 +36,15 @@ export function materializeSecret(
 ): MaterializedSecret {
   switch (entry.kind) {
     case "password": {
-      // Per-profile policy overrides live in the config file (not the
-      // index); the default policy applies until profile management is
-      // ported.
+      // The entry's own policy block must be honored — Python merges it over
+      // the base policy before deriving, so ignoring it yields a different
+      // password for any entry created with policy flags.
       const bip85 = Bip85.fromMnemonic(mnemonic);
       const value = generatePassword(bip85, {
         length: entry.length,
         index: Number(id),
         genVersion: entry.gen_version ?? 1,
+        policy: passwordPolicyFromRecord((entry as { policy?: unknown }).policy),
       });
       return { value, descriptor: `password for ${entry.label}` };
     }

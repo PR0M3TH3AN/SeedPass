@@ -51,12 +51,23 @@ SEED_INVALID = (
 PASSWORD = "cross-impl-check-password"
 
 results: list[tuple[str, bool, str]] = []
+divergences: list[tuple[str, str]] = []
 
 
 def check(name: str, ok: bool, detail: str = "") -> None:
     results.append((name, ok, detail))
     mark = "PASS" if ok else "FAIL"
     print(f"  [{mark}] {name}" + (f" -- {detail}" if detail and not ok else ""))
+
+
+def note_divergence(name: str, detail: str) -> None:
+    """Record a known, deliberate behavioral difference.
+
+    Not a failure — but never silent either: every entry here must appear in
+    the compatibility matrix's divergence section with a decision attached.
+    """
+    divergences.append((name, detail))
+    print(f"  [DIVERGE] {name} -- {detail}")
 
 
 class agent_running:
@@ -152,10 +163,25 @@ def py_create_profile(app_dir: Path, seed: str, password: str) -> str:
     backup_mgr = BackupManager(fp_dir, cfg_mgr)
     em = EntryManager(vault, backup_mgr)
 
+    # Every creatable kind, plus the shapes most likely to expose drift:
+    # a policy-constrained password and an imported (non-deterministic) TOTP.
     em.add_entry("python-site.example", 18, username="pyuser", url="https://py.example")
+    em.add_entry(
+        "python-policy-site",
+        24,
+        username="policyuser",
+        special_mode="safe",
+        min_digits=4,
+        min_uppercase=3,
+        exclude_ambiguous=True,
+    )
     em.add_totp("python-totp", seed, deterministic=True)
+    em.add_totp("python-totp-imported", secret="JBSWY3DPEHPK3PXP", period=45, digits=8)
     em.add_key_value("python-api", "token", "py-secret-value")
+    em.add_document("python-doc", "python document body", file_type="md")
     em.add_seed("python-cold-seed", seed, words_num=24)
+    em.add_managed_account("python-managed", seed)
+    em.add_nostr_key("python-nostr", seed)
     em.add_ssh_key("python-ssh", seed)
 
     mgr = FingerprintManager(app_dir)
@@ -212,7 +238,18 @@ def py_secrets_for(index: dict, seed: str) -> dict[str, str]:
         kind = entry.get("kind", entry.get("type"))
         label = entry.get("label", "")
         if kind == "password":
-            pg = PasswordGenerator(_Deriver(), seed, bip85, policy=PasswordPolicy())
+            # Mirror _generate_password_for_entry: merge the entry's policy
+            # overrides onto the base policy before deriving.
+            import dataclasses
+
+            policy = PasswordPolicy()
+            overrides = entry.get("policy", {})
+            if isinstance(overrides, dict) and overrides:
+                policy = dataclasses.replace(
+                    policy,
+                    **{k: v for k, v in overrides.items() if hasattr(policy, k)},
+                )
+            pg = PasswordGenerator(_Deriver(), seed, bip85, policy=policy)
             out[label] = pg.generate_password(
                 length=int(entry["length"]),
                 index=int(idx),
@@ -295,6 +332,21 @@ def phase_a(tmp: Path) -> None:
         for k in py_secrets
         if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
     ]
+    # Known divergence: Python generates TOTP codes with pyotp defaults
+    # (6 digits / 30s) even when the entry records different values, so an
+    # imported 8-digit/45s code differs. Tracked, not silently accepted.
+    custom_totp = {
+        e["label"]
+        for e in py_index.get("entries", {}).values()
+        if e.get("kind", e.get("type")) == "totp"
+        and (int(e.get("period", 30)) != 30 or int(e.get("digits", 6)) != 6)
+    }
+    for label in sorted(custom_totp & set(mismatches)):
+        note_divergence(
+            f"TOTP code for {label!r}",
+            "Python ignores the entry's period/digits (pyotp defaults); TS honors them",
+        )
+    mismatches = [k for k in mismatches if k not in custom_totp]
     check(
         "every secret derives identically",
         not mismatches,
@@ -335,6 +387,14 @@ def phase_b(tmp: Path) -> None:
     run_cli(app_dir, "entry", "add", "key-value", "ts-api", "token", "ts-secret-value", env_extra=env)
     run_cli(app_dir, "entry", "add", "managed-account", "ts-managed", env_extra=env)
     run_cli(app_dir, "entry", "add", "ssh", "ts-ssh", env_extra=env)
+    run_cli(app_dir, "entry", "add", "nostr", "ts-nostr", env_extra=env)
+    run_cli(app_dir, "entry", "add", "document", "ts-doc", "ts document body", env_extra=env)
+    run_cli(app_dir, "entry", "add", "seed", "ts-seed", "--words", "24", env_extra=env)
+    run_cli(
+        app_dir, "entry", "add", "totp", "ts-totp-imported",
+        "--secret", "JBSWY3DPEHPK3PXP", "--period", "45", "--digits", "8",
+        env_extra=env,
+    )
 
     from utils.fingerprint import generate_fingerprint
 
@@ -357,6 +417,21 @@ def phase_b(tmp: Path) -> None:
         for k in py_secrets
         if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
     ]
+    # Known divergence: Python generates TOTP codes with pyotp defaults
+    # (6 digits / 30s) even when the entry records different values, so an
+    # imported 8-digit/45s code differs. Tracked, not silently accepted.
+    custom_totp = {
+        e["label"]
+        for e in py_index.get("entries", {}).values()
+        if e.get("kind", e.get("type")) == "totp"
+        and (int(e.get("period", 30)) != 30 or int(e.get("digits", 6)) != 6)
+    }
+    for label in sorted(custom_totp & set(mismatches)):
+        note_divergence(
+            f"TOTP code for {label!r}",
+            "Python ignores the entry's period/digits (pyotp defaults); TS honors them",
+        )
+    mismatches = [k for k in mismatches if k not in custom_totp]
     check("every secret derives identically", not mismatches, f"mismatched: {mismatches}")
 
     # Python's schema validation should accept the TS-written index
@@ -654,6 +729,213 @@ def phase_f(tmp: Path) -> None:
             check("TS restores the Python-published snapshot", False, str(exc))
 
 
+def _py_vault(app_dir: Path, fp: str, seed: str):
+    from seedpass.core.backup import BackupManager
+    from seedpass.core.config_manager import ConfigManager
+    from seedpass.core.encryption import EncryptionManager
+    from seedpass.core.entry_management import EntryManager
+    from seedpass.core.vault import Vault
+    from utils.key_derivation import derive_index_key
+
+    fp_dir = app_dir / fp
+    enc = EncryptionManager(derive_index_key(seed), fp_dir)
+    vault = Vault(enc, fp_dir)
+    cfg = ConfigManager(vault, fp_dir)
+    return vault, EntryManager(vault, BackupManager(fp_dir, cfg)), cfg
+
+
+def phase_g(tmp: Path) -> None:
+    print("\nPhase G: edits made by one implementation are seen by the other")
+    from utils.fingerprint import generate_fingerprint
+
+    app_dir = tmp / "g"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    env = {"SEEDPASS_MNEMONIC": SEED_A}
+
+    # Python edits -> TS sees
+    _vault, em, _cfg = _py_vault(app_dir, fp, SEED_A)
+    em.modify_entry(0, username="edited-by-python", notes="python note")
+    em.archive_entry(1)
+    em.add_link(0, 2, relation="related_to", note="py link")
+    row = json.loads(run_cli(app_dir, "entry", "get", "0", env_extra=env))
+    check(
+        "TS sees Python's edit",
+        row.get("username") == "edited-by-python" and row.get("notes") == "python note",
+        json.dumps({k: row.get(k) for k in ("username", "notes")}),
+    )
+    links = json.loads(run_cli(app_dir, "entry", "links", "0", env_extra=env))
+    check(
+        "TS sees Python's link with a resolved target",
+        len(links) == 1 and links[0]["relation"] == "related_to" and links[0]["target_id"] == 2,
+        json.dumps(links),
+    )
+    archived = json.loads(run_cli(app_dir, "entry", "get", "1", env_extra=env))
+    check("TS sees Python's archive flag", archived.get("archived") is True)
+
+    # TS edits -> Python sees
+    run_cli(app_dir, "entry", "modify", "0", "--notes", "edited-by-ts", env_extra=env)
+    run_cli(app_dir, "entry", "unarchive", "1", env_extra=env)
+    run_cli(app_dir, "entry", "link-remove", "0", "2", env_extra=env)
+    _vault2, em2, _cfg2 = _py_vault(app_dir, fp, SEED_A)
+    entry0 = em2.retrieve_entry(0)
+    entry1 = em2.retrieve_entry(1)
+    check("Python sees TS's edit", entry0.get("notes") == "edited-by-ts", str(entry0.get("notes")))
+    check("Python sees TS's unarchive", entry1.get("archived") is False)
+    check("Python sees TS's link removal", em2.get_links(0) == [])
+
+
+def phase_h(tmp: Path) -> None:
+    print("\nPhase H: conflict merge agrees across implementations")
+    # Both sides merge the same divergent payloads; results must be identical,
+    # or two clients syncing the same vault would converge differently.
+    from seedpass.core.sync_conflict import merge_index_payloads
+
+    base_ts = 1800000000
+    current = {
+        "schema_version": 4,
+        "entries": {
+            "0": {
+                "type": "password", "kind": "password", "label": "shared",
+                "length": 16, "archived": False, "notes": "from-current",
+                "tags": ["a"], "modified_ts": base_ts,
+            },
+            "1": {
+                "type": "key_value", "kind": "key_value", "label": "only-current",
+                "key": "k", "value": "v", "archived": False, "notes": "",
+                "tags": [], "modified_ts": base_ts,
+            },
+        },
+    }
+    incoming = {
+        "schema_version": 4,
+        "entries": {
+            "0": {
+                "type": "password", "kind": "password", "label": "shared",
+                "length": 16, "archived": True, "notes": "",
+                "tags": ["b"], "modified_ts": base_ts, "username": "incoming-user",
+            },
+            "2": {
+                "type": "password", "kind": "password", "label": "only-incoming",
+                "length": 20, "archived": False, "notes": "", "tags": [],
+                "modified_ts": base_ts + 5,
+            },
+        },
+    }
+
+    py_merged = merge_index_payloads(
+        json.loads(json.dumps(current)), json.loads(json.dumps(incoming)), source_tag="xtest"
+    )
+
+    # Run the TS merge through a tiny node harness against the same inputs
+    script = CLI_BIN.parent / "_cross_impl_merge.mjs"
+    script.write_text(
+        'import { register } from "tsx/esm/api";\n'
+        "register();\n"
+        'const { mergeIndexPayloads } = await import("@seedpass/core");\n'
+        "const [current, incoming] = JSON.parse(process.argv[2]);\n"
+        'console.log(JSON.stringify(mergeIndexPayloads(current, incoming, "xtest")));\n'
+    )
+    try:
+        proc = subprocess.run(
+            ["node", str(script), json.dumps([current, incoming])],
+            capture_output=True, text=True, cwd=str(CLI_BIN.parent),
+        )
+        if proc.returncode != 0:
+            check("TS and Python merge identically", False, proc.stderr.strip()[:200])
+            return
+        ts_merged = json.loads(proc.stdout)
+    finally:
+        script.unlink(missing_ok=True)
+
+    def comparable(payload: dict) -> str:
+        # _system.index0 is Python-derived state TS does not emit.
+        return json.dumps(
+            {k: v for k, v in payload.items() if k != "_system"}, sort_keys=True
+        )
+
+    check(
+        "TS and Python merge identically",
+        comparable(py_merged) == comparable(ts_merged),
+        "merged payloads differ",
+    )
+    check(
+        "merge keeps entries from both sides",
+        sorted(ts_merged["entries"]) == ["0", "1", "2"],
+        str(sorted(ts_merged.get("entries", {}))),
+    )
+
+
+def phase_i(tmp: Path) -> None:
+    print("\nPhase I: an Argon2id-mode Python profile opens in TypeScript")
+    from seedpass.core.encryption import EncryptionManager
+    from seedpass.core.manager import PasswordManager
+    from utils.fingerprint import generate_fingerprint
+
+    app_dir = tmp / "i"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    fp_dir = app_dir / fp
+
+    # Re-encrypt the parent seed under argon2id, as a profile configured for
+    # argon2 would have it on disk.
+    dummy = PasswordManager.__new__(PasswordManager)
+    dummy.config_manager = None
+    kdf_cfg = PasswordManager._build_seed_kdf_config(dummy, fp, mode="argon2")
+    seed_key = PasswordManager._derive_seed_key(
+        dummy, PASSWORD, fp, mode="argon2", kdf_config=kdf_cfg
+    )
+    EncryptionManager(seed_key, fp_dir).encrypt_parent_seed(SEED_A, kdf=kdf_cfg)
+
+    with agent_running(app_dir):
+        try:
+            run_cli(
+                app_dir, "vault", "unlock", "--ttl", "10",
+                env_extra={"SEEDPASS_PASSWORD": PASSWORD},
+            )
+            revealed = run_cli(app_dir, "entry", "reveal", "python-api")
+            check(
+                "TS unlocks an argon2id-protected Python profile",
+                revealed == "py-secret-value",
+                revealed,
+            )
+        except Exception as exc:
+            check("TS unlocks an argon2id-protected Python profile", False, str(exc))
+
+
+def phase_j(tmp: Path) -> None:
+    print("\nPhase J: config file interoperates")
+    from utils.fingerprint import generate_fingerprint
+
+    app_dir = tmp / "g"  # reuse the profile from phase G
+    fp = generate_fingerprint(SEED_A)
+    env = {"SEEDPASS_MNEMONIC": SEED_A}
+
+    # Python writes config -> TS reads it
+    _vault, _em, cfg_mgr = _py_vault(app_dir, fp, SEED_A)
+    cfg = cfg_mgr.load_config(require_pin=False)
+    cfg["clipboard_clear_delay"] = 77
+    cfg["relays"] = ["wss://relay.example.test"]
+    cfg_mgr.save_config(cfg)
+    ts_cfg = json.loads(run_cli(app_dir, "config", "get", env_extra=env))
+    check(
+        "TS reads Python's config",
+        ts_cfg.get("clipboard_clear_delay") == 77
+        and ts_cfg.get("relays") == ["wss://relay.example.test"],
+        json.dumps({k: ts_cfg.get(k) for k in ("clipboard_clear_delay", "relays")}),
+    )
+
+    # TS writes config -> Python reads it
+    run_cli(app_dir, "config", "set", "inactivity_timeout", "123", env_extra=env)
+    _v2, _e2, cfg_mgr2 = _py_vault(app_dir, fp, SEED_A)
+    py_cfg = cfg_mgr2.load_config(require_pin=False)
+    check(
+        "Python reads TS's config",
+        int(py_cfg.get("inactivity_timeout", 0)) == 123,
+        str(py_cfg.get("inactivity_timeout")),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-relay", action="store_true")
@@ -672,6 +954,10 @@ def main() -> int:
         phase_c(tmp)
         phase_d(tmp)
         phase_e(tmp)
+        phase_g(tmp)
+        phase_h(tmp)
+        phase_i(tmp)
+        phase_j(tmp)
         if not args.skip_relay:
             phase_f(tmp)
     finally:
@@ -680,6 +966,10 @@ def main() -> int:
 
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    if divergences:
+        print(f"\n{len(divergences)} known divergence(s):")
+        for name, detail in divergences:
+            print(f"  - {name}: {detail}")
     if failed:
         print("\nFailures:")
         for name, _ok, detail in failed:

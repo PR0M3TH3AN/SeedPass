@@ -362,6 +362,36 @@ function generateV2(
   return fisherYatesHmac(chars, shuffleKey).join("");
 }
 
+/**
+ * Build a policy from an entry's stored `policy` block.
+ *
+ * Parity target: PasswordManager._generate_password_for_entry, which merges
+ * the entry's overrides onto the base policy before deriving. Ignoring this
+ * block yields a different password for any entry created with policy flags.
+ */
+export function passwordPolicyFromRecord(raw: unknown): PasswordPolicy {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
+  const o = raw as Record<string, unknown>;
+  const num = (v: unknown): number | undefined =>
+    v === undefined || v === null ? undefined : Math.trunc(Number(v));
+  return {
+    ...(o["include_special_chars"] !== undefined && {
+      includeSpecialChars: Boolean(o["include_special_chars"]),
+    }),
+    ...(o["allowed_special_chars"] !== undefined && {
+      allowedSpecialChars: String(o["allowed_special_chars"]),
+    }),
+    ...(o["special_mode"] !== undefined && { specialMode: String(o["special_mode"]) }),
+    ...(o["exclude_ambiguous"] !== undefined && {
+      excludeAmbiguous: Boolean(o["exclude_ambiguous"]),
+    }),
+    ...(o["min_uppercase"] !== undefined && { minUppercase: num(o["min_uppercase"])! }),
+    ...(o["min_lowercase"] !== undefined && { minLowercase: num(o["min_lowercase"])! }),
+    ...(o["min_digits"] !== undefined && { minDigits: num(o["min_digits"])! }),
+    ...(o["min_special"] !== undefined && { minSpecial: num(o["min_special"])! }),
+  };
+}
+
 export function generatePassword(
   bip85: Bip85,
   options: {
