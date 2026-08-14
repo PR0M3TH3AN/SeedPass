@@ -31,6 +31,12 @@ export {
   type NostrKeys,
 } from "./derive/nostr.js";
 export { generateFingerprint } from "./derive/fingerprint.js";
+export {
+  deriveSshKeyPair,
+  deriveSshEntropy,
+  sshPublicKeyOpenSsh,
+  type SshKeyPair,
+} from "./derive/ssh.js";
 export { deriveIndexKey, deriveIndexKeyBytes } from "./vault/indexKey.js";
 export { decryptV3, encryptV3, isV3Payload } from "./vault/aead.js";
 export {

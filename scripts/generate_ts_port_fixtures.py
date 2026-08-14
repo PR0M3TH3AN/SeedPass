@@ -1103,6 +1103,36 @@ def gen_migrations() -> dict:
     }
 
 
+def gen_ssh_keys() -> dict:
+    from seedpass.core.password_generation import derive_ssh_key_pair
+
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        mnemonic = MNEMONICS[mid]
+        bip85 = _bip85(mnemonic)
+        for index in (0, 1, 7):
+            priv_pem, pub_pem = derive_ssh_key_pair(mnemonic, index)
+            entropy = bip85.derive_entropy(index=index, entropy_bytes=32, app_no=32)
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "index": index,
+                    "entropy_hex": entropy.hex(),
+                    "private_key_pem": priv_pem,
+                    "public_key_pem": pub_pem,
+                }
+            )
+    return {
+        "description": (
+            "SSH key pairs: BIP-85 app 32, 32 bytes of entropy used directly "
+            "as an Ed25519 private key. Serialized as PKCS#8 PEM (private) "
+            "and SubjectPublicKeyInfo PEM (public), matching Python's "
+            "cryptography output byte-for-byte."
+        ),
+        "cases": cases,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -1146,6 +1176,7 @@ def main() -> None:
         "index_keys.json": gen_index_keys(),
         "kdf_metadata.json": gen_kdf_metadata(),
         "migrations.json": gen_migrations(),
+        "ssh_keys.json": gen_ssh_keys(),
         "password_kdf.json": gen_password_kdf(),
         "legacy_payloads.json": gen_legacy_payloads(),
     }

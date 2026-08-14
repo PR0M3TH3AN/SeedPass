@@ -20,12 +20,13 @@
     "passwords_v1.json",
     "passwords_v2.json",
     "portable_backup.json",
+    "ssh_keys.json",
     "sync_merge.json",
     "totp.json",
     "vault_v3_payload.json"
   ],
   "fixture_version": 1,
   "generator": "scripts/generate_ts_port_fixtures.py",
-  "python_commit": "0f8ce35c47c8ff1a7e29dc5dc187216f1856f563",
+  "python_commit": "7407d65294493ed096b6b419513984a248f8f087",
   "redaction_policy": "All fixtures derive from public BIP-39 test mnemonics (abandon.../legal.../zoo...). Secret-shaped outputs are generated test material, never from a live profile."
 }

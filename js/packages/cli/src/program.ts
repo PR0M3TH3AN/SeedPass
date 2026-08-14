@@ -50,6 +50,9 @@ import {
   addSeedEntry,
   addManagedAccountEntry,
   addNostrKeyEntry,
+  addSshKeyEntry,
+  deriveSshKeyPair,
+  sshPublicKeyOpenSsh,
 } from "@seedpass/core";
 import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -394,6 +397,31 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     const id = addNostrKeyEntry(vault.index, label, commonOpts(o));
     await finishAdd(vault, id);
   });
+
+  commonAddOptions(
+    add.command("ssh <label>").description("derived Ed25519 SSH key entry"),
+  ).action(async (label: string, o: { notes?: string; tags?: string[]; archived?: boolean }) => {
+    const vault = await openFromOptions(program.opts());
+    const id = addSshKeyEntry(vault.index, label, commonOpts(o));
+    await finishAdd(vault, id);
+  });
+
+  entry
+    .command("ssh-public <refOrQuery>")
+    .description("print an SSH entry's public key (not secret material)")
+    .option("--format <fmt>", "pem or openssh", "openssh")
+    .option("--comment <text>", "comment for the openssh format", "")
+    .action(async (refOrQuery: string, o: { format: string; comment: string }) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      if (hit.entry.kind !== "ssh") throw new Error(`${hit.ref} is not an ssh entry`);
+      const pair = deriveSshKeyPair(vault.mnemonic, hit.entry.index);
+      io.out(
+        o.format === "pem"
+          ? pair.publicKeyPem.trimEnd()
+          : sshPublicKeyOpenSsh(pair.publicKey, o.comment || hit.entry.label),
+      );
+    });
 
   entry
     .command("modify <refOrQuery>")

@@ -156,6 +156,7 @@ def py_create_profile(app_dir: Path, seed: str, password: str) -> str:
     em.add_totp("python-totp", seed, deterministic=True)
     em.add_key_value("python-api", "token", "py-secret-value")
     em.add_seed("python-cold-seed", seed, words_num=24)
+    em.add_ssh_key("python-ssh", seed)
 
     mgr = FingerprintManager(app_dir)
     if fp not in mgr.fingerprints:
@@ -233,6 +234,11 @@ def py_secrets_for(index: dict, seed: str) -> dict[str, str]:
             )
         elif kind == "managed_account":
             out[label] = derive_seed_phrase(bip85, int(entry.get("index", int(idx))), 12)
+        elif kind == "ssh":
+            from seedpass.core.password_generation import derive_ssh_key_pair
+
+            priv, _pub = derive_ssh_key_pair(seed, int(entry.get("index", int(idx))))
+            out[label] = priv
         elif kind == "nostr":
             entropy = bip85.derive_entropy(
                 index=int(entry.get("index", int(idx))), entropy_bytes=32
@@ -282,7 +288,13 @@ def phase_a(tmp: Path) -> None:
 
     py_secrets = py_secrets_for(py_index, SEED_A)
     ts_secrets = ts_secrets_for(app_dir, list(py_secrets), SEED_A)
-    mismatches = [k for k in py_secrets if py_secrets[k] != ts_secrets.get(k)]
+    # PEM values carry a trailing newline that the CLI capture strips; compare
+    # on trailing whitespace-insensitive values.
+    mismatches = [
+        k
+        for k in py_secrets
+        if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
+    ]
     check(
         "every secret derives identically",
         not mismatches,
@@ -322,6 +334,7 @@ def phase_b(tmp: Path) -> None:
     run_cli(app_dir, "entry", "add", "totp", "ts-totp", env_extra=env)
     run_cli(app_dir, "entry", "add", "key-value", "ts-api", "token", "ts-secret-value", env_extra=env)
     run_cli(app_dir, "entry", "add", "managed-account", "ts-managed", env_extra=env)
+    run_cli(app_dir, "entry", "add", "ssh", "ts-ssh", env_extra=env)
 
     from utils.fingerprint import generate_fingerprint
 
@@ -337,7 +350,13 @@ def phase_b(tmp: Path) -> None:
 
     py_secrets = py_secrets_for(py_index, SEED_B)
     ts_secrets = ts_secrets_for(app_dir, list(py_secrets), SEED_B)
-    mismatches = [k for k in py_secrets if py_secrets[k] != ts_secrets.get(k)]
+    # PEM values carry a trailing newline that the CLI capture strips; compare
+    # on trailing whitespace-insensitive values.
+    mismatches = [
+        k
+        for k in py_secrets
+        if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
+    ]
     check("every secret derives identically", not mismatches, f"mismatched: {mismatches}")
 
     # Python's schema validation should accept the TS-written index

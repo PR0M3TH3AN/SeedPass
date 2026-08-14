@@ -30,6 +30,7 @@ import entrySecretsJson from "../fixtures/entry_secrets.json";
 import nostrEventsJson from "../fixtures/nostr_events.json";
 import entryModsJson from "../fixtures/entry_mods.json";
 import migrationsJson from "../fixtures/migrations.json";
+import sshKeysJson from "../fixtures/ssh_keys.json";
 
 export interface Bip39Case {
   id: string;
@@ -232,6 +233,16 @@ export const nostrEvents = nostrEventsJson as {
   signer_public_key_hex: string;
   events: { name: string; event: SignedNostrEvent }[];
 };
+
+export interface SshKeyCase {
+  mnemonic_id: string;
+  index: number;
+  entropy_hex: string;
+  private_key_pem: string;
+  public_key_pem: string;
+}
+
+export const sshKeyCases = (sshKeysJson as { cases: SshKeyCase[] }).cases;
 
 export interface MigrationCase {
   name: string;

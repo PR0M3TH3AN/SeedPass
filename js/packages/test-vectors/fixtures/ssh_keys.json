@@ -1,0 +1,48 @@
+{
+  "cases": [
+    {
+      "entropy_hex": "6940a025903a538c7ceb1bd31c56ff0a0035f6b9b4d1f1d206c3adfcf9395c31",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIGlAoCWQOlOMfOsb0xxW/woANfa5tNHx0gbDrfz5OVwx\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAkZTLTsNAGTw+TqfXWFto1FaCK/PRyTYNWPjnNbYaDpc=\n-----END PUBLIC KEY-----\n"
+    },
+    {
+      "entropy_hex": "551c3eafc4cc71d6dd06c966e69eb13bdf9e21ab0589c98ed9486d7932a3fbb5",
+      "index": 1,
+      "mnemonic_id": "abandon12",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIFUcPq/EzHHW3QbJZuaesTvfniGrBYnJjtlIbXkyo/u1\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAp4TvNWJo6d+IQ37EREuQ4jkETh7c5Uc6LikXtkueqTA=\n-----END PUBLIC KEY-----\n"
+    },
+    {
+      "entropy_hex": "cd913b7952a5018b746ee10b232055156fbf2f344eb20a66ec19bf10af679881",
+      "index": 7,
+      "mnemonic_id": "abandon12",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIM2RO3lSpQGLdG7hCyMgVRVvvy80TrIKZuwZvxCvZ5iB\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAucdMbY9nhDIXqCy/UmQSpPOS86xTw8JmdcPx/al1S+U=\n-----END PUBLIC KEY-----\n"
+    },
+    {
+      "entropy_hex": "bae225aeb4cb24379c9993a84bd54da07763fbb0efd2e541211b791ae29cc6c6",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEILriJa60yyQ3nJmTqEvVTaB3Y/uw79LlQSEbeRrinMbG\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAx1kImQEAloaiNQruTKiotGmAVg3FzYEOp1Y/l6uPdvI=\n-----END PUBLIC KEY-----\n"
+    },
+    {
+      "entropy_hex": "9ade061f2a5ee6ec10ff5a49ea01c4e5a452b9046421ed5d3bb318b3869af16c",
+      "index": 1,
+      "mnemonic_id": "zoo24",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIJreBh8qXubsEP9aSeoBxOWkUrkEZCHtXTuzGLOGmvFs\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAodtezCRKKgTztQs16oiVNhXFHxnBm25VaOUFqqzNjmM=\n-----END PUBLIC KEY-----\n"
+    },
+    {
+      "entropy_hex": "c76113209dfadd01542977cad391f58ef4a36fb44c0004eac32f1deecc291b87",
+      "index": 7,
+      "mnemonic_id": "zoo24",
+      "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIMdhEyCd+t0BVCl3ytOR9Y70o2+0TAAE6sMvHe7MKRuH\n-----END PRIVATE KEY-----\n",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAYpwMrnTUCa1NpM3bD3SjnYvUdxHQsqZvtvl3K4KTcLk=\n-----END PUBLIC KEY-----\n"
+    }
+  ],
+  "description": "SSH key pairs: BIP-85 app 32, 32 bytes of entropy used directly as an Ed25519 private key. Serialized as PKCS#8 PEM (private) and SubjectPublicKeyInfo PEM (public), matching Python's cryptography output byte-for-byte.",
+  "fixture_version": 1
+}

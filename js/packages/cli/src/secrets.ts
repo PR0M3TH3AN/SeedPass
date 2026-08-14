@@ -13,6 +13,7 @@ import {
   totpCodeAt,
   hexToBech32,
   bytesToHex,
+  deriveSshKeyPair,
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
@@ -73,10 +74,15 @@ export function materializeSecret(
       const value = bip85.deriveMnemonic(entry.index, entry.word_count);
       return { value, descriptor: `derived mnemonic for ${entry.label}` };
     }
-    case "ssh":
+    case "ssh": {
+      const pair = deriveSshKeyPair(mnemonic, entry.index);
+      // The private key is the secret; the public key is printed alongside
+      // only by `entry ssh-public`, which is not a secret-bearing command.
+      return { value: pair.privateKeyPem, descriptor: `SSH private key for ${entry.label}` };
+    }
     case "pgp":
       throw new Error(
-        `${entry.kind} key material is not ported yet (see the compatibility matrix)`,
+        "PGP key material is not ported yet (see the compatibility matrix)",
       );
     default: {
       const kind: string = (entry as { kind: string }).kind;
