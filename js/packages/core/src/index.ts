@@ -136,4 +136,13 @@ export {
   type Filter,
   type RelayMessage,
 } from "./sync/events.js";
+export { RelayPool, type PublishResult, type RelayPoolOptions } from "./sync/relay.js";
+export {
+  publishSnapshot,
+  fetchLatestSnapshot,
+  publishDelta,
+  fetchDeltasSince,
+  type PublishedSnapshot,
+  type FetchedSnapshot,
+} from "./sync/syncFlows.js";
 export * from "./util/bytes.js";

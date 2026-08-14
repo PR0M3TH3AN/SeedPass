@@ -1,5 +1,11 @@
 /** Small byte/string helpers shared across the core. No Node or DOM APIs. */
 
+import { sha256 } from "@noble/hashes/sha2.js";
+
+export function sha256Hex(data: Uint8Array): string {
+  return bytesToHex(sha256(data));
+}
+
 export function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }

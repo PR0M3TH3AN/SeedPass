@@ -28,6 +28,17 @@ import {
   Bip85,
   totpCodeAt,
   deriveTotpSecret,
+  deriveNostrKeys,
+  deriveKeyIndex,
+  deriveIndexKeyBytes,
+  RelayPool,
+  publishSnapshot,
+  fetchLatestSnapshot,
+  fetchDeltasSince,
+  decryptPayload,
+  mergeIndexPayloads,
+  parseVaultIndex,
+  sha256Hex,
   type ModifyChanges,
   type PasswordPolicy,
   addPasswordEntry,
@@ -589,6 +600,143 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       cfg[key] = parsed;
       await saveConfig(app.profileDir(fp), mnemonic, cfg);
       io.out(JSON.stringify({ [key]: parsed }));
+    });
+
+  const nostr = program.command("nostr").description("Nostr relay sync");
+
+  async function nostrContext(opts: GlobalOpts) {
+    const app = new AppDir(resolveAppDir(opts.appDir));
+    const fp = await currentFingerprint(app, opts);
+    const mnemonic = await resolveMnemonic(app, opts);
+    const cfg = await loadConfig(app.profileDir(fp), mnemonic);
+    const relays = cfg["relays"] as string[];
+    const keys = deriveNostrKeys(Bip85.fromMnemonic(mnemonic), 0);
+    return { app, fp, mnemonic, cfg, relays, keys };
+  }
+
+  nostr
+    .command("get-pubkey")
+    .description("display the active profile's npub")
+    .action(async () => {
+      const { keys } = await nostrContext(program.opts());
+      io.out(keys.npub);
+    });
+
+  nostr
+    .command("list-relays")
+    .description("show configured relays")
+    .action(async () => {
+      const { relays } = await nostrContext(program.opts());
+      io.out(JSON.stringify(relays, null, 2));
+    });
+
+  nostr
+    .command("add-relay <url>")
+    .description("add a relay URL")
+    .action(async (url: string) => {
+      if (!/^wss?:\/\//.test(url)) throw new Error("relay URL must start with ws:// or wss://");
+      const { app, fp, mnemonic, cfg } = await nostrContext(program.opts());
+      const relays = cfg["relays"] as string[];
+      if (!relays.includes(url)) relays.push(url);
+      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      io.out(JSON.stringify({ relays }));
+    });
+
+  nostr
+    .command("remove-relay <index>")
+    .description("remove a relay by 1-based index")
+    .action(async (indexStr: string) => {
+      const { app, fp, mnemonic, cfg } = await nostrContext(program.opts());
+      const relays = cfg["relays"] as string[];
+      const i = Number(indexStr) - 1;
+      if (!Number.isInteger(i) || i < 0 || i >= relays.length) {
+        throw new Error(`index out of range 1..${relays.length}`);
+      }
+      if (relays.length === 1) throw new Error("at least one relay must remain");
+      relays.splice(i, 1);
+      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      io.out(JSON.stringify({ relays }));
+    });
+
+  nostr
+    .command("sync")
+    .description("publish the local vault as a snapshot to the configured relays")
+    .option("--chunk-limit <bytes>", "max chunk size", "50000")
+    .action(async (o: { chunkLimit: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const { app, fp, mnemonic, relays, keys } = await nostrContext(opts);
+      const vaultPath = opts.vault ?? join(app.profileDir(fp), INDEX_FILENAME);
+      const encrypted = new Uint8Array(await readFile(vaultPath));
+      const pool = new RelayPool(relays);
+      try {
+        const published = await publishSnapshot(
+          pool,
+          keys.privateKeyHex,
+          deriveKeyIndex(mnemonic),
+          encrypted,
+          { limit: Number(o.chunkLimit) },
+        );
+        io.out(
+          JSON.stringify(
+            {
+              manifest_id: published.manifestId,
+              manifest_event_id: published.manifestEventId,
+              chunk_event_ids: published.chunkEventIds,
+              relays,
+            },
+            null,
+            2,
+          ),
+        );
+      } finally {
+        await pool.close();
+      }
+    });
+
+  nostr
+    .command("restore")
+    .description("fetch the latest snapshot + deltas from relays and merge into the local vault")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const { app, fp, mnemonic, relays, keys } = await nostrContext(opts);
+      const pool = new RelayPool(relays);
+      try {
+        const fetched = await fetchLatestSnapshot(pool, keys.privateKeyHex);
+        if (!fetched) throw new Error("no snapshot found on the configured relays");
+        const indexKey = deriveIndexKeyBytes(mnemonic);
+        let state = JSON.parse(
+          new TextDecoder().decode(await decryptPayload(indexKey, fetched.encrypted)),
+        ) as Record<string, unknown>;
+
+        let deltaCount = 0;
+        if (fetched.manifest.delta_since) {
+          const deltas = await fetchDeltasSince(
+            pool,
+            keys.privateKeyHex,
+            fetched.manifest.delta_since,
+          );
+          for (const delta of deltas) {
+            const incoming = JSON.parse(
+              new TextDecoder().decode(await decryptPayload(indexKey, delta)),
+            );
+            state = mergeIndexPayloads(state, incoming, sha256Hex(delta).slice(0, 16));
+            deltaCount++;
+          }
+        }
+
+        const index = parseVaultIndex(state);
+        const vaultPath = opts.vault ?? join(app.profileDir(fp), INDEX_FILENAME);
+        await saveVault({ index, mnemonic, path: vaultPath });
+        io.out(
+          JSON.stringify({
+            restored: vaultPath,
+            entry_count: Object.keys(index.entries).length,
+            deltas_applied: deltaCount,
+          }),
+        );
+      } finally {
+        await pool.close();
+      }
     });
 
   const agent = program.command("agent").description("session agent (holds unlocked seeds)");

@@ -31,7 +31,8 @@ until a later milestone.
 | KDF metadata parsing | P0 | green | `kdf_metadata.json`, `legacy_payloads.json` | KdfConfig schema with Python-default fallbacks. |
 | SSH key derivation | P1 | todo | — | Ed25519 from BIP-85 app 32; PEM serialization parity risk. |
 | PGP key derivation | P1/P2 | todo | — | Highest parity risk (PGPy serialization); import/roundtrip first. |
-| Nostr snapshot chunk/manifest model | P0 | green | `nostr_snapshot.json` | Kinds 30070/30071/30072; gzip chunking, chunk-hash verify, reassembly of Python-produced chunks, manifest JSON parse, manifest id HMAC (key_index chain). Compressed bytes are deliberately not byte-pinned (deflate encoders differ); cross-decompression verified both ways. Relay WebSocket adapter: todo. |
+| Nostr snapshot chunk/manifest model | P0 | green | `nostr_snapshot.json` | Kinds 30070/30071/30072; gzip chunking, chunk-hash verify, reassembly of Python-produced chunks, manifest JSON parse, manifest id HMAC (key_index chain). Compressed bytes are deliberately not byte-pinned (deflate encoders differ); cross-decompression verified both ways. |
+| Relay transport + sync flows | P0 | green | — (live mock relay) | RelayPool over platform WebSocket (multi-relay publish/fetch, dedupe, signature verification on ingest); publish/fetch snapshot with chunk-hash verify, delta publish/replay. End-to-end tested against an in-process NIP-01 relay incl. corrupted-chunk rejection, and at the CLI level: sync -> destroy local vault -> restore. jsdom skips transport tests (real-browser run: Milestone 6 CI). |
 | Deterministic conflict merge | P0 | green | `sync_merge.json` | Full `merge_index_payloads` port: ts precedence, canonical-hash tie-breaks (Python-compatible ensure_ascii canonical JSON), equal-ts field union incl. the `custom_fields: null` quirk, tombstone lifecycle, retention cap, `_sync_meta`. |
 | Tombstones / delta replay | P0 | green | `delta_replay.json` | Encrypted V3 deltas decrypted and merged in order with `source_tag = sha256(payload)[:16]`, final state matches Python. |
 | index0 content merge (`_system.index0`) | P2 | partial | — | Empty-skeleton normalization matches Python; merging populated index0 event logs throws loudly instead of silently dropping data. Full port belongs to the atlas milestone. |
@@ -40,7 +41,7 @@ until a later milestone.
 | Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission. |
 | Entry modify/archive/links | P0 | green | `entry_mods.json` | TS replays a Python `EntryManager` op sequence (modify with kind-checked field matrix + policy merge, archive/restore, link add/remove with normalization and dedupe) byte-for-byte, including timestamp touching. |
 | Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
-| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password. Not yet: relay sync, leases/tokens. |
+| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password, nostr get-pubkey/list-relays/add-relay/remove-relay/sync/restore. Milestone 5 command surface complete except ssh/pgp adds and document import/export; leases/tokens are Milestone 8. |
 | Profiles + config (Python `~/.seedpass` layout) | P1 | green* | — | `fingerprint list/add/switch/remove`, `config get/set` over the Python directory layout (fingerprints.json, parent_seed.enc kdf/ct wrapper, index-key-encrypted config with ConfigManager defaults). *Layout-compatible and tested end-to-end in TS; opening a real Python-created profile is verified indirectly via the parent-seed wrapper fixture — direct cross-open test TODO. |
 | Session agent (vault unlock/lock) | new (TS-only) | green | — | ssh-agent-style unix-socket daemon holding seeds with TTL (0600 socket, in-memory only); seed resolution env -> agent; full lifecycle tested with no mnemonic in the environment. Designed enforcement point for the section-9.3 lease/token layer. Python has no equivalent (its lock is in-process TUI state). |
 
@@ -48,8 +49,8 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 148/148 core + 29 CLI |
-| jsdom browser-like env | green — 148/148 core |
+| Node 22 (vitest) | green — 151/151 core + 32 CLI |
+| jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
 ## Dependency notes (to expand into docs/typescript_dependency_review.md)
