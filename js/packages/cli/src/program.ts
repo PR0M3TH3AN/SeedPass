@@ -40,6 +40,10 @@ import {
   addNostrKeyEntry,
 } from "@seedpass/core";
 import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
+import { loadConfig, saveConfig } from "./configFile.js";
+import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 
 export interface ProgramIo {
   out(line: string): void;
@@ -50,6 +54,40 @@ const defaultIo: ProgramIo = {
   out: (line) => process.stdout.write(line + "\n"),
   err: (line) => process.stderr.write(line + "\n"),
 };
+
+interface GlobalOpts {
+  vault?: string;
+  appDir?: string;
+  fingerprint?: string;
+}
+
+async function currentFingerprint(app: AppDir, opts: GlobalOpts): Promise<string> {
+  if (opts.fingerprint) return opts.fingerprint;
+  const data = await app.readFingerprints();
+  if (!data.last_used) throw new Error("no profile selected; run 'fingerprint add' first");
+  return data.last_used;
+}
+
+/**
+ * Seed resolution order: SEEDPASS_MNEMONIC env -> session agent -> error.
+ * The mnemonic never comes from argv.
+ */
+async function resolveMnemonic(app: AppDir, opts: GlobalOpts): Promise<string> {
+  const env = process.env["SEEDPASS_MNEMONIC"];
+  if (env) return env;
+  try {
+    const fp = await currentFingerprint(app, opts);
+    const client = new AgentClient(agentSocketPath(app.root));
+    const held = await client.get(fp);
+    if (held) return held;
+  } catch {
+    // fall through to the error below
+  }
+  throw new Error(
+    "vault is locked: set SEEDPASS_MNEMONIC, or run 'seedpass-js vault unlock' " +
+      "with the session agent running ('seedpass-js agent start')",
+  );
+}
 
 function requireMnemonic(): string {
   const m = process.env["SEEDPASS_MNEMONIC"];
@@ -62,9 +100,14 @@ function requireMnemonic(): string {
   return m;
 }
 
-async function openFromOptions(opts: { vault?: string }): Promise<OpenedVault> {
-  if (!opts.vault) throw new Error("--vault <file> is required");
-  return openVault(opts.vault, requireMnemonic());
+async function openFromOptions(opts: GlobalOpts): Promise<OpenedVault> {
+  const app = new AppDir(resolveAppDir(opts.appDir));
+  if (opts.vault) {
+    return openVault(opts.vault, await resolveMnemonic(app, opts));
+  }
+  const fp = await currentFingerprint(app, opts);
+  const path = join(app.profileDir(fp), INDEX_FILENAME);
+  return openVault(path, await resolveMnemonic(app, opts));
 }
 
 export function buildProgram(io: ProgramIo = defaultIo): Command {
@@ -72,7 +115,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
   program
     .name("seedpass-js")
     .description("SeedPass (TypeScript port) — reference-first CLI")
-    .option("--vault <file>", "encrypted vault index file")
+    .option("--vault <file>", "encrypted vault index file (overrides profile)")
+    .option("--app-dir <dir>", "application directory (default ~/.seedpass)")
+    .option("--fingerprint <fp>", "profile fingerprint (default: last used)")
     .configureOutput({
       writeOut: (s) => io.out(s.replace(/\n$/, "")),
       writeErr: (s) => io.err(s.replace(/\n$/, "")),
@@ -456,6 +501,129 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       },
     );
 
+  const fingerprint = program.command("fingerprint").description("profile management");
+
+  fingerprint
+    .command("list")
+    .description("list profiles")
+    .action(async () => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const data = await app.readFingerprints();
+      io.out(
+        JSON.stringify(
+          data.fingerprints.map((fp) => ({
+            fingerprint: fp,
+            name: data.names[fp] ?? null,
+            current: fp === data.last_used,
+          })),
+          null,
+          2,
+        ),
+      );
+    });
+
+  fingerprint
+    .command("add")
+    .description("create a profile from SEEDPASS_MNEMONIC + SEEDPASS_PASSWORD")
+    .option("--name <name>", "human-readable profile name")
+    .action(async (o: { name?: string }) => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const mnemonic = requireMnemonic();
+      const password = process.env["SEEDPASS_PASSWORD"];
+      if (!password) throw new Error("SEEDPASS_PASSWORD is not set");
+      const fp = await app.createProfile(mnemonic, password, o.name);
+      io.out(JSON.stringify({ fingerprint: fp, name: o.name ?? null }));
+    });
+
+  fingerprint
+    .command("switch <fp>")
+    .description("set the active profile")
+    .action(async (fp: string) => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      await app.switchProfile(fp);
+      io.out(JSON.stringify({ current: fp }));
+    });
+
+  fingerprint
+    .command("remove <fp>")
+    .description("DESTRUCTIVE: delete a profile directory")
+    .option("--yes", "confirm deletion")
+    .action(async (fp: string, o: { yes?: boolean }) => {
+      if (!o.yes) throw new Error("refusing to delete without --yes");
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      await app.removeProfile(fp);
+      io.out(JSON.stringify({ removed: fp }));
+    });
+
+  const config = program.command("config").description("per-profile configuration");
+
+  config
+    .command("get [key]")
+    .description("read config (whole object or one key); secret hashes redacted")
+    .action(async (key: string | undefined) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const cfg = await loadConfig(app.profileDir(fp), await resolveMnemonic(app, opts));
+      for (const k of ["pin_hash", "password_hash"]) {
+        if (cfg[k]) cfg[k] = "<redacted>";
+      }
+      io.out(JSON.stringify(key !== undefined ? { [key]: cfg[key] } : cfg, null, 2));
+    });
+
+  config
+    .command("set <key> <value>")
+    .description("set a config value (JSON-parsed when possible)")
+    .action(async (key: string, value: string) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const mnemonic = await resolveMnemonic(app, opts);
+      const cfg = await loadConfig(app.profileDir(fp), mnemonic);
+      let parsed: unknown = value;
+      try {
+        parsed = JSON.parse(value);
+      } catch {
+        // keep as string
+      }
+      cfg[key] = parsed;
+      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      io.out(JSON.stringify({ [key]: parsed }));
+    });
+
+  const agent = program.command("agent").description("session agent (holds unlocked seeds)");
+
+  agent
+    .command("start")
+    .description("run the session agent in the foreground")
+    .option("--ttl <seconds>", "default unlock TTL", String(DEFAULT_TTL_SECONDS))
+    .action(async (o: { ttl: string }) => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const daemon = new AgentDaemon(agentSocketPath(app.root), Number(o.ttl));
+      await daemon.start();
+      io.out(JSON.stringify({ agent: "running", socket: agentSocketPath(app.root) }));
+      await new Promise(() => {}); // run until killed
+    });
+
+  agent
+    .command("status")
+    .description("show unlocked profiles and expiry times")
+    .action(async () => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const client = new AgentClient(agentSocketPath(app.root));
+      io.out(JSON.stringify(await client.status(), null, 2));
+    });
+
+  agent
+    .command("stop")
+    .description("shut down the session agent (wipes held seeds)")
+    .action(async () => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const client = new AgentClient(agentSocketPath(app.root));
+      await client.request({ op: "shutdown" });
+      io.out(JSON.stringify({ agent: "stopped" }));
+    });
+
   const util = program.command("util").description("utility commands");
 
   util
@@ -521,6 +689,40 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           checksum: wrapper.checksum,
         }),
       );
+    });
+
+  vaultCmd
+    .command("unlock")
+    .description("decrypt the parent seed with SEEDPASS_PASSWORD and hand it to the agent")
+    .option("--ttl <seconds>", "how long the agent holds the seed")
+    .action(async (o: { ttl?: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const password = process.env["SEEDPASS_PASSWORD"];
+      if (!password) throw new Error("SEEDPASS_PASSWORD is not set");
+      const mnemonic = await app.decryptParentSeed(fp, password);
+      const client = new AgentClient(agentSocketPath(app.root));
+      const expiresAt = await client.put(
+        fp,
+        mnemonic,
+        o.ttl !== undefined ? Number(o.ttl) : undefined,
+      );
+      io.out(JSON.stringify({ unlocked: fp, expires_at: expiresAt }));
+    });
+
+  vaultCmd
+    .command("lock")
+    .description("drop the seed from the session agent")
+    .option("--all", "lock every profile")
+    .action(async (o: { all?: boolean }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const client = new AgentClient(agentSocketPath(app.root));
+      const locked = o.all
+        ? await client.lock()
+        : await client.lock(await currentFingerprint(app, opts));
+      io.out(JSON.stringify({ locked }));
     });
 
   vaultCmd

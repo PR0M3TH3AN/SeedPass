@@ -25,13 +25,21 @@ export function capabilities(): Record<string, unknown> {
       ],
       sinks: ["clipboard", "exec-env", "stdin-to"],
       exec_env_var: "SEEDPASS_SECRET",
+      session_agent: {
+        transport: "unix-socket",
+        commands: ["agent start/status/stop", "vault unlock/lock"],
+        seed_resolution_order: ["SEEDPASS_MNEMONIC env", "session agent"],
+      },
+    },
+    profiles: {
+      layout: "python-compatible ~/.seedpass",
+      commands: ["fingerprint list/add/switch/remove", "config get/set"],
     },
     not_yet_ported: [
       "ssh/pgp key material",
       "relay sync commands",
-      "profile and config management",
       "index0/atlas",
-      "leases and scoped tokens (design: plan section 9.3)",
+      "leases and scoped tokens (design: plan section 9.3; enforcement point: session agent)",
     ],
   };
 }

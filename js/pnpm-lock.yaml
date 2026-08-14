@@ -10,6 +10,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@scure/base':
+        specifier: ^2.3.0
+        version: 2.3.0
       '@seedpass/core':
         specifier: workspace:*
         version: link:../core
