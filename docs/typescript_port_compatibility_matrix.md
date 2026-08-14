@@ -22,7 +22,8 @@ until a later milestone.
 | Vault V3 payload decrypt | P0 | green | `vault_v3_payload.json` | AES-256-GCM via WebCrypto; tamper-rejection tested. Fixture nonce is pinned (fixture-only). |
 | Legacy V2/Fernet payload decrypt | P0 | green | `legacy_payloads.json` | Full `decrypt_data` fallback chain: V3 -> V2 GCM -> V2-header-over-Fernet -> raw Fernet. Decrypt-only by design. |
 | Encrypted file wrapper (kdf/ct JSON) | P0 | green | `legacy_payloads.json` | `_serialize`/`_deserialize` parity incl. legacy bare-ciphertext fallback; parent-seed decrypt verified end-to-end from password. |
-| Entry schema roundtrip | P0 | green | `entries_index.json` | Zod schemas for all 9 kinds validate the Python `EntryManager`-generated index and roundtrip it unchanged; future schema_version refused. Older-version migrations (0-3): todo. |
+| Entry schema roundtrip | P0 | green | `entries_index.json` | Zod schemas for all 9 kinds validate the Python `EntryManager`-generated index and roundtrip it unchanged; future schema_version refused. |
+| Schema migrations 0-4 | P0 | green | `migrations.json` | TS `applyMigrations` reproduces Python `apply_migrations` output exactly for v0/v1/v2/v3 inputs; `parseVaultIndex` migrates on open (opt out with `{migrate:false}`). Cross-impl phase E opens a real legacy v2 Python vault, reveals a migrated secret, and confirms Python still reads the profile afterwards. Note: entries lacking the later `kind` field get it filled from `type` at parse time (Python leaves them `type`-only and falls back on read; the filled shape matches what Python writes for new entries). |
 | TOTP secret derivation + codes | P1 | green | `totp.json` | Path child is `0x544F5450` (= `int.from_bytes(b"TOTP")`) — note: an earlier draft of this doc/code said 1414812756; correct value is 1414485072. RFC 6238 SHA-1 codes verified at fixed timestamps. |
 | Nostr keys (app 1237) | P1 | green | `nostr_keys.json` | Private/public hex (x-only), npub, nsec. Legacy fingerprint-hash and app-0 derivations: todo. |
 | Managed seeds (BIP-85 child mnemonics) | P0 | green | `managed_seeds.json` | 12/24 words from 12- and 24-word parents, plus child fingerprints. 18-word: untested (Python supports; add cases when needed). |
@@ -50,7 +51,7 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 151/151 core + 44 CLI |
+| Node 22 (vitest) | green — 162/162 core + 44 CLI |
 | jsdom browser-like env | green — 148/148 core (3 transport tests Node-only) |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 

@@ -29,6 +29,7 @@ import portableBackupJson from "../fixtures/portable_backup.json";
 import entrySecretsJson from "../fixtures/entry_secrets.json";
 import nostrEventsJson from "../fixtures/nostr_events.json";
 import entryModsJson from "../fixtures/entry_mods.json";
+import migrationsJson from "../fixtures/migrations.json";
 
 export interface Bip39Case {
   id: string;
@@ -231,6 +232,16 @@ export const nostrEvents = nostrEventsJson as {
   signer_public_key_hex: string;
   events: { name: string; event: SignedNostrEvent }[];
 };
+
+export interface MigrationCase {
+  name: string;
+  input: Record<string, unknown>;
+  migrated: Record<string, unknown>;
+}
+
+export const migrationCases = (migrationsJson as { cases: MigrationCase[] }).cases;
+export const migrationLatestVersion = (migrationsJson as { latest_version: number })
+  .latest_version;
 
 export const entryMods = entryModsJson as {
   fixed_unix: number;

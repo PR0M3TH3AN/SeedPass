@@ -452,6 +452,70 @@ def phase_d(tmp: Path) -> None:
     check("TS rejects a bad-checksum mnemonic", ts_refused, detail)
 
 
+def phase_e(tmp: Path) -> None:
+    print("\nPhase E: a legacy-schema Python vault opens in TypeScript")
+    from seedpass.core.encryption import EncryptionManager
+    from seedpass.core.migrations import apply_migrations
+    from seedpass.core.vault import Vault
+    from utils.fingerprint import generate_fingerprint
+    from utils.key_derivation import derive_index_key
+
+    app_dir = tmp / "e"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    fp_dir = app_dir / fp
+
+    # Overwrite the index with a pre-v4 payload, as an older SeedPass wrote it
+    legacy = {
+        "schema_version": 2,
+        "entries": {
+            "0": {
+                "type": "password",
+                "label": "legacy-login.example",
+                "length": 16,
+                "notes": "written by an older SeedPass",
+                "username": "olduser",
+            },
+            "1": {
+                "type": "key_value",
+                "label": "legacy-kv",
+                "key": "token",
+                "value": "legacy-secret-value",
+                "notes": "",
+            },
+        },
+    }
+    enc_mgr = EncryptionManager(derive_index_key(SEED_A), fp_dir)
+    enc_mgr.save_json_data(legacy, Path("seedpass_entries_db.json.enc"))
+
+    env = {"SEEDPASS_MNEMONIC": SEED_A}
+    try:
+        rows = json.loads(run_cli(app_dir, "entry", "list", env_extra=env))
+        labels = sorted(r["label"] for r in rows)
+        check(
+            "TS opens a v2 index and migrates it",
+            labels == ["legacy-kv", "legacy-login.example"],
+            str(labels),
+        )
+        revealed = run_cli(app_dir, "entry", "reveal", "legacy-kv", env_extra=env)
+        check("TS reveals a migrated legacy secret", revealed == "legacy-secret-value")
+    except Exception as exc:
+        check("TS opens a v2 index and migrates it", False, str(exc))
+        return
+
+    # Python's own migration of the same payload must agree with what TS did
+    py_migrated = apply_migrations(json.loads(json.dumps(legacy)))
+    py_labels = sorted(e["label"] for e in py_migrated["entries"].values())
+    check("Python and TS agree on the migrated entry set", py_labels == labels)
+
+    # And TS must not have written a downgraded index back to disk
+    reloaded = Vault(EncryptionManager(derive_index_key(SEED_A), fp_dir), fp_dir).load_index()
+    check(
+        "Python still reads the profile after TS touched it",
+        sorted(e["label"] for e in reloaded.get("entries", {}).values()) == labels,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-relay", action="store_true")
@@ -469,6 +533,7 @@ def main() -> int:
         phase_b(tmp)
         phase_c(tmp)
         phase_d(tmp)
+        phase_e(tmp)
     finally:
         if not args.keep:
             shutil.rmtree(tmp, ignore_errors=True)

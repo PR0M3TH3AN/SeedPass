@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { applyMigrations } from "./migrations.js";
 
 export const CURRENT_SCHEMA_VERSION = 4;
 
@@ -144,7 +145,23 @@ export const documentEntrySchema = z
   })
   .loose();
 
-export const entrySchema = z.discriminatedUnion("kind", [
+/**
+ * Pre-v2 Python entries carry only `type`; `kind` arrived later and Python's
+ * migrations deliberately do not backfill it (its readers fall back to
+ * `type`). Fill it in for validation so legacy entries can be discriminated,
+ * which also brings them to the shape Python writes for new entries.
+ */
+function withKind(value: unknown): unknown {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const entry = value as Record<string, unknown>;
+    if (entry["kind"] === undefined && typeof entry["type"] === "string") {
+      return { ...entry, kind: entry["type"] };
+    }
+  }
+  return value;
+}
+
+export const entryUnionSchema = z.discriminatedUnion("kind", [
   passwordEntrySchema,
   totpEntrySchema,
   sshEntrySchema,
@@ -156,7 +173,9 @@ export const entrySchema = z.discriminatedUnion("kind", [
   documentEntrySchema,
 ]);
 
-export type Entry = z.infer<typeof entrySchema>;
+export const entrySchema = z.preprocess(withKind, entryUnionSchema);
+
+export type Entry = z.infer<typeof entryUnionSchema>;
 export type PasswordEntry = z.infer<typeof passwordEntrySchema>;
 export type TotpEntry = z.infer<typeof totpEntrySchema>;
 
@@ -180,20 +199,34 @@ export class UnsupportedSchemaVersionError extends Error {
 }
 
 /**
- * Parse a decrypted vault index. Refuses future schema versions instead of
- * silently writing incompatible data; older versions are a migration concern
- * (Python migrations.py) not yet ported.
+ * Parse a decrypted vault index, migrating older schema versions forward.
+ *
+ * Future versions are refused rather than silently rewritten: a newer client
+ * may have written fields this build would drop on save.
+ *
+ * Pass `{ migrate: false }` to reject anything that is not already current —
+ * useful where a caller must not silently upgrade on-disk data.
  */
-export function parseVaultIndex(data: unknown): VaultIndex {
-  const versionProbe = z.object({ schema_version: z.number().int() }).loose().parse(data);
+export function parseVaultIndex(
+  data: unknown,
+  options: { migrate?: boolean } = {},
+): VaultIndex {
+  // A pre-v1 index has no schema_version field at all, so the probe must
+  // tolerate its absence and treat it as version 0.
+  const versionProbe = z
+    .object({ schema_version: z.number().int().default(0) })
+    .loose()
+    .parse(data);
   if (versionProbe.schema_version > CURRENT_SCHEMA_VERSION) {
     throw new UnsupportedSchemaVersionError(versionProbe.schema_version);
   }
   if (versionProbe.schema_version < CURRENT_SCHEMA_VERSION) {
-    throw new Error(
-      `Vault index schema_version ${versionProbe.schema_version} needs ` +
-        `migration; migrations are not ported yet`,
-    );
+    if (options.migrate === false) {
+      throw new Error(
+        `Vault index schema_version ${versionProbe.schema_version} needs migration`,
+      );
+    }
+    return vaultIndexSchema.parse(applyMigrations(data));
   }
   return vaultIndexSchema.parse(data);
 }

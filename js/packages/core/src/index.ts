@@ -61,6 +61,11 @@ export {
   type VaultIndex,
 } from "./schema/entries.js";
 export {
+  applyMigrations,
+  needsMigration,
+  SchemaMigrationError,
+} from "./schema/migrations.js";
+export {
   importBackup,
   exportBackup,
   portableBackupSchema,

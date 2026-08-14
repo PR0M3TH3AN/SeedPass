@@ -1030,6 +1030,79 @@ def gen_entry_mods() -> dict:
     }
 
 
+def gen_migrations() -> dict:
+    """Legacy index payloads at every historical schema version, with the
+    result Python's apply_migrations produces for each."""
+    import copy
+
+    from seedpass.core.migrations import LATEST_VERSION, apply_migrations
+
+    # v0: no schema_version, passwords keyed by index, "website" not "label"
+    v0 = {
+        "passwords": {
+            "0": {
+                "website": "legacy-site.example",
+                "length": 16,
+                "username": "olduser",
+                "url": "https://legacy.example",
+            },
+            "1": {"website": "second-site.example", "length": 12},
+        }
+    }
+    # v1: schema_version present, still the passwords shape
+    v1 = {"schema_version": 1, **copy.deepcopy(v0)}
+    # v2: entries exist, but without custom_fields/origin/tags
+    v2 = {
+        "schema_version": 2,
+        "entries": {
+            "0": {
+                "type": "password",
+                "kind": "password",
+                "label": "v2-site.example",
+                "length": 20,
+                "notes": "",
+                "username": "u",
+            },
+            "1": {
+                "type": "totp",
+                "kind": "totp",
+                "label": "v2-totp",
+                "index": 0,
+                "period": 30,
+                "digits": 6,
+                "notes": "",
+            },
+        },
+    }
+    # v3: has custom_fields/origin but no tags
+    v3 = copy.deepcopy(v2)
+    v3["schema_version"] = 3
+    for entry in v3["entries"].values():
+        entry["custom_fields"] = []
+        entry["origin"] = ""
+
+    cases = []
+    for name, payload in (("v0", v0), ("v1", v1), ("v2", v2), ("v3", v3)):
+        cases.append(
+            {
+                "name": name,
+                "input": copy.deepcopy(payload),
+                "migrated": apply_migrations(copy.deepcopy(payload)),
+            }
+        )
+
+    return {
+        "description": (
+            "Schema migrations 0->4 as applied by seedpass.core.migrations."
+            " v0->v1 injects schema_version; v1->v2 renames passwords to"
+            " entries and website to label; v2->v3 adds custom_fields/origin"
+            " defaults; v3->v4 adds tags defaults."
+        ),
+        "latest_version": LATEST_VERSION,
+        "cases": cases,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -1072,6 +1145,7 @@ def main() -> None:
         "fingerprints.json": gen_fingerprints(),
         "index_keys.json": gen_index_keys(),
         "kdf_metadata.json": gen_kdf_metadata(),
+        "migrations.json": gen_migrations(),
         "password_kdf.json": gen_password_kdf(),
         "legacy_payloads.json": gen_legacy_payloads(),
     }
