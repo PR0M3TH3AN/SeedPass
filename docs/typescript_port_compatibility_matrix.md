@@ -36,14 +36,16 @@ until a later milestone.
 | Tombstones / delta replay | P0 | green | `delta_replay.json` | Encrypted V3 deltas decrypted and merged in order with `source_tag = sha256(payload)[:16]`, final state matches Python. |
 | index0 content merge (`_system.index0`) | P2 | partial | — | Empty-skeleton normalization matches Python; merging populated index0 event logs throws loudly instead of silently dropping data. Full port belongs to the atlas milestone. |
 | Portable backup import/export | P0 | green | `portable_backup.json` | format_version 1, seed-only and plaintext modes; TS imports the Python export, re-exports byte-identically under pinned nonce/timestamp, verifies canonical checksum, rejects tampering/unknown versions. |
-| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default output. Not yet: add/modify entries, profiles, relay sync, leases/tokens. |
+| Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission, modify/archive ops. |
+| Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
+| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Not yet: modify/archive, profiles, relay sync, leases/tokens. |
 
 ## Environment coverage
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 125/125 core + 11 CLI |
-| jsdom browser-like env | green — 125/125 core |
+| Node 22 (vitest) | green — 129/129 core + 16 CLI |
+| jsdom browser-like env | green — 129/129 core |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
 ## Dependency notes (to expand into docs/typescript_dependency_review.md)

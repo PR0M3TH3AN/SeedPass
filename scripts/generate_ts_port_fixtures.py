@@ -859,6 +859,53 @@ def gen_portable_backup(entries: dict) -> dict:
     }
 
 
+def gen_entry_secrets() -> dict:
+    """Expected reveal values for the fixture vault, via the same low-level
+    functions EntryManager retrieval uses."""
+    from nostr.coincurve_keys import Keys
+    from seedpass.core.password_generation import (
+        PasswordGenerator,
+        PasswordPolicy,
+        derive_seed_phrase,
+    )
+
+    mnemonic = MNEMONICS[PRIMARY]
+    bip85 = _bip85(mnemonic)
+
+    # Entry 0: password, length 16, gen_version 2, derivation index 0
+    pg = PasswordGenerator(_SeedDeriver(), mnemonic, bip85, policy=PasswordPolicy())
+    password = pg.generate_password(length=16, index=0, gen_version=2)
+
+    # Entry 1: deterministic TOTP, derivation index 0
+    totp_secret = derive_totp_secret(mnemonic, 0)
+    totp_code = TotpManager.current_code_from_secret(totp_secret, FIXED_UNIX)
+
+    # Entry 4: nostr key entry — DEFAULT BIP-85 app 39 (not 1237)
+    entropy = bip85.derive_entropy(index=4, entropy_bytes=32)
+    nostr_keys = Keys(priv_k=entropy.hex())
+    nsec = Keys.hex_to_bech32(nostr_keys.private_key_hex(), "nsec")
+    npub = Keys.hex_to_bech32(nostr_keys.public_key_hex(), "npub")
+
+    # Entry 7: seed entry, index 7, 24 words; entry 8: managed account, 12 words
+    seed_phrase = derive_seed_phrase(bip85, 7, 24)
+    managed_phrase = derive_seed_phrase(bip85, 8, 12)
+
+    return {
+        "description": (
+            "Expected plaintext values for entries in entries_index.json, "
+            "computed via the same functions EntryManager retrieval uses. "
+            "Nostr entry keys use the DEFAULT BIP-85 app 39 path, unlike the "
+            "sync client identity (app 1237)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "password_entry_0": password,
+        "totp_entry_1_code_at": {str(FIXED_UNIX): totp_code},
+        "nostr_entry_4": {"nsec": nsec, "npub": npub},
+        "seed_entry_7_mnemonic": seed_phrase,
+        "managed_entry_8_mnemonic": managed_phrase,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -909,6 +956,7 @@ def main() -> None:
     files["vault_v3_payload.json"] = vault_fixture
     files["nostr_snapshot.json"] = gen_nostr_snapshot(vault_fixture["payload_b64"])
     files["portable_backup.json"] = gen_portable_backup(entries_fixture["entries"])
+    files["entry_secrets.json"] = gen_entry_secrets()
     files["sync_merge.json"] = gen_sync_merge()
     files["delta_replay.json"] = gen_delta_replay()
 

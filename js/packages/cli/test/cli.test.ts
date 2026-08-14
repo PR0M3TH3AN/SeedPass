@@ -13,6 +13,7 @@ import { join } from "node:path";
 import process from "node:process";
 import {
   entriesIndex,
+  entrySecrets,
   passwordV2Cases,
   totpCases,
   mnemonics,
@@ -122,6 +123,86 @@ describe("plaintext egress is explicit and correct", () => {
   it("reveal prints an imported key_value secret", async () => {
     const r = await run("--vault", vaultPath, "entry", "reveal", "api-token");
     expect(r.stdout).toBe("abc123");
+  });
+
+  it("reveal matches every Python-computed entry secret", async () => {
+    expect((await run("--vault", vaultPath, "entry", "reveal", "example.com")).stdout).toBe(
+      entrySecrets.password_entry_0,
+    );
+    expect(
+      (await run("--vault", vaultPath, "entry", "reveal", "example-totp", "--at", "1700000000"))
+        .stdout,
+    ).toBe(entrySecrets.totp_entry_1_code_at["1700000000"]);
+    // Nostr entries use BIP-85 app 39 (not the sync client's app 1237)
+    expect((await run("--vault", vaultPath, "entry", "reveal", "example-nostr")).stdout).toBe(
+      entrySecrets.nostr_entry_4.nsec,
+    );
+    expect((await run("--vault", vaultPath, "entry", "reveal", "example-seed")).stdout).toBe(
+      entrySecrets.seed_entry_7_mnemonic,
+    );
+    expect((await run("--vault", vaultPath, "entry", "reveal", "example-managed")).stdout).toBe(
+      entrySecrets.managed_entry_8_mnemonic,
+    );
+  });
+});
+
+describe("provisioning is agent-blind", () => {
+  let writablePath: string;
+
+  beforeAll(async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-provision-"));
+    writablePath = join(dir, "vault.enc");
+    await writeFile(writablePath, await readFile(vaultPath));
+  });
+
+  it("entry add password returns a reference, never the derived password", async () => {
+    const r = await run(
+      "--vault", writablePath, "entry", "add", "password", "new-site.example",
+      "--length", "16", "--username", "bob",
+    );
+    const row = JSON.parse(r.stdout);
+    expect(row.ref).toBe("sp://entry/10");
+    expect(row.kind).toBe("password");
+    expect(row.gen_version).toBe(2);
+
+    // The derived password exists and reveals correctly, but appeared
+    // nowhere in the provisioning output.
+    const reveal = await run("--vault", writablePath, "entry", "reveal", "sp://entry/10");
+    expect(reveal.stdout).toHaveLength(16);
+    expect(r.stdout).not.toContain(reveal.stdout);
+  });
+
+  it("entry add totp --secret stores but never echoes the imported secret", async () => {
+    const secret = "GEZDGNBVGY3TQOJQ";
+    const r = await run(
+      "--vault", writablePath, "entry", "add", "totp", "imported-2", "--secret", secret,
+    );
+    const row = JSON.parse(r.stdout);
+    expect(row.has_secret).toBe(true);
+    expect(r.stdout).not.toContain(secret);
+  });
+
+  it("entry add key-value persists across reopen", async () => {
+    await run(
+      "--vault", writablePath, "entry", "add", "key-value", "deploy-token", "token", "s3cr3t-value",
+    );
+    const list = await run("--vault", writablePath, "entry", "list");
+    const rows = JSON.parse(list.stdout) as { label: string }[];
+    expect(rows.map((x) => x.label)).toContain("deploy-token");
+    expect(list.stdout).not.toContain("s3cr3t-value");
+    const reveal = await run("--vault", writablePath, "entry", "reveal", "deploy-token");
+    expect(reveal.stdout).toBe("s3cr3t-value");
+  });
+
+  it("entry add managed-account records the child fingerprint only", async () => {
+    const r = await run("--vault", writablePath, "entry", "add", "managed-account", "child-acct");
+    const row = JSON.parse(r.stdout);
+    expect(row.fingerprint).toMatch(/^[0-9A-F]{16}$/);
+    expect(row.word_count).toBe(12);
+    // The child mnemonic is derivable but was never printed
+    const reveal = await run("--vault", writablePath, "entry", "reveal", "child-acct");
+    expect(reveal.stdout.split(" ")).toHaveLength(12);
+    expect(r.stdout).not.toContain(reveal.stdout);
   });
 });
 

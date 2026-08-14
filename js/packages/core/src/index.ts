@@ -63,6 +63,23 @@ export {
   PORTABLE_FORMAT_VERSION,
   type PortableBackup,
 } from "./vault/portableBackup.js";
+export {
+  addPasswordEntry,
+  addTotpDeterministic,
+  addTotpImported,
+  addSshKeyEntry,
+  addNostrKeyEntry,
+  addKeyValueEntry,
+  addDocumentEntry,
+  addSeedEntry,
+  addManagedAccountEntry,
+  addPgpKeyEntry,
+  nextIndex,
+  nextTotpIndex,
+  isoFromUnix,
+  systemClock,
+  type Clock,
+} from "./vault/entryOps.js";
 export { canonicalJson, canonicalHash } from "./sync/canonical.js";
 export {
   mergeIndexPayloads,

@@ -11,7 +11,8 @@ import {
   generatePassword,
   deriveTotpSecret,
   totpCodeAt,
-  deriveNostrKeys,
+  hexToBech32,
+  bytesToHex,
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
@@ -56,9 +57,15 @@ export function materializeSecret(
     case "document":
       return { value: entry.content, descriptor: `document ${entry.label}` };
     case "nostr": {
+      // Nostr ENTRY keys use the default BIP-85 app 39 path (see
+      // EntryManager.get_nostr_key_pair) — NOT app 1237, which is only for
+      // the sync client identity.
       const bip85 = Bip85.fromMnemonic(mnemonic);
-      const keys = deriveNostrKeys(bip85, entry.index);
-      return { value: keys.nsec, descriptor: `nsec for ${entry.label}` };
+      const entropy = bip85.deriveEntropy({ index: entry.index, entropyBytes: 32 });
+      return {
+        value: hexToBech32(bytesToHex(entropy), "nsec"),
+        descriptor: `nsec for ${entry.label}`,
+      };
     }
     case "seed":
     case "managed_account": {

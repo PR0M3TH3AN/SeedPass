@@ -5,6 +5,7 @@
     "bip85_entropy.json",
     "delta_replay.json",
     "entries_index.json",
+    "entry_secrets.json",
     "fingerprints.json",
     "index_keys.json",
     "kdf_metadata.json",
@@ -22,6 +23,6 @@
   ],
   "fixture_version": 1,
   "generator": "scripts/generate_ts_port_fixtures.py",
-  "python_commit": "2345f614310a701a147872e81c53ccd22f8948d3",
+  "python_commit": "ab569fe900213937a21f0616057d3d5c46015e3c",
   "redaction_policy": "All fixtures derive from public BIP-39 test mnemonics (abandon.../legal.../zoo...). Secret-shaped outputs are generated test material, never from a live profile."
 }

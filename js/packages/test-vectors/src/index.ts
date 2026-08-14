@@ -26,6 +26,7 @@ import nostrSnapshotJson from "../fixtures/nostr_snapshot.json";
 import syncMergeJson from "../fixtures/sync_merge.json";
 import deltaReplayJson from "../fixtures/delta_replay.json";
 import portableBackupJson from "../fixtures/portable_backup.json";
+import entrySecretsJson from "../fixtures/entry_secrets.json";
 
 export interface Bip39Case {
   id: string;
@@ -201,6 +202,15 @@ export const portableBackup = portableBackupJson as {
   canonical_json_sha256: string;
   encrypted_wrapper: PortableWrapper;
   plaintext_wrapper: PortableWrapper;
+};
+
+export const entrySecrets = entrySecretsJson as {
+  mnemonic_id: string;
+  password_entry_0: string;
+  totp_entry_1_code_at: Record<string, string>;
+  nostr_entry_4: { nsec: string; npub: string };
+  seed_entry_7_mnemonic: string;
+  managed_entry_8_mnemonic: string;
 };
 
 export const legacyPayloads = legacyPayloadsJson as {
