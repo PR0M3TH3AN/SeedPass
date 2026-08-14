@@ -106,4 +106,22 @@ export {
   type ChunkMeta,
   type Manifest,
 } from "./sync/snapshot.js";
+export {
+  computeEventId,
+  serializeEventForId,
+  signEvent,
+  verifyEvent,
+  signerPublicKeyHex,
+  buildChunkEvent,
+  buildManifestEvent,
+  buildDeltaEvent,
+  reqMessage,
+  eventMessage,
+  closeMessage,
+  parseRelayMessage,
+  type NostrEvent,
+  type UnsignedEvent,
+  type Filter,
+  type RelayMessage,
+} from "./sync/events.js";
 export * from "./util/bytes.js";

@@ -27,6 +27,7 @@ import syncMergeJson from "../fixtures/sync_merge.json";
 import deltaReplayJson from "../fixtures/delta_replay.json";
 import portableBackupJson from "../fixtures/portable_backup.json";
 import entrySecretsJson from "../fixtures/entry_secrets.json";
+import nostrEventsJson from "../fixtures/nostr_events.json";
 
 export interface Bip39Case {
   id: string;
@@ -211,6 +212,23 @@ export const entrySecrets = entrySecretsJson as {
   nostr_entry_4: { nsec: string; npub: string };
   seed_entry_7_mnemonic: string;
   managed_entry_8_mnemonic: string;
+};
+
+export interface SignedNostrEvent {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: number;
+  tags: string[][];
+  content: string;
+  sig: string;
+}
+
+export const nostrEvents = nostrEventsJson as {
+  mnemonic_id: string;
+  signer_private_key_hex: string;
+  signer_public_key_hex: string;
+  events: { name: string; event: SignedNostrEvent }[];
 };
 
 export const legacyPayloads = legacyPayloadsJson as {

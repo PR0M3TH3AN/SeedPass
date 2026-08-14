@@ -35,6 +35,7 @@ until a later milestone.
 | Deterministic conflict merge | P0 | green | `sync_merge.json` | Full `merge_index_payloads` port: ts precedence, canonical-hash tie-breaks (Python-compatible ensure_ascii canonical JSON), equal-ts field union incl. the `custom_fields: null` quirk, tombstone lifecycle, retention cap, `_sync_meta`. |
 | Tombstones / delta replay | P0 | green | `delta_replay.json` | Encrypted V3 deltas decrypted and merged in order with `source_tag = sha256(payload)[:16]`, final state matches Python. |
 | index0 content merge (`_system.index0`) | P2 | partial | — | Empty-skeleton normalization matches Python; merging populated index0 event logs throws loudly instead of silently dropping data. Full port belongs to the atlas milestone. |
+| Nostr event layer (NIP-01 ids, BIP-340 sign/verify, framing) | P0 | green | `nostr_events.json` | Event ids match rust-nostr (Python nostr_sdk) fixtures byte-for-byte; fixture signatures verify in TS; TS-signed events reproduce the same ids and verify. REQ/EVENT/EOSE/OK/NOTICE/CLOSED framing round-trips. Fixture signatures are cached across generator runs (BIP-340 aux randomness). WebSocket relay transport: todo (interface milestones). |
 | Portable backup import/export | P0 | green | `portable_backup.json` | format_version 1, seed-only and plaintext modes; TS imports the Python export, re-exports byte-identically under pinned nonce/timestamp, verifies canonical checksum, rejects tampering/unknown versions. |
 | Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission, modify/archive ops. |
 | Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
@@ -44,8 +45,8 @@ until a later milestone.
 
 | Environment | Status |
 |---|---|
-| Node 22 (vitest) | green — 129/129 core + 16 CLI |
-| jsdom browser-like env | green — 129/129 core |
+| Node 22 (vitest) | green — 143/143 core + 16 CLI |
+| jsdom browser-like env | green — 143/143 core |
 | Real Chromium/Firefox (vitest browser mode) | todo — lands with Milestone 6 web app CI |
 
 ## Dependency notes (to expand into docs/typescript_dependency_review.md)

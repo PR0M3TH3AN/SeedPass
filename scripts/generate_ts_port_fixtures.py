@@ -906,6 +906,78 @@ def gen_entry_secrets() -> dict:
     }
 
 
+def gen_nostr_events(snapshot: dict, delta_replay: dict) -> dict:
+    """Signed Nostr events for the snapshot/chunk/delta model.
+
+    Event ids are deterministic (NIP-01 serialization); BIP-340 signatures
+    use random aux data and are NOT. To keep the generator byte-deterministic
+    we reuse the previously committed signature whenever the event id is
+    unchanged — a fresh signature is only produced for new/changed events.
+    """
+    import json as json_mod
+
+    from nostr_sdk import EventBuilder, EventId, Keys, Kind, Tag, Timestamp
+
+    # Sync client identity: BIP-85 app 1237, account index 0 (nostr_keys.json)
+    bip85 = _bip85(MNEMONICS[PRIMARY])
+    entropy = bip85.derive_entropy(index=0, entropy_bytes=32, app_no=NOSTR_KEY_APP_ID)
+    keys = Keys.parse(entropy.hex())
+
+    existing_sigs: dict[str, str] = {}
+    existing_path = FIXTURES_DIR / "nostr_events.json"
+    if existing_path.exists():
+        try:
+            for ev in json_mod.loads(existing_path.read_text())["events"]:
+                existing_sigs[ev["event"]["id"]] = ev["event"]["sig"]
+        except Exception:
+            pass
+
+    def build(name: str, kind: int, content: str, tags: list) -> dict:
+        builder = (
+            EventBuilder(Kind(kind), content)
+            .tags(tags)
+            .custom_created_at(Timestamp.from_secs(FIXED_UNIX))
+        )
+        event = json_mod.loads(builder.sign_with_keys(keys).as_json())
+        cached_sig = existing_sigs.get(event["id"])
+        if cached_sig:
+            event["sig"] = cached_sig
+        return {"name": name, "event": event}
+
+    events = [
+        build(
+            "chunk-0",
+            30071,
+            snapshot["chunks_b64"][0],
+            [Tag.identifier(snapshot["chunk_metas"][0]["id"])],
+        ),
+        build(
+            "manifest",
+            30070,
+            snapshot["manifest_json"],
+            [Tag.identifier(snapshot["manifest_id"])],
+        ),
+        build(
+            "delta-1",
+            30072,
+            delta_replay["delta_payloads_b64"][0],
+            [Tag.event(EventId.parse(snapshot["manifest_id"]))],
+        ),
+    ]
+
+    return {
+        "description": (
+            "Signed Nostr events from the Python-side nostr_sdk (rust-nostr) "
+            "with pinned created_at. Ids are NIP-01-deterministic; signatures "
+            "are cached across generator runs (BIP-340 aux randomness)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "signer_private_key_hex": entropy.hex(),
+        "signer_public_key_hex": keys.public_key().to_hex(),
+        "events": events,
+    }
+
+
 def gen_kdf_metadata() -> dict:
     return {
         "description": (
@@ -959,6 +1031,9 @@ def main() -> None:
     files["entry_secrets.json"] = gen_entry_secrets()
     files["sync_merge.json"] = gen_sync_merge()
     files["delta_replay.json"] = gen_delta_replay()
+    files["nostr_events.json"] = gen_nostr_events(
+        files["nostr_snapshot.json"], files["delta_replay.json"]
+    )
 
     for name, data in files.items():
         data["fixture_version"] = FIXTURE_VERSION
