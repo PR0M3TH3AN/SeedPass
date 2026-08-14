@@ -87,24 +87,22 @@ nostr, ssh.
 
 ## Known intentional divergences
 
-1. **TOTP codes for entries with a non-default period/digits.** Python's
-   `TotpManager.current_code_from_secret` constructs `pyotp.TOTP(secret)`
-   with library defaults (6 digits, 30s) and ignores the entry's stored
-   `period`/`digits`; TS honors them. For an imported 8-digit/45s secret the
-   two produce different codes — and Python's would be rejected by the
-   issuing service. **TS behavior is believed correct; awaiting a product
-   decision on whether Python should be fixed to match.** Recorded by the
-   cross-impl suite as a `[DIVERGE]` line so it can never become silent.
-
-2. **`kind` backfill on legacy entries** (see the migrations row): TS fills
+1. **`kind` backfill on legacy entries** (see the migrations row): TS fills
    `kind` from `type` at parse time for pre-v2 entries; Python leaves them
    `type`-only and falls back on read. The filled shape matches what Python
    writes for new entries, and Python reads it unchanged.
 
-3. **Index/config file envelope**: Python wraps ciphertext in a kdf/ct JSON
+2. **Index/config file envelope**: Python wraps ciphertext in a kdf/ct JSON
    envelope; TS writes bare ciphertext. Both implementations read both forms
    (Python via its legacy fallback, TS via `parseEncryptedFile`), verified in
    cross-impl phases A/B/F/J.
+
+**Resolved:** TOTP codes for entries with a non-default period/digits used
+to differ — Python built `pyotp.TOTP(secret)` with library defaults and
+ignored the entry's recorded values, so an imported 8-digit/45s secret
+produced codes the issuing service would reject. Python was fixed to honor
+the entry (`src/seedpass/core/totp.py` and every call site); the cross-impl
+suite now asserts equality with no divergence allowance.
 
 Any future divergence must carry a compatibility version, a
 migration/fallback path, release notes, and tests (plan §6).

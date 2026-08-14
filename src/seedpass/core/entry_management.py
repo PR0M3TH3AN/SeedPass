@@ -1059,12 +1059,20 @@ class EntryManager:
             etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
         ):
             raise ValueError("Entry is not a TOTP entry")
+        # The entry's own period/digits govern the code; the issuing service
+        # was configured from those values, not from pyotp's defaults.
+        period = int(entry.get("period", 30))
+        digits = int(entry.get("digits", 6))
         if entry.get("deterministic", False) or "secret" not in entry:
             if parent_seed is None:
                 raise ValueError("Seed required for derived TOTP")
             totp_index = int(entry.get("index", 0))
-            return TotpManager.current_code(parent_seed, totp_index, timestamp)
-        return TotpManager.current_code_from_secret(entry["secret"], timestamp)
+            return TotpManager.current_code(
+                parent_seed, totp_index, timestamp, period=period, digits=digits
+            )
+        return TotpManager.current_code_from_secret(
+            entry["secret"], timestamp, period=period, digits=digits
+        )
 
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""

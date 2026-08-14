@@ -260,7 +260,12 @@ def py_secrets_for(index: dict, seed: str) -> dict[str, str]:
                 secret = entry["secret"]
             else:
                 secret = derive_totp_secret(seed, int(entry.get("index", 0)))
-            out[label] = TotpManager.current_code_from_secret(secret, FIXED_TS)
+            out[label] = TotpManager.current_code_from_secret(
+                secret,
+                FIXED_TS,
+                period=int(entry.get("period", 30)),
+                digits=int(entry.get("digits", 6)),
+            )
         elif kind == "key_value":
             out[label] = entry["value"]
         elif kind == "document":
@@ -332,21 +337,6 @@ def phase_a(tmp: Path) -> None:
         for k in py_secrets
         if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
     ]
-    # Known divergence: Python generates TOTP codes with pyotp defaults
-    # (6 digits / 30s) even when the entry records different values, so an
-    # imported 8-digit/45s code differs. Tracked, not silently accepted.
-    custom_totp = {
-        e["label"]
-        for e in py_index.get("entries", {}).values()
-        if e.get("kind", e.get("type")) == "totp"
-        and (int(e.get("period", 30)) != 30 or int(e.get("digits", 6)) != 6)
-    }
-    for label in sorted(custom_totp & set(mismatches)):
-        note_divergence(
-            f"TOTP code for {label!r}",
-            "Python ignores the entry's period/digits (pyotp defaults); TS honors them",
-        )
-    mismatches = [k for k in mismatches if k not in custom_totp]
     check(
         "every secret derives identically",
         not mismatches,
@@ -417,21 +407,6 @@ def phase_b(tmp: Path) -> None:
         for k in py_secrets
         if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
     ]
-    # Known divergence: Python generates TOTP codes with pyotp defaults
-    # (6 digits / 30s) even when the entry records different values, so an
-    # imported 8-digit/45s code differs. Tracked, not silently accepted.
-    custom_totp = {
-        e["label"]
-        for e in py_index.get("entries", {}).values()
-        if e.get("kind", e.get("type")) == "totp"
-        and (int(e.get("period", 30)) != 30 or int(e.get("digits", 6)) != 6)
-    }
-    for label in sorted(custom_totp & set(mismatches)):
-        note_divergence(
-            f"TOTP code for {label!r}",
-            "Python ignores the entry's period/digits (pyotp defaults); TS honors them",
-        )
-    mismatches = [k for k in mismatches if k not in custom_totp]
     check("every secret derives identically", not mismatches, f"mismatched: {mismatches}")
 
     # Python's schema validation should accept the TS-written index

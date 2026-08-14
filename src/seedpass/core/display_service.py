@@ -87,8 +87,11 @@ class DisplayService:
                 self.manager, "parent_seed", None
             )
             secret = self.manager.entry_manager.get_totp_secret(index, key)
+            digits = int(entry.get("digits", 6))
             while True:
-                code = TotpManager.current_code_from_secret(secret)
+                code = TotpManager.current_code_from_secret(
+                    secret, period=period, digits=digits
+                )
                 if self.manager.secret_mode_enabled:
                     if self._copy_to_clipboard(code):
                         print(

@@ -32,19 +32,35 @@ class TotpManager:
 
     @classmethod
     def current_code(
-        cls, seed: Union[str, bytes], index: int, timestamp: int | None = None
+        cls,
+        seed: Union[str, bytes],
+        index: int,
+        timestamp: int | None = None,
+        *,
+        period: int = 30,
+        digits: int = 6,
     ) -> str:
-        """Return the TOTP code for the given seed/key and index."""
+        """Return the TOTP code for the given seed/key and index.
+
+        ``period`` and ``digits`` must be the values recorded on the entry.
+        Falling back to pyotp's defaults produces codes the issuing service
+        rejects whenever an entry uses anything else.
+        """
         secret = cls.derive_secret(seed, index)
-        totp = pyotp.TOTP(secret)
-        if timestamp is None:
-            return totp.now()
-        return totp.at(timestamp)
+        return cls.current_code_from_secret(
+            secret, timestamp, period=period, digits=digits
+        )
 
     @staticmethod
-    def current_code_from_secret(secret: str, timestamp: int | None = None) -> str:
+    def current_code_from_secret(
+        secret: str,
+        timestamp: int | None = None,
+        *,
+        period: int = 30,
+        digits: int = 6,
+    ) -> str:
         """Return the TOTP code for a raw secret."""
-        totp = pyotp.TOTP(secret)
+        totp = pyotp.TOTP(secret, interval=int(period), digits=int(digits))
         return totp.now() if timestamp is None else totp.at(timestamp)
 
     @staticmethod
