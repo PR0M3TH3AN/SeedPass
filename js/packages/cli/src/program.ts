@@ -18,6 +18,7 @@ import {
   importBackup,
   exportBackup,
   generateFingerprint,
+  assertValidMnemonic,
   modifyEntry,
   archiveEntry,
   restoreEntry,
@@ -87,7 +88,12 @@ async function currentFingerprint(app: AppDir, opts: GlobalOpts): Promise<string
  */
 async function resolveMnemonic(app: AppDir, opts: GlobalOpts): Promise<string> {
   const env = process.env["SEEDPASS_MNEMONIC"];
-  if (env) return env;
+  if (env) {
+    // Catch a typo'd phrase at the boundary rather than deriving a silently
+    // different vault from it.
+    assertValidMnemonic(env, "SEEDPASS_MNEMONIC");
+    return env;
+  }
   // A process that authenticates with a scoped token has declared itself a
   // constrained principal: it must never escalate to owner access by
   // pulling the mnemonic from the unlocked agent.

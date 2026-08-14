@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
-import { generateFingerprint } from "@seedpass/core";
+import { generateFingerprint, sha256Hex, hexToBytes, utf8 } from "@seedpass/core";
 import { buildProgram, AgentDaemon, agentSocketPath, type ProgramIo } from "../src/index.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
@@ -76,6 +76,36 @@ describe("profile lifecycle", () => {
       last_used: FINGERPRINT,
       names: { [FINGERPRINT]: "main" },
     });
+  });
+
+  it("writes Python-compatible parent-seed KDF metadata", async () => {
+    // Python's PasswordManager._derive_seed_key only takes the recorded
+    // parameters when kdf.name is exactly "pbkdf2"; anything else makes it
+    // fall back to its config defaults and derive a different key, leaving
+    // TS-created profiles unopenable there.
+    const wrapper = JSON.parse(
+      await readFile(join(appDir, FINGERPRINT, "parent_seed.enc"), "utf8"),
+    ) as { kdf: { name: string; params: { iterations: number }; salt_b64: string } };
+    expect(wrapper.kdf.name).toBe("pbkdf2");
+    expect(wrapper.kdf.params.iterations).toBe(200000);
+    // salt = sha256(fingerprint)[:16], as Python computes it
+    const expectedSalt = Buffer.from(
+      hexToBytes(sha256Hex(utf8(FINGERPRINT))).slice(0, 16),
+    ).toString("base64");
+    expect(wrapper.kdf.salt_b64).toBe(expectedSalt);
+  });
+
+  it("refuses an invalid mnemonic instead of creating an unrecoverable vault", async () => {
+    // Valid words, wrong checksum. BIP-39 seed derivation would happily
+    // accept it and produce a different vault that nothing can recover.
+    const bogus = "gaze stereo trend brown chunk hero pole width once tent lift bird";
+    const r = await run(
+      { SEEDPASS_MNEMONIC: bogus, SEEDPASS_PASSWORD: "x" },
+      "fingerprint", "add", "--name", "should-not-exist",
+    );
+    expect(String((r.error as Error).message)).toContain("valid BIP-39");
+    const meta = JSON.parse(await readFile(join(appDir, "fingerprints.json"), "utf8"));
+    expect(meta.fingerprints).toHaveLength(1);
   });
 
   it("lists and switches profiles", async () => {

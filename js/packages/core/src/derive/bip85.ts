@@ -11,9 +11,36 @@
 import { HDKey } from "@scure/bip32";
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha512 } from "@noble/hashes/sha2.js";
-import { mnemonicToSeedSync, entropyToMnemonic } from "@scure/bip39";
+import {
+  mnemonicToSeedSync,
+  entropyToMnemonic,
+  validateMnemonic as scureValidateMnemonic,
+} from "@scure/bip39";
 import { wordlist as english } from "@scure/bip39/wordlists/english.js";
 import { utf8 } from "../util/bytes.js";
+
+/** True when `mnemonic` is a valid English BIP-39 phrase (checksum included). */
+export function isValidMnemonic(mnemonic: string): boolean {
+  return scureValidateMnemonic(mnemonic.trim(), english);
+}
+
+/**
+ * Throw unless `mnemonic` is a valid BIP-39 phrase.
+ *
+ * BIP-39 seed derivation deliberately accepts any string, so a typo'd phrase
+ * silently yields a *different* vault that no other implementation (or later
+ * recovery attempt) can reproduce. Every point where a mnemonic enters
+ * SeedPass must reject invalid phrases loudly instead.
+ */
+export function assertValidMnemonic(mnemonic: string, context = "mnemonic"): void {
+  if (!isValidMnemonic(mnemonic)) {
+    throw new Error(
+      `${context} is not a valid BIP-39 phrase (word list or checksum is wrong). ` +
+        `Check for typos or a wrong word order — deriving from an invalid ` +
+        `phrase would create a vault you could never recover.`,
+    );
+  }
+}
 
 const HMAC_KEY = utf8("bip-entropy-from-k");
 

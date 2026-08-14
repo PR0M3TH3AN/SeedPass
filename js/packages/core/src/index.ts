@@ -5,7 +5,12 @@
  * green; see docs/typescript_web_extension_port_plan.md.
  */
 
-export { Bip85, type DeriveEntropyOptions } from "./derive/bip85.js";
+export {
+  Bip85,
+  isValidMnemonic,
+  assertValidMnemonic,
+  type DeriveEntropyOptions,
+} from "./derive/bip85.js";
 export {
   generatePassword,
   derivePasswordDk,

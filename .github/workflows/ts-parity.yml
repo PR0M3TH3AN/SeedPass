@@ -5,13 +5,17 @@ on:
     branches: ["**"]
     paths:
       - "js/**"
+      - "src/**"
       - "scripts/generate_ts_port_fixtures.py"
+      - "scripts/cross_impl_check.py"
       - ".github/workflows/ts-parity.yml"
   pull_request:
     branches: ["**"]
     paths:
       - "js/**"
+      - "src/**"
       - "scripts/generate_ts_port_fixtures.py"
+      - "scripts/cross_impl_check.py"
       - ".github/workflows/ts-parity.yml"
 
 jobs:
@@ -33,6 +37,31 @@ jobs:
         run: pnpm -r typecheck
       - name: Parity tests (Node + jsdom)
         run: pnpm -r test
+
+  # Fixtures prove the two implementations compute the same values; this job
+  # proves they can read each other's on-disk profiles and backups.
+  cross-implementation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: js
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install Python dependencies
+        run: poetry install --no-interaction --no-ansi
+      - name: Cross-implementation compatibility
+        run: poetry run python scripts/cross_impl_check.py
 
   # The fixtures are committed, so the parity job never regenerates them.
   # This job proves the committed fixtures actually come from the committed

@@ -16,15 +16,30 @@ import process from "node:process";
 import { base64url } from "@scure/base";
 import {
   generateFingerprint,
+  assertValidMnemonic,
   deriveKeyFromPassword,
   deriveKeyFromPasswordArgon2,
   deriveIndexKeyBytes,
   decryptPayload,
   encryptV3,
   parseEncryptedFile,
+  sha256Hex,
+  hexToBytes,
   utf8,
   type KdfConfig,
 } from "@seedpass/core";
+
+/**
+ * Python's ConfigManager default. Profile KDF metadata must match what the
+ * Python app writes, or Python falls back to its config defaults and derives
+ * a different key — making TS-created profiles unreadable there.
+ */
+export const DEFAULT_PBKDF2_ITERATIONS = 200_000;
+
+/** Python's seed-KDF salt: sha256(fingerprint)[:16]. */
+function seedKdfSalt(fingerprint: string): Uint8Array {
+  return hexToBytes(sha256Hex(utf8(fingerprint))).slice(0, 16);
+}
 
 export const INDEX_FILENAME = "seedpass_entries_db.json.enc";
 export const CONFIG_FILENAME = "seedpass_config.json.enc";
@@ -72,6 +87,11 @@ export class AppDir {
 
   /** Create a profile from a mnemonic; returns its fingerprint. */
   async createProfile(mnemonic: string, password: string, name?: string): Promise<string> {
+    // Reject typo'd phrases here: an invalid mnemonic still derives *a* seed,
+    // so accepting one creates a vault that cannot be recovered or opened by
+    // any other implementation.
+    assertValidMnemonic(mnemonic, "parent seed");
+    if (!password) throw new Error("a master password is required");
     const fingerprint = generateFingerprint(mnemonic);
     const data = await this.readFingerprints();
     if (data.fingerprints.includes(fingerprint)) {
@@ -80,14 +100,19 @@ export class AppDir {
     const dir = this.profileDir(fingerprint);
     await mkdir(dir, { recursive: true, mode: 0o700 });
 
-    // parent_seed.enc: kdf/ct wrapper around a V3 blob under the password key
-    const seedKey = base64url.decode(deriveKeyFromPassword(password, fingerprint));
+    // parent_seed.enc: kdf/ct wrapper around a V3 blob under the password key.
+    // Shape and parameters mirror PasswordManager._build_seed_kdf_config so
+    // the Python implementation can open this profile.
+    const salt = seedKdfSalt(fingerprint);
+    const seedKey = base64url.decode(
+      deriveKeyFromPassword(password, salt, DEFAULT_PBKDF2_ITERATIONS),
+    );
     const ct = await encryptV3(seedKey, utf8(mnemonic));
     const kdf: KdfConfig = {
-      name: "pbkdf2-sha256",
+      name: "pbkdf2",
       version: 1,
-      params: { iterations: 100000 },
-      salt_b64: "",
+      params: { iterations: DEFAULT_PBKDF2_ITERATIONS },
+      salt_b64: Buffer.from(salt).toString("base64"),
     };
     const wrapper = JSON.stringify({
       kdf,
@@ -141,12 +166,27 @@ export class AppDir {
     const blob = new Uint8Array(await readFile(path));
     const { kdf, ciphertext } = parseEncryptedFile(blob);
 
+    // Mirrors PasswordManager._derive_seed_key: argon2 when the metadata says
+    // so, otherwise PBKDF2 with the recorded salt (falling back to the
+    // fingerprint-derived salt) and iteration count, then legacy counts.
     const candidates: Uint8Array[] = [];
-    if (kdf.name === "argon2id" && kdf.salt_b64) {
+    if (kdf.name.startsWith("argon2") && kdf.salt_b64) {
       candidates.push(base64url.decode(deriveKeyFromPasswordArgon2(password, kdf)));
     }
+    const recordedSalt = kdf.salt_b64
+      ? new Uint8Array(Buffer.from(kdf.salt_b64, "base64"))
+      : seedKdfSalt(fingerprint);
     const iterations = Number((kdf.params as { iterations?: number }).iterations ?? 0);
-    for (const iters of [...(iterations ? [iterations] : []), 100_000, 50_000]) {
+    const iterationCandidates = [
+      ...(iterations ? [iterations] : []),
+      DEFAULT_PBKDF2_ITERATIONS,
+      100_000,
+      50_000,
+    ];
+    for (const iters of iterationCandidates) {
+      candidates.push(base64url.decode(deriveKeyFromPassword(password, recordedSalt, iters)));
+      // Legacy files may predate the recorded salt; the fingerprint string
+      // path derives the same bytes, but keep it explicit for clarity.
       candidates.push(base64url.decode(deriveKeyFromPassword(password, fingerprint, iters)));
     }
     let lastError: unknown;
