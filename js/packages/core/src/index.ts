@@ -10,6 +10,10 @@ export {
   isValidMnemonic,
   assertValidMnemonic,
   canonicalizeMnemonic,
+  generateMnemonic,
+  SUPPORTED_SEED_WORD_COUNTS,
+  DEFAULT_SEED_WORD_COUNT,
+  type SeedWordCount,
   type DeriveEntropyOptions,
 } from "./derive/bip85.js";
 export {

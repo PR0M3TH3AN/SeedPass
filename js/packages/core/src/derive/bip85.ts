@@ -11,6 +11,9 @@
 import { HDKey } from "@scure/bip32";
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha512 } from "@noble/hashes/sha2.js";
+// Not node:crypto — core also runs in the browser extension, and noble's
+// randomBytes is backed by crypto.getRandomValues in both places.
+import { randomBytes } from "@noble/hashes/utils.js";
 import {
   mnemonicToSeedSync,
   entropyToMnemonic,
@@ -55,6 +58,35 @@ export function assertValidMnemonic(mnemonic: string, context = "mnemonic"): voi
         `phrase would create a vault you could never recover.`,
     );
   }
+}
+
+/** Master-seed word counts SeedPass will generate (parity: SUPPORTED_SEED_WORD_COUNTS). */
+export const SUPPORTED_SEED_WORD_COUNTS = [12, 24] as const;
+export type SeedWordCount = (typeof SUPPORTED_SEED_WORD_COUNTS)[number];
+export const DEFAULT_SEED_WORD_COUNT: SeedWordCount = 12;
+
+/**
+ * Generate a brand-new master seed phrase, matching
+ * `PasswordManager.generate_bip85_seed`: 32 bytes of OS entropy, then the
+ * BIP-85 app-39 child at index 0.
+ *
+ * `randomBytes` is called OUTSIDE any try/catch on purpose (Python carries the
+ * same note, from its entropy audit). Nothing here may catch an entropy
+ * failure and substitute a value — that is the class of bug that made
+ * COLDCARD generate predictable seeds. If the CSPRNG fails, the throw
+ * propagates and the operation aborts, which is the only acceptable outcome.
+ */
+export function generateMnemonic(wordsNum: SeedWordCount = DEFAULT_SEED_WORD_COUNT): string {
+  if (!(SUPPORTED_SEED_WORD_COUNTS as readonly number[]).includes(wordsNum)) {
+    throw new Error(
+      `seed word count must be one of ${SUPPORTED_SEED_WORD_COUNTS.join(", ")}, got ${wordsNum}`,
+    );
+  }
+  const masterSeed = randomBytes(32);
+  const mnemonic = new Bip85(masterSeed).deriveMnemonic(0, wordsNum);
+  // Belt and braces: never hand back a phrase we could not ourselves reopen.
+  assertValidMnemonic(mnemonic, "generated mnemonic");
+  return mnemonic;
 }
 
 const HMAC_KEY = utf8("bip-entropy-from-k");

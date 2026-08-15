@@ -33,7 +33,19 @@ export function capabilities(): Record<string, unknown> {
     },
     profiles: {
       layout: "python-compatible ~/.seedpass",
-      commands: ["fingerprint list/add/switch/remove", "config get/set"],
+      commands: [
+        "fingerprint list/create/add/switch/remove",
+        "config get/set",
+      ],
+      seed_generation: {
+        command: "fingerprint create",
+        word_counts: [12, 24],
+        entropy: "32 bytes from the OS CSPRNG, via BIP-85 app 39 index 0",
+        egress:
+          "the new phrase goes to --out <0600 file>, --show, or an interactive " +
+          "terminal; with none of those the command refuses rather than writing " +
+          "the seed into a pipe",
+      },
     },
     tokens: {
       commands: ["agent token-issue/token-list/token-revoke"],
@@ -50,10 +62,14 @@ export function capabilities(): Record<string, unknown> {
       commands: ["agent audit-verify", "agent audit-tail"],
       chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
     },
+    // Automation branches on this list, so it has to describe this build
+    // rather than an earlier one. SSH and ed25519 PGP entries are at
+    // byte-for-byte parity with Python and were wrongly listed here.
     not_yet_ported: [
-      "ssh/pgp key material",
+      "pgp RSA keys (ed25519 is supported; RSA generation is not reproducible)",
       "index0/atlas",
       "approval gates and high-risk partitions",
+      "semantic (vector search) and api (FastAPI server) command groups",
     ],
   };
 }

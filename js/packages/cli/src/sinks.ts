@@ -55,15 +55,55 @@ export function sinkEnv(extra: Record<string, string> = {}): Record<string, stri
  * Commander's variadic options stop collecting at the next token starting
  * with "-", so `--exec wc -c` loses the flag. Passing the whole command as
  * one quoted string (`--exec "wc -c"`) is the documented way to include
- * flags; split it here. Splitting is on whitespace only — no shell is
- * involved, so quoting/expansion never happens.
+ * flags; split it here.
+ *
+ * Quotes group, they do not pass through. Splitting on whitespace alone was
+ * wrong for the single most common sink command there is:
+ * `--exec 'sh -c "do the thing"'` handed sh the two tokens `"do` and
+ * `the` and `thing"`, so sh died on an unterminated string. Note this is
+ * tokenization only — no shell runs here, so there is no expansion,
+ * globbing, or substitution, and a `$VAR` inside the spec stays literal.
  */
 export function parseCommandSpec(spec: string[]): [string, string[]] {
-  const parts =
-    spec.length === 1 && /\s/.test(spec[0]!) ? spec[0]!.trim().split(/\s+/) : spec;
+  const parts = spec.length === 1 && /\s/.test(spec[0]!) ? tokenize(spec[0]!) : spec;
   const [cmd, ...args] = parts;
   if (!cmd) throw new Error("empty command");
   return [cmd, args];
+}
+
+/** Whitespace split that honours '...', "...", and backslash escapes. */
+function tokenize(spec: string): string[] {
+  const tokens: string[] = [];
+  let current = "";
+  let started = false;
+  let quote: "'" | '"' | null = null;
+
+  for (let i = 0; i < spec.length; i++) {
+    const ch = spec[i]!;
+    if (quote === null && (ch === " " || ch === "\t" || ch === "\n")) {
+      if (started) tokens.push(current);
+      current = "";
+      started = false;
+      continue;
+    }
+    started = true;
+    if (quote === null && (ch === "'" || ch === '"')) {
+      quote = ch;
+    } else if (ch === quote) {
+      quote = null;
+    } else if (ch === "\\" && quote !== "'" && i + 1 < spec.length) {
+      // Backslash escapes the next character, except inside single quotes
+      // where POSIX makes it literal.
+      current += spec[++i]!;
+    } else {
+      current += ch;
+    }
+  }
+  if (quote !== null) {
+    throw new Error(`unterminated ${quote === "'" ? "single" : "double"} quote in command spec`);
+  }
+  if (started) tokens.push(current);
+  return tokens;
 }
 
 /** Run a command with the secret injected as an env var (never on argv). */

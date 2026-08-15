@@ -743,6 +743,18 @@ export class AgentClient {
       });
       socket.on("error", (e) => {
         clearTimeout(timer);
+        // "No agent running" is an ordinary state, not a fault, and it is the
+        // first thing a new user hits. Raw `connect ENOENT /…/agent.sock`
+        // makes them go read the source to find out what to do about it.
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ECONNREFUSED") {
+          reject(
+            new Error(
+              "no session agent is running (start one with 'seedpass-js agent start')",
+            ),
+          );
+          return;
+        }
         reject(e);
       });
     });

@@ -101,6 +101,31 @@ so this only applies if you jump backwards several releases.
 
 If you rely on any of those, run both: they operate on the same profile.
 
+## Starting fresh (no existing vault)
+
+If you have no seed yet, `fingerprint create` generates one — 32 bytes of OS
+entropy through BIP-85, the same construction Python uses:
+
+```bash
+export SEEDPASS_APP_DIR=~/.seedpass
+export SEEDPASS_PASSWORD='a master password'
+seedpass-js fingerprint create --name personal --words 24 --out ~/seed.txt
+```
+
+The phrase is written to a `0600` file, and an existing file is never
+overwritten. `--show` prints it to stdout instead; on an interactive terminal
+neither flag is needed.
+
+**Where the phrase goes is a deliberate choice, not a default.** When stdout
+is not a terminal the command refuses to generate anything rather than write
+your only copy of the seed into a pipe — a CI log, a captured transcript, an
+AI agent's context. Nothing is created in that case, so there is no
+half-made profile to clean up.
+
+Write the phrase down offline and delete the file. It is the only way to
+recover the vault: everything else is derived from it, and SeedPass keeps no
+copy you can read without it.
+
 ## Recovering from nothing
 
 With only your seed phrase and a relay that has your snapshot:

@@ -26,6 +26,7 @@ import {
   exportBackup,
   generateFingerprint,
   assertValidMnemonic,
+  generateMnemonic,
   modifyEntry,
   archiveEntry,
   restoreEntry,
@@ -89,6 +90,25 @@ function parseIntOption(raw: string, name: string, opts: { min?: number; max?: n
     throw new Error(`${name} must be at most ${opts.max} (got ${value})`);
   }
   return value;
+}
+
+/**
+ * Normalize a variadic --tags value.
+ *
+ * The option is space-separated (`--tags work dev`), but comma-separated is
+ * what people type, and `--tags work,dev` silently stored the single tag
+ * "work,dev" — no error, just a tag that never matches a search. Accept both
+ * spellings, trim, and drop empties so `--tags "a, b"` behaves too.
+ */
+function normalizeTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  for (const raw of tags) {
+    for (const part of raw.split(",")) {
+      const tag = part.trim();
+      if (tag) seen.add(tag);
+    }
+  }
+  return [...seen];
 }
 
 /** Unix timestamps may be large but must still be real integers. */
@@ -441,7 +461,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   const commonOpts = (o: { notes?: string; tags?: string[]; archived?: boolean }) => ({
     notes: o.notes ?? "",
-    ...(o.tags !== undefined && { tags: o.tags }),
+    ...(o.tags !== undefined && { tags: normalizeTags(o.tags) }),
     ...(o.archived !== undefined && { archived: o.archived }),
   });
 
@@ -615,7 +635,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           addDocumentEntry(vault.index, o.label || base.replace(/\.[^.]*$/, ""), content, {
             fileType: ext || "txt",
             notes: o.notes,
-            ...(o.tags !== undefined && { tags: o.tags }),
+            ...(o.tags !== undefined && { tags: normalizeTags(o.tags) }),
           }),
         );
       },
@@ -716,7 +736,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           ...(o.username !== undefined && { username: o.username }),
           ...(o.url !== undefined && { url: o.url }),
           ...(o.notes !== undefined && { notes: o.notes }),
-          ...(o.tags !== undefined && { tags: o.tags }),
+          ...(o.tags !== undefined && { tags: normalizeTags(o.tags) }),
           ...(o.period !== undefined && { period: parseIntOption(o.period, "--period", { min: 1 }) }),
           ...(o.digits !== undefined && { digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }) }),
           ...(o.key !== undefined && { key: o.key }),
@@ -886,6 +906,16 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             ),
           }),
         );
+
+        // Adopt the sink child's exit status as our own. Delivering a secret
+        // to a command that then failed is not a success: `seedpass-js use
+        // db-pass --exec ./deploy.sh && echo deployed` printed "deployed"
+        // after a failed deploy, because we only reported the child's code in
+        // JSON and always exited 0 ourselves.
+        const childExit = result["exitCode"];
+        if (typeof childExit === "number" && childExit !== 0) {
+          process.exitCode = childExit > 0 ? childExit : 1;
+        }
       },
     );
 
@@ -921,6 +951,73 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       if (!password) throw new Error("SEEDPASS_PASSWORD is not set");
       const fp = await app.createProfile(mnemonic, password, o.name);
       io.out(JSON.stringify({ fingerprint: fp, name: o.name ?? null }));
+    });
+
+  fingerprint
+    .command("create")
+    .description("generate a NEW master seed and create a profile from it")
+    .option("--name <name>", "human-readable profile name")
+    .option("--words <n>", "seed length: 12 or 24", "12")
+    .option("--show", "print the new seed phrase to stdout")
+    .option("--out <file>", "write the new seed phrase to a 0600 file instead of printing")
+    .action(async (o: { name?: string; words: string; show?: boolean; out?: string }) => {
+      const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
+      const password = process.env["SEEDPASS_PASSWORD"];
+      if (!password) throw new Error("SEEDPASS_PASSWORD is not set");
+      const words = parseIntOption(o.words, "--words", { min: 12, max: 24 });
+      if (words !== 12 && words !== 24) throw new Error("--words must be 12 or 24");
+      if (o.show && o.out) throw new Error("--show and --out are mutually exclusive");
+
+      // Decide how the phrase reaches the human BEFORE generating anything.
+      // This is the only secret in SeedPass with no other copy: creating the
+      // profile first and failing to deliver the phrase afterwards would
+      // leave a vault that nobody — including its owner — can ever reopen.
+      const toTty = !o.out && !o.show && Boolean(process.stdout.isTTY);
+      if (!o.out && !o.show && !toTty) {
+        throw new Error(
+          "refusing to generate a seed with nowhere safe to put it: stdout is not a " +
+            "terminal, so the phrase would be captured by whatever is reading this " +
+            "pipe (a log, a transcript, an AI agent's context). Pass --out <file> to " +
+            "write it to a 0600 file, or --show if you really want it on stdout.",
+        );
+      }
+
+      const mnemonic = generateMnemonic(words);
+
+      // Deliver first, create second. If the write fails we abort having
+      // created nothing, rather than orphaning an unrecoverable profile.
+      if (o.out) {
+        // "wx" so an existing file is never clobbered, and 0600 from the
+        // moment it exists rather than chmod'd afterwards.
+        try {
+          await writeFile(o.out, mnemonic + "\n", { encoding: "utf8", mode: 0o600, flag: "wx" });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code === "EEXIST") {
+            throw new Error(
+              `${o.out} already exists, and overwriting it would destroy whatever seed ` +
+                `is in it. Choose another path.`,
+            );
+          }
+          throw e;
+        }
+      } else {
+        io.out(mnemonic);
+      }
+
+      const fp = await app.createProfile(mnemonic, password, o.name);
+      io.err(
+        "Write this seed phrase down and store it offline. It is the ONLY way to " +
+          "recover this vault: SeedPass derives every secret from it and keeps no " +
+          "copy you can read without it.",
+      );
+      io.out(
+        JSON.stringify({
+          fingerprint: fp,
+          name: o.name ?? null,
+          words,
+          seed_written_to: o.out ?? null,
+        }),
+      );
     });
 
   fingerprint
