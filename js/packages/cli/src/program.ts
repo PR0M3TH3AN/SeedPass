@@ -9,7 +9,7 @@
 
 import { Command } from "commander";
 import process from "node:process";
-import { entryMetadata, resolveEntry } from "./refs.js";
+import { entryMetadata, parseRef, resolveEntry } from "./refs.js";
 import { materializeSecret } from "./secrets.js";
 import { clipboardSink, execSink, parseCommandSpec, stdinSink } from "./sinks.js";
 import { capabilities } from "./capabilities.js";
@@ -61,6 +61,32 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { homedir } from "node:os";
+
+/**
+ * Parse a numeric option, refusing anything that would poison the vault.
+ *
+ * `Number("not-a-number")` is NaN, which JSON.stringify writes as null; a
+ * single bad --length once persisted an unreadable entry that failed schema
+ * validation on every subsequent open. Validate before anything is stored.
+ */
+function parseIntOption(raw: string, name: string, opts: { min?: number; max?: number } = {}): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    throw new Error(`${name} must be a whole number (got ${JSON.stringify(raw)})`);
+  }
+  if (opts.min !== undefined && value < opts.min) {
+    throw new Error(`${name} must be at least ${opts.min} (got ${value})`);
+  }
+  if (opts.max !== undefined && value > opts.max) {
+    throw new Error(`${name} must be at most ${opts.max} (got ${value})`);
+  }
+  return value;
+}
+
+/** Unix timestamps may be large but must still be real integers. */
+function parseUnixTime(raw: string): number {
+  return parseIntOption(raw, "--at", { min: 0 });
+}
 
 /** Expand a leading ~ the way Python's Path.expanduser does. */
 function resolveHome(p: string): string {
@@ -118,7 +144,7 @@ async function resolveMnemonic(app: AppDir, opts: GlobalOpts): Promise<string> {
   try {
     const fp = await currentFingerprint(app, opts);
     const client = new AgentClient(agentSocketPath(app.root));
-    const held = await client.get(fp);
+    const held = await client.ownerMnemonic(fp);
     if (held) return held;
   } catch {
     // fall through to the error below
@@ -159,13 +185,51 @@ async function openFromOptions(opts: GlobalOpts): Promise<OpenedVault> {
  *    this process.
  */
 interface ReadAccess {
-  index: import("@seedpass/core").VaultIndex;
+  /** Redacted metadata rows, already filtered to what the caller may see. */
+  rows(): Promise<Array<Record<string, unknown>>>;
+  /** Resolve a ref/label/id to an entry id, using visible metadata only. */
+  resolveId(refOrQuery: string): Promise<{ id: string; ref: string; label: string; kind: string }>;
   mode: "owner" | "token";
-  secretFor(
+  /** Plaintext egress. In token mode this requires the reveal scope. */
+  reveal(id: string, timestamp?: number): Promise<{ value: string; descriptor: string }>;
+  /** Deliver to a sink. In token mode the agent runs the sink itself. */
+  deliver(
     id: string,
-    action: "use" | "reveal",
+    sink: "clipboard" | "exec" | "stdin",
+    command: string[],
     timestamp?: number,
-  ): Promise<{ value: string; descriptor: string }>;
+  ): Promise<Record<string, unknown>>;
+}
+
+function resolveFromRows(
+  rows: Array<Record<string, unknown>>,
+  refOrQuery: string,
+): { id: string; ref: string; label: string; kind: string } {
+  const asRow = (r: Record<string, unknown>) => ({
+    id: String(r["id"]),
+    ref: String(r["ref"]),
+    label: String(r["label"] ?? ""),
+    kind: String(r["kind"] ?? ""),
+  });
+  const refId = parseRef(refOrQuery);
+  const byId = (id: string) => rows.find((r) => String(r["id"]) === id);
+  if (refId !== null) {
+    const hit = byId(refId);
+    if (!hit) throw new Error(`no entry for reference ${refOrQuery}`);
+    return asRow(hit);
+  }
+  if (/^\d+$/.test(refOrQuery)) {
+    const hit = byId(refOrQuery);
+    if (hit) return asRow(hit);
+  }
+  const labelHits = rows.filter((r) => String(r["label"] ?? "") === refOrQuery);
+  if (labelHits.length === 1) return asRow(labelHits[0]!);
+  if (labelHits.length > 1) {
+    throw new Error(
+      `label "${refOrQuery}" is ambiguous (${labelHits.length} entries); use an id or sp:// reference`,
+    );
+  }
+  throw new Error(`no entry matches "${refOrQuery}"`);
 }
 
 async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
@@ -174,32 +238,60 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
   if (token && !process.env["SEEDPASS_MNEMONIC"]) {
     const fp = await currentFingerprint(app, opts);
     const client = new AgentClient(agentSocketPath(app.root));
-    const index = parseVaultIndex(await client.vaultIndex(fp, token));
+    let cached: Array<Record<string, unknown>> | null = null;
+    const rows = async () => {
+      cached ??= await client.vaultEntries(fp, token);
+      return cached;
+    };
     return {
-      index,
       mode: "token",
-      secretFor: async (id, action, timestamp) => {
-        return client.secret({
+      rows,
+      resolveId: async (refOrQuery) => resolveFromRows(await rows(), refOrQuery),
+      reveal: async (id, timestamp) =>
+        client.secret({
           fingerprint: fp,
           id,
           token,
-          action,
           ...(timestamp !== undefined && { timestamp }),
-        });
-      },
+        }),
+      deliver: async (id, sink, command, timestamp) =>
+        client.useSink({
+          fingerprint: fp,
+          id,
+          token,
+          sink,
+          command,
+          ...(timestamp !== undefined && { timestamp }),
+        }),
     };
   }
   const vault = await openFromOptions(opts);
+  const localRows = async () =>
+    Object.entries(vault.index.entries).map(([id, e]) => entryMetadata(id, e));
+  const localSecret = (id: string, timestamp?: number) => {
+    const entry = vault.index.entries[id];
+    if (!entry) throw new Error(`no entry ${id}`);
+    return materializeSecret(vault.index, id, entry, vault.mnemonic, {
+      ...(timestamp !== undefined && { timestamp }),
+    });
+  };
   return {
-    index: vault.index,
     mode: "owner",
-    secretFor: async (id, action, timestamp) => {
-      void action;
-      const entry = vault.index.entries[id];
-      if (!entry) throw new Error(`no entry ${id}`);
-      return materializeSecret(vault.index, id, entry, vault.mnemonic, {
-        ...(timestamp !== undefined && { timestamp }),
-      });
+    rows: localRows,
+    resolveId: async (refOrQuery) => {
+      const hit = resolveEntry(vault.index, refOrQuery);
+      return { id: hit.id, ref: hit.ref, label: hit.entry.label, kind: hit.entry.kind };
+    },
+    reveal: async (id, timestamp) => localSecret(id, timestamp),
+    deliver: async (id, sink, command, timestamp) => {
+      const secret = localSecret(id, timestamp);
+      const result =
+        sink === "clipboard"
+          ? await clipboardSink(secret.value)
+          : sink === "exec"
+            ? await execSink(secret.value, ...parseCommandSpec(command))
+            : await stdinSink(secret.value, ...parseCommandSpec(command));
+      return { descriptor: secret.descriptor, ...result };
     },
   };
 }
@@ -232,10 +324,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("list entries as references + metadata (no secrets)")
     .action(async () => {
       const access = await openReadAccess(program.opts());
-      const rows = Object.entries(access.index.entries).map(([id, e]) =>
-        entryMetadata(id, e),
-      );
-      io.out(JSON.stringify(rows, null, 2));
+      io.out(JSON.stringify(await access.rows(), null, 2));
     });
 
   entry
@@ -243,8 +332,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("show one entry's reference + metadata (no secrets)")
     .action(async (refOrQuery: string) => {
       const access = await openReadAccess(program.opts());
-      const hit = resolveEntry(access.index, refOrQuery);
-      io.out(JSON.stringify(entryMetadata(hit.id, hit.entry), null, 2));
+      const hit = await access.resolveId(refOrQuery);
+      const row = (await access.rows()).find((r) => String(r["id"]) === hit.id);
+      io.out(JSON.stringify(row, null, 2));
     });
 
   entry
@@ -253,12 +343,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .action(async (text: string) => {
       const access = await openReadAccess(program.opts());
       const needle = text.toLowerCase();
-      const rows = Object.entries(access.index.entries)
-        .filter(([, e]) => {
-          const hay = [e.label, e.notes ?? "", ...(e.tags ?? [])].join("\n").toLowerCase();
-          return hay.includes(needle);
-        })
-        .map(([id, e]) => entryMetadata(id, e));
+      const rows = (await access.rows()).filter((r) => {
+        const tags = Array.isArray(r["tags"]) ? (r["tags"] as string[]) : [];
+        const hay = [String(r["label"] ?? ""), String(r["notes"] ?? ""), ...tags]
+          .join("\n")
+          .toLowerCase();
+        return hay.includes(needle);
+      });
       io.out(JSON.stringify(rows, null, 2));
     });
 
@@ -300,7 +391,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       o: { length: string; username?: string; url?: string; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
       const vault = await openFromOptions(program.opts());
-      const id = addPasswordEntry(vault.index, label, Number(o.length), {
+      const id = addPasswordEntry(vault.index, label, parseIntOption(o.length, "--length", { min: 8, max: 128 }), {
         ...commonOpts(o),
         ...(o.username !== undefined && { username: o.username }),
         ...(o.url !== undefined && { url: o.url }),
@@ -324,8 +415,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       const vault = await openFromOptions(program.opts());
       const opts = {
         ...commonOpts(o),
-        period: Number(o.period),
-        digits: Number(o.digits),
+        period: parseIntOption(o.period, "--period", { min: 1 }),
+        digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }),
       };
       const id = o.secret
         ? addTotpImported(vault.index, label, o.secret, opts)
@@ -379,7 +470,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
   ).action(
     async (label: string, o: { words: string; notes?: string; tags?: string[]; archived?: boolean }) => {
       const vault = await openFromOptions(program.opts());
-      const words = Number(o.words);
+      const words = parseIntOption(o.words, "--words");
       if (words !== 12 && words !== 18 && words !== 24) {
         throw new Error("--words must be 12, 18 or 24");
       }
@@ -554,8 +645,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           ...(o.url !== undefined && { url: o.url }),
           ...(o.notes !== undefined && { notes: o.notes }),
           ...(o.tags !== undefined && { tags: o.tags }),
-          ...(o.period !== undefined && { period: Number(o.period) }),
-          ...(o.digits !== undefined && { digits: Number(o.digits) }),
+          ...(o.period !== undefined && { period: parseIntOption(o.period, "--period", { min: 1 }) }),
+          ...(o.digits !== undefined && { digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }) }),
           ...(o.key !== undefined && { key: o.key }),
           ...(o.value !== undefined && { value: o.value }),
           ...(o.content !== undefined && { content: o.content }),
@@ -637,7 +728,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--at <timestamp>", "unix time to compute codes at")
     .action(async (cmdOpts: { at?: string }) => {
       const vault = await openFromOptions(program.opts());
-      const ts = cmdOpts.at !== undefined ? Number(cmdOpts.at) : Math.floor(Date.now() / 1000);
+      const ts = cmdOpts.at !== undefined ? parseUnixTime(cmdOpts.at) : Math.floor(Date.now() / 1000);
       const rows = Object.entries(vault.index.entries)
         .filter(([, e]) => e.kind === "totp" && !e.archived)
         .map(([id, e]) => {
@@ -660,11 +751,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--at <timestamp>", "TOTP: unix time to compute the code at")
     .action(async (refOrQuery: string, cmdOpts: { at?: string }) => {
       const access = await openReadAccess(program.opts());
-      const hit = resolveEntry(access.index, refOrQuery);
-      const secret = await access.secretFor(
+      const hit = await access.resolveId(refOrQuery);
+      const secret = await access.reveal(
         hit.id,
-        "reveal",
-        cmdOpts.at !== undefined ? Number(cmdOpts.at) : undefined,
+        cmdOpts.at !== undefined ? parseUnixTime(cmdOpts.at) : undefined,
       );
       io.out(secret.value);
     });
@@ -694,28 +784,25 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           throw new Error("choose exactly one sink: --clipboard, --exec, or --stdin-to");
         }
         const access = await openReadAccess(program.opts());
-        const hit = resolveEntry(access.index, refOrQuery);
-        const secret = await access.secretFor(
+        const hit = await access.resolveId(refOrQuery);
+        const sink = cmdOpts.clipboard ? "clipboard" : cmdOpts.exec ? "exec" : "stdin";
+        const command = cmdOpts.clipboard ? [] : (cmdOpts.exec ?? cmdOpts.stdinTo!);
+        // In token mode the agent runs the sink: the secret is never sent
+        // back to this process.
+        const result = await access.deliver(
           hit.id,
-          "use",
-          cmdOpts.at !== undefined ? Number(cmdOpts.at) : undefined,
+          sink,
+          command,
+          cmdOpts.at !== undefined ? parseUnixTime(cmdOpts.at) : undefined,
         );
-
-        let result;
-        if (cmdOpts.clipboard) {
-          result = await clipboardSink(secret.value);
-        } else if (cmdOpts.exec) {
-          const [cmd, args] = parseCommandSpec(cmdOpts.exec);
-          result = await execSink(secret.value, cmd, args);
-        } else {
-          const [cmd, args] = parseCommandSpec(cmdOpts.stdinTo!);
-          result = await stdinSink(secret.value, cmd, args);
-        }
         io.out(
           JSON.stringify({
-            delivered: secret.descriptor,
+            delivered: result["descriptor"],
             ref: hit.ref,
-            ...result,
+            mode: access.mode,
+            ...Object.fromEntries(
+              Object.entries(result).filter(([k]) => k !== "descriptor"),
+            ),
           }),
         );
       },
@@ -857,7 +944,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .action(async (indexStr: string) => {
       const { app, fp, mnemonic, cfg } = await nostrContext(program.opts());
       const relays = cfg["relays"] as string[];
-      const i = Number(indexStr) - 1;
+      const i = parseIntOption(indexStr, "index", { min: 1 }) - 1;
       if (!Number.isInteger(i) || i < 0 || i >= relays.length) {
         throw new Error(`index out of range 1..${relays.length}`);
       }
@@ -883,7 +970,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           keys.privateKeyHex,
           deriveKeyIndex(mnemonic),
           encrypted,
-          { limit: Number(o.chunkLimit) },
+          { limit: parseIntOption(o.chunkLimit, "--chunk-limit", { min: 64 }) },
         );
         io.out(
           JSON.stringify(
@@ -963,7 +1050,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--ttl <seconds>", "default unlock TTL", String(DEFAULT_TTL_SECONDS))
     .action(async (o: { ttl: string }) => {
       const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
-      const daemon = new AgentDaemon(agentSocketPath(app.root), Number(o.ttl), app.root);
+      const daemon = new AgentDaemon(agentSocketPath(app.root), parseIntOption(o.ttl, "--ttl", { min: 1 }), app.root);
       await daemon.start();
       io.out(JSON.stringify({ agent: "running", socket: agentSocketPath(app.root) }));
       await new Promise(() => {}); // run until killed
@@ -993,8 +1080,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           scopes: o.scope as ("read" | "use" | "reveal")[],
           ...(o.kind !== undefined && { kinds: o.kind }),
           labelRegex: o.labelRegex,
-          ttl: Number(o.ttl),
-          uses: Number(o.uses),
+          ttl: parseIntOption(o.ttl, "--ttl", { min: 1 }),
+          uses: parseIntOption(o.uses, "--uses", { min: 1 }),
         });
         io.out(
           JSON.stringify(
@@ -1053,7 +1140,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         join(app.profileDir(fp), "audit.log"),
         deriveKeyIndex(mnemonic),
       );
-      io.out(JSON.stringify(records.slice(-Number(o.n)), null, 2));
+      io.out(JSON.stringify(records.slice(-parseIntOption(o.n, "-n", { min: 1 })), null, 2));
     });
 
   agent
@@ -1102,17 +1189,25 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           ...(o.allowedSpecialChars !== undefined && { allowedSpecialChars: o.allowedSpecialChars }),
           ...(o.specialMode !== undefined && { specialMode: o.specialMode }),
           ...(o.excludeAmbiguous !== undefined && { excludeAmbiguous: o.excludeAmbiguous }),
-          ...(o.minUppercase !== undefined && { minUppercase: Number(o.minUppercase) }),
-          ...(o.minLowercase !== undefined && { minLowercase: Number(o.minLowercase) }),
-          ...(o.minDigits !== undefined && { minDigits: Number(o.minDigits) }),
-          ...(o.minSpecial !== undefined && { minSpecial: Number(o.minSpecial) }),
+          ...(o.minUppercase !== undefined && {
+            minUppercase: parseIntOption(o.minUppercase, "--min-uppercase", { min: 0 }),
+          }),
+          ...(o.minLowercase !== undefined && {
+            minLowercase: parseIntOption(o.minLowercase, "--min-lowercase", { min: 0 }),
+          }),
+          ...(o.minDigits !== undefined && {
+            minDigits: parseIntOption(o.minDigits, "--min-digits", { min: 0 }),
+          }),
+          ...(o.minSpecial !== undefined && {
+            minSpecial: parseIntOption(o.minSpecial, "--min-special", { min: 0 }),
+          }),
         };
         const bip85 = Bip85.fromMnemonic(requireMnemonic());
         io.out(
           generatePassword(bip85, {
-            length: Number(o.length),
-            index: Number(o.index),
-            genVersion: Number(o.genVersion),
+            length: parseIntOption(o.length, "--length", { min: 8, max: 128 }),
+            index: parseIntOption(o.index, "--index", { min: 0 }),
+            genVersion: parseIntOption(o.genVersion, "--gen-version", { min: 1, max: 2 }),
             policy,
           }),
         );
@@ -1157,7 +1252,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       const expiresAt = await client.put(
         fp,
         mnemonic,
-        o.ttl !== undefined ? Number(o.ttl) : undefined,
+        o.ttl !== undefined ? parseIntOption(o.ttl, "--ttl", { min: 1 }) : undefined,
       );
       io.out(JSON.stringify({ unlocked: fp, expires_at: expiresAt }));
     });

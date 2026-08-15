@@ -97,11 +97,14 @@ describe("token issuance", () => {
 });
 
 describe("token-mode access (no mnemonic anywhere)", () => {
-  it("reads metadata but the index never exposes the mnemonic", async () => {
+  it("lists only the entries the token may act on, with no secret values", async () => {
     const r = await run(asTokenHolder(token), "entry", "list");
     const rows = JSON.parse(r.stdout) as { label: string }[];
-    expect(rows.map((x) => x.label).sort()).toEqual(["api-token", "internal-db", "site-login"]);
+    // Scoped to kind key_value and labels matching ^api-, so the password
+    // entry and the non-matching key_value are not even disclosed.
+    expect(rows.map((x) => x.label)).toEqual(["api-token"]);
     expect(r.stdout).not.toContain("sinkable-secret");
+    expect(r.stdout).not.toContain("off-limits");
   });
 
   it("delivers a permitted secret to a sink", async () => {
@@ -121,11 +124,17 @@ describe("token-mode access (no mnemonic anywhere)", () => {
     const reveal = await run(asTokenHolder(token), "entry", "reveal", "api-token");
     expect(String((reveal.error as Error).message)).toContain("scope 'reveal' not granted");
 
+    // Entries outside the token's constraints are not resolvable at all —
+    // the agent never returned them, so their existence is not disclosed.
     const wrongKind = await run(asTokenHolder(token), "use", "site-login", "--stdin-to", "cat");
-    expect(String((wrongKind.error as Error).message)).toContain("kind 'password' not granted");
+    expect(String((wrongKind.error as Error).message)).toContain("no entry matches");
 
     const wrongLabel = await run(asTokenHolder(token), "use", "internal-db", "--stdin-to", "cat");
-    expect(String((wrongLabel.error as Error).message)).toContain("label not matched");
+    expect(String((wrongLabel.error as Error).message)).toContain("no entry matches");
+
+    // Addressing a forbidden entry by id still fails, in the agent
+    const byId = await run(asTokenHolder(token), "use", "sp://entry/2", "--stdin-to", "cat");
+    expect(String((byId.error as Error).message)).toMatch(/no entry|denied/);
   });
 
   it("exhausts after the allotted uses", async () => {

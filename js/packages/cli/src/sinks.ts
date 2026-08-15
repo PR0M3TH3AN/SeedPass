@@ -17,6 +17,39 @@ export interface SinkResult {
 export const EXEC_ENV_VAR = "SEEDPASS_SECRET";
 
 /**
+ * Variables that must never reach a sink child.
+ *
+ * A helper invoked to receive one password would otherwise inherit the
+ * parent seed, the master password, a bearer token and the agent socket
+ * path — everything needed to take the whole vault.
+ */
+const FORBIDDEN_ENV = [
+  "SEEDPASS_MNEMONIC",
+  "SEEDPASS_PASSWORD",
+  "SEEDPASS_TOKEN",
+  "SEEDPASS_AGENT_SOCK",
+  "SEEDPASS_AGENT_CAP",
+  "SEEDPASS_APP_DIR",
+];
+
+/** Variables a child plausibly needs to run at all. */
+const PASSTHROUGH_ENV = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "TZ", "TMPDIR", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"];
+
+/**
+ * Build the environment for a sink child: a minimal allowlist, never the
+ * caller's full environment.
+ */
+export function sinkEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of PASSTHROUGH_ENV) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  for (const key of FORBIDDEN_ENV) delete env[key];
+  return { ...env, ...extra };
+}
+
+/**
  * Split a sink command spec into [command, ...args].
  *
  * Commander's variadic options stop collecting at the next token starting
@@ -42,7 +75,7 @@ export async function execSink(
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["ignore", "inherit", "inherit"],
-      env: { ...process.env, [EXEC_ENV_VAR]: secret },
+      env: sinkEnv({ [EXEC_ENV_VAR]: secret }),
     });
     child.on("error", reject);
     child.on("close", (code) => {
@@ -64,7 +97,7 @@ export async function stdinSink(
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["pipe", "inherit", "inherit"],
-      env: process.env,
+      env: sinkEnv(),
     });
     child.on("error", reject);
     child.stdin.write(secret);
@@ -95,7 +128,11 @@ const CLIPBOARD_COMMANDS: Array<{ cmd: string; args: string[] }> = [
  */
 function feedClipboardTool(secret: string, cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["pipe", "ignore", "ignore"], detached: true });
+    const child = spawn(cmd, args, {
+      stdio: ["pipe", "ignore", "ignore"],
+      detached: true,
+      env: sinkEnv(),
+    });
     let settled = false;
     const fail = (e: Error) => {
       if (!settled) {
