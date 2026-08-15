@@ -31,12 +31,20 @@ if str(SRC_DIR) not in sys.path:
 
 import constants as consts
 
-# Use a dedicated subdirectory for test profiles so regular data is not polluted
-consts.APP_DIR = consts.APP_DIR / "tests"
-consts.PARENT_SEED_FILE = consts.APP_DIR / "parent_seed.enc"
-consts.SCRIPT_CHECKSUM_FILE = consts.APP_DIR / "seedpass_script_checksum.txt"
+from constants import initialize_app
 
-from constants import APP_DIR, initialize_app
+
+def test_app_dir() -> Path:
+    """Directory holding generated test profiles.
+
+    Resolved on every call from ``constants.APP_DIR`` rather than captured at
+    import time, so a caller (or a test) that repoints ``constants.APP_DIR``
+    is honored. Mutating the constant at import time instead made this module
+    read whichever directory happened to be configured when it was first
+    loaded -- in practice the developer's real ``~/.seedpass`` -- and appended
+    another ``tests`` segment on each reload.
+    """
+    return Path(consts.APP_DIR) / "tests"
 from utils.key_derivation import derive_key_from_password, derive_index_key
 from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault
@@ -59,7 +67,9 @@ def initialize_profile(
 ) -> tuple[str, EntryManager, Path, str, ConfigManager]:
     """Create or load a profile and return the seed phrase, manager, directory and fingerprint."""
     initialize_app()
-    seed_txt = APP_DIR / f"{profile_name}_seed.txt"
+    app_dir = test_app_dir()
+    app_dir.mkdir(parents=True, exist_ok=True)
+    seed_txt = app_dir / f"{profile_name}_seed.txt"
     if seed_txt.exists():
         seed_phrase = seed_txt.read_text().strip()
     else:
@@ -71,13 +81,16 @@ def initialize_profile(
         seed_txt.write_text(seed_phrase)
         seed_txt.chmod(0o600)
 
-    fp_mgr = FingerprintManager(APP_DIR)
-    fingerprint = fp_mgr.add_fingerprint(seed_phrase) or generate_fingerprint(
-        seed_phrase
-    )
+    fp_mgr = FingerprintManager(app_dir)
+    try:
+        fingerprint = fp_mgr.add_fingerprint(seed_phrase)
+    except ValueError:
+        # Re-running against an existing profile is the normal case for this
+        # script; add_fingerprint raises rather than returning None there.
+        fingerprint = None
     if fingerprint is None:
-        fingerprint = profile_name
-    profile_dir = APP_DIR / fingerprint
+        fingerprint = generate_fingerprint(seed_phrase) or profile_name
+    profile_dir = app_dir / fingerprint
     profile_dir.mkdir(parents=True, exist_ok=True)
 
     seed_key = derive_key_from_password(DEFAULT_PASSWORD, fingerprint)

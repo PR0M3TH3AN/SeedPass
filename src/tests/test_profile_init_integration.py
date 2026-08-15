@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import constants
 from seedpass.core.manager import PasswordManager, EncryptionMode
 
 
@@ -21,6 +22,11 @@ def test_initialize_profile_and_manager(monkeypatch):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        # constants.APP_DIR is computed from Path.home() when constants is
+        # first imported, which happens long before this monkeypatch. Without
+        # repointing it the script reads the developer's real ~/.seedpass and
+        # fails against whatever profile happens to live there.
+        monkeypatch.setattr(constants, "APP_DIR", tmp_path / ".seedpass")
 
         gtp = load_script()
 
