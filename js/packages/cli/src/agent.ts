@@ -22,10 +22,11 @@
  */
 
 import { createServer, createConnection, type Socket } from "node:net";
-import { chmod, rm } from "node:fs/promises";
+import { chmod, mkdir, open, rm } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
-import { randomBytes, timingSafeEqual } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { tmpdir } from "node:os";
+import { dirname } from "node:path";
 import { join } from "node:path";
 import process from "node:process";
 import { deriveKeyIndex, sha256Hex, utf8, type Entry } from "@seedpass/core";
@@ -43,6 +44,13 @@ import { AuditLog } from "./audit.js";
 import { INDEX_FILENAME } from "./appDir.js";
 
 export const DEFAULT_TTL_SECONDS = 900;
+
+/** How far a token-supplied TOTP timestamp may differ from now. */
+export const TIMESTAMP_SKEW_SECONDS = 120;
+
+/** Guards against an unauthenticated peer exhausting memory (see serve). */
+export const MAX_LINE_BYTES = 512 * 1024;
+export const MAX_CONNECTIONS = 64;
 
 export type TokenScope = "read" | "use" | "reveal";
 
@@ -73,6 +81,20 @@ export function agentSocketPath(appDir: string): string {
   return process.env["SEEDPASS_AGENT_SOCK"] ?? join(appDir, "agent.sock");
 }
 
+/**
+ * Where the owner capability for a given socket lives.
+ *
+ * Keyed by a hash of the socket path so multiple agents coexist, and placed
+ * under XDG_RUNTIME_DIR when available (tmpfs, 0700, cleared on logout).
+ */
+export function capabilityPathFor(socketPath: string): string {
+  const explicit = process.env["SEEDPASS_AGENT_CAP_FILE"];
+  if (explicit) return explicit;
+  const runtime = process.env["XDG_RUNTIME_DIR"] || tmpdir();
+  const key = createHash("sha256").update(socketPath).digest("hex").slice(0, 16);
+  return join(runtime, `seedpass-agent-${key}.cap`);
+}
+
 interface Held {
   mnemonic: string;
   expiresAt: number;
@@ -101,6 +123,8 @@ export class AgentDaemon {
   private audits = new Map<string, AuditLog>();
   private auditQueue: Promise<unknown> = Promise.resolve();
   private capability = "";
+  private expiryTimer: ReturnType<typeof setInterval> | null = null;
+  private connections = 0;
   private server = createServer((socket) => this.serve(socket));
 
   constructor(
@@ -110,9 +134,17 @@ export class AgentDaemon {
     private readonly appDir?: string,
   ) {}
 
-  /** Path of the 0600 file holding the owner capability. */
+  /**
+   * Path of the 0600 file holding the owner capability.
+   *
+   * Deliberately NOT beside the socket: a scoped agent is given the app
+   * directory (it needs fingerprints.json and the socket), so a capability
+   * stored there is inside the blast radius of the principal it is meant to
+   * exclude. It lives in the user's runtime directory instead, under a 0700
+   * parent, so handing out the app directory no longer hands out ownership.
+   */
   get capabilityPath(): string {
-    return `${this.socketPath}.cap`;
+    return capabilityPathFor(this.socketPath);
   }
 
   /**
@@ -232,29 +264,62 @@ export class AgentDaemon {
       return { error: { ok: false, error: "profile not unlocked" } };
     }
     const id = String(msg["id"] ?? "");
+    const tokenSecret = String(msg["token"] ?? "");
+
+    // Check the token BEFORE decrypting anything. Opening the vault first
+    // meant an unauthenticated caller could distinguish existing entry ids
+    // from missing ones (an enumeration oracle), leave no audit record for
+    // the misses, and burn a full PBKDF2 unlock per probe.
+    const preAuth = this.authorize(tokenSecret, fingerprint, action);
+    if (!preAuth.token) {
+      await this.auditLog(fingerprint, "access_denied", {
+        action,
+        entry_id: id,
+        reason: preAuth.deny,
+      });
+      return { error: { ok: false, error: `denied: ${preAuth.deny}` } };
+    }
+
     const vault = await openVault(
       join(this.appDir, fingerprint, INDEX_FILENAME),
       held.mnemonic,
     );
-    const entry = vault.index.entries[id] as Entry | undefined;
-    if (!entry) return { error: { ok: false, error: `no entry ${id}` } };
+    // hasOwn: "__proto__"/"constructor" would otherwise resolve to inherited
+    // properties and pass the constraint checks against undefined values.
+    const entry = Object.hasOwn(vault.index.entries, id)
+      ? (vault.index.entries[id] as Entry)
+      : undefined;
 
-    const auth = this.authorize(String(msg["token"] ?? ""), fingerprint, action, {
-      kind: entry.kind,
-      label: entry.label,
-    });
-    if (!auth.token) {
+    // A denial and a missing entry must be indistinguishable: otherwise the
+    // response still discloses which ids exist.
+    const constraintsOk =
+      entry !== undefined && this.tokenMaySee(preAuth.token, entry);
+    if (!constraintsOk) {
       await this.auditLog(fingerprint, "access_denied", {
         action,
         entry_id: id,
-        kind: entry.kind,
-        reason: auth.deny,
+        reason: entry === undefined ? "no such entry" : "entry outside token constraints",
       });
-      return { error: { ok: false, error: `denied: ${auth.deny}` } };
+      return {
+        error: { ok: false, error: `denied: no accessible entry ${id}` },
+      };
     }
+    const auth = { token: preAuth.token };
 
     if (sinkSpec) {
       const allowed = auth.token.exec_allowlist;
+      if (allowed && allowed.length > 0 && sinkSpec.sink === "clipboard") {
+        // The clipboard is readable by every process in the session, so it
+        // defeats an allowlist just as thoroughly as an arbitrary command.
+        await this.auditLog(fingerprint, "access_denied", {
+          action,
+          entry_id: id,
+          reason: "clipboard sink is not permitted by a command-restricted token",
+        });
+        return {
+          error: { ok: false, error: "denied: clipboard not permitted by this token" },
+        };
+      }
       if (sinkSpec.sink !== "clipboard" && allowed && allowed.length > 0) {
         const [cmd] = parseCommandSpec(sinkSpec.command);
         if (!allowed.includes(cmd)) {
@@ -270,7 +335,23 @@ export class AgentDaemon {
       }
     }
 
-    const ts = msg["timestamp"] !== undefined ? Number(msg["timestamp"]) : undefined;
+    // A caller-chosen TOTP timestamp turns one use into a code valid at any
+    // future moment, outliving the token's TTL entirely. Clamp to a small
+    // window around now for token callers.
+    let ts: number | undefined;
+    if (msg["timestamp"] !== undefined) {
+      const requested = Number(msg["timestamp"]);
+      const now = Math.floor(Date.now() / 1000);
+      if (!Number.isFinite(requested) || Math.abs(requested - now) > TIMESTAMP_SKEW_SECONDS) {
+        return {
+          error: {
+            ok: false,
+            error: `timestamp must be within ${TIMESTAMP_SKEW_SECONDS}s of now`,
+          },
+        };
+      }
+      ts = requested;
+    }
     const secret = materializeSecret(vault.index, id, entry, held.mnemonic, {
       ...(ts !== undefined && { timestamp: ts }),
     });
@@ -284,18 +365,45 @@ export class AgentDaemon {
       if (alive) throw new Error(`agent already running at ${this.socketPath}`);
       await rm(this.socketPath, { force: true });
     }
-    await new Promise<void>((resolve, reject) => {
-      this.server.once("error", reject);
-      this.server.listen(this.socketPath, () => resolve());
-    });
+    // Unix socket permissions are checked at connect(), so a socket that is
+    // briefly world-connectable between listen() and chmod() can be grabbed
+    // in that window. Create it with a restrictive umask instead.
+    const previousUmask = process.umask(0o177);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.server.once("error", reject);
+        this.server.listen(this.socketPath, () => resolve());
+      });
+    } finally {
+      process.umask(previousUmask);
+    }
     await chmod(this.socketPath, 0o600);
 
+    // A TTL that is only enforced when a request happens is not a TTL: an
+    // idle agent would hold the seed in memory indefinitely past expiry.
+    this.expiryTimer = setInterval(() => this.expire(), 1000);
+    this.expiryTimer.unref?.();
+
     this.capability = randomBytes(32).toString("base64url");
-    await writeFile(this.capabilityPath, this.capability, { mode: 0o600 });
-    await chmod(this.capabilityPath, 0o600);
+    const capPath = this.capabilityPath;
+    await mkdir(dirname(capPath), { recursive: true, mode: 0o700 });
+    // wx: never adopt a file an attacker pre-created with looser modes.
+    await rm(capPath, { force: true });
+    const capHandle = await open(capPath, "wx", 0o600);
+    try {
+      await capHandle.write(this.capability);
+      await capHandle.chmod(0o600);
+      await capHandle.sync();
+    } finally {
+      await capHandle.close();
+    }
   }
 
   async stop(): Promise<void> {
+    if (this.expiryTimer) {
+      clearInterval(this.expiryTimer);
+      this.expiryTimer = null;
+    }
     this.held.clear();
     this.tokens.clear();
     this.audits.clear();
@@ -539,8 +647,24 @@ export class AgentDaemon {
   }
 
   private serve(socket: Socket): void {
+    if (this.connections >= MAX_CONNECTIONS) {
+      socket.destroy();
+      return;
+    }
+    this.connections++;
+    socket.on("close", () => {
+      this.connections--;
+    });
     let buffer = "";
     socket.on("data", (chunk) => {
+      // Without a cap, a peer that never sends a newline grows this string
+      // without bound while every chunk rescans it — gigabytes of RSS and a
+      // pegged event loop, from an unauthenticated connection.
+      if (buffer.length + chunk.length > MAX_LINE_BYTES) {
+        socket.write(JSON.stringify({ ok: false, error: "request too large" }) + "\n");
+        socket.destroy();
+        return;
+      }
       buffer += chunk.toString("utf8");
       let nl;
       while ((nl = buffer.indexOf("\n")) >= 0) {
@@ -575,7 +699,7 @@ export class AgentClient {
       return fromEnv;
     }
     try {
-      this.capability = readFileSync(`${this.socketPath}.cap`, "utf8").trim();
+      this.capability = readFileSync(capabilityPathFor(this.socketPath), "utf8").trim();
     } catch {
       this.capability = "";
     }
@@ -646,6 +770,12 @@ export class AgentClient {
     return Number(r["locked"] ?? 0);
   }
 
+  /** Owner-only: shut the daemon down, wiping every held seed. */
+  async shutdown(): Promise<void> {
+    const r = await this.ownerRequest({ op: "shutdown" });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+  }
+
   async status(): Promise<AgentStatusProfile[]> {
     const r = await this.ownerRequest({ op: "status" });
     if (!r["ok"]) throw new Error(String(r["error"]));
@@ -660,6 +790,7 @@ export class AgentClient {
     labelRegex?: string;
     ttl?: number;
     uses?: number;
+    execAllowlist?: string[];
   }): Promise<{ token: string; record: TokenInfo }> {
     const r = await this.ownerRequest({
       op: "token-issue",
@@ -670,6 +801,7 @@ export class AgentClient {
       label_regex: options.labelRegex,
       ttl: options.ttl,
       uses: options.uses,
+      exec_allowlist: options.execAllowlist,
     });
     if (!r["ok"]) throw new Error(String(r["error"]));
     return { token: String(r["token"]), record: r["record"] as TokenInfo };

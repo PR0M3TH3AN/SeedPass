@@ -9,6 +9,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createConnection } from "node:net";
 import { mkdtemp, readFile, writeFile, stat } from "node:fs/promises";
+import { join as joinPath } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -258,6 +259,109 @@ describe("sink children do not inherit the vault's secrets", () => {
     expect(dumped).not.toContain("SEEDPASS_PASSWORD");
     expect(dumped).not.toContain("SEEDPASS_TOKEN");
     expect(dumped).not.toContain("SEEDPASS_AGENT_SOCK");
+  });
+});
+
+describe("second-audit findings", () => {
+  it("keeps the owner capability outside the app directory", async () => {
+    // A scoped agent is given the app directory; a capability stored there
+    // would hand it the escape hatch along with the socket.
+    expect(daemon.capabilityPath.startsWith(appDir)).toBe(false);
+    const info = await stat(daemon.capabilityPath);
+    expect(info.mode & 0o077).toBe(0);
+  });
+
+  it("agent stop authenticates and does not claim success it did not get", async () => {
+    const unauthenticated = await rawRequest({ op: "shutdown" });
+    expect(unauthenticated["ok"]).toBe(false);
+    // The daemon must still be alive and still holding the seed
+    expect((await rawRequest({ op: "ping" }))["pong"]).toBe(true);
+  });
+
+  it("never returns custom_field values to a read token", async () => {
+    await run(
+      { SEEDPASS_MNEMONIC: MNEMONIC },
+      "entry", "add", "key-value", "with-fields", "k", "v",
+    );
+    // Inject a hidden custom field the way a Python-side writer would
+    const { openVault, saveVault } = await import("../src/vaultFile.js");
+    const vaultPath = join(appDir, FINGERPRINT, "seedpass_entries_db.json.enc");
+    const vault = await openVault(vaultPath, MNEMONIC);
+    const target = Object.entries(vault.index.entries).find(
+      ([, e]) => e.label === "with-fields",
+    )!;
+    (target[1] as { custom_fields?: unknown[] }).custom_fields = [
+      { label: "recovery_code", value: "HIDDEN-FIELD-SECRET", is_hidden: true },
+    ];
+    await saveVault(vault);
+
+    const r = await rawRequest({ op: "vault-index", fingerprint: FINGERPRINT, token });
+    expect(r["ok"]).toBe(true);
+    expect(JSON.stringify(r)).not.toContain("HIDDEN-FIELD-SECRET");
+    const rows = r["entries"] as Array<Record<string, unknown>>;
+    const row = rows.find((x) => x["label"] === "with-fields")!;
+    const fields = row["custom_fields"] as Array<Record<string, unknown>>;
+    expect(fields[0]!["label"]).toBe("recovery_code");
+    expect(fields[0]!["has_value"]).toBe(true);
+    expect(fields[0]).not.toHaveProperty("value");
+  });
+
+  it("does not disclose which entry ids exist to an unauthenticated caller", async () => {
+    const existing = await rawRequest({ op: "secret", fingerprint: FINGERPRINT, id: "0" });
+    const missing = await rawRequest({ op: "secret", fingerprint: FINGERPRINT, id: "9999" });
+    expect(existing["ok"]).toBe(false);
+    expect(missing["ok"]).toBe(false);
+    // Identical denial: an enumeration oracle is an information leak
+    expect(existing["error"]).toBe(missing["error"]);
+  });
+
+  it("rejects an oversized request instead of buffering it", async () => {
+    const reply = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const socket = createConnection(socketPath);
+      let buf = "";
+      const timer = setTimeout(() => {
+        socket.destroy();
+        reject(new Error("timeout"));
+      }, 10000);
+      socket.on("connect", () => {
+        // No newline: without a cap this grows unbounded and is rescanned.
+        socket.write("x".repeat(1_000_000));
+      });
+      socket.on("data", (c) => {
+        buf += c.toString();
+        const nl = buf.indexOf("\n");
+        if (nl >= 0) {
+          clearTimeout(timer);
+          socket.destroy();
+          resolve(JSON.parse(buf.slice(0, nl)) as Record<string, unknown>);
+        }
+      });
+      socket.on("error", (e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+    });
+    expect(reply["ok"]).toBe(false);
+    expect(String(reply["error"])).toContain("too large");
+  });
+
+  it("clamps a token-supplied TOTP timestamp to now", async () => {
+    const far = await rawRequest({
+      op: "secret", fingerprint: FINGERPRINT, id: "1", token, timestamp: 4000000000,
+    });
+    expect(far["ok"]).toBe(false);
+    expect(String(far["error"])).toMatch(/timestamp|denied/);
+  });
+
+  it("detects a truncated audit log", async () => {
+    const auditPath = join(appDir, FINGERPRINT, "audit.log");
+    const original = await readFile(auditPath, "utf8");
+    const lines = original.split("\n").filter((l) => l.trim());
+    // Excise the most recent records, as an attacker covering their tracks
+    await writeFile(auditPath, lines.slice(0, Math.max(1, lines.length - 2)).join("\n") + "\n");
+    const r = await run({ SEEDPASS_MNEMONIC: MNEMONIC }, "agent", "audit-verify");
+    expect(String((r.error as Error).message)).toMatch(/removed|head/);
+    await writeFile(auditPath, original);
   });
 });
 

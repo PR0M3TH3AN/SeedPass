@@ -38,10 +38,13 @@ export function capabilities(): Record<string, unknown> {
     tokens: {
       commands: ["agent token-issue/token-list/token-revoke"],
       scopes: ["read", "use", "reveal"],
-      constraints: ["kinds", "label_regex", "ttl", "uses"],
+      constraints: ["kinds", "label_regex", "ttl", "uses", "exec_allowlist"],
       token_env_var: "SEEDPASS_TOKEN",
       enforcement: "session agent (secrets materialized agent-side in token mode)",
-      escalation: "token mode can never fall back to owner access",
+      escalation:
+        "token mode refuses owner operations, but this is a same-uid process " +
+        "boundary: a token holder that can read the owner capability file can " +
+        "still escalate. See docs/agent_security_model.md.",
     },
     audit: {
       commands: ["agent audit-verify", "agent audit-tail"],

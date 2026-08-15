@@ -1201,10 +1201,14 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--label-regex <re>", "restrict to matching labels", ".*")
     .option("--ttl <seconds>", "token lifetime", "300")
     .option("--uses <n>", "max secret deliveries", "1")
+    .option(
+      "--exec-allowlist <cmd...>",
+      "restrict `use` to these commands (without it, a use-scoped holder can read the secret)",
+    )
     .action(
       async (o: {
         name: string; scope: string[]; kind?: string[]; labelRegex: string;
-        ttl: string; uses: string;
+        ttl: string; uses: string; execAllowlist?: string[];
       }) => {
         const opts = program.opts() as GlobalOpts;
         const app = new AppDir(resolveAppDir(opts.appDir));
@@ -1218,6 +1222,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           labelRegex: o.labelRegex,
           ttl: parseIntOption(o.ttl, "--ttl", { min: 1 }),
           uses: parseIntOption(o.uses, "--uses", { min: 1 }),
+          ...(o.execAllowlist !== undefined && { execAllowlist: o.execAllowlist }),
         });
         io.out(
           JSON.stringify(
@@ -1294,7 +1299,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .action(async () => {
       const app = new AppDir(resolveAppDir((program.opts() as GlobalOpts).appDir));
       const client = new AgentClient(agentSocketPath(app.root));
-      await client.request({ op: "shutdown" });
+      // Must authenticate, and must not claim success it did not get: the
+      // user is being told their seeds were wiped.
+      await client.shutdown();
       io.out(JSON.stringify({ agent: "stopped" }));
     });
 

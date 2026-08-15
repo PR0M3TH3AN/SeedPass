@@ -77,7 +77,9 @@ the credential itself.
 
 Append-only, HMAC-chained (`sig = HMAC(key_index, prev_sig || canonical
 payload)`), keyed by the profile's index key, so only the seed holder can
-extend or verify it. `agent audit-verify` walks the chain and fails at the
+extend or verify it. A signed head file records the expected record count
+and last signature — without it, deleting the log or a suffix of it leaves a
+shorter file that still verifies perfectly. `agent audit-verify` walks the chain and fails at the
 first break. Writes are serialized so concurrent requests cannot interleave
 and desynchronize it. Recorded: unlocks, token lifecycle, index reads,
 deliveries (with the sink and argv), and every denial with its reason.
@@ -85,7 +87,12 @@ Secret values are never recorded.
 
 ## Known limits, stated rather than hidden
 
-1. **Same-uid attackers win** — see above.
+1. **Same-uid attackers win** — see above. Concretely: a scoped agent is
+   given the app directory, so the capability is deliberately stored
+   *outside* it (in `XDG_RUNTIME_DIR`), but a token holder that can read that
+   file can still unset its token and act as the owner. Treat a token as a
+   convenience and an audit trail, not as a sandbox. Real containment needs a
+   separate uid or a container.
 2. **`use` can be turned into `reveal`** by a holder that picks the command,
    unless an exec allowlist is set.
 3. **Memory is not scrubbed.** Seeds live in the daemon's heap while
