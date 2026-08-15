@@ -326,6 +326,21 @@ export class AgentDaemon {
 
   private async handle(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
     this.expire();
+    // Reject non-string credentials and identifiers rather than coercing
+    // them. String(["abc"]) is "abc", so an array would sail through a
+    // String() comparison; nothing good comes of accepting these shapes.
+    for (const field of ["op", "cap", "token", "fingerprint", "id", "sink"]) {
+      const value = msg[field];
+      if (value !== undefined && typeof value !== "string") {
+        return { ok: false, error: `field '${field}' must be a string` };
+      }
+    }
+    if (msg["command"] !== undefined) {
+      const command = msg["command"];
+      if (!Array.isArray(command) || command.some((c) => typeof c !== "string")) {
+        return { ok: false, error: "field 'command' must be an array of strings" };
+      }
+    }
     const op = String(msg["op"] ?? "");
     if (OWNER_OPS.has(op) && !this.isOwner(msg)) {
       // Do not reveal whether the profile exists or is unlocked.

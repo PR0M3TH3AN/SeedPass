@@ -212,6 +212,24 @@ describe("token holders cannot exceed their grant", () => {
     const r = await rawRequest({ op: "owner-mnemonic", fingerprint: FINGERPRINT, cap: token });
     expect(r["ok"]).toBe(false);
   });
+
+  it("rejects non-string credentials instead of coercing them", async () => {
+    // String(["abc"]) === "abc", so an array credential would otherwise pass
+    // a String()-based comparison unnoticed.
+    for (const shaped of [[token], { t: token }, 1, true, null]) {
+      const r = await rawRequest({ op: "vault-index", fingerprint: FINGERPRINT, token: shaped });
+      expect(r["ok"], `token as ${JSON.stringify(shaped)} must be refused`).toBe(false);
+    }
+    for (const shaped of [["x"], {}, 0]) {
+      const r = await rawRequest({ op: "owner-mnemonic", fingerprint: FINGERPRINT, cap: shaped });
+      expect(r["ok"]).toBe(false);
+    }
+    const badCommand = await rawRequest({
+      op: "use-sink", fingerprint: FINGERPRINT, id: "0", token,
+      sink: "exec", command: "not-an-array",
+    });
+    expect(badCommand["ok"]).toBe(false);
+  });
 });
 
 describe("sink children do not inherit the vault's secrets", () => {
