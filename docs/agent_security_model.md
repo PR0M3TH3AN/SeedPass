@@ -18,7 +18,7 @@ one machine.
 
 | Principal | Proves itself with | Gets |
 |---|---|---|
-| Owner | The capability secret in a `0600` file beside the socket | Everything: unlock/lock, the parent seed, token issuance, status, shutdown |
+| Owner | The capability secret in a `0600` file under `XDG_RUNTIME_DIR` (deliberately not in the app directory) | Everything: unlock/lock, the parent seed, token issuance, status, shutdown |
 | Token holder | A bearer token issued by the owner | Only what the token's scopes and constraints allow, enforced by the daemon |
 | Anyone else | Nothing | Nothing but a liveness ping |
 
@@ -34,6 +34,11 @@ The socket is `0600`, which proves only "a process running as this user".
 That does not distinguish the owner's CLI from a scoped agent that was
 handed a token — both run as you. The capability file raises the bar to "can
 read the owner's files", which is the same bar as the vault itself.
+
+It is stored outside the app directory on purpose. A scoped agent has to be
+given that directory to find the socket and the profile registry, so a
+capability kept there would ship the escape hatch with the keys — a reviewer
+demonstrated exactly that escalation.
 
 **It does not defend against a same-uid attacker.** Anyone who can read that
 file, read the vault, or `ptrace` the daemon has already won. Defending
