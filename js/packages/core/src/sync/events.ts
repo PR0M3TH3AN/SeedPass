@@ -91,7 +91,62 @@ export function signEvent(privateKeyHex: string, unsigned: UnsignedEvent): Nostr
 }
 
 /** Verify an event's id derivation and BIP-340 signature. */
+/**
+ * Structural validation of an event received from a relay.
+ *
+ * The wire is untrusted: `parseRelayMessage` casts whatever JSON arrived, so
+ * types must be checked before anything reads them. `created_at` in
+ * particular is interpolated into the id preimage and used for ordering —
+ * `1e999` parses to Infinity and would sort ahead of every real event
+ * forever, and a string collapses comparisons to NaN.
+ */
+export function isWellFormedEvent(event: unknown): event is NostrEvent {
+  if (typeof event !== "object" || event === null) return false;
+  const e = event as Record<string, unknown>;
+  if (typeof e["id"] !== "string" || !/^[0-9a-f]{64}$/.test(e["id"])) return false;
+  if (typeof e["pubkey"] !== "string" || !/^[0-9a-f]{64}$/.test(e["pubkey"])) return false;
+  if (typeof e["sig"] !== "string" || !/^[0-9a-f]{128}$/.test(e["sig"])) return false;
+  if (typeof e["content"] !== "string") return false;
+  if (
+    typeof e["created_at"] !== "number" ||
+    !Number.isSafeInteger(e["created_at"]) ||
+    e["created_at"] < 0
+  ) {
+    return false;
+  }
+  if (typeof e["kind"] !== "number" || !Number.isSafeInteger(e["kind"])) return false;
+  const tags = e["tags"];
+  if (!Array.isArray(tags)) return false;
+  return tags.every((t) => Array.isArray(t) && t.every((v) => typeof v === "string"));
+}
+
+/**
+ * Does an event actually satisfy the filter it was requested with?
+ *
+ * A relay is asked for a filter, it is not obliged to honour it. Without
+ * this check, `fetch` accepts an event signed by any key at all — the
+ * signature only proves internal consistency, not authorship by the pubkey
+ * we asked for.
+ */
+export function eventMatchesFilter(event: NostrEvent, filter: Filter): boolean {
+  if (filter.ids && !filter.ids.includes(event.id)) return false;
+  if (filter.authors && !filter.authors.includes(event.pubkey)) return false;
+  if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
+  if (filter.since !== undefined && event.created_at < filter.since) return false;
+  if (filter.until !== undefined && event.created_at > filter.until) return false;
+  for (const tagFilter of ["#d", "#e"] as const) {
+    const wanted = filter[tagFilter];
+    if (wanted) {
+      const name = tagFilter[1]!;
+      const values = event.tags.filter((t) => t[0] === name).map((t) => t[1]);
+      if (!wanted.some((w) => values.includes(w))) return false;
+    }
+  }
+  return true;
+}
+
 export function verifyEvent(event: NostrEvent): boolean {
+  if (!isWellFormedEvent(event)) return false;
   const expectedId = computeEventId(
     event.pubkey,
     event.created_at,

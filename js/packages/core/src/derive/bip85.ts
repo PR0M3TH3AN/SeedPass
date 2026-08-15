@@ -19,9 +19,24 @@ import {
 import { wordlist as english } from "@scure/bip39/wordlists/english.js";
 import { utf8 } from "../util/bytes.js";
 
+/**
+ * Canonical form of a mnemonic: NFKD, lowercase, single-space separated.
+ *
+ * This must be applied before BOTH validation and derivation. `@scure`'s
+ * normalize only counts words and then PBKDF2s the raw string, so a phrase
+ * with a trailing newline validates yet derives a completely different seed
+ * — while Python's Bip39SeedGenerator canonicalizes and derives the correct
+ * one. Validating one string and deriving from another produced a vault
+ * that neither implementation, nor the user's written-down phrase, could
+ * ever reopen.
+ */
+export function canonicalizeMnemonic(mnemonic: string): string {
+  return mnemonic.normalize("NFKD").trim().toLowerCase().split(/\s+/u).join(" ");
+}
+
 /** True when `mnemonic` is a valid English BIP-39 phrase (checksum included). */
 export function isValidMnemonic(mnemonic: string): boolean {
-  return scureValidateMnemonic(mnemonic.trim(), english);
+  return scureValidateMnemonic(canonicalizeMnemonic(mnemonic), english);
 }
 
 /**
@@ -60,7 +75,7 @@ export class Bip85 {
   }
 
   static fromMnemonic(mnemonic: string, passphrase = ""): Bip85 {
-    return new Bip85(mnemonicToSeedSync(mnemonic, passphrase));
+    return new Bip85(mnemonicToSeedSync(canonicalizeMnemonic(mnemonic), passphrase));
   }
 
   deriveEntropy(opts: DeriveEntropyOptions): Uint8Array {

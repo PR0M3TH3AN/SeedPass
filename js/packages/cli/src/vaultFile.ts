@@ -3,7 +3,7 @@
  * or without the JSON kdf/ct wrapper) unlocked by the parent seed mnemonic.
  */
 
-import { readFile, open, rename, rm, stat, chmod } from "node:fs/promises";
+import { readFile, open, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import process from "node:process";
@@ -81,16 +81,39 @@ export async function atomicWrite(path: string, data: Uint8Array): Promise<void>
   const dir = dirname(path);
   const tmp = join(dir, `.${basename(path)}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`);
   const handle = await open(tmp, "wx", 0o600);
+  let renamed = false;
   try {
-    await handle.write(data);
+    // A short write is not an error in POSIX, and ignoring it is how a
+    // truncated file gets fsynced and renamed over the only good copy —
+    // silently, with a success exit code. Loop until everything lands and
+    // fail loudly if it cannot.
+    let written = 0;
+    while (written < data.length) {
+      const { bytesWritten } = await handle.write(data, written, data.length - written);
+      if (bytesWritten <= 0) {
+        throw new Error(
+          `short write to ${tmp}: wrote ${written} of ${data.length} bytes`,
+        );
+      }
+      written += bytesWritten;
+    }
+    if (written !== data.length) {
+      throw new Error(`short write to ${tmp}: wrote ${written} of ${data.length} bytes`);
+    }
+    // fchmod on the handle, not the path: a path-based chmod after the file
+    // is visible can be redirected through a symlink.
+    await handle.chmod(0o600);
     await handle.sync();
-  } finally {
     await handle.close();
+    await rename(tmp, path);
+    renamed = true;
+  } finally {
+    if (!renamed) {
+      // Never leave a partial ciphertext copy behind.
+      await handle.close().catch(() => {});
+      await rm(tmp, { force: true }).catch(() => {});
+    }
   }
-  await rename(tmp, path);
-  // Repair permissions if the target already existed with looser modes:
-  // writeFile's mode argument applies only on creation.
-  await chmod(path, 0o600);
   const dirHandle = await open(dir, "r");
   try {
     await dirHandle.sync();
@@ -110,38 +133,84 @@ export async function atomicWrite(path: string, data: Uint8Array): Promise<void>
  */
 const LOCK_STALE_MS = 30_000;
 
+/** Is a pid still running (and therefore still holding its lock)? */
+function pidAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    // EPERM means it exists but belongs to someone else — still alive.
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 export async function withVaultLock<T>(path: string, fn: () => Promise<T>): Promise<T> {
   const lockPath = `${path}.lock`;
+  // A token unique to this acquisition. Releasing or breaking a lock without
+  // checking it is how two processes end up both believing they hold it:
+  // rm-then-create is not atomic, so a slow holder's lock can be deleted by
+  // a racer that already decided it was stale.
+  const token = `${process.pid}:${randomBytes(12).toString("hex")}`;
   const deadline = Date.now() + LOCK_STALE_MS;
+
   for (;;) {
     try {
       const handle = await open(lockPath, "wx", 0o600);
-      await handle.write(String(process.pid));
-      await handle.close();
+      try {
+        await handle.write(token);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
       break;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+
+      let holder = "";
       let age = 0;
       try {
+        holder = await readFile(lockPath, "utf8");
         age = Date.now() - (await stat(lockPath)).mtimeMs;
       } catch {
-        continue; // holder released it between our attempts
+        continue; // released between our attempts
       }
-      if (age > LOCK_STALE_MS) {
-        await rm(lockPath, { force: true });
+      const holderPid = Number.parseInt(holder.split(":")[0] ?? "", 10);
+
+      // Only break a lock whose owner is demonstrably gone. Age alone is a
+      // guess — a slow disk or a suspended laptop is not a crash.
+      if (!pidAlive(holderPid) && age > LOCK_STALE_MS) {
+        // Steal atomically: move the stale file aside and only proceed if
+        // this process is the one that managed to move it.
+        const claim = `${lockPath}.claim.${randomBytes(8).toString("hex")}`;
+        try {
+          await rename(lockPath, claim);
+          await rm(claim, { force: true });
+        } catch {
+          // Another process won the steal; fall through and retry.
+        }
         continue;
       }
       if (Date.now() > deadline) {
         throw new Error(
-          `another SeedPass process is holding ${lockPath}; retry, or remove it if no process is running`,
+          `another SeedPass process (pid ${holderPid || "unknown"}) is holding ` +
+            `${lockPath}; retry, or remove it if no such process is running`,
         );
       }
       await new Promise((r) => setTimeout(r, 25));
     }
   }
+
   try {
     return await fn();
   } finally {
-    await rm(lockPath, { force: true });
+    // Release only if we still own it: a lock broken out from under us
+    // belongs to someone else now, and deleting it would evict them.
+    try {
+      const current = await readFile(lockPath, "utf8");
+      if (current === token) await rm(lockPath, { force: true });
+    } catch {
+      // Already gone.
+    }
   }
 }

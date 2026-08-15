@@ -18,15 +18,29 @@ import { hkdf } from "@noble/hashes/hkdf.js";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { z } from "zod";
 import { bytesToHex, concatBytes, utf8 } from "../util/bytes.js";
+import { canonicalizeMnemonic } from "../derive/bip85.js";
 
 export const KIND_MANIFEST = 30070;
 export const KIND_SNAPSHOT_CHUNK = 30071;
 export const KIND_DELTA = 30072;
 
+/**
+ * Resource budgets for relay-supplied snapshots.
+ *
+ * A manifest is signed by the user, but a relay chooses WHICH signed
+ * manifest to serve, and nothing stops a manifest from describing an
+ * enormous snapshot. These caps bound the work a relay can make a client do
+ * before the payload is authenticated by decryption.
+ */
+export const MAX_CHUNKS = 4096;
+export const MAX_CHUNK_BYTES = 1_048_576; // 1 MiB
+export const MAX_COMPRESSED_BYTES = 64 * 1_048_576;
+export const MAX_DECOMPRESSED_BYTES = 256 * 1_048_576;
+
 export const chunkMetaSchema = z
   .object({
-    id: z.string(),
-    size: z.number().int().nonnegative(),
+    id: z.string().max(256),
+    size: z.number().int().nonnegative().max(MAX_CHUNK_BYTES),
     hash: z.string().regex(/^[0-9a-f]{64}$/),
     event_id: z.string().nullable().optional().default(null),
   })
@@ -36,7 +50,7 @@ export const manifestSchema = z
   .object({
     ver: z.number().int(),
     algo: z.string(),
-    chunks: z.array(chunkMetaSchema),
+    chunks: z.array(chunkMetaSchema).max(MAX_CHUNKS),
     delta_since: z.number().int().nullable().optional().default(null),
     nonce: z.string().nullable().optional().default(null),
     index0: z.record(z.string(), z.unknown()).nullable().optional().default(null),
@@ -53,17 +67,32 @@ export function parseManifest(json: string): Manifest {
 async function pipeThrough(
   data: Uint8Array,
   stream: { readable: ReadableStream; writable: WritableStream },
+  maxOutputBytes = Number.POSITIVE_INFINITY,
 ): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   const writeDone = writer.write(data as BufferSource).then(() => writer.close());
   const reader = stream.readable.getReader();
   const parts: Uint8Array[] = [];
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value as Uint8Array);
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value as Uint8Array;
+      total += chunk.length;
+      // Stop a decompression bomb while it is still streaming rather than
+      // after it has already been materialized.
+      if (total > maxOutputBytes) {
+        await reader.cancel();
+        throw new Error(
+          `decompressed output exceeds ${maxOutputBytes} bytes; refusing to continue`,
+        );
+      }
+      parts.push(chunk);
+    }
+  } finally {
+    await writeDone.catch(() => {});
   }
-  await writeDone;
   return concatBytes(...parts);
 }
 
@@ -71,8 +100,11 @@ export async function gzipCompress(data: Uint8Array): Promise<Uint8Array> {
   return pipeThrough(data, new CompressionStream("gzip"));
 }
 
-export async function gzipDecompress(data: Uint8Array): Promise<Uint8Array> {
-  return pipeThrough(data, new DecompressionStream("gzip"));
+export async function gzipDecompress(
+  data: Uint8Array,
+  maxOutputBytes = MAX_DECOMPRESSED_BYTES,
+): Promise<Uint8Array> {
+  return pipeThrough(data, new DecompressionStream("gzip"), maxOutputBytes);
 }
 
 /** Compress and split the encrypted vault into chunks (prepare_snapshot). */
@@ -120,9 +152,26 @@ export async function reassembleSnapshot(
       `chunk count mismatch: manifest lists ${manifest.chunks.length}, got ${chunks.length}`,
     );
   }
+  let compressedTotal = 0;
   for (let i = 0; i < chunks.length; i++) {
     const meta = manifest.chunks[i]!;
-    const actual = bytesToHex(sha256(chunks[i]!));
+    const chunk = chunks[i]!;
+    // The manifest's declared size is signed; a chunk that disagrees with it
+    // is wrong regardless of what its hash says.
+    if (chunk.length !== meta.size) {
+      throw new ChunkVerificationError(
+        `chunk ${meta.id} size mismatch (manifest says ${meta.size}, got ${chunk.length})`,
+        meta.id,
+      );
+    }
+    compressedTotal += chunk.length;
+    if (compressedTotal > MAX_COMPRESSED_BYTES) {
+      throw new ChunkVerificationError(
+        `snapshot exceeds ${MAX_COMPRESSED_BYTES} compressed bytes`,
+        meta.id,
+      );
+    }
+    const actual = bytesToHex(sha256(chunk));
     if (actual !== meta.hash) {
       throw new ChunkVerificationError(
         `chunk ${meta.id} hash mismatch (expected ${meta.hash}, got ${actual})`,
@@ -135,7 +184,7 @@ export async function reassembleSnapshot(
 
 /** key_index: HKDF chain master -> "seedpass:v1:index" (manager.py KEY_INDEX). */
 export function deriveKeyIndex(mnemonic: string): Uint8Array {
-  const seed = mnemonicToSeedSync(mnemonic);
+  const seed = mnemonicToSeedSync(canonicalizeMnemonic(mnemonic));
   const master = hkdf(sha256, seed, undefined, utf8("seedpass:v1:master"), 32);
   return hkdf(sha256, master, undefined, utf8("seedpass:v1:index"), 32);
 }

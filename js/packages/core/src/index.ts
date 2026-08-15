@@ -9,6 +9,7 @@ export {
   Bip85,
   isValidMnemonic,
   assertValidMnemonic,
+  canonicalizeMnemonic,
   type DeriveEntropyOptions,
 } from "./derive/bip85.js";
 export {
@@ -50,6 +51,7 @@ export {
   deriveKeyFromPassword,
   deriveKeyFromPasswordArgon2,
   kdfConfigSchema,
+  KDF_LIMITS,
   type KdfConfig,
 } from "./vault/passwordKdf.js";
 export { fernetDecrypt, FernetError } from "./vault/fernet.js";

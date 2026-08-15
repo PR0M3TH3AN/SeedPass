@@ -9,7 +9,9 @@
  */
 
 import {
+  eventMatchesFilter,
   eventMessage,
+  isWellFormedEvent,
   parseRelayMessage,
   reqMessage,
   verifyEvent,
@@ -138,7 +140,18 @@ export class RelayPool {
                 const parsed = parseRelayMessage(String(raw.data));
                 if (parsed.type === "EVENT" && parsed.subscriptionId === subId) {
                   const ev = parsed.event;
-                  if (!byId.has(ev.id) && verifyEvent(ev)) byId.set(ev.id, ev);
+                  // A relay is asked for a filter; it is not obliged to obey
+                  // one. Accept an event only if it is well formed, actually
+                  // satisfies a filter we sent (author, kind, id, time, tags)
+                  // and carries a valid signature over its own id.
+                  if (
+                    !byId.has(ev.id) &&
+                    isWellFormedEvent(ev) &&
+                    filters.some((f) => eventMatchesFilter(ev, f)) &&
+                    verifyEvent(ev)
+                  ) {
+                    byId.set(ev.id, ev);
+                  }
                 } else if (
                   (parsed.type === "EOSE" || parsed.type === "CLOSED") &&
                   parsed.subscriptionId === subId

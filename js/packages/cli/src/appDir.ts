@@ -12,7 +12,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { atomicWrite } from "./vaultFile.js";
+import { atomicWrite, withVaultLock } from "./vaultFile.js";
 import process from "node:process";
 import { base64url } from "@scure/base";
 import {
@@ -105,7 +105,22 @@ export class AppDir {
   async writeFingerprints(data: FingerprintsFile): Promise<void> {
     await mkdir(this.root, { recursive: true });
     // indent=4 matches the Python writer
-    await atomicWrite(this.fingerprintsPath, utf8(JSON.stringify(data, null, 4)));
+    await withVaultLock(this.fingerprintsPath, () =>
+      atomicWrite(this.fingerprintsPath, utf8(JSON.stringify(data, null, 4))),
+    );
+  }
+
+  /** Read-modify-write the registry under one lock. */
+  async mutateFingerprints<T>(
+    fn: (data: FingerprintsFile) => T | Promise<T>,
+  ): Promise<T> {
+    await mkdir(this.root, { recursive: true });
+    return withVaultLock(this.fingerprintsPath, async () => {
+      const data = await this.readFingerprints();
+      const result = await fn(data);
+      await atomicWrite(this.fingerprintsPath, utf8(JSON.stringify(data, null, 4)));
+      return result;
+    });
   }
 
   /** Create a profile from a mnemonic; returns its fingerprint. */
@@ -121,6 +136,20 @@ export class AppDir {
       throw new Error(`profile ${fingerprint} already exists`);
     }
     const dir = this.profileDir(fingerprint);
+    // The registry is not proof of absence: readFingerprints swallows a
+    // corrupt or unreadable fingerprints.json and reports no profiles. The
+    // files on disk are what matter — restoring a profile directory from a
+    // backup and re-registering it is the canonical "recover my vault"
+    // gesture, and it must not overwrite the seed and index.
+    for (const existing of [PARENT_SEED_FILENAME, INDEX_FILENAME]) {
+      if (existsSync(join(dir, existing))) {
+        throw new Error(
+          `refusing to create profile ${fingerprint}: ${join(dir, existing)} already ` +
+            `exists. If this profile is missing from fingerprints.json, repair the ` +
+            `registry rather than re-adding the profile.`,
+        );
+      }
+    }
     await mkdir(dir, { recursive: true, mode: 0o700 });
 
     // parent_seed.enc: kdf/ct wrapper around a V3 blob under the password key.

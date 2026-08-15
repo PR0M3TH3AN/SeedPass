@@ -54,8 +54,21 @@ function entryKind(entry: Dict): string {
   return String(raw).trim().toLowerCase();
 }
 
+/**
+ * Python truthiness, which differs from JS on containers: bool([]) and
+ * bool({}) are False in Python but Boolean([]) is true in JS. A
+ * `"_deleted": []` field would tombstone an entry in JS and keep it in
+ * Python — the two clients would then disagree about whether it exists.
+ */
+function pyTruthy(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value as Dict).length > 0;
+  return Boolean(value);
+}
+
 function isDeletedEntry(entry: Dict): boolean {
-  return Boolean(entry["_deleted"] ?? false) || Boolean(entry["deleted"] ?? false);
+  return pyTruthy(entry["_deleted"]) || pyTruthy(entry["deleted"]);
 }
 
 function entryHash(entry: Dict): string {
@@ -85,7 +98,10 @@ function preferTombstone(current: Dict, incoming: Dict, idx: string): boolean {
 }
 
 function normalizeTombstones(value: unknown): Record<string, Dict> {
-  const out: Record<string, Dict> = {};
+  // Object.create(null): "__proto__" must behave as an ordinary key. On a
+  // normal object it silently replaces the prototype instead of being
+  // stored, which drops the record here and diverges from Python.
+  const out: Record<string, Dict> = Object.create(null);
   if (!isDict(value)) return out;
   for (const [k, v] of Object.entries(value)) {
     if (!isDict(v)) continue;
@@ -105,7 +121,7 @@ function mergeTombstones(
   current: Record<string, Dict>,
   incoming: Record<string, Dict>,
 ): Record<string, Dict> {
-  const merged: Record<string, Dict> = { ...current };
+  const merged: Record<string, Dict> = Object.assign(Object.create(null), current);
   for (const [idx, rec] of Object.entries(incoming)) {
     const cur = merged[idx];
     if (cur === undefined || preferTombstone(cur, rec, idx)) {
@@ -274,7 +290,13 @@ export function mergeIndexPayloads(
     options,
   );
 
-  const curEntries: Dict = isDict(out["entries"]) ? (out["entries"] as Dict) : {};
+  // Rebuild entries on a null prototype for the same reason: an incoming
+  // entry keyed "__proto__" would otherwise be dropped and pollute the
+  // object's prototype chain.
+  const curEntries: Dict = Object.assign(
+    Object.create(null) as Dict,
+    isDict(out["entries"]) ? (out["entries"] as Dict) : {},
+  );
   const incEntries: Dict = isDict(incoming["entries"]) ? (incoming["entries"] as Dict) : {};
   const curMeta: Dict = isDict(out["_sync_meta"]) ? (out["_sync_meta"] as Dict) : {};
   const incMeta: Dict = isDict(incoming["_sync_meta"]) ? (incoming["_sync_meta"] as Dict) : {};
@@ -332,7 +354,9 @@ export function mergeIndexPayloads(
   }
 
   // Apply tombstones after the entry merge
-  for (const [idx, rec] of Object.entries({ ...tombstones })) {
+  for (const [idx, rec] of Object.entries<Dict>(
+    Object.assign(Object.create(null) as Record<string, Dict>, tombstones),
+  )) {
     const entry = curEntries[idx];
     if (!isDict(entry)) continue;
     const eTs = entryTs(entry);

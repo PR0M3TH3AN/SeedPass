@@ -13,13 +13,15 @@ import { base32 } from "@scure/base";
 import { mnemonicToSeedSync } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { utf8 } from "../util/bytes.js";
+import { canonicalizeMnemonic } from "./bip85.js";
 
 const TOTP_PURPOSE = 39;
 const TOTP_INT = 0x544f5450; // 1414485072 = int.from_bytes(b"TOTP", "big")
 
 /** Derive the base32 TOTP secret for an index from a mnemonic or raw seed. */
 export function deriveTotpSecret(seed: string | Uint8Array, index: number): string {
-  const seedBytes = typeof seed === "string" ? mnemonicToSeedSync(seed) : seed;
+  const seedBytes =
+    typeof seed === "string" ? mnemonicToSeedSync(canonicalizeMnemonic(seed)) : seed;
   const root = HDKey.fromMasterSeed(seedBytes);
   const path = `m/83696968'/${TOTP_PURPOSE}'/${TOTP_INT}'/${index}'`;
   const child = root.derive(path);
@@ -29,9 +31,23 @@ export function deriveTotpSecret(seed: string | Uint8Array, index: number): stri
   return base32.encode(hashed.slice(0, 20));
 }
 
+/**
+ * Accept the base32 forms pyotp does.
+ *
+ * pyotp calls b32decode(casefold=True) and pads, so lowercase and
+ * unpadded secrets work there. @scure's decoder rejects both, which would
+ * make imported entries — including SeedPass's own, since random_totp_secret
+ * strips padding — unusable here but fine in Python.
+ */
+function decodeTotpSecret(secretB32: string): Uint8Array {
+  const cleaned = secretB32.trim().replace(/\s+/g, "").toUpperCase().replace(/=+$/, "");
+  const padded = cleaned.padEnd(Math.ceil(cleaned.length / 8) * 8, "=");
+  return base32.decode(padded);
+}
+
 /** RFC 4226 HOTP with SHA-1 (the TOTP default the Python side uses via pyotp). */
 export function hotp(secretB32: string, counter: number, digits = 6): string {
-  const key = base32.decode(secretB32);
+  const key = decodeTotpSecret(secretB32);
   const msg = new Uint8Array(8);
   const view = new DataView(msg.buffer);
   view.setBigUint64(0, BigInt(counter), false);

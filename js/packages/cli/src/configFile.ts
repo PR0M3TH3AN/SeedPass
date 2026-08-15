@@ -14,7 +14,7 @@ import {
   utf8,
 } from "@seedpass/core";
 import { CONFIG_FILENAME } from "./appDir.js";
-import { atomicWrite } from "./vaultFile.js";
+import { atomicWrite, withVaultLock } from "./vaultFile.js";
 
 export const DEFAULT_RELAYS = [
   "wss://relay.snort.social",
@@ -68,7 +68,33 @@ export async function saveConfig(
   mnemonic: string,
   config: Record<string, unknown>,
 ): Promise<void> {
-  const key = deriveIndexKeyBytes(mnemonic);
-  const payload = await encryptV3(key, utf8(JSON.stringify(config)));
-  await atomicWrite(join(profileDir, CONFIG_FILENAME), payload);
+  const path = join(profileDir, CONFIG_FILENAME);
+  await withVaultLock(path, async () => {
+    const key = deriveIndexKeyBytes(mnemonic);
+    const payload = await encryptV3(key, utf8(JSON.stringify(config)));
+    await atomicWrite(path, payload);
+  });
+}
+
+/**
+ * Read, modify and write the config under one lock.
+ *
+ * `config set`, `nostr add-relay` and `nostr remove-relay` are all
+ * read-modify-write cycles. Locking only the write loses concurrent updates
+ * — the config holds the relay list and password/pin hashes, so a lost
+ * update there is not cosmetic.
+ */
+export async function mutateConfig<T>(
+  profileDir: string,
+  mnemonic: string,
+  fn: (config: Record<string, unknown>) => T | Promise<T>,
+): Promise<T> {
+  const path = join(profileDir, CONFIG_FILENAME);
+  return withVaultLock(path, async () => {
+    const config = await loadConfig(profileDir, mnemonic);
+    const result = await fn(config);
+    const key = deriveIndexKeyBytes(mnemonic);
+    await atomicWrite(path, await encryptV3(key, utf8(JSON.stringify(config))));
+    return result;
+  });
 }

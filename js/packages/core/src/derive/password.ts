@@ -371,7 +371,13 @@ function generateV2(
  */
 export function passwordPolicyFromRecord(raw: unknown): PasswordPolicy {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
-  const o = raw as Record<string, unknown>;
+  const source = raw as Record<string, unknown>;
+  // A JSON null means "not set". String(null) is "null", which would turn
+  // the special-character alphabet into the letters n, u, l.
+  const o: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(source)) {
+    if (v !== null) o[k] = v;
+  }
   const num = (v: unknown): number | undefined =>
     v === undefined || v === null ? undefined : Math.trunc(Number(v));
   return {

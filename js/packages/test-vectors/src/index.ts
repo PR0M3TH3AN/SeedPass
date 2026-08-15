@@ -30,6 +30,7 @@ import entrySecretsJson from "../fixtures/entry_secrets.json";
 import nostrEventsJson from "../fixtures/nostr_events.json";
 import entryModsJson from "../fixtures/entry_mods.json";
 import migrationsJson from "../fixtures/migrations.json";
+import canonicalJsonJson from "../fixtures/canonical_json.json";
 import sshKeysJson from "../fixtures/ssh_keys.json";
 import pgpKeysJson from "../fixtures/pgp_keys.json";
 
@@ -234,6 +235,16 @@ export const nostrEvents = nostrEventsJson as {
   signer_public_key_hex: string;
   events: { name: string; event: SignedNostrEvent }[];
 };
+
+export interface CanonicalJsonCase {
+  value: unknown;
+  canonical: string;
+}
+
+export const canonicalJsonCases = (canonicalJsonJson as { cases: CanonicalJsonCase[] })
+  .cases;
+export const canonicalJsonUnsupported = (canonicalJsonJson as { unsupported: unknown[] })
+  .unsupported;
 
 export interface SshKeyCase {
   mnemonic_id: string;

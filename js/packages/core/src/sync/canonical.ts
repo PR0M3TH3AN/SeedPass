@@ -41,13 +41,68 @@ function encodeString(s: string): string {
   return out + '"';
 }
 
+/**
+ * Numbers, formatted the way CPython's json module would.
+ *
+ * JS and Python disagree in several places, and every disagreement changes
+ * an entry hash — which decides merge winners, so a mismatch means two
+ * clients can diverge permanently. Handled here:
+ *
+ *   value                JS toString        CPython json
+ *   1e16                 10000000000000000  1e+16
+ *   1e-7                 1e-7               1e-07
+ *   1e23                 1e+23              1e+23   (agrees)
+ *   -0                   0                  -0.0
+ *
+ * Integral values are emitted without a decimal point, matching Python ints;
+ * SeedPass data carries integers (timestamps, lengths, counts) and never
+ * float-typed whole numbers, so the int/float ambiguity CPython would
+ * otherwise expose does not arise. A non-integral or non-safe value would
+ * be ambiguous, so it is rejected rather than guessed at.
+ */
 function encodeNumber(n: number): string {
   if (!Number.isFinite(n)) throw new Error("non-finite number in canonical JSON");
-  if (Number.isInteger(n) && Object.is(n, -0) === false) return n.toString();
-  // Python repr(float) and JS toString agree on shortest-roundtrip decimals
-  // for doubles; integral floats (1.0) cannot be distinguished from ints in
-  // JSON-parsed data, so both sides serialize them identically.
-  return n.toString();
+  if (Object.is(n, -0)) return "-0.0";
+  if (Number.isInteger(n)) {
+    if (!Number.isSafeInteger(n)) {
+      throw new Error(
+        `integer ${n} exceeds the safe range; its canonical form would differ ` +
+          `from the Python reference and break hash agreement`,
+      );
+    }
+    return n.toString();
+  }
+  return pythonFloatRepr(n);
+}
+
+/** CPython repr() for a float: shortest round-trip, two-digit exponent. */
+function pythonFloatRepr(n: number): string {
+  const s = n.toString();
+  const m = /^(-?)(\d(?:\.\d+)?)e([+-])(\d+)$/.exec(s);
+  if (m) {
+    // JS writes 1e-7; CPython writes 1e-07 (exponent padded to two digits).
+    const [, sign, mantissa, expSign, expDigits] = m;
+    return `${sign}${mantissa}e${expSign}${expDigits!.padStart(2, "0")}`;
+  }
+  if (Math.abs(n) >= 1e16) {
+    // CPython switches to exponent form at 1e16; JS does so only at 1e21.
+    const exp = n.toExponential();
+    const em = /^(-?\d(?:\.\d+)?)e([+-])(\d+)$/.exec(exp)!;
+    return `${em[1]}e${em[2]}${em[3]!.padStart(2, "0")}`;
+  }
+  return s;
+}
+
+/** Code-point ordering, matching Python's sorted() on str. */
+function compareCodePoints(a: string, b: string): number {
+  const ai = Array.from(a);
+  const bi = Array.from(b);
+  const len = Math.min(ai.length, bi.length);
+  for (let i = 0; i < len; i++) {
+    const d = ai[i]!.codePointAt(0)! - bi[i]!.codePointAt(0)!;
+    if (d !== 0) return d;
+  }
+  return ai.length - bi.length;
 }
 
 export function canonicalJson(value: unknown): string {
@@ -67,7 +122,10 @@ export function canonicalJson(value: unknown): string {
       if (proto !== Object.prototype && proto !== null) {
         throw new Error("non-plain object in canonical JSON");
       }
-      const keys = Object.keys(value as Record<string, unknown>).sort();
+      // Python sorts by code point; JS's default sort compares UTF-16 code
+      // units, which disagree once a supplementary-plane key (an emoji in a
+      // tag, say) sits alongside one at or above U+E000.
+      const keys = Object.keys(value as Record<string, unknown>).sort(compareCodePoints);
       const parts = keys.map(
         (k) => encodeString(k) + ":" + canonicalJson((value as Record<string, unknown>)[k]),
       );

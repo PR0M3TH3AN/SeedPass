@@ -63,6 +63,7 @@ import {
   deriveSshKeyPair,
   derivePgpKey,
   sshPublicKeyOpenSsh,
+  utf8,
 } from "@seedpass/core";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
@@ -130,7 +131,7 @@ function resolveHome(p: string): string {
   return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
 }
 import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
-import { loadConfig, saveConfig } from "./configFile.js";
+import { loadConfig, saveConfig, mutateConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
 
@@ -647,7 +648,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       if (existsSync(dest) && !o.overwrite) {
         throw new Error(`File already exists: ${dest} (use --overwrite)`);
       }
-      await writeFile(dest, hit.entry.content, { mode: 0o600 });
+      // atomicWrite creates a fresh 0600 inode and renames it into place, so
+      // a pre-existing world-readable file (or a symlink pointing somewhere
+      // else) cannot end up holding this plaintext.
+      await atomicWrite(dest, utf8(hit.entry.content));
       io.out(JSON.stringify({ exported: dest, ref: hit.ref, bytes: hit.entry.content.length }));
     });
 
@@ -963,15 +967,15 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       const app = new AppDir(resolveAppDir(opts.appDir));
       const fp = await currentFingerprint(app, opts);
       const mnemonic = await resolveMnemonic(app, opts);
-      const cfg = await loadConfig(app.profileDir(fp), mnemonic);
       let parsed: unknown = value;
       try {
         parsed = JSON.parse(value);
       } catch {
         // keep as string
       }
-      cfg[key] = parsed;
-      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      await mutateConfig(app.profileDir(fp), mnemonic, (cfg) => {
+        cfg[key] = parsed;
+      });
       io.out(JSON.stringify({ [key]: parsed }));
     });
 
@@ -1008,10 +1012,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("add a relay URL")
     .action(async (url: string) => {
       if (!/^wss?:\/\//.test(url)) throw new Error("relay URL must start with ws:// or wss://");
-      const { app, fp, mnemonic, cfg } = await nostrContext(program.opts());
-      const relays = cfg["relays"] as string[];
-      if (!relays.includes(url)) relays.push(url);
-      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      const { app, fp, mnemonic } = await nostrContext(program.opts());
+      const relays = await mutateConfig(app.profileDir(fp), mnemonic, (cfg) => {
+        const list = Array.isArray(cfg["relays"]) ? (cfg["relays"] as string[]) : [];
+        if (!list.includes(url)) list.push(url);
+        cfg["relays"] = list;
+        return list;
+      });
       io.out(JSON.stringify({ relays }));
     });
 
@@ -1019,15 +1026,16 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("remove-relay <index>")
     .description("remove a relay by 1-based index")
     .action(async (indexStr: string) => {
-      const { app, fp, mnemonic, cfg } = await nostrContext(program.opts());
-      const relays = cfg["relays"] as string[];
+      const { app, fp, mnemonic } = await nostrContext(program.opts());
       const i = parseIntOption(indexStr, "index", { min: 1 }) - 1;
-      if (!Number.isInteger(i) || i < 0 || i >= relays.length) {
-        throw new Error(`index out of range 1..${relays.length}`);
-      }
-      if (relays.length === 1) throw new Error("at least one relay must remain");
-      relays.splice(i, 1);
-      await saveConfig(app.profileDir(fp), mnemonic, cfg);
+      const relays = await mutateConfig(app.profileDir(fp), mnemonic, (cfg) => {
+        const list = Array.isArray(cfg["relays"]) ? (cfg["relays"] as string[]) : [];
+        if (i >= list.length) throw new Error(`index out of range 1..${list.length}`);
+        if (list.length === 1) throw new Error("at least one relay must remain");
+        list.splice(i, 1);
+        cfg["relays"] = list;
+        return list;
+      });
       io.out(JSON.stringify({ relays }));
     });
 
@@ -1106,7 +1114,12 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
                 await decryptPayload(indexKey, parseEncryptedFile(delta).ciphertext),
               ),
             );
-            remote = mergeIndexPayloads(remote, incoming, sha256Hex(delta).slice(0, 16));
+            // preserve-current here too: the default would refuse any
+            // Python profile that carries atlas state as soon as one delta
+            // exists.
+            remote = mergeIndexPayloads(remote, incoming, sha256Hex(delta).slice(0, 16), {
+              index0: "preserve-current",
+            });
             deltaCount++;
           }
         }
@@ -1343,18 +1356,22 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("export <destFile>")
     .description("write a portable backup (encrypted by default)")
     .option("--plaintext", "HIGH RISK: export without encryption")
-    .action(async (destFile: string, cmdOpts: { plaintext?: boolean }) => {
+    .option("--overwrite", "replace an existing file")
+    .action(async (destFile: string, o: { plaintext?: boolean; overwrite?: boolean }) => {
       const vault = await openFromOptions(program.opts());
       const wrapper = await exportBackup(vault.index as Record<string, unknown>, {
         mnemonic: vault.mnemonic,
         fingerprint: generateFingerprint(vault.mnemonic),
-        encrypt: !cmdOpts.plaintext,
+        encrypt: !o.plaintext,
       });
-      await writeFile(destFile, JSON.stringify(wrapper, null, 2) + "\n", { mode: 0o600 });
+      if (existsSync(destFile) && !o.overwrite) {
+        throw new Error(`File already exists: ${destFile} (use --overwrite)`);
+      }
+      await atomicWrite(destFile, utf8(JSON.stringify(wrapper, null, 2) + "\n"));
       io.out(
         JSON.stringify({
           exported: destFile,
-          encrypted: !cmdOpts.plaintext,
+          encrypted: !o.plaintext,
           checksum: wrapper.checksum,
         }),
       );

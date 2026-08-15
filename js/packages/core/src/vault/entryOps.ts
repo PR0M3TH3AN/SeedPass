@@ -34,9 +34,34 @@ export function isoFromUnix(ts: number): string {
   return iso.replace(/\.\d{3}Z$/, "+00:00");
 }
 
-/** max(int keys) + 1, or 0 for an empty index (get_next_index). */
+/**
+ * max(int keys) + 1, or 0 for an empty index (get_next_index).
+ *
+ * Every key must be a plain non-negative integer within the safe range. A
+ * non-numeric key makes Math.max return NaN and a huge key makes +1 a no-op,
+ * and `insert` would then assign the same id repeatedly — each new entry
+ * silently overwriting the last. Such an index can arrive through import or
+ * a merge, so refuse it loudly rather than destroying entries.
+ */
 export function nextIndex(index: VaultIndex): number {
-  const ids = Object.keys(index.entries).map((k) => parseInt(k, 10));
+  const keys = Object.keys(index.entries);
+  const ids: number[] = [];
+  for (const key of keys) {
+    if (!/^(0|[1-9][0-9]*)$/.test(key)) {
+      throw new Error(
+        `vault index contains a non-numeric entry id ${JSON.stringify(key)}; ` +
+          `refusing to allocate a new id that could overwrite an existing entry`,
+      );
+    }
+    const id = Number(key);
+    if (!Number.isSafeInteger(id)) {
+      throw new Error(
+        `vault index contains entry id ${key}, which is outside the safe integer ` +
+          `range; refusing to allocate a new id`,
+      );
+    }
+    ids.push(id);
+  }
   return ids.length > 0 ? Math.max(...ids) + 1 : 0;
 }
 
@@ -54,8 +79,13 @@ function stamp(clock: Clock): { now_unix: number; now_iso: string } {
 }
 
 function insert(index: VaultIndex, id: number, entry: Dict): string {
-  (index.entries as unknown as Dict)[String(id)] = entry;
-  return String(id);
+  const key = String(id);
+  // Never silently replace an entry: allocation bugs show up here first.
+  if (Object.prototype.hasOwnProperty.call(index.entries, key)) {
+    throw new Error(`refusing to overwrite existing entry ${key}`);
+  }
+  (index.entries as unknown as Dict)[key] = entry;
+  return key;
 }
 
 export interface CommonOptions {

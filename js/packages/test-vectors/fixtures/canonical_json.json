@@ -1,0 +1,198 @@
+{
+  "cases": [
+    {
+      "canonical": "{}",
+      "value": {}
+    },
+    {
+      "canonical": "{\"a\":1}",
+      "value": {
+        "a": 1
+      }
+    },
+    {
+      "canonical": "{\"a\":1,\"b\":2}",
+      "value": {
+        "a": 1,
+        "b": 2
+      }
+    },
+    {
+      "canonical": "{\"label\":\"site\",\"modified_ts\":1700000000}",
+      "value": {
+        "label": "site",
+        "modified_ts": 1700000000
+      }
+    },
+    {
+      "canonical": "{\"notes\":\"\",\"tags\":[\"b\",\"a\"]}",
+      "value": {
+        "notes": "",
+        "tags": [
+          "b",
+          "a"
+        ]
+      }
+    },
+    {
+      "canonical": "{\"\\uff01\":2,\"\\ud83d\\ude00\":1}",
+      "value": {
+        "\uff01": 2,
+        "\ud83d\ude00": 1
+      }
+    },
+    {
+      "canonical": "{\"z\":1,\"\\u00e9\":2,\"\\u4e2d\":3,\"\\ud83d\\ude00\":4}",
+      "value": {
+        "z": 1,
+        "\u00e9": 2,
+        "\u4e2d": 3,
+        "\ud83d\ude00": 4
+      }
+    },
+    {
+      "canonical": "{\"quote\\\"\":\"back\\\\slash\"}",
+      "value": {
+        "quote\"": "back\\slash"
+      }
+    },
+    {
+      "canonical": "{\"ctrl\":\"\\u0000\\u0001\\u001f\"}",
+      "value": {
+        "ctrl": "\u0000\u0001\u001f"
+      }
+    },
+    {
+      "canonical": "{\"nl\":\"line\\nbreak\\ttab\"}",
+      "value": {
+        "nl": "line\nbreak\ttab"
+      }
+    },
+    {
+      "canonical": "{\"unicode\":\"caf\\u00e9 \\u4e2d\\u6587 \\ud83d\\udd12\"}",
+      "value": {
+        "unicode": "caf\u00e9 \u4e2d\u6587 \ud83d\udd12"
+      }
+    },
+    {
+      "canonical": "{\"n\":0}",
+      "value": {
+        "n": 0
+      }
+    },
+    {
+      "canonical": "{\"n\":0}",
+      "value": {
+        "n": 0
+      }
+    },
+    {
+      "canonical": "{\"n\":1}",
+      "value": {
+        "n": 1
+      }
+    },
+    {
+      "canonical": "{\"n\":-17}",
+      "value": {
+        "n": -17
+      }
+    },
+    {
+      "canonical": "{\"n\":9007199254740991}",
+      "value": {
+        "n": 9007199254740991
+      }
+    },
+    {
+      "canonical": "{\"n\":0.5}",
+      "value": {
+        "n": 0.5
+      }
+    },
+    {
+      "canonical": "{\"n\":-0.25}",
+      "value": {
+        "n": -0.25
+      }
+    },
+    {
+      "canonical": "{\"n\":1e-07}",
+      "value": {
+        "n": 1e-07
+      }
+    },
+    {
+      "canonical": "{\"n\":1.5e-09}",
+      "value": {
+        "n": 1.5e-09
+      }
+    },
+    {
+      "canonical": "{\"links\":[{\"note\":\"\",\"relation\":\"totp\",\"target_id\":1}]}",
+      "value": {
+        "links": [
+          {
+            "note": "",
+            "relation": "totp",
+            "target_id": 1
+          }
+        ]
+      }
+    },
+    {
+      "canonical": "[1,\"two\",null,true,false]",
+      "value": [
+        1,
+        "two",
+        null,
+        true,
+        false
+      ]
+    },
+    {
+      "canonical": "{\"deep\":{\"a\":[{\"b\":{\"c\":[1,2,3]}}]}}",
+      "value": {
+        "deep": {
+          "a": [
+            {
+              "b": {
+                "c": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "canonical": "{\"archived\":false,\"custom_fields\":[],\"kind\":\"password\",\"label\":\"example.com\",\"length\":16,\"links\":[],\"modified_ts\":1700000000,\"notes\":\"\",\"tags\":[\"web\"],\"type\":\"password\"}",
+      "value": {
+        "archived": false,
+        "custom_fields": [],
+        "kind": "password",
+        "label": "example.com",
+        "length": 16,
+        "links": [],
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [
+          "web"
+        ],
+        "type": "password"
+      }
+    }
+  ],
+  "description": "canonicalJson must match json.dumps(sort_keys=True, separators=(',',':')) exactly: entry hashes derived from it decide merge winners across implementations.",
+  "unsupported": [
+    {
+      "n": 100000000000000000000
+    },
+    {
+      "n": 12345678901234567890
+    }
+  ]
+}

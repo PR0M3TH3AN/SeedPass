@@ -92,6 +92,12 @@ export interface FetchedSnapshot {
   manifestEvent: NostrEvent;
   /** Decompressed, still-encrypted vault payload. */
   encrypted: Uint8Array;
+  /**
+   * Manifests newer than the one returned that could not be assembled.
+   * Non-empty means the client was walked backwards — usually because a
+   * relay withheld a chunk — and the caller should say so out loud.
+   */
+  skippedNewerManifests: string[];
 }
 
 /** Fetch the newest manifest and all its chunks, verifying every hash. */
@@ -102,20 +108,24 @@ export async function fetchLatestSnapshot(
   const pubkey = signerPublicKeyHex(privateKeyHex);
   const manifests = await pool.fetch({ authors: [pubkey], kinds: [KIND_MANIFEST] });
   if (manifests.length === 0) return null;
-  // Newest first. Two snapshots published within the same second tie on
-  // created_at, so fall back to the order the relay returned them in
-  // (later = more recently accepted); without this the restore can pick a
-  // stale manifest after a same-second republish.
-  const order = new Map(manifests.map((ev, i) => [ev.id, i]));
+  // Newest first, with a tie-break the relay cannot choose. Arrival order
+  // is relay-controlled — sorting by it lets a relay decide which of two
+  // same-second snapshots wins. Event id is a hash of the event's own
+  // contents, so it gives a stable total order no party can steer.
   manifests.sort(
-    (a, b) => b.created_at - a.created_at || (order.get(b.id)! - order.get(a.id)!),
+    (a, b) => b.created_at - a.created_at || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
   );
 
+  // Falling back to an older manifest is a downgrade: a relay that withholds
+  // one chunk of the newest snapshot can walk a client backwards through its
+  // history. Record what was skipped so callers can surface it.
+  const skipped: string[] = [];
   for (const manifestEvent of manifests) {
     let manifest: Manifest;
     try {
       manifest = parseManifest(manifestEvent.content);
     } catch {
+      skipped.push(manifestEvent.id);
       continue;
     }
     const chunks: Uint8Array[] = [];
@@ -125,18 +135,28 @@ export async function fetchLatestSnapshot(
         ? { ids: [meta.event_id], authors: [pubkey], kinds: [KIND_SNAPSHOT_CHUNK] }
         : { authors: [pubkey], kinds: [KIND_SNAPSHOT_CHUNK], "#d": [meta.id], limit: 1 };
       const events = await pool.fetch(filter);
-      const match = events.find(
-        (ev) => bytesToHex(sha256(base64.decode(ev.content))) === meta.hash,
-      );
+      // Decode defensively: base64.decode throws on malformed input, and a
+      // relay can include any event it likes in the response. An unguarded
+      // decode here let one extra frame abort the entire restore.
+      const match = events.find((ev) => {
+        try {
+          return bytesToHex(sha256(base64.decode(ev.content))) === meta.hash;
+        } catch {
+          return false;
+        }
+      });
       if (!match) {
         complete = false;
         break;
       }
       chunks.push(base64.decode(match.content));
     }
-    if (!complete) continue;
+    if (!complete) {
+      skipped.push(manifestEvent.id);
+      continue;
+    }
     const encrypted = await reassembleSnapshot(manifest, chunks);
-    return { manifest, manifestEvent, encrypted };
+    return { manifest, manifestEvent, encrypted, skippedNewerManifests: skipped };
   }
   return null;
 }

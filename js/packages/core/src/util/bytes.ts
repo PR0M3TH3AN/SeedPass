@@ -11,6 +11,23 @@ export function hmacSha256Hex(key: Uint8Array, data: Uint8Array): string {
   return bytesToHex(hmac(sha256, key, data));
 }
 
+/**
+ * Strip the characters Python's str.strip() treats as whitespace.
+ *
+ * JS trim() and Python strip() are not the same set: trim() removes U+FEFF
+ * but leaves U+0085 and U+001C..U+001F, and Python does the reverse. That
+ * difference changes derived keys and fingerprints between implementations.
+ */
+const PYTHON_WHITESPACE = "\t\n\v\f\r \u001c\u001d\u001e\u001f\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000";
+
+export function pythonStrip(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && PYTHON_WHITESPACE.includes(value[start]!)) start++;
+  while (end > start && PYTHON_WHITESPACE.includes(value[end - 1]!)) end--;
+  return value.slice(start, end);
+}
+
 export function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
@@ -22,12 +39,14 @@ export function bytesToHex(b: Uint8Array): string {
 }
 
 export function hexToBytes(hex: string): Uint8Array {
+  // parseInt is prefix-lenient and sign-aware: "1z" parses as 1, "-1" as -1
+  // (stored as 0xff). Relay-supplied ids and signatures reach this function,
+  // so validate the whole string first, as Python's bytes.fromhex does.
+  if (!/^[0-9a-fA-F]*$/.test(hex)) throw new Error("invalid hex");
   if (hex.length % 2 !== 0) throw new Error("odd-length hex");
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) {
-    const byte = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    if (Number.isNaN(byte)) throw new Error("invalid hex");
-    out[i] = byte;
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   }
   return out;
 }
