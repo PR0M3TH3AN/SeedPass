@@ -97,11 +97,12 @@ so this only applies if you jump backwards several releases.
   generation is not reproducible, so the TypeScript port refuses rather than
   deriving a different key. Keep the Python implementation for RSA entries.
 - The `semantic` (vector search) and `api` (FastAPI server) command groups.
-- Most of Python's TUI. `seedpass-js` with no subcommand opens an interactive
-  mode, as `seedpass` does, but it covers the daily path only: browse,
-  search, copy, reveal, add a password/TOTP/key-value entry, archive, and
-  switch profile. Python's v2 and v3 TUIs have screens this does not — the
-  command palette, the inspector, the bulk operations.
+- Python's v2 and v3 TUIs. Interactive mode follows the **legacy (v1)** menu
+  tree instead, which is the one `seedpass --legacy-tui` opens.
+- Two legacy-TUI items are stubs that say so when selected: Semantic Index
+  (not part of this build) and QR code display (no QR encoder here; it offers
+  the underlying value instead). Script checksum verification covers the
+  Python source tree and is replaced by the bundle's `.sha256`.
 
 If you rely on any of those, run both: they operate on the same profile.
 
@@ -112,16 +113,24 @@ seedpass-js            # opens the vault; asks for your master password
 ```
 
 It unlocks the same way the CLI does: `SEEDPASS_MNEMONIC` if set, then the
-session agent, then a password prompt. Press `?` for the keys.
+session agent, then a password prompt.
 
-Two things behave deliberately:
+The menus mirror Python's legacy TUI item for item, in the same order and
+under the same numbers, so the sequences you already know still work — `7`
+then `1` is still Settings then Profiles. A blank line goes back; a blank
+line at the main menu exits.
 
-- Nothing secret is drawn until you ask. The list and detail views show
-  metadata; `c` copies to the clipboard without displaying anything, and `r`
-  is the one explicit reveal, on screen only until the next keypress.
-- The whole session runs on the terminal's alternate screen, so quitting
-  takes it with it. A revealed secret cannot be recovered by scrolling back,
-  and it never reaches a terminal log that captures the main buffer.
+```
+  1. Add Entry          5. Modify an Existing Entry
+  2. Retrieve Entry     6. 2FA Codes
+  3. Search Entries     7. Settings
+  4. List Entries       8. List Archived
+```
+
+Entry details list metadata only, with stored secrets shown as `has_*`
+flags. `S` shows a secret and `C` copies it — the two actions whose purpose
+is to produce one. Turning on **Secret Mode** (Settings 15) sends both to the
+clipboard instead of the screen, as it does in Python.
 
 Piped or redirected, the bare command prints the help instead — there is no
 terminal to drive.

@@ -155,7 +155,6 @@ import { loadConfig, saveConfig, mutateConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
 import { runTui } from "./tui/app.js";
-import { Terminal } from "./tui/terminal.js";
 
 export interface ProgramIo {
   out(line: string): void;
@@ -401,7 +400,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
   // remains the sensible answer.
   program.action(async () => {
     const opts = program.opts() as GlobalOpts;
-    if (!Terminal.isInteractive()) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
       program.outputHelp();
       process.exitCode = 1;
       return;

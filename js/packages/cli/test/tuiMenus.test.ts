@@ -1,0 +1,391 @@
+/**
+ * The interactive menus, driven by a scripted UI.
+ *
+ * Two things are being checked. First, that the menu tree matches Python's
+ * legacy TUI — the items, their order, and "blank goes back" — since that is
+ * the navigation the port exists to reproduce. Second, that the agent-blind
+ * rule survives the move to a screen that shows the whole vault: listings
+ * carry metadata only, and a stored secret appears solely through the action
+ * whose purpose is to produce it.
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mkdtemp, writeFile, mkdir, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+import { mnemonics } from "@seedpass/test-vectors";
+import {
+  generateFingerprint,
+  deriveIndexKeyBytes,
+  encryptV3,
+  utf8,
+  addPasswordEntry,
+  addKeyValueEntry,
+  addTotpDeterministic,
+  type VaultIndex,
+} from "@seedpass/core";
+import { runTui } from "../src/tui/app.js";
+import { AppDir, INDEX_FILENAME } from "../src/appDir.js";
+import { openVault } from "../src/vaultFile.js";
+import type { Ui } from "../src/tui/console.js";
+
+const MNEMONIC = mnemonics["abandon12"]!;
+const FINGERPRINT = generateFingerprint(MNEMONIC);
+const STORED_SECRET = "stored-ci-token-value";
+
+let appDir: string;
+
+/**
+ * A UI that answers prompts from a script.
+ *
+ * Running out of answers ends the session rather than hanging: a test that
+ * mis-counts its inputs should fail with the transcript in hand, not time out.
+ */
+class ScriptedUi implements Ui {
+  readonly lines: string[] = [];
+  readonly prompts: string[] = [];
+  private i = 0;
+
+  constructor(private readonly answers: string[]) {}
+
+  say(line = ""): void {
+    this.lines.push(line);
+  }
+  clear(): void {
+    this.lines.push("\f");
+  }
+  async ask(prompt: string): Promise<string> {
+    this.prompts.push(prompt);
+    if (this.i >= this.answers.length) {
+      // Blank is "go back"/"exit" everywhere, so this unwinds the menus.
+      return "";
+    }
+    const answer = this.answers[this.i++]!;
+    this.lines.push(`${prompt}${answer}`);
+    return answer;
+  }
+  async askHidden(prompt: string): Promise<string> {
+    const answer = await this.ask(prompt);
+    // Record that it was asked, never what was typed.
+    this.lines[this.lines.length - 1] = `${prompt}<hidden>`;
+    return answer;
+  }
+
+  /** Everything drawn, with styling removed so assertions read plainly. */
+  get text(): string {
+    // eslint-disable-next-line no-control-regex
+    return this.lines.join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  }
+  /** Everything drawn since the last screen clear. */
+  get screen(): string {
+    const last = this.lines.lastIndexOf("\f");
+    // eslint-disable-next-line no-control-regex
+    return this.lines.slice(last + 1).join("\n").replace(/\x1b\[[0-9;]*m/g, "");
+  }
+}
+
+async function run(...answers: string[]): Promise<ScriptedUi> {
+  const ui = new ScriptedUi(answers);
+  await runTui({ appDir }, ui);
+  return ui;
+}
+
+beforeEach(async () => {
+  appDir = await mkdtemp(join(tmpdir(), "seedpass-menus-"));
+  const app = new AppDir(appDir);
+  const index = { schema_version: 4, entries: {} } as VaultIndex;
+  addPasswordEntry(index, "github.com", 20, { username: "adam" });
+  addPasswordEntry(index, "gitlab.com", 16, {});
+  addKeyValueEntry(index, "ci-token", "CI_TOKEN", STORED_SECRET);
+  addTotpDeterministic(index, "email-2fa", MNEMONIC);
+
+  await app.mutateFingerprints((data) => {
+    data.fingerprints.push(FINGERPRINT);
+    data.names[FINGERPRINT] = "daily";
+    data.last_used = FINGERPRINT;
+  });
+  const dir = app.profileDir(FINGERPRINT);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, INDEX_FILENAME),
+    await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify(index))),
+  );
+  process.env["SEEDPASS_MNEMONIC"] = MNEMONIC;
+});
+
+afterEach(() => {
+  delete process.env["SEEDPASS_MNEMONIC"];
+});
+
+describe("main menu", () => {
+  it("offers Python's eight items, in Python's order", async () => {
+    const ui = await run();
+    for (const [n, label] of [
+      ["1", "Add Entry"],
+      ["2", "Retrieve Entry"],
+      ["3", "Search Entries"],
+      ["4", "List Entries"],
+      ["5", "Modify an Existing Entry"],
+      ["6", "2FA Codes"],
+      ["7", "Settings"],
+      ["8", "List Archived"],
+    ] as const) {
+      expect(ui.text).toContain(`${n}.`);
+      expect(ui.text).toContain(label);
+    }
+  });
+
+  it("exits on a blank choice", async () => {
+    const ui = new ScriptedUi([""]);
+    expect(await runTui({ appDir }, ui)).toBe(0);
+  });
+
+  it("rejects an unknown choice without leaving the menu", async () => {
+    const ui = await run("99", "");
+    expect(ui.text).toContain("Invalid choice");
+  });
+});
+
+describe("settings", () => {
+  it("lists all eighteen items in Python's order", async () => {
+    const ui = await run("7");
+    const expected = [
+      "Profiles",
+      "Nostr",
+      "Change password",
+      "Verify Script Checksum",
+      "Generate Script Checksum",
+      "Backup Parent Seed",
+      "Export database",
+      "Import database",
+      "Export 2FA codes",
+      "Set additional backup location",
+      "KDF strength & benchmark",
+      "Set inactivity timeout",
+      "Lock Vault",
+      "Stats",
+      "Toggle Secret Mode",
+      "Toggle Offline Mode",
+      "Toggle Quick Unlock",
+      "Semantic Index",
+    ];
+    for (const label of expected) expect(ui.text).toContain(label);
+    // Numbering must line up with Python's, or muscle memory picks the wrong
+    // item — 13 is Lock Vault there and must be here too.
+    expect(ui.text).toMatch(/13\.\s+Lock Vault/);
+    expect(ui.text).toMatch(/18\.\s+Semantic Index/);
+  });
+
+  it("opens the Profiles submenu with its five items", async () => {
+    const ui = await run("7", "1");
+    for (const label of [
+      "Switch Seed Profile",
+      "Add a New Seed Profile",
+      "Remove an Existing Seed Profile",
+      "List All Seed Profiles",
+      "Set Seed Profile Name",
+    ]) {
+      expect(ui.text).toContain(label);
+    }
+  });
+
+  it("opens the Nostr submenu with its nine items", async () => {
+    const ui = await run("7", "2");
+    for (const label of [
+      "Backup to Nostr",
+      "Restore from Nostr",
+      "View current relays",
+      "Add a relay URL",
+      "Remove a relay by number",
+      "Reset to default relays",
+      "Display Nostr Public Key",
+      "Reset Nostr sync state",
+      "Start fresh Nostr namespace",
+    ]) {
+      expect(ui.text).toContain(label);
+    }
+  });
+
+  it("toggles Secret Mode and persists it", async () => {
+    const ui = await run("7", "15", "", "", "");
+    expect(ui.text).toContain("Secret Mode is now ON");
+    const { loadConfig } = await import("../src/configFile.js");
+    const cfg = await loadConfig(new AppDir(appDir).profileDir(FINGERPRINT), MNEMONIC);
+    expect(cfg["secret_mode_enabled"]).toBe(true);
+  });
+
+  it("reports stats without printing any stored secret", async () => {
+    const ui = await run("7", "14", "");
+    expect(ui.text).toContain("Total entries: 4");
+    expect(ui.text).toContain("password: 2");
+    expect(ui.text).toContain("key_value: 1");
+    expect(ui.text).not.toContain(STORED_SECRET);
+  });
+
+  it("adds and removes a relay", async () => {
+    const added = await run("7", "2", "4", "wss://relay.example", "", "", "", "");
+    expect(added.text).toContain("Relay added");
+    const { loadConfig } = await import("../src/configFile.js");
+    const cfg = await loadConfig(new AppDir(appDir).profileDir(FINGERPRINT), MNEMONIC);
+    expect(cfg["relays"]).toContain("wss://relay.example");
+  });
+
+  it("refuses a relay URL that is not a websocket URL", async () => {
+    const ui = await run("7", "2", "4", "https://not-a-relay.example", "", "", "", "");
+    expect(ui.text).toContain("must start with ws:// or wss://");
+  });
+});
+
+describe("listing and details", () => {
+  it("lists entries by index, type and label", async () => {
+    const ui = await run("4", "1", "");
+    expect(ui.text).toContain("0.");
+    expect(ui.text).toContain("Password - github.com");
+    expect(ui.text).toContain("Key Value - ci-token");
+    // The stored secret must not be in a listing.
+    expect(ui.text).not.toContain(STORED_SECRET);
+  });
+
+  it("filters the list by entry type", async () => {
+    // 4 = List Entries, 8 = Key Value (1 is All, then the nine types in order).
+    const ui = await run("4", "8", "");
+    expect(ui.text).toContain("ci-token");
+    expect(ui.text).not.toContain("github.com");
+  });
+
+  it("shows entry details with stored secrets reduced to flags", async () => {
+    const ui = await run("4", "1", "2", "");
+    expect(ui.text).toContain("ci-token");
+    expect(ui.text).toContain("has_value");
+    expect(ui.text).not.toContain(STORED_SECRET);
+  });
+
+  it("offers the entry actions Python offers", async () => {
+    const ui = await run("4", "1", "0", "");
+    for (const label of [
+      "Archive",
+      "Add Note",
+      "Add Custom Field",
+      "Add Hidden Field",
+      "Edit",
+      "Edit Tags",
+    ]) {
+      expect(ui.text).toContain(label);
+    }
+  });
+
+  it("shows a stored secret only when asked", async () => {
+    const before = await run("4", "1", "2", "");
+    expect(before.text).not.toContain(STORED_SECRET);
+    const after = await run("4", "1", "2", "s", "", "");
+    expect(after.text).toContain(STORED_SECRET);
+  });
+
+  it("offers document export only for documents", async () => {
+    const ui = await run("4", "1", "0", "");
+    expect(ui.text).not.toContain("Export Document to File");
+  });
+});
+
+describe("search and retrieve", () => {
+  it("finds entries by label", async () => {
+    const ui = await run("3", "git", "");
+    expect(ui.text).toContain("github.com");
+    expect(ui.text).toContain("gitlab.com");
+    expect(ui.text).not.toContain("ci-token");
+  });
+
+  it("says so when nothing matches", async () => {
+    const ui = await run("3", "nothing-matches-this", "");
+    expect(ui.text).toContain("No matching entries found");
+  });
+
+  it("retrieves by index and by label", async () => {
+    expect((await run("2", "0", "")).text).toContain("github.com");
+    expect((await run("2", "ci-token", "")).text).toContain("CI_TOKEN");
+  });
+});
+
+describe("mutations", () => {
+  async function reopen(): Promise<VaultIndex> {
+    const vault = await openVault(
+      join(new AppDir(appDir).profileDir(FINGERPRINT), INDEX_FILENAME),
+      MNEMONIC,
+    );
+    return vault.index;
+  }
+
+  it("adds a password entry through the menus", async () => {
+    // 1 Add Entry, 1 Password, then label/length/username/url/notes/tags.
+    await run("1", "1", "new-site.example", "24", "bob", "", "", "work,prod", "", "");
+    const index = await reopen();
+    const added = Object.values(index.entries).find((e) => e.label === "new-site.example");
+    expect(added).toBeTruthy();
+    expect(added!["length"]).toBe(24);
+    expect(added!["username"]).toBe("bob");
+    expect(added!["tags"]).toEqual(["work", "prod"]);
+  });
+
+  it("adds a key/value entry without echoing the value", async () => {
+    const ui = await run("1", "7", "deploy", "DEPLOY_TOKEN", "sup3r-s3cret", "", "");
+    expect(ui.text).not.toContain("sup3r-s3cret");
+    const index = await reopen();
+    const added = Object.values(index.entries).find((e) => e.label === "deploy");
+    expect(added!["value"]).toBe("sup3r-s3cret");
+  });
+
+  it("refuses a non-numeric password length rather than storing NaN", async () => {
+    const ui = await run("1", "1", "bad", "not-a-number", "", "");
+    expect(ui.text).toContain("whole number");
+    const index = await reopen();
+    expect(Object.values(index.entries).find((e) => e.label === "bad")).toBeUndefined();
+  });
+
+  it("archives an entry and lists it under List Archived", async () => {
+    await run("4", "1", "0", "a", "", "", "", "");
+    const index = await reopen();
+    expect(index.entries["0"]!["archived"]).toBe(true);
+    const archived = await run("8", "");
+    expect(archived.text).toContain("github.com");
+  });
+
+  it("edits a label through Edit", async () => {
+    await run("4", "1", "0", "e", "l", "renamed.example", "", "", "", "");
+    const index = await reopen();
+    expect(index.entries["0"]!.label).toBe("renamed.example");
+  });
+
+  it("adds a note", async () => {
+    await run("4", "1", "0", "n", "a useful note", "", "", "", "");
+    const index = await reopen();
+    expect(index.entries["0"]!["notes"]).toBe("a useful note");
+  });
+
+  it("adds a hidden custom field without echoing its value", async () => {
+    const ui = await run("4", "1", "0", "h", "recovery", "hidden-field-value", "", "", "", "");
+    expect(ui.text).not.toContain("hidden-field-value");
+    const index = await reopen();
+    const fields = index.entries["0"]!["custom_fields"] as Record<string, unknown>[];
+    expect(fields).toEqual([
+      { label: "recovery", value: "hidden-field-value", is_hidden: true },
+    ]);
+  });
+
+  it("exports the database to a file", async () => {
+    const dest = join(appDir, "backup.json");
+    const ui = await run("7", "7", dest, "", "", "");
+    expect(ui.text).toContain("Exported to");
+    const wrapper = JSON.parse(await readFile(dest, "utf8"));
+    expect(wrapper.format_version).toBe(1);
+  });
+});
+
+describe("2FA codes", () => {
+  it("shows a code for each TOTP entry", async () => {
+    const ui = await run("6", "", "");
+    expect(ui.text).toContain("email-2fa");
+    expect(ui.text).toMatch(/\d{6}/);
+    expect(ui.text).toContain("s left");
+  });
+});

@@ -17,8 +17,8 @@ export function capabilities(): Record<string, unknown> {
     },
     interactive: {
       command: "seedpass-js (no subcommand, on a terminal)",
-      covers: ["browse", "search", "copy", "reveal", "add", "archive", "switch profile"],
-      secrets: "metadata only until 'c' (copy) or 'r' (reveal); alternate screen, no scrollback",
+      model: "numbered menus mirroring Python's legacy (v1) TUI; blank input goes back",
+      secrets: "metadata only; 'S' shows and 'C' copies, and Secret Mode routes both to the clipboard",
       non_tty: "prints help",
     },
     agent_surface: {
@@ -76,7 +76,8 @@ export function capabilities(): Record<string, unknown> {
       "index0/atlas",
       "approval gates and high-risk partitions",
       "semantic (vector search) and api (FastAPI server) command groups",
-      "most of Python's TUI (interactive mode covers the daily path only)",
+      "Python's v2/v3 TUIs (interactive mode follows the legacy v1 menus)",
+      "QR code display in the TUI (no QR encoder in this build)",
     ],
   };
 }

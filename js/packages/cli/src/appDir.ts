@@ -259,4 +259,58 @@ export class AppDir {
     }
     throw new Error(`could not decrypt parent seed (wrong password?): ${String(lastError)}`);
   }
+
+  /**
+   * Re-encrypt a profile's parent seed under a new master password.
+   *
+   * Only `parent_seed.enc` is touched: the vault index is keyed by the seed,
+   * not the password, so nothing else needs rewriting — and nothing else
+   * *may* be, since a half-applied change would leave a profile whose seed
+   * and index disagree.
+   */
+  async changePassword(
+    fingerprint: string,
+    oldPassword: string,
+    newPassword: string,
+    iterations = DEFAULT_PBKDF2_ITERATIONS,
+  ): Promise<void> {
+    if (!newPassword) throw new Error("a master password is required");
+    // Proves the old password before anything is written.
+    const mnemonic = await this.decryptParentSeed(fingerprint, oldPassword);
+    await this.writeParentSeed(fingerprint, mnemonic, newPassword, iterations);
+  }
+
+  /** Write parent_seed.enc for `fingerprint`, in Python's kdf/ct wrapper. */
+  async writeParentSeed(
+    fingerprint: string,
+    mnemonic: string,
+    password: string,
+    iterations = DEFAULT_PBKDF2_ITERATIONS,
+  ): Promise<void> {
+    const salt = seedKdfSalt(fingerprint);
+    const seedKey = base64url.decode(deriveKeyFromPassword(password, salt, iterations));
+    const ct = await encryptV3(seedKey, utf8(mnemonic));
+    const kdf: KdfConfig = {
+      name: "pbkdf2",
+      version: 1,
+      params: { iterations },
+      salt_b64: Buffer.from(salt).toString("base64"),
+    };
+    await atomicWrite(
+      join(this.profileDir(fingerprint), PARENT_SEED_FILENAME),
+      utf8(JSON.stringify({ kdf, ct: Buffer.from(ct).toString("base64") })),
+    );
+  }
+
+  /** Set or clear a profile's display name. */
+  async setProfileName(fingerprint: string, name: string): Promise<void> {
+    assertValidFingerprint(fingerprint);
+    await this.mutateFingerprints((data) => {
+      if (!data.fingerprints.includes(fingerprint)) {
+        throw new Error(`no profile ${fingerprint}`);
+      }
+      if (name) data.names[fingerprint] = name;
+      else delete data.names[fingerprint];
+    });
+  }
 }
