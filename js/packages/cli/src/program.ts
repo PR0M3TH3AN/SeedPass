@@ -154,6 +154,8 @@ import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
 import { loadConfig, saveConfig, mutateConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
+import { runTui } from "./tui/app.js";
+import { Terminal } from "./tui/terminal.js";
 
 export interface ProgramIo {
   out(line: string): void;
@@ -391,6 +393,25 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       writeErr: (s) => io.err(s.replace(/\n$/, "")),
     })
     .exitOverride();
+
+  // No subcommand: launch the interactive mode, matching Python, whose bare
+  // `seedpass` opens its TUI. Without this the first thing a new user saw
+  // was a help dump — the command they were told to run appeared to do
+  // nothing. Piped or redirected, there is no terminal to drive, so the help
+  // remains the sensible answer.
+  program.action(async () => {
+    const opts = program.opts() as GlobalOpts;
+    if (!Terminal.isInteractive()) {
+      program.outputHelp();
+      process.exitCode = 1;
+      return;
+    }
+    const code = await runTui({
+      ...(opts.appDir !== undefined && { appDir: opts.appDir }),
+      ...(opts.fingerprint !== undefined && { fingerprint: opts.fingerprint }),
+    });
+    if (code !== 0) process.exitCode = code;
+  });
 
   program
     .command("capabilities")

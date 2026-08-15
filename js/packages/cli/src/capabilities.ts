@@ -15,6 +15,12 @@ export function capabilities(): Record<string, unknown> {
       portable_backup_format: 1,
       nostr_event_kinds: { manifest: 30070, snapshot_chunk: 30071, delta: 30072 },
     },
+    interactive: {
+      command: "seedpass-js (no subcommand, on a terminal)",
+      covers: ["browse", "search", "copy", "reveal", "add", "archive", "switch profile"],
+      secrets: "metadata only until 'c' (copy) or 'r' (reveal); alternate screen, no scrollback",
+      non_tty: "prints help",
+    },
     agent_surface: {
       reference_scheme: "sp://entry/<id>",
       reference_first_output: true,
@@ -70,6 +76,7 @@ export function capabilities(): Record<string, unknown> {
       "index0/atlas",
       "approval gates and high-risk partitions",
       "semantic (vector search) and api (FastAPI server) command groups",
+      "most of Python's TUI (interactive mode covers the daily path only)",
     ],
   };
 }

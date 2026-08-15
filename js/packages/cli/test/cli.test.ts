@@ -435,23 +435,27 @@ describe("document import/export", () => {
 });
 
 describe("exit behaviour", () => {
-  it("does not report help output as an error", async () => {
-    // exitOverride() makes commander throw when it prints help, so a bare
-    // invocation printed the help and then claimed to have failed with
-    // "(outputHelp)".
+  it("prints help without reporting it as an error when stdout is not a terminal", async () => {
+    // Bare invocation launches the interactive mode on a terminal, but there
+    // is no terminal to drive here, so it falls back to the help. Two bugs
+    // met on this path: exitOverride() makes commander throw when it prints
+    // help, and the handler reported that throw as "error: (outputHelp)".
     const out: string[] = [];
     const err: string[] = [];
     const io: ProgramIo = { out: (l) => out.push(l), err: (l) => err.push(l) };
-    let thrown: { code?: string; exitCode?: number } | undefined;
+    const previous = process.exitCode;
+    let thrown: unknown;
     try {
       await buildProgram(io).parseAsync(["node", "seedpass-js"]);
     } catch (e) {
-      thrown = e as { code?: string; exitCode?: number };
+      thrown = e;
     }
-    // commander signals help with its own code; main.ts must treat any
-    // commander.* code as commander's business, not as a SeedPass error.
-    expect(thrown?.code).toMatch(/^commander\./);
-    expect(err.join("\n")).not.toContain("outputHelp");
+    const printed = [...out, ...err].join("\n");
+    expect(thrown).toBeUndefined();
+    expect(printed).toContain("Usage: seedpass-js");
+    expect(printed).not.toContain("outputHelp");
+    expect(process.exitCode).toBe(1);
+    process.exitCode = previous;
   });
 });
 

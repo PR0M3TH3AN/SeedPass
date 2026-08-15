@@ -97,9 +97,34 @@ so this only applies if you jump backwards several releases.
   generation is not reproducible, so the TypeScript port refuses rather than
   deriving a different key. Keep the Python implementation for RSA entries.
 - The `semantic` (vector search) and `api` (FastAPI server) command groups.
-- The TUI. The terminal experience is the CLI.
+- Most of Python's TUI. `seedpass-js` with no subcommand opens an interactive
+  mode, as `seedpass` does, but it covers the daily path only: browse,
+  search, copy, reveal, add a password/TOTP/key-value entry, archive, and
+  switch profile. Python's v2 and v3 TUIs have screens this does not — the
+  command palette, the inspector, the bulk operations.
 
 If you rely on any of those, run both: they operate on the same profile.
+
+## Interactive mode
+
+```bash
+seedpass-js            # opens the vault; asks for your master password
+```
+
+It unlocks the same way the CLI does: `SEEDPASS_MNEMONIC` if set, then the
+session agent, then a password prompt. Press `?` for the keys.
+
+Two things behave deliberately:
+
+- Nothing secret is drawn until you ask. The list and detail views show
+  metadata; `c` copies to the clipboard without displaying anything, and `r`
+  is the one explicit reveal, on screen only until the next keypress.
+- The whole session runs on the terminal's alternate screen, so quitting
+  takes it with it. A revealed secret cannot be recovered by scrolling back,
+  and it never reaches a terminal log that captures the main buffer.
+
+Piped or redirected, the bare command prints the help instead — there is no
+terminal to drive.
 
 ## Starting fresh (no existing vault)
 
