@@ -57,9 +57,15 @@ import {
   derivePgpKey,
   sshPublicKeyOpenSsh,
 } from "@seedpass/core";
-import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync, statSync } from "node:fs";
+import { basename, dirname, extname, join } from "node:path";
+import { homedir } from "node:os";
+
+/** Expand a leading ~ the way Python's Path.expanduser does. */
+function resolveHome(p: string): string {
+  return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
+}
 import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
 import { loadConfig, saveConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
@@ -427,6 +433,63 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       await finishAdd(vault, id);
     },
   );
+
+  entry
+    .command("import-document <file>")
+    .description("import a local text file as a document entry")
+    .option("--label <text>", "title override (default: the file's stem)")
+    .option("--notes <text>", "entry notes", "")
+    .option("--tags <tag...>", "tags")
+    .action(
+      async (
+        file: string,
+        o: { label?: string; notes: string; tags?: string[] },
+      ) => {
+        const vault = await openFromOptions(program.opts());
+        const path = resolveHome(file);
+        // Documents are stored as text, matching Python's read_text.
+        const content = await readFile(path, "utf8");
+        const base = basename(path);
+        const ext = extname(base).replace(/^\./, "").toLowerCase();
+        const id = addDocumentEntry(vault.index, o.label || base.replace(/\.[^.]*$/, ""), content, {
+          fileType: ext || "txt",
+          notes: o.notes,
+          ...(o.tags !== undefined && { tags: o.tags }),
+        });
+        await finishAdd(vault, id);
+      },
+    );
+
+  entry
+    .command("export-document <refOrQuery>")
+    .description("write a document entry to a file (plaintext egress)")
+    .option("--out <path>", "output file or directory (default: cwd)")
+    .option("--overwrite", "replace an existing file")
+    .action(async (refOrQuery: string, o: { out?: string; overwrite?: boolean }) => {
+      const vault = await openFromOptions(program.opts());
+      const hit = resolveEntry(vault.index, refOrQuery);
+      if (hit.entry.kind !== "document") throw new Error(`${hit.ref} is not a document entry`);
+      const fileType = (hit.entry.file_type || "txt").trim().toLowerCase() || "txt";
+      // Same sanitization as Python: non-portable characters collapse to "_".
+      const stem =
+        hit.entry.label.trim().replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._]+|[._]+$/g, "") ||
+        `document_${hit.id}`;
+
+      let dest: string;
+      if (o.out === undefined) {
+        dest = join(process.cwd(), `${stem}.${fileType}`);
+      } else {
+        const raw = resolveHome(o.out);
+        const isDir = existsSync(raw) && statSync(raw).isDirectory();
+        dest = isDir || !extname(raw) ? join(raw, `${stem}.${fileType}`) : raw;
+      }
+      await mkdir(dirname(dest), { recursive: true });
+      if (existsSync(dest) && !o.overwrite) {
+        throw new Error(`File already exists: ${dest} (use --overwrite)`);
+      }
+      await writeFile(dest, hit.entry.content, { mode: 0o600 });
+      io.out(JSON.stringify({ exported: dest, ref: hit.ref, bytes: hit.entry.content.length }));
+    });
 
   entry
     .command("pgp-public <refOrQuery>")

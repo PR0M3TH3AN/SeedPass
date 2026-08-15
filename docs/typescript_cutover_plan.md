@@ -17,9 +17,9 @@ P0 gate is green, Python remains the normative reference
 | Cross-implementation profile interop | green |
 | Sync protocol parity | green |
 | Agent security model | green (TS ahead of Python) |
-| Feature parity for daily use | partial (all derivations green) |
-| Packaging + release | not started |
-| Migration + rollback story | not started |
+| Feature parity for daily use | green for daily use; 3 scoped exclusions |
+| Packaging + release | green |
+| Migration + rollback story | green |
 
 ## P0 gates (must be green to cut over)
 
@@ -46,26 +46,45 @@ P0 gate is green, Python remains the normative reference
    in cross-impl phase F: Python publishes a snapshot through a real relay
    and the TS CLI restores it with secrets intact. **Green.**
 
-5. **Feature parity for real daily use.** **Partial.** Remaining:
-   - document import/export commands
-   - `semantic` and `api` command groups (deliberately deferred; decide
-     whether they block cutover or ship post-cutover)
-   - PGP RSA keys: unsupported by design (not byte-reproducible). Decide
-     whether existing RSA entries block cutover; ed25519 is at parity.
+5. **Feature parity for real daily use.** **Green for daily use**, with
+   three scoped exclusions that are documented rather than hidden:
+   - **PGP RSA keys** — unsupported by design. PyCryptodome's seeded prime
+     search is not reproducible, so TS refuses the key type instead of
+     deriving a different key. ed25519 PGP is at byte-for-byte parity.
+   - **`semantic`** (local vector search) — a derived index that can be
+     rebuilt; plan §8.5 rates it P2.
+   - **`api`** (FastAPI server) — a separate surface, not vault behavior.
 
-   Done since this list was written: SSH and PGP key derivation (both
-   byte-for-byte) and schema migrations 0→4, so legacy Python profiles now
-   open in TS.
+   Recommendation: none of the three blocks cutover. Each is a bounded,
+   named gap with the Python implementation still available for it, and the
+   migration guide tells users exactly that. Revisit if a real profile is
+   found to depend on RSA PGP entries.
 
-6. **Packaging and distribution exist.** Not started. Needs: an installable
-   artifact (npm bin, single-file build, or both), checksums and signatures
-   matching the release-integrity workflow, and updated install docs.
+   Everything else is ported and cross-verified: all nine entry kinds,
+   create/modify/archive/links, document import/export, both key
+   derivations, schema migrations 0→4, sync, backups, profiles and config.
 
-7. **Migration guide and rollback.** Not started. Needs: a documented path
-   for existing users (in practice "point the TS CLI at your existing
-   `~/.seedpass`", which gate 2 already proves works), a pre-migration
-   backup step, and a tested rollback to the Python implementation from a
-   migrated profile.
+6. **Packaging and distribution exist.** **Green.**
+   `js/packages/cli/build.mjs` bundles the CLI into one self-contained ESM
+   file with no runtime dependencies beyond Node 22, emits a `.sha256`
+   beside it, and is wired into `@seedpass/cli` as `bin` + `prepack` so
+   `npm install` and `npm pack` both produce a working command. CI builds
+   the bundle, smoke-tests it from a directory with no `node_modules`
+   (version, capabilities, profile creation, entry creation, reveal), and
+   uploads it as an artifact. Install instructions live in
+   `js/packages/cli/README.md`.
+   Remaining for a tagged release: fold the bundle checksum into the
+   existing `release-integrity` signing workflow.
+
+7. **Migration guide and rollback.** **Green.**
+   `docs/typescript_migration_guide.md` covers the (empty) migration path,
+   a pre-migration backup, rehearsing against a copy via `SEEDPASS_APP_DIR`,
+   the two behavioral differences users will notice (explicit unlock,
+   reference-first output), the three known exclusions, and seed-only
+   recovery. Rollback is proven, not asserted: cross-impl phase K drives a
+   profile through the TS CLI — creating several entry kinds, editing,
+   archiving — then checks Python reopens it, sees every change, derives the
+   same secrets, and can still write to it.
 
 ## Non-gates (explicitly not blocking)
 

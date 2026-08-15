@@ -42,7 +42,7 @@ until a later milestone.
 | Entry creation (provision) | P0 | green | `entries_index.json` | TS `add*Entry` ops rebuild the Python `EntryManager` fixture index byte-for-byte (pinned clock): field shapes, id allocation, independent TOTP derivation-index allocation, ISO timestamp format. Not ported: index0 event emission. |
 | Entry modify/archive/links | P0 | green | `entry_mods.json` | TS replays a Python `EntryManager` op sequence (modify with kind-checked field matrix + policy merge, archive/restore, link add/remove with normalization and dedupe) byte-for-byte, including timestamp touching. |
 | Entry secret retrieval | P0 | green | `entry_secrets.json` | Reveal values match Python retrieval for password (v2), TOTP-at-time, nostr entry nsec (BIP-85 app 39 — NOT the sync client's 1237), seed and managed-account mnemonics. |
-| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password, nostr get-pubkey/list-relays/add-relay/remove-relay/sync/restore. Milestone 5 command surface complete except ssh/pgp adds and document import/export; leases/tokens are Milestone 8. |
+| CLI (Milestone 5, agent-blind MVP) | P1 | partial | — | `packages/cli` seedpass-js: capabilities, entry list/get/search (reference-first, `sp://entry/<id>`, secrets replaced by `has_*` flags), `entry add password/totp/key-value/document/seed/managed-account/nostr` (provision-blind: returns refs, never the created secret), `entry reveal` as the only plaintext egress, `use --clipboard/--exec/--stdin-to` sinks (env-var injection, never argv/stdout), vault export/import. Tests assert secrets never appear in default or provisioning output. Also: modify, archive/unarchive, links, totp-codes, util generate-password, nostr get-pubkey/list-relays/add-relay/remove-relay/sync/restore, entry add ssh/pgp with ssh-public/pgp-public, import-document/export-document. Milestone 5 command surface complete; scoped tokens and the audit chain shipped ahead of Milestone 8. |
 | Profiles + config (Python `~/.seedpass` layout) | P1 | green* | — | `fingerprint list/add/switch/remove`, `config get/set` over the Python directory layout (fingerprints.json, parent_seed.enc kdf/ct wrapper, index-key-encrypted config with ConfigManager defaults). *Layout-compatible and tested end-to-end in TS; opening a real Python-created profile is verified indirectly via the parent-seed wrapper fixture — direct cross-open test TODO. |
 | Scoped tokens + audit chain (plan §9.3 / M8 core) | P1 | green | — (live agent tests) | Bearer tokens issued/held by the agent (hash-stored, shown once) with read/use/reveal scopes, kind + label-regex constraints, TTL and use counts; token-mode CLI reads the index and materializes secrets agent-side, never sees the mnemonic, and can never escalate to owner ops. Audit log uses Python AuditLogger's chain scheme (HMAC(prev_sig+canonical payload), KEY_INDEX key); verify/tail commands; tamper detection tested. Not yet: approval gates, high-risk partitions, persistent token store. |
 | Session agent (vault unlock/lock) | new (TS-only) | green | — | ssh-agent-style unix-socket daemon holding seeds with TTL (0600 socket, in-memory only); seed resolution env -> agent; full lifecycle tested with no mnemonic in the environment. Designed enforcement point for the section-9.3 lease/token layer. Python has no equivalent (its lock is in-process TUI state). |
@@ -64,7 +64,7 @@ dependencies in the core.
 
 ## Cross-implementation suite
 
-`scripts/cross_impl_check.py` (30 checks, in CI) proves the two
+`scripts/cross_impl_check.py` (36 checks, in CI) proves the two
 implementations read each other's real artifacts, not just that they compute
 the same values:
 
@@ -80,6 +80,7 @@ the same values:
 | H | Deterministic conflict merge produces identical output on both sides |
 | I | An Argon2id-protected Python profile unlocks in TS |
 | J | The encrypted config file interoperates both directions |
+| K | Rollback: a profile driven through TS reopens in Python with every change, secret and write path intact |
 
 Entry coverage in phases A/B: password (plain and policy-constrained), TOTP
 (deterministic and imported), key_value, document, seed, managed_account,

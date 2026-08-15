@@ -387,6 +387,53 @@ describe("vault export/import", () => {
   });
 });
 
+describe("document import/export", () => {
+  it("imports a file and exports it back, matching Python's naming rules", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-doc-"));
+    const src = join(dir, "meeting notes.md");
+    const body = "# Notes\n\nrecovery phrase is NOT here\n";
+    await writeFile(src, body);
+
+    const vaultCopy = join(dir, "vault.enc");
+    await writeFile(vaultCopy, await readFile(vaultPath));
+
+    const imported = JSON.parse(
+      (await run("--vault", vaultCopy, "entry", "import-document", src)).stdout,
+    );
+    expect(imported.kind).toBe("document");
+    expect(imported.label).toBe("meeting notes");
+    expect(imported.file_type).toBe("md");
+    // The body is a secret: it must not appear in provisioning output
+    expect(imported).not.toHaveProperty("content");
+
+    const outDir = join(dir, "out");
+    const exported = JSON.parse(
+      (await run(
+        "--vault", vaultCopy, "entry", "export-document", "meeting notes", "--out", outDir,
+      )).stdout,
+    );
+    // Spaces collapse to "_" exactly as Python sanitizes them
+    expect(exported.exported).toBe(join(outDir, "meeting_notes.md"));
+    expect(await readFile(exported.exported, "utf8")).toBe(body);
+
+    const again = await run(
+      "--vault", vaultCopy, "entry", "export-document", "meeting notes", "--out", outDir,
+    );
+    expect(String((again.error as Error).message)).toContain("already exists");
+
+    const forced = await run(
+      "--vault", vaultCopy, "entry", "export-document", "meeting notes",
+      "--out", outDir, "--overwrite",
+    );
+    expect(JSON.parse(forced.stdout).exported).toBe(join(outDir, "meeting_notes.md"));
+  });
+
+  it("refuses to export a non-document entry", async () => {
+    const r = await run("--vault", vaultPath, "entry", "export-document", "example.com");
+    expect(String((r.error as Error).message)).toContain("not a document entry");
+  });
+});
+
 describe("error messages", () => {
   it("explains a corrupt or foreign vault file instead of leaking a codec error", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-corrupt-"));

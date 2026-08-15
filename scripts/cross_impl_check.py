@@ -926,6 +926,65 @@ def phase_j(tmp: Path) -> None:
     )
 
 
+def phase_k(tmp: Path) -> None:
+    print("\nPhase K: rollback — a profile driven by TS still works in Python")
+    from utils.fingerprint import generate_fingerprint
+
+    app_dir = tmp / "k"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    env = {"SEEDPASS_MNEMONIC": SEED_A}
+
+    # Simulate a migration window: the user works exclusively in TS for a
+    # while, exercising creation, modification and archival.
+    run_cli(app_dir, "entry", "add", "password", "post-migration-site", "--length", "22", env_extra=env)
+    run_cli(app_dir, "entry", "add", "key-value", "post-migration-kv", "k", "rollback-value", env_extra=env)
+    run_cli(app_dir, "entry", "add", "totp", "post-migration-totp", env_extra=env)
+    run_cli(app_dir, "entry", "modify", "0", "--notes", "touched by ts", env_extra=env)
+    run_cli(app_dir, "entry", "archive", "1", env_extra=env)
+
+    # Then they roll back to Python and must lose nothing.
+    try:
+        py_seed, py_index = py_open_profile(app_dir, fp, PASSWORD)
+    except Exception as exc:
+        check("Python reopens a TS-driven profile", False, str(exc))
+        return
+    check("Python reopens a TS-driven profile", py_seed == SEED_A)
+
+    labels = {e["label"] for e in py_index.get("entries", {}).values()}
+    check(
+        "TS-created entries survive the rollback",
+        {"post-migration-site", "post-migration-kv", "post-migration-totp"} <= labels,
+        str(sorted(labels)),
+    )
+    entry0 = py_index["entries"]["0"]
+    check("TS edits survive the rollback", entry0.get("notes") == "touched by ts")
+    check(
+        "TS archive state survives the rollback",
+        bool(py_index["entries"]["1"].get("archived")),
+    )
+
+    # And Python can still derive the secrets for what TS created.
+    py_secrets = py_secrets_for(py_index, SEED_A)
+    ts_secrets = ts_secrets_for(app_dir, ["post-migration-site", "post-migration-kv"], SEED_A)
+    check(
+        "secrets for TS-created entries match in Python",
+        all(
+            py_secrets[k].rstrip("\n") == ts_secrets[k].rstrip("\n")
+            for k in ts_secrets
+        ),
+    )
+
+    # Finally, Python must still be able to write to the profile.
+    _vault, em, _cfg = _py_vault(app_dir, fp, SEED_A)
+    em.add_entry("written-after-rollback", 16)
+    rows = json.loads(run_cli(app_dir, "entry", "list", env_extra=env))
+    check(
+        "Python can still write, and TS sees it",
+        any(r["label"] == "written-after-rollback" for r in rows),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-relay", action="store_true")
@@ -948,6 +1007,7 @@ def main() -> int:
         phase_h(tmp)
         phase_i(tmp)
         phase_j(tmp)
+        phase_k(tmp)
         if not args.skip_relay:
             phase_f(tmp)
     finally:

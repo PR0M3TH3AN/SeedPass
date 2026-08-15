@@ -1,7 +1,12 @@
 import process from "node:process";
 import { buildProgram } from "./program.js";
 
+// Replaced at bundle time; falls back for source runs (tsx / vitest).
+declare const __SEEDPASS_VERSION__: string | undefined;
+const version = typeof __SEEDPASS_VERSION__ === "string" ? __SEEDPASS_VERSION__ : "0.0.0-dev";
+
 const program = buildProgram();
+program.version(version, "-v, --version", "print the seedpass-js version");
 try {
   await program.parseAsync(process.argv);
 } catch (e) {

@@ -37,6 +37,31 @@ jobs:
         run: pnpm -r typecheck
       - name: Parity tests (Node + jsdom)
         run: pnpm -r test
+      - name: Build the distributable CLI
+        run: pnpm --filter @seedpass/cli build
+      - name: Smoke-test the bundle standalone
+        # Run from a directory with no node_modules to prove the bundle
+        # carries everything it needs.
+        run: |
+          set -eu
+          BIN="$PWD/packages/cli/dist/seedpass-js.mjs"
+          APP_DIR="$(mktemp -d)"
+          cd "$(mktemp -d)"
+          node "$BIN" --version
+          node "$BIN" capabilities > /dev/null
+          export SEEDPASS_APP_DIR="$APP_DIR"
+          export SEEDPASS_MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          export SEEDPASS_PASSWORD="ci-smoke-password"
+          node "$BIN" fingerprint add --name ci > /dev/null
+          node "$BIN" entry add password ci-site --length 16 > /dev/null
+          test -n "$(node "$BIN" entry reveal ci-site)"
+      - name: Upload CLI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedpass-js-cli
+          path: |
+            js/packages/cli/dist/seedpass-js.mjs
+            js/packages/cli/dist/seedpass-js.mjs.sha256
 
   # Fixtures prove the two implementations compute the same values; this job
   # proves they can read each other's on-disk profiles and backups.
