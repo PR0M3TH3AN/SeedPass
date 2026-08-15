@@ -234,13 +234,28 @@ function assertIndex0Portable(raw: unknown): void {
   }
 }
 
-function ensureIndex0Payload(data: unknown): Dict {
+function ensureIndex0Payload(data: unknown, options: MergeOptions = {}): Dict {
   const out: Dict = isDict(data) ? { ...data } : {};
   const system: Dict = isDict(out["_system"]) ? { ...(out["_system"] as Dict) } : {};
-  assertIndex0Portable(system["index0"]);
-  system["index0"] = emptyIndex0();
+  if (options.index0 !== "preserve-current") {
+    assertIndex0Portable(system["index0"]);
+    system["index0"] = emptyIndex0();
+  }
   out["_system"] = system;
   return out;
+}
+
+export interface MergeOptions {
+  /**
+   * What to do with `_system.index0`, Python's derived atlas state.
+   *
+   * Default ("reject") refuses to merge populated index0 rather than drop
+   * it silently. "preserve-current" keeps the current side's block verbatim
+   * and ignores the incoming one — correct when merging remote state into a
+   * live profile, since Python recomputes canonical views from entries on
+   * load and would otherwise be blocked entirely.
+   */
+  index0?: "reject" | "preserve-current";
 }
 
 /** Deterministically merge two decrypted index payloads (Python parity). */
@@ -248,12 +263,15 @@ export function mergeIndexPayloads(
   currentRaw: unknown,
   incomingRaw: unknown,
   sourceTag = "",
+  options: MergeOptions = {},
 ): Dict {
   const out = ensureIndex0Payload(
     isDict(currentRaw) ? structuredClone(currentRaw) : {},
+    options,
   );
   const incoming = ensureIndex0Payload(
     isDict(incomingRaw) ? structuredClone(incomingRaw) : {},
+    options,
   );
 
   const curEntries: Dict = isDict(out["entries"]) ? (out["entries"] as Dict) : {};
@@ -379,7 +397,9 @@ export function mergeIndexPayloads(
   out["_sync_meta"] = meta;
 
   const outSystem: Dict = isDict(out["_system"]) ? (out["_system"] as Dict) : {};
-  outSystem["index0"] = emptyIndex0();
+  if (options.index0 !== "preserve-current") {
+    outSystem["index0"] = emptyIndex0();
+  }
   out["_system"] = outSystem;
   return out;
 }

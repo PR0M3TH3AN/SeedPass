@@ -13,7 +13,14 @@ import { entryMetadata, parseRef, resolveEntry } from "./refs.js";
 import { materializeSecret } from "./secrets.js";
 import { clipboardSink, execSink, parseCommandSpec, stdinSink } from "./sinks.js";
 import { capabilities } from "./capabilities.js";
-import { openVault, saveVault, type OpenedVault } from "./vaultFile.js";
+import {
+  openVault,
+  saveVault,
+  saveVaultHoldingLock,
+  withVaultLock,
+  atomicWrite,
+  type OpenedVault,
+} from "./vaultFile.js";
 import {
   importBackup,
   exportBackup,
@@ -174,6 +181,30 @@ async function openFromOptions(opts: GlobalOpts): Promise<OpenedVault> {
   const fp = await currentFingerprint(app, opts);
   const path = join(app.profileDir(fp), INDEX_FILENAME);
   return openVault(path, await resolveMnemonic(app, opts));
+}
+
+/**
+ * Run a mutation under the vault lock, holding it for the whole
+ * read-modify-write cycle.
+ *
+ * Locking only the write still loses changes: two commands can each read the
+ * same index, mutate their copy, and write in turn. Everything that changes
+ * the vault must go through here.
+ */
+async function mutateVault<T>(
+  opts: GlobalOpts,
+  fn: (vault: OpenedVault) => Promise<T> | T,
+): Promise<T> {
+  const app = new AppDir(resolveAppDir(opts.appDir));
+  const path =
+    opts.vault ?? join(app.profileDir(await currentFingerprint(app, opts)), INDEX_FILENAME);
+  const mnemonic = await resolveMnemonic(app, opts);
+  return withVaultLock(path, async () => {
+    const vault = await openVault(path, mnemonic);
+    const result = await fn(vault);
+    await saveVaultHoldingLock(vault);
+    return result;
+  });
 }
 
 /**
@@ -366,10 +397,15 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     return cmd;
   };
 
-  async function finishAdd(vault: OpenedVault, id: string): Promise<void> {
-    await saveVault(vault);
-    const e = vault.index.entries[id]!;
-    io.out(JSON.stringify(entryMetadata(id, e), null, 2));
+  /** Create an entry under the lock and print its reference + metadata. */
+  async function addEntry(
+    create: (vault: OpenedVault) => string,
+  ): Promise<void> {
+    const row = await mutateVault(program.opts(), (vault) => {
+      const id = create(vault);
+      return entryMetadata(id, vault.index.entries[id]!);
+    });
+    io.out(JSON.stringify(row, null, 2));
   }
 
   const commonOpts = (o: { notes?: string; tags?: string[]; archived?: boolean }) => ({
@@ -390,13 +426,11 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       label: string,
       o: { length: string; username?: string; url?: string; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      const vault = await openFromOptions(program.opts());
-      const id = addPasswordEntry(vault.index, label, parseIntOption(o.length, "--length", { min: 8, max: 128 }), {
+      await addEntry((vault) => addPasswordEntry(vault.index, label, parseIntOption(o.length, "--length", { min: 8, max: 128 }), {
         ...commonOpts(o),
         ...(o.username !== undefined && { username: o.username }),
         ...(o.url !== undefined && { url: o.url }),
-      });
-      await finishAdd(vault, id);
+      }));
     },
   );
 
@@ -412,16 +446,16 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       label: string,
       o: { secret?: string; period: string; digits: string; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      const vault = await openFromOptions(program.opts());
       const opts = {
         ...commonOpts(o),
         period: parseIntOption(o.period, "--period", { min: 1 }),
         digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }),
       };
-      const id = o.secret
-        ? addTotpImported(vault.index, label, o.secret, opts)
-        : addTotpDeterministic(vault.index, label, vault.mnemonic, opts);
-      await finishAdd(vault, id);
+      await addEntry((vault) =>
+        o.secret
+          ? addTotpImported(vault.index, label, o.secret, opts)
+          : addTotpDeterministic(vault.index, label, vault.mnemonic, opts),
+      );
     },
   );
 
@@ -436,9 +470,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       value: string,
       o: { notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      const vault = await openFromOptions(program.opts());
-      const id = addKeyValueEntry(vault.index, label, key, value, commonOpts(o));
-      await finishAdd(vault, id);
+      await addEntry((vault) => addKeyValueEntry(vault.index, label, key, value, commonOpts(o)));
     },
   );
 
@@ -453,12 +485,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       content: string,
       o: { fileType: string; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      const vault = await openFromOptions(program.opts());
-      const id = addDocumentEntry(vault.index, label, content, {
+      await addEntry((vault) => addDocumentEntry(vault.index, label, content, {
         ...commonOpts(o),
         fileType: o.fileType,
-      });
-      await finishAdd(vault, id);
+      }));
     },
   );
 
@@ -469,41 +499,37 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       .option("--words <n>", "word count", "24"),
   ).action(
     async (label: string, o: { words: string; notes?: string; tags?: string[]; archived?: boolean }) => {
-      const vault = await openFromOptions(program.opts());
       const words = parseIntOption(o.words, "--words");
       if (words !== 12 && words !== 18 && words !== 24) {
         throw new Error("--words must be 12, 18 or 24");
       }
-      const id = addSeedEntry(vault.index, label, {
-        ...commonOpts(o),
-        wordCount: words as 12 | 18 | 24,
-      });
-      await finishAdd(vault, id);
+      await addEntry((vault) =>
+        addSeedEntry(vault.index, label, {
+          ...commonOpts(o),
+          wordCount: words as 12 | 18 | 24,
+        }),
+      );
     },
   );
 
   commonAddOptions(
     add.command("managed-account <label>").description("BIP-85 managed account (12-word child seed)"),
   ).action(async (label: string, o: { notes?: string; tags?: string[]; archived?: boolean }) => {
-    const vault = await openFromOptions(program.opts());
-    const id = addManagedAccountEntry(vault.index, label, vault.mnemonic, commonOpts(o));
-    await finishAdd(vault, id);
+    await addEntry((vault) =>
+      addManagedAccountEntry(vault.index, label, vault.mnemonic, commonOpts(o)),
+    );
   });
 
   commonAddOptions(
     add.command("nostr <label>").description("derived Nostr key entry"),
   ).action(async (label: string, o: { notes?: string; tags?: string[]; archived?: boolean }) => {
-    const vault = await openFromOptions(program.opts());
-    const id = addNostrKeyEntry(vault.index, label, commonOpts(o));
-    await finishAdd(vault, id);
+    await addEntry((vault) => addNostrKeyEntry(vault.index, label, commonOpts(o)));
   });
 
   commonAddOptions(
     add.command("ssh <label>").description("derived Ed25519 SSH key entry"),
   ).action(async (label: string, o: { notes?: string; tags?: string[]; archived?: boolean }) => {
-    const vault = await openFromOptions(program.opts());
-    const id = addSshKeyEntry(vault.index, label, commonOpts(o));
-    await finishAdd(vault, id);
+    await addEntry((vault) => addSshKeyEntry(vault.index, label, commonOpts(o)));
   });
 
   commonAddOptions(
@@ -516,12 +542,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       label: string,
       o: { userId: string; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      const vault = await openFromOptions(program.opts());
-      const id = addPgpKeyEntry(vault.index, label, {
+      await addEntry((vault) => addPgpKeyEntry(vault.index, label, {
         ...commonOpts(o),
         userId: o.userId,
-      });
-      await finishAdd(vault, id);
+      }));
     },
   );
 
@@ -536,18 +560,18 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         file: string,
         o: { label?: string; notes: string; tags?: string[] },
       ) => {
-        const vault = await openFromOptions(program.opts());
         const path = resolveHome(file);
         // Documents are stored as text, matching Python's read_text.
         const content = await readFile(path, "utf8");
         const base = basename(path);
         const ext = extname(base).replace(/^\./, "").toLowerCase();
-        const id = addDocumentEntry(vault.index, o.label || base.replace(/\.[^.]*$/, ""), content, {
-          fileType: ext || "txt",
-          notes: o.notes,
-          ...(o.tags !== undefined && { tags: o.tags }),
-        });
-        await finishAdd(vault, id);
+        await addEntry((vault) =>
+          addDocumentEntry(vault.index, o.label || base.replace(/\.[^.]*$/, ""), content, {
+            fileType: ext || "txt",
+            notes: o.notes,
+            ...(o.tags !== undefined && { tags: o.tags }),
+          }),
+        );
       },
     );
 
@@ -637,8 +661,6 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           value?: string; content?: string; fileType?: string;
         },
       ) => {
-        const vault = await openFromOptions(program.opts());
-        const hit = resolveEntry(vault.index, refOrQuery);
         const changes: ModifyChanges = {
           ...(o.label !== undefined && { label: o.label }),
           ...(o.username !== undefined && { username: o.username }),
@@ -653,9 +675,12 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           ...(o.fileType !== undefined && { file_type: o.fileType }),
         };
         if (Object.keys(changes).length === 0) throw new Error("no changes given");
-        modifyEntry(vault.index, hit.id, changes);
-        await saveVault(vault);
-        io.out(JSON.stringify(entryMetadata(hit.id, vault.index.entries[hit.id]!), null, 2));
+        const row = await mutateVault(program.opts(), (vault) => {
+          const hit = resolveEntry(vault.index, refOrQuery);
+          modifyEntry(vault.index, hit.id, changes);
+          return entryMetadata(hit.id, vault.index.entries[hit.id]!);
+        });
+        io.out(JSON.stringify(row, null, 2));
       },
     );
 
@@ -663,22 +688,24 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .command("archive <refOrQuery>")
     .description("archive an entry")
     .action(async (refOrQuery: string) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
-      archiveEntry(vault.index, hit.id);
-      await saveVault(vault);
-      io.out(JSON.stringify({ ref: hit.ref, archived: true }));
+      const ref = await mutateVault(program.opts(), (vault) => {
+        const hit = resolveEntry(vault.index, refOrQuery);
+        archiveEntry(vault.index, hit.id);
+        return hit.ref;
+      });
+      io.out(JSON.stringify({ ref, archived: true }));
     });
 
   entry
     .command("unarchive <refOrQuery>")
     .description("restore an archived entry")
     .action(async (refOrQuery: string) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
-      restoreEntry(vault.index, hit.id);
-      await saveVault(vault);
-      io.out(JSON.stringify({ ref: hit.ref, archived: false }));
+      const ref = await mutateVault(program.opts(), (vault) => {
+        const hit = resolveEntry(vault.index, refOrQuery);
+        restoreEntry(vault.index, hit.id);
+        return hit.ref;
+      });
+      io.out(JSON.stringify({ ref, archived: false }));
     });
 
   entry
@@ -696,15 +723,16 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--relation <name>", "relation type", "related_to")
     .option("--note <text>", "link note", "")
     .action(async (refOrQuery: string, target: string, o: { relation: string; note: string }) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
-      const targetHit = resolveEntry(vault.index, target);
-      const links = addLink(vault.index, hit.id, Number(targetHit.id), {
-        relation: o.relation,
-        note: o.note,
+      const result = await mutateVault(program.opts(), (vault) => {
+        const hit = resolveEntry(vault.index, refOrQuery);
+        const targetHit = resolveEntry(vault.index, target);
+        const links = addLink(vault.index, hit.id, Number(targetHit.id), {
+          relation: o.relation,
+          note: o.note,
+        });
+        return { ref: hit.ref, links };
       });
-      await saveVault(vault);
-      io.out(JSON.stringify({ ref: hit.ref, links }, null, 2));
+      io.out(JSON.stringify(result, null, 2));
     });
 
   entry
@@ -712,14 +740,15 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("remove links to a target entry")
     .option("--relation <name>", "only remove this relation")
     .action(async (refOrQuery: string, target: string, o: { relation?: string }) => {
-      const vault = await openFromOptions(program.opts());
-      const hit = resolveEntry(vault.index, refOrQuery);
-      const targetHit = resolveEntry(vault.index, target);
-      const links = removeLink(vault.index, hit.id, Number(targetHit.id), {
-        ...(o.relation !== undefined && { relation: o.relation }),
+      const result = await mutateVault(program.opts(), (vault) => {
+        const hit = resolveEntry(vault.index, refOrQuery);
+        const targetHit = resolveEntry(vault.index, target);
+        const links = removeLink(vault.index, hit.id, Number(targetHit.id), {
+          ...(o.relation !== undefined && { relation: o.relation }),
+        });
+        return { ref: hit.ref, links };
       });
-      await saveVault(vault);
-      io.out(JSON.stringify({ ref: hit.ref, links }, null, 2));
+      io.out(JSON.stringify(result, null, 2));
     });
 
   entry
@@ -991,30 +1020,37 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   nostr
     .command("restore")
-    .description("fetch the latest snapshot + deltas from relays and merge into the local vault")
-    .action(async () => {
+    .description("fetch the latest snapshot + deltas and merge them into the local vault")
+    .option(
+      "--replace",
+      "DESTRUCTIVE: discard local state instead of merging remote into it",
+    )
+    .option("--yes", "confirm --replace")
+    .action(async (o: { replace?: boolean; yes?: boolean }) => {
       const opts = program.opts() as GlobalOpts;
       const { app, fp, mnemonic, relays, keys } = await nostrContext(opts);
+      if (o.replace && !o.yes) {
+        throw new Error("--replace discards local entries; pass --yes to confirm");
+      }
       const pool = new RelayPool(relays);
       try {
         const fetched = await fetchLatestSnapshot(pool, keys.privateKeyHex);
         if (!fetched) throw new Error("no snapshot found on the configured relays");
         const indexKey = deriveIndexKeyBytes(mnemonic);
-        // A published snapshot carries whatever the local index file held.
-        // Python's index files wrap the ciphertext in a kdf/ct JSON envelope
-        // (TS writes bare ciphertext), so parse the wrapper first — exactly
-        // as Python's decrypt_and_save_index_from_nostr does.
         const snapshotPayload = parseEncryptedFile(fetched.encrypted).ciphertext;
-        let state = JSON.parse(
+        let remote = JSON.parse(
           new TextDecoder().decode(await decryptPayload(indexKey, snapshotPayload)),
         ) as Record<string, unknown>;
 
         let deltaCount = 0;
         if (fetched.manifest.delta_since) {
+          // Bind deltas to this manifest so a relay cannot replay one from
+          // another snapshot lineage into the restore.
           const deltas = await fetchDeltasSince(
             pool,
             keys.privateKeyHex,
             fetched.manifest.delta_since,
+            fetched.manifestEvent.id,
           );
           for (const delta of deltas) {
             const incoming = JSON.parse(
@@ -1022,19 +1058,58 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
                 await decryptPayload(indexKey, parseEncryptedFile(delta).ciphertext),
               ),
             );
-            state = mergeIndexPayloads(state, incoming, sha256Hex(delta).slice(0, 16));
+            remote = mergeIndexPayloads(remote, incoming, sha256Hex(delta).slice(0, 16));
             deltaCount++;
           }
         }
 
-        const index = parseVaultIndex(state);
         const vaultPath = opts.vault ?? join(app.profileDir(fp), INDEX_FILENAME);
+        const localExists = existsSync(vaultPath);
+        let local: Record<string, unknown> | null = null;
+        if (localExists) {
+          try {
+            local = (await openVault(vaultPath, mnemonic)).index as unknown as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            local = null; // unreadable local vault: treat the restore as recovery
+          }
+        }
+
+        // Default is a merge, not a replacement: a restore must not silently
+        // discard entries created locally since the snapshot was published.
+        let final: Record<string, unknown>;
+        let mode: string;
+        if (o.replace || local === null) {
+          final = remote;
+          mode = local === null ? "restored" : "replaced";
+        } else {
+          // Keep the local _system.index0 verbatim: it is Python-derived
+          // atlas state recomputed on load, and refusing to merge it would
+          // block every restore into a Python-created profile.
+          final = mergeIndexPayloads(local, remote, "nostr-restore", {
+            index0: "preserve-current",
+          });
+          mode = "merged";
+        }
+
+        // Keep a copy of whatever we are about to overwrite.
+        let backupPath: string | null = null;
+        if (localExists) {
+          backupPath = `${vaultPath}.pre-restore-${Math.floor(Date.now() / 1000)}`;
+          await atomicWrite(backupPath, new Uint8Array(await readFile(vaultPath)));
+        }
+
+        const index = parseVaultIndex(final);
         await saveVault({ index, mnemonic, path: vaultPath });
         io.out(
           JSON.stringify({
-            restored: vaultPath,
+            mode,
+            vault: vaultPath,
             entry_count: Object.keys(index.entries).length,
             deltas_applied: deltaCount,
+            local_backup: backupPath,
           }),
         );
       } finally {

@@ -73,6 +73,30 @@ describe("nostr CLI", () => {
     expect(String((bad.error as Error).message)).toContain("ws://");
   });
 
+  it("merges rather than discarding unsynced local entries", async () => {
+    // Publish a snapshot, then create a local entry that the snapshot does
+    // not contain. A restore must not silently throw that entry away.
+    await run("entry", "add", "key-value", "pre-sync", "k", "in-snapshot");
+    await run("nostr", "sync", "--chunk-limit", "400");
+    await run("entry", "add", "key-value", "local-only", "k", "not-in-snapshot");
+
+    const restored = JSON.parse((await run("nostr", "restore")).stdout);
+    expect(restored.mode).toBe("merged");
+    expect(restored.local_backup).toBeTruthy();
+
+    const labels = (JSON.parse((await run("entry", "list")).stdout) as { label: string }[]).map(
+      (r) => r.label,
+    );
+    expect(labels).toContain("local-only");
+    expect(labels).toContain("pre-sync");
+    expect((await run("entry", "reveal", "local-only")).stdout).toBe("not-in-snapshot");
+  });
+
+  it("requires explicit confirmation to discard local state", async () => {
+    const denied = await run("nostr", "restore", "--replace");
+    expect(String((denied.error as Error).message)).toContain("--yes");
+  });
+
   it("syncs the vault to the relay and restores after local destruction", async () => {
     await run("entry", "add", "key-value", "synced-secret", "k", "value-roundtrip");
     await run("entry", "add", "password", "synced-site", "--length", "20");
@@ -92,11 +116,13 @@ describe("nostr CLI", () => {
     // Restore from the relay alone
     const restore = await run("nostr", "restore");
     const restored = JSON.parse(restore.stdout);
-    expect(restored.entry_count).toBe(2);
+    // The local vault was unreadable, so this is a recovery, not a merge
+    expect(restored.mode).toBe("restored");
     expect(restored.deltas_applied).toBe(0);
 
     const list = JSON.parse((await run("entry", "list")).stdout) as { label: string }[];
-    expect(list.map((e) => e.label).sort()).toEqual(["synced-secret", "synced-site"]);
+    expect(list.map((e) => e.label)).toContain("synced-secret");
+    expect(list.map((e) => e.label)).toContain("synced-site");
     const reveal = await run("entry", "reveal", "synced-secret");
     expect(reveal.stdout).toBe("value-roundtrip");
   });

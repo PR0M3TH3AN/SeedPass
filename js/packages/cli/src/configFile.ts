@@ -3,7 +3,7 @@
  * (seedpass_config.json.enc, encrypted under the index key).
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -14,6 +14,7 @@ import {
   utf8,
 } from "@seedpass/core";
 import { CONFIG_FILENAME } from "./appDir.js";
+import { atomicWrite } from "./vaultFile.js";
 
 export const DEFAULT_RELAYS = [
   "wss://relay.snort.social",
@@ -69,5 +70,5 @@ export async function saveConfig(
 ): Promise<void> {
   const key = deriveIndexKeyBytes(mnemonic);
   const payload = await encryptV3(key, utf8(JSON.stringify(config)));
-  await writeFile(join(profileDir, CONFIG_FILENAME), payload, { mode: 0o600 });
+  await atomicWrite(join(profileDir, CONFIG_FILENAME), payload);
 }

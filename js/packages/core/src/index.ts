@@ -122,6 +122,7 @@ export {
   safeInt,
   TOMBSTONE_RETENTION_CAP,
   MERGE_STRATEGY,
+  type MergeOptions,
 } from "./sync/merge.js";
 export {
   KIND_MANIFEST,

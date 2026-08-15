@@ -8,10 +8,11 @@
  *   ~/.seedpass/<FP>/seedpass_config.json.enc       index key
  */
 
-import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { atomicWrite } from "./vaultFile.js";
 import process from "node:process";
 import { base64url } from "@scure/base";
 import {
@@ -55,6 +56,25 @@ export function resolveAppDir(override?: string): string {
   return override ?? process.env["SEEDPASS_APP_DIR"] ?? join(homedir(), ".seedpass");
 }
 
+/**
+ * Fingerprints are 16 uppercase hex characters (SHA-256 of the seed,
+ * truncated). Validate before any fingerprint reaches a filesystem path:
+ * these values come from a JSON registry on disk, and a tampered entry
+ * containing `..` would otherwise steer a recursive delete out of the
+ * profile directory.
+ */
+const FINGERPRINT_RE = /^[0-9A-F]{16}$/;
+
+export function assertValidFingerprint(fingerprint: string): string {
+  if (!FINGERPRINT_RE.test(fingerprint)) {
+    throw new Error(
+      `invalid profile fingerprint ${JSON.stringify(fingerprint)} ` +
+        `(expected 16 uppercase hex characters)`,
+    );
+  }
+  return fingerprint;
+}
+
 export class AppDir {
   constructor(public readonly root: string) {}
 
@@ -63,17 +83,20 @@ export class AppDir {
   }
 
   profileDir(fingerprint: string): string {
-    return join(this.root, fingerprint);
+    return join(this.root, assertValidFingerprint(fingerprint));
   }
 
   async readFingerprints(): Promise<FingerprintsFile> {
     try {
       const raw = JSON.parse(await readFile(this.fingerprintsPath, "utf8")) as Partial<FingerprintsFile>;
-      return {
-        fingerprints: raw.fingerprints ?? [],
-        last_used: raw.last_used ?? null,
-        names: raw.names ?? {},
-      };
+      const fingerprints = (raw.fingerprints ?? []).filter((f) =>
+        FINGERPRINT_RE.test(String(f)),
+      );
+      const lastUsed =
+        raw.last_used && FINGERPRINT_RE.test(String(raw.last_used))
+          ? String(raw.last_used)
+          : null;
+      return { fingerprints, last_used: lastUsed, names: raw.names ?? {} };
     } catch {
       return { fingerprints: [], last_used: null, names: {} };
     }
@@ -82,7 +105,7 @@ export class AppDir {
   async writeFingerprints(data: FingerprintsFile): Promise<void> {
     await mkdir(this.root, { recursive: true });
     // indent=4 matches the Python writer
-    await writeFile(this.fingerprintsPath, JSON.stringify(data, null, 4), { mode: 0o600 });
+    await atomicWrite(this.fingerprintsPath, utf8(JSON.stringify(data, null, 4)));
   }
 
   /** Create a profile from a mnemonic; returns its fingerprint. */
@@ -118,15 +141,14 @@ export class AppDir {
       kdf,
       ct: Buffer.from(ct).toString("base64"),
     });
-    await writeFile(join(dir, PARENT_SEED_FILENAME), wrapper, { mode: 0o600 });
+    await atomicWrite(join(dir, PARENT_SEED_FILENAME), utf8(wrapper));
 
     // empty entries index under the index key
     const indexKey = deriveIndexKeyBytes(mnemonic);
     const emptyIndex = { schema_version: 4, entries: {} };
-    await writeFile(
+    await atomicWrite(
       join(dir, INDEX_FILENAME),
       await encryptV3(indexKey, utf8(JSON.stringify(emptyIndex))),
-      { mode: 0o600 },
     );
 
     data.fingerprints.push(fingerprint);
@@ -137,11 +159,18 @@ export class AppDir {
   }
 
   async removeProfile(fingerprint: string): Promise<void> {
+    assertValidFingerprint(fingerprint);
     const data = await this.readFingerprints();
     if (!data.fingerprints.includes(fingerprint)) {
       throw new Error(`no profile ${fingerprint}`);
     }
-    await rm(this.profileDir(fingerprint), { recursive: true, force: true });
+    const dir = this.profileDir(fingerprint);
+    // Belt and braces: the resolved path must still sit directly under the
+    // app directory before anything is deleted recursively.
+    if (dirname(resolve(dir)) !== resolve(this.root)) {
+      throw new Error(`refusing to delete ${dir}: outside ${this.root}`);
+    }
+    await rm(dir, { recursive: true, force: true });
     data.fingerprints = data.fingerprints.filter((f) => f !== fingerprint);
     delete data.names[fingerprint];
     if (data.last_used === fingerprint) {
@@ -151,6 +180,7 @@ export class AppDir {
   }
 
   async switchProfile(fingerprint: string): Promise<void> {
+    assertValidFingerprint(fingerprint);
     const data = await this.readFingerprints();
     if (!data.fingerprints.includes(fingerprint)) {
       throw new Error(`no profile ${fingerprint}`);

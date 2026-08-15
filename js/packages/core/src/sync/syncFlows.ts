@@ -13,6 +13,7 @@ import {
   buildManifestEvent,
   signEvent,
   signerPublicKeyHex,
+  type Filter,
   type NostrEvent,
 } from "./events.js";
 import {
@@ -101,7 +102,14 @@ export async function fetchLatestSnapshot(
   const pubkey = signerPublicKeyHex(privateKeyHex);
   const manifests = await pool.fetch({ authors: [pubkey], kinds: [KIND_MANIFEST] });
   if (manifests.length === 0) return null;
-  manifests.sort((a, b) => b.created_at - a.created_at);
+  // Newest first. Two snapshots published within the same second tie on
+  // created_at, so fall back to the order the relay returned them in
+  // (later = more recently accepted); without this the restore can pick a
+  // stale manifest after a same-second republish.
+  const order = new Map(manifests.map((ev, i) => [ev.id, i]));
+  manifests.sort(
+    (a, b) => b.created_at - a.created_at || (order.get(b.id)! - order.get(a.id)!),
+  );
 
   for (const manifestEvent of manifests) {
     let manifest: Manifest;
@@ -150,14 +158,29 @@ export async function publishDelta(
   return event.id;
 }
 
-/** Fetch deltas since a timestamp, sorted by created_at (replay order). */
+/**
+ * Fetch deltas since a timestamp, sorted by created_at (replay order).
+ *
+ * `manifestEventId` binds the result to one snapshot lineage. Deltas carry
+ * an `e` tag naming the manifest they extend; without checking it a relay
+ * could replay a validly-signed delta from a different (older) lineage into
+ * this restore. Callers restoring a specific snapshot must pass it.
+ */
 export async function fetchDeltasSince(
   pool: RelayPool,
   privateKeyHex: string,
   since: number,
+  manifestEventId?: string,
 ): Promise<Uint8Array[]> {
   const pubkey = signerPublicKeyHex(privateKeyHex);
-  const events = await pool.fetch({ authors: [pubkey], kinds: [KIND_DELTA], since });
-  events.sort((a, b) => a.created_at - b.created_at);
-  return events.map((ev) => base64.decode(ev.content));
+  const filter: Filter = { authors: [pubkey], kinds: [KIND_DELTA], since };
+  if (manifestEventId) filter["#e"] = [manifestEventId];
+  const events = await pool.fetch(filter);
+  const bound = manifestEventId
+    ? events.filter((ev) =>
+        ev.tags.some((t) => t[0] === "e" && t[1] === manifestEventId),
+      )
+    : events;
+  bound.sort((a, b) => a.created_at - b.created_at);
+  return bound.map((ev) => base64.decode(ev.content));
 }
