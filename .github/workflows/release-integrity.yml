@@ -34,6 +34,22 @@ jobs:
       - name: Build release artifacts
         run: python -m build
 
+      # The TypeScript CLI is an executable release artifact and must be
+      # covered by the same checksum manifest and signature as the Python
+      # ones; building it only as a CI artifact left it outside the signed
+      # release path entirely.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the TypeScript CLI bundle
+        run: |
+          corepack enable
+          cd js
+          pnpm install --frozen-lockfile
+          pnpm --filter @seedpass/cli build
+          cp packages/cli/dist/seedpass-js.mjs ../dist/
+
       - name: Generate and verify checksums
         run: |
           python scripts/release_integrity.py generate --artifact dist --base-dir . --output SHA256SUMS

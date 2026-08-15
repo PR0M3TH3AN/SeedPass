@@ -95,6 +95,36 @@ function parseUnixTime(raw: string): number {
   return parseIntOption(raw, "--at", { min: 0 });
 }
 
+/**
+ * Read a secret without putting it on the command line.
+ *
+ * Arguments are visible in shell history, `ps` output, and any terminal or
+ * session logging, so secret-bearing values should arrive on stdin. The
+ * positional form still works for scripts that already depend on it, but it
+ * warns.
+ */
+async function readSecretInput(
+  positional: string | undefined,
+  fromStdin: boolean | undefined,
+  what: string,
+  io: ProgramIo,
+): Promise<string> {
+  if (fromStdin) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+    // A trailing newline from `echo` or a heredoc is virtually never wanted.
+    return Buffer.concat(chunks).toString("utf8").replace(/\r?\n$/, "");
+  }
+  if (positional === undefined) {
+    throw new Error(`${what} is required: pass it as an argument or use --stdin`);
+  }
+  io.err(
+    `warning: ${what} was passed on the command line, where it can be captured by ` +
+      `shell history and process listings. Prefer --stdin.`,
+  );
+  return positional;
+}
+
 /** Expand a leading ~ the way Python's Path.expanduser does. */
 function resolveHome(p: string): string {
   return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
@@ -438,22 +468,35 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     add
       .command("totp <label>")
       .description("TOTP entry: deterministic by default, or --secret to import")
-      .option("--secret <b32>", "import an existing base32 secret")
+      .option("--secret <b32>", "import an existing base32 secret (prefer --secret-stdin)")
+      .option("--secret-stdin", "read the base32 secret from stdin")
       .option("--period <s>", "period seconds", "30")
       .option("--digits <n>", "code digits", "6"),
   ).action(
     async (
       label: string,
-      o: { secret?: string; period: string; digits: string; notes?: string; tags?: string[]; archived?: boolean },
+      o: {
+        secret?: string;
+        secretStdin?: boolean;
+        period: string;
+        digits: string;
+        notes?: string;
+        tags?: string[];
+        archived?: boolean;
+      },
     ) => {
       const opts = {
         ...commonOpts(o),
         period: parseIntOption(o.period, "--period", { min: 1 }),
         digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }),
       };
+      const imported =
+        o.secret !== undefined || o.secretStdin
+          ? await readSecretInput(o.secret, o.secretStdin, "TOTP secret", io)
+          : null;
       await addEntry((vault) =>
-        o.secret
-          ? addTotpImported(vault.index, label, o.secret, opts)
+        imported !== null
+          ? addTotpImported(vault.index, label, imported, opts)
           : addTotpDeterministic(vault.index, label, vault.mnemonic, opts),
       );
     },
@@ -461,16 +504,18 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   commonAddOptions(
     add
-      .command("key-value <label> <key> <value>")
-      .description("store an arbitrary secret value"),
+      .command("key-value <label> <key> [value]")
+      .description("store an arbitrary secret value (prefer --stdin over an argument)")
+      .option("--stdin", "read the value from stdin instead of an argument"),
   ).action(
     async (
       label: string,
       key: string,
-      value: string,
-      o: { notes?: string; tags?: string[]; archived?: boolean },
+      value: string | undefined,
+      o: { stdin?: boolean; notes?: string; tags?: string[]; archived?: boolean },
     ) => {
-      await addEntry((vault) => addKeyValueEntry(vault.index, label, key, value, commonOpts(o)));
+      const secret = await readSecretInput(value, o.stdin, "value", io);
+      await addEntry((vault) => addKeyValueEntry(vault.index, label, key, secret, commonOpts(o)));
     },
   );
 
@@ -649,7 +694,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--period <n>")
     .option("--digits <n>")
     .option("--key <text>")
-    .option("--value <text>", "new secret value (key_value/managed_account)")
+    .option("--value <text>", "new secret value (prefer --value-stdin)")
+    .option("--value-stdin", "read the new value from stdin")
     .option("--content <text>", "new document content")
     .option("--file-type <ext>")
     .action(
@@ -658,7 +704,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         o: {
           label?: string; username?: string; url?: string; notes?: string;
           tags?: string[]; period?: string; digits?: string; key?: string;
-          value?: string; content?: string; fileType?: string;
+          value?: string; valueStdin?: boolean; content?: string; fileType?: string;
         },
       ) => {
         const changes: ModifyChanges = {
@@ -670,7 +716,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           ...(o.period !== undefined && { period: parseIntOption(o.period, "--period", { min: 1 }) }),
           ...(o.digits !== undefined && { digits: parseIntOption(o.digits, "--digits", { min: 6, max: 10 }) }),
           ...(o.key !== undefined && { key: o.key }),
-          ...(o.value !== undefined && { value: o.value }),
+          ...((o.value !== undefined || o.valueStdin) && {
+            value: await readSecretInput(o.value, o.valueStdin, "value", io),
+          }),
           ...(o.content !== undefined && { content: o.content }),
           ...(o.fileType !== undefined && { file_type: o.fileType }),
         };

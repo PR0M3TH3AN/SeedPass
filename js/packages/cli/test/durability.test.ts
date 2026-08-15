@@ -103,6 +103,28 @@ describe("atomic, permission-correct writes", () => {
   });
 });
 
+describe("secrets on the command line", () => {
+  it("warns when a secret arrives as an argument", async () => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: ProgramIo = { out: (l) => out.push(l), err: (l) => err.push(l) };
+    const saved = process.env["SEEDPASS_MNEMONIC"];
+    process.env["SEEDPASS_MNEMONIC"] = MNEMONIC;
+    try {
+      await buildProgram(io).parseAsync([
+        "node", "seedpass-js", "--vault", vaultPath,
+        "entry", "add", "key-value", "argv-secret", "k", "exposed-on-argv",
+      ]);
+    } finally {
+      if (saved === undefined) delete process.env["SEEDPASS_MNEMONIC"];
+      else process.env["SEEDPASS_MNEMONIC"] = saved;
+    }
+    expect(err.join("\n")).toContain("shell history");
+    // The warning must not repeat the secret it is warning about
+    expect(err.join("\n")).not.toContain("exposed-on-argv");
+  });
+});
+
 describe("profile path validation", () => {
   it("refuses a fingerprint that is not 16 hex characters", async () => {
     const app = new AppDir(dir);

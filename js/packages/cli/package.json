@@ -7,7 +7,7 @@
     "seedpass-js": "./dist/seedpass-js.mjs"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/seedpass-js.mjs"
   },
   "scripts": {
     "build": "node build.mjs",
@@ -15,25 +15,25 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@scure/base": "^2.3.0",
-    "@seedpass/core": "workspace:*",
-    "commander": "^14.0.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@seedpass/test-vectors": "workspace:*",
-    "@types/node": "^26.2.0",
+    "@types/node": "^22.15.0",
     "tsx": "^4.20.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "@seedpass/core": "workspace:*",
+    "@scure/base": "^2.3.0",
+    "commander": "^14.0.2"
   },
   "license": "MIT",
   "engines": {
     "node": ">=22"
   },
   "files": [
-    "dist/",
+    "dist/seedpass-js.mjs",
+    "dist/seedpass-js.mjs.sha256",
     "README.md"
   ]
 }

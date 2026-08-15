@@ -98,6 +98,22 @@ nostr, ssh, pgp — every creatable kind.
    (Python via its legacy fallback, TS via `parseEncryptedFile`), verified in
    cross-impl phases A/B/F/J.
 
+**Protocol-level issues shared with Python — not divergences, and not
+fixable in the port alone.** A security review raised both; changing either
+in TypeScript only would break cross-implementation convergence, so they
+need a versioned protocol change in both implementations:
+
+1. **Tombstone retention allows deletion replay.** Only
+   `TOMBSTONE_RETENTION_CAP` (2048) tombstones are kept, oldest dropped
+   first. Once a tombstone ages out, an untrusted relay can replay the
+   older signed entry and resurrect a deleted secret. Both implementations
+   behave identically today.
+2. **SSH and PGP share a derivation domain.** Both take BIP-85 app 32 at the
+   entry's index, so an SSH entry and a PGP entry at the same index derive
+   the same raw Ed25519 private key. Fixing it requires distinct application
+   numbers (or an info string) and a compatibility version, since existing
+   keys must keep deriving as they do.
+
 **Resolved:** TOTP codes for entries with a non-default period/digits used
 to differ — Python built `pyotp.TOTP(secret)` with library defaults and
 ignored the entry's recorded values, so an imported 8-digit/45s secret

@@ -55,6 +55,17 @@ jobs:
           node "$BIN" fingerprint add --name ci > /dev/null
           node "$BIN" entry add password ci-site --length 16 > /dev/null
           test -n "$(node "$BIN" entry reveal ci-site)"
+      - name: Verify the packed npm tarball installs and runs
+        # `files`/`exports` mistakes only surface at install time: a package
+        # that omits its entry point still builds and tests fine here.
+        run: |
+          set -eu
+          pnpm --filter @seedpass/cli pack --pack-destination "$RUNNER_TEMP"
+          TARBALL="$(ls "$RUNNER_TEMP"/seedpass-cli-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/packtest" && cd "$RUNNER_TEMP/packtest"
+          npm init -y > /dev/null
+          npm install "$TARBALL" > /dev/null
+          ./node_modules/.bin/seedpass-js --version
       - name: Upload CLI bundle
         uses: actions/upload-artifact@v4
         with:
@@ -62,6 +73,38 @@ jobs:
           path: |
             js/packages/cli/dist/seedpass-js.mjs
             js/packages/cli/dist/seedpass-js.mjs.sha256
+
+  javascript-supply-chain:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit dependencies
+        # The Python side has had a dependency audit for a while; the
+        # JavaScript tree had none.
+        run: pnpm audit --audit-level moderate
+      - name: Generate a CycloneDX SBOM
+        run: |
+          npx --yes @cyclonedx/cyclonedx-npm@latest \
+            --output-format JSON \
+            --output-file "$RUNNER_TEMP/seedpass-js-sbom.json" \
+            --package-lock-only || echo "SBOM generation failed (non-fatal)"
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seedpass-js-sbom
+          path: ${{ runner.temp }}/seedpass-js-sbom.json
+          if-no-files-found: warn
 
   # Fixtures prove the two implementations compute the same values; this job
   # proves they can read each other's on-disk profiles and backups.
