@@ -10,12 +10,19 @@ program.version(version, "-v, --version", "print the seedpass-js version");
 try {
   await program.parseAsync(process.argv);
 } catch (e) {
-  // commander's exitOverride throws for --help/--version too; those carry
-  // exitCode 0 and must not be reported as errors.
   const err = e as { exitCode?: number; code?: string; message?: string };
-  if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
-    process.exit(0);
+
+  // exitOverride() makes commander throw for everything it would otherwise
+  // exit on — including displaying help or the version, and its own usage
+  // errors, which it has already written to stderr. Re-reporting those as
+  // "error: ..." is wrong twice over: a bare `seedpass-js` printed the help
+  // and then claimed to have failed with "(outputHelp)". Honour commander's
+  // exit code, but let it own the message.
+  if (typeof err.code === "string" && err.code.startsWith("commander.")) {
+    process.exit(typeof err.exitCode === "number" ? err.exitCode : 0);
   }
+
+  // Anything else is ours, and the message is the useful part.
   process.stderr.write(`error: ${err.message ?? String(e)}\n`);
   process.exit(typeof err.exitCode === "number" && err.exitCode !== 0 ? err.exitCode : 1);
 }

@@ -434,6 +434,27 @@ describe("document import/export", () => {
   });
 });
 
+describe("exit behaviour", () => {
+  it("does not report help output as an error", async () => {
+    // exitOverride() makes commander throw when it prints help, so a bare
+    // invocation printed the help and then claimed to have failed with
+    // "(outputHelp)".
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: ProgramIo = { out: (l) => out.push(l), err: (l) => err.push(l) };
+    let thrown: { code?: string; exitCode?: number } | undefined;
+    try {
+      await buildProgram(io).parseAsync(["node", "seedpass-js"]);
+    } catch (e) {
+      thrown = e as { code?: string; exitCode?: number };
+    }
+    // commander signals help with its own code; main.ts must treat any
+    // commander.* code as commander's business, not as a SeedPass error.
+    expect(thrown?.code).toMatch(/^commander\./);
+    expect(err.join("\n")).not.toContain("outputHelp");
+  });
+});
+
 describe("error messages", () => {
   it("explains a corrupt or foreign vault file instead of leaking a codec error", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-corrupt-"));
