@@ -215,14 +215,20 @@ export class AgentDaemon {
   }
 
   /**
-   * Validate a bearer token for an action against an entry, consuming one
-   * use on success. Returns the token record or a denial reason.
+   * Validate a bearer token for an action, consuming one use for
+   * secret-bearing actions. Returns the token record or a denial reason.
+   *
+   * Entry-level constraints (kinds, label regex) are NOT checked here — that
+   * is tokenMaySee's job, after the vault is opened. A use is therefore
+   * consumed even when the entry turns out to be missing or outside the
+   * token's constraints. Deliberate: charging for the attempt means probing
+   * entry ids costs the prober their limited uses, and refunding denied
+   * attempts would hand back a free enumeration budget.
    */
   private authorize(
     tokenSecret: string,
     fingerprint: string,
     action: TokenScope,
-    entry?: { kind: string; label: string },
   ): { token?: TokenRecord; deny?: string } {
     const hash = sha256Hex(utf8(tokenSecret));
     const token = [...this.tokens.values()].find(
@@ -233,14 +239,6 @@ export class AgentDaemon {
     if (token.expires_at <= Date.now() / 1000) return { deny: "token expired" };
     if (token.uses_remaining <= 0) return { deny: "token exhausted" };
     if (!token.scopes.includes(action)) return { deny: `scope '${action}' not granted` };
-    if (entry) {
-      if (token.kinds && !token.kinds.includes(entry.kind)) {
-        return { deny: `kind '${entry.kind}' not granted` };
-      }
-      if (!new RegExp(token.label_regex).test(entry.label)) {
-        return { deny: "label not matched by token constraint" };
-      }
-    }
     // "read" is not consumption; secret-bearing actions decrement uses
     if (action !== "read") token.uses_remaining -= 1;
     return { token };

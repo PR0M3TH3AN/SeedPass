@@ -17,35 +17,27 @@ export interface SinkResult {
 export const EXEC_ENV_VAR = "SEEDPASS_SECRET";
 
 /**
- * Variables that must never reach a sink child.
- *
- * A helper invoked to receive one password would otherwise inherit the
- * parent seed, the master password, a bearer token and the agent socket
- * path — everything needed to take the whole vault.
+ * Variables a child plausibly needs to run at all. This allowlist is the
+ * control that keeps SEEDPASS_MNEMONIC, SEEDPASS_PASSWORD, tokens and the
+ * agent socket path out of sink children — a helper invoked to receive one
+ * password must not inherit everything needed to take the whole vault.
  */
-const FORBIDDEN_ENV = [
-  "SEEDPASS_MNEMONIC",
-  "SEEDPASS_PASSWORD",
-  "SEEDPASS_TOKEN",
-  "SEEDPASS_AGENT_SOCK",
-  "SEEDPASS_AGENT_CAP",
-  "SEEDPASS_APP_DIR",
-];
-
-/** Variables a child plausibly needs to run at all. */
 const PASSTHROUGH_ENV = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "TZ", "TMPDIR", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"];
 
 /**
- * Build the environment for a sink child: a minimal allowlist, never the
+ * Build the environment for a sink child: the allowlist above, never the
  * caller's full environment.
  */
 export function sinkEnv(extra: Record<string, string> = {}): Record<string, string> {
   const env: Record<string, string> = {};
   for (const key of PASSTHROUGH_ENV) {
+    // Backstop, not the control: nothing SEEDPASS-prefixed rides along even
+    // if a future edit adds one to the allowlist. `extra` is exempt — the
+    // exec sink's whole job is injecting SEEDPASS_SECRET.
+    if (key.startsWith("SEEDPASS_")) continue;
     const value = process.env[key];
     if (value !== undefined) env[key] = value;
   }
-  for (const key of FORBIDDEN_ENV) delete env[key];
   return { ...env, ...extra };
 }
 
