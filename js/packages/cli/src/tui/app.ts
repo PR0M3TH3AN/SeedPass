@@ -24,6 +24,8 @@ import { mainMenu, type Session } from "./menus.js";
 export interface TuiOptions {
   appDir?: string;
   fingerprint?: string;
+  /** Millisecond clock, injectable for tests; defaults to Date.now. */
+  clock?: () => number;
 }
 
 function isInteractive(): boolean {
@@ -97,6 +99,7 @@ export async function runTui(opts: TuiOptions, injectedUi?: Ui): Promise<number>
       vault: await openVault(join(app.profileDir(fingerprint), INDEX_FILENAME), mnemonic),
       config: await loadConfig(app.profileDir(fingerprint), mnemonic),
       relock,
+      clock: opts.clock ?? (() => Date.now()),
     };
   } catch (e) {
     process.stderr.write(`seedpass-js: ${(e as Error).message}\n`);

@@ -79,6 +79,8 @@ export interface Session {
   config: Record<string, unknown>;
   /** Re-prompt for the master password; used by Lock Vault and profile switch. */
   relock: (fingerprint: string) => Promise<string>;
+  /** Milliseconds since epoch. Injectable so inactivity locking is testable. */
+  clock: () => number;
 }
 
 // ---------------------------------------------------------------- utilities
@@ -247,7 +249,18 @@ async function askInt(
 
 // ------------------------------------------------------------- main menu
 
+/**
+ * Inactivity timeout in milliseconds, from config (seconds). 0 disables it.
+ * Parity with Python's inactivity_timeout, which the legacy TUI also checks
+ * at the top of its main loop.
+ */
+function inactivityTimeoutMs(s: Session): number {
+  const raw = Number(s.config["inactivity_timeout"] ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 0;
+}
+
 export async function mainMenu(s: Session): Promise<number> {
+  const timeoutMs = inactivityTimeoutMs(s);
   for (;;) {
     title(s, "Main Menu");
     menu(s.ui, [
@@ -260,7 +273,23 @@ export async function mainMenu(s: Session): Promise<number> {
       { key: "7", label: "Settings" },
       { key: "8", label: "List Archived" },
     ]);
+    const promptedAt = s.clock();
     const choice = await s.ui.ask("Enter your choice (1-8) or press Enter to exit: ");
+    // If the user was away from the main menu longer than the timeout, lock
+    // the vault and require the password again before acting on their input.
+    // The seed is dropped and re-derived; the keystroke that arrived after the
+    // timeout is discarded rather than obeyed on a stale, unlocked screen.
+    if (timeoutMs > 0 && s.clock() - promptedAt > timeoutMs) {
+      warn(s.ui, "Session timed out. Vault locked.");
+      try {
+        const mnemonic = await s.relock(s.fingerprint);
+        s.vault = await openVault(s.vault.path, mnemonic);
+      } catch (e) {
+        fail(s.ui, `Vault remains locked: ${(e as Error).message}`);
+        return 1;
+      }
+      continue;
+    }
     if (!choice) return 0;
     try {
       switch (choice) {

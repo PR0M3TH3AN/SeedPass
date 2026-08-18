@@ -446,3 +446,79 @@ describe("KDF strength setting takes effect", () => {
     expect(seed.kdf.params.iterations).toBe(250000);
   });
 });
+
+import { saveConfig, defaultConfig } from "../src/configFile.js";
+
+/** A UI that advances a fake clock by a scripted number of seconds per prompt. */
+function clockedUi(steps: Array<{ ans: string; advance: number }>): {
+  ui: Ui;
+  now: () => number;
+  prompts: string[];
+  lines: string[];
+} {
+  let clock = 0;
+  let i = 0;
+  const prompts: string[] = [];
+  const lines: string[] = [];
+  const strip = (t: string) => t.replace(/\x1b\[[0-9;]*m/g, ""); // eslint-disable-line no-control-regex
+  const ui: Ui = {
+    say(line = "") {
+      lines.push(strip(line));
+    },
+    clear() {},
+    async ask(p: string) {
+      prompts.push(strip(p));
+      const step = steps[i++] ?? { ans: "", advance: 0 };
+      clock += step.advance * 1000;
+      return step.ans;
+    },
+    async askHidden(p: string) {
+      return this.ask(p);
+    },
+  };
+  return { ui, now: () => clock, prompts, lines };
+}
+
+describe("inactivity timeout locks the vault", () => {
+  async function profileWithTimeout(seconds: number): Promise<{ dir: string; app: AppDir; fp: string; pw: string }> {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-idle-"));
+    const app = new AppDir(dir);
+    const pw = "idle-pw";
+    const fp = await app.createProfile(MNEMONIC, pw, "idle");
+    await saveConfig(app.profileDir(fp), MNEMONIC, { ...defaultConfig(), inactivity_timeout: seconds });
+    return { dir, app, fp, pw };
+  }
+
+  it("locks and re-prompts for the password when the user idles past the timeout", async () => {
+    const { dir, fp, pw } = await profileWithTimeout(5);
+    delete process.env["SEEDPASS_MNEMONIC"]; // force relock to prompt
+
+    const { ui, now, prompts, lines } = clockedUi([
+      { ans: pw, advance: 0 }, // initial unlock prompt at startup
+      { ans: "4", advance: 10 }, // idle 10s at the main menu (> 5s): must lock
+      { ans: pw, advance: 0 }, // password at the re-lock prompt
+      { ans: "", advance: 1 }, // answer promptly this time: exit
+    ]);
+    const code = await runTui({ appDir: dir, fingerprint: fp, clock: now }, ui);
+
+    expect(code).toBe(0);
+    expect(lines.join("\n")).toContain("Session timed out. Vault locked.");
+    // The password was demanded twice: once at startup, once after the timeout.
+    expect(prompts.filter((p) => /Master password/.test(p)).length).toBe(2);
+  });
+
+  it("does not lock when the user answers within the timeout", async () => {
+    const { dir, fp, pw } = await profileWithTimeout(5);
+    delete process.env["SEEDPASS_MNEMONIC"];
+
+    const { ui, now, prompts, lines } = clockedUi([
+      { ans: pw, advance: 0 }, // initial unlock
+      { ans: "", advance: 2 }, // 2s at the main menu (< 5s): no lock, then exit
+    ]);
+    const code = await runTui({ appDir: dir, fingerprint: fp, clock: now }, ui);
+
+    expect(code).toBe(0);
+    expect(lines.join("\n")).not.toContain("Session timed out");
+    expect(prompts.filter((p) => /Master password/.test(p)).length).toBe(1);
+  });
+});
