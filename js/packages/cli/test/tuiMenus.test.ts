@@ -551,3 +551,28 @@ describe("secret-bearing exports get a fresh 0600 file", () => {
     expect(await readFile(dest, "utf8")).toBe("precious");
   });
 });
+
+describe(".seedpass export naming in the TUI", () => {
+  it("appends .seedpass to an extensionless destination", async () => {
+    const dest = join(appDir, "my-backup");
+    const ui = await run("7", "7", dest, "", "", "");
+    expect(ui.text).toContain(`Exported to ${dest}.seedpass`);
+    const wrapper = JSON.parse(await readFile(`${dest}.seedpass`, "utf8"));
+    expect(wrapper.format_version).toBe(1);
+  });
+
+  it("a directory destination gets the generated self-identifying name", async () => {
+    const ui = await run("7", "7", appDir, "", "", "");
+    const match = ui.text.match(/Exported to (.*seedpass-[0-9A-F]{16}-\d{8}\.seedpass)/);
+    expect(match).not.toBeNull();
+    const wrapper = JSON.parse(await readFile(match![1]!, "utf8"));
+    expect(wrapper.format_version).toBe(1);
+  });
+
+  it("an explicit extension is respected as typed", async () => {
+    const dest = join(appDir, "explicit.json");
+    const ui = await run("7", "7", dest, "", "", "");
+    expect(ui.text).toContain(`Exported to ${dest}`);
+    expect(ui.text).not.toContain(`${dest}.seedpass`);
+  });
+});

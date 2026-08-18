@@ -15,7 +15,7 @@
 import process from "node:process";
 import { join, basename } from "node:path";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import {
   addPasswordEntry,
   addTotpDeterministic,
@@ -41,7 +41,7 @@ import {
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
-import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS } from "../appDir.js";
+import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS, BACKUP_EXTENSION, defaultBackupFilename } from "../appDir.js";
 import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type OpenedVault } from "../vaultFile.js";
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
@@ -1405,8 +1405,18 @@ async function backupParentSeed(s: Session): Promise<void> {
 
 async function exportDatabase(s: Session): Promise<void> {
   title(s, "Main Menu > Settings > Export database");
-  const dest = await s.ui.ask("Destination file: ");
-  if (!dest) return;
+  const suggested = defaultBackupFilename(s.fingerprint);
+  const raw = await s.ui.ask(`Destination file or directory (e.g. ${suggested}): `);
+  if (!raw) return;
+  // Interactive convenience, not applied to CLI scripts: a directory gets
+  // the generated name inside it, and a bare name with no extension gets
+  // the .seedpass suffix so backups self-identify on disk.
+  let dest = raw;
+  if (existsSync(dest) && statSync(dest).isDirectory()) {
+    dest = join(dest, suggested);
+  } else if (!basename(dest).includes(".")) {
+    dest = `${dest}${BACKUP_EXTENSION}`;
+  }
   const payload = await exportBackup(s.vault.index as unknown as Record<string, unknown>, {
     mnemonic: s.vault.mnemonic,
     fingerprint: s.fingerprint,

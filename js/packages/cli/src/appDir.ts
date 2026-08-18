@@ -46,6 +46,22 @@ export const INDEX_FILENAME = "seedpass_entries_db.json.enc";
 export const CONFIG_FILENAME = "seedpass_config.json.enc";
 export const PARENT_SEED_FILENAME = "parent_seed.enc";
 
+/** Canonical extension for portable backups. The bytes are unchanged — this
+ * is a naming convention (TODO records an optional future format_version 2
+ * with a magic header; that is a separate, versioned change). */
+export const BACKUP_EXTENSION = ".seedpass";
+
+/**
+ * Default filename for a portable backup: self-identifying on a disk full of
+ * files, sortable by date, and tied to the profile it restores.
+ */
+export function defaultBackupFilename(fingerprint: string, when = new Date()): string {
+  const y = when.getFullYear();
+  const m = String(when.getMonth() + 1).padStart(2, "0");
+  const d = String(when.getDate()).padStart(2, "0");
+  return `seedpass-${fingerprint}-${y}${m}${d}${BACKUP_EXTENSION}`;
+}
+
 export interface FingerprintsFile {
   fingerprints: string[];
   last_used: string | null;

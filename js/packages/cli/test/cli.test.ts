@@ -528,3 +528,31 @@ describe("unknown entry kinds at the CLI surface", () => {
     expect(rows.find((row) => row["kind"] === "bitlogin_org")).toBeDefined();
   });
 });
+
+describe(".seedpass export naming", () => {
+  it("a directory target gets the generated seedpass-<fp>-<date>.seedpass name", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-name-"));
+    const r = await run("--vault", vaultPath, "vault", "export", dir);
+    expect(r.error).toBeUndefined();
+    const dest = String(JSON.parse(r.stdout).exported);
+    expect(dest.startsWith(dir)).toBe(true);
+    expect(dest).toMatch(/seedpass-[0-9A-F]{16}-\d{8}\.seedpass$/);
+    // And the file restores like any other backup: same wrapper shape.
+    const wrapper = JSON.parse(await readFile(dest, "utf8"));
+    expect(wrapper.format_version).toBe(1);
+  });
+
+  it("an explicit file path is used exactly as typed (scripts depend on it)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-name-"));
+    const exact = join(dir, "my-backup.json");
+    const r = await run("--vault", vaultPath, "vault", "export", exact);
+    expect(String(JSON.parse(r.stdout).exported)).toBe(exact);
+  });
+
+  it("an extensionless explicit path is also used exactly as typed", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-name-"));
+    const bare = join(dir, "backup");
+    const r = await run("--vault", vaultPath, "vault", "export", bare);
+    expect(String(JSON.parse(r.stdout).exported)).toBe(bare);
+  });
+});

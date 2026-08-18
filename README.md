@@ -325,7 +325,7 @@ You can then launch SeedPass and create a backup:
 seedpass
 
 # Export your index
-seedpass vault export --file "~/seedpass_backup.json"
+seedpass vault export --file "~/seedpass_backup.seedpass"
 
 # Later you can restore it
 seedpass vault import --file "~/seedpass_backup.json"

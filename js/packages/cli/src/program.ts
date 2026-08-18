@@ -150,7 +150,7 @@ async function readSecretInput(
 function resolveHome(p: string): string {
   return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
 }
-import { AppDir, resolveAppDir, INDEX_FILENAME } from "./appDir.js";
+import { AppDir, resolveAppDir, INDEX_FILENAME, BACKUP_EXTENSION, defaultBackupFilename } from "./appDir.js";
 import { loadConfig, saveConfig, mutateConfig } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
@@ -1478,14 +1478,25 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   vaultCmd
     .command("export <destFile>")
-    .description("write a portable backup (encrypted by default)")
+    .description(
+      "write a portable backup (encrypted by default); give a directory to " +
+        `get a default seedpass-<fingerprint>-<date>${BACKUP_EXTENSION} name`,
+    )
     .option("--plaintext", "HIGH RISK: export without encryption")
     .option("--overwrite", "replace an existing file")
-    .action(async (destFile: string, o: { plaintext?: boolean; overwrite?: boolean }) => {
+    .action(async (rawDest: string, o: { plaintext?: boolean; overwrite?: boolean }) => {
       const vault = await openFromOptions(program.opts());
+      const fingerprint = generateFingerprint(vault.mnemonic);
+      // An explicit file path is used exactly as typed — scripts depend on
+      // that. Only a directory target gets the generated name.
+      const resolved = resolveHome(rawDest);
+      const destFile =
+        existsSync(resolved) && statSync(resolved).isDirectory()
+          ? join(resolved, defaultBackupFilename(fingerprint))
+          : resolved;
       const wrapper = await exportBackup(vault.index as Record<string, unknown>, {
         mnemonic: vault.mnemonic,
-        fingerprint: generateFingerprint(vault.mnemonic),
+        fingerprint,
         encrypt: !o.plaintext,
       });
       if (existsSync(destFile) && !o.overwrite) {

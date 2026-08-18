@@ -293,9 +293,12 @@ before and after each was confirmed. Ordered by severity.
       field tolerance check in both implementations, retention/mirror
       policy, and the same metadata-leakage analysis as relays (a pubkey's
       blob list is public).
-- [ ] **`.seedpass` file extension for exports/backups** — phase 1: default
-      export filenames to `.seedpass`, accept any extension on import (no
-      byte-format change, cross-impl safe). Phase 2 (optional, versioned):
-      portable-backup format_version 2 with a magic header for robust file
-      detection. Plus OS file association + icon (XDG MIME on Linux via
-      install.sh, registry on Windows, UTI if a mac bundle ever exists).
+- [x] **(phase 1 done 2026-08-18)** **`.seedpass` file extension** — CLI
+      `vault export <dir>` and the TUI database export generate
+      `seedpass-<fingerprint>-<date>.seedpass`; extensionless TUI input gets
+      the suffix; explicit paths are used exactly as typed (scripts
+      unaffected); imports never cared about extensions. Zero byte-format
+      change. Remaining (deliberately later): phase 2 format_version 2 with
+      a magic header (versioned, both implementations), and OS file
+      association + icon from `logo/svg/` (XDG MIME via install.sh, registry
+      via install.ps1) — installer work, after #34/#36.

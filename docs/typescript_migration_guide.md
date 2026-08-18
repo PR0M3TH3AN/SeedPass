@@ -28,7 +28,7 @@ Take a backup you can restore without either implementation:
 
 ```bash
 # A portable, encrypted export (readable by both implementations)
-seedpass vault export --file ~/seedpass-pre-migration.json
+seedpass vault export --file ~/seedpass-pre-migration.seedpass
 
 # Plus a copy of the raw profile directory
 cp -a ~/.seedpass ~/.seedpass.backup-$(date +%Y%m%d)
