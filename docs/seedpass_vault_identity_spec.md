@@ -356,6 +356,39 @@ The intended BitLogin-style flow, stated in this spec's terms:
 - Roles, credentials, policies, org structure: the client's own data, stored
   under §8.3 namespacing. Not this spec.
 
+### 11.1 Capsule unlock ("sign in with BitLogin") — informative flow, normative rules
+
+SeedPass's vault key derives from the seed, not the password (§4.1), so any
+alternative sign-in is necessarily a way the **parent seed reaches the
+client** — not an authentication check in front of the login screen. The
+intended mechanism:
+
+- An explicit owner action (requiring the master password, proving current
+  unlock authority) writes a **capsule** beside the profile: the parent seed
+  encrypted (NIP-44-style ECIES) to one or more authorized Nostr pubkeys.
+- Sign-in = prove control of an authorized key via a fresh challenge, then
+  decrypt the capsule **locally**. The capsule slots in as one more seed
+  resolver at the existing boundary (env → agent → capsule → password
+  prompt); the vault crypto, derivations, and formats are untouched.
+- Revocation = delete or rotate the capsule. The password path always
+  remains. Capsule creation, use, and revocation belong in the audit log.
+
+Two rules are **normative** for any implementation of this flow:
+
+1. **Independence.** The unlocking key MUST NOT derive from the vault it
+   unlocks. A key at index #N of this seed cannot be a way into this seed —
+   the circularity makes recovery impossible and the "protection" illusory.
+2. **Rank.** An identity MAY only unlock roots at or below its own trust
+   domain. A *managed* identity's private key lives in its organization's
+   signer, so capsule decryption would hand the signer the seed: a managed
+   identity MUST NOT be able to unlock the root that provisioned it (or any
+   ancestor). Delegated subtree roots — already inside the signer's trust
+   domain — are the intended scope.
+
+And one rule of construction: **a signature is never the unlock.**
+Signatures are cheap, replayable artifacts; the challenge only proves
+freshness. Possession of the decryption capability is the gate.
+
 ## 12. Known conformance gaps (honest ledger)
 
 | Gap | Where | Consequence | Status |

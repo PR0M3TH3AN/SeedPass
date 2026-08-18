@@ -272,3 +272,30 @@ before and after each was confirmed. Ordered by severity.
       (they would have reinterpreted foreign data — verified: the old code
       turns a foreign `blacklisted` string into our `archived` flag, and
       Phase L catches it). 38/38 cross-impl checks.
+
+## Post-BitLogin and backup/UX ideas (logged 2026-08-18)
+
+- [ ] **Capsule unlock ("sign in with BitLogin")** — spec §11.1 added with
+      the flow and the two normative rules (independence: an unlocking key
+      must not derive from the vault it unlocks; rank: a managed identity
+      must never unlock the root that provisioned it). Implementation is
+      post-BitLogin by definition: it slots in as a fourth seed resolver
+      (env → agent → capsule → password) plus a capsule file format, zero
+      core-crypto changes. Scope first release to delegated org subtrees;
+      personal vaults keep password-primary with capsule as opt-in for
+      self-custodial keys.
+- [ ] **Blossom server support for index backups** — store the encrypted
+      snapshot as a single content-addressed blob on N Blossom servers
+      (auth-signed by the existing app-1237 sync identity), with the relay
+      manifest pointing at blob hash + server list. Keeps relay sync as-is
+      (deltas + coordination, works today); Blossom removes the chunking
+      ceiling that big vaults (documents!) hit on relays. Needs: manifest
+      field tolerance check in both implementations, retention/mirror
+      policy, and the same metadata-leakage analysis as relays (a pubkey's
+      blob list is public).
+- [ ] **`.seedpass` file extension for exports/backups** — phase 1: default
+      export filenames to `.seedpass`, accept any extension on import (no
+      byte-format change, cross-impl safe). Phase 2 (optional, versioned):
+      portable-backup format_version 2 with a magic header for robust file
+      detection. Plus OS file association + icon (XDG MIME on Linux via
+      install.sh, registry on Windows, UTI if a mac bundle ever exists).
