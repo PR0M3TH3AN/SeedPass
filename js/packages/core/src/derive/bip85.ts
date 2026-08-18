@@ -102,12 +102,23 @@ export interface DeriveEntropyOptions {
 export class Bip85 {
   private readonly root: HDKey;
 
-  constructor(seed: Uint8Array) {
-    this.root = HDKey.fromMasterSeed(seed);
+  constructor(seed: Uint8Array | HDKey) {
+    this.root = seed instanceof HDKey ? seed : HDKey.fromMasterSeed(seed);
   }
 
   static fromMnemonic(mnemonic: string, passphrase = ""): Bip85 {
     return new Bip85(mnemonicToSeedSync(canonicalizeMnemonic(mnemonic), passphrase));
+  }
+
+  /**
+   * From a BIP-32 extended private key. Exists so the official BIP-85 spec
+   * test vectors — which start from an xprv, not a mnemonic — can be run
+   * directly against this implementation (third-party ground truth, immune
+   * to the failure mode where both of our implementations agree with each
+   * other and are both wrong).
+   */
+  static fromExtendedKey(xprv: string): Bip85 {
+    return new Bip85(HDKey.fromExtendedKey(xprv));
   }
 
   deriveEntropy(opts: DeriveEntropyOptions): Uint8Array {

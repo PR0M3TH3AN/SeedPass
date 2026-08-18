@@ -127,7 +127,22 @@ everything still open, in the order it should be tackled.
 
 ### Blockers before real secrets
 
-- [ ] **Independent security review of the TypeScript branch.** No one but the
+- [ ] **Independent security review of the TypeScript branch.** Review
+      strategy (decided 2026-08-18): two AI families plus vectors, because
+      they fail differently. (1) `/code-review ultra` — **blocked**: PR #989
+      spans main→port including beta's 150 commits (6795 files/720k lines),
+      over ultra's size limit; fallback options are a review-only PR
+      containing just the `js/` tree against main, or a narrower local-diff
+      target. (2) A GPT-family pass (Codex) over the four ranked targets in
+      the PR body, briefed to REFUTE the security claims in file comments,
+      not summarize them. (3) Third-party ground truth where possible: the
+      official BIP-85 spec vectors now run directly against the TS core
+      (test/bip85SpecVectors.test.ts; Python has had them all along), which
+      closes the both-implementations-agree-and-are-both-wrong hole for the
+      root derivation. Triage rule for findings: flagged by both families =
+      almost certainly real; flagged by one = verify against code, arbiter
+      is a reproduction test or the cross-impl suite, never the author's
+      opinion alone. No one but the
       authoring agent has read this code. Two earlier review rounds on this
       project each found criticals that self-review missed, so a green suite and
       an author's sign-off are not evidence of much. Scope it to
