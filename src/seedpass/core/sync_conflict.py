@@ -124,6 +124,26 @@ def _max_tombstone_ts(tombstones: dict[str, dict[str, Any]]) -> int:
     return max_ts
 
 
+def _max_numeric_key(record: Any) -> int:
+    """Highest numeric key, or -1 when none. Key shape matches the TypeScript
+    side exactly (``^(0|[1-9][0-9]*)$`` within JS safe-integer range) so both
+    implementations compute the same allocation watermark from one payload."""
+    best = -1
+    if isinstance(record, dict):
+        for key in record:
+            text = str(key)
+            if not (text.isascii() and text.isdigit()):
+                continue
+            if len(text) > 1 and text[0] == "0":
+                continue
+            value = int(text)
+            if value > 2**53 - 1:
+                continue
+            if value > best:
+                best = value
+    return best
+
+
 def _prefer_entry(current: dict[str, Any], incoming: dict[str, Any]) -> bool:
     """Return True when incoming should replace current deterministically.
 
@@ -311,10 +331,24 @@ def merge_index_payloads(
         _max_entry_ts(cur_entries),
         _max_tombstone_ts(tombstones),
     )
+    # Allocation watermark: never below either side's watermark, nor below one
+    # past any merged entry or tombstone id. Without it, merging a deletion
+    # lets max(live)+1 reissue the deleted id — and an entry id is a permanent
+    # BIP-85 derivation coordinate, so reissuing #184 hands a NEW entry the
+    # departed identity's exact derived secrets. Must stay byte-identical to
+    # the TypeScript computation in sync/merge.ts.
+    next_index_watermark = max(
+        _safe_int(meta.get("next_index", 0), default=0),
+        _safe_int(inc_meta.get("next_index", 0), default=0),
+        _max_numeric_key(cur_entries) + 1,
+        _max_numeric_key(tombstones) + 1,
+        0,
+    )
     meta.update(
         {
             "strategy": "modified_ts_hash_tombstone_v2",
             "last_merge_ts": last_merge_ts,
+            "next_index": next_index_watermark,
             "source_count": len(sources),
             "sources": sources[-32:],
             "tombstones": tombstones,

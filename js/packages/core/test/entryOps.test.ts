@@ -83,3 +83,68 @@ describe("entry creation parity", () => {
     );
   });
 });
+
+import { mergeIndexPayloads, Bip85 } from "@seedpass/core";
+
+describe("index allocation watermark", () => {
+  function freshIndex(): VaultIndex {
+    return { schema_version: 4, entries: {} } as VaultIndex;
+  }
+
+  it("does not recycle an id deleted through a merge", () => {
+    // An entry id is a permanent BIP-85 derivation coordinate: reissuing a
+    // deleted #2 would hand a NEW entry the departed identity's exact child
+    // seed and npub.
+    const index = freshIndex();
+    addPasswordEntry(index, "web-a", 20, { clock });
+    addPasswordEntry(index, "web-b", 20, { clock });
+    const managedId = addManagedAccountEntry(index, "alice", MNEMONIC, { clock });
+    expect(managedId).toBe("2");
+    const departedSeed = Bip85.fromMnemonic(MNEMONIC).deriveMnemonic(2, 12);
+
+    const incoming = {
+      schema_version: 4,
+      entries: {
+        "2": { kind: "managed_account", label: "alice", modified_ts: FIXED_UNIX + 10, _deleted: true },
+      },
+    };
+    const merged = parseVaultIndex(
+      mergeIndexPayloads(index as unknown as Record<string, unknown>, incoming, "remote"),
+    );
+    expect(merged.entries["2"]).toBeUndefined();
+
+    const newId = addManagedAccountEntry(merged, "bob", MNEMONIC, { clock });
+    expect(newId).toBe("3"); // NOT the tombstoned 2
+    const bobSeed = Bip85.fromMnemonic(MNEMONIC).deriveMnemonic(3, 12);
+    expect(bobSeed).not.toBe(departedSeed);
+  });
+
+  it("merge carries the higher watermark even with no entries or tombstones behind it", () => {
+    const current = {
+      schema_version: 4,
+      entries: { "0": { kind: "password", label: "a", modified_ts: 50 } },
+      _sync_meta: { next_index: 500 },
+    };
+    const merged = mergeIndexPayloads(current, { schema_version: 4, entries: {} }, "x");
+    expect((merged["_sync_meta"] as Record<string, unknown>)["next_index"]).toBe(500);
+  });
+
+  it("an explicit high index pushes the watermark past it", () => {
+    const index = freshIndex();
+    addManagedAccountEntry(index, "pinned", MNEMONIC, { clock, index: 40 });
+    const nextId = addPasswordEntry(index, "after", 20, { clock });
+    expect(nextId).toBe("41");
+  });
+
+  it("a legacy vault heals from tombstones still in retention", () => {
+    // Pre-watermark vault: no _sync_meta.next_index, but a tombstone for #7.
+    const legacy = freshIndex();
+    addPasswordEntry(legacy, "a", 20, { clock }); // id 0
+    const container = legacy as unknown as Record<string, unknown>;
+    container["_sync_meta"] = {
+      tombstones: { "7": { deleted_ts: 60, entry_hash: "", event_hash: "" } },
+    };
+    const id = addPasswordEntry(legacy, "fresh", 20, { clock });
+    expect(id).toBe("8"); // past the tombstone, not max(live)+1 = 1
+  });
+});

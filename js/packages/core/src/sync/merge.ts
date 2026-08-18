@@ -142,6 +142,17 @@ function maxEntryTs(entries: Dict): number {
   return max;
 }
 
+/** Highest numeric key in a record, or -1 when none. Non-numeric keys are skipped. */
+function maxNumericKey(record: Dict): number {
+  let max = -1;
+  for (const key of Object.keys(record)) {
+    if (!/^(0|[1-9][0-9]*)$/.test(key)) continue;
+    const id = Number(key);
+    if (Number.isSafeInteger(id) && id > max) max = id;
+  }
+  return max;
+}
+
 function maxTombstoneTs(tombstones: Record<string, Dict>): number {
   let max = 0;
   for (const record of Object.values(tombstones)) {
@@ -411,9 +422,24 @@ export function mergeIndexPayloads(
     maxTombstoneTs(tombstones),
   );
 
+  // Allocation watermark: never below either side's watermark, nor below one
+  // past any merged entry or tombstone id. Without this, merging a deletion
+  // lets max(live)+1 reissue the deleted id — and an entry id is a permanent
+  // BIP-85 derivation coordinate, so reissuing #184 hands a NEW entry the
+  // departed identity's exact derived secrets. Must stay byte-identical to
+  // the Python computation in sync_conflict.py.
+  const nextIndexWatermark = Math.max(
+    safeInt(meta["next_index"] ?? 0, 0),
+    safeInt(incMeta["next_index"] ?? 0, 0),
+    maxNumericKey(curEntries) + 1,
+    maxNumericKey(tombstones) + 1,
+    0,
+  );
+
   Object.assign(meta, {
     strategy: MERGE_STRATEGY,
     last_merge_ts: lastMergeTs,
+    next_index: nextIndexWatermark,
     source_count: sources.length,
     sources: sources.slice(-32),
     tombstones,

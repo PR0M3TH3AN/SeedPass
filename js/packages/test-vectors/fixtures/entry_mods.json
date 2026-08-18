@@ -1,6 +1,9 @@
 {
   "description": "Entries index after a modification sequence (modify_entry, archive/restore, add_link/remove_link) applied by the real EntryManager at MOD_UNIX. TS replays the same ops from the creation state and must match.",
   "entries": {
+    "_sync_meta": {
+      "next_index": 10
+    },
     "entries": {
       "0": {
         "archived": false,

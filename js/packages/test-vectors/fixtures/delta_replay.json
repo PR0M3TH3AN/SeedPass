@@ -50,6 +50,7 @@
   "final_state": {
     "_sync_meta": {
       "last_merge_ts": 1700000020,
+      "next_index": 2,
       "source_count": 2,
       "sources": [
         "815ddfa9958c34a9",

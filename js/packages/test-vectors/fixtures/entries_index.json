@@ -1,6 +1,9 @@
 {
   "description": "Decrypted entries index (one entry of each kind), _system stripped, timestamps pinned to FIXED_UNIX",
   "entries": {
+    "_sync_meta": {
+      "next_index": 10
+    },
     "entries": {
       "0": {
         "archived": false,

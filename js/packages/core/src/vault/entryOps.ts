@@ -62,7 +62,56 @@ export function nextIndex(index: VaultIndex): number {
     }
     ids.push(id);
   }
-  return ids.length > 0 ? Math.max(...ids) + 1 : 0;
+  const liveFloor = ids.length > 0 ? Math.max(...ids) + 1 : 0;
+  // Never allocate below the high-watermark. Scanning live entries alone is
+  // not enough: an entry id doubles as the BIP-85 derivation index for
+  // managed_account (and seed) entries, and sync deletion removes entries via
+  // tombstones — so max(live)+1 could reissue a deleted #184 to a NEW entry
+  // that then re-derives the departed identity's exact child seed and npub.
+  // Tombstone ids are folded in so vaults from before the watermark existed
+  // heal on their next allocation (for tombstones still within retention).
+  return Math.max(liveFloor, storedNextIndex(index), tombstoneFloor(index));
+}
+
+/** The persisted allocation watermark, 0 when absent (pre-watermark vault). */
+function storedNextIndex(index: VaultIndex): number {
+  const meta = (index as unknown as Dict)["_sync_meta"];
+  if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return 0;
+  const raw = Number((meta as Dict)["next_index"]);
+  return Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
+}
+
+/** One past the highest tombstoned id. Non-numeric tombstone keys are historical junk and skipped. */
+function tombstoneFloor(index: VaultIndex): number {
+  const meta = (index as unknown as Dict)["_sync_meta"];
+  if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return 0;
+  const tombstones = (meta as Dict)["tombstones"];
+  if (typeof tombstones !== "object" || tombstones === null || Array.isArray(tombstones)) return 0;
+  let floor = 0;
+  for (const key of Object.keys(tombstones)) {
+    if (!/^(0|[1-9][0-9]*)$/.test(key)) continue;
+    const id = Number(key);
+    if (Number.isSafeInteger(id) && id + 1 > floor) floor = id + 1;
+  }
+  return floor;
+}
+
+/**
+ * Record that `id` has been allocated: the watermark becomes at least id+1
+ * and never decreases. Kept in _sync_meta because both implementations
+ * already round-trip that block (it carries the tombstones), so old builds
+ * preserve it without a schema bump.
+ */
+function bumpNextIndex(index: VaultIndex, id: number): void {
+  const container = index as unknown as Dict;
+  const meta =
+    typeof container["_sync_meta"] === "object" &&
+    container["_sync_meta"] !== null &&
+    !Array.isArray(container["_sync_meta"])
+      ? (container["_sync_meta"] as Dict)
+      : {};
+  meta["next_index"] = Math.max(storedNextIndex(index), id + 1);
+  container["_sync_meta"] = meta;
 }
 
 /** Next TOTP derivation index: max over totp entries' index field + 1. */
@@ -85,6 +134,9 @@ function insert(index: VaultIndex, id: number, entry: Dict): string {
     throw new Error(`refusing to overwrite existing entry ${key}`);
   }
   (index.entries as unknown as Dict)[key] = entry;
+  // Covers explicit-id inserts too: an entry created at #500 pushes the
+  // watermark past 500 even though nextIndex never saw it.
+  bumpNextIndex(index, id);
   return key;
 }
 

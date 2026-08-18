@@ -187,12 +187,68 @@ class EntryManager:
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
+            self._bump_next_index_watermark(data)
             self.vault.save_index(data)
             self._index_cache = data
             logger.debug("Index saved successfully.")
         except Exception as e:
             logger.error(f"Failed to save index: {e}")
             raise
+
+    @staticmethod
+    def _allocation_floor(data: Dict[str, Any]) -> int:
+        """One past the highest id ever seen: live entries, tombstones, and the
+        persisted watermark. Scanning live entries alone is not enough — an
+        entry id doubles as the BIP-85 derivation index for managed_account
+        (and seed) entries, and sync deletion removes entries via tombstones,
+        so ``max(live) + 1`` could reissue a deleted #184 to a NEW entry that
+        then re-derives the departed identity's exact child seed and npub.
+        Mirrors nextIndex in the TypeScript core (vault/entryOps.ts)."""
+
+        def _max_numeric_key(record: Any) -> int:
+            # Same key shape the TS side accepts (`^(0|[1-9][0-9]*)$`, within
+            # JS safe-integer range): ASCII digits only — str.isdigit() would
+            # accept Unicode digits that Number() rejects — no leading zeros,
+            # and nothing above 2**53 - 1, so both implementations compute the
+            # same floor from the same payload.
+            best = -1
+            if isinstance(record, dict):
+                for key in record:
+                    text = str(key)
+                    if not (text.isascii() and text.isdigit()):
+                        continue
+                    if len(text) > 1 and text[0] == "0":
+                        continue
+                    value = int(text)
+                    if value > 2**53 - 1:
+                        continue
+                    if value > best:
+                        best = value
+            return best
+
+        entries = data.get("entries")
+        meta = data.get("_sync_meta")
+        meta = meta if isinstance(meta, dict) else {}
+        try:
+            stored = int(meta.get("next_index", 0) or 0)
+        except (TypeError, ValueError):
+            stored = 0
+        return max(
+            _max_numeric_key(entries) + 1,
+            _max_numeric_key(meta.get("tombstones")) + 1,
+            stored if stored > 0 else 0,
+            0,
+        )
+
+    def _bump_next_index_watermark(self, data: Dict[str, Any]) -> None:
+        """Persist the allocation watermark so it survives deletion. Kept in
+        ``_sync_meta`` because both implementations already round-trip that
+        block (it carries the tombstones), so no schema bump is needed."""
+        meta = data.get("_sync_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+            data["_sync_meta"] = meta
+        meta["next_index"] = self._allocation_floor(data)
 
     def _entry_kind(self, entry: dict[str, Any]) -> str:
         return str(
@@ -239,11 +295,9 @@ class EntryManager:
         """
         try:
             data = self._load_index()
-            if "entries" in data and isinstance(data["entries"], dict):
-                indices = [int(idx) for idx in data["entries"].keys()]
-                next_index = max(indices) + 1 if indices else 0
-            else:
-                next_index = 0
+            # Watermark-aware: never reuse an id that any past entry held,
+            # even one deleted through sync (see _allocation_floor).
+            next_index = self._allocation_floor(data)
             logger.debug(f"Next index determined: {next_index}")
             return next_index
         except Exception as e:

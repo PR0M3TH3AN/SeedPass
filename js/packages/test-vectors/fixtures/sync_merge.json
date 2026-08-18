@@ -34,6 +34,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000010,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-newer"
@@ -114,6 +115,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000010,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-older"
@@ -202,6 +204,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000000,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-equal"
@@ -300,6 +303,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000005,
+          "next_index": 2,
           "source_count": 1,
           "sources": [
             "tag-delete"
@@ -386,6 +390,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000020,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-revive"
@@ -465,6 +470,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000020,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-stale"
@@ -539,6 +545,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000009,
+          "next_index": 1,
           "source_count": 1,
           "sources": [
             "tag-tt"
@@ -601,6 +608,7 @@
       "merged": {
         "_sync_meta": {
           "last_merge_ts": 1700000000,
+          "next_index": 4,
           "source_count": 1,
           "sources": [
             "tag-adopt"

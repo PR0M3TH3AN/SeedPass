@@ -473,3 +473,52 @@ def test_merge_last_merge_ts_order_independent():
         merge_index_payloads(base, b, source_tag="b"), a, source_tag="a"
     )
     assert ab["_sync_meta"]["last_merge_ts"] == ba["_sync_meta"]["last_merge_ts"] == 100
+
+
+def test_merged_deletion_does_not_recycle_entry_index():
+    """An entry id is a permanent BIP-85 derivation coordinate: after a
+    deletion arrives via merge, allocation must NOT reuse the tombstoned id,
+    or a new entry would re-derive the departed identity's exact secrets."""
+    with TemporaryDirectory() as tmpdir:
+        vault, enc_mgr = create_vault(Path(tmpdir))
+        cfg_mgr = ConfigManager(vault, Path(tmpdir))
+        backup_mgr = BackupManager(Path(tmpdir), cfg_mgr)
+        entry_mgr = EntryManager(vault, backup_mgr)
+
+        entry_mgr.add_entry("web-a", 12)  # id 0
+        entry_mgr.add_entry("web-b", 12)  # id 1
+        entry_mgr.add_entry("web-c", 12)  # id 2
+
+        # A remote device deleted entry 2.
+        incoming = {
+            "schema_version": 4,
+            "entries": {
+                "2": {"kind": "password", "label": "web-c", "modified_ts": 10**10, "_deleted": True},
+            },
+        }
+        merged = merge_index_payloads(
+            vault.load_index(), incoming, source_tag="remote"
+        )
+        assert "2" not in merged["entries"]
+        assert merged["_sync_meta"]["next_index"] == 3
+        vault.save_index(merged)
+
+        # Fresh manager (no cache): the deleted id must not come back.
+        entry_mgr2 = EntryManager(vault, backup_mgr)
+        assert entry_mgr2.get_next_index() == 3
+        new_id = entry_mgr2.add_entry("web-d", 12)
+        assert int(new_id) == 3
+
+
+def test_watermark_survives_merge_even_after_tombstones_would_age_out():
+    """The watermark, not tombstone retention, is what carries the guarantee:
+    a vault whose meta says next_index=500 keeps allocating past 500 even when
+    no entry or tombstone that high survives."""
+    current = {
+        "schema_version": 4,
+        "entries": {"0": {"kind": "password", "label": "a", "modified_ts": 50}},
+        "_sync_meta": {"next_index": 500},
+    }
+    incoming = {"schema_version": 4, "entries": {}}
+    merged = merge_index_payloads(current, incoming, source_tag="x")
+    assert merged["_sync_meta"]["next_index"] == 500
