@@ -52,6 +52,22 @@ export const TIMESTAMP_SKEW_SECONDS = 120;
 export const MAX_LINE_BYTES = 512 * 1024;
 export const MAX_CONNECTIONS = 64;
 
+/**
+ * A positive integer taken from a wire message, or null if the value is not
+ * one. The CLI validates these too, but the daemon cannot rely on that: it
+ * treats every caller as untrusted (see the module header), and the next
+ * thing to speak this protocol will be a browser extension.
+ *
+ * Coercions that must be rejected here rather than stored: a non-numeric ttl
+ * makes `expiresAt` NaN, and `NaN <= now` is always false — the seed would
+ * then never expire. The same NaN in a token's `expires_at` makes a token
+ * that never expires.
+ */
+function positiveIntField(value: unknown, fallback: number): number | null {
+  const n = value === undefined || value === null ? fallback : Number(value);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
 export type TokenScope = "read" | "use" | "reveal";
 
 export interface TokenRecord {
@@ -460,20 +476,35 @@ export class AgentDaemon {
         // profile must currently be unlocked in this agent.
         const fingerprint = String(msg["fingerprint"] ?? "");
         if (!this.held.has(fingerprint)) return { ok: false, error: "profile not unlocked" };
-        const scopes = (msg["scopes"] as TokenScope[] | undefined) ?? ["read"];
-        const bad = scopes.filter((s) => !["read", "use", "reveal"].includes(s));
+        const scopes = msg["scopes"] ?? ["read"];
+        // Shape-check before .filter/.includes run against them: a bare string
+        // scope would throw a raw TypeError back to the caller, and a string
+        // `kinds` turns the exact kind match in tokenMaySee into a substring
+        // match (String.includes, not Array.includes).
+        if (!Array.isArray(scopes)) return { ok: false, error: "scopes must be an array" };
+        const bad = (scopes as unknown[]).filter(
+          (s) => !["read", "use", "reveal"].includes(s as string),
+        );
         if (bad.length) return { ok: false, error: `unknown scopes: ${bad.join(",")}` };
+        const kinds = msg["kinds"];
+        if (kinds !== undefined && kinds !== null && !Array.isArray(kinds)) {
+          return { ok: false, error: "kinds must be an array" };
+        }
+        const ttl = positiveIntField(msg["ttl"], 300);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        const uses = positiveIntField(msg["uses"], 1);
+        if (uses === null) return { ok: false, error: "uses must be a positive integer" };
         const secret = randomBytes(24).toString("base64url");
         const record: TokenRecord = {
           id: `tok-${randomBytes(6).toString("hex")}`,
           name: String(msg["name"] ?? "agent"),
           fingerprint,
           secret_hash: sha256Hex(utf8(secret)),
-          scopes,
-          kinds: (msg["kinds"] as string[] | undefined) ?? null,
+          scopes: scopes as TokenScope[],
+          kinds: (kinds as string[] | undefined) ?? null,
           label_regex: String(msg["label_regex"] ?? ".*"),
-          expires_at: Math.floor(Date.now() / 1000 + Number(msg["ttl"] ?? 300)),
-          uses_remaining: Number(msg["uses"] ?? 1),
+          expires_at: Math.floor(Date.now() / 1000 + ttl),
+          uses_remaining: uses,
           revoked: false,
           ...(Array.isArray(msg["exec_allowlist"]) && (msg["exec_allowlist"] as string[]).length
             ? { exec_allowlist: msg["exec_allowlist"] as string[] }
@@ -605,10 +636,21 @@ export class AgentDaemon {
         const fingerprint = String(msg["fingerprint"] ?? "");
         const mnemonic = String(msg["mnemonic"] ?? "");
         if (!fingerprint || !mnemonic) return { ok: false, error: "missing fields" };
-        const ttl = Number(msg["ttl"] ?? this.defaultTtl);
+        const ttl = positiveIntField(msg["ttl"], this.defaultTtl);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
         const expiresAt = Math.floor(Date.now() / 1000 + ttl);
+        // The audit key is derived from the held seed, so the seed must go in
+        // before the record is written — but an audit failure must then undo
+        // it. Otherwise a `put` that reports ok:false can leave the seed
+        // resident and unexpiring, with nothing on record that it was ever
+        // unlocked. `ok:false` has to mean the vault is genuinely still locked.
         this.held.set(fingerprint, { mnemonic, expiresAt });
-        await this.auditLog(fingerprint, "vault_unlocked", { ttl });
+        try {
+          await this.auditLog(fingerprint, "vault_unlocked", { ttl });
+        } catch (e) {
+          this.forget(fingerprint);
+          throw e;
+        }
         return { ok: true, expires_at: expiresAt };
       }
       case "owner-mnemonic": {

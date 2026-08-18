@@ -385,3 +385,79 @@ describe("locking clears derived state", () => {
     expect(String(after["error"])).toContain("unknown token");
   });
 });
+
+describe("malformed daemon input cannot corrupt held state", () => {
+  // Reproduces the 2026-08-17 self-review findings, spoken to the socket
+  // directly. The CLI would reject these, which is exactly why the daemon
+  // must too: it treats every caller as untrusted.
+  const SCRATCH_FP = "BBBBBBBBBBBBBBBB";
+  let cap: string;
+  beforeAll(async () => {
+    cap = (await readFile(daemon.capabilityPath, "utf8")).trim();
+  });
+
+  it("a put with a non-numeric ttl is refused, and holds nothing", async () => {
+    const put = await rawRequest({
+      op: "put", cap, fingerprint: SCRATCH_FP, mnemonic: MNEMONIC, ttl: "abc",
+    });
+    expect(put["ok"]).toBe(false);
+    expect(String(put["error"])).toContain("ttl");
+    // A reported failure must be a real one: NaN once left the seed resident
+    // and unexpiring with no audit record. The seed must not be held at all.
+    const owner = await rawRequest({ op: "owner-mnemonic", cap, fingerprint: SCRATCH_FP });
+    expect(owner["ok"]).toBe(false);
+    expect(JSON.stringify(owner)).not.toContain("abandon");
+  });
+
+  it("token-issue refuses a bare-string scope and a non-numeric ttl without crashing", async () => {
+    const strScope = await rawRequest({
+      op: "token-issue", cap, fingerprint: FINGERPRINT, scopes: "reveal", ttl: 600, uses: 1,
+    });
+    expect(strScope["ok"]).toBe(false);
+    expect(strScope["token"]).toBeUndefined();
+
+    const badTtl = await rawRequest({
+      op: "token-issue", cap, fingerprint: FINGERPRINT, scopes: ["read"], ttl: "soon", uses: 1,
+    });
+    expect(badTtl["ok"]).toBe(false);
+    expect(String(badTtl["error"])).toContain("ttl");
+
+    // The daemon is still answering — a raw TypeError must not have escaped.
+    expect((await rawRequest({ op: "ping" }))["pong"]).toBe(true);
+  });
+});
+
+describe("a use-scoped token cannot crash the agent", () => {
+  it("a stdin sink to a command that exits before reading does not kill the daemon", async () => {
+    // A large secret so the payload cannot fit the pipe buffer: the child
+    // exits before draining it, which raised an unhandled EPIPE and took the
+    // whole agent process down.
+    const bigValue = "y".repeat(200_000);
+    const added = JSON.parse(
+      (await run(
+        { SEEDPASS_MNEMONIC: MNEMONIC },
+        "entry", "add", "key-value", "bulk", "k", bigValue,
+      )).stdout,
+    );
+    const id = String(added.id);
+
+    // A fresh token, not the shared one: earlier tests may have spent its uses.
+    const useToken = JSON.parse(
+      (await run(
+        {}, "agent", "token-issue", "--scope", "read", "use", "--uses", "5", "--ttl", "600",
+      )).stdout,
+    ).token;
+
+    const r = await rawRequest({
+      op: "use-sink", fingerprint: FINGERPRINT, id, token: useToken,
+      sink: "stdin", command: ["/bin/true"],
+    });
+    expect(r["ok"]).toBe(true);
+
+    // The load-bearing assertions: the agent is still alive and still holding
+    // the seed after a delivery that used to crash it.
+    expect((await rawRequest({ op: "ping" }))["pong"]).toBe(true);
+    const status = JSON.parse((await run({}, "agent", "status")).stdout);
+    expect(status.map((p: { fingerprint: string }) => p.fingerprint)).toContain(FINGERPRINT);
+  });
+});

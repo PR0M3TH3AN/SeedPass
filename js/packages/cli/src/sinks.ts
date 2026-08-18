@@ -139,10 +139,21 @@ export async function stdinSink(
       stdio: ["pipe", "inherit", "inherit"],
       env: sinkEnv(),
     });
-    child.on("error", reject);
-    child.stdin.write(secret);
-    child.stdin.end();
+    let spawnFailed = false;
+    child.on("error", (e) => {
+      spawnFailed = true;
+      reject(e);
+    });
+    // A command that exits before reading stdin makes this write fail with
+    // EPIPE. With no listener that becomes an *unhandled* error event, which
+    // crashes the whole process — and the session agent runs sinks in-process,
+    // so a use-scoped token holder could take the agent down (dropping every
+    // held seed) just by naming a command that exits early. Swallow the stdin
+    // error: the child's exit code, delivered on `close`, is the real result.
+    child.stdin.on("error", () => {});
+    child.stdin.end(secret);
     child.on("close", (code) => {
+      if (spawnFailed) return;
       resolve({ sink: "stdin", detail: `piped to ${command}`, exitCode: code ?? -1 });
     });
   });

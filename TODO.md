@@ -143,8 +143,8 @@ everything still open, in the order it should be tackled.
 Found by reading and probing, not by the suite — all 128 CLI tests passed
 before and after each was confirmed. Ordered by severity.
 
-- [ ] **The agent can be left holding a parent seed forever, after reporting
-      failure.** `AgentDaemon.handle`'s `put` writes to `this.held` *before*
+- [x] **(fixed 2026-08-17)** **The agent can be left holding a parent seed
+      forever, after reporting failure.** `AgentDaemon.handle`'s `put` writes to `this.held` *before*
       awaiting the audit append. A non-numeric `ttl` makes `expiresAt` NaN; the
       audit write then throws on the non-finite number, so the caller is told
       the unlock failed — but the seed is resident, `expire()`'s
@@ -157,8 +157,8 @@ before and after each was confirmed. Ordered by severity.
       which is exactly why the daemon must not rely on it — `agent.ts:1-22`
       states the CLI is untrusted, and the browser extension will be the next
       thing speaking this protocol.
-- [ ] **A `use`-scoped token holder can kill the agent and drop every held
-      seed.** `stdinSink` writes to `child.stdin` with no `error` listener, so a
+- [x] **(fixed 2026-08-17)** **A `use`-scoped token holder can kill the agent
+      and drop every held seed.** `stdinSink` writes to `child.stdin` with no `error` listener, so a
       command that exits before draining stdin raises an unhandled EPIPE.
       Confirmed as an uncaught exception inside the agent process via a
       `use-sink` request naming `/bin/true`; `main.ts` installs no
@@ -201,7 +201,7 @@ before and after each was confirmed. Ordered by severity.
       alter one can remove the other. The doc comment claims the head "pins the
       expected length" against exactly this attack. Either require the head once
       the log exists, or keep it somewhere the log's writer cannot reach.
-- [ ] **Unvalidated token constraint shapes.** `token-issue` casts `kinds` and
+- [x] **(fixed 2026-08-17)** **Unvalidated token constraint shapes.** `token-issue` casts `kinds` and
       `scopes` without checking they are arrays. `kinds: "totp"` makes
       `Array.includes` become `String.includes`, turning an exact kind match into
       a substring match — inert today only because no SeedPass kind is a
