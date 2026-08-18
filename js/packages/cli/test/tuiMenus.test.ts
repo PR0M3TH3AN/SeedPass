@@ -522,3 +522,32 @@ describe("inactivity timeout locks the vault", () => {
     expect(prompts.filter((p) => /Master password/.test(p)).length).toBe(1);
   });
 });
+
+import { stat, chmod } from "node:fs/promises";
+
+describe("secret-bearing exports get a fresh 0600 file", () => {
+  it("re-creates a pre-existing world-readable file as 0600 on 2FA export", async () => {
+    const dest = join(appDir, "totp-export.json");
+    // An attacker (or just history) left a 0644 file at the destination.
+    // writeFile(mode) would keep 0644 — every TOTP secret world-readable.
+    await writeFile(dest, "old contents");
+    await chmod(dest, 0o644);
+
+    const ui = await run("7", "9", dest, "y", "", "", "");
+    expect(ui.text).toContain("Exported 1 2FA entries");
+
+    const mode = (await stat(dest)).mode & 0o777;
+    expect(mode).toBe(0o600);
+    const body = JSON.parse(await readFile(dest, "utf8"));
+    expect(body.entries[0].label).toBe("email-2fa");
+  });
+
+  it("declining the overwrite leaves the existing file untouched", async () => {
+    const dest = join(appDir, "keep-me.json");
+    await writeFile(dest, "precious");
+
+    const ui = await run("7", "9", dest, "n", "", "", "");
+    expect(ui.text).toContain("Nothing was written");
+    expect(await readFile(dest, "utf8")).toBe("precious");
+  });
+});

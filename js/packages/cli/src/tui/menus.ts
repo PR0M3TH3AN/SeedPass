@@ -14,7 +14,8 @@
 
 import process from "node:process";
 import { join, basename } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import {
   addPasswordEntry,
   addTotpDeterministic,
@@ -36,11 +37,12 @@ import {
   exportBackup,
   importBackup,
   totpCodeAt,
+  utf8,
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
 import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS } from "../appDir.js";
-import { openVault, saveVaultHoldingLock, withVaultLock, type OpenedVault } from "../vaultFile.js";
+import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type OpenedVault } from "../vaultFile.js";
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
 import { clipboardSink } from "../sinks.js";
@@ -161,6 +163,23 @@ function clipboardClearSeconds(s: Session): number {
 /** Copy a secret to the clipboard, honouring the configured auto-clear delay. */
 async function copyToClipboard(s: Session, value: string): Promise<{ detail: string }> {
   return clipboardSink(value, { clearAfterSeconds: clipboardClearSeconds(s) });
+}
+
+/**
+ * Write plaintext-secret output to a file the way the CLI does: an explicit
+ * choice before overwriting, then a fresh 0600 inode renamed into place
+ * (atomicWrite). A plain writeFile(mode) applies the mode only at creation,
+ * so exporting over an existing 0644 file kept it world-readable — for the
+ * 2FA export, that is every TOTP secret in the vault — and a pre-planted
+ * symlink could redirect the plaintext somewhere else entirely.
+ */
+async function writeSecretFile(s: Session, dest: string, content: string): Promise<boolean> {
+  if (existsSync(dest) && !(await confirm(s.ui, `${dest} exists. Overwrite it?`))) {
+    warn(s.ui, "Nothing was written.");
+    return false;
+  }
+  await atomicWrite(dest, utf8(content));
+  return true;
 }
 
 /**
@@ -857,8 +876,9 @@ async function exportDocument(s: Session, id: string, entry: Entry): Promise<voi
   if (!out) return;
   const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
   try {
-    await writeFile(out, secret.value, { encoding: "utf8", mode: 0o600 });
-    ok(s.ui, `Document exported to: ${out}`);
+    if (await writeSecretFile(s, out, secret.value)) {
+      ok(s.ui, `Document exported to: ${out}`);
+    }
   } catch (e) {
     fail(s.ui, `Export failed: ${(e as Error).message}`);
   }
@@ -1391,7 +1411,10 @@ async function exportDatabase(s: Session): Promise<void> {
     mnemonic: s.vault.mnemonic,
     fingerprint: s.fingerprint,
   });
-  await writeFile(dest, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
+  if (!(await writeSecretFile(s, dest, JSON.stringify(payload, null, 2)))) {
+    await pause(s.ui);
+    return;
+  }
   ok(s.ui, `Exported to ${dest}`);
   await pause(s.ui);
 }
@@ -1436,11 +1459,11 @@ async function exportTotpCodes(s: Session): Promise<void> {
     label: String((entry as unknown as Record<string, unknown>)["label"] ?? ""),
     uri: totpUri(entry, s.vault.mnemonic),
   }));
-  // 0600: this file is every 2FA secret in the vault, in plaintext.
-  await writeFile(dest, JSON.stringify({ entries: uris }, null, 2), {
-    encoding: "utf8",
-    mode: 0o600,
-  });
+  // This file is every 2FA secret in the vault, in plaintext.
+  if (!(await writeSecretFile(s, dest, JSON.stringify({ entries: uris }, null, 2)))) {
+    await pause(s.ui);
+    return;
+  }
   ok(s.ui, `Exported ${uris.length} 2FA entries to ${dest}`);
   warn(s.ui, "That file contains the secrets themselves. Move it somewhere safe or delete it.");
   await pause(s.ui);
