@@ -1578,8 +1578,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       }
 
       const targetMnemonic = mnemonic ?? (await resolveMnemonic(app, opts));
-      const fp = await currentFingerprint(app, opts);
-      const vaultPath = opts.vault ?? join(app.profileDir(fp), INDEX_FILENAME);
+      // Resolve the profile only when the target actually depends on it: an
+      // explicit --vault path needs no profile, and demanding one anyway made
+      // `vault import --vault x` fail on machines with no ~/.seedpass — an
+      // environment coupling that local runs masked for months because this
+      // machine has one. (The CI-only parity failure was exactly this.)
+      const vaultPath =
+        opts.vault ?? join(app.profileDir(await currentFingerprint(app, opts)), INDEX_FILENAME);
       if (existsSync(vaultPath) && !o.yes) {
         const current = await openVault(vaultPath, targetMnemonic);
         if (Object.keys(current.index.entries).length > 0) {

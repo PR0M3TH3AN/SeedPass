@@ -50,6 +50,12 @@ async function run(...argv: string[]): Promise<RunResult> {
 
 beforeAll(async () => {
   process.env["SEEDPASS_MNEMONIC"] = MNEMONIC;
+  // Hermetic app dir: without this, any code path that touches the DEFAULT
+  // profile directory silently depends on the developer's real ~/.seedpass —
+  // which is exactly how a "vault import --vault x needs a default profile"
+  // bug passed locally for months while failing in CI, where no ~/.seedpass
+  // exists. Tests must fail the way CI fails.
+  process.env["SEEDPASS_APP_DIR"] = await mkdtemp(join(tmpdir(), "seedpass-cli-appdir-"));
   const dir = await mkdtemp(join(tmpdir(), "seedpass-cli-"));
   vaultPath = join(dir, "vault.enc");
   const key = deriveIndexKeyBytes(MNEMONIC);
