@@ -185,7 +185,7 @@ before and after each was confirmed. Ordered by severity.
 - [x] **(fixed 2026-08-17)** **`inactivity_timeout` is inert.** Stored, displayed, settable as Settings
       item 12, enforced nowhere. Python's TUI locks the vault after it lapses;
       the TypeScript TUI leaves an unattended terminal unlocked indefinitely.
-- [ ] **TUI file exports do not get the 0600 they claim.** `menus.ts` writes
+- [x] **(fixed 2026-08-17)** **TUI file exports do not get the 0600 they claim.** `menus.ts` writes
       document exports, database exports and the 2FA export with
       `writeFile(..., {mode: 0o600})`. `mode` applies only at creation, so
       writing over an existing 0644 file leaves it 0644 — verified. The 2FA
@@ -194,7 +194,7 @@ before and after each was confirmed. Ordered by severity.
       (fresh inode + rename, symlink-safe) and explains why; the TUI regressed
       it. The TUI exports also silently overwrite, where the CLI requires
       `--overwrite`.
-- [ ] **Audit-log truncation detection is defeated by deleting one more file.**
+- [x] **(fixed 2026-08-17)** **Audit-log truncation detection is defeated by deleting one more file.**
       `AuditLog.verify` skips the count check entirely when `audit.log.head` is
       absent, so removing the head and truncating the log verifies clean. The
       head sits beside the log with the same permissions, so anyone who can
@@ -207,12 +207,12 @@ before and after each was confirmed. Ordered by severity.
       a substring match — inert today only because no SeedPass kind is a
       substring of another. `scopes: "reveal"` throws a raw TypeError back to
       the caller. Owner-gated, so this is hardening, not a live hole.
-- [ ] **Dead code that reads as a control.** `authorize()`'s `if (entry)` branch
+- [x] **(fixed 2026-08-17)** **Dead code that reads as a control.** `authorize()`'s `if (entry)` branch
       is never reached (both call sites omit the argument; the real check is
       `tokenMaySee`), and `sinkEnv`'s `FORBIDDEN_ENV` delete loop runs against an
       allowlist that never contains those keys. Both look like defenses on
       inspection. Remove them or make them load-bearing.
-- [ ] **A denied entry lookup still burns a token use.** `resolveForToken`
+- [x] **(resolved 2026-08-17: confirmed deliberate, documented in authorize())** **A denied entry lookup still burns a token use.** `resolveForToken`
       consumes a use at pre-auth, before the entry is known, so probing for
       non-existent ids exhausts a token. That ordering is deliberate
       anti-enumeration; confirm it is the trade wanted and write it down.
