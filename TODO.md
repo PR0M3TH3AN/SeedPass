@@ -242,3 +242,26 @@ before and after each was confirmed. Ordered by severity.
       subset is entry CRUD, search, lock/unlock and config. Options: leave it
       Python-only, port the subset, or drop it. Decide before the extension
       lands, since the extension needs *some* transport.
+
+## Shared vault/identity spec (BitLogin groundwork)
+
+- [x] **(done 2026-08-18)** Entry-id allocation watermark — ids are never
+      reused after deletion; `_sync_meta.next_index`, merged as max, in both
+      implementations with cross-impl parity. The precondition for "account
+      #N" as a recovery coordinate.
+- [x] **(done 2026-08-18)** `docs/seedpass_vault_identity_spec.md` — v1 draft
+      extracted from working code: canonicalization, containers, derivation
+      table, the two index namespaces, allocation rule, interop rules
+      (preservation, namespacing, no-translation-table, round-trip
+      conformance), capability profiles, sync/backup, and an honest gap
+      ledger.
+- [ ] **Unknown-kind passthrough (spec §8.2/§12).** TS `entryUnionSchema`
+      fails the whole index parse on an unrecognized entry kind — fail-closed
+      where the spec prefers carry-through-untouched. Add an opaque-record
+      branch (preserve verbatim, exclude from typed operations) so a future
+      client (e.g. BitLogin) can add namespaced kinds without stranding
+      vaults on older SeedPass builds. Python is naturally tolerant; add a
+      test pinning that.
+- [ ] **Round-trip conformance check as CI (spec §8.6).** A phase in
+      cross_impl_check.py: vault with unknown fields + unknown kinds survives
+      A→B→A open/save unchanged. Cheap once the passthrough lands.
