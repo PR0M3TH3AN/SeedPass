@@ -120,6 +120,18 @@ class EntryManager:
 
     def _normalize_entry_defaults(self, entry: dict[str, Any]) -> dict[str, Any]:
         """Normalize legacy fields and fill default graph/meta fields."""
+        # Foreign records (spec section 8.2): a kind this build does not
+        # understand belongs to another application sharing the vault. Do not
+        # alias, backfill, or reinterpret it -- the legacy renames below
+        # (website->label, blacklisted->archived, words->word_count) are
+        # migrations for OUR old shapes, and applying them to someone else's
+        # record mangles their data. Carry it through untouched, exactly as
+        # the TypeScript side does, so both implementations produce identical
+        # canonical bytes for the same foreign record. Entries with neither
+        # kind nor type are pre-kind legacy Python data and still normalize.
+        foreign_kind = entry.get("kind", entry.get("type"))
+        if foreign_kind is not None and foreign_kind not in ALL_ENTRY_TYPES:
+            return entry
         if "type" not in entry and "kind" in entry:
             entry["type"] = entry["kind"]
         if "kind" not in entry:

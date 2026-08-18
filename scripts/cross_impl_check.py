@@ -985,6 +985,84 @@ def phase_k(tmp: Path) -> None:
     )
 
 
+def phase_l(tmp: Path) -> None:
+    print("\nPhase L: foreign data round-trip — unknown kinds/fields survive A->B->A")
+    # Spec section 8.6: for a vault holding records neither side fully
+    # understands (a future BitLogin kind, unknown fields, an unknown
+    # top-level index key), an interleaved Python -> TS -> Python
+    # read-modify-write cycle must preserve every foreign byte. The trap
+    # fields (blacklisted/website/words) are names Python's legacy
+    # migrations act on for ITS shapes; touching them on a foreign record
+    # would be reinterpretation, which the spec forbids.
+    app_dir = tmp / "l"
+    app_dir.mkdir()
+    fp = py_create_profile(app_dir, SEED_A, PASSWORD)
+    env = {"SEEDPASS_MNEMONIC": SEED_A}
+
+    foreign_entry = {
+        "kind": "bitlogin_org",
+        "type": "bitlogin_org",
+        "label": "Acme Corporation",
+        "modified_ts": 1700000123,
+        "blacklisted": "foreign meaning, not our archive flag",
+        "website": "foreign meaning, not our label alias",
+        "words": ["foreign", "list"],
+        "bitlogin": {"admins": ["npub1aaaa"], "roles": {"sales": ["npub1bbbb"]}, "policy_rev": 7},
+    }
+    foreign_top_level = {"spec": "bitlogin-v1", "org_count": 1}
+
+    # Python plants the foreign data at a fresh id beside the native entries.
+    vault, em, _cfg = _py_vault(app_dir, fp, SEED_A)
+    data = vault.load_index()
+    pre_count = len(data["entries"])
+    foreign_id = str(max((int(k) for k in data["entries"]), default=-1) + 1)
+    data["entries"][foreign_id] = dict(foreign_entry)
+    data["bitlogin_meta"] = dict(foreign_top_level)
+    vault.save_index(data)
+
+    # Python read-modify-write on a neighbour.
+    em2 = _py_vault(app_dir, fp, SEED_A)[1]
+    em2.add_entry("native-python", 16)
+
+    # TS read-modify-write: create and edit, both of which re-validate and
+    # re-encrypt the whole index.
+    run_cli(app_dir, "entry", "add", "key-value", "native-ts", "k", "v", env_extra=env)
+    run_cli(app_dir, "entry", "modify", "0", "--notes", "touched", env_extra=env)
+
+    # Python reopens: every foreign byte must be exactly as planted.
+    _seed, final = py_open_profile(app_dir, fp, PASSWORD)
+    check(
+        "foreign entry survives Python->TS->Python byte-for-byte",
+        final["entries"].get(foreign_id) == foreign_entry,
+        json.dumps(final["entries"].get(foreign_id), sort_keys=True)[:200],
+    )
+    check(
+        "foreign top-level index key survives",
+        final.get("bitlogin_meta") == foreign_top_level,
+        json.dumps(final.get("bitlogin_meta"), sort_keys=True),
+    )
+    labels = {e.get("label") for e in final["entries"].values()}
+    check(
+        "native entries from both sides coexist with the foreign record",
+        {"native-python", "native-ts"} <= labels,
+        str(sorted(str(l) for l in labels)),
+    )
+    check(
+        "allocation skipped past the foreign id (no collisions, no reuse)",
+        len(final["entries"]) == pre_count + 3
+        and max(int(k) for k in final["entries"]) == int(foreign_id) + 2,
+        str(sorted(final["entries"].keys(), key=int)),
+    )
+    # And the foreign record is invisible to secret materialization rather
+    # than guessed at: TS reveal must refuse it.
+    try:
+        run_cli(app_dir, "entry", "reveal", f"sp://entry/{foreign_id}", env_extra=env)
+        refused = False
+    except Exception:
+        refused = True
+    check("TS refuses to reveal the foreign record", refused)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-relay", action="store_true")
@@ -1008,6 +1086,7 @@ def main() -> int:
         phase_i(tmp)
         phase_j(tmp)
         phase_k(tmp)
+        phase_l(tmp)
         if not args.skip_relay:
             phase_f(tmp)
     finally:

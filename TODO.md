@@ -263,6 +263,12 @@ before and after each was confirmed. Ordered by severity.
       defaults on foreign records where TS carries verbatim — a benign but
       real canonicalization divergence, now in the spec gap ledger, to align
       before foreign kinds actually sync.
-- [ ] **Round-trip conformance check as CI (spec §8.6).** A phase in
-      cross_impl_check.py: vault with unknown fields + unknown kinds survives
-      A→B→A open/save unchanged. Cheap once the passthrough lands.
+- [x] **(done 2026-08-18)** Round-trip conformance check as CI (spec §8.6) —
+      cross-impl Phase L: a vault holding a foreign record (unknown kind,
+      trap fields, nested data) plus an unknown top-level index key survives
+      Python→TS→Python read-modify-write byte-for-byte; allocation skips the
+      foreign id; TS refuses to reveal it. Landing it forced the
+      normalization decision: Python's legacy renames now skip unknown kinds
+      (they would have reinterpreted foreign data — verified: the old code
+      turns a foreign `blacklisted` string into our `archived` flag, and
+      Phase L catches it). 38/38 cross-impl checks.

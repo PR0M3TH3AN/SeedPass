@@ -360,7 +360,7 @@ The intended BitLogin-style flow, stated in this spec's terms:
 
 | Gap | Where | Consequence | Status |
 |---|---|---|---|
-| Base-field normalization differs on foreign records: Python backfills `tags`/`links`/`date_modified` defaults on load, TypeScript carries them verbatim | both | no data loss, but the two produce different canonical bytes for the same foreign record — matters once foreign kinds sync (§9 defines convergence as byte-identical state) | open — align before any application ships foreign kinds; the round-trip CI check (§8.6) is where it will surface |
+| ~~Base-field normalization differed on foreign records~~ | — | — | **resolved 2026-08-18**: both implementations now carry foreign records byte-for-byte untouched (Python's legacy normalizer skips unknown kinds — its renames like `blacklisted`→`archived` would have *reinterpreted* foreign data); enforced by cross-impl Phase L |
 | `_system.index0` merge handles only the empty case | both | non-empty index0 refuses to merge (loudly) | by design until atlas milestone |
 | `ssh`/`pgp`/`password` share BIP-85 app 32 | both (spec-level) | namespace collision, shared with Python since v1 | frozen; change requires coordinated version bump |
 | RSA PGP not derivable | TypeScript | refuses rather than diverging | permanent (RSA generation is not reproducible) |
