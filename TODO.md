@@ -222,7 +222,31 @@ before and after each was confirmed. Ordered by severity.
 - [ ] Fold the CLI bundle's `.sha256` into the `release-integrity` signing
       workflow (the remaining item of cutover gate 6).
 - [ ] Merge to `main` and move the Python implementation to `legacy/`. Blocked
-      by the independent review above.
+      by the independent review above. **Merge-day checklist** (do these in
+      the same window, so main never advertises a stale product):
+  - [ ] **README rewrite, TS-first.** Install = the `seedpass-js` bundle;
+        features/architecture describe the TypeScript implementation; the
+        Python content moves to `legacy/README.md` with a pointer. The 🚧
+        bridge section added 2026-08-18 comes out (it exists precisely
+        because the rewrite would have been premature before review).
+  - [ ] **Landing page (`landing/`).** Install command switches off the
+        Python `install.sh` (or install.sh itself learns to install the TS
+        bundle); features/architecture copy updated; main/beta branch toggle
+        reconsidered (post-cleanup there is one line of development); drop
+        the `_pgbackup`/`_pginfo` Pinegrow artifacts. Verify where the live
+        site deploys from before assuming edits take effect.
+  - [ ] **Docs triage.** Python-era planning docs (the 14 bannered
+        2026-08-18: tui_v2/v3, index0/atlas, semantic) move under
+        `docs/legacy/` or keep their banners; living docs (vault/identity
+        spec, migration guide, security model, cutover plan) stay top-level;
+        `docs/README.md`/index updated to say which is which.
+  - [ ] **Branch/repo hygiene.** Fast-forward or delete `beta` (it is fully
+        contained in the merged history); revisit `dependabot.yml` (its pip
+        entries target the retiring Python deps); CHANGELOG entry for the
+        cutover.
+  - [ ] **CI.** `python-ci`/`tests`/`briefcase` workflows follow the Python
+        code to `legacy/` (or are scoped down); `ts-parity` and
+        `release-integrity` become the primary gates.
 
 ### Unbuilt milestones
 

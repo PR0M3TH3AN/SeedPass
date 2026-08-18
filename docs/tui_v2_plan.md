@@ -1,5 +1,7 @@
 # TUI v2 Plan (Legacy Reference)
 
+> **Legacy (Python implementation).** This document describes the Python version, which retires to `legacy/` after the TypeScript cutover ([PR #989](https://github.com/PR0M3TH3AN/SeedPass/pull/989)). The TypeScript interactive mode follows the classic v1 menus; TUI v2/v3, index0/atlas, and semantic search were not ported. Kept as historical record.
+
 > **NOTICE:** This document is now for logic reference only. 
 > TUI v2 development has been paused in favor of the **TUI v3 Scratch Rebuild** to solve monolithic file issues and layout crowding.
 > Please see **[TUI v3 Plan](tui_v3_plan.md)** for the current roadmap.

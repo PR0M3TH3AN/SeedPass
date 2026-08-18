@@ -1,5 +1,7 @@
 # Semantic Vector Index Integration Plan
 
+> **Legacy (Python implementation).** This document describes the Python version, which retires to `legacy/` after the TypeScript cutover ([PR #989](https://github.com/PR0M3TH3AN/SeedPass/pull/989)). The TypeScript interactive mode follows the classic v1 menus; TUI v2/v3, index0/atlas, and semantic search were not ported. Kept as historical record.
+
 Status: In Progress (updated 2026-03-02)  
 Branch target: `beta`  
 Scope: Legacy TUI + Textual TUI v2 + CLI + API
