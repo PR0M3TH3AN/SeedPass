@@ -341,3 +341,18 @@ before and after each was confirmed. Ordered by severity.
       a magic header (versioned, both implementations), and OS file
       association + icon from `logo/svg/` (XDG MIME via install.sh, registry
       via install.ps1) — installer work, after #34/#36.
+
+## CI health (noticed 2026-08-18 while preparing PR #989)
+
+- [ ] **ts-parity was red for 33 straight runs** on an environment-coupling
+      bug local runs masked (`vault import --vault` demanded a default
+      profile; fixed in cf433e3 with a hermetic SEEDPASS_APP_DIR in the CLI
+      test harness). Standing lesson: CI results were never checked because
+      local suites were green — check the workflow dashboard when a branch
+      is long-lived.
+- [ ] **Pre-existing red checks on PR #989, not yet diagnosed** (they
+      predate this week's work): `tests` workflow failures on macOS
+      (3.10/3.11/3.12), the `briefcase` macOS build, and the Netlify
+      docs-seedpass deploy preview. All Python/docs-site era. Triage before
+      merge so #989's required checks are meaningful — either fix or
+      explicitly scope them out of the merge gate.
