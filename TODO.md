@@ -167,7 +167,7 @@ before and after each was confirmed. Ordered by severity.
       early does it. This is the least-privileged principal in the model taking
       down the enforcement point. Fix: handle `stdin` errors the way
       `feedClipboardTool` already does, and treat EPIPE as a delivery failure.
-- [ ] **Secrets sent to the clipboard are never cleared.** Python's
+- [x] **(fixed 2026-08-17)** **Secrets sent to the clipboard are never cleared.** Python's
       `copy_to_clipboard(text, timeout)` starts a timer and clears the clipboard
       if the value is unchanged; the TypeScript `clipboardSink` just writes and
       returns. `clipboard_clear_delay: 45` is in the default config, is
@@ -175,14 +175,14 @@ before and after each was confirmed. Ordered by severity.
       entire purpose is to route secrets away from the screen — strictly less
       safe than Python's, because it parks them on a session-wide clipboard
       indefinitely.
-- [ ] **`kdf_iterations` is inert.** Settings displays it, stores it, and tells
+- [x] **(fixed 2026-08-17)** **`kdf_iterations` is inert.** Settings displays it, stores it, and tells
       the user "use Change password to re-wrap this profile's seed at the new
       strength". `changePassword` takes an `iterations` parameter and the TUI
       never passes it, and `createProfile` hardcodes
       `DEFAULT_PBKDF2_ITERATIONS`. Raising it changes nothing anywhere. Either
       wire it through both paths or remove the setting — a security control that
       silently does nothing is worse than an absent one.
-- [ ] **`inactivity_timeout` is inert.** Stored, displayed, settable as Settings
+- [x] **(fixed 2026-08-17)** **`inactivity_timeout` is inert.** Stored, displayed, settable as Settings
       item 12, enforced nowhere. Python's TUI locks the vault after it lapses;
       the TypeScript TUI leaves an unattended terminal unlocked indefinitely.
 - [ ] **TUI file exports do not get the 0600 they claim.** `menus.ts` writes
