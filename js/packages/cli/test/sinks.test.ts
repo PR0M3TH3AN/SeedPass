@@ -68,3 +68,76 @@ describe("parseCommandSpec", () => {
     expect(() => parseCommandSpec([""])).toThrow(/empty command/);
   });
 });
+
+import { clipboardSink } from "../src/sinks.js";
+import { mkdtemp, writeFile, readFile, chmod } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
+
+/**
+ * A fake wl-copy/wl-paste pair backed by a state file, placed first on PATH.
+ * clipboardSink tries wl-copy first, so these win over any real tools and the
+ * test does not depend on a display or a system clipboard.
+ */
+async function fakeClipboard(): Promise<{ dir: string; stateFile: string; restore: () => void }> {
+  const dir = await mkdtemp(join(tmpdir(), "seedpass-clip-"));
+  const stateFile = join(dir, "clip.txt");
+  await writeFile(stateFile, "");
+  await writeFile(join(dir, "wl-copy"), `#!/bin/sh\ncat > "${stateFile}"\n`);
+  // -n: no trailing newline, matching the real wl-paste flag clipboardSink uses.
+  await writeFile(join(dir, "wl-paste"), `#!/bin/sh\ncat "${stateFile}"\n`);
+  await chmod(join(dir, "wl-copy"), 0o755);
+  await chmod(join(dir, "wl-paste"), 0o755);
+  const savedPath = process.env["PATH"];
+  process.env["PATH"] = `${dir}:${savedPath ?? ""}`;
+  return {
+    dir,
+    stateFile,
+    restore: () => {
+      if (savedPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = savedPath;
+    },
+  };
+}
+
+describe("clipboardSink auto-clear", () => {
+  it("copies the secret and, by default, never wipes it", async () => {
+    const clip = await fakeClipboard();
+    try {
+      await clipboardSink("s3cr3t");
+      expect(await readFile(clip.stateFile, "utf8")).toBe("s3cr3t");
+      // No clear scheduled: it stays put.
+      await new Promise((r) => setTimeout(r, 250));
+      expect(await readFile(clip.stateFile, "utf8")).toBe("s3cr3t");
+    } finally {
+      clip.restore();
+    }
+  });
+
+  it("wipes the secret after the delay when it is still ours", async () => {
+    const clip = await fakeClipboard();
+    try {
+      const r = await clipboardSink("wipe-me", { clearAfterSeconds: 0.15 });
+      expect(r.detail).toContain("clears in");
+      expect(await readFile(clip.stateFile, "utf8")).toBe("wipe-me");
+      await new Promise((res) => setTimeout(res, 400));
+      expect(await readFile(clip.stateFile, "utf8")).toBe("");
+    } finally {
+      clip.restore();
+    }
+  });
+
+  it("leaves a value the user copied since the secret untouched", async () => {
+    const clip = await fakeClipboard();
+    try {
+      await clipboardSink("old-secret", { clearAfterSeconds: 0.15 });
+      // The user copies something else before the timer fires.
+      await writeFile(clip.stateFile, "user's own copy");
+      await new Promise((res) => setTimeout(res, 400));
+      expect(await readFile(clip.stateFile, "utf8")).toBe("user's own copy");
+    } finally {
+      clip.restore();
+    }
+  });
+});

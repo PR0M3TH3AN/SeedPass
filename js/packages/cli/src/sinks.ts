@@ -159,12 +159,28 @@ export async function stdinSink(
   });
 }
 
-const CLIPBOARD_COMMANDS: Array<{ cmd: string; args: string[] }> = [
-  { cmd: "wl-copy", args: [] },
-  { cmd: "xclip", args: ["-selection", "clipboard"] },
-  { cmd: "xsel", args: ["--clipboard", "--input"] },
-  { cmd: "pbcopy", args: [] },
-  { cmd: "clip.exe", args: [] },
+/**
+ * Clipboard tools, each paired with the command that reads the same
+ * selection back. The read command lets a scheduled clear check that the
+ * clipboard still holds *our* secret before wiping it, so it never clobbers
+ * something the user copied in the meantime. `paste: null` means the platform
+ * has a writer but no reliable reader here (Windows `clip.exe`).
+ */
+const CLIPBOARD_TOOLS: Array<{
+  copy: { cmd: string; args: string[] };
+  paste: { cmd: string; args: string[] } | null;
+}> = [
+  { copy: { cmd: "wl-copy", args: [] }, paste: { cmd: "wl-paste", args: ["-n"] } },
+  {
+    copy: { cmd: "xclip", args: ["-selection", "clipboard"] },
+    paste: { cmd: "xclip", args: ["-selection", "clipboard", "-o"] },
+  },
+  {
+    copy: { cmd: "xsel", args: ["--clipboard", "--input"] },
+    paste: { cmd: "xsel", args: ["--clipboard", "--output"] },
+  },
+  { copy: { cmd: "pbcopy", args: [] }, paste: { cmd: "pbpaste", args: [] } },
+  { copy: { cmd: "clip.exe", args: [] }, paste: null },
 ];
 
 /**
@@ -177,6 +193,52 @@ const CLIPBOARD_COMMANDS: Array<{ cmd: string; args: string[] }> = [
  * detach it, ignore its stdio, and treat "stdin accepted and flushed"
  * as success.
  */
+/** Read the current clipboard via a paste tool; null if it cannot be read. */
+function readClipboard(cmd: string, args: string[]): Promise<string | null> {
+  return new Promise((resolve) => {
+    let out = "";
+    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "ignore"], env: sinkEnv() });
+    child.on("error", () => resolve(null));
+    child.stdout.on("data", (c: Buffer) => {
+      out += c.toString("utf8");
+    });
+    child.on("close", (code) => resolve(code === 0 ? out : null));
+  });
+}
+
+/**
+ * After `delaySeconds`, clear the clipboard — but only if it still holds the
+ * secret we put there, so a value the user copied since is left alone. When
+ * the clipboard cannot be read back (no paste tool, or it failed), clear
+ * unconditionally: leaving a secret parked on a session-wide clipboard is the
+ * worse failure. Mirrors Python's copy_to_clipboard(text, timeout).
+ *
+ * The timer is unref'd: it fires while the (long-running) TUI is still up, but
+ * never keeps a process alive on its own. A one-shot CLI that exits before the
+ * delay will not clear — the same limitation Python's daemon thread has.
+ */
+function scheduleClipboardClear(
+  secret: string,
+  delaySeconds: number,
+  tool: { copy: { cmd: string; args: string[] }; paste: { cmd: string; args: string[] } | null },
+): void {
+  const timer = setTimeout(() => {
+    void (async () => {
+      if (tool.paste) {
+        const current = await readClipboard(tool.paste.cmd, tool.paste.args);
+        // Trailing newline is common from paste tools; compare trimmed.
+        if (current !== null && current.replace(/\n$/, "") !== secret) return;
+      }
+      try {
+        await feedClipboardTool("", tool.copy.cmd, tool.copy.args);
+      } catch {
+        // Best effort: nothing useful to do if the wipe itself fails.
+      }
+    })();
+  }, delaySeconds * 1000);
+  timer.unref?.();
+}
+
 function feedClipboardTool(secret: string, cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -211,13 +273,31 @@ function feedClipboardTool(secret: string, cmd: string, args: string[]): Promise
   });
 }
 
-/** Copy the secret to the system clipboard via the first available tool. */
-export async function clipboardSink(secret: string): Promise<SinkResult> {
+/**
+ * Copy the secret to the system clipboard via the first available tool.
+ *
+ * With `clearAfterSeconds > 0`, schedule a clear that wipes the value after
+ * the delay (see scheduleClipboardClear). The default — no options — leaves
+ * the clipboard untouched afterwards, preserving the behaviour the one-shot
+ * CLI and the agent rely on; only the long-running TUI passes a delay.
+ */
+export async function clipboardSink(
+  secret: string,
+  opts: { clearAfterSeconds?: number } = {},
+): Promise<SinkResult> {
   let lastError: unknown = new Error("no clipboard tool found");
-  for (const { cmd, args } of CLIPBOARD_COMMANDS) {
+  for (const tool of CLIPBOARD_TOOLS) {
     try {
-      await feedClipboardTool(secret, cmd, args);
-      return { sink: "clipboard", detail: `copied via ${cmd}` };
+      await feedClipboardTool(secret, tool.copy.cmd, tool.copy.args);
+      const clear = opts.clearAfterSeconds ?? 0;
+      if (clear > 0) scheduleClipboardClear(secret, clear, tool);
+      return {
+        sink: "clipboard",
+        detail:
+          clear > 0
+            ? `copied via ${tool.copy.cmd}; clears in ${clear}s`
+            : `copied via ${tool.copy.cmd}`,
+      };
     } catch (e) {
       lastError = e;
     }

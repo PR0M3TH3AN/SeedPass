@@ -147,6 +147,21 @@ function secretModeOn(s: Session): boolean {
 }
 
 /**
+ * How long a copied secret should sit on the clipboard before being wiped.
+ * 0 (or a non-positive value) disables the auto-clear. Parity with Python's
+ * clipboard_clear_delay.
+ */
+function clipboardClearSeconds(s: Session): number {
+  const raw = Number(s.config["clipboard_clear_delay"] ?? 0);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+}
+
+/** Copy a secret to the clipboard, honouring the configured auto-clear delay. */
+async function copyToClipboard(s: Session, value: string): Promise<{ detail: string }> {
+  return clipboardSink(value, { clearAfterSeconds: clipboardClearSeconds(s) });
+}
+
+/**
  * Show a secret, honouring Secret Mode.
  *
  * Python's Secret Mode copies to the clipboard instead of printing; this
@@ -155,7 +170,7 @@ function secretModeOn(s: Session): boolean {
 async function reveal(s: Session, value: string, descriptor: string): Promise<void> {
   if (secretModeOn(s)) {
     try {
-      const result = await clipboardSink(value);
+      const result = await copyToClipboard(s, value);
       ok(s.ui, `${descriptor} copied to clipboard (${result.detail}).`);
     } catch (e) {
       fail(s.ui, `Clipboard unavailable: ${(e as Error).message}`);
@@ -630,7 +645,7 @@ async function entryDetails(s: Session, id: string): Promise<void> {
         const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
         if (choice === "c") {
           try {
-            const r = await clipboardSink(secret.value);
+            const r = await copyToClipboard(s, secret.value);
             ok(s.ui, `Copied ${secret.descriptor} (${r.detail}).`);
           } catch (e) {
             fail(s.ui, `Clipboard unavailable: ${(e as Error).message}`);
