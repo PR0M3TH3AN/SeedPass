@@ -118,3 +118,127 @@ item further down, not to this audit.
 
 - [ ] Document API import upload limit (`SEEDPASS_MAX_IMPORT_BYTES`) in user docs.
 - [ ] Add a security maintenance section describing dependency-audit cadence and update policy.
+
+## TypeScript port (`port/typescript-web-extension`)
+
+Branch state as of 2026-08-17: core + CLI + interactive TUI are feature-complete
+for daily use and cross-verified against Python on every change. What follows is
+everything still open, in the order it should be tackled.
+
+### Blockers before real secrets
+
+- [ ] **Independent security review of the TypeScript branch.** No one but the
+      authoring agent has read this code. Two earlier review rounds on this
+      project each found criticals that self-review missed, so a green suite and
+      an author's sign-off are not evidence of much. Scope it to
+      `js/packages/core/src/crypto`, `js/packages/core/src/derive`, and
+      `js/packages/cli/src/agent.ts` first: a derivation bug does not throw, it
+      quietly produces a secret that cannot be recovered. Blocks the merge below.
+- [ ] **Fix the findings from the 2026-08-17 self-review** (next section). Do
+      these before handing the branch to an outside reviewer so their time goes
+      on what an author cannot see.
+
+### Findings from the 2026-08-17 self-review
+
+Found by reading and probing, not by the suite — all 128 CLI tests passed
+before and after each was confirmed. Ordered by severity.
+
+- [ ] **The agent can be left holding a parent seed forever, after reporting
+      failure.** `AgentDaemon.handle`'s `put` writes to `this.held` *before*
+      awaiting the audit append. A non-numeric `ttl` makes `expiresAt` NaN; the
+      audit write then throws on the non-finite number, so the caller is told
+      the unlock failed — but the seed is resident, `expire()`'s
+      `held.expiresAt <= now` is false forever, and no audit record exists
+      saying the vault was ever unlocked. Confirmed: `owner-mnemonic` returned
+      the full phrase 3.5s after a "failed" put on an agent with a 1s TTL.
+      Fix: validate `ttl`/`uses`/`expires_at` as finite positive integers at the
+      daemon boundary, and order every op so state is committed only after its
+      audit record lands. The CLI's `parseIntOption` already blocks this path,
+      which is exactly why the daemon must not rely on it — `agent.ts:1-22`
+      states the CLI is untrusted, and the browser extension will be the next
+      thing speaking this protocol.
+- [ ] **A `use`-scoped token holder can kill the agent and drop every held
+      seed.** `stdinSink` writes to `child.stdin` with no `error` listener, so a
+      command that exits before draining stdin raises an unhandled EPIPE.
+      Confirmed as an uncaught exception inside the agent process via a
+      `use-sink` request naming `/bin/true`; `main.ts` installs no
+      `uncaughtException` handler, so the real `agent start` process exits.
+      The exec allowlist does not help — any allowlisted command that exits
+      early does it. This is the least-privileged principal in the model taking
+      down the enforcement point. Fix: handle `stdin` errors the way
+      `feedClipboardTool` already does, and treat EPIPE as a delivery failure.
+- [ ] **Secrets sent to the clipboard are never cleared.** Python's
+      `copy_to_clipboard(text, timeout)` starts a timer and clears the clipboard
+      if the value is unchanged; the TypeScript `clipboardSink` just writes and
+      returns. `clipboard_clear_delay: 45` is in the default config, is
+      settable, and is read by nothing. This makes TUI **Secret Mode** — whose
+      entire purpose is to route secrets away from the screen — strictly less
+      safe than Python's, because it parks them on a session-wide clipboard
+      indefinitely.
+- [ ] **`kdf_iterations` is inert.** Settings displays it, stores it, and tells
+      the user "use Change password to re-wrap this profile's seed at the new
+      strength". `changePassword` takes an `iterations` parameter and the TUI
+      never passes it, and `createProfile` hardcodes
+      `DEFAULT_PBKDF2_ITERATIONS`. Raising it changes nothing anywhere. Either
+      wire it through both paths or remove the setting — a security control that
+      silently does nothing is worse than an absent one.
+- [ ] **`inactivity_timeout` is inert.** Stored, displayed, settable as Settings
+      item 12, enforced nowhere. Python's TUI locks the vault after it lapses;
+      the TypeScript TUI leaves an unattended terminal unlocked indefinitely.
+- [ ] **TUI file exports do not get the 0600 they claim.** `menus.ts` writes
+      document exports, database exports and the 2FA export with
+      `writeFile(..., {mode: 0o600})`. `mode` applies only at creation, so
+      writing over an existing 0644 file leaves it 0644 — verified. The 2FA
+      export is every TOTP secret in the vault in plaintext, and its comment
+      asserts the 0600. The CLI already does this correctly with `atomicWrite`
+      (fresh inode + rename, symlink-safe) and explains why; the TUI regressed
+      it. The TUI exports also silently overwrite, where the CLI requires
+      `--overwrite`.
+- [ ] **Audit-log truncation detection is defeated by deleting one more file.**
+      `AuditLog.verify` skips the count check entirely when `audit.log.head` is
+      absent, so removing the head and truncating the log verifies clean. The
+      head sits beside the log with the same permissions, so anyone who can
+      alter one can remove the other. The doc comment claims the head "pins the
+      expected length" against exactly this attack. Either require the head once
+      the log exists, or keep it somewhere the log's writer cannot reach.
+- [ ] **Unvalidated token constraint shapes.** `token-issue` casts `kinds` and
+      `scopes` without checking they are arrays. `kinds: "totp"` makes
+      `Array.includes` become `String.includes`, turning an exact kind match into
+      a substring match — inert today only because no SeedPass kind is a
+      substring of another. `scopes: "reveal"` throws a raw TypeError back to
+      the caller. Owner-gated, so this is hardening, not a live hole.
+- [ ] **Dead code that reads as a control.** `authorize()`'s `if (entry)` branch
+      is never reached (both call sites omit the argument; the real check is
+      `tokenMaySee`), and `sinkEnv`'s `FORBIDDEN_ENV` delete loop runs against an
+      allowlist that never contains those keys. Both look like defenses on
+      inspection. Remove them or make them load-bearing.
+- [ ] **A denied entry lookup still burns a token use.** `resolveForToken`
+      consumes a use at pre-auth, before the entry is known, so probing for
+      non-existent ids exhausts a token. That ordering is deliberate
+      anti-enumeration; confirm it is the trade wanted and write it down.
+
+### Cutover
+
+- [ ] Fold the CLI bundle's `.sha256` into the `release-integrity` signing
+      workflow (the remaining item of cutover gate 6).
+- [ ] Merge to `main` and move the Python implementation to `legacy/`. Blocked
+      by the independent review above.
+
+### Unbuilt milestones
+
+- [ ] **Milestone 6 (static/PWA web app)** and **Milestone 7 (browser
+      extension)** of `docs/typescript_web_extension_port_plan.md` are not
+      started — `js/packages/` holds `core`, `cli` and `test-vectors` only. The
+      branch is named for a web extension that does not exist yet; the CLI was
+      the proving ground for the core.
+- [ ] **Decide whether the `api` (FastAPI) surface gets a TypeScript port at
+      all.** It is currently excluded from cutover gate 5 as "a separate
+      surface, not vault behavior", and the session agent (unix socket, 0600,
+      scoped tokens) covers agent automation without binding a port — a smaller
+      attack surface for a process holding unlocked seeds. `src/seedpass/api.py`
+      is 2093 lines and much of it hangs off features that are deliberately not
+      ported (high-risk partitions, agent job profiles, recovery split,
+      semantic). A faithful port means porting those first; the genuinely useful
+      subset is entry CRUD, search, lock/unlock and config. Options: leave it
+      Python-only, port the subset, or drop it. Decide before the extension
+      lands, since the extension needs *some* transport.
