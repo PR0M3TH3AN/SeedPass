@@ -74,9 +74,12 @@ export {
   keyValueEntrySchema,
   managedAccountEntrySchema,
   documentEntrySchema,
+  unknownEntrySchema,
+  KNOWN_ENTRY_KINDS,
   UnsupportedSchemaVersionError,
   CURRENT_SCHEMA_VERSION,
   type Entry,
+  type UnknownEntry,
   type VaultIndex,
 } from "./schema/entries.js";
 export {

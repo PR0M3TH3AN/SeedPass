@@ -255,13 +255,14 @@ before and after each was confirmed. Ordered by severity.
       (preservation, namespacing, no-translation-table, round-trip
       conformance), capability profiles, sync/backup, and an honest gap
       ledger.
-- [ ] **Unknown-kind passthrough (spec §8.2/§12).** TS `entryUnionSchema`
-      fails the whole index parse on an unrecognized entry kind — fail-closed
-      where the spec prefers carry-through-untouched. Add an opaque-record
-      branch (preserve verbatim, exclude from typed operations) so a future
-      client (e.g. BitLogin) can add namespaced kinds without stranding
-      vaults on older SeedPass builds. Python is naturally tolerant; add a
-      test pinning that.
+- [x] **(done 2026-08-18)** Unknown-kind passthrough (spec §8.2/§12) — TS
+      parses unrecognized kinds as opaque records (verbatim, excluded from
+      typed operations, malformed KNOWN kinds still fail); CLI listing
+      redacts foreign fields as `has_*` and reveal refuses cleanly; Python
+      tolerance pinned by test. Discovered en route: Python backfills base
+      defaults on foreign records where TS carries verbatim — a benign but
+      real canonicalization divergence, now in the spec gap ledger, to align
+      before foreign kinds actually sync.
 - [ ] **Round-trip conformance check as CI (spec §8.6).** A phase in
       cross_impl_check.py: vault with unknown fields + unknown kinds survives
       A→B→A open/save unchanged. Cheap once the passthrough lands.

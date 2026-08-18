@@ -173,7 +173,48 @@ export const entryUnionSchema = z.discriminatedUnion("kind", [
   documentEntrySchema,
 ]);
 
-export const entrySchema = z.preprocess(withKind, entryUnionSchema);
+/** The entry kinds this build understands and validates strictly. */
+export const KNOWN_ENTRY_KINDS = new Set([
+  "password",
+  "totp",
+  "ssh",
+  "seed",
+  "pgp",
+  "nostr",
+  "key_value",
+  "managed_account",
+  "document",
+]);
+
+/**
+ * A record whose kind this build does not understand — written by a newer
+ * build or by another application sharing the vault (spec §8.2/§8.3, e.g. a
+ * future BitLogin `bitlogin_org` record). It is carried through verbatim and
+ * excluded from typed operations. The refine is what keeps this from being a
+ * validation bypass: a malformed record of a KNOWN kind must still fail the
+ * strict union above, never fall through to here.
+ */
+export const unknownEntrySchema = z
+  .object({ kind: z.string() })
+  .loose()
+  .refine((entry) => !KNOWN_ENTRY_KINDS.has(entry.kind), {
+    message: "known entry kinds must validate against their own schema",
+  });
+
+export type UnknownEntry = z.infer<typeof unknownEntrySchema>;
+
+/**
+ * Statically, `entries` values are the known kinds — the type every typed
+ * operation works with, and exhaustive switches keep their meaning. At
+ * runtime, an unknown-kind record parses opaquely instead of failing the
+ * whole index (spec §8.2: carry through untouched, never drop, never brick
+ * the vault). Code branching on `kind` must treat an unrecognized value as
+ * opaque — materializeSecret's throwing default is the model.
+ */
+export const entrySchema = z.preprocess(
+  withKind,
+  z.union([entryUnionSchema, unknownEntrySchema]),
+) as unknown as z.ZodType<Entry>;
 
 export type Entry = z.infer<typeof entryUnionSchema>;
 export type PasswordEntry = z.infer<typeof passwordEntrySchema>;

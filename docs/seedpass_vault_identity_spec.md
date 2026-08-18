@@ -261,14 +261,17 @@ the watermark.
 These are what let SeedPass and a narrower client (BitLogin) share one vault
 without requiring each other.
 
-1. **Preservation.** An implementation MUST preserve fields it does not
-   understand — on entries, on the index top level, and in config — across a
-   read-modify-write cycle. (Both references hold this for *fields* today;
-   see §12 for the unknown-*kind* gap.)
+1. **Preservation.** An implementation MUST NOT drop or alter fields it does
+   not understand — on entries, on the index top level, and in config —
+   across a read-modify-write cycle. Backfilling the spec's own base fields
+   (§5.2) with neutral defaults is permitted; losing or reinterpreting
+   foreign data is not. Both references hold this today.
 2. **Unknown kinds.** An implementation encountering an entry `kind` it does
-   not understand MUST either (a) carry it through untouched, or (b) refuse
-   to write the vault. Silently dropping it is forbidden. (a) is strongly
-   preferred; (b) is the fail-closed floor.
+   not understand MUST either (a) carry it through under rule 1, excluded
+   from typed operations, or (b) refuse to write the vault. Silently dropping
+   it is forbidden. (a) is strongly preferred and is what both references do
+   as of 2026-08-18; (b) is the fail-closed floor. Records with no `kind` or
+   `type` at all are garbage, not foreign data, and are rejected.
 3. **Namespacing.** Application-specific metadata goes in namespaced fields
    on existing records (e.g. `bitlogin: { permissions: {...} }`) or in new
    record kinds with a namespaced prefix (e.g. `kind: "bitlogin_org"`). Core
@@ -357,7 +360,7 @@ The intended BitLogin-style flow, stated in this spec's terms:
 
 | Gap | Where | Consequence | Status |
 |---|---|---|---|
-| Unknown entry `kind` fails the whole index parse (fail-closed, option (b) of §8.2, where (a) is preferred) | TypeScript `entryUnionSchema` | A vault containing a future kind can't be opened by current TS builds | open — needs an opaque-record passthrough |
+| Base-field normalization differs on foreign records: Python backfills `tags`/`links`/`date_modified` defaults on load, TypeScript carries them verbatim | both | no data loss, but the two produce different canonical bytes for the same foreign record — matters once foreign kinds sync (§9 defines convergence as byte-identical state) | open — align before any application ships foreign kinds; the round-trip CI check (§8.6) is where it will surface |
 | `_system.index0` merge handles only the empty case | both | non-empty index0 refuses to merge (loudly) | by design until atlas milestone |
 | `ssh`/`pgp`/`password` share BIP-85 app 32 | both (spec-level) | namespace collision, shared with Python since v1 | frozen; change requires coordinated version bump |
 | RSA PGP not derivable | TypeScript | refuses rather than diverging | permanent (RSA generation is not reproducible) |

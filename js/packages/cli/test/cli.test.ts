@@ -470,3 +470,61 @@ describe("error messages", () => {
     expect(msg).toContain("different seed");
   });
 });
+
+describe("unknown entry kinds at the CLI surface", () => {
+  let foreignVault: string;
+  const FOREIGN = {
+    kind: "bitlogin_org",
+    type: "bitlogin_org",
+    label: "Acme Corporation",
+    modified_ts: 1700000123,
+    bitlogin: { admins: ["npub1aaaa"], api_token: "sk-live-visible-if-leaked" },
+  };
+
+  beforeAll(async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-cli-foreign-"));
+    foreignVault = join(dir, "vault.enc");
+    const key = deriveIndexKeyBytes(MNEMONIC);
+    const index = {
+      schema_version: 4,
+      entries: {
+        "0": {
+          type: "key_value", kind: "key_value", label: "api", key: "k", value: "v",
+          archived: false, notes: "", tags: [], links: [],
+        },
+        "1": FOREIGN,
+      },
+    };
+    await writeFile(foreignVault, await encryptV3(key, utf8(JSON.stringify(index))));
+  });
+
+  it("lists a vault containing a foreign record, values redacted", async () => {
+    const r = await run("--vault", foreignVault, "entry", "list");
+    expect(r.error).toBeUndefined();
+    const rows = JSON.parse(r.stdout) as Record<string, unknown>[];
+    const foreign = rows.find((row) => row["kind"] === "bitlogin_org")!;
+    expect(foreign).toBeDefined();
+    expect(foreign["label"]).toBe("Acme Corporation");
+    // Fields this build does not recognize are reported as present, never
+    // dumped: another application's data is not ours to hand out.
+    expect(foreign["has_bitlogin"]).toBe(true);
+    expect(r.stdout).not.toContain("sk-live-visible-if-leaked");
+    expect(r.stdout).not.toContain("npub1aaaa");
+  });
+
+  it("refuses to reveal a foreign record instead of guessing", async () => {
+    const r = await run("--vault", foreignVault, "entry", "reveal", "sp://entry/1");
+    expect(String((r.error as Error)?.message ?? r.stderr)).toMatch(/unsupported entry kind/);
+    expect(r.stdout).not.toContain("sk-live");
+  });
+
+  it("mutating a neighbour entry does not disturb the foreign record", async () => {
+    const r = await run("--vault", foreignVault, "entry", "add", "password", "new-site", "--length", "20");
+    expect(r.error).toBeUndefined();
+    const list = await run("--vault", foreignVault, "entry", "list");
+    const rows = JSON.parse(list.stdout) as Record<string, unknown>[];
+    // Allocation skipped past the foreign record's id.
+    expect(rows.map((row) => row["id"])).toContain("2");
+    expect(rows.find((row) => row["kind"] === "bitlogin_org")).toBeDefined();
+  });
+});
