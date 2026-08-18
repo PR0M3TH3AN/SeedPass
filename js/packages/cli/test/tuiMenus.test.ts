@@ -26,7 +26,7 @@ import {
   type VaultIndex,
 } from "@seedpass/core";
 import { runTui } from "../src/tui/app.js";
-import { AppDir, INDEX_FILENAME } from "../src/appDir.js";
+import { AppDir, INDEX_FILENAME, PARENT_SEED_FILENAME } from "../src/appDir.js";
 import { openVault } from "../src/vaultFile.js";
 import type { Ui } from "../src/tui/console.js";
 
@@ -387,5 +387,62 @@ describe("2FA codes", () => {
     expect(ui.text).toContain("email-2fa");
     expect(ui.text).toMatch(/\d{6}/);
     expect(ui.text).toContain("s left");
+  });
+});
+
+describe("KDF strength setting takes effect", () => {
+  it("Change password re-wraps the parent seed at the configured iterations", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-kdf-"));
+    const app = new AppDir(dir);
+    const PW = "orig-pw";
+    const fp = await app.createProfile(MNEMONIC, PW, "kdf-test"); // default 200000
+    const seedPath = join(app.profileDir(fp), PARENT_SEED_FILENAME);
+
+    const before = JSON.parse(await readFile(seedPath, "utf8"));
+    expect(before.kdf.params.iterations).toBe(200000);
+
+    // Settings(7) > KDF(11) > no benchmark > 300000 > Enter, then
+    // Change password(3) > old > new > confirm > Enter > back > exit.
+    const ui = new ScriptedUi([
+      "7", "11", "n", "300000", "",
+      "3", PW, "new-pw", "new-pw", "",
+      "", "",
+    ]);
+    await runTui({ appDir: dir, fingerprint: fp }, ui);
+
+    const after = JSON.parse(await readFile(seedPath, "utf8"));
+    expect(after.kdf.params.iterations).toBe(300000);
+    // The setting is not cosmetic: the new password opens the re-wrapped seed.
+    expect(await app.decryptParentSeed(fp, "new-pw")).toBe(MNEMONIC);
+  });
+
+  it("a new profile is wrapped at the active profile's configured iterations", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-kdf2-"));
+    const app = new AppDir(dir);
+    const fp = await app.createProfile(MNEMONIC, "pw", "primary");
+
+    // Set KDF to 250000, then add a second profile from a generated seed.
+    const ui = new ScriptedUi([
+      "7", "11", "n", "250000", "",         // Settings > KDF > 250000
+      "1",                                   // Settings > Profiles
+      "2",                                   // Profiles > Add
+      "1", "12",                             // generate, 12 words
+      "second",                              // profile name
+      "np", "np",                            // new password x2
+      "",                                     // pause after showing seed
+      "y",                                    // "have you written it down?"
+      "",                                     // pause after created
+      "", "", "",                            // back out: profiles, settings, main
+    ]);
+    await runTui({ appDir: dir, fingerprint: fp }, ui);
+
+    // Find the profile that is not the primary and check its wrap strength.
+    const reg = await app.readFingerprints();
+    const others = reg.fingerprints.filter((f) => f !== fp);
+    expect(others.length).toBe(1);
+    const seed = JSON.parse(
+      await readFile(join(app.profileDir(others[0]!), PARENT_SEED_FILENAME), "utf8"),
+    );
+    expect(seed.kdf.params.iterations).toBe(250000);
   });
 });

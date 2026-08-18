@@ -39,7 +39,7 @@ import {
   type Entry,
   type VaultIndex,
 } from "@seedpass/core";
-import { AppDir, INDEX_FILENAME } from "../appDir.js";
+import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS } from "../appDir.js";
 import { openVault, saveVaultHoldingLock, withVaultLock, type OpenedVault } from "../vaultFile.js";
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
@@ -159,6 +159,27 @@ function clipboardClearSeconds(s: Session): number {
 /** Copy a secret to the clipboard, honouring the configured auto-clear delay. */
 async function copyToClipboard(s: Session, value: string): Promise<{ detail: string }> {
   return clipboardSink(value, { clearAfterSeconds: clipboardClearSeconds(s) });
+}
+
+/**
+ * Smallest iteration count the KDF settings screen will store. Honour any
+ * value at or above it — including one below the default, which is a downgrade
+ * the user chose deliberately — and fall back to the default only for garbage,
+ * so the setting is never silently ignored for a legitimate value.
+ */
+const MIN_KDF_ITERATIONS = 50_000;
+
+/**
+ * The PBKDF2 iteration count this profile's config asks for. Used to re-wrap
+ * the parent seed on Change password and to wrap new profiles — the two places
+ * the KDF-strength setting actually takes effect.
+ */
+function kdfIterations(s: Session): number {
+  const raw = Number(s.config["kdf_iterations"] ?? DEFAULT_PBKDF2_ITERATIONS);
+  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < MIN_KDF_ITERATIONS) {
+    return DEFAULT_PBKDF2_ITERATIONS;
+  }
+  return raw;
 }
 
 /**
@@ -1108,7 +1129,7 @@ async function addProfile(s: Session): Promise<void> {
     }
   }
 
-  const fp = await s.app.createProfile(mnemonic, password, name || undefined);
+  const fp = await s.app.createProfile(mnemonic, password, name || undefined, kdfIterations(s));
   ok(s.ui, `Profile ${fp} created.`);
   await pause(s.ui);
 }
@@ -1305,7 +1326,7 @@ async function changePassword(s: Session): Promise<void> {
     return;
   }
   try {
-    await s.app.changePassword(s.fingerprint, oldPw, newPw);
+    await s.app.changePassword(s.fingerprint, oldPw, newPw, kdfIterations(s));
     ok(s.ui, "Password changed.");
   } catch {
     // Indistinguishable from any other failure on purpose: the only useful

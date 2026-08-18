@@ -124,7 +124,12 @@ export class AppDir {
   }
 
   /** Create a profile from a mnemonic; returns its fingerprint. */
-  async createProfile(mnemonic: string, password: string, name?: string): Promise<string> {
+  async createProfile(
+    mnemonic: string,
+    password: string,
+    name?: string,
+    iterations = DEFAULT_PBKDF2_ITERATIONS,
+  ): Promise<string> {
     // Reject typo'd phrases here: an invalid mnemonic still derives *a* seed,
     // so accepting one creates a vault that cannot be recovered or opened by
     // any other implementation.
@@ -156,14 +161,12 @@ export class AppDir {
     // Shape and parameters mirror PasswordManager._build_seed_kdf_config so
     // the Python implementation can open this profile.
     const salt = seedKdfSalt(fingerprint);
-    const seedKey = base64url.decode(
-      deriveKeyFromPassword(password, salt, DEFAULT_PBKDF2_ITERATIONS),
-    );
+    const seedKey = base64url.decode(deriveKeyFromPassword(password, salt, iterations));
     const ct = await encryptV3(seedKey, utf8(mnemonic));
     const kdf: KdfConfig = {
       name: "pbkdf2",
       version: 1,
-      params: { iterations: DEFAULT_PBKDF2_ITERATIONS },
+      params: { iterations },
       salt_b64: Buffer.from(salt).toString("base64"),
     };
     const wrapper = JSON.stringify({
