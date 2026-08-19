@@ -39,6 +39,7 @@ import {
   removeLink,
   restoreEntry,
   isPartitionStub,
+  emitEntryEvents,
   splitSecret,
   recoverSecret,
   buildSemanticRecords,
@@ -183,7 +184,20 @@ async function mutate<T>(
   const mnemonic = requireUnlocked(ctx);
   const result = await withVaultLock(path, async () => {
     const vault = await openVault(path, mnemonic);
+    // Snapshot before mutating so the index0 differ sees what changed.
+    const before = structuredClone(vault.index.entries) as Record<string, unknown>;
     const out = await fn(vault.index);
+    try {
+      const updated = emitEntryEvents(vault.index, {
+        before,
+        after: vault.index.entries as unknown as Record<string, unknown>,
+        fingerprintDir: profileDir(ctx),
+        now: Math.floor(ctx.now() / 1000),
+      });
+      (vault.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+    } catch {
+      // Derived state; never fail a committed write over it.
+    }
     await saveVaultHoldingLock(vault);
     return out;
   });

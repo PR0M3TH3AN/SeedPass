@@ -13,6 +13,7 @@
  */
 
 import { canonicalHash, canonicalJson } from "./canonical.js";
+import { mergeSystemIndex0 } from "../vault/index0.js";
 
 export const TOMBSTONE_RETENTION_CAP = 2048;
 export const MERGE_STRATEGY = "modified_ts_hash_tombstone_v2";
@@ -264,10 +265,12 @@ function assertIndex0Portable(raw: unknown): void {
 function ensureIndex0Payload(data: unknown, options: MergeOptions = {}): Dict {
   const out: Dict = isDict(data) ? { ...data } : {};
   const system: Dict = isDict(out["_system"]) ? { ...(out["_system"] as Dict) } : {};
-  if (options.index0 !== "preserve-current") {
+  if (options.index0 === "reject") {
     assertIndex0Portable(system["index0"]);
     system["index0"] = emptyIndex0();
   }
+  // "merge" and "preserve-current" both keep the block; which side wins is
+  // decided in mergeIndexPayloads, where both are in hand.
   out["_system"] = system;
   return out;
 }
@@ -332,15 +335,20 @@ export interface MergeOptions {
   report?: MergeReport;
 
   /**
-   * What to do with `_system.index0`, Python's derived atlas state.
+   * What to do with `_system.index0`, the derived atlas state.
    *
-   * Default ("reject") refuses to merge populated index0 rather than drop
-   * it silently. "preserve-current" keeps the current side's block verbatim
-   * and ignores the incoming one — correct when merging remote state into a
-   * live profile, since Python recomputes canonical views from entries on
-   * load and would otherwise be blocked entirely.
+   * Default ("merge") merges both sides with `mergeSystemIndex0`, the same
+   * deterministic rules Python uses: events union by id, checkpoints, views
+   * and heads resolve by timestamp then by their own hash. That is now the
+   * right default because index0 is ported; before it was, the only safe
+   * choices were to refuse or to keep one side.
+   *
+   * "preserve-current" keeps the current side's block verbatim and ignores
+   * the incoming one. "reject" refuses to merge a populated index0 at all,
+   * rather than dropping it silently — kept for callers that would rather
+   * fail than have derived state change under them.
    */
-  index0?: "reject" | "preserve-current";
+  index0?: "merge" | "reject" | "preserve-current";
 }
 
 function describeEntry(entry: Dict): { kind: string; label: string } {
@@ -549,8 +557,18 @@ export function mergeIndexPayloads(
   out["_sync_meta"] = meta;
 
   const outSystem: Dict = isDict(out["_system"]) ? (out["_system"] as Dict) : {};
-  if (options.index0 !== "preserve-current") {
+  const mode = options.index0 ?? "merge";
+  if (mode === "reject") {
+    // Populated blocks were already refused above; anything reaching here is
+    // empty, and is normalized so the output shape is stable.
     outSystem["index0"] = emptyIndex0();
+  } else if (mode === "merge") {
+    // Both sides' derived state, merged by the same deterministic rules
+    // Python uses. Doing this from the ORIGINAL payloads rather than from
+    // `out` matters: `out` has already had entries merged into it, and
+    // index0 records what each writer did, not what the merge concluded.
+    const incomingSystem = isDict(incoming["_system"]) ? (incoming["_system"] as Dict) : {};
+    outSystem["index0"] = mergeSystemIndex0(outSystem["index0"], incomingSystem["index0"]);
   }
   out["_system"] = outSystem;
   return out;

@@ -112,6 +112,42 @@ export {
   MAX_TOTAL_SHARES,
   type ParsedShare,
 } from "./vault/recoverySplit.js";
+export {
+  normalizeIndex0,
+  normalizeIndex0Event,
+  normalizeIndex0Checkpoint,
+  normalizeCanonicalView,
+  normalizeHead,
+  normalizeViewManifest,
+  ensureIndex0Payload,
+  deriveIndex0Context,
+  makeIndex0Event,
+  appendIndex0Event,
+  buildDailyCheckpoint,
+  rebuildIndex0Checkpoints,
+  compactIndex0,
+  compactIndex0Payload,
+  rebuildCanonicalViewsPayload,
+  buildManifestIndex0Metadata,
+  listCanonicalViews,
+  getCanonicalView,
+  mergeSystemIndex0,
+  recomputeIndex0Stats,
+  // Aliased: `computeEventId` is already taken by the Nostr event module,
+  // and the two hash entirely different things.
+  computeEventHash as computeIndex0EventHash,
+  computeEventId as computeIndex0EventId,
+  computeHeadHash as computeIndex0HeadHash,
+  computeCheckpointHash as computeIndex0CheckpointHash,
+  computeViewHash as computeIndex0ViewHash,
+  INDEX0_SCHEMA_VERSION,
+  INDEX0_CANONICAL_VIEW_TYPES,
+  LOCAL_ONLY_VIEW_TYPES,
+  INDEX0_MAX_CHECKPOINTS_PER_WRITER,
+  type Index0,
+  type Index0Context,
+} from "./vault/index0.js";
+export { emitEntryEvents, type EmitOptions } from "./vault/index0Events.js";
 export { encodeQr, renderQrText, EC_LEVELS, type QrMatrix, type EcLevel } from "./util/qr.js";
 export {
   buildSemanticRecords,

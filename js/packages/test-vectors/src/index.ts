@@ -11,6 +11,7 @@ import manifestJson from "../fixtures/manifest.json";
 import qrJson from "../fixtures/qr.json";
 import semanticJson from "../fixtures/semantic.json";
 import highRiskJson from "../fixtures/high_risk.json";
+import index0Json from "../fixtures/index0.json";
 import bip39Json from "../fixtures/bip39_seeds.json";
 import bip85Json from "../fixtures/bip85_entropy.json";
 import passwordsV1Json from "../fixtures/passwords_v1.json";
@@ -343,4 +344,18 @@ export const highRiskFixture = highRiskJson as {
   envelope: Record<string, unknown>;
   entries: Record<string, Record<string, unknown>>;
   partition_file_b64: string;
+};
+
+/** index0/atlas reference state, produced by the Python implementation. */
+export const index0Fixture = index0Json as {
+  entries: Record<string, Record<string, unknown>>;
+  context_root: Record<string, string>;
+  context_managed: Record<string, string>;
+  appended: Record<string, unknown>;
+  compacted: Record<string, unknown>;
+  manifest_meta: Record<string, unknown>;
+  other: Record<string, unknown>;
+  merged: Record<string, unknown>;
+  views: Array<Record<string, unknown>>;
+  one_view: Record<string, unknown>;
 };

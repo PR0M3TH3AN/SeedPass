@@ -30,6 +30,7 @@ import {
   splitSecret,
   recoverSecret,
   isPartitionStub,
+  emitEntryEvents,
   partitionStub,
   type Entry,
   buildSemanticRecords,
@@ -324,7 +325,11 @@ async function mutateVault<T>(
   const mnemonic = await resolveMnemonic(app, opts);
   return withVaultLock(path, async () => {
     const vault = await openVault(path, mnemonic);
+    // Snapshot before mutating so the index0 differ can see what changed.
+    // Structured-cloned, because `fn` mutates the index in place.
+    const before = structuredClone(vault.index.entries) as Record<string, unknown>;
     const result = await fn(vault);
+    recordIndex0(vault, before, dirname(path));
     await saveVaultHoldingLock(vault);
     // Rolling snapshot, after the write and still under the lock, matching
     // Python's create_backup() call order. Best-effort by design: a failed
@@ -395,6 +400,31 @@ function resolveFromRows(
     );
   }
   throw new Error(`no entry matches "${refOrQuery}"`);
+}
+
+/**
+ * Append index0 events for whatever a mutation changed.
+ *
+ * Best-effort: the atlas is derived state and can be rebuilt, so a failure
+ * here must never fail a committed vault write. Silence in the ledger is a
+ * lesser harm than refusing to save the user's entry.
+ */
+function recordIndex0(
+  vault: OpenedVault,
+  before: Record<string, unknown>,
+  fingerprintDir: string,
+): void {
+  try {
+    const updated = emitEntryEvents(vault.index, {
+      before,
+      after: vault.index.entries as unknown as Record<string, unknown>,
+      fingerprintDir,
+      now: Math.floor(Date.now() / 1000),
+    });
+    (vault.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+  } catch {
+    // Deliberately swallowed; see the note above.
+  }
 }
 
 async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
@@ -1429,13 +1459,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
                 await decryptPayload(indexKey, parseEncryptedFile(delta).ciphertext),
               ),
             );
-            // preserve-current here too: the default would refuse any
-            // Python profile that carries atlas state as soon as one delta
-            // exists.
             // Same collector as the final merge: a delta can just as easily
             // carry an entry that displaces one the snapshot created.
+            //
+            // index0 now merges properly. It used to be preserve-current
+            // because the atlas could not be recomputed here, which meant a
+            // delta's activity history was discarded on the way in.
             remote = mergeIndexPayloads(remote, incoming, sha256Hex(delta).slice(0, 16), {
-              index0: "preserve-current",
               report,
             });
             deltaCount++;
@@ -1464,13 +1494,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           final = remote;
           mode = local === null ? "restored" : "replaced";
         } else {
-          // Keep the local _system.index0 verbatim: it is Python-derived
-          // atlas state recomputed on load, and refusing to merge it would
-          // block every restore into a Python-created profile.
-          final = mergeIndexPayloads(local, remote, "nostr-restore", {
-            index0: "preserve-current",
-            report,
-          });
+          // index0 merges both sides now. It used to keep the local block
+          // verbatim, because the atlas could not be merged here — which
+          // meant a restore silently discarded the remote's activity history.
+          final = mergeIndexPayloads(local, remote, "nostr-restore", { report });
           mode = "merged";
         }
 

@@ -48,7 +48,7 @@ import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type Opene
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret, type MaterializedSecret } from "../secrets.js";
 import { clipboardSink } from "../sinks.js";
-import { encodeQr, renderQrText } from "@seedpass/core";
+import { encodeQr, renderQrText, emitEntryEvents } from "@seedpass/core";
 import { createIndexBackup, type BackupResult } from "../backups.js";
 import {
   loadConfig,
@@ -168,7 +168,20 @@ async function mutate(s: Session, fn: (vault: OpenedVault) => void): Promise<voi
   let backup: BackupResult | undefined;
   await withVaultLock(path, async () => {
     const fresh = await openVault(path, mnemonic);
+    // Snapshot before mutating so the index0 differ sees what changed.
+    const before = structuredClone(fresh.index.entries) as Record<string, unknown>;
     fn(fresh);
+    try {
+      const updated = emitEntryEvents(fresh.index, {
+        before,
+        after: fresh.index.entries as unknown as Record<string, unknown>,
+        fingerprintDir: s.app.profileDir(s.fingerprint),
+        now: Math.floor(s.clock() / 1000),
+      });
+      (fresh.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+    } catch {
+      // Derived state; never fail a committed write over it.
+    }
     await saveVaultHoldingLock(fresh);
     s.vault = fresh;
     try {

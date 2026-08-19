@@ -94,7 +94,7 @@ function pythonFloatRepr(n: number): string {
 }
 
 /** Code-point ordering, matching Python's sorted() on str. */
-function compareCodePoints(a: string, b: string): number {
+export function compareCodePoints(a: string, b: string): number {
   const ai = Array.from(a);
   const bi = Array.from(b);
   const len = Math.min(ai.length, bi.length);

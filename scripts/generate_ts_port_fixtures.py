@@ -1379,6 +1379,14 @@ def gen_high_risk() -> dict:
     salt = bytes(range(16))
     partition_key = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii")
 
+    # Fernet embeds a random IV and the current time, so `encrypt` would emit
+    # different bytes on every run and the fixture-drift CI job would fail
+    # each time it regenerated. `_encrypt_from_parts` pins both. Production
+    # must never do this -- a repeated IV under one key breaks CBC -- which is
+    # why it appears only here, in a generator producing test vectors from a
+    # fixed key.
+    fixed_iv = bytes(range(16))
+    fixed_time = 1700000000
     wrapping_key = iso._derive_wrapping_key(factor, salt, iso.PARTITION_KDF_ITERATIONS)
     envelope = {
         "version": iso.PARTITION_ENVELOPE_VERSION,
@@ -1386,7 +1394,7 @@ def gen_high_risk() -> dict:
         "iterations": iso.PARTITION_KDF_ITERATIONS,
         "salt_b64": base64.b64encode(salt).decode("ascii"),
         "wrapped_partition_key": Fernet(wrapping_key)
-        .encrypt(partition_key.encode("utf-8"))
+        ._encrypt_from_parts(partition_key.encode("utf-8"), fixed_time, fixed_iv)
         .decode("utf-8"),
     }
     tag = iso._partition_key_tag(partition_key)
@@ -1402,11 +1410,28 @@ def gen_high_risk() -> dict:
         },
     }
 
+    # Same reason: build the partition blob with a pinned IV and time rather
+    # than calling save_partition_entries, whose Fernet output is random.
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "partition": "high_risk",
+            "updated_at_utc": float(fixed_time),
+            "entries": entries,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    file_key = hashlib.sha256(tag.encode("utf-8")).digest()
+    blob = Fernet(base64.urlsafe_b64encode(file_key))._encrypt_from_parts(
+        payload, fixed_time, fixed_iv
+    )
+    # Prove the pinned construction is what the real writer/reader accept.
     with tempfile.TemporaryDirectory() as tmpdir:
         profile = Path(tmpdir) / "PROFILE"
         profile.mkdir()
-        store.save_partition_entries(profile, tag, entries)
-        blob = (profile / store.PARTITION_FILENAME).read_bytes()
+        (profile / store.PARTITION_FILENAME).write_bytes(blob)
+        assert store.load_partition_entries(profile, tag) == entries
 
     return {
         "description": "high-risk partition envelope and file, for cross-impl checks",
@@ -1416,6 +1441,102 @@ def gen_high_risk() -> dict:
         "envelope": envelope,
         "entries": entries,
         "partition_file_b64": base64.b64encode(blob).decode("ascii"),
+    }
+
+
+def gen_index0() -> dict:
+    """index0/atlas reference state for the TypeScript port.
+
+    Everything in index0 is hashed with SHA-256 over Python's canonical JSON,
+    and the merge picks winners by comparing those hashes -- so a single byte
+    of encoding disagreement makes the two implementations permanently
+    disagree about which record wins. These vectors are compared whole, via
+    canonical JSON, rather than field by field.
+
+    The inputs deliberately include non-ASCII labels and tags (ensure_ascii
+    escaping), a non-numeric entry id (view ordering must degrade, not throw),
+    two writers on two days (checkpoint grouping and retention), and a managed
+    account (the second scope path).
+    """
+    from seedpass.core import index0 as index0_mod
+
+    fp_dir = "/home/user/.seedpass/C557EEC878DFD852"
+    managed_dir = "/home/user/.seedpass/C557EEC878DFD852/accounts/AABBCCDDEEFF0011"
+
+    entries = {
+        "0": {"kind": "password", "label": "bank.example", "modified_ts": 1700000100,
+              "tags": ["money", "daily"],
+              "links": [{"target_id": "2", "relation": "depends_on", "note": "recovery"}]},
+        "1": {"kind": "totp", "label": "email-2fa", "modified_ts": 1700000200,
+              "archived": True},
+        "2": {"kind": "ssh", "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+              "modified_ts": 1700000300, "tags": ["ops", "\u00fcn\u00ef"]},
+        "10": {"kind": "document", "label": "notes", "modified_ts": 1700000400},
+        "not-a-number": {"kind": "password", "label": "weird id",
+                         "modified_ts": 1700000500},
+    }
+
+    payload = {"schema_version": 4, "entries": entries}
+    specs = [
+        (1700000100, "entry.created", "0", "password"),
+        (1700000200, "entry.created", "1", "totp"),
+        (1700086400, "entry.updated", "0", "password"),
+        (1700086500, "entry.archived", "1", "totp"),
+    ]
+    for i, (ts, event_type, subject_id, subject_kind) in enumerate(specs):
+        payload = index0_mod.append_index0_event(
+            payload,
+            event_type=event_type,
+            subject_type="entry",
+            subject_id=subject_id,
+            subject_kind=subject_kind,
+            modified_ts=ts,
+            fingerprint_dir=fp_dir,
+            tags=["auto"],
+            summary=f"event {i} \u2014 \u00fcn\u00ef",
+        )
+    payload = index0_mod.append_index0_event(
+        payload,
+        event_type="entry.created",
+        subject_type="entry",
+        subject_id="7",
+        subject_kind="seed",
+        modified_ts=1700090000,
+        fingerprint_dir=managed_dir,
+    )
+
+    compacted = index0_mod.compact_index0_payload(payload, fingerprint_dir=fp_dir)
+    other = index0_mod.append_index0_event(
+        {"schema_version": 4, "entries": entries},
+        event_type="entry.created",
+        subject_type="entry",
+        subject_id="99",
+        subject_kind="password",
+        modified_ts=1700099999,
+        fingerprint_dir=fp_dir,
+    )
+    scope = index0_mod.derive_index0_context(fp_dir)["scope_path"]
+
+    return {
+        "description": "index0/atlas events, checkpoints, views and merge",
+        "entries": entries,
+        "context_root": index0_mod.derive_index0_context(fp_dir),
+        "context_managed": index0_mod.derive_index0_context(managed_dir),
+        "appended": payload,
+        "compacted": compacted,
+        "manifest_meta": index0_mod.build_manifest_index0_metadata(
+            payload, fingerprint_dir=fp_dir
+        ),
+        "other": other,
+        "merged": index0_mod.merge_system_index0(
+            compacted["_system"]["index0"], other["_system"]["index0"]
+        ),
+        "views": index0_mod.list_canonical_views(compacted["_system"]["index0"]),
+        "one_view": index0_mod.get_canonical_view(
+            compacted["_system"]["index0"],
+            view_type="counts_by_kind",
+            scope_path=scope,
+        ),
     }
 
 
@@ -1445,6 +1566,7 @@ def main() -> None:
         "qr.json": gen_qr(),
         "semantic.json": gen_semantic(),
         "high_risk.json": gen_high_risk(),
+        "index0.json": gen_index0(),
     }
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture

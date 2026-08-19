@@ -136,6 +136,17 @@ export function capabilities(): Record<string, unknown> {
       // letting the job run under rules nobody reviewed it against.
       policy_binding: "sha256 of the canonical agent_policy.json at creation",
     },
+    index0: {
+      // The per-vault activity ledger under _system.index0: an append-only
+      // event stream per writer, daily checkpoints, and derived views.
+      events: "appended automatically on every vault mutation (CLI, TUI, API)",
+      event_types: ["entry_created", "entry_updated", "entry_deleted"],
+      canonical_views: ["children_of", "counts_by_kind", "recent_activity"],
+      // Never synced: derived from data that does not leave the machine.
+      local_only_views: ["conversation_index", "hot_nodes", "semantic_neighbors"],
+      merge: "deterministic; events union by id, the rest resolve by timestamp then hash",
+      interop: "hashes and merge results byte-identical to the Python implementation",
+    },
     audit: {
       commands: ["agent audit-verify", "agent audit-tail"],
       chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
@@ -150,9 +161,6 @@ export function capabilities(): Record<string, unknown> {
       // reproducible, so a TS implementation would derive a DIFFERENT key
       // from the same seed. Refusing beats silently diverging.
       "pgp RSA keys (ed25519 is at byte parity; RSA generation is not reproducible)",
-      // Python-derived state, recomputed on load. Carried through verbatim by
-      // the TS port so a Python profile round-trips, but not computed here.
-      "index0/atlas (preserved verbatim on read/write, never recomputed)",
       // Deliberate: the TS interactive mode follows Python's legacy v1 menu
       // tree. See docs/tui_v2_cutover_decision.md.
       "Python's v2/v3 Textual TUIs (interactive mode follows the legacy v1 menus)",
