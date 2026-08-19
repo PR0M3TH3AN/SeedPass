@@ -541,13 +541,15 @@ export class AgentDaemon {
    * partition, so recording it would put it on disk by another route.
    */
   private highRiskTag(fingerprint: string): string {
-    const session = this.highRisk.get(fingerprint);
-    if (!session) return "";
-    if (session.expiresAt <= this.now()) {
-      this.highRisk.delete(fingerprint);
-      return "";
-    }
-    return session.tag;
+    // Sweep rather than re-test `expiresAt` here. This used to carry its own
+    // copy of the expiry comparison, which was wrong twice over: it was a
+    // second place the rule could drift from expire(), and -- because
+    // handle() sweeps before it dispatches -- it was a copy no request could
+    // ever reach. Mutation testing found it: breaking EITHER comparison left
+    // the whole suite green, because each one covered for the other. One
+    // decision point means a test can actually hold it to account.
+    this.expire();
+    return this.highRisk.get(fingerprint)?.tag ?? "";
   }
 
   private async handle(msg: Record<string, unknown>): Promise<Record<string, unknown>> {

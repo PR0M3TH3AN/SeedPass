@@ -570,6 +570,83 @@ describe("the owner capability", () => {
   });
 });
 
+// Shared by the boundary tests and the `put` guard tests below: both need
+// a daemon on a clock they control.
+const FROZEN = 1_800_000_000;
+const TAG = "a".repeat(64);
+
+async function daemonAt(now: () => number): Promise<{ d: AgentDaemon; sock: string }> {
+  const dir = await mkdtemp(join(tmpdir(), "seedpass-expiry-"));
+  // `put` writes an audit record, which needs the profile directory and an
+  // index to serve from.
+  const profile = join(dir, FINGERPRINT);
+  await mkdir(profile, { recursive: true });
+  await writeFile(
+    join(profile, INDEX_FILENAME),
+    await encryptV3(
+      deriveIndexKeyBytes(MNEMONIC),
+      utf8(JSON.stringify({ schema_version: 4, entries: {} })),
+    ),
+  );
+  const sock = join(dir, "agent.sock");
+  const d = new AgentDaemon(sock, 900, dir, now);
+  await d.start();
+  return { d, sock };
+}
+
+describe("put refuses a half-supplied identity", () => {
+  // `put` is the only door a seed comes through, and everything after it
+  // trusts that both halves arrived. Mutation testing turned the `||` in its
+  // guard into `&&`, which lets EITHER field be empty on its own -- and the
+  // suite stayed green, because nothing asked what happens when one is blank.
+  it("refuses an empty mnemonic under a well-formed fingerprint", async () => {
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      // The MESSAGE matters, not just the refusal: without this guard the
+      // blank mnemonic falls through to the fingerprint comparison and
+      // reports a mismatch, sending whoever reads it after the wrong field.
+      await expect(client.put(FINGERPRINT, "", 900)).rejects.toThrow(/missing fields/);
+      // And the refusal must be total: nothing resident afterwards.
+      expect(await client.ownerMnemonic(FINGERPRINT)).toBeNull();
+    } finally {
+      await d.stop();
+    }
+  });
+
+  it("names the malformed field when high-risk-unlock gets a bad fingerprint", async () => {
+    // Disabling this guard entirely left the suite green: a malformed
+    // fingerprint is never in `held`, so the "profile not unlocked" check
+    // below refuses it anyway. The format check is still the one that should
+    // answer -- "not unlocked" is a lie about a string that could never be a
+    // profile in the first place, and it is the guard standing between a
+    // caller-supplied string and the audit-log path join.
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 900);
+      await expect(client.highRiskUnlock("../../etc", TAG, 300)).rejects.toThrow(
+        /16 uppercase hex/,
+      );
+    } finally {
+      await d.stop();
+    }
+  });
+
+  it("refuses an empty fingerprint under a real seed", async () => {
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await expect(client.put("", MNEMONIC, 900)).rejects.toThrow(/missing fields/);
+    } finally {
+      await d.stop();
+    }
+  });
+});
+
 describe("expiry is denied AT the boundary, not after it", () => {
   /**
    * Mutation testing found `token.expires_at <= now` could become `<` with
@@ -581,26 +658,83 @@ describe("expiry is denied AT the boundary, not after it", () => {
    * The daemon takes an injectable clock so this can be pinned exactly
    * rather than raced against wall time.
    */
-  const FROZEN = 1_800_000_000;
 
-  async function daemonAt(now: () => number): Promise<{ d: AgentDaemon; sock: string }> {
-    const dir = await mkdtemp(join(tmpdir(), "seedpass-expiry-"));
-    // `put` writes an audit record, which needs the profile directory and an
-    // index to serve from.
-    const profile = join(dir, FINGERPRINT);
-    await mkdir(profile, { recursive: true });
-    await writeFile(
-      join(profile, INDEX_FILENAME),
-      await encryptV3(
-        deriveIndexKeyBytes(MNEMONIC),
-        utf8(JSON.stringify({ schema_version: 4, entries: {} })),
-      ),
-    );
-    const sock = join(dir, "agent.sock");
-    const d = new AgentDaemon(sock, 900, dir, now);
-    await d.start();
-    return { d, sock };
-  }
+
+  it("stops handing out the high-risk tag at the exact instant it expires", async () => {
+    // The most consequential of these: the tag IS the partition's encryption
+    // key. A session that keeps answering past its expiry means the second
+    // factor lapsed on paper only.
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 3600);
+      await client.highRiskUnlock(FINGERPRINT, TAG, 60);
+
+      clock = FROZEN + 59;
+      expect(await client.highRiskTag(FINGERPRINT)).toBe(TAG);
+      // `expires_at` is what tells a caller how long the second factor has
+      // left, so assert the number and not just the flag: the client-side
+      // null check that decodes it can invert with nothing noticing
+      // otherwise, reporting 0 for a locked profile and null for a live one.
+      expect(await client.highRiskStatus(FINGERPRINT)).toEqual({
+        unlocked: true,
+        expires_at: FROZEN + 60,
+      });
+
+      // Exactly at expiry the tag is gone. `<` would hand it over once more.
+      clock = FROZEN + 60;
+      expect(await client.highRiskTag(FINGERPRINT)).toBeNull();
+      expect(await client.highRiskStatus(FINGERPRINT)).toEqual({
+        unlocked: false,
+        expires_at: null,
+      });
+    } finally {
+      await d.stop();
+    }
+  });
+
+  it("forgets a held seed at exactly its expiry, via the background sweep", async () => {
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 60);
+
+      // The sweep runs on a real one-second timer, so each step waits for a
+      // tick; only the daemon's notion of NOW is under test control.
+      clock = FROZEN + 59;
+      await new Promise((r) => setTimeout(r, 1200));
+      expect(await client.ownerMnemonic(FINGERPRINT)).toBe(MNEMONIC);
+
+      clock = FROZEN + 60;
+      await new Promise((r) => setTimeout(r, 1200));
+      expect(await client.ownerMnemonic(FINGERPRINT)).toBeNull();
+    } finally {
+      await d.stop();
+    }
+  });
+
+  it("drops a high-risk session in the sweep even while the seed is still held", async () => {
+    // The two lifetimes are independent: a high-risk grant is normally much
+    // shorter than the seed's, and outliving it would silently extend the
+    // second factor.
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 3600);
+      await client.highRiskUnlock(FINGERPRINT, TAG, 60);
+
+      clock = FROZEN + 60;
+      await new Promise((r) => setTimeout(r, 1200));
+      expect((await client.highRiskStatus(FINGERPRINT)).unlocked).toBe(false);
+      // The seed itself is untouched — only the stronger grant lapsed.
+      expect(await client.ownerMnemonic(FINGERPRINT)).toBe(MNEMONIC);
+    } finally {
+      await d.stop();
+    }
+  });
 
   it("denies a token at the exact instant it expires", async () => {
     let clock = FROZEN;
