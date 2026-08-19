@@ -269,6 +269,11 @@ the review independent in the sense that matters.
       TUI, and a new `util check-derivation`. The lead test in each derives the keys and
       compares bytes, so the claim is verified rather than asserted.
       **The derivation change is deliberately deferred**, see the v2 design below.
+- [x] **(ported 2026-08-19) High-risk partitions and approval gates.** Both
+      file formats byte-compatible with Python and verified in both
+      directions. The unlock session diverges deliberately — see the security
+      finding above. `agent high-risk factor-set/status/unlock/lock/migrate`,
+      `agent approval issue/list/revoke`, and the /api/v1/high-risk routes.
 - [x] **(surfaced 2026-08-19) L-2 / L-3 — merge-level loss that is silent rather than
       wrong.** Both implementations gained an optional `MergeReport`: same-id conflicts
       (naming the kept and discarded entries) and a count of tombstones evicted at the
@@ -429,6 +434,40 @@ status` reporting v1 means "rebuild this, it holds secrets".
       milliseconds. A manifest that cannot be read is NOT treated as stale —
       "cannot tell" must not mean "delete it", or a corrupt-manifest read
       would throw away a good index.
+
+### Security finding: Python's high-risk unlock puts the partition key on disk
+
+Found 2026-08-19 while porting the feature, and verified empirically.
+
+`agent_high_risk_unlock.json` records the live session's `partition_key_tag`,
+and `high_risk_partition_store._fernet_for_tag` derives the partition file's
+encryption key from exactly that value. So while a session is live, the
+high-risk partition decrypts from disk alone with **no factor**, for anything
+that can read `APP_DIR` — and the session file lives in the same directory as
+the key envelope, so being able to read one implies being able to read the
+other.
+
+That is the guarantee the partition exists to provide: ssh/pgp/seed/nostr
+entries are the kinds judged to need a SECOND factor beyond the master
+password, and during an unlock they effectively need none.
+
+It is inherent to on-disk session state in a CLI with no resident process:
+"unlocked for a TTL without re-supplying the factor" means the key must be
+recoverable by the next process, and here that is the filesystem. Encrypting
+the session under the master password or the seed does not help — then the
+password alone reaches the partition, which is the thing the second factor is
+supposed to prevent.
+
+`grant_high_risk_unlock` now documents this at the point it happens. The
+TypeScript port keeps the tag in the session agent's memory instead and never
+writes it (asserted by a test that scans every file in the app directory).
+
+- [ ] **Decide the Python fix.** Two real options, both product decisions:
+      (a) drop the session model and require the factor per operation, or
+      (b) give Python a resident agent for this (the TS agent already is one).
+      Interim guidance is in the docstring: short TTLs, `high-risk-lock` when
+      finished, treat read access to APP_DIR as equivalent to holding the
+      factor.
 
 ### Unbuilt milestones
 
