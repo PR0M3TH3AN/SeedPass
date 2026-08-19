@@ -5,7 +5,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +19,10 @@ import {
   encryptV3,
   deriveIndexKeyBytes,
 } from "@seedpass/core";
-import { buildProgram, AgentDaemon, agentSocketPath, type ProgramIo } from "../src/index.js";
+import { buildProgram, AgentDaemon, agentSocketPath, AppDir, type ProgramIo } from "../src/index.js";
+
+/** Owner env: seed in the environment, as the other suites use it. */
+const asOwnerEnv = () => ({ SEEDPASS_MNEMONIC: MNEMONIC });
 
 const MNEMONIC = mnemonics["abandon12"]!;
 const FINGERPRINT = generateFingerprint(MNEMONIC);
@@ -204,5 +207,97 @@ describe("config", () => {
     await run(env, "config", "set", "pin_hash", "supersecret");
     const redacted = JSON.parse((await run(env, "config", "get", "pin_hash")).stdout);
     expect(redacted.pin_hash).toBe("<redacted>");
+  });
+});
+
+describe("commands that close the gap with the Python CLI", () => {
+  it("vault stats counts entries without disclosing any", async () => {
+    await run(asOwnerEnv(), "entry", "add", "password", "stats-a", "--length", "16");
+    await run(asOwnerEnv(), "entry", "add", "key-value", "stats-b", "K", "stats-secret-value");
+    const r = await run(asOwnerEnv(), "vault", "stats");
+    const stats = JSON.parse(r.stdout);
+    expect(stats.fingerprint).toBe(FINGERPRINT);
+    expect(stats.total_entries).toBeGreaterThanOrEqual(2);
+    expect(stats.by_kind.password).toBeGreaterThanOrEqual(1);
+    // A stats command has no business emitting a secret.
+    expect(r.stdout).not.toContain("stats-secret-value");
+  });
+
+  it("vault change-password re-wraps the seed and the old password stops working", async () => {
+    const NEW = "changed-master-password";
+    const r = await run(
+      { SEEDPASS_MNEMONIC: undefined, SEEDPASS_PASSWORD: PASSWORD, SEEDPASS_NEW_PASSWORD: NEW },
+      "vault", "change-password",
+    );
+    expect(JSON.parse(r.stdout).status).toBe("ok");
+
+    const app = new AppDir(appDir);
+    // The new password opens it...
+    await expect(app.decryptParentSeed(FINGERPRINT, NEW)).resolves.toBe(MNEMONIC);
+    // ...and the old one does not.
+    await expect(app.decryptParentSeed(FINGERPRINT, PASSWORD)).rejects.toThrow();
+
+    // Put it back so the rest of the file's expectations still hold.
+    await app.changePassword(FINGERPRINT, NEW, PASSWORD);
+  });
+
+  it("vault change-password refuses a wrong current password", async () => {
+    const r = await run(
+      { SEEDPASS_MNEMONIC: undefined, SEEDPASS_PASSWORD: "wrong", SEEDPASS_NEW_PASSWORD: "x" },
+      "vault", "change-password",
+    );
+    expect(String((r.error as Error).message)).toContain("incorrect");
+  });
+
+  it("vault reveal-parent-seed refuses to drop the seed into a pipe", async () => {
+    // stdout is not a TTY under the test runner, which is exactly the case
+    // the guard exists for: a log, a transcript, an agent's context.
+    const r = await run(asOwnerEnv(), "vault", "reveal-parent-seed");
+    expect(String((r.error as Error).message)).toContain("refusing to print the parent seed");
+    expect(r.stdout).not.toContain("abandon");
+  });
+
+  it("vault reveal-parent-seed writes a 0600 file and will not clobber one", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-seedout-"));
+    const out = join(dir, "seed.txt");
+    const r = await run(asOwnerEnv(), "vault", "reveal-parent-seed", "--out", out);
+    expect(r.error).toBeUndefined();
+    expect((await readFile(out, "utf8")).trim()).toBe(MNEMONIC);
+    expect((await stat(out)).mode & 0o777).toBe(0o600);
+
+    const second = await run(asOwnerEnv(), "vault", "reveal-parent-seed", "--out", out);
+    expect(String((second.error as Error).message)).toContain("already exists");
+  });
+
+  it("entry export-totp writes secrets, not codes, at 0600", async () => {
+    await run(asOwnerEnv(), "entry", "add", "totp", "export-me");
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-totpout-"));
+    const out = join(dir, "totp.json");
+    const r = await run(asOwnerEnv(), "entry", "export-totp", out);
+    expect(JSON.parse(r.stdout).count).toBeGreaterThanOrEqual(1);
+    expect((await stat(out)).mode & 0o777).toBe(0o600);
+
+    const exported = JSON.parse(await readFile(out, "utf8"));
+    const row = exported.entries.find((e: { label: string }) => e.label === "export-me");
+    // base32 secret, not a six-digit code — an authenticator cannot be seeded
+    // from a code, so an export of codes would look right and be useless.
+    expect(row.secret).toMatch(/^[A-Z2-7]+$/);
+    expect(row.secret).not.toMatch(/^\d{6}$/);
+    expect(row.uri).toContain("otpauth://totp/");
+
+    // And it refuses to overwrite without being told to.
+    expect(String(((await run(asOwnerEnv(), "entry", "export-totp", out)).error as Error).message))
+      .toContain("--overwrite");
+  });
+
+  it("config toggles flip the stored value both ways", async () => {
+    const first = JSON.parse((await run(asOwnerEnv(), "config", "toggle-secret-mode")).stdout);
+    expect(first.secret_mode_enabled).toBe(true);
+    const second = JSON.parse((await run(asOwnerEnv(), "config", "toggle-secret-mode")).stdout);
+    expect(second.secret_mode_enabled).toBe(false);
+
+    const offline = JSON.parse((await run(asOwnerEnv(), "config", "toggle-offline")).stdout);
+    expect(offline.offline_mode).toBe(true);
+    await run(asOwnerEnv(), "config", "toggle-offline");
   });
 });

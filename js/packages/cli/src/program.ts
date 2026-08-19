@@ -154,7 +154,7 @@ async function readSecretInput(
 function resolveHome(p: string): string {
   return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
 }
-import { AppDir, resolveAppDir, INDEX_FILENAME, BACKUP_EXTENSION, defaultBackupFilename } from "./appDir.js";
+import { AppDir, resolveAppDir, INDEX_FILENAME, BACKUP_EXTENSION, defaultBackupFilename, DEFAULT_PBKDF2_ITERATIONS } from "./appDir.js";
 import {
   loadConfig,
   saveConfig,
@@ -916,6 +916,50 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     });
 
   entry
+    .command("export-totp <destFile>")
+    .description(
+      "PLAINTEXT EGRESS: write every TOTP secret to a 0600 file (secrets, " +
+        "not codes — the form an authenticator can be seeded from)",
+    )
+    .option("--overwrite", "replace an existing file")
+    .action(async (destFile: string, cmdOpts: { overwrite?: boolean }) => {
+      const vault = await openFromOptions(program.opts());
+      const rows = Object.entries(vault.index.entries)
+        .filter(([, e]) => e.kind === "totp" && !e.archived)
+        .map(([, e]) => {
+          const totp = e as {
+            secret?: string; index?: number; period: number; digits: number; label: string;
+          };
+          // The SECRET, not a code: a code expires in seconds and cannot seed
+          // an authenticator. Imported entries carry theirs; deterministic
+          // ones re-derive it.
+          const secret = totp.secret ?? deriveTotpSecret(vault.mnemonic, totp.index ?? 0);
+          return {
+            label: totp.label,
+            secret,
+            period: totp.period,
+            digits: totp.digits,
+            uri:
+              `otpauth://totp/${encodeURIComponent(totp.label)}?secret=${secret}` +
+              `&issuer=SeedPass&period=${totp.period}&digits=${totp.digits}`,
+          };
+        });
+      const resolved = resolveHome(destFile);
+      if (existsSync(resolved) && !cmdOpts.overwrite) {
+        throw new Error(`${resolved} already exists; pass --overwrite to replace it`);
+      }
+      // Fresh 0600 inode via atomicWrite rather than writeFile's mode, which
+      // applies only at creation and would leave an existing 0644 file as it
+      // found it. This file is every 2FA secret in the vault.
+      await atomicWrite(resolved, utf8(JSON.stringify({ entries: rows }, null, 2)));
+      io.out(JSON.stringify({ exported: resolved, count: rows.length }));
+      io.err(
+        "That file contains the 2FA secrets themselves, not codes. Move it " +
+          "somewhere safe or delete it.",
+      );
+    });
+
+  entry
     .command("reveal <refOrQuery>")
     .description("PLAINTEXT EGRESS: print the secret to stdout")
     .option("--at <timestamp>", "TOTP: unix time to compute the code at")
@@ -1144,6 +1188,34 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       });
       io.out(JSON.stringify({ [key]: parsed }));
     });
+
+  /**
+   * Convenience toggles, matching Python's `config toggle-*`.
+   *
+   * `config set` can do this, but only if the caller knows the key name and
+   * that the value is a JSON boolean. These read the current value and flip
+   * it, which is what a person at a prompt actually wants.
+   */
+  for (const [name, key, label] of [
+    ["toggle-secret-mode", "secret_mode_enabled", "Secret Mode"],
+    ["toggle-offline", "offline_mode", "Offline Mode"],
+  ] as const) {
+    config
+      .command(name)
+      .description(`flip ${label} for the active profile`)
+      .action(async () => {
+        const opts = program.opts() as GlobalOpts;
+        const app = new AppDir(resolveAppDir(opts.appDir));
+        const fp = await currentFingerprint(app, opts);
+        const mnemonic = await resolveMnemonic(app, opts);
+        const next = await mutateConfig(app.profileDir(fp), mnemonic, (cfg) => {
+          const value = !cfg[key];
+          cfg[key] = value;
+          return value;
+        });
+        io.out(JSON.stringify({ [key]: next }));
+      });
+  }
 
   const nostr = program.command("nostr").description("Nostr relay sync");
 
@@ -1523,8 +1595,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       io.out(JSON.stringify({ agent: "stopped" }));
     });
 
-  program
-    .command("api")
+  const apiCmd = program.command("api").description("HTTP API server");
+
+  apiCmd
+    .command("start", { isDefault: true })
     .description(
       "serve the HTTP API on loopback (holds an unlocked seed; prints a " +
         "bearer token once)",
@@ -1568,6 +1642,32 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         });
       },
     );
+
+  apiCmd
+    .command("stop")
+    .description("ask a running API server to shut down")
+    .option("--host <host>", "server address", "127.0.0.1")
+    .option("--port <port>", "server port", "8765")
+    .action(async (o: { host: string; port: string }) => {
+      // The token is only ever printed once, at startup, so the caller has to
+      // supply it. Read from the environment rather than argv, like every
+      // other credential here.
+      const token = process.env["SEEDPASS_API_TOKEN"];
+      if (!token) {
+        throw new Error(
+          "set SEEDPASS_API_TOKEN to the token the server printed when it started",
+        );
+      }
+      const port = parseIntOption(o.port, "--port", { min: 1, max: 65535 });
+      const res = await fetch(`http://${o.host}:${port}/api/v1/shutdown`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`server refused the shutdown request: HTTP ${res.status}`);
+      }
+      io.out(JSON.stringify({ status: "shutting down", host: o.host, port }));
+    });
 
   const util = program.command("util").description("utility commands");
 
@@ -1728,6 +1828,117 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         ? await client.lock()
         : await client.lock(await currentFingerprint(app, opts));
       io.out(JSON.stringify({ locked }));
+    });
+
+  vaultCmd
+    .command("stats")
+    .description("summarize the active profile (counts only, no secrets)")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const vault = await openFromOptions(opts);
+      const byKind: Record<string, number> = {};
+      let archived = 0;
+      for (const entry of Object.values(vault.index.entries)) {
+        const e = entry as unknown as Record<string, unknown>;
+        const kind = String(e["kind"] ?? e["type"] ?? "unknown");
+        byKind[kind] = (byKind[kind] ?? 0) + 1;
+        if (e["archived"] === true) archived++;
+      }
+      // Config is best-effort: --vault can name an index with no profile
+      // beside it, and a stats command should not fail for want of settings.
+      let relays = 0;
+      let fingerprint: string | null = null;
+      try {
+        fingerprint = await currentFingerprint(app, opts);
+        const cfg = await loadConfig(app.profileDir(fingerprint), vault.mnemonic);
+        relays = Array.isArray(cfg["relays"]) ? (cfg["relays"] as unknown[]).length : 0;
+      } catch {
+        // no profile context; counts below are still accurate
+      }
+      io.out(
+        JSON.stringify(
+          {
+            fingerprint,
+            schema_version: vault.index.schema_version,
+            total_entries: Object.keys(vault.index.entries).length,
+            archived_entries: archived,
+            by_kind: byKind,
+            relays_configured: relays,
+          },
+          null,
+          2,
+        ),
+      );
+    });
+
+  vaultCmd
+    .command("change-password")
+    .description(
+      "re-wrap the parent seed under a new master password (reads " +
+        "SEEDPASS_PASSWORD and SEEDPASS_NEW_PASSWORD)",
+    )
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      // Never from argv: a password on the command line is in the process
+      // list and the shell history.
+      const current = process.env["SEEDPASS_PASSWORD"];
+      const next = process.env["SEEDPASS_NEW_PASSWORD"];
+      if (!current || !next) {
+        throw new Error(
+          "set SEEDPASS_PASSWORD and SEEDPASS_NEW_PASSWORD in the environment " +
+            "(never pass a password on the command line)",
+        );
+      }
+      // Re-wrap at the profile's configured strength, so the kdf_iterations
+      // setting is honoured here the way the TUI honours it.
+      let iterations = DEFAULT_PBKDF2_ITERATIONS;
+      try {
+        const mnemonic = await app.decryptParentSeed(fp, current);
+        const cfg = await loadConfig(app.profileDir(fp), mnemonic);
+        iterations = Number(cfg["kdf_iterations"] ?? DEFAULT_PBKDF2_ITERATIONS);
+      } catch {
+        throw new Error("current password is incorrect");
+      }
+      await app.changePassword(fp, current, next, iterations);
+      io.out(JSON.stringify({ status: "ok", fingerprint: fp, kdf_iterations: iterations }));
+    });
+
+  vaultCmd
+    .command("reveal-parent-seed")
+    .description("PLAINTEXT EGRESS: the master seed phrase for this profile")
+    .option("--out <file>", "write to a 0600 file instead of printing")
+    .option("--show", "print to stdout even when it is not a terminal")
+    .action(async (o: { out?: string; show?: boolean }) => {
+      if (o.show && o.out) throw new Error("--show and --out are mutually exclusive");
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const mnemonic = await resolveMnemonic(app, opts);
+      // Same egress rule as `fingerprint create`: this is the one secret that
+      // unlocks everything, so it never lands in a pipe by default.
+      const toTty = !o.out && !o.show && Boolean(process.stdout.isTTY);
+      if (!o.out && !o.show && !toTty) {
+        throw new Error(
+          "refusing to print the parent seed into a pipe (a log, a transcript, " +
+            "an AI agent's context). Pass --out <file> for a 0600 file, or " +
+            "--show if you really want it on stdout.",
+        );
+      }
+      if (o.out) {
+        try {
+          await writeFile(o.out, mnemonic + "\n", { encoding: "utf8", mode: 0o600, flag: "wx" });
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code === "EEXIST") {
+            throw new Error(`${o.out} already exists; choose another path.`);
+          }
+          throw e;
+        }
+        io.err(`Parent seed written to ${o.out} (0600). Move it offline.`);
+      } else {
+        io.out(mnemonic);
+      }
     });
 
   vaultCmd
