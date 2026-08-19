@@ -180,6 +180,18 @@ everything still open, in the order it should be tackled.
             zero mutants and printed as a clean sweep. Both fixed: inline
             guards are mutated, and a target that generates no mutants now
             reports NOT MEASURED rather than passing silently.
+      - [ ] **DECISION TO RECORD: the API's settable config keys are a
+            superset of Python's.** Python's `update_config` allowlists 8
+            keys; the TypeScript route now allowlists 23, because it can set
+            the password-policy keys (`min_uppercase`, `exclude_ambiguous`
+            and friends) that this implementation honours and Python's API
+            does not expose. Matching Python exactly would mean deleting
+            working behaviour to reproduce a limitation, so the divergence is
+            deliberate — but it IS a divergence, and a client that sets a
+            policy key succeeds here and gets 400 there. Either widen
+            Python's allowlist or document the API surfaces as
+            non-identical; do not quietly leave it as an accident.
+            (Found 2026-08-19 during the adversarial pass.)
       - [ ] **Adversarial pass over TS-only surfaces**, framed as "what does
             this trust?" rather than "is this correct?" — the framing that
             finds trust-boundary bugs rather than logic bugs.

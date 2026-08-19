@@ -123,7 +123,12 @@ beforeAll(async () => {
     await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify(index))),
   );
 
-  server = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN });
+  // Generous on purpose. The default budget is 100 requests a minute, and
+  // this file passed it as it grew — which made unrelated tests fail with
+  // 429 depending on how many requests ran before them. Rate limiting has
+  // its own tests below, each on a server with a budget it sets explicitly,
+  // so the shared fixture should not be enforcing one at all.
+  server = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN, rateLimit: 100_000 });
   ctx = buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC });
   registerRoutes(server, ctx);
   const bound = await server.listen();
@@ -206,10 +211,64 @@ describe("what the API refuses", () => {
     for (const key of ["password_hash", "pin_hash"]) {
       const got = await call("GET", `/api/v1/config/${key}`);
       expect(got.json.value).toBe("<redacted>");
-      // And it cannot be set either — nothing legitimate needs to.
+      // And it cannot be set either — nothing legitimate needs to. 403, not
+      // 400: the key is real and the refusal is about authority, which is
+      // also the status Python answers.
       const set = await call("PUT", `/api/v1/config/${key}`, { body: { value: "x" } });
-      expect(set.status).toBe(400);
+      expect(set.status).toBe(403);
     }
+  });
+
+  it("refuses a config key it does not know, instead of storing it forever", async () => {
+    // This route used to take the key from the URL and the value from the
+    // body with no validation at all, so `inactivity_timout` was accepted,
+    // written into the encrypted config permanently, and reported as ok —
+    // while the setting it was meant to change never moved. Nothing reads an
+    // unknown key, so the failure could only ever be silent.
+    const typo = await call("PUT", "/api/v1/config/inactivity_timout", {
+      body: { value: 60 },
+    });
+    expect(typo.status).toBe(400);
+    expect(typo.json.detail).toContain("Unknown key");
+    expect((await call("GET", "/api/v1/config/inactivity_timout")).json.value).toBeNull();
+
+    // Nor a key that only LOOKS like an object property.
+    expect(
+      (await call("PUT", "/api/v1/config/__proto__", { body: { value: {} } })).status,
+    ).toBe(400);
+    expect(
+      (await call("PUT", "/api/v1/config/constructor", { body: { value: 1 } })).status,
+    ).toBe(400);
+  });
+
+  it("refuses a value of the wrong type for a key it does know", async () => {
+    // The allowlist alone is not enough: `inactivity_timeout: "soon"` used to
+    // be stored verbatim and turn every later comparison into NaN, which
+    // compares false — so the vault would simply never time out.
+    for (const [key, value] of [
+      ["inactivity_timeout", "soon"],
+      ["inactivity_timeout", 0],
+      ["clipboard_clear_delay", -1],
+      ["relays", "wss://one.example"],
+      ["relays", []],
+      ["min_uppercase", "lots"],
+    ] as const) {
+      const res = await call("PUT", `/api/v1/config/${key}`, { body: { value } });
+      expect(res.status).toBe(400);
+    }
+
+    // And the well-typed versions still go through, so the check is
+    // rejecting the value rather than the key.
+    expect(
+      (await call("PUT", "/api/v1/config/inactivity_timeout", { body: { value: 120 } }))
+        .status,
+    ).toBe(200);
+    expect((await call("GET", "/api/v1/config/inactivity_timeout")).json.value).toBe(120);
+    expect(
+      (await call("PUT", "/api/v1/config/relays", {
+        body: { value: ["wss://one.example"] },
+      })).status,
+    ).toBe(200);
   });
 
   it("caps the request body rather than buffering whatever arrives", async () => {

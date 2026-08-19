@@ -55,7 +55,15 @@ import {
   type VaultIndex,
 } from "@seedpass/core";
 import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS } from "../appDir.js";
-import { loadConfig, mutateConfig, passwordPolicyFromConfig, DEFAULT_RELAYS } from "../configFile.js";
+import {
+  loadConfig,
+  mutateConfig,
+  passwordPolicyFromConfig,
+  DEFAULT_RELAYS,
+  SETTABLE_CONFIG_KEYS,
+  SENSITIVE_CONFIG_KEYS,
+  ConfigValueError,
+} from "../configFile.js";
 import { openVault, saveVault, saveVaultHoldingLock, withVaultLock, atomicWrite } from "../vaultFile.js";
 import { entryMetadata, refFor, resolveEntry } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
@@ -510,10 +518,12 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
     const mnemonic = requireUnlocked(ctx);
     const key = req.params["key"]!;
     const config = await loadConfig(profileDir(ctx), mnemonic);
-    if (key === "password_hash" || key === "pin_hash") {
+    if (SENSITIVE_CONFIG_KEYS.has(key)) {
       // Never hand back a credential verifier over the wire, even to an
       // authenticated caller: it is offline-crackable and nothing legitimate
-      // needs it.
+      // needs it. Answers with a placeholder rather than Python's 403 so a
+      // client can tell "exists but withheld" from "no such key" — the value
+      // is withheld either way.
       return { json: { key, value: "<redacted>" } };
     }
     return { json: { key, value: config[key] ?? null } };
@@ -522,13 +532,28 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
   server.route("PUT", "/api/v1/config/:key", async (req) => {
     const mnemonic = requireUnlocked(ctx);
     const key = req.params["key"]!;
-    if (key === "password_hash" || key === "pin_hash") {
-      throw new HttpError(400, `${key} is not settable through the API`);
+    if (SENSITIVE_CONFIG_KEYS.has(key)) {
+      // 403, matching Python. These are credential verifiers, not settings.
+      throw new HttpError(403, `${key} is not settable through the API`);
     }
+    // Unknown keys are refused rather than stored. This route used to accept
+    // any key at all, so a typo became a permanent config entry that nothing
+    // ever read, while the API answered ok and the setting never moved.
+    const normalize = Object.prototype.hasOwnProperty.call(SETTABLE_CONFIG_KEYS, key)
+      ? SETTABLE_CONFIG_KEYS[key]
+      : undefined;
+    if (!normalize) throw new HttpError(400, "Unknown key");
     const body = bodyObject(req);
     if (!("value" in body)) throw new HttpError(400, "value is required");
+    let value: unknown;
+    try {
+      value = normalize(body["value"]);
+    } catch (e) {
+      if (e instanceof ConfigValueError) throw new HttpError(400, e.message);
+      throw e;
+    }
     await mutateConfig(profileDir(ctx), mnemonic, (config) => {
-      config[key] = body["value"];
+      config[key] = value;
     });
     return { json: { status: "ok" } };
   });
