@@ -295,9 +295,18 @@ def main() -> int:
         def restore(*_: object) -> None:
             path.write_text(original)
 
-        signal.signal(
-            signal.SIGINT, lambda *a: (restore(), release_lock(), sys.exit(130))
-        )
+        # SIGTERM as well as SIGINT. Handling only Ctrl-C was not enough: a
+        # run wrapped in `timeout` is killed with SIGTERM, which skipped the
+        # handler entirely and left an INVERTED SECURITY CHECK in the working
+        # tree along with the lock file. The lock caught it, which is what it
+        # is for -- but the restore should have run in the first place.
+        def on_signal(*_: object) -> None:
+            restore()
+            release_lock()
+            sys.exit(130)
+
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, on_signal)
 
         try:
             for idx, mutant in enumerate(mutants, start=args.offset + 1):

@@ -143,11 +143,34 @@ everything still open, in the order it should be tackled.
             runs automatically, and this branch has a documented history of
             CI going unwatched (ts-parity red for 33 runs). A check nobody
             runs is not a check.
-      - [ ] **Systematic mutation testing** of the security-critical modules
+      - [x] **Systematic mutation testing** of the security-critical modules
             that have NO differential oracle because Python has no
             equivalent: the session agent, the API HTTP layer, high-risk
-            session handling, sinks. Ad-hoc mutation was applied to every fix
-            in this branch, but never measured as coverage.
+            session handling, sinks. Done 2026-08-19 via
+            `scripts/mutation_test.py`. All six targets sweep to ZERO
+            survivors: 132 mutants, 87 killed, 45 non-compiling. Re-run with
+            `.venv/bin/python scripts/mutation_test.py --target all`; it is
+            slow (~25s/mutant) so use `--offset/--limit` to slice it, and
+            never run it unattended — it writes deliberately broken security
+            code into the tree while it works, guarded by
+            `.mutation-test-running`.
+
+            It found real gaps rather than confirming the suite. The largest:
+            the high-risk expiry rule was written in two places that masked
+            each other's mutations, and one of the two was unreachable dead
+            code; a token's `kinds` restriction was entirely untested; the
+            API would delete the profile it was serving; `token-issue` would
+            mint a token for a profile the agent never held; an empty
+            high-risk factor was refused in both implementations and tested
+            in neither.
+
+            Two blind spots in the harness itself mattered as much as the
+            findings. It only mutated block-form guards, so every one-line
+            `if (cond) return ...;` — which is how most of the load-bearing
+            checks are written — was invisible; `src/highRisk.ts` generated
+            zero mutants and printed as a clean sweep. Both fixed: inline
+            guards are mutated, and a target that generates no mutants now
+            reports NOT MEASURED rather than passing silently.
       - [ ] **Adversarial pass over TS-only surfaces**, framed as "what does
             this trust?" rather than "is this correct?" — the framing that
             finds trust-boundary bugs rather than logic bugs.
