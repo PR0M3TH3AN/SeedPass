@@ -82,6 +82,25 @@ POLICIES = {
     },
 }
 
+# (text, ec_level) — spans all four EC levels, versions 1..17, and the
+# version-7 boundary where version-information blocks start being written.
+QR_CASES = [
+    (
+        "otpauth://totp/email-2fa?secret=JBSWY3DPEHPK3PXP"
+        "&issuer=SeedPass&period=30&digits=6",
+        "M",
+    ),
+    ("nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5", "M"),
+    ("JBSWY3DPEHPK3PXP", "L"),
+    ("https://example.com/a/fairly/long/path?with=query&params=yes", "Q"),
+    ("x", "H"),
+    ("A" * 200, "M"),
+    ("A" * 600, "L"),
+    ("mixed \u00e9\u00e8 unicode \u2713 bytes", "M"),
+    ("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyMaterialHere user@host", "M"),
+    ("0123456789" * 8, "Q"),
+]
+
 # (policy, length, index) — lengths cross the 32-byte v1 stream-wrap boundary
 PASSWORD_CASES = [
     ("default", 8, 0),
@@ -1187,6 +1206,85 @@ def gen_kdf_metadata() -> dict:
     }
 
 
+def gen_qr() -> dict:
+    """QR reference matrices for the TypeScript encoder.
+
+    Byte mode is forced: the library auto-selects alphanumeric mode for an
+    all-uppercase string, which is a different encoding of the same text
+    rather than a different answer to the same question, and the TS encoder
+    is byte-mode only.
+
+    The chosen mask is recorded so the TS tests can pin it. The two
+    implementations disagree about mask SELECTION -- the spec scores the
+    finished symbol, this library scores one with its format modules blanked
+    (`makeImpl(test=True, ...)`) -- and every one of the eight masks is a
+    valid, scannable code, so the tests compare matrices at a fixed mask
+    rather than reproducing the quirk.
+    """
+    import qrcode
+    import qrcode.util as qr_util
+    from qrcode.constants import (
+        ERROR_CORRECT_H,
+        ERROR_CORRECT_L,
+        ERROR_CORRECT_M,
+        ERROR_CORRECT_Q,
+    )
+
+    levels = {
+        "L": ERROR_CORRECT_L,
+        "M": ERROR_CORRECT_M,
+        "Q": ERROR_CORRECT_Q,
+        "H": ERROR_CORRECT_H,
+    }
+    format_ec = {"L": 1, "M": 0, "Q": 3, "H": 2}
+
+    def format_bits(level: str, mask: int) -> int:
+        data = (format_ec[level] << 3) | mask
+        rem = data
+        for _ in range(10):
+            rem = (rem << 1) ^ ((rem >> 9) * 0x537)
+        return ((data << 10) | rem) ^ 0x5412
+
+    def read_mask(matrix, level: str) -> int:
+        bits = 0
+        for i in range(15):
+            if i < 6:
+                r, c = i, 8
+            elif i < 8:
+                r, c = i + 1, 8
+            elif i == 8:
+                r, c = 8, 7
+            else:
+                r, c = 8, 14 - i
+            if matrix[r][c]:
+                bits |= 1 << i
+        for mask in range(8):
+            if format_bits(level, mask) == bits:
+                return mask
+        raise AssertionError("no mask matched the encoded format information")
+
+    cases: list[dict] = []
+    for text, level in QR_CASES:
+        q = qrcode.QRCode(error_correction=levels[level], border=0)
+        q.add_data(qr_util.QRData(text, mode=qr_util.MODE_8BIT_BYTE))
+        q.make(fit=True)
+        matrix = [[bool(v) for v in row] for row in q.get_matrix()]
+        cases.append(
+            {
+                "text": text,
+                "level": level,
+                "version": q.version,
+                "size": len(matrix),
+                "mask": read_mask(matrix, level),
+                "modules": matrix,
+            }
+        )
+    return {
+        "description": "QR matrices (byte mode) from the qrcode library",
+        "cases": cases,
+    }
+
+
 def main() -> None:
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1210,6 +1308,7 @@ def main() -> None:
         "pgp_keys.json": gen_pgp_keys(),
         "password_kdf.json": gen_password_kdf(),
         "legacy_payloads.json": gen_legacy_payloads(),
+        "qr.json": gen_qr(),
     }
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture

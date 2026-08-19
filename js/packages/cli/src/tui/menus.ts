@@ -48,6 +48,7 @@ import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type Opene
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret, type MaterializedSecret } from "../secrets.js";
 import { clipboardSink } from "../sinks.js";
+import { encodeQr, renderQrText } from "@seedpass/core";
 import { createIndexBackup, type BackupResult } from "../backups.js";
 import {
   loadConfig,
@@ -901,14 +902,40 @@ async function editEntryMenu(s: Session, id: string): Promise<void> {
 }
 
 async function showQr(s: Session, id: string, entry: Entry): Promise<void> {
-  // Python renders a QR block in the terminal. This build does not have a QR
-  // encoder, and inventing one for a display convenience is not worth a
-  // dependency in a process that holds unlocked seeds — say so plainly and
-  // offer the underlying value instead.
-  warn(s.ui, "QR rendering is not available in this build.");
+  const kind = kindOf(entry);
+  // A QR code IS the secret, in a form a camera reads from across a room.
+  // Secret Mode exists to keep secrets off the screen, so it applies here
+  // more than anywhere: a shoulder-surfer does not even have to read
+  // accurately.
+  if (secretModeOn(s)) {
+    warn(s.ui, "Secret Mode is on, so nothing is drawn on screen.");
+    warn(s.ui, "Turn it off in Settings if you need to scan this.");
+    await pause(s.ui);
+    return;
+  }
+  warn(s.ui, "This draws the secret on screen as a scannable code.");
+  if (!(await confirm(s.ui, "Continue?"))) return;
+
   const secret = sessionSecret(s, id, entry);
-  if (await confirm(s.ui, "Show the value it would encode instead?")) {
-    await reveal(s, secret.value, secret.descriptor);
+  // TOTP entries scan into an authenticator as an otpauth:// URI; everything
+  // else is encoded as its own value.
+  const payload = kind === "totp" ? totpUri(entry, s.vault.mnemonic) : secret.value;
+
+  try {
+    // Level M: the middle of the four, and the one authenticator apps are
+    // usually shown with. A terminal redraw is cheap, so robustness costs
+    // little here.
+    s.ui.say();
+    s.ui.say(renderQrText(encodeQr(payload, { level: "M" })));
+    s.ui.say();
+    s.ui.say(`${secret.descriptor} — scan before leaving this screen.`);
+  } catch (e) {
+    // Too large to encode is the realistic failure (a long document), and it
+    // must not look like the secret is unavailable.
+    fail(s.ui, `Cannot render a QR code for this entry: ${(e as Error).message}`);
+    if (await confirm(s.ui, "Show the value instead?")) {
+      await reveal(s, payload, secret.descriptor);
+    }
   }
   await pause(s.ui);
 }

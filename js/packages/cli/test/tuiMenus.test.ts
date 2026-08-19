@@ -29,6 +29,7 @@ import {
 import { runTui } from "../src/tui/app.js";
 import { AppDir, INDEX_FILENAME, PARENT_SEED_FILENAME } from "../src/appDir.js";
 import { openVault } from "../src/vaultFile.js";
+import { mutateConfig } from "../src/configFile.js";
 import type { Ui } from "../src/tui/console.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
@@ -198,6 +199,39 @@ describe("additional backup location", () => {
       (e) => (e as unknown as Record<string, unknown>)["label"],
     );
     expect(labels).toContain("still-added.example");
+  });
+});
+
+describe("QR display", () => {
+  it("renders a scannable code for a TOTP entry, encoding the otpauth URI", async () => {
+    // Retrieve > email-2fa > q(QR) > confirm
+    const ui = await run("2", "email-2fa", "q", "y", "", "", "");
+    // Half-block glyphs are how a square module is drawn in a terminal cell.
+    expect(ui.text).toMatch(/[█▄▀]/);
+    const qrLines = ui.text.split("\n").filter((l) => /^[█▄▀ ]{20,}$/.test(l));
+    expect(qrLines.length).toBeGreaterThan(8);
+  });
+
+  it("refuses to draw a QR code while Secret Mode is on", async () => {
+    // A QR code is the secret in a form a camera reads across a room, so the
+    // setting whose whole purpose is keeping secrets off the screen has to
+    // win here.
+    const app = new AppDir(appDir);
+    const fp = FINGERPRINT;
+    await mutateConfig(app.profileDir(fp), MNEMONIC, (cfg) => {
+      cfg["secret_mode_enabled"] = true;
+    });
+    const ui = await run("2", "email-2fa", "q", "", "", "");
+    expect(ui.text).toContain("Secret Mode is on");
+    expect(ui.text).not.toMatch(/[█▄▀]{20,}/);
+    await mutateConfig(app.profileDir(fp), MNEMONIC, (cfg) => {
+      cfg["secret_mode_enabled"] = false;
+    });
+  });
+
+  it("draws nothing if the user declines the warning", async () => {
+    const ui = await run("2", "email-2fa", "q", "n", "", "", "");
+    expect(ui.text).not.toMatch(/[█▄▀]{20,}/);
   });
 });
 

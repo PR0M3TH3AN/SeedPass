@@ -87,6 +87,7 @@ export {
   needsMigration,
   SchemaMigrationError,
 } from "./schema/migrations.js";
+export { encodeQr, renderQrText, EC_LEVELS, type QrMatrix, type EcLevel } from "./util/qr.js";
 export {
   findDerivationCollisions,
   APP32_KINDS,
