@@ -42,6 +42,9 @@ export function buildContext(options: {
     fingerprint: options.fingerprint,
     mnemonic: options.mnemonic,
     notifications: [],
+    // Locked until the factor is supplied; never restored from disk.
+    highRiskTag: null,
+    highRiskExpiresAt: 0,
     now: options.now ?? (() => Date.now()),
     requestShutdown: options.requestShutdown ?? (() => {}),
     verifyPassword: async (password: string) => {
@@ -90,10 +93,11 @@ export async function serveApi(options: ServeApiOptions): Promise<void> {
   const bound = await server.listen();
 
   const stop = async (): Promise<void> => {
-    // Drop the seed before releasing the port, not after: the window between
-    // the two is a window where the process is still holding an unlocked seed
-    // with no way to say so.
+    // Both the seed and the high-risk tag go before the port closes, not
+    // after: the gap between them would be a window where the process still
+    // holds key material with no way to say so.
     ctx.mnemonic = null;
+    ctx.highRiskTag = null;
     await server.close();
   };
 

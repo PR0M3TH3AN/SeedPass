@@ -117,6 +117,22 @@ interface Held {
   expiresAt: number;
 }
 
+/**
+ * A live high-risk unlock, held in memory only.
+ *
+ * `tag` is the partition key tag, from which the partition file's encryption
+ * key is derived — so it is key material, not an identifier. Python writes
+ * this value into `agent_high_risk_unlock.json`, which means that for the
+ * life of a Python unlock session the partition is decryptable from disk with
+ * no factor at all, defeating the second factor the partition exists to
+ * require. Keeping it here, in the process that already holds unlocked parent
+ * seeds, is the same trust boundary with none of the disk exposure.
+ */
+interface HighRiskSession {
+  tag: string;
+  expiresAt: number;
+}
+
 export interface AgentStatusProfile {
   fingerprint: string;
   expires_at: number;
@@ -132,10 +148,18 @@ const OWNER_OPS = new Set([
   "lock",
   "status",
   "shutdown",
+  // High-risk unlock is strictly more privileged than an ordinary unlock:
+  // it is the second factor for the entry kinds deemed to need one, so a
+  // scoped token must never be able to reach it.
+  "high-risk-unlock",
+  "high-risk-lock",
+  "high-risk-status",
+  "high-risk-tag",
 ]);
 
 export class AgentDaemon {
   private held = new Map<string, Held>();
+  private highRisk = new Map<string, HighRiskSession>();
   private tokens = new Map<string, TokenRecord>();
   private audits = new Map<string, AuditLog>();
   private auditQueue: Promise<unknown> = Promise.resolve();
@@ -465,6 +489,9 @@ export class AgentDaemon {
   /** Drop everything derived from a profile's seed. */
   private forget(fingerprint: string): void {
     this.held.delete(fingerprint);
+    // A high-risk unlock is scoped to an unlocked profile; locking the vault
+    // must not leave the stronger grant standing.
+    this.highRisk.delete(fingerprint);
     // Tokens are only meaningful while the profile is unlocked; leaving them
     // resident would let them spring back to life on the next unlock.
     for (const [id, token] of this.tokens) {
@@ -479,6 +506,28 @@ export class AgentDaemon {
     for (const [fp, held] of this.held) {
       if (held.expiresAt <= now) this.forget(fp);
     }
+    // High-risk sessions expire on their own clock too: they are typically
+    // much shorter than the seed's TTL, and outliving it would silently
+    // extend the second factor.
+    for (const [fp, session] of this.highRisk) {
+      if (session.expiresAt <= now) this.highRisk.delete(fp);
+    }
+  }
+
+  /**
+   * The live partition key tag for a profile, or "" when not unlocked.
+   *
+   * Never logged and never included in an audit record: it is the key to the
+   * partition, so recording it would put it on disk by another route.
+   */
+  private highRiskTag(fingerprint: string): string {
+    const session = this.highRisk.get(fingerprint);
+    if (!session) return "";
+    if (session.expiresAt <= Date.now() / 1000) {
+      this.highRisk.delete(fingerprint);
+      return "";
+    }
+    return session.tag;
   }
 
   private async handle(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -704,6 +753,65 @@ export class AgentDaemon {
         }
         return { ok: true, expires_at: expiresAt };
       }
+      case "high-risk-unlock": {
+        // The factor is verified by the CALLER (which reads the envelope and
+        // unwraps it); the agent receives the resulting tag. That keeps the
+        // KDF work out of the daemon and means a wrong factor never reaches
+        // it — but it also means this op hands over partition access, which
+        // is why it is owner-gated.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const tag = String(msg["tag"] ?? "");
+        if (!FINGERPRINT_RE.test(fingerprint)) {
+          return { ok: false, error: "fingerprint must be 16 uppercase hex characters" };
+        }
+        if (!/^[0-9a-f]{64}$/.test(tag)) {
+          return { ok: false, error: "tag must be a 64-character hex digest" };
+        }
+        // A high-risk grant on a locked profile would outlive nothing and
+        // protect nothing: the vault index it applies to is not open.
+        if (!this.held.has(fingerprint)) {
+          return { ok: false, error: "profile not unlocked" };
+        }
+        const ttl = positiveIntField(msg["ttl"], 300);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        const expiresAt = Math.floor(Date.now() / 1000 + ttl);
+        this.highRisk.set(fingerprint, { tag, expiresAt });
+        try {
+          // Records THAT it was unlocked and for how long — never the tag.
+          await this.auditLog(fingerprint, "high_risk_unlocked", { ttl });
+        } catch (e) {
+          this.highRisk.delete(fingerprint);
+          throw e;
+        }
+        return { ok: true, expires_at: expiresAt };
+      }
+      case "high-risk-lock": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const had = this.highRisk.delete(fingerprint);
+        if (had) await this.auditLog(fingerprint, "high_risk_locked", {});
+        return { ok: true, locked: had };
+      }
+      case "high-risk-status": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const session = this.highRisk.get(fingerprint);
+        const live = this.highRiskTag(fingerprint) !== "";
+        return {
+          ok: true,
+          fingerprint,
+          unlocked: live,
+          // The expiry is safe to disclose; the tag is not, and is not here.
+          expires_at: live && session ? session.expiresAt : null,
+        };
+      }
+      case "high-risk-tag": {
+        // Owner-gated, and the only way the tag leaves the daemon. Returned
+        // to the owner's own CLI so it can open the partition; a scoped token
+        // cannot reach this op at all.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const tag = this.highRiskTag(fingerprint);
+        if (!tag) return { ok: false, error: "high-risk partition is locked" };
+        return { ok: true, tag };
+      }
       case "owner-mnemonic": {
         // Owner-capability gated: this hands back the parent seed so the
         // owner's CLI can operate the vault locally. It is deliberately NOT
@@ -864,6 +972,50 @@ export class AgentClient {
     try {
       const r = await this.ownerRequest({ op: "owner-mnemonic", fingerprint });
       return r["ok"] ? String(r["mnemonic"]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Hand a verified partition key tag to the agent for a bounded window.
+   *
+   * The tag is key material. It goes over the 0600 unix socket to a process
+   * that already holds this profile's parent seed, and is never written to
+   * disk by either side.
+   */
+  async highRiskUnlock(
+    fingerprint: string,
+    tag: string,
+    ttl: number,
+  ): Promise<number> {
+    const r = await this.ownerRequest({ op: "high-risk-unlock", fingerprint, tag, ttl });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Number(r["expires_at"] ?? 0);
+  }
+
+  async highRiskLock(fingerprint: string): Promise<boolean> {
+    const r = await this.ownerRequest({ op: "high-risk-lock", fingerprint });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Boolean(r["locked"]);
+  }
+
+  async highRiskStatus(
+    fingerprint: string,
+  ): Promise<{ unlocked: boolean; expires_at: number | null }> {
+    const r = await this.ownerRequest({ op: "high-risk-status", fingerprint });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return {
+      unlocked: Boolean(r["unlocked"]),
+      expires_at: r["expires_at"] === null ? null : Number(r["expires_at"]),
+    };
+  }
+
+  /** The live tag, or null when the partition is locked. */
+  async highRiskTag(fingerprint: string): Promise<string | null> {
+    try {
+      const r = await this.ownerRequest({ op: "high-risk-tag", fingerprint });
+      return r["ok"] ? String(r["tag"]) : null;
     } catch {
       return null;
     }

@@ -26,6 +26,10 @@ import {
   parseBackupWrapper,
   exportBackup,
   findDerivationCollisions,
+  HIGH_RISK_KINDS,
+  isPartitionStub,
+  partitionStub,
+  type Entry,
   buildSemanticRecords,
   searchSemanticRecords,
   semanticManifest,
@@ -170,6 +174,20 @@ import {
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
 import { createIndexBackup } from "./backups.js";
+import {
+  factorConfigured,
+  setFactor,
+  tagForFactor,
+  readPartition,
+  writePartition,
+  partitionPath,
+} from "./highRisk.js";
+import {
+  issueApproval,
+  listApprovals,
+  revokeApproval,
+  VALID_APPROVAL_ACTIONS,
+} from "./approvals.js";
 import { runTui } from "./tui/app.js";
 
 export interface ProgramIo {
@@ -404,9 +422,44 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
   // Resolved on first use, not up front: reading the config costs another
   // BIP-39 seed derivation, and `entry list` and friends never need a policy.
   let basePolicy: PasswordPolicy | undefined;
+
+  /**
+   * Replace a high-risk stub with its real record.
+   *
+   * A stub carries only kind/label/archived, so materializing a secret from
+   * one would derive from the wrong fields — or, for an imported secret,
+   * from nothing at all. The full record lives in the partition, and reaching
+   * it needs the second factor to be live in the agent.
+   */
+  const hydrate = async (id: string, entry: Entry): Promise<Entry> => {
+    const record = entry as unknown as Record<string, unknown>;
+    if (!isPartitionStub(record)) return entry;
+    const client = new AgentClient(agentSocketPath(app.root));
+    const fp = await currentFingerprint(app, opts);
+    const tag = await client.highRiskTag(fp);
+    if (!tag) {
+      throw new Error(
+        `entry ${id} is in the high-risk partition and the partition is ` +
+          `locked. Run 'agent high-risk unlock' with SEEDPASS_HIGH_RISK_FACTOR set.`,
+      );
+    }
+    const partition = await readPartition(app.profileDir(fp), tag);
+    const full = partition[String(record["partition_ref"] ?? id)];
+    if (!full) {
+      // The stub says a record exists and the partition disagrees. Say so
+      // rather than deriving from the stub and handing back a wrong secret.
+      throw new Error(
+        `entry ${id} points at a high-risk record that is not in the ` +
+          `partition file; the partition may be from a different factor.`,
+      );
+    }
+    return full as unknown as Entry;
+  };
+
   const localSecret = async (id: string, timestamp?: number) => {
-    const entry = vault.index.entries[id];
-    if (!entry) throw new Error(`no entry ${id}`);
+    const stub = vault.index.entries[id];
+    if (!stub) throw new Error(`no entry ${id}`);
+    const entry = await hydrate(id, stub);
     basePolicy ??= await basePolicyForOptions(opts, vault.mnemonic);
     return materializeSecret(vault.index, id, entry, vault.mnemonic, {
       ...(timestamp !== undefined && { timestamp }),
@@ -1811,6 +1864,205 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           2,
         ),
       );
+    });
+
+  // ------------------------------------------------- high-risk partition
+
+  /**
+   * The factor never comes from argv — it is the second factor for exactly
+   * the secrets deemed to need one, and argv is in the process list and the
+   * shell history.
+   */
+  function requireFactor(): string {
+    const factor = process.env["SEEDPASS_HIGH_RISK_FACTOR"];
+    if (!factor) {
+      throw new Error(
+        "set SEEDPASS_HIGH_RISK_FACTOR in the environment (never pass the " +
+          "high-risk factor on the command line)",
+      );
+    }
+    return factor;
+  }
+
+  const highRisk = agent
+    .command("high-risk")
+    .description("second-factor partition for ssh/pgp/seed/nostr entries");
+
+  highRisk
+    .command("factor-set")
+    .description("configure the high-risk factor (reads SEEDPASS_HIGH_RISK_FACTOR)")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      if (factorConfigured(app.root)) {
+        // Replacing the factor mints a NEW partition key, which would leave
+        // any existing partition file undecryptable. Losing a partition is
+        // losing secrets, so this refuses rather than doing it quietly.
+        throw new Error(
+          "a high-risk factor is already configured. Replacing it generates a " +
+            "new partition key and would make any existing partition " +
+            "permanently unreadable; migrate the entries back out first.",
+        );
+      }
+      await setFactor(app.root, requireFactor());
+      io.out(JSON.stringify({ status: "ok", configured: true }));
+    });
+
+  highRisk
+    .command("status")
+    .description("whether the factor is configured and the partition unlocked")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const client = new AgentClient(agentSocketPath(app.root));
+      let session = { unlocked: false, expires_at: null as number | null };
+      try {
+        session = await client.highRiskStatus(fp);
+      } catch {
+        // No agent running means nothing is unlocked, which is the honest
+        // answer rather than an error.
+      }
+      io.out(
+        JSON.stringify({
+          fingerprint: fp,
+          configured: factorConfigured(app.root),
+          unlocked: session.unlocked,
+          expires_at: session.expires_at,
+          partition_exists: existsSync(partitionPath(app.profileDir(fp))),
+        }),
+      );
+    });
+
+  highRisk
+    .command("unlock")
+    .description("unlock the partition for a bounded window (reads SEEDPASS_HIGH_RISK_FACTOR)")
+    .option("--ttl <seconds>", "unlock lifetime", "300")
+    .action(async (o: { ttl: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      // Unwrapping happens HERE, not in the daemon: a wrong factor never
+      // reaches the process holding seeds, and the KDF cost stays out of it.
+      const tag = await tagForFactor(app.root, requireFactor());
+      const client = new AgentClient(agentSocketPath(app.root));
+      const expiresAt = await client.highRiskUnlock(
+        fp,
+        tag,
+        parseIntOption(o.ttl, "--ttl", { min: 1 }),
+      );
+      io.out(JSON.stringify({ status: "unlocked", fingerprint: fp, expires_at: expiresAt }));
+    });
+
+  highRisk
+    .command("lock")
+    .description("drop the high-risk unlock immediately")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const client = new AgentClient(agentSocketPath(app.root));
+      io.out(JSON.stringify({ status: "ok", locked: await client.highRiskLock(fp) }));
+    });
+
+  highRisk
+    .command("migrate")
+    .description("move high-risk entries out of the vault index into the partition")
+    .option(
+      "--kind <kind...>",
+      `entry kinds to move (default: ${HIGH_RISK_KINDS.join(", ")})`,
+    )
+    .action(async (o: { kind?: string[] }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const tag = await tagForFactor(app.root, requireFactor());
+      const kinds = new Set(o.kind ?? [...HIGH_RISK_KINDS]);
+      const profileDir = app.profileDir(fp);
+
+      const moved: string[] = [];
+      await mutateVault(opts, async (vault) => {
+        const partition = await readPartition(profileDir, tag);
+        for (const [id, raw] of Object.entries(vault.index.entries)) {
+          const entry = raw as unknown as Record<string, unknown>;
+          if (isPartitionStub(entry)) continue; // already moved
+          const kind = String(entry["kind"] ?? entry["type"] ?? "").toLowerCase();
+          if (!kinds.has(kind)) continue;
+          partition[id] = entry;
+          (vault.index.entries as unknown as Record<string, unknown>)[id] =
+            partitionStub(id, entry, kind, Date.now() / 1000);
+          moved.push(id);
+        }
+        // Write the partition BEFORE the index. If the order were reversed a
+        // crash between them would leave stubs pointing at entries that were
+        // never stored — the vault would have lost the secrets outright.
+        if (moved.length > 0) await writePartition(profileDir, tag, partition);
+      });
+      io.out(
+        JSON.stringify({
+          moved_count: moved.length,
+          moved_indexes: moved.sort((a, b) => Number(a) - Number(b)),
+          partition_file: partitionPath(profileDir),
+        }),
+      );
+    });
+
+  // ------------------------------------------------------- approval gates
+
+  const approval = agent
+    .command("approval")
+    .description("one-shot authorizations for dangerous actions");
+
+  approval
+    .command("issue")
+    .description("issue an approval for a named action")
+    .requiredOption("--action <action>", VALID_APPROVAL_ACTIONS.join("|"))
+    .option("--resource <resource>", "restrict to one resource", "*")
+    .option("--ttl <seconds>", "lifetime", "300")
+    .option("--uses <n>", "how many times it may be consumed", "1")
+    .option("--issued-by <who>", "who authorized it, for the record", "manual")
+    .action(async (o: {
+      action: string; resource: string; ttl: string; uses: string; issuedBy: string;
+    }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const record = await issueApproval(app.root, {
+        action: o.action,
+        resource: o.resource,
+        issuedBy: o.issuedBy,
+        ttlSeconds: parseIntOption(o.ttl, "--ttl", { min: 1 }),
+        uses: parseIntOption(o.uses, "--uses", { min: 1 }),
+      });
+      io.out(JSON.stringify(record, null, 2));
+    });
+
+  approval
+    .command("list")
+    .description("list approvals")
+    .option("--include-revoked", "also show revoked ones")
+    .action(async (o: { includeRevoked?: boolean }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      io.out(
+        JSON.stringify(
+          await listApprovals(app.root, {
+            ...(o.includeRevoked !== undefined && { includeRevoked: o.includeRevoked }),
+          }),
+          null,
+          2,
+        ),
+      );
+    });
+
+  approval
+    .command("revoke <approvalId>")
+    .description("revoke an approval immediately")
+    .action(async (approvalId: string) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const revoked = await revokeApproval(app.root, approvalId);
+      if (!revoked) throw new Error(`no active approval ${approvalId}`);
+      io.out(JSON.stringify({ status: "ok", revoked: approvalId }));
     });
 
   const util = program.command("util").description("utility commands");

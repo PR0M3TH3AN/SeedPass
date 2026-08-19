@@ -88,6 +88,32 @@ export function capabilities(): Record<string, unknown> {
       locked_status: 423,
       unported_status: 501,
     },
+    high_risk: {
+      commands: [
+        "agent high-risk factor-set/status/unlock/lock/migrate",
+        "POST /api/v1/high-risk/unlock|lock",
+        "GET /api/v1/high-risk/status",
+      ],
+      kinds: ["ssh", "pgp", "seed", "nostr", "managed_account"],
+      // The partition file and key envelope are byte-compatible with Python,
+      // so a partition made by either implementation opens in the other.
+      interop: "file formats shared with the Python implementation",
+      // Where this port DIVERGES, and why. Python records the unlock in
+      // agent_high_risk_unlock.json including the partition key tag, from
+      // which the partition's encryption key is derived — so during any
+      // Python session the partition is readable from disk with no factor.
+      // Here the tag lives only in the agent's memory (or the API process's).
+      session_storage: "in-memory only; the partition key tag never reaches disk",
+      factor_env: "SEEDPASS_HIGH_RISK_FACTOR",
+      api_factor_header: "X-SeedPass-High-Risk-Factor",
+    },
+    approvals: {
+      commands: ["agent approval issue/list/revoke"],
+      actions: ["export", "reveal_parent_seed", "private_key_retrieval"],
+      // An approval is not a credential: it authorizes an action for a caller
+      // that must ALSO be otherwise authorized.
+      semantics: "one-shot (or N-use) authorization, consumed at action time",
+    },
     audit: {
       commands: ["agent audit-verify", "agent audit-tail"],
       chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
@@ -105,10 +131,9 @@ export function capabilities(): Record<string, unknown> {
       // Python-derived state, recomputed on load. Carried through verbatim by
       // the TS port so a Python profile round-trips, but not computed here.
       "index0/atlas (preserved verbatim on read/write, never recomputed)",
-      // Deliberate: agent approval gates, high-risk partitions, job profiles
-      // and recovery split. The session agent's scoped tokens cover the
-      // automation cases; these add a second authorization model.
-      "agent approval gates, high-risk partitions, job profiles, recovery split",
+      // Deliberate: agent job profiles and recovery split. The session
+      // agent's scoped tokens cover the automation cases these serve.
+      "agent job profiles and recovery split",
       // Deliberate: the TS interactive mode follows Python's legacy v1 menu
       // tree. See docs/tui_v2_cutover_decision.md.
       "Python's v2/v3 Textual TUIs (interactive mode follows the legacy v1 menus)",

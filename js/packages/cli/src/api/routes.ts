@@ -38,6 +38,7 @@ import {
   passwordPolicyFromRecord,
   removeLink,
   restoreEntry,
+  isPartitionStub,
   buildSemanticRecords,
   searchSemanticRecords,
   semanticManifest,
@@ -56,6 +57,7 @@ import { openVault, saveVault, saveVaultHoldingLock, withVaultLock, atomicWrite 
 import { entryMetadata, refFor, resolveEntry } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
 import { createIndexBackup } from "../backups.js";
+import { factorConfigured, tagForFactor, readPartition, partitionPath } from "../highRisk.js";
 import { HttpError, type ApiRequest, type ApiResponse, type ApiServer } from "./server.js";
 
 /**
@@ -67,7 +69,6 @@ import { HttpError, type ApiRequest, type ApiResponse, type ApiServer } from "./
  * an integrator hunting for a spelling mistake that is not there.
  */
 export const UNPORTED_PREFIXES: Array<{ prefix: string; feature: string }> = [
-  { prefix: "/api/v1/high-risk", feature: "high-risk partitions" },
   { prefix: "/api/v1/agent/job-profiles", feature: "agent job profiles" },
   { prefix: "/api/v1/agent/recovery", feature: "agent recovery split" },
 ];
@@ -91,7 +92,50 @@ export interface ApiContext {
   notifications: Array<{ level: string; message: string }>;
   /** Requests the process to exit; wired by the CLI command. */
   requestShutdown: () => void;
+  /**
+   * Live high-risk partition key tag, or null when locked.
+   *
+   * In memory only — this value is the partition's encryption key, so writing
+   * it anywhere would let a reader of that file open the partition without
+   * the second factor.
+   */
+  highRiskTag: string | null;
+  /** Unix seconds at which the high-risk unlock lapses. */
+  highRiskExpiresAt: number;
   now: () => number;
+}
+
+/**
+ * Replace a high-risk stub with its real record, or refuse.
+ *
+ * A stub carries only kind/label/archived, so deriving from one produces the
+ * wrong secret rather than an error — which is why this refuses loudly
+ * instead of falling through.
+ */
+async function hydratePartitionedFor(
+  ctx: ApiContext,
+  id: string,
+  entry: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!isPartitionStub(entry)) return entry;
+  const live = ctx.highRiskTag !== null && ctx.highRiskExpiresAt > ctx.now() / 1000;
+  if (!live) {
+    ctx.highRiskTag = null;
+    throw new HttpError(
+      423,
+      `entry ${id} is in the high-risk partition, which is locked. ` +
+        `POST /api/v1/high-risk/unlock with the factor first.`,
+    );
+  }
+  const partition = await readPartition(profileDir(ctx), ctx.highRiskTag!);
+  const full = partition[String(entry["partition_ref"] ?? id)];
+  if (!full) {
+    throw new HttpError(
+      409,
+      `entry ${id} points at a high-risk record that is not in the partition file`,
+    );
+  }
+  return full;
 }
 
 function requireUnlocked(ctx: ApiContext): string {
@@ -240,8 +284,9 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
       const mnemonic = requireUnlocked(ctx);
       const vault = await readVault(ctx);
       const id = entryIdOf(req);
-      const entry = vault.index.entries[id];
-      if (!entry) throw new HttpError(404, "Not found");
+      const stub = vault.index.entries[id];
+      if (!stub) throw new HttpError(404, "Not found");
+      const entry = await hydratePartitionedFor(ctx, id, stub as unknown as Record<string, unknown>);
       const timestamp = optInt(req.query.get("at") ?? undefined, "at");
       const config = await loadConfig(profileDir(ctx), mnemonic);
       const secret = materializeSecret(vault.index, id, entry as Entry, mnemonic, {
@@ -815,6 +860,68 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
         })),
       },
     };
+  });
+
+  // -------------------------------------------------------------- high risk
+
+  /**
+   * The high-risk unlock lives on the ApiContext, in memory, for exactly the
+   * reason the CLI keeps it in the agent: the partition key tag IS the
+   * partition's encryption key, so persisting it would let anything that can
+   * read the directory open the partition without the second factor.
+   */
+  server.route("GET", "/api/v1/high-risk/status", async () => {
+    return {
+      json: {
+        fingerprint: ctx.fingerprint,
+        configured: factorConfigured(ctx.appDir.root),
+        unlocked: ctx.highRiskTag !== null && ctx.highRiskExpiresAt > ctx.now() / 1000,
+        expires_at: ctx.highRiskTag !== null ? ctx.highRiskExpiresAt : null,
+        partition_exists: existsSync(partitionPath(profileDir(ctx))),
+      },
+    };
+  });
+
+  server.route(
+    "POST",
+    "/api/v1/high-risk/unlock",
+    async (req) => {
+      // Password-gated on top of the bearer token, like every other route
+      // that reaches secrets — and then the FACTOR on top of that. The whole
+      // point of the partition is that the master password alone is not
+      // enough for these kinds.
+      await requirePassword(ctx, req);
+      const factor = req.headers["x-seedpass-high-risk-factor"];
+      if (!factor) {
+        throw new HttpError(
+          401,
+          "the high-risk factor is required in the X-SeedPass-High-Risk-Factor header",
+        );
+      }
+      if (!factorConfigured(ctx.appDir.root)) {
+        throw new HttpError(409, "high_risk_factor_not_configured");
+      }
+      const ttl = optInt(bodyObject(req)["ttl"], "ttl") ?? 300;
+      let tag: string;
+      try {
+        tag = await tagForFactor(ctx.appDir.root, factor);
+      } catch {
+        // One reason for every factor failure: a caller must not be able to
+        // tell "wrong factor" from "corrupt envelope" by probing.
+        throw new HttpError(401, "high_risk_factor_invalid");
+      }
+      ctx.highRiskTag = tag;
+      ctx.highRiskExpiresAt = Math.floor(ctx.now() / 1000 + ttl);
+      return { json: { status: "unlocked", expires_at: ctx.highRiskExpiresAt } };
+    },
+    { requiresPassword: true },
+  );
+
+  server.route("POST", "/api/v1/high-risk/lock", async () => {
+    const was = ctx.highRiskTag !== null;
+    ctx.highRiskTag = null;
+    ctx.highRiskExpiresAt = 0;
+    return { json: { status: "ok", locked: was } };
   });
 
   // --------------------------------------------------------------- semantic

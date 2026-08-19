@@ -87,6 +87,21 @@ export {
   needsMigration,
   SchemaMigrationError,
 } from "./schema/migrations.js";
+export {
+  PARTITION_FILENAME,
+  PARTITION_KDF_ITERATIONS,
+  HIGH_RISK_KINDS,
+  HighRiskError,
+  partitionKeyTag,
+  decryptPartition,
+  encryptPartition,
+  buildPartitionEnvelope,
+  unwrapPartitionKey,
+  generatePartitionKey,
+  partitionStub,
+  isPartitionStub,
+  type PartitionEnvelope,
+} from "./vault/highRiskPartition.js";
 export { encodeQr, renderQrText, EC_LEVELS, type QrMatrix, type EcLevel } from "./util/qr.js";
 export {
   buildSemanticRecords,

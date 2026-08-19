@@ -10,3 +10,21 @@ export { AgentDaemon, AgentClient, agentSocketPath } from "./agent.js";
 export { ApiServer, HttpError, resolveBind } from "./api/server.js";
 export { registerRoutes, UNPORTED_PREFIXES, type ApiContext } from "./api/routes.js";
 export { buildContext, serveApi } from "./api/serve.js";
+export {
+  setFactor,
+  tagForFactor,
+  verifyFactor,
+  factorConfigured,
+  readPartition,
+  writePartition,
+  partitionPath,
+} from "./highRisk.js";
+export {
+  issueApproval,
+  listApprovals,
+  revokeApproval,
+  consumeApproval,
+  approvalRequired,
+  VALID_APPROVAL_ACTIONS,
+  type ApprovalRecord,
+} from "./approvals.js";

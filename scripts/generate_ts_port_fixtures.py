@@ -1356,6 +1356,69 @@ def gen_semantic() -> dict:
     }
 
 
+def gen_high_risk() -> dict:
+    """Interop vectors for the high-risk partition.
+
+    Both implementations read and write these two files, so the fixture is
+    what proves the format is genuinely shared rather than merely
+    self-consistent. A partition only one side can open would be worse than
+    none: the entries are SSH keys, PGP keys and seeds, and a user who cannot
+    open them has lost them.
+
+    The salt and partition key are fixed so the envelope is reproducible;
+    production draws both at random.
+    """
+    import tempfile
+
+    from cryptography.fernet import Fernet
+
+    from seedpass.core import agent_secret_isolation as iso
+    from seedpass.core import high_risk_partition_store as store
+
+    factor = "second-factor-passphrase"
+    salt = bytes(range(16))
+    partition_key = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii")
+
+    wrapping_key = iso._derive_wrapping_key(factor, salt, iso.PARTITION_KDF_ITERATIONS)
+    envelope = {
+        "version": iso.PARTITION_ENVELOPE_VERSION,
+        "kdf": "pbkdf2-sha256",
+        "iterations": iso.PARTITION_KDF_ITERATIONS,
+        "salt_b64": base64.b64encode(salt).decode("ascii"),
+        "wrapped_partition_key": Fernet(wrapping_key)
+        .encrypt(partition_key.encode("utf-8"))
+        .decode("utf-8"),
+    }
+    tag = iso._partition_key_tag(partition_key)
+
+    entries = {
+        "3": {
+            "kind": "ssh", "type": "ssh", "label": "prod-server", "index": 3,
+            "notes": "deploy", "archived": False, "modified_ts": 1700000000,
+        },
+        "5": {
+            "kind": "pgp", "type": "pgp", "label": "signing", "index": 5,
+            "notes": "", "archived": False, "modified_ts": 1700000100,
+        },
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        profile = Path(tmpdir) / "PROFILE"
+        profile.mkdir()
+        store.save_partition_entries(profile, tag, entries)
+        blob = (profile / store.PARTITION_FILENAME).read_bytes()
+
+    return {
+        "description": "high-risk partition envelope and file, for cross-impl checks",
+        "factor": factor,
+        "partition_key": partition_key,
+        "tag": tag,
+        "envelope": envelope,
+        "entries": entries,
+        "partition_file_b64": base64.b64encode(blob).decode("ascii"),
+    }
+
+
 def main() -> None:
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1381,6 +1444,7 @@ def main() -> None:
         "legacy_payloads.json": gen_legacy_payloads(),
         "qr.json": gen_qr(),
         "semantic.json": gen_semantic(),
+        "high_risk.json": gen_high_risk(),
     }
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture

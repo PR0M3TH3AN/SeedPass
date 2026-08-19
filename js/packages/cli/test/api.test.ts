@@ -26,6 +26,7 @@ import {
   addTotpDeterministic,
   type VaultIndex,
 } from "@seedpass/core";
+import { setFactor, tagForFactor } from "../src/highRisk.js";
 import {
   ApiServer,
   registerRoutes,
@@ -538,10 +539,67 @@ describe("semantic index", () => {
   });
 });
 
+describe("high-risk partition over the API", () => {
+  it("reports the factor as unconfigured before it is set", async () => {
+    const res = await call("GET", "/api/v1/high-risk/status");
+    expect(res.status).toBe(200);
+    expect(res.json.configured).toBe(false);
+    expect(res.json.unlocked).toBe(false);
+  });
+
+  it("needs the master password AND the factor to unlock", async () => {
+    await setFactor(appDir, "api-second-factor");
+
+    // Bearer token alone: no.
+    expect((await call("POST", "/api/v1/high-risk/unlock")).status).toBe(401);
+    // Password but no factor: still no. The whole point of the partition is
+    // that the master password is not enough for these kinds.
+    const noFactor = await call("POST", "/api/v1/high-risk/unlock", { password: PASSWORD });
+    expect(noFactor.status).toBe(401);
+    expect(noFactor.json.detail).toContain("High-Risk-Factor");
+    // Wrong factor: one reason, so probing cannot distinguish failures.
+    const wrong = await call("POST", "/api/v1/high-risk/unlock", {
+      password: PASSWORD,
+      headers: { "x-seedpass-high-risk-factor": "not-it" },
+    });
+    expect(wrong.status).toBe(401);
+    expect(wrong.json.detail).toBe("high_risk_factor_invalid");
+
+    const ok = await call("POST", "/api/v1/high-risk/unlock", {
+      password: PASSWORD,
+      headers: { "x-seedpass-high-risk-factor": "api-second-factor" },
+      body: { ttl: 60 },
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.json.status).toBe("unlocked");
+  });
+
+  it("never returns the partition key tag over the wire", async () => {
+    const tag = await tagForFactor(appDir, "api-second-factor");
+    // The tag IS the partition's encryption key. No response may carry it.
+    for (const [method, path] of [
+      ["GET", "/api/v1/high-risk/status"],
+      ["POST", "/api/v1/high-risk/lock"],
+    ] as const) {
+      const res = await call(method, path);
+      expect(res.text).not.toContain(tag);
+    }
+  });
+
+  it("locks on request", async () => {
+    await call("POST", "/api/v1/high-risk/unlock", {
+      password: PASSWORD,
+      headers: { "x-seedpass-high-risk-factor": "api-second-factor" },
+    });
+    expect((await call("GET", "/api/v1/high-risk/status")).json.unlocked).toBe(true);
+    expect((await call("POST", "/api/v1/high-risk/lock")).json.locked).toBe(true);
+    expect((await call("GET", "/api/v1/high-risk/status")).json.unlocked).toBe(false);
+  });
+});
+
 describe("the unported surface answers honestly", () => {
   it("returns 501 with the reason, not 404", async () => {
     for (const [method, path, feature] of [
-      ["GET", "/api/v1/high-risk/status", "high-risk partitions"],
       ["GET", "/api/v1/agent/job-profiles", "agent job profiles"],
       ["POST", "/api/v1/agent/recovery/split", "agent recovery split"],
     ] as const) {

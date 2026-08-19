@@ -10,6 +10,7 @@
 import manifestJson from "../fixtures/manifest.json";
 import qrJson from "../fixtures/qr.json";
 import semanticJson from "../fixtures/semantic.json";
+import highRiskJson from "../fixtures/high_risk.json";
 import bip39Json from "../fixtures/bip39_seeds.json";
 import bip85Json from "../fixtures/bip85_entropy.json";
 import passwordsV1Json from "../fixtures/passwords_v1.json";
@@ -332,4 +333,14 @@ export const semanticFixture = semanticJson as {
     Array<{ entry_id: number; kind: string; label: string; score: number; excerpt: string }>
   >;
   kind_filtered: Array<{ entry_id: number }>;
+};
+
+/** High-risk partition interop vectors, produced by the Python implementation. */
+export const highRiskFixture = highRiskJson as {
+  factor: string;
+  partition_key: string;
+  tag: string;
+  envelope: Record<string, unknown>;
+  entries: Record<string, Record<string, unknown>>;
+  partition_file_b64: string;
 };

@@ -1,0 +1,35 @@
+{
+  "description": "high-risk partition envelope and file, for cross-impl checks",
+  "entries": {
+    "3": {
+      "archived": false,
+      "index": 3,
+      "kind": "ssh",
+      "label": "prod-server",
+      "modified_ts": 1700000000,
+      "notes": "deploy",
+      "type": "ssh"
+    },
+    "5": {
+      "archived": false,
+      "index": 5,
+      "kind": "pgp",
+      "label": "signing",
+      "modified_ts": 1700000100,
+      "notes": "",
+      "type": "pgp"
+    }
+  },
+  "envelope": {
+    "iterations": 200000,
+    "kdf": "pbkdf2-sha256",
+    "salt_b64": "AAECAwQFBgcICQoLDA0ODw==",
+    "version": 1,
+    "wrapped_partition_key": "gAAAAABqhbsiuZu-EfSBrvoDDpPRJXSPP30W1kGfWZz-WMbSHKjqJn_qHWYfiwi-4xhlczaRZKTUwANB-UIAo5XkAi7MbNwBlT_ElZaSQkskX85zbTuC8sbioHEUT1kASzV6rIbbta0e"
+  },
+  "factor": "second-factor-passphrase",
+  "fixture_version": 1,
+  "partition_file_b64": "Z0FBQUFBQnFoYnNpU2FoTjlTZDF1MUNwV1JwLVRqNTRiWlplWXRRTXZhVzdqa2FoYUVMUl84NDVmdzdoNjJucFgzUzFWbFh5aGRuOW9UcWNfY3lLMTZpSTYySGo4LXVJM0tOYW0tVmc0bHhtOGVITkd4MWw4VEJOeGk3eF9NZWloQmoxWUJkaTg3RUlZdHZnWkVobE00cHQ0NzVucnRTNlJYR0RPMnozYV9pTVl0SVRqcjE3eUdRUkVwVzBuMHlCcGJxZ2VZbHRaallmclpIdlNkTnpwczRIdF9BeWVITHQtTER3S0tPMU9ZZU41VkkwWlRKdFg5eEw3SFIycm44MnNKTzNHVUFYVTNBWFRjbEx3Ri1vLVYxY2Y3cmQxUmstTHBSX0tvekZFZUxfdmZsV05aMGJ5WXgxMHFvbFlXZ1VYbTVyUWJ4ZG9BUXdFRklLVS1YZUxOTW1FekVVcGpXUGlicFktbm52NmR3Nlk0aW9RdUFGZmZwRlpnN091dDh5NUlqOXFwVEpGeGZSdEROVUtfTzhiUVdFamZqSHo5RGF1TmV0YWkzNkwyS3FnX0lJVTducEdzZ0xJbEVvRVFfX09Va1Byb0lWaTdMNlFnSDRmYUNpb2UxVGlsU19lQWMzRS1oRlZQSHpOM1ptRG05dU16QjdUQVZycGxWcUdlNWEtRjBoNkNncUU4SVo=",
+  "partition_key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "tag": "905f28def18eaac05ae6f12b2c3452744afaf626da1343d57b395b544e0519b6"
+}
