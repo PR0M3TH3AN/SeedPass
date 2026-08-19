@@ -14,6 +14,7 @@ import { mkdtemp, mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
 import {
@@ -209,6 +210,56 @@ describe("what the API refuses", () => {
     }
   });
 
+  it("actually enforces the ordinary rate limit", async () => {
+    // Mutation testing found this: disabling the rate-limit check entirely
+    // left every test passing. A limiter nothing exercises is a limiter that
+    // can be removed by accident.
+    const limited = new ApiServer({
+      host: "127.0.0.1",
+      port: 0,
+      token: TOKEN,
+      rateLimit: 3,
+      rateWindowSeconds: 60,
+    });
+    registerRoutes(limited, buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC }));
+    const bound = await limited.listen();
+    const url = `http://${bound.host}:${bound.port}/api/v1/entry`;
+    try {
+      const hit = () => fetch(url, { headers: { authorization: `Bearer ${TOKEN}` } });
+      expect((await hit()).status).toBe(200);
+      expect((await hit()).status).toBe(200);
+      expect((await hit()).status).toBe(200);
+      // Fourth request in the window is refused.
+      const blocked = await hit();
+      expect(blocked.status).toBe(429);
+      expect((await blocked.json()).detail).toContain("Rate limit");
+    } finally {
+      await limited.close();
+    }
+  });
+
+  it("rate-limits before authenticating, so a flood cannot hammer the token check", async () => {
+    const limited = new ApiServer({
+      host: "127.0.0.1",
+      port: 0,
+      token: TOKEN,
+      rateLimit: 2,
+      rateWindowSeconds: 60,
+    });
+    registerRoutes(limited, buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC }));
+    const bound = await limited.listen();
+    const url = `http://${bound.host}:${bound.port}/api/v1/entry`;
+    try {
+      // Unauthenticated requests consume the budget too — otherwise the limit
+      // is trivially bypassed by simply not sending a token.
+      await fetch(url);
+      await fetch(url);
+      expect((await fetch(url)).status).toBe(429);
+    } finally {
+      await limited.close();
+    }
+  });
+
   it("limits failed unlock attempts far more tightly than ordinary requests", async () => {
     const locked = new ApiServer({
       host: "127.0.0.1",
@@ -341,8 +392,17 @@ describe("entries", () => {
 });
 
 describe("totp, config, relays, stats", () => {
+  it("requires the master password for live TOTP codes", async () => {
+    // A live code authenticates, so a leaked bearer token must not produce
+    // one. Python gates this the same way; this port did not until the
+    // route-table invariant test caught it.
+    const noPassword = await call("GET", "/api/v1/totp");
+    expect(noPassword.status).toBe(401);
+    expect(noPassword.text).not.toMatch(/\d{6}/);
+  });
+
   it("returns live TOTP codes with the time remaining", async () => {
-    const res = await call("GET", "/api/v1/totp");
+    const res = await call("GET", "/api/v1/totp", { password: PASSWORD });
     expect(res.status).toBe(200);
     expect(res.json.codes).toHaveLength(1);
     expect(res.json.codes[0].code).toMatch(/^\d{6}$/);
@@ -612,5 +672,71 @@ describe("path handling", () => {
     // ever dropped again it should answer 501 naming the feature rather than
     // 404, which is why the mechanism stays.
     expect(UNPORTED_PREFIXES).toEqual([]);
+  });
+});
+
+describe("structural invariants of the route table", () => {
+  /**
+   * Mutation testing showed the route-level `requiresPassword` flag is
+   * redundant: every route that sets it also calls `requirePassword` in its
+   * handler, so disabling the flag changes nothing. That redundancy is
+   * defense in depth and worth keeping — but nothing ENFORCED the pairing,
+   * which meant a future route could set one and forget the other, and the
+   * suite would be silent either way.
+   *
+   * This reads the source rather than exercising behaviour, which is unusual
+   * for a test and justified here: the property is about how routes are
+   * DECLARED, and it is exactly the property a new route would break.
+   */
+  it("pairs the requiresPassword flag with an actual requirePassword call", async () => {
+    const source = await readFile(
+      fileURLToPath(new URL("../src/api/routes.ts", import.meta.url)),
+      "utf8",
+    );
+    const blocks = source
+      .split(/(?=\n  server\.route\()/)
+      // Drop the file preamble: it holds the requirePassword DEFINITION, not
+      // a route, and would otherwise read as a route that calls it.
+      .filter((block) => /\n?\s*server\.route\(/.test(block));
+    const mismatched: string[] = [];
+    for (const block of blocks) {
+      const flagged = block.includes("requiresPassword: true");
+      const called = block.includes("requirePassword(ctx");
+      if (flagged === called) continue;
+      const name = /server\.route\(\s*"(\w+)",\s*"([^"]+)"/.exec(block);
+      mismatched.push(
+        `${name ? `${name[1]} ${name[2]}` : "(unparsed)"}: ` +
+          `flag=${flagged} call=${called}`,
+      );
+    }
+    expect(mismatched).toEqual([]);
+  });
+
+  it("password-gates every route that can return plaintext", async () => {
+    // The failure this guards against is a NEW secret-returning route with
+    // neither the flag nor the call — which the pairing test above cannot
+    // see, because it only checks consistency, not coverage.
+    const source = await readFile(
+      fileURLToPath(new URL("../src/api/routes.ts", import.meta.url)),
+      "utf8",
+    );
+    const blocks = source
+      .split(/(?=\n  server\.route\()/)
+      .filter((block) => /\n?\s*server\.route\(/.test(block));
+    const ungated: string[] = [];
+    for (const block of blocks) {
+      // A handler that materializes a secret, reads the partition, or hands
+      // back the parent seed must be password-gated.
+      const producesPlaintext =
+        block.includes("materializeSecret(") ||
+        block.includes("deriveTotpSecret(") ||
+        block.includes("readPartition(") ||
+        block.includes("requireUnlocked(ctx)") && block.includes("mnemonic + ");
+      if (!producesPlaintext) continue;
+      if (block.includes("requirePassword(ctx")) continue;
+      const name = /server\.route\(\s*"(\w+)",\s*"([^"]+)"/.exec(block);
+      ungated.push(name ? `${name[1]} ${name[2]}` : "(unparsed)");
+    }
+    expect(ungated).toEqual([]);
   });
 });

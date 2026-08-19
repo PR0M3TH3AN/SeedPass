@@ -584,8 +584,18 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
 
   // ------------------------------------------------------------------- totp
 
-  server.route("GET", "/api/v1/totp", async () => {
-    const mnemonic = requireUnlocked(ctx);
+  server.route(
+    "GET",
+    "/api/v1/totp",
+    async (req) => {
+      // A live TOTP code authenticates. Python gates this on the master
+      // password (`_require_password` in api.py) and this port did not, so a
+      // leaked bearer token yielded working second factors for every TOTP
+      // entry in the vault. Found by the route-table invariant test below,
+      // which exists because mutation testing showed the gating was
+      // structurally unenforced.
+      await requirePassword(ctx, req);
+      const mnemonic = requireUnlocked(ctx);
     const vault = await readVault(ctx);
     const now = Math.floor(ctx.now() / 1000);
     const codes = Object.entries(vault.index.entries)
@@ -603,8 +613,10 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
           seconds_remaining: period - (now % period),
         };
       });
-    return { json: { codes } };
-  });
+      return { json: { codes } };
+    },
+    { requiresPassword: true },
+  );
 
   server.route(
     "GET",
