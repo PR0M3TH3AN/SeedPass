@@ -192,9 +192,53 @@ everything still open, in the order it should be tackled.
             Python's allowlist or document the API surfaces as
             non-identical; do not quietly leave it as an accident.
             (Found 2026-08-19 during the adversarial pass.)
-      - [ ] **Adversarial pass over TS-only surfaces**, framed as "what does
+      - [x] **Adversarial pass over TS-only surfaces**, framed as "what does
             this trust?" rather than "is this correct?" — the framing that
-            finds trust-boundary bugs rather than logic bugs.
+            finds trust-boundary bugs rather than logic bugs. Done
+            2026-08-19. What held up, so a later pass need not re-derive it:
+
+            - The agent socket bounds its input (512KB/line, 64 connections)
+              and validates op/cap/token/fingerprint/id/sink as strings
+              before comparing them.
+            - The exec allowlist is checked with `parseCommandSpec` on the
+              SAME array the spawn later parses, so there is no double-parse
+              gap. Every malformed `command` shape fails closed. Containment
+              is "which binary", never "what it does" — already documented at
+              the call site.
+            - CORS is exact-match against an allowlist that is empty by
+              default, echoes only allowlisted origins, and sets `Vary`.
+            - No path is ever built from ENTRY data; the one caller-supplied
+              path (document export) goes through `resolveWithinProfile`.
+            - Prototype-pollution-shaped writes (`obj[key] = value` over
+              parsed JSON) exist in the merge path, but merge input is
+              encrypted under the index key, so producing one requires the
+              seed already.
+
+            It found one real defect — the config API accepting any key and
+            any value, fixed in the same session — and one property worth
+            recording rather than unilaterally changing, below.
+      - [ ] **DECISION TO RECORD: an unencrypted portable backup is
+            unauthenticated, and import accepts it silently.** With
+            `encryption_mode: "none"` the payload is used verbatim; the
+            checksum that "verifies" it and the `fingerprint` that passes the
+            profile check both live in the same attacker-supplied file, so
+            they detect corruption and nothing else. A `seed-only` backup is
+            genuinely authenticated (Fernet HMAC under a seed-derived key —
+            only the seed holder could have produced it), and import treats
+            the two identically. `POST /api/v1/vault/import` REPLACES the
+            vault, so a user talked into restoring a hostile file gets an
+            attacker-chosen index whole: entries that look like theirs, with
+            stored values the attacker knows.
+
+            Python does exactly the same thing (`portable_backup.py`, the
+            `PortableMode.NONE` branch), so this is a shared design property
+            and NOT a port defect — which is also why it is recorded here
+            instead of being fixed on one side. Options, cheapest first:
+            report `encryption_mode` in the import response so the caller can
+            see what it got; require an explicit opt-in for `none` the way
+            the fingerprint mismatch already does; or drop the mode. Any of
+            them has to land in both implementations together.
+            (Found 2026-08-19 during the adversarial pass.)
       Original note follows.
 - [ ] **(superseded by the above) Independent security review of the TypeScript branch.** Review
       strategy (decided 2026-08-18): two AI families plus vectors, because
