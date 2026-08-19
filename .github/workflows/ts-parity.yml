@@ -8,6 +8,7 @@ on:
       - "src/**"
       - "scripts/generate_ts_port_fixtures.py"
       - "scripts/cross_impl_check.py"
+      - "scripts/differential_fuzz.py"
       - ".github/workflows/ts-parity.yml"
   pull_request:
     branches: ["**"]
@@ -16,6 +17,7 @@ on:
       - "src/**"
       - "scripts/generate_ts_port_fixtures.py"
       - "scripts/cross_impl_check.py"
+      - "scripts/differential_fuzz.py"
       - ".github/workflows/ts-parity.yml"
 
 jobs:
@@ -130,6 +132,46 @@ jobs:
         run: poetry install --no-interaction --no-ansi
       - name: Cross-implementation compatibility
         run: poetry run python scripts/cross_impl_check.py
+
+  # Differential fuzzing: random inputs to BOTH implementations, compared as
+  # canonical JSON. Fixtures prove agreement on inputs a human chose; this
+  # proves it on inputs nobody chose, which is where the bugs that survive to
+  # production live. It found a real silent-divergence defect in canonical
+  # number encoding the first time it ran at scale.
+  differential-fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: js
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install Python dependencies
+        run: poetry install --no-interaction --no-ansi
+      # Fixed seeds so a regression is deterministic and bisectable: the same
+      # commit always gets the same cases.
+      - name: Differential fuzz (fixed seeds)
+        run: |
+          for seed in 1 2 3; do
+            poetry run python scripts/differential_fuzz.py --cases 150 --seed "$seed"
+          done
+      # Plus one seed nobody has run before, so the explored input space grows
+      # over time instead of freezing at whatever was chosen today. The script
+      # prints its seed, so a failure here is still reproducible exactly.
+      - name: Differential fuzz (exploratory seed)
+        run: |
+          poetry run python scripts/differential_fuzz.py \
+            --cases 150 --seed "${{ github.run_id }}"
 
   # The fixtures are committed, so the parity job never regenerates them.
   # This job proves the committed fixtures actually come from the committed
