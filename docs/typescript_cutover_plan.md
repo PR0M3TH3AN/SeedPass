@@ -21,12 +21,43 @@ P0 gate is green, Python remains the normative reference
 | Interactive mode (TUI) | green — legacy (v1) menu tree ported |
 | Packaging + release | green |
 | Migration + rollback story | green |
-| Independent security review | **not done — the one open blocker** |
+| Independent security review | **partly substituted — see below; (3) and (4) outstanding** |
 
 The gates below are green. The remaining blocker is not a gate in this list:
-no third party has reviewed the code. Two rounds of subagent review found 9
-criticals/highs between them that self-review missed entirely, which is the
-evidence for treating that as load-bearing rather than optional.
+the code has not been reviewed by anyone who did not write it. Two rounds of
+subagent review found 9 criticals/highs between them that self-review missed
+entirely, which is the evidence for treating that as load-bearing rather than
+optional.
+
+**There is no third party to hand this to.** So the blocker is restated in
+terms of what it was actually for: catching what the author's mental model
+misses. That does not require another person. It requires an ORACLE THAT IS
+NOT THE AUTHOR'S JUDGEMENT, and the substitutes available are ranked by how
+little they depend on someone already knowing what to look for:
+
+1. **Differential testing against a second implementation.** `scripts/
+   differential_fuzz.py` feeds randomly generated inputs to both
+   implementations and compares canonical output. Any disagreement is a bug
+   in one of them, found without anyone knowing in advance which answer is
+   right. **Done**, ~10,000 cases across seven surfaces; it found a real
+   silent-divergence defect in canonical number encoding on its first
+   scaled run.
+2. **Differential testing against a third-party reference.** Used where one
+   exists: the official BIP-85 spec vectors, Python's `qrcode` library for
+   the QR encoder, Python's `Fernet` for the partition format.
+3. **Mutation testing.** Measures whether the suite would actually catch a
+   regression, rather than whether it passes. Applied ad hoc to every fix in
+   this branch; not yet systematic.
+4. **Adversarial tests written from the attacker's position** — the only
+   technique available for surfaces the Python side does not have (the
+   session agent, the API's HTTP layer, high-risk session handling), where
+   there is no second implementation to disagree with.
+
+**The known blind spot of (1):** it can only find bugs where the two
+implementations differ. A flaw both share by design is invisible to it — the
+recovery-split secrecy defect was found by reading, not fuzzing — as is
+anything TypeScript implements alone. Those need (3) and (4), which is what
+remains.
 
 ## P0 gates (must be green to cut over)
 

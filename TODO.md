@@ -127,7 +127,32 @@ everything still open, in the order it should be tackled.
 
 ### Blockers before real secrets
 
-- [ ] **Independent security review of the TypeScript branch.** Review
+- [~] **Independent security review — restated, since there is no third party.**
+      The point of the gate was catching what the author cannot see, which
+      needs an oracle that is not the author's judgement rather than another
+      person. Progress and what remains:
+      - [x] **Differential fuzzing vs Python** (`scripts/differential_fuzz.py`),
+            ~10,000 cases over canonical JSON, password derivation, the sync
+            CRDT, index0, recovery shares, the semantic index and entry
+            hashing. Found a real defect: integral floats hash differently in
+            the two implementations, silently, which could make two clients
+            converge to different vaults. Also found — via mutation testing
+            turned on the fuzzer itself — that it could not reach the
+            tombstone or subject caps; fixed and re-verified.
+      - [ ] **Wire the fuzzer and `cross_impl_check.py` into CI.** Neither
+            runs automatically, and this branch has a documented history of
+            CI going unwatched (ts-parity red for 33 runs). A check nobody
+            runs is not a check.
+      - [ ] **Systematic mutation testing** of the security-critical modules
+            that have NO differential oracle because Python has no
+            equivalent: the session agent, the API HTTP layer, high-risk
+            session handling, sinks. Ad-hoc mutation was applied to every fix
+            in this branch, but never measured as coverage.
+      - [ ] **Adversarial pass over TS-only surfaces**, framed as "what does
+            this trust?" rather than "is this correct?" — the framing that
+            finds trust-boundary bugs rather than logic bugs.
+      Original note follows.
+- [ ] **(superseded by the above) Independent security review of the TypeScript branch.** Review
       strategy (decided 2026-08-18): two AI families plus vectors, because
       they fail differently. (1) `/code-review ultra` — **blocked**: PR #989
       spans main→port including beta's 150 commits (6795 files/720k lines),
