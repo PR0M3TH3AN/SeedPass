@@ -139,10 +139,19 @@ everything still open, in the order it should be tackled.
             converge to different vaults. Also found — via mutation testing
             turned on the fuzzer itself — that it could not reach the
             tombstone or subject caps; fixed and re-verified.
-      - [ ] **Wire the fuzzer and `cross_impl_check.py` into CI.** Neither
-            runs automatically, and this branch has a documented history of
-            CI going unwatched (ts-parity red for 33 runs). A check nobody
-            runs is not a check.
+      - [x] **Wire the fuzzer and `cross_impl_check.py` into CI.** Done —
+            `.github/workflows/ts-parity.yml` runs both: `cross-implementation`
+            and `differential-fuzz` (three fixed seeds for bisectable
+            regressions, plus one exploratory seed derived from the run id so
+            the explored input space grows instead of freezing).
+      - [x] **Mutation testing in CI**, added 2026-08-19 as
+            `.github/workflows/mutation-testing.yml`. Weekly rather than
+            per-push: a full sweep is ~1 hour, and what it measures ("would
+            the suite notice if a security check broke?") drifts with test
+            and check changes, not with every commit. The script now exits 1
+            on a survivor and 2 on a target that generated no mutants, so
+            "not measured" cannot report as "clean". The job also fails if
+            any mutation is left in the tree at the end.
       - [x] **Systematic mutation testing** of the security-critical modules
             that have NO differential oracle because Python has no
             equivalent: the session agent, the API HTTP layer, high-risk

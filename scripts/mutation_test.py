@@ -369,6 +369,17 @@ def main() -> int:
             print(f"    was: {mutant.original.strip()[:110]}")
             print(f"    now: {mutant.mutated.strip()[:110]}")
             print()
+
+    # Exit non-zero so this can gate CI. A survivor is not automatically a
+    # defect -- it may be an equivalent mutant -- but it is always something a
+    # human has to look at and then either fix or annotate with
+    # `mutation-equivalent:`, which is exactly what a red check should mean.
+    # A target that generated nothing gets its own code, because "not
+    # measured" and "measured and clean" must not be the same signal.
+    if overall_survivors:
+        return 1
+    if unmeasured:
+        return 2
     return 0
 
 

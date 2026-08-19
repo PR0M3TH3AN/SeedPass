@@ -1,0 +1,68 @@
+name: Mutation Testing
+
+# WHY THIS IS SCHEDULED AND NOT ON EVERY PUSH
+#
+# A full sweep is ~132 mutants and each one runs `tsc` plus a vitest suite,
+# so it takes roughly an hour. That is far too slow to gate a push, and the
+# thing it measures does not change push-to-push: it answers "would the suite
+# NOTICE if a security check broke?", which drifts slowly as tests and
+# checks are added, not with every commit.
+#
+# The failure it catches is specific and otherwise invisible: someone adds a
+# security check with no test, or deletes the only test defending one, and
+# every other check stays green because the code still works on the cases
+# somebody wrote down. Nothing else in this repository can see that.
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC. Off the hour on purpose — scheduled jobs at :00
+    # queue behind everyone else's.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which target to sweep (agent, routes, server, sinks, approvals, highrisk, or all)"
+        required: false
+        default: "all"
+
+permissions:
+  contents: read
+
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    # Comfortably above the ~60 minute full sweep, so a slow runner reports a
+    # result rather than a timeout that looks like an infrastructure problem.
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: js
+      - name: Sweep
+        # Exit 1 = a mutant survived: a security check whose removal no test
+        # notices. Exit 2 = a target generated no mutants at all, which is
+        # NOT a pass — it means the generator cannot reach that file and the
+        # sweep measured nothing there.
+        run: |
+          python scripts/mutation_test.py --target "${{ github.event.inputs.target || 'all' }}"
+      - name: Confirm no mutant was left in the tree
+        # The script restores after every mutant and verifies the restore, and
+        # traps SIGINT/SIGTERM/SIGHUP to do the same on a kill. This is the
+        # belt-and-braces check: a job that ended with deliberately broken
+        # security code in the workspace must be loud about it, because the
+        # whole technique depends on that never escaping.
+        if: always()
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::A mutation was left in the working tree. Do not trust this run."
+            exit 1
+          fi
