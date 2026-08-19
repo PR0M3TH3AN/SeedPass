@@ -49,6 +49,8 @@ import {
   decryptPayload,
   parseEncryptedFile,
   mergeIndexPayloads,
+  newMergeReport,
+  TOMBSTONE_RETENTION_CAP,
   parseVaultIndex,
   sha256Hex,
   type ModifyChanges,
@@ -1263,6 +1265,10 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         ) as Record<string, unknown>;
 
         let deltaCount = 0;
+        // Collects what the merges below resolve silently, so the summary can
+        // report it. Declared here to cover delta replay as well as the final
+        // local merge.
+        const report = newMergeReport();
         if (fetched.manifest.delta_since) {
           // Bind deltas to this manifest so a relay cannot replay one from
           // another snapshot lineage into the restore.
@@ -1281,8 +1287,11 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             // preserve-current here too: the default would refuse any
             // Python profile that carries atlas state as soon as one delta
             // exists.
+            // Same collector as the final merge: a delta can just as easily
+            // carry an entry that displaces one the snapshot created.
             remote = mergeIndexPayloads(remote, incoming, sha256Hex(delta).slice(0, 16), {
               index0: "preserve-current",
+              report,
             });
             deltaCount++;
           }
@@ -1315,6 +1324,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           // block every restore into a Python-created profile.
           final = mergeIndexPayloads(local, remote, "nostr-restore", {
             index0: "preserve-current",
+            report,
           });
           mode = "merged";
         }
@@ -1340,6 +1350,13 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             entry_count: Object.keys(index.entries).length,
             deltas_applied: deltaCount,
             local_backup: backupPath,
+            // A merge resolves same-id conflicts deterministically and
+            // silently. Deterministic is the design; silent is the problem —
+            // an entry the user created is simply gone afterwards.
+            ...(report.conflicts.length > 0 && { merge_conflicts: report.conflicts }),
+            ...(report.tombstonesEvicted > 0 && {
+              tombstones_evicted: report.tombstonesEvicted,
+            }),
             ...(collisions.length > 0 && {
               derivation_collisions: collisions.map((c) => ({
                 index: c.index,
@@ -1349,6 +1366,22 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             }),
           }),
         );
+        for (const c of report.conflicts) {
+          io.err(
+            `warning: both sides created a different entry at id ${c.id}; kept ` +
+              `${c.kept.kind} '${c.kept.label}', discarded ${c.discarded.kind} ` +
+              `'${c.discarded.label}'. The discarded entry is not recoverable ` +
+              `from this vault — the pre-restore copy is at ${backupPath ?? "(none)"}.`,
+          );
+        }
+        if (report.tombstonesEvicted > 0) {
+          io.err(
+            `warning: ${report.tombstonesEvicted} tombstone(s) dropped at the ` +
+              `${TOMBSTONE_RETENTION_CAP}-deletion retention cap. Deletions older ` +
+              `than that are forgotten, so merging an old replica or snapshot can ` +
+              `bring those entries back.`,
+          );
+        }
         for (const c of collisions) io.err(`warning: ${c.message}`);
       } finally {
         await pool.close();

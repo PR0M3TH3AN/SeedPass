@@ -357,7 +357,34 @@ def test_merge_replay_same_payload_is_idempotent():
     }
     once = merge_index_payloads(base, incoming, source_tag="peer-a")
     twice = merge_index_payloads(once, incoming, source_tag="peer-a")
-    assert once == twice
+    thrice = merge_index_payloads(twice, incoming, source_tag="peer-a")
+
+    # Replaying the same payload does not change any entry's CONTENT: the
+    # surviving values and timestamps are identical.
+    once_entry = once["entries"]["1"]
+    twice_entry = twice["entries"]["1"]
+    for key, value in once_entry.items():
+        assert twice_entry[key] == value
+
+    # It does normalize shape. On the second pass the timestamps are equal, so
+    # the equal-timestamp path unions the two field sets and writes explicit
+    # nulls for fields that were simply absent before (tags, custom_fields,
+    # links). That is not a Python quirk -- the TypeScript implementation
+    # produces byte-identical output here, which is the parity that matters.
+    #
+    # This assertion used to be a strict `once == twice`, and it passed only
+    # because merge_index_payloads shallow-copied its argument: `once` was the
+    # same object the merge had already written into, so the two names pointed
+    # at one dict. Deep-copying the inputs (so a merge no longer edits its
+    # caller's payload) made the real behaviour visible.
+    added = set(twice_entry) - set(once_entry)
+    assert added == {"tags", "custom_fields", "links"}
+    assert all(twice_entry[k] is None for k in added)
+
+    # The property that actually matters for sync: it settles. A merge that
+    # kept producing a different payload every time would republish snapshots
+    # forever.
+    assert twice == thrice
 
 
 def test_merge_replay_older_payload_does_not_override_newer():

@@ -272,7 +272,65 @@ function ensureIndex0Payload(data: unknown, options: MergeOptions = {}): Dict {
   return out;
 }
 
+/**
+ * One id at which both sides independently created a DIFFERENT entry.
+ *
+ * The allocation watermark is per-replica, so two devices working offline can
+ * both allocate id N. The merge then resolves that id like any other -- by
+ * timestamp, then by hash -- and the loser is replaced with no trace. The
+ * user is not told; an entry they created simply is not there afterwards.
+ *
+ * Worse than a plain overwrite, because an id is a permanent BIP-85
+ * derivation coordinate: the surviving entry derives from the same coordinate
+ * the discarded one did, so a password and an SSH key can end up sharing
+ * key material (see findDerivationCollisions).
+ *
+ * Resolving deterministically is the design and is frozen for parity with
+ * Python -- both implementations must reach the same vault from the same
+ * inputs. Reporting it is not part of that contract, and silence is the part
+ * that makes it dangerous.
+ */
+export interface MergeConflict {
+  /** The vault id both sides allocated. */
+  id: string;
+  /** Kind and label of the entry that survived. */
+  kept: { kind: string; label: string };
+  /** Kind and label of the entry that was replaced. */
+  discarded: { kind: string; label: string };
+  /** True when the two sides disagreed about the entry's kind, not just its content. */
+  differentKind: boolean;
+}
+
+/** What a merge silently resolved, for callers that want to surface it. */
+export interface MergeReport {
+  /** Ids where both sides created different entries; the loser is gone. */
+  conflicts: MergeConflict[];
+  /**
+   * Tombstones dropped because the retention cap was reached.
+   *
+   * Past the cap the oldest deletions are forgotten, and merging a stale
+   * replica or an old relay snapshot then RESURRECTS entries the user
+   * deleted. That is a documented protocol limit shared with Python, but a
+   * user has no way to know the cap has actually started trimming their
+   * history unless something says so.
+   */
+  tombstonesEvicted: number;
+}
+
+/** A fresh, empty report — callers pass this in and read it afterwards. */
+export function newMergeReport(): MergeReport {
+  return { conflicts: [], tombstonesEvicted: 0 };
+}
+
 export interface MergeOptions {
+  /**
+   * Collector for what the merge resolved silently. Optional and
+   * write-only: supplying it cannot change the merged result, so the
+   * deterministic outcome stays byte-identical to Python's with or without
+   * it.
+   */
+  report?: MergeReport;
+
   /**
    * What to do with `_system.index0`, Python's derived atlas state.
    *
@@ -283,6 +341,42 @@ export interface MergeOptions {
    * load and would otherwise be blocked entirely.
    */
   index0?: "reject" | "preserve-current";
+}
+
+function describeEntry(entry: Dict): { kind: string; label: string } {
+  return {
+    kind: String(entry["kind"] ?? entry["type"] ?? ""),
+    label: String(entry["label"] ?? ""),
+  };
+}
+
+/**
+ * Note that one side's entry replaced a genuinely different one at this id.
+ *
+ * Only a real divergence is worth reporting. Two replicas holding the same
+ * entry with different timestamps is the normal case -- an edit -- and
+ * flagging it would bury the case that matters in noise. The signal is that
+ * the two sides describe DIFFERENT things: a different kind, or a different
+ * label.
+ */
+function recordConflict(
+  report: MergeReport | undefined,
+  id: string,
+  kept: Dict,
+  discarded: Dict,
+): void {
+  if (!report) return;
+  const keptDesc = describeEntry(kept);
+  const discardedDesc = describeEntry(discarded);
+  if (keptDesc.kind === discardedDesc.kind && keptDesc.label === discardedDesc.label) {
+    return;
+  }
+  report.conflicts.push({
+    id,
+    kept: keptDesc,
+    discarded: discardedDesc,
+    differentKind: keptDesc.kind !== discardedDesc.kind,
+  });
 }
 
 /** Deterministically merge two decrypted index payloads (Python parity). */
@@ -360,7 +454,10 @@ export function mergeIndexPayloads(
       continue;
     }
     if (preferEntry(curEntry, incEntry)) {
+      recordConflict(options.report, key, incEntry, curEntry);
       curEntries[key] = incEntry;
+    } else {
+      recordConflict(options.report, key, curEntry, incEntry);
     }
   }
 
@@ -410,6 +507,11 @@ export function mergeIndexPayloads(
       return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
     });
     if (items.length > TOMBSTONE_RETENTION_CAP) {
+      // Forgetting a deletion is how a deleted entry comes back: a stale
+      // replica still carrying it will reinstate it at the next merge.
+      if (options.report) {
+        options.report.tombstonesEvicted += items.length - TOMBSTONE_RETENTION_CAP;
+      }
       items = items.slice(-TOMBSTONE_RETENTION_CAP);
     }
     tombstones = Object.fromEntries(items);

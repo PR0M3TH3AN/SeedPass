@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
 from .index0 import ensure_index0_payload, merge_system_index0
@@ -208,12 +210,112 @@ def _merge_equal_ts_entries(
     return merged
 
 
+@dataclass
+class MergeConflict:
+    """One id at which both sides independently created a DIFFERENT entry.
+
+    The allocation watermark is per-replica, so two devices working offline
+    can both allocate id N. The merge then resolves that id like any other --
+    by timestamp, then by hash -- and the loser is replaced with no trace. The
+    user is not told; an entry they created simply is not there afterwards.
+
+    Worse than a plain overwrite, because an id is a permanent BIP-85
+    derivation coordinate: the surviving entry derives from the same
+    coordinate the discarded one did, so a password and an SSH key can end up
+    sharing key material (see ``derivation_collisions``).
+
+    Resolving deterministically is the design and is frozen for parity with
+    the TypeScript implementation -- both must reach the same vault from the
+    same inputs. Reporting it is not part of that contract, and the silence is
+    the part that makes it dangerous.
+    """
+
+    id: str
+    kept: dict[str, str]
+    discarded: dict[str, str]
+    different_kind: bool
+
+
+@dataclass
+class MergeReport:
+    """What a merge resolved silently, for callers that want to surface it."""
+
+    conflicts: list[MergeConflict] = field(default_factory=list)
+    #: Tombstones dropped because the retention cap was reached.
+    #:
+    #: Past the cap the oldest deletions are forgotten, and merging a stale
+    #: replica or an old relay snapshot then RESURRECTS entries the user
+    #: deleted. A documented protocol limit -- but a user has no way to know
+    #: the cap has actually started trimming their history unless told.
+    tombstones_evicted: int = 0
+
+
+def _describe_entry(entry: dict[str, Any]) -> dict[str, str]:
+    return {
+        "kind": str(entry.get("kind") or entry.get("type") or ""),
+        "label": str(entry.get("label") or ""),
+    }
+
+
+def _record_conflict(
+    report: "MergeReport | None",
+    idx: str,
+    kept: dict[str, Any],
+    discarded: dict[str, Any],
+) -> None:
+    """Note that one side's entry replaced a genuinely different one.
+
+    Only a real divergence is worth reporting. Two replicas holding the same
+    entry with different timestamps is the normal case -- an edit -- and
+    flagging it would bury the case that matters in noise. The signal is that
+    the two sides describe DIFFERENT things: a different kind, or a different
+    label.
+    """
+    if report is None:
+        return
+    kept_desc = _describe_entry(kept)
+    discarded_desc = _describe_entry(discarded)
+    if (
+        kept_desc["kind"] == discarded_desc["kind"]
+        and kept_desc["label"] == discarded_desc["label"]
+    ):
+        return
+    report.conflicts.append(
+        MergeConflict(
+            id=str(idx),
+            kept=kept_desc,
+            discarded=discarded_desc,
+            different_kind=kept_desc["kind"] != discarded_desc["kind"],
+        )
+    )
+
+
 def merge_index_payloads(
-    current: dict[str, Any], incoming: dict[str, Any], *, source_tag: str = ""
+    current: dict[str, Any],
+    incoming: dict[str, Any],
+    *,
+    source_tag: str = "",
+    report: "MergeReport | None" = None,
 ) -> dict[str, Any]:
-    """Merge two index payloads using deterministic conflict resolution."""
-    out = ensure_index0_payload(dict(current) if isinstance(current, dict) else {})
-    incoming = ensure_index0_payload(incoming if isinstance(incoming, dict) else {})
+    """Merge two index payloads using deterministic conflict resolution.
+
+    ``report`` is an optional, write-only collector for what was resolved
+    silently. Supplying it cannot change the merged result -- the outcome must
+    not depend on whether anyone was watching, or the two implementations
+    could reach different vaults from the same inputs.
+    """
+    # Deep copies, not shallow ones. `dict(current)` shares the nested
+    # `entries` dict with the caller, so the merge wrote its result straight
+    # into the argument: after merging, the caller's "current" payload had
+    # already become the merged one. Anything comparing before-and-after, or
+    # merging the same payload twice, silently saw the wrong input. The
+    # TypeScript implementation structuredClone()s both sides; this matches.
+    out = ensure_index0_payload(
+        copy.deepcopy(current) if isinstance(current, dict) else {}
+    )
+    incoming = ensure_index0_payload(
+        copy.deepcopy(incoming) if isinstance(incoming, dict) else {}
+    )
     cur_entries = out.get("entries", {})
     if not isinstance(cur_entries, dict):
         cur_entries = {}
@@ -278,7 +380,10 @@ def merge_index_payloads(
                 )
             continue
         if _prefer_entry(cur_entry, inc_entry):
+            _record_conflict(report, key, inc_entry, cur_entry)
             cur_entries[key] = inc_entry
+        else:
+            _record_conflict(report, key, cur_entry, inc_entry)
 
     # Apply tombstones deterministically after entry merge.
     for idx, rec in list(tombstones.items()):
@@ -323,6 +428,10 @@ def merge_index_payloads(
             ),
         )
         if len(tomb_items) > TOMBSTONE_RETENTION_CAP:
+            # Forgetting a deletion is how a deleted entry comes back: a stale
+            # replica still carrying it will reinstate it at the next merge.
+            if report is not None:
+                report.tombstones_evicted += len(tomb_items) - TOMBSTONE_RETENTION_CAP
             tomb_items = tomb_items[-TOMBSTONE_RETENTION_CAP:]
         tombstones = {k: v for k, v in tomb_items}
     last_merge_ts = max(
