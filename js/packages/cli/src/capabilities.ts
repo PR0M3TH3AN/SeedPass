@@ -57,6 +57,17 @@ export function capabilities(): Record<string, unknown> {
       commands: ["agent token-issue/token-list/token-revoke"],
       scopes: ["read", "use", "reveal"],
       constraints: ["kinds", "label_regex", "ttl", "uses", "exec_allowlist"],
+      // Automation issuing tokens has to know this to scope them correctly:
+      // label_regex is a SEARCH, not a full match, in both implementations
+      // (Python uses re.search). `prod` therefore also matches `not-prod-db`.
+      // Anchor it yourself -- `^prod$` -- to get an exact match.
+      label_regex_semantics: "search (substring); anchor with ^...$ for exact match",
+      // Automation that issues `use` tokens needs this to pick allowlist
+      // entries safely: the check covers the command word, not its arguments.
+      exec_allowlist_semantics:
+        "command word only; the token holder supplies all arguments, so an " +
+        "allowlisted binary that can write a file or open a socket can " +
+        "return the secret to its caller",
       token_env_var: "SEEDPASS_TOKEN",
       enforcement: "session agent (secrets materialized agent-side in token mode)",
       escalation:

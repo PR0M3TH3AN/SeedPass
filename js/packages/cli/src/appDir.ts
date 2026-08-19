@@ -79,7 +79,7 @@ export function resolveAppDir(override?: string): string {
  * containing `..` would otherwise steer a recursive delete out of the
  * profile directory.
  */
-const FINGERPRINT_RE = /^[0-9A-F]{16}$/;
+export const FINGERPRINT_RE = /^[0-9A-F]{16}$/;
 
 export function assertValidFingerprint(fingerprint: string): string {
   if (!FINGERPRINT_RE.test(fingerprint)) {

@@ -29,7 +29,7 @@ import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 import { join } from "node:path";
 import process from "node:process";
-import { deriveKeyIndex, sha256Hex, utf8, type Entry } from "@seedpass/core";
+import { deriveKeyIndex, generateFingerprint, sha256Hex, utf8, type Entry } from "@seedpass/core";
 import { openVault } from "./vaultFile.js";
 import { materializeSecret } from "./secrets.js";
 import { entryMetadata } from "./refs.js";
@@ -42,7 +42,7 @@ import {
 } from "./sinks.js";
 import { AuditLog } from "./audit.js";
 import { loadConfig, passwordPolicyFromConfig } from "./configFile.js";
-import { INDEX_FILENAME } from "./appDir.js";
+import { INDEX_FILENAME, FINGERPRINT_RE } from "./appDir.js";
 
 export const DEFAULT_TTL_SECONDS = 900;
 
@@ -245,7 +245,24 @@ export class AgentDaemon {
     return { token };
   }
 
-  /** Would this token be allowed to act on this entry at all? */
+  /**
+   * Would this token be allowed to act on this entry at all?
+   *
+   * `label_regex` is matched with `RegExp.test`, i.e. unanchored: it succeeds
+   * if the pattern matches ANYWHERE in the label, so a token issued for
+   * `prod` also reaches `not-prod-db`. That is wider than the operator
+   * issuing it is likely to assume, and it is deliberate: Python matches with
+   * `re.search` (cli/agent.py), and a token must not mean two different
+   * things depending on which implementation is holding it. Anchoring here
+   * would silently narrow every existing token's scope on upgrade.
+   *
+   * The semantics are stated in `--label-regex` help and reported in
+   * `capabilities()` under `label_regex_semantics`, so a caller can scope
+   * correctly without reading this code.
+   *
+   * A pattern that fails to compile denies rather than throws: an invalid
+   * constraint must never widen access.
+   */
   private tokenMaySee(token: TokenRecord, entry: { kind: string; label: string }): boolean {
     if (token.kinds && !token.kinds.includes(entry.kind)) return false;
     try {
@@ -336,6 +353,17 @@ export class AgentDaemon {
         };
       }
       if (sinkSpec.sink !== "clipboard" && allowed && allowed.length > 0) {
+        // The allowlist constrains the command WORD only. The token holder
+        // still chooses every argument, and the child receives the secret in
+        // its environment, so an allowlisted binary with an output-file or
+        // network flag hands the secret straight back to the holder. Choose
+        // allowlist entries as if the holder writes their argv, because they
+        // do. Containment here is "which binary", never "what it does".
+        //
+        // Argument-level containment would mean allowlisting full argv
+        // templates (["ssh-add", "-"]) rather than command words; that is a
+        // token-format change and has to land in both implementations at
+        // once, so it is tracked rather than done here.
         const [cmd] = parseCommandSpec(sinkSpec.command);
         if (!allowed.includes(cmd)) {
           await this.auditLog(fingerprint, "access_denied", {
@@ -641,8 +669,26 @@ export class AgentDaemon {
         const fingerprint = String(msg["fingerprint"] ?? "");
         const mnemonic = String(msg["mnemonic"] ?? "");
         if (!fingerprint || !mnemonic) return { ok: false, error: "missing fields" };
+        // `put` is the only way a fingerprint enters `held`, and every later
+        // handler joins that string onto a path (the vault, the audit log).
+        // The CLI validates the format before it gets here, which is exactly
+        // why the daemon must too: agent.ts's own header states the CLI is
+        // untrusted, and the browser extension will be the next thing
+        // speaking this protocol.
+        if (!FINGERPRINT_RE.test(fingerprint)) {
+          return { ok: false, error: "fingerprint must be 16 uppercase hex characters" };
+        }
         const ttl = positiveIntField(msg["ttl"], this.defaultTtl);
         if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        // Last of the validations because it is the expensive one: deriving a
+        // fingerprint runs the BIP-39 KDF, and a malformed ttl should not pay
+        // for it. A fingerprint that does not belong to this seed is not an
+        // attack so much as a mix-up, but it files the audit records under
+        // the wrong profile and unlocks a vault the caller did not name --
+        // both cheaper to refuse here than to explain later.
+        if (generateFingerprint(mnemonic) !== fingerprint) {
+          return { ok: false, error: "fingerprint does not match the supplied seed" };
+        }
         const expiresAt = Math.floor(Date.now() / 1000 + ttl);
         // The audit key is derived from the held seed, so the seed must go in
         // before the record is written — but an audit failure must then undo

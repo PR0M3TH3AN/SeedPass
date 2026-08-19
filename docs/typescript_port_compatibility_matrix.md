@@ -116,6 +116,18 @@ need a versioned protocol change in both implementations:
    numbers (or an info string) and a compatibility version, since existing
    keys must keep deriving as they do.
 
+**Deliberately identical, and wider than it reads: token `label_regex`.**
+Both implementations match a token's `label_regex` as a *search*, not a full
+match — Python with `re.search` (`src/seedpass/cli/agent.py`), TypeScript with
+`RegExp.test` (`js/packages/cli/src/agent.ts`). A token issued for `prod`
+therefore also reaches `not-prod-db`. Anchoring the TypeScript side alone
+would make one token mean two different things depending on which
+implementation holds it, and would silently narrow the scope of every token
+already issued, so the semantics stay as they are and are stated instead: in
+`--label-regex` help, in `capabilities().tokens.label_regex_semantics`, and
+pinned by tests in `js/packages/cli/test/tokens.test.ts`. Operators wanting an
+exact match anchor the pattern themselves (`^prod$`).
+
 **Resolved:** TOTP codes for entries with a non-default period/digits used
 to differ — Python built `pyotp.TOTP(secret)` with library defaults and
 ignored the entry's recorded values, so an imported 8-digit/45s secret

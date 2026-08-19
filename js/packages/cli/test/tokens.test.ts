@@ -96,6 +96,82 @@ describe("token issuance", () => {
   });
 });
 
+/**
+ * `label_regex` is a search, not a full match — in both implementations.
+ * Python enforces it with `re.search` (cli/agent.py), so anchoring on the TS
+ * side would mean the same token grants different access depending on which
+ * implementation holds it, and would silently narrow every token already
+ * issued. These tests pin the semantics so the surprise stays documented
+ * rather than becoming an accidental behavior change later.
+ */
+describe("label_regex matches anywhere, matching Python's re.search", () => {
+  it("an unanchored pattern reaches labels that merely contain it", async () => {
+    await run(asOwner, "entry", "add", "key-value", "not-prod-db", "k", "adjacent-secret");
+    await run(asOwner, "entry", "add", "key-value", "prod", "k", "intended-secret");
+
+    const issued = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "substring-demo",
+        "--scope", "read",
+        "--kind", "key_value",
+        "--label-regex", "prod",
+        "--ttl", "600",
+      )).stdout,
+    );
+    const rows = JSON.parse(
+      (await run(asTokenHolder(issued.token), "entry", "list")).stdout,
+    ) as { label: string }[];
+    // The point of the test: BOTH are visible, not just the exact match.
+    expect(rows.map((x) => x.label).sort()).toEqual(["not-prod-db", "prod"]);
+  });
+
+  it("anchoring the pattern is how an operator gets an exact match", async () => {
+    const issued = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "anchored-demo",
+        "--scope", "read",
+        "--kind", "key_value",
+        "--label-regex", "^prod$",
+        "--ttl", "600",
+      )).stdout,
+    );
+    const rows = JSON.parse(
+      (await run(asTokenHolder(issued.token), "entry", "list")).stdout,
+    ) as { label: string }[];
+    expect(rows.map((x) => x.label)).toEqual(["prod"]);
+  });
+
+  it("reports the semantics in capabilities so automation can scope correctly", async () => {
+    const caps = JSON.parse((await run({}, "capabilities")).stdout);
+    expect(caps.tokens.label_regex_semantics).toContain("search");
+    expect(caps.tokens.label_regex_semantics).toContain("^...$");
+    // The exec allowlist's containment is likewise narrower than it reads:
+    // it names a binary, not what that binary may be asked to do.
+    expect(caps.tokens.exec_allowlist_semantics).toContain("command word only");
+  });
+
+  it("an uncompilable pattern denies rather than throwing", async () => {
+    const issued = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "bad-regex",
+        "--scope", "read",
+        "--label-regex", "([unclosed",
+        "--ttl", "600",
+      )).stdout,
+    );
+    const rows = JSON.parse(
+      (await run(asTokenHolder(issued.token), "entry", "list")).stdout,
+    ) as { label: string }[];
+    expect(rows).toEqual([]);
+  });
+});
+
 describe("token-mode access (no mnemonic anywhere)", () => {
   it("lists only the entries the token may act on, with no secret values", async () => {
     const r = await run(asTokenHolder(token), "entry", "list");

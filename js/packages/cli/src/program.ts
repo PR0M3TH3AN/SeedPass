@@ -1361,12 +1361,20 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .option("--name <name>", "token name", "agent")
     .option("--scope <scope...>", "read/use/reveal (repeatable)", ["read"])
     .option("--kind <kind...>", "restrict to entry kinds (repeatable)")
-    .option("--label-regex <re>", "restrict to matching labels", ".*")
+    .option(
+      "--label-regex <re>",
+      "restrict to labels the pattern MATCHES ANYWHERE (like Python's " +
+        "re.search): 'prod' also matches 'not-prod-db'. Anchor it — '^prod$' " +
+        "— for an exact match",
+      ".*",
+    )
     .option("--ttl <seconds>", "token lifetime", "300")
     .option("--uses <n>", "max secret deliveries", "1")
     .option(
       "--exec-allowlist <cmd...>",
-      "restrict `use` to these commands (without it, a use-scoped holder can read the secret)",
+      "restrict `use` to these commands (without it, a use-scoped holder can " +
+        "read the secret). Matches the command WORD only — the holder still " +
+        "chooses the arguments, so pick binaries that stay safe with any argv",
     )
     .action(
       async (o: {

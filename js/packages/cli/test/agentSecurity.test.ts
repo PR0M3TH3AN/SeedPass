@@ -409,6 +409,41 @@ describe("malformed daemon input cannot corrupt held state", () => {
     expect(JSON.stringify(owner)).not.toContain("abandon");
   });
 
+  /**
+   * `put` is the only way a fingerprint enters `held`, and every later handler
+   * joins that string onto a path — the vault it opens, the audit log it
+   * writes. The CLI validates the format before the daemon ever sees it,
+   * which is precisely why the daemon cannot rely on that: it treats every
+   * caller as untrusted, and the browser extension will speak this protocol
+   * next.
+   */
+  it("refuses a fingerprint that is not 16 uppercase hex characters", async () => {
+    for (const bad of ["../../../etc", "bbbbbbbbbbbbbbbb", "BBBB", "BBBBBBBBBBBBBBBB/x"]) {
+      const put = await rawRequest({
+        op: "put", cap, fingerprint: bad, mnemonic: MNEMONIC, ttl: 60,
+      });
+      expect(put["ok"]).toBe(false);
+      expect(String(put["error"])).toContain("16 uppercase hex");
+      const owner = await rawRequest({ op: "owner-mnemonic", cap, fingerprint: bad });
+      expect(owner["ok"]).toBe(false);
+      expect(JSON.stringify(owner)).not.toContain("abandon");
+    }
+  });
+
+  it("refuses a well-formed fingerprint that does not belong to the seed", async () => {
+    // Correct shape, wrong profile: this would unlock a vault the caller did
+    // not name and file its audit records under the wrong fingerprint.
+    const put = await rawRequest({
+      op: "put", cap, fingerprint: SCRATCH_FP, mnemonic: MNEMONIC, ttl: 60,
+    });
+    expect(put["ok"]).toBe(false);
+    expect(String(put["error"])).toContain("does not match");
+
+    const owner = await rawRequest({ op: "owner-mnemonic", cap, fingerprint: SCRATCH_FP });
+    expect(owner["ok"]).toBe(false);
+    expect(JSON.stringify(owner)).not.toContain("abandon");
+  });
+
   it("token-issue refuses a bare-string scope and a non-numeric ttl without crashing", async () => {
     const strScope = await rawRequest({
       op: "token-issue", cap, fingerprint: FINGERPRINT, scopes: "reveal", ttl: 600, uses: 1,
