@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,7 +26,28 @@ def _mod_inv(value: int) -> int:
 
 
 def _coef(secret: bytes, label: str, byte_idx: int, power: int) -> int:
-    # Deterministic coefficient derivation for reproducible share generation.
+    """Legacy coefficient derivation. Retained only to explain why it is gone.
+
+    .. warning::
+
+       This derived every polynomial coefficient by HMAC-ing the SECRET, which
+       made the whole share set a deterministic function of the secret. Shamir
+       sharing's defining property is that any sub-threshold set of shares is
+       information-theoretically independent of the secret; deriving the
+       coefficients from the secret destroys it, because a single share then
+       becomes an offline verifier: an attacker guesses a secret, re-runs the
+       split, and compares. Demonstrated recovering "hunter2" from one share
+       of five with a threshold of three.
+
+       It also meant re-splitting produced byte-identical shares, so a leaked
+       share could never be rotated out without changing the secret itself.
+
+       ``split_secret`` now draws coefficients from ``secrets`` instead. The
+       share TOKEN FORMAT is unchanged and ``recover_secret`` is untouched --
+       recovery is Lagrange interpolation over (x, y) pairs and never
+       recomputes coefficients -- so shares from either version interoperate
+       and old shares keep recovering.
+    """
     msg = f"{label}:{byte_idx}:{power}".encode("utf-8")
     digest = hmac.new(secret, msg, hashlib.sha256).digest()
     return int.from_bytes(digest[:2], "big") % PRIME
@@ -86,14 +108,20 @@ def split_secret(
         raise ValueError("secret_required")
     label_value = str(label).strip() or "default"
 
+    # One random polynomial per secret byte, drawn ONCE and then evaluated at
+    # every x. The coefficients must be the same across shares or the points
+    # do not lie on a single polynomial and recovery fails -- which is why the
+    # old code could get away with recomputing them inside this loop only
+    # because they were deterministic.
+    per_byte_coeffs = [
+        [secrets.randbelow(PRIME) for _ in range(threshold - 1)] for _ in secret_bytes
+    ]
+
     shares: list[str] = []
     for x in range(1, total_shares + 1):
         vals: list[int] = []
         for idx, b in enumerate(secret_bytes):
-            coeffs = [
-                _coef(secret_bytes, label_value, idx, p) for p in range(1, threshold)
-            ]
-            vals.append(_poly_eval_at_x(int(b), coeffs, x))
+            vals.append(_poly_eval_at_x(int(b), per_byte_coeffs[idx], x))
         raw = b"".join(int(v).to_bytes(2, "big") for v in vals)
         digest = hashlib.sha256(raw).hexdigest()[:16]
         payload = base64.urlsafe_b64encode(raw).decode("ascii")

@@ -39,6 +39,8 @@ import {
   removeLink,
   restoreEntry,
   isPartitionStub,
+  splitSecret,
+  recoverSecret,
   buildSemanticRecords,
   searchSemanticRecords,
   semanticManifest,
@@ -58,20 +60,30 @@ import { entryMetadata, refFor, resolveEntry } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
 import { createIndexBackup } from "../backups.js";
 import { factorConfigured, tagForFactor, readPartition, partitionPath } from "../highRisk.js";
+import {
+  createJobProfile,
+  currentPolicyStamp,
+  listJobProfiles,
+  revokeJobProfile,
+  checkJobProfiles,
+} from "../jobProfiles.js";
+import {
+  recordRecoveryDrill,
+  listRecoveryDrills,
+  verifyRecoveryDrills,
+} from "../recoveryDrills.js";
 import { HttpError, type ApiRequest, type ApiResponse, type ApiServer } from "./server.js";
 
 /**
- * Features that exist in the Python API but are deliberately not ported.
+ * Route prefixes that exist in the Python API but are not implemented here.
  *
- * These hang off subsystems the TypeScript port does not implement at all
- * (see capabilities().not_yet_ported). They answer 501 with the reason rather
- * than 404, because a 404 reads as "you typed the path wrong" and would send
- * an integrator hunting for a spelling mistake that is not there.
+ * Currently EMPTY — every Python endpoint now has a TypeScript equivalent.
+ * The mechanism is kept because the honest answer for an unimplemented
+ * subsystem is 501 naming the feature, not 404: a 404 reads as "you typed the
+ * path wrong" and sends an integrator hunting for a spelling mistake that is
+ * not there.
  */
-export const UNPORTED_PREFIXES: Array<{ prefix: string; feature: string }> = [
-  { prefix: "/api/v1/agent/job-profiles", feature: "agent job profiles" },
-  { prefix: "/api/v1/agent/recovery", feature: "agent recovery split" },
-];
+export const UNPORTED_PREFIXES: Array<{ prefix: string; feature: string }> = [];
 
 export interface ApiContext {
   appDir: AppDir;
@@ -1019,6 +1031,122 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
       ...(typeof body["kind"] === "string" && { kind: body["kind"] }),
     });
     return { json: { results: hits.map((h) => ({ ...h, ref: refFor(String(h.entry_id)) })) } };
+  });
+
+  // ---------------------------------------------------------- job profiles
+
+  server.route("GET", "/api/v1/agent/job-profiles", async () => {
+    return { json: await listJobProfiles(ctx.appDir.root) };
+  });
+
+  server.route("POST", "/api/v1/agent/job-profiles", async (req) => {
+    const body = bodyObject(req);
+    try {
+      const record = await createJobProfile(ctx.appDir.root, {
+        jobId: str(body["id"] ?? body["job_id"], "id"),
+        fingerprint: String(body["fingerprint"] ?? ctx.fingerprint),
+        query: str(body["query"], "query"),
+        ...(typeof body["auth_broker"] === "string" && { authBroker: body["auth_broker"] }),
+        ...(typeof body["schedule"] === "string" && { schedule: body["schedule"] }),
+        ...(typeof body["description"] === "string" && { description: body["description"] }),
+        policyStamp: await currentPolicyStamp(ctx.appDir.root),
+        leaseOnly: Boolean(body["lease_only"]),
+        leaseTtl: optInt(body["lease_ttl"], "lease_ttl") ?? 0,
+        leaseUses: optInt(body["lease_uses"], "lease_uses") ?? 0,
+        reveal: Boolean(body["reveal"]),
+      });
+      return { status: 201, json: record };
+    } catch (e) {
+      // job_exists / job_id_required are caller errors, not server faults.
+      throw new HttpError(400, (e as Error).message);
+    }
+  });
+
+  server.route("DELETE", "/api/v1/agent/job-profiles/:job_id", async (req) => {
+    const jobId = req.params["job_id"]!;
+    if (!(await revokeJobProfile(ctx.appDir.root, jobId))) {
+      throw new HttpError(404, `no active job profile ${jobId}`);
+    }
+    return { json: { status: "ok", revoked: jobId } };
+  });
+
+  server.route("GET", "/api/v1/agent/job-profiles/check", async () => {
+    const checks = await checkJobProfiles(
+      ctx.appDir.root,
+      await currentPolicyStamp(ctx.appDir.root),
+    );
+    return {
+      json: {
+        checks,
+        // Surfaced as a field rather than a status code: the request
+        // succeeded, and it is the ANSWER that is the warning.
+        stale: checks.filter((c) => !c.policy_current).map((c) => c.id),
+      },
+    };
+  });
+
+  // -------------------------------------------------------- recovery split
+
+  server.route(
+    "POST",
+    "/api/v1/agent/recovery/split",
+    async (req) => {
+      // The thing being split is typically a parent seed, so this is gated
+      // like every other plaintext route and returns shares exactly once.
+      await requirePassword(ctx, req);
+      const body = bodyObject(req);
+      try {
+        const shares = splitSecret(str(body["secret"], "secret"), {
+          totalShares: optInt(body["total_shares"], "total_shares") ?? 0,
+          threshold: optInt(body["threshold"], "threshold") ?? 0,
+          ...(typeof body["label"] === "string" && { label: body["label"] }),
+        });
+        return { json: { shares } };
+      } catch (e) {
+        throw new HttpError(400, (e as Error).message);
+      }
+    },
+    { requiresPassword: true },
+  );
+
+  server.route(
+    "POST",
+    "/api/v1/agent/recovery/recover",
+    async (req) => {
+      await requirePassword(ctx, req);
+      const body = bodyObject(req);
+      const shares = body["shares"];
+      if (!Array.isArray(shares)) throw new HttpError(400, "shares must be an array");
+      try {
+        return { json: { secret: recoverSecret(shares.map((s) => String(s))) } };
+      } catch (e) {
+        // Reason strings are the contract here (insufficient_shares,
+        // invalid_share_checksum, ...), so they pass through unchanged.
+        throw new HttpError(400, (e as Error).message);
+      }
+    },
+    { requiresPassword: true },
+  );
+
+  server.route("POST", "/api/v1/agent/recovery/drill", async (req) => {
+    const body = bodyObject(req);
+    const record = await recordRecoveryDrill(ctx.appDir.root, {
+      fingerprint: ctx.fingerprint,
+      backupPath: str(body["backup_path"], "backup_path"),
+      simulated: Boolean(body["simulated"]),
+      expectedMaxAgeDays: optInt(body["expected_max_age_days"], "expected_max_age_days") ?? null,
+      now: ctx.now(),
+    });
+    return { json: record };
+  });
+
+  server.route("GET", "/api/v1/agent/recovery/drills", async (req) => {
+    const limit = optInt(req.query.get("limit") ?? undefined, "limit") ?? 20;
+    return { json: await listRecoveryDrills(ctx.appDir.root, { limit }) };
+  });
+
+  server.route("POST", "/api/v1/agent/recovery/drills/verify", async () => {
+    return { json: await verifyRecoveryDrills(ctx.appDir.root) };
   });
 
   server.route("POST", "/api/v1/shutdown", async () => {

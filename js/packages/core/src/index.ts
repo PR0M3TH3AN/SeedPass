@@ -102,6 +102,16 @@ export {
   isPartitionStub,
   type PartitionEnvelope,
 } from "./vault/highRiskPartition.js";
+export {
+  splitSecret,
+  recoverSecret,
+  parseShare,
+  RecoveryError,
+  SHARE_PREFIX,
+  RECOVERY_PRIME,
+  MAX_TOTAL_SHARES,
+  type ParsedShare,
+} from "./vault/recoverySplit.js";
 export { encodeQr, renderQrText, EC_LEVELS, type QrMatrix, type EcLevel } from "./util/qr.js";
 export {
   buildSemanticRecords,

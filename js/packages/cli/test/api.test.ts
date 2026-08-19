@@ -28,6 +28,7 @@ import {
 } from "@seedpass/core";
 import { setFactor, tagForFactor } from "../src/highRisk.js";
 import {
+  UNPORTED_PREFIXES,
   ApiServer,
   registerRoutes,
   buildContext,
@@ -597,25 +598,19 @@ describe("high-risk partition over the API", () => {
   });
 });
 
-describe("the unported surface answers honestly", () => {
-  it("returns 501 with the reason, not 404", async () => {
-    for (const [method, path, feature] of [
-      ["GET", "/api/v1/agent/job-profiles", "agent job profiles"],
-      ["POST", "/api/v1/agent/recovery/split", "agent recovery split"],
-    ] as const) {
-      const res = await call(method, path);
-      // 404 would read as "you typed the path wrong" and send an integrator
-      // hunting for a spelling mistake that is not there.
-      expect(res.status).toBe(501);
-      expect(res.json.detail).toContain(feature);
-    }
-  });
-
-  it("still returns 404 for a genuinely unknown path", async () => {
+describe("path handling", () => {
+  it("returns 404 for a genuinely unknown path", async () => {
     expect((await call("GET", "/api/v1/no-such-thing")).status).toBe(404);
   });
 
   it("distinguishes a wrong method from a wrong path", async () => {
     expect((await call("DELETE", "/api/v1/stats")).status).toBe(405);
+  });
+
+  it("has no remaining 501 surface", async () => {
+    // Every Python endpoint now has an equivalent here. If a subsystem is
+    // ever dropped again it should answer 501 naming the feature rather than
+    // 404, which is why the mechanism stays.
+    expect(UNPORTED_PREFIXES).toEqual([]);
   });
 });

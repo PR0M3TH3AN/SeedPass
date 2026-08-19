@@ -27,6 +27,8 @@ import {
   exportBackup,
   findDerivationCollisions,
   HIGH_RISK_KINDS,
+  splitSecret,
+  recoverSecret,
   isPartitionStub,
   partitionStub,
   type Entry,
@@ -188,6 +190,18 @@ import {
   revokeApproval,
   VALID_APPROVAL_ACTIONS,
 } from "./approvals.js";
+import {
+  createJobProfile,
+  currentPolicyStamp,
+  listJobProfiles,
+  revokeJobProfile,
+  checkJobProfiles,
+} from "./jobProfiles.js";
+import {
+  recordRecoveryDrill,
+  listRecoveryDrills,
+  verifyRecoveryDrills,
+} from "./recoveryDrills.js";
 import { runTui } from "./tui/app.js";
 
 export interface ProgramIo {
@@ -2063,6 +2077,215 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       const revoked = await revokeApproval(app.root, approvalId);
       if (!revoked) throw new Error(`no active approval ${approvalId}`);
       io.out(JSON.stringify({ status: "ok", revoked: approvalId }));
+    });
+
+  // ------------------------------------------------------- recovery split
+
+  const recovery = agent
+    .command("recovery")
+    .description("threshold split of a secret, and backup drills");
+
+  recovery
+    .command("split")
+    .description(
+      "split SEEDPASS_RECOVERY_SECRET into shares (any --threshold of which " +
+        "recover it); shares are printed once and never stored",
+    )
+    .requiredOption("--total <n>", "how many shares to produce")
+    .requiredOption("--threshold <n>", "how many are needed to recover")
+    .option("--label <label>", "label recorded in each share", "default")
+    .action(async (o: { total: string; threshold: string; label: string }) => {
+      // Never from argv: the secret being split is typically a parent seed.
+      const secret = process.env["SEEDPASS_RECOVERY_SECRET"];
+      if (!secret) {
+        throw new Error(
+          "set SEEDPASS_RECOVERY_SECRET in the environment (never pass the " +
+            "secret to split on the command line)",
+        );
+      }
+      const shares = splitSecret(secret, {
+        totalShares: parseIntOption(o.total, "--total", { min: 2, max: 32 }),
+        threshold: parseIntOption(o.threshold, "--threshold", { min: 2 }),
+        label: o.label,
+      });
+      io.out(JSON.stringify({ shares }, null, 2));
+      io.err(
+        `Distribute these ${shares.length} shares separately. Any ` +
+          `${o.threshold} of them reconstruct the secret; fewer reveal ` +
+          `nothing. SeedPass keeps no copy.`,
+      );
+    });
+
+  recovery
+    .command("recover")
+    .description("reconstruct a secret from shares (reads SEEDPASS_RECOVERY_SHARES, newline separated)")
+    .action(async () => {
+      const raw = process.env["SEEDPASS_RECOVERY_SHARES"];
+      if (!raw) {
+        throw new Error(
+          "set SEEDPASS_RECOVERY_SHARES to the shares, one per line (never " +
+            "pass them on the command line)",
+        );
+      }
+      const shares = raw.split("\n").map((s) => s.trim()).filter(Boolean);
+      // The recovered value is the secret itself, so it obeys the same egress
+      // rule as `vault reveal-parent-seed`.
+      if (!process.stdout.isTTY) {
+        throw new Error(
+          "refusing to print a recovered secret into a pipe (a log, a " +
+            "transcript, an agent's context); run this on a terminal",
+        );
+      }
+      io.out(recoverSecret(shares));
+    });
+
+  recovery
+    .command("drill <backupPath>")
+    .description("record that a backup was checked; the log is HMAC-chained")
+    .option("--max-age-days <n>", "warn if the backup is older than this")
+    .option("--simulated", "mark the drill as a rehearsal")
+    .action(async (backupPath: string, o: { maxAgeDays?: string; simulated?: boolean }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const record = await recordRecoveryDrill(app.root, {
+        fingerprint: fp,
+        backupPath: resolveHome(backupPath),
+        simulated: Boolean(o.simulated),
+        ...(o.maxAgeDays !== undefined && {
+          expectedMaxAgeDays: parseIntOption(o.maxAgeDays, "--max-age-days", { min: 0 }),
+        }),
+      });
+      io.out(JSON.stringify(record, null, 2));
+      if (record.status !== "ok") {
+        io.err(
+          record.backup_exists
+            ? `warning: that backup is ${record.backup_age_days} days old.`
+            : `warning: no backup found at ${record.backup_path}.`,
+        );
+      }
+    });
+
+  recovery
+    .command("drill-list")
+    .description("show recorded drills")
+    .option("-n <count>", "how many", "20")
+    .action(async (o: { n: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      io.out(
+        JSON.stringify(
+          await listRecoveryDrills(app.root, {
+            limit: parseIntOption(o.n, "-n", { min: 1 }),
+          }),
+          null,
+          2,
+        ),
+      );
+    });
+
+  recovery
+    .command("drill-verify")
+    .description("verify the drill log's HMAC chain")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const result = await verifyRecoveryDrills(app.root);
+      io.out(JSON.stringify(result, null, 2));
+      // A broken chain means the history was edited; a script needs to know.
+      if (!result.valid) process.exitCode = 1;
+    });
+
+  // --------------------------------------------------------- job profiles
+
+  const jobs = agent
+    .command("job-profile")
+    .description("stored descriptions of unattended retrievals");
+
+  jobs
+    .command("create <jobId>")
+    .description("create a job profile")
+    .requiredOption("--query <query>", "entry reference or search text")
+    .option("--auth-broker <broker>", "env|keyring|command", "env")
+    .option("--broker-service <name>", "keyring service", "seedpass")
+    .option("--broker-account <name>", "keyring account", "")
+    .option("--broker-command <cmd>", "command that prints the credential")
+    .option("--policy-binding <name>", "policy this job runs under", "default")
+    .option("--schedule <spec>", "when it is expected to run", "")
+    .option("--description <text>", "what it is for", "")
+    .option("--host-binding <host>", "host it is expected to run on", "")
+    .option("--lease-only", "restrict to lease delivery")
+    .option("--lease-ttl <seconds>", "lease lifetime", "0")
+    .option("--lease-uses <n>", "lease uses", "0")
+    .option("--reveal", "permit plaintext reveal")
+    .action(async (jobId: string, o: Record<string, string | boolean | undefined>) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const fp = await currentFingerprint(app, opts);
+      const record = await createJobProfile(app.root, {
+        jobId,
+        fingerprint: fp,
+        query: String(o["query"]),
+        authBroker: String(o["authBroker"]),
+        brokerService: String(o["brokerService"]),
+        brokerAccount: String(o["brokerAccount"]),
+        brokerCommand: o["brokerCommand"] === undefined ? null : String(o["brokerCommand"]),
+        policyBinding: String(o["policyBinding"]),
+        // The stamp binds the profile to the policy in force now, so a later
+        // policy change shows up as a mismatch rather than passing silently.
+        policyStamp: await currentPolicyStamp(app.root),
+        schedule: String(o["schedule"]),
+        description: String(o["description"]),
+        hostBinding: String(o["hostBinding"]),
+        leaseOnly: Boolean(o["leaseOnly"]),
+        leaseTtl: parseIntOption(String(o["leaseTtl"]), "--lease-ttl", { min: 0 }),
+        leaseUses: parseIntOption(String(o["leaseUses"]), "--lease-uses", { min: 0 }),
+        reveal: Boolean(o["reveal"]),
+      });
+      io.out(JSON.stringify(record, null, 2));
+    });
+
+  jobs
+    .command("list")
+    .description("list job profiles")
+    .option("--include-revoked", "also show revoked ones")
+    .action(async (o: { includeRevoked?: boolean }) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      io.out(
+        JSON.stringify(
+          await listJobProfiles(app.root, {
+            ...(o.includeRevoked !== undefined && { includeRevoked: o.includeRevoked }),
+          }),
+          null,
+          2,
+        ),
+      );
+    });
+
+  jobs
+    .command("revoke <jobId>")
+    .description("revoke a job profile")
+    .action(async (jobId: string) => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      if (!(await revokeJobProfile(app.root, jobId))) {
+        throw new Error(`no active job profile ${jobId}`);
+      }
+      io.out(JSON.stringify({ status: "ok", revoked: jobId }));
+    });
+
+  jobs
+    .command("check")
+    .description("report profiles whose policy has changed since they were created")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const app = new AppDir(resolveAppDir(opts.appDir));
+      const checks = await checkJobProfiles(app.root, await currentPolicyStamp(app.root));
+      io.out(JSON.stringify(checks, null, 2));
+      // A stale binding means the job may be running under rules that no
+      // longer apply — worth a non-zero exit for a scheduled check.
+      if (checks.some((c) => !c.policy_current)) process.exitCode = 1;
     });
 
   const util = program.command("util").description("utility commands");

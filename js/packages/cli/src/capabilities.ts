@@ -114,6 +114,28 @@ export function capabilities(): Record<string, unknown> {
       // that must ALSO be otherwise authorized.
       semantics: "one-shot (or N-use) authorization, consumed at action time",
     },
+    recovery: {
+      commands: [
+        "agent recovery split/recover/drill/drill-list/drill-verify",
+        "POST /api/v1/agent/recovery/{split,recover,drill,drills/verify}",
+      ],
+      scheme: "Shamir over GF(257), one polynomial per secret byte",
+      share_format: "sprec1:<label>:<threshold>:<total>:<index>:<digest>:<payload>",
+      // Coefficients are drawn at random. Deriving them from the secret (as
+      // an earlier Python version did) makes any single share an offline
+      // verifier for guessing it, destroying the sub-threshold secrecy that
+      // is the entire point.
+      coefficients: "random per split; sub-threshold shares reveal nothing",
+      interop: "shares interoperate with the Python implementation",
+      drills: "HMAC-chained log; drill-verify detects edits, drops and inserts",
+    },
+    job_profiles: {
+      commands: ["agent job-profile create/list/revoke/check"],
+      // The stamp is sha256 of the canonical agent policy, so a policy
+      // tightened after a job was created shows up as a mismatch rather than
+      // letting the job run under rules nobody reviewed it against.
+      policy_binding: "sha256 of the canonical agent_policy.json at creation",
+    },
     audit: {
       commands: ["agent audit-verify", "agent audit-tail"],
       chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
@@ -131,9 +153,6 @@ export function capabilities(): Record<string, unknown> {
       // Python-derived state, recomputed on load. Carried through verbatim by
       // the TS port so a Python profile round-trips, but not computed here.
       "index0/atlas (preserved verbatim on read/write, never recomputed)",
-      // Deliberate: agent job profiles and recovery split. The session
-      // agent's scoped tokens cover the automation cases these serve.
-      "agent job profiles and recovery split",
       // Deliberate: the TS interactive mode follows Python's legacy v1 menu
       // tree. See docs/tui_v2_cutover_decision.md.
       "Python's v2/v3 Textual TUIs (interactive mode follows the legacy v1 menus)",
