@@ -269,6 +269,21 @@ the review independent in the sense that matters.
       TUI, and a new `util check-derivation`. The lead test in each derives the keys and
       compares bytes, so the claim is verified rather than asserted.
       **The derivation change is deliberately deferred**, see the v2 design below.
+- [x] **(ported 2026-08-19) index0/atlas.** The per-vault activity ledger is
+      now computed rather than carried verbatim: events are appended on every
+      mutation from all three surfaces, checkpoints and canonical views
+      rebuild, and `mergeIndexPayloads` merges both sides by default (it used
+      to keep the local block, so a restore discarded the remote's history).
+      Hashes and merge results are byte-identical to Python's, verified
+      against fixtures and end to end on a live vault.
+      **Two Python quirks are replicated on purpose** — `str(None)` == "None"
+      in required fields, and a stored integrity_hash is preserved even when
+      it disagrees — because diverging would change which events exist, not
+      just how they hash. Both are documented at the code.
+      **One deliberate design difference:** events are derived by diffing at
+      the mutation funnel rather than emitted per call site, because a
+      call-site emitter can be forgotten and a silently incomplete ledger
+      reads as "nothing happened".
 - [x] **(ported 2026-08-19) Agent job profiles and recovery split.** Shares
       interoperate in both directions, verified on a live parent-seed split.
       Job profiles bind to a policy stamp byte-compatible with Python's
