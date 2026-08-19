@@ -28,9 +28,16 @@ const PASSTHROUGH_ENV = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "TZ", "TMPDIR
  * Build the environment for a sink child: the allowlist above, never the
  * caller's full environment.
  */
-export function sinkEnv(extra: Record<string, string> = {}): Record<string, string> {
+export function sinkEnv(
+  extra: Record<string, string> = {},
+  // The allowlist is a parameter purely so the SEEDPASS_ backstop below can
+  // be tested. No entry in PASSTHROUGH_ENV starts with SEEDPASS_ today, so
+  // the check cannot fire against the real list -- which is what makes it a
+  // backstop, and also what made removing it invisible to the suite.
+  passthrough: readonly string[] = PASSTHROUGH_ENV,
+): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const key of PASSTHROUGH_ENV) {
+  for (const key of passthrough) {
     // Backstop, not the control: nothing SEEDPASS-prefixed rides along even
     // if a future edit adds one to the allowlist. `extra` is exempt — the
     // exec sink's whole job is injecting SEEDPASS_SECRET.

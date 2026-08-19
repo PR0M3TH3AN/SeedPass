@@ -131,6 +131,21 @@ describe("the factor", () => {
     expect(String((second.error as Error).message)).toContain("already configured");
   });
 
+  it("cannot be empty, and leaves nothing behind when refused", async () => {
+    // An empty factor would wrap the partition key under nothing: the
+    // envelope unwraps for anyone who supplies "", while `configured` still
+    // reports true. So the vault would show a second factor that is not one.
+    // Python raises on the same falsy check, so this is parity as well.
+    const fresh = await mkdtemp(join(tmpdir(), "seedpass-empty-factor-"));
+    await expect(setFactor(fresh, "")).rejects.toThrow(/cannot be empty/);
+    // Refused BEFORE the envelope is written — a half-configured factor would
+    // be worse than none, because factorConfigured() would start saying yes.
+    expect(factorConfigured(fresh)).toBe(false);
+    // And a real factor still works in the same directory, so the guard is
+    // rejecting the empty string rather than the directory.
+    await expect(setFactor(fresh, "a-real-factor")).resolves.toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it("is never read from the command line", async () => {
     const r = await run({ ...asOwner, SEEDPASS_HIGH_RISK_FACTOR: undefined },
       "agent", "high-risk", "unlock");

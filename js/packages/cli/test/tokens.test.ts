@@ -111,6 +111,52 @@ describe("token issuance", () => {
  * issued. These tests pin the semantics so the surprise stays documented
  * rather than becoming an accidental behavior change later.
  */
+describe("the kind restriction on a token", () => {
+  /**
+   * `--kind` is half of a token's reach; `--label-regex` is the other half.
+   * The header of this file claimed both were covered and only the label side
+   * was — removing the kind check entirely left every test here green, which
+   * means a token scoped to one kind could read every other kind's secrets
+   * and nothing would have said so.
+   */
+  it("hides other kinds from listings and refuses their secrets", async () => {
+    await run(asOwner, "entry", "add", "key-value", "kv-only", "k", "kv-secret");
+    await run(asOwner, "entry", "add", "password", "pw-only");
+
+    const issued = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "kv-scoped",
+        "--scope", "read",
+        "--kind", "key_value",
+        "--label-regex", "only",
+        "--ttl", "600",
+      )).stdout,
+    );
+
+    // The label pattern matches BOTH entries, so anything visible here is the
+    // kind check's doing and not the label's.
+    const rows = JSON.parse(
+      (await run(asTokenHolder(issued.token), "entry", "list")).stdout,
+    ) as { label: string }[];
+    expect(rows.map((x) => x.label)).toEqual(["kv-only"]);
+
+    // And listing is not the only door: the secret itself must be refused,
+    // not merely omitted from the index the token can see.
+    const pwRow = JSON.parse(
+      (await run(asOwner, "entry", "list")).stdout,
+    ) as { id: string | number; label: string }[];
+    const pwId = String(pwRow.find((r) => r.label === "pw-only")!.id);
+    const denied = await run(
+      asTokenHolder(issued.token),
+      "entry", "get", pwId, "--secret",
+    );
+    expect(denied.error).toBeDefined();
+    expect(denied.stdout).not.toContain("pw-only");
+  });
+});
+
 describe("label_regex matches anywhere, matching Python's re.search", () => {
   it("an unanchored pattern reaches labels that merely contain it", async () => {
     await run(asOwner, "entry", "add", "key-value", "not-prod-db", "k", "adjacent-secret");

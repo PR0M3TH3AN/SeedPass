@@ -114,7 +114,12 @@ SECURITY_HINTS = re.compile(
     r"\b("
     r"auth|token|cap|capab|scope|permit|allow|deny|refus|valid|verif|"
     r"expire|expires|ttl|limit|rate|uses|remaining|owner|secret|password|"
-    r"factor|unlock|lock|held|fingerprint|hash|equal|match|forbidden"
+    r"factor|unlock|lock|held|fingerprint|hash|equal|match|forbidden|"
+    # `kind` is an authorization dimension in its own right -- a token's
+    # `kinds` list is half of what it may reach -- and leaving it out hid the
+    # shape check that stops a string `kinds` becoming a substring match.
+    # `mnemonic`/`seed` guard the material everything else protects.
+    r"kind|mnemonic|seed"
     r")",
     re.IGNORECASE,
 )
@@ -173,6 +178,7 @@ def generate(source: str) -> list[Mutant]:
         # Force a guard to always allow. This is the single most informative
         # mutation for security code: if no test notices a check being removed
         # entirely, that check is unverified.
+        # Block form: `if (cond) {`
         guard = re.match(r"^(\s*)if \((.+)\) \{\s*$", line)
         if guard and SECURITY_HINTS.search(guard.group(2)):
             mutants.append(
@@ -181,6 +187,28 @@ def generate(source: str) -> list[Mutant]:
                     line,
                     f"{guard.group(1)}if (false) {{",
                     "guard disabled (always allow)",
+                )
+            )
+        # Single-statement form: `if (cond) throw ...;` / `if (cond) return ...;`
+        # Missed for a long time, and it is the shape a short refusal takes --
+        # src/highRisk.ts generated NO mutants at all because its only guard
+        # is written this way.
+        # Greedy, so the condition runs to the LAST `) ` on the line -- a
+        # non-greedy match splits `if (a(b)) return x;` in the wrong place and
+        # produces garbage that only shows up as "invalid". Lines ending in
+        # `{` are the block form, already handled above.
+        inline = re.match(r"^(\s*)if \((.+)\) (\S.*)$", line)
+        if (
+            inline
+            and not line.rstrip().endswith("{")
+            and SECURITY_HINTS.search(inline.group(2))
+        ):
+            mutants.append(
+                Mutant(
+                    i,
+                    line,
+                    f"{inline.group(1)}if (false) {inline.group(3)}",
+                    "inline guard disabled (always allow)",
                 )
             )
     return mutants
@@ -217,11 +245,24 @@ def main() -> int:
         ),
     )
     parser.add_argument("--timeout", type=int, default=420)
+    parser.add_argument(
+        "--kind",
+        default="",
+        help=(
+            "only run mutants whose description contains this substring, e.g. "
+            "--kind inline. Lets a newly added mutation rule be swept across "
+            "every target without re-running the ones already judged."
+        ),
+    )
     args = parser.parse_args()
 
     targets = sorted(TARGETS) if args.target == "all" else [args.target]
     overall_survivors: list[tuple[str, Mutant]] = []
     overall_counts = {"killed": 0, "survived": 0, "invalid": 0}
+    # A target the generator cannot reach scores 0 killed / 0 survived, which
+    # prints identically to a clean sweep. That is the one result that must
+    # never be mistaken for a pass: it means the file was NOT MEASURED.
+    unmeasured: list[str] = []
 
     acquire_lock()
     print(
@@ -234,11 +275,20 @@ def main() -> int:
         path = CLI / rel
         original = path.read_text()
         all_mutants = generate(original)
+        if args.kind:
+            all_mutants = [m for m in all_mutants if args.kind in m.description]
         mutants = all_mutants[args.offset :]
         if args.limit:
             mutants = mutants[: args.limit]
         span = f"{args.offset + 1}-{args.offset + len(mutants)} of {len(all_mutants)}"
         print(f"\n=== {name} ({rel}): mutants {span} ===")
+        if not all_mutants:
+            unmeasured.append(f"{name} ({rel})")
+            print(
+                "  NOT MEASURED: this file produced no mutants. Its security\n"
+                "  logic is not in comparisons the generator can reach (or the\n"
+                "  generator has a blind spot). Do not read this as a pass."
+            )
 
         # Restore the file whatever happens, including Ctrl-C. Leaving a
         # deliberate security hole in the tree would be a spectacular own goal.
@@ -294,6 +344,14 @@ def main() -> int:
     )
     if viable:
         print(f"mutation score: {overall_counts['killed'] / viable:.0%} of viable mutants caught")
+
+    if unmeasured:
+        print(
+            "\nNOT MEASURED — no mutants generated, so these files were not\n"
+            "tested at all by this run:\n"
+        )
+        for where in unmeasured:
+            print(f"  {where}")
 
     if overall_survivors:
         print(f"\nSURVIVORS — each is either a gap or an equivalent mutant, and needs judging:\n")

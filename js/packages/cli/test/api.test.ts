@@ -452,6 +452,60 @@ describe("profiles and vault state", () => {
     expect(existsSync(app.profileDir(OTHER))).toBe(false);
   });
 
+  it("refuses to select a profile that does not exist", async () => {
+    // Without this the caller's string becomes ctx.fingerprint, which every
+    // later request joins onto a path — so the refusal is what keeps
+    // "../../etc" out of the profile directory. Asserted on the shared
+    // server precisely because a refusal must leave its state untouched.
+    const before = ctx.fingerprint;
+    for (const bogus of [generateFingerprint(mnemonics["zoo24"]!), "../../etc"]) {
+      const res = await call("POST", "/api/v1/fingerprint/select", {
+        body: { fingerprint: bogus },
+      });
+      // 404 specifically. AppDir.switchProfile repeats both checks, so
+      // dropping this one still refuses — as a raw 500 from an unhandled
+      // error, telling a caller the server broke when it simply named a
+      // profile that is not there.
+      expect(res.status).toBe(404);
+      expect(ctx.fingerprint).toBe(before);
+    }
+  });
+
+  it("selects a real profile, dropping the seed on the way", async () => {
+    // The positive half, on its own context so the shared server keeps
+    // serving the profile the rest of this file expects.
+    const second = generateFingerprint(mnemonics["zoo24"]!);
+    await app.mutateFingerprints((data) => {
+      if (!data.fingerprints.includes(second)) data.fingerprints.push(second);
+    });
+    await mkdir(app.profileDir(second), { recursive: true });
+
+    const srv = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN });
+    const ctx2 = buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC });
+    registerRoutes(srv, ctx2);
+    const bound = await srv.listen();
+    try {
+      const res = await fetch(
+        `http://${bound.host}:${bound.port}/api/v1/fingerprint/select`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${TOKEN}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ fingerprint: second }),
+        },
+      );
+      expect(res.status).toBe(200);
+      expect(ctx2.fingerprint).toBe(second);
+      // The held seed belongs to the profile being left; carrying it across
+      // would read one vault while the caller believed they selected another.
+      expect(ctx2.mnemonic).toBeNull();
+    } finally {
+      await srv.close();
+    }
+  });
+
   it("reports lock state that follows the actual seed", async () => {
     expect((await call("GET", "/api/v1/vault/status")).json.locked).toBe(false);
 
@@ -933,6 +987,48 @@ describe("structural invariants of the route table", () => {
       );
     }
     expect(mismatched).toEqual([]);
+  });
+
+  it("refuses a flagged route whose handler forgot to check", async () => {
+    // The behavioural half of the pairing test above. The flag is redundant
+    // for every route that exists today, which is why disabling the server's
+    // check changed nothing — but its entire purpose is the route that does
+    // NOT exist yet, written by someone who set the flag and skipped the
+    // call. So register exactly that route and confirm the server layer
+    // stops it before the handler ever runs.
+    const srv = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN });
+    let handlerRan = false;
+    srv.route(
+      "GET",
+      "/api/v1/test-forgot-to-check",
+      async () => {
+        handlerRan = true;
+        return { json: { secret: "leaked-plaintext" } };
+      },
+      { requiresPassword: true },
+    );
+    const bound = await srv.listen();
+    try {
+      const url = `http://${bound.host}:${bound.port}/api/v1/test-forgot-to-check`;
+      const res = await fetch(url, { headers: { authorization: `Bearer ${TOKEN}` } });
+      expect(res.status).toBe(401);
+      expect(await res.text()).not.toContain("leaked-plaintext");
+      // Not merely refused after the fact — never invoked.
+      expect(handlerRan).toBe(false);
+
+      // With the password it goes through, so the test cannot pass by the
+      // route being broken.
+      const ok = await fetch(url, {
+        headers: {
+          authorization: `Bearer ${TOKEN}`,
+          "x-seedpass-password": PASSWORD,
+        },
+      });
+      expect(ok.status).toBe(200);
+      expect(handlerRan).toBe(true);
+    } finally {
+      await srv.close();
+    }
   });
 
   it("password-gates every route that can return plaintext", async () => {

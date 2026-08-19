@@ -594,6 +594,74 @@ async function daemonAt(now: () => number): Promise<{ d: AgentDaemon; sock: stri
   return { d, sock };
 }
 
+describe("token-issue validates before it mints", () => {
+  // Everything here is reachable over the wire by a process that already
+  // holds the owner socket, and none of it was asserted: the unlocked check
+  // and both shape checks could be removed with the suite still green.
+  let ownerCap: string;
+  beforeAll(async () => {
+    ownerCap = (await readFile(daemon.capabilityPath, "utf8")).trim();
+  });
+
+  it("refuses to mint a token for a profile it is not holding", async () => {
+    // A token is an authorization to read a specific vault. Minting one for a
+    // profile the agent never unlocked hands out authority nobody proved they
+    // had — the seed being resident IS the proof.
+    const other = generateFingerprint(mnemonics["zoo24"]!);
+    const r = await rawRequest({
+      op: "token-issue",
+      cap: ownerCap,
+      fingerprint: other,
+      name: "for-a-vault-i-do-not-hold",
+      scopes: ["read"],
+      ttl: 600,
+      uses: 1,
+    });
+    expect(r["ok"]).toBe(false);
+    expect(String(r["error"])).toContain("not unlocked");
+    expect(r["token"]).toBeUndefined();
+  });
+
+  it("refuses a bare string where an array is required", async () => {
+    // `"read"` and `["read"]` are easy to confuse when hand-writing the
+    // protocol, and the difference is not cosmetic: a string `kinds` turns
+    // the exact kind match in tokenMaySee into String.includes, so a token
+    // declared for one kind starts matching any kind whose name is a
+    // substring of it. Refuse the shape rather than discovering it later.
+    const base = {
+      op: "token-issue",
+      cap: ownerCap,
+      fingerprint: FINGERPRINT,
+      name: "wrong-shape",
+      ttl: 600,
+      uses: 1,
+    };
+    const badScopes = await rawRequest({ ...base, scopes: "read" });
+    expect(badScopes["ok"]).toBe(false);
+    expect(String(badScopes["error"])).toContain("scopes must be an array");
+    expect(badScopes["token"]).toBeUndefined();
+
+    const badKinds = await rawRequest({
+      ...base,
+      scopes: ["read"],
+      kinds: "password",
+    });
+    expect(badKinds["ok"]).toBe(false);
+    expect(String(badKinds["error"])).toContain("kinds must be an array");
+    expect(badKinds["token"]).toBeUndefined();
+
+    // The same request with both shapes correct does mint, so these tests
+    // cannot pass by token-issue being broken outright.
+    const good = await rawRequest({
+      ...base,
+      scopes: ["read"],
+      kinds: ["password"],
+    });
+    expect(good["ok"]).toBe(true);
+    expect(String(good["token"]).length).toBeGreaterThan(0);
+  });
+});
+
 describe("put refuses a half-supplied identity", () => {
   // `put` is the only door a seed comes through, and everything after it
   // trusts that both halves arrived. Mutation testing turned the `||` in its

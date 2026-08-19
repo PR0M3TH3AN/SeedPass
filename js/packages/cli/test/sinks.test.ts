@@ -167,3 +167,43 @@ describe("command spec parsing keeps every argument", () => {
     expect(() => parseCommandSpec([""])).toThrow(/empty command/);
   });
 });
+
+import { sinkEnv } from "../src/sinks.js";
+
+describe("the environment a sink child receives", () => {
+  it("passes only the allowlist through, and never the caller's own env", async () => {
+    process.env["SEEDPASS_TEST_LEAK"] = "must-not-appear";
+    try {
+      const env = sinkEnv();
+      expect(env["SEEDPASS_TEST_LEAK"]).toBeUndefined();
+      // PATH is on the allowlist and the child genuinely needs it, so its
+      // presence is what proves the allowlist is being applied rather than
+      // the whole environment simply being empty.
+      expect(env["PATH"]).toBe(process.env["PATH"]);
+    } finally {
+      delete process.env["SEEDPASS_TEST_LEAK"];
+    }
+  });
+
+  it("drops a SEEDPASS_ variable even if the allowlist grows one", async () => {
+    // The backstop. It cannot fire against today's allowlist — which is why
+    // deleting it changed nothing anywhere — so the allowlist is injected
+    // here to stand in for the future edit that adds one by mistake.
+    process.env["SEEDPASS_SNEAKY"] = "must-not-appear";
+    try {
+      const env = sinkEnv({}, ["PATH", "SEEDPASS_SNEAKY"]);
+      expect(env["SEEDPASS_SNEAKY"]).toBeUndefined();
+      expect(env["PATH"]).toBeDefined();
+    } finally {
+      delete process.env["SEEDPASS_SNEAKY"];
+    }
+  });
+
+  it("still injects the exec sink's own secret variable", async () => {
+    // `extra` is deliberately exempt from the SEEDPASS_ rule: handing the
+    // secret to the child through the environment is the exec sink's entire
+    // job. A backstop that swallowed it would break the feature.
+    const env = sinkEnv({ SEEDPASS_SECRET: "the-secret" });
+    expect(env["SEEDPASS_SECRET"]).toBe("the-secret");
+  });
+});
