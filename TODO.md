@@ -267,15 +267,52 @@ the review independent in the sense that matters.
       same-id creation on two replicas discards one entry at merge; the 2048-entry
       tombstone cap allows deletion replay. Both are arguably working as designed; the fix
       for each is to surface the event rather than to change the merge.
-- [ ] **L-4 — remaining inert settings.** `additional_backup_path` is stored and confirmed
-      by the TUI and used by nothing. Same class as the five fixed on 2026-08-17: either
-      wire it up or have the menu say it is unavailable.
-- [ ] **L-5 / L-6 / L-7 — agent boundary hardening.** Anchor `label_regex` (unanchored
-      today, so a token's scope is substring-matched and wider than it reads); document
-      that an exec allowlist constrains the command word and not its arguments; validate
-      the wire-supplied `fingerprint` in the daemon's `put` before using it as a path
-      component. All owner-gated, none live holes.
-- [ ] **L-8 — plaintext backup import is not bound to a profile.**
+- [x] **(fixed 2026-08-18) L-4 — inert settings, and the unported subsystem behind them.**
+      `additional_backup_path` was stored, confirmed by the TUI ("Additional backups will
+      be written to X") and used by nothing — false assurance in a disaster-recovery
+      feature. The cause was bigger than the setting: Python's `BackupManager` was not
+      ported at all, so `backup_interval` was dead for the same reason. New
+      `js/packages/cli/src/backups.ts` ports the write side — every committed mutation
+      snapshots the encrypted index to `<profile>/backups/entries_db_backup_<ts>.json.enc`
+      at 0600 and mirrors it to the configured second location as
+      `<fingerprint>_<name>`, filenames matching Python byte for byte so both
+      implementations share one backup directory. Two documented deviations: the interval
+      throttle reads the newest snapshot on disk rather than Python's in-memory
+      `_last_backup_time` (every CLI command is its own process, so an in-memory counter
+      would leave `backup_interval` inert for CLI use), and a failed mirror is surfaced
+      rather than swallowed. Quick Unlock stays in the menu for item-order parity but now
+      says it is unimplemented — in Python the flag never changed unlocking either, it
+      writes an audit entry and raises a security finding.
+      **Not ported:** `restore_latest_backup` (nothing in the TUI offers it; `vault import`
+      and `nostr restore` cover recovery), and `nostr_max_retries` / `nostr_retry_delay`
+      remain stored-but-unused.
+- [x] **(resolved 2026-08-18) L-5 — `label_regex` is unanchored.** Left as-is deliberately:
+      Python matches with `re.search`, so anchoring the TS side alone would make one token
+      mean two different things depending on which implementation holds it, and would
+      silently narrow every token already issued. Now stated in `--label-regex` help,
+      reported as `capabilities().tokens.label_regex_semantics`, explained at the
+      enforcement point, recorded in `docs/typescript_port_compatibility_matrix.md`, and
+      pinned by tests asserting an unanchored token sees BOTH `prod` and `not-prod-db`.
+- [x] **(documented 2026-08-18) L-6 — exec allowlist covers the command word, not argv.**
+      The token holder writes the arguments and the child gets the secret in its
+      environment, so an allowlisted binary with an output-file or network flag returns the
+      secret to its caller. Documented in help, `capabilities()`, and at the check itself.
+      Argument-level containment means allowlisting full argv templates instead of command
+      words — a token-format change that has to land in both implementations together, so
+      it stays a backlog item rather than a quiet divergence.
+- [x] **(fixed 2026-08-18) L-7 — daemon `put` accepted any string as a fingerprint.**
+      Now requires 16 uppercase hex *and* that the fingerprint belongs to the supplied
+      seed. Ordered after the ttl check on purpose: deriving a fingerprint runs the BIP-39
+      KDF, and a malformed ttl should not pay for it.
+- [x] **(fixed 2026-08-18) L-8 — plaintext backup import was not bound to a profile.**
+      A seed-only backup is implicitly seed-bound; a plaintext one imports into any profile
+      and is then re-derived from the *target* seed, so every password, SSH key, PGP key and
+      seed silently differs from what the backup was taken to preserve, with nothing
+      erroring. CLI and TUI now compare the wrapper's fingerprint to the target and require
+      an explicit override (`--allow-fingerprint-mismatch`, or a confirmation in the TUI);
+      `vault import --inspect` reports the backup's fingerprint and encryption mode. The
+      CLI also stops deciding encryption mode by regex over the raw file —
+      `parseBackupWrapper` reads the envelope instead.
 
 ### Cutover
 

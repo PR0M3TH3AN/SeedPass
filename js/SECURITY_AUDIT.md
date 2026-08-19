@@ -135,7 +135,7 @@ failure is flaky and is the direct evidence for finding M-1.
 - **Recommendation:** None beyond the docs' own roadmap; consider counting evictions and
   warning the user when the cap has actually trimmed history.
 
-### L-4 (Low) — Inert settings: the TUI confirms behavior that does not exist
+### L-4 (Low) — Inert settings: the TUI confirms behavior that does not exist — **FIXED 2026-08-18**
 
 - **Where:** `tui/menus.ts:1482-1489` (`additional_backup_path` — the TUI replies
   "Additional backups will be written to X" but no code path ever writes a backup there);
@@ -150,7 +150,7 @@ failure is flaky and is the direct evidence for finding M-1.
 - **Recommendation:** Either implement them or have the menu say plainly "not available in
   this build," the pattern already used for QR codes and the semantic index.
 
-### L-5 (Low) — Token `label_regex` is unanchored: substring semantics widen token scope
+### L-5 (Low) — Token `label_regex` is unanchored: substring semantics widen token scope — **RESOLVED 2026-08-18 (documented; matches Python)**
 
 - **Where:** `agent.ts:248-255` (`tokenMaySee` uses bare `RegExp.test`); surfaced at
   `program.ts:1318` (`--label-regex`).
@@ -162,7 +162,7 @@ failure is flaky and is the direct evidence for finding M-1.
   loudly in `--label-regex` help and `capabilities()`. Match Python's behavior, whichever
   it is, and add it to the parity matrix.
 
-### L-6 (Low) — Exec allowlist constrains the command word, not its arguments
+### L-6 (Low) — Exec allowlist constrains the command word, not its arguments — **DOCUMENTED 2026-08-18**
 
 - **Where:** `agent.ts:337-349`; execution in `sinks.ts:102-121`.
 - **What:** `exec_allowlist` compares only the first token. A use-scoped holder may pass
@@ -177,7 +177,7 @@ failure is flaky and is the direct evidence for finding M-1.
   holder controls their argv; longer term, allow full argv templates in the allowlist
   (`["ssh-add", "-"]`) rather than bare command words.
 
-### L-7 (Low) — Daemon uses wire-supplied `fingerprint` as a path component without format validation
+### L-7 (Low) — Daemon uses wire-supplied `fingerprint` as a path component without format validation — **FIXED 2026-08-18**
 
 - **Where:** `agent.ts:209, 298, 554` (`join(appDir, fingerprint, ...)`); `put` at
   `agent.ts:633-652` accepts any string.
@@ -190,7 +190,7 @@ failure is flaky and is the direct evidence for finding M-1.
   verify `generateFingerprint(mnemonic) === fingerprint`, which additionally catches an
   honest mismatch corrupting the audit-log location.
 
-### L-8 (Low) — Plaintext backup import is not bound to a profile
+### L-8 (Low) — Plaintext backup import is not bound to a profile — **FIXED 2026-08-18**
 
 - **Where:** `program.ts:1549-1606` (`vault import`), `tui/menus.ts:1432-1459`
   (`importDatabase`); wrapper schema in `core/src/vault/portableBackup.ts`.
@@ -309,3 +309,27 @@ pnpm -r typecheck   # clean
 pnpm -r test        # core: 234/234 pass (jsdom env: 230 pass, 4 skipped)
                     # cli:  157/158 pass — 1 flaky failure = finding M-1
 ```
+
+---
+
+## Remediation status (2026-08-18, after the audit)
+
+| Finding | State | Where |
+|---|---|---|
+| M-1 sync tie-break | **open** | needs a signed-manifest sequence number in both implementations |
+| M-2 config password policy | fixed | `secrets.ts` `basePolicy`; `test/passwordPolicy.test.ts` |
+| L-1 shared BIP-85 app-32 path | open | protocol change, both implementations |
+| L-2 concurrent same-id creation | open | surface at merge rather than change it |
+| L-3 tombstone replay | open (documented) | as the docs' own roadmap has it |
+| L-4 inert settings | fixed | `backups.ts` ports BackupManager's write side; Quick Unlock now says it is unimplemented |
+| L-5 unanchored `label_regex` | resolved as-is | matches Python's `re.search`; documented in help, `capabilities()`, the parity matrix, and pinned by tests |
+| L-6 exec allowlist scope | documented | help, `capabilities().tokens.exec_allowlist_semantics`, enforcement-point comment |
+| L-7 unvalidated `fingerprint` in `put` | fixed | format + seed-match checks in `agent.ts` |
+| L-8 unbound plaintext import | fixed | fingerprint binding in CLI and TUI; `parseBackupWrapper` replaces the regex sniff |
+
+Every fix above is mutation-verified: the guard or hook is disabled, the
+matching tests are confirmed red, and the change is restored. A passing suite
+was not treated as evidence on its own.
+
+Still outstanding, and unchanged by this round: no GPT-family review has run.
+Findings from one model family are one perspective, not independence.
