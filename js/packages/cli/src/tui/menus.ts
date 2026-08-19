@@ -37,6 +37,7 @@ import {
   exportBackup,
   importBackup,
   parseBackupWrapper,
+  findDerivationCollisions,
   totpCodeAt,
   utf8,
   type Entry,
@@ -1507,6 +1508,15 @@ async function importDatabase(s: Session): Promise<void> {
   };
   const entries = imported.entries ?? {};
   const count = Object.keys(entries).length;
+  // Two different-kind entries at one BIP-85 app-32 index derive the same
+  // key. Neither implementation can create that; it arrives with data, and
+  // an import is one of the two ways it arrives.
+  for (const c of findDerivationCollisions({
+    schema_version: Number(imported.schema_version ?? 4),
+    entries: entries as VaultIndex["entries"],
+  } as VaultIndex)) {
+    warn(s.ui, c.message);
+  }
   warn(s.ui, `This REPLACES the current vault (${Object.keys(s.vault.index.entries).length} entries)`);
   warn(s.ui, `with the backup's ${count} entries.`);
   if (!(await confirm(s.ui, "Continue?"))) return;

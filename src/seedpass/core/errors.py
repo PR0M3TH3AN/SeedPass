@@ -27,4 +27,18 @@ class DecryptionError(InvalidToken, SeedPassError):
     """
 
 
-__all__ = ["SeedPassError", "DecryptionError"]
+class ProfileMismatchError(SeedPassError, ValueError):
+    """Raised when a backup belongs to a different profile than the target.
+
+    Distinguished from a generic failure because the caller's correct response
+    is different: this is not a corrupt file or a wrong password, and the
+    import would in fact succeed. It would just silently re-derive every
+    secret from the target profile's seed, so the entries come back with
+    different passwords than the backup was taken to preserve.
+
+    Subclasses :class:`ValueError` so existing callers that catch the broader
+    error keep working.
+    """
+
+
+__all__ = ["SeedPassError", "DecryptionError", "ProfileMismatchError"]

@@ -41,7 +41,7 @@ from .password_generation import (
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup, PortableMode
-from .errors import SeedPassError, DecryptionError
+from .errors import SeedPassError, DecryptionError, ProfileMismatchError
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -4804,12 +4804,34 @@ class PasswordManager:
         )
 
         try:
-            import_backup(
-                self.vault,
-                self.backup_manager,
-                src,
-                parent_seed=self.parent_seed,
-            )
+            try:
+                import_backup(
+                    self.vault,
+                    self.backup_manager,
+                    src,
+                    parent_seed=self.parent_seed,
+                )
+            except ProfileMismatchError as exc:
+                # Not a corrupt file and not a wrong password -- a backup from
+                # a different profile. Importing it re-derives every secret
+                # from THIS profile's seed, so the entries come back with
+                # different passwords than the backup held, silently. Make the
+                # consequence unmissable rather than refusing outright: the
+                # user may genuinely be moving a vault between seeds.
+                print(colored(f"Warning: {exc}", "yellow"))
+                if not confirm_action(
+                    "Import it anyway, accepting that every derived secret "
+                    "will change? (Y/N): "
+                ):
+                    print(colored("Import cancelled.", "yellow"))
+                    return
+                import_backup(
+                    self.vault,
+                    self.backup_manager,
+                    src,
+                    parent_seed=self.parent_seed,
+                    allow_fingerprint_mismatch=True,
+                )
         except DecryptionError:
             logging.error("Invalid backup token during import", exc_info=True)
             print(

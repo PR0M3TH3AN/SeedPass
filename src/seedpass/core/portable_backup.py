@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import logging
 import os
 import time
@@ -21,7 +22,12 @@ from utils.key_derivation import (
 )
 from .encryption import EncryptionManager
 from utils.checksum import json_checksum, canonical_json_dumps
+from utils.fingerprint import generate_fingerprint
 from .state_manager import StateManager
+from .derivation_collisions import find_derivation_collisions
+from .errors import ProfileMismatchError
+
+from termcolor import colored
 
 logger = logging.getLogger(__name__)
 
@@ -121,13 +127,32 @@ def export_backup(
     return dest_path
 
 
+_FINGERPRINT_RE = re.compile(r"^[0-9A-F]{16}$")
+
+
+def _looks_like_fingerprint(value: str) -> bool:
+    """Is this string a SeedPass profile fingerprint?
+
+    ``generate_fingerprint`` produces 16 uppercase hex characters. Anything
+    else in a backup's ``fingerprint`` field tells us nothing about which seed
+    produced it.
+    """
+    return bool(_FINGERPRINT_RE.match(value))
+
+
 def import_backup(
     vault: Vault,
     backup_manager: BackupManager,
     path: Path,
     parent_seed: str | None = None,
+    allow_fingerprint_mismatch: bool = False,
 ) -> None:
-    """Import a portable backup file and replace the current index."""
+    """Import a portable backup file and replace the current index.
+
+    ``allow_fingerprint_mismatch`` permits importing a backup taken from a
+    different profile. See the fingerprint check below for why that is not the
+    default.
+    """
 
     raw = Path(path).read_bytes()
     if path.suffix.endswith(".enc"):
@@ -136,6 +161,46 @@ def import_backup(
     wrapper = json.loads(raw.decode("utf-8"))
     if wrapper.get("format_version") != FORMAT_VERSION:
         raise ValueError("Unsupported backup format")
+
+    # A seed-only backup is bound to its seed implicitly -- the wrong seed
+    # cannot decrypt it. A plaintext one carries no such binding: it imports
+    # cleanly into any profile, and every derived entry (passwords, SSH, PGP,
+    # seeds) is then re-derived from THIS profile's seed, silently producing
+    # different secrets than the backup was taken to preserve. Nothing errors;
+    # the user simply gets wrong passwords.
+    #
+    # The comparison is against the fingerprint DERIVED FROM THE SEED being
+    # imported under, not against the profile directory's name. In production
+    # those are the same string -- a profile directory is named for its
+    # fingerprint -- but the question worth asking is "was this backup made
+    # from my seed?", and only the seed can answer it. Comparing directory
+    # names would refuse a legitimate restore of the same seed into a freshly
+    # named profile.
+    #
+    # Only enforced when the wrapper records something that actually is a
+    # fingerprint. A backup carrying some other label gives no evidence about
+    # which seed made it, and refusing on no evidence would block restores
+    # without making anyone safer.
+    source_fingerprint = str(wrapper.get("fingerprint") or "")
+    seed_for_check = (
+        parent_seed
+        if parent_seed is not None
+        else vault.encryption_manager.decrypt_parent_seed()
+    )
+    target_fingerprint = generate_fingerprint(seed_for_check) or ""
+    if (
+        _looks_like_fingerprint(source_fingerprint)
+        and source_fingerprint != target_fingerprint
+        and not allow_fingerprint_mismatch
+    ):
+        raise ProfileMismatchError(
+            f"Backup belongs to profile {source_fingerprint}, but the target "
+            f"is {target_fingerprint}. Importing it would re-derive every "
+            f"secret from the target's seed, silently producing different "
+            f"passwords than the ones in the backup. Import into the matching "
+            f"profile, or pass allow_fingerprint_mismatch=True if that is "
+            f"really what you want."
+        )
 
     mode = wrapper.get("encryption_mode")
     payload = base64.b64decode(wrapper["payload"])
@@ -160,6 +225,14 @@ def import_backup(
     checksum = json_checksum(index)
     if checksum != wrapper.get("checksum"):
         raise ValueError("Checksum mismatch")
+
+    # Two different-kind entries at one BIP-85 app-32 index derive the same
+    # key. Neither implementation can create that state; it arrives with data,
+    # and an import is one of the ways it arrives. Report rather than refuse:
+    # the vault is still importable and the user may need it back.
+    for collision in find_derivation_collisions(index):
+        logger.warning("%s", collision.message)
+        print(colored(f"Warning: {collision.message}", "yellow"))
 
     backup_manager.create_backup()
     vault.save_index(index)

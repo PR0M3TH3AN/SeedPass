@@ -25,6 +25,7 @@ import {
   importBackup,
   parseBackupWrapper,
   exportBackup,
+  findDerivationCollisions,
   generateFingerprint,
   assertValidMnemonic,
   generateMnemonic,
@@ -1327,6 +1328,11 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
         const index = parseVaultIndex(final);
         await saveVault({ index, mnemonic, path: vaultPath });
+        // A merge is one of the few ways a vault can come to hold two
+        // different-kind entries at the same BIP-85 app-32 index, which
+        // derive the same key. Neither side can create that alone, so it is
+        // worth naming when it appears.
+        const collisions = findDerivationCollisions(index);
         io.out(
           JSON.stringify({
             mode,
@@ -1334,8 +1340,16 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             entry_count: Object.keys(index.entries).length,
             deltas_applied: deltaCount,
             local_backup: backupPath,
+            ...(collisions.length > 0 && {
+              derivation_collisions: collisions.map((c) => ({
+                index: c.index,
+                severity: c.severity,
+                entries: c.entries,
+              })),
+            }),
           }),
         );
+        for (const c of collisions) io.err(`warning: ${c.message}`);
       } finally {
         await pool.close();
       }
@@ -1477,6 +1491,35 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     });
 
   const util = program.command("util").description("utility commands");
+
+  util
+    .command("check-derivation")
+    .description(
+      "report entries that share a BIP-85 derivation coordinate (ssh/pgp at " +
+        "the same index are the same key)",
+    )
+    .action(async () => {
+      const vault = await openFromOptions(program.opts());
+      const collisions = findDerivationCollisions(vault.index);
+      io.out(
+        JSON.stringify(
+          {
+            checked: Object.keys(vault.index.entries).length,
+            collisions: collisions.map((c) => ({
+              index: c.index,
+              severity: c.severity,
+              entries: c.entries,
+              message: c.message,
+            })),
+          },
+          null,
+          2,
+        ),
+      );
+      // Exit status is the machine-readable answer for a script that only
+      // wants to know whether the vault is clean.
+      if (collisions.length > 0) process.exitCode = 1;
+    });
 
   util
     .command("generate-password")
@@ -1647,6 +1690,11 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             entry_count: entryCount,
             encryption_mode: wrapper.encryption_mode,
             fingerprint: wrapper.fingerprint,
+            derivation_collisions: findDerivationCollisions(index).map((c) => ({
+              index: c.index,
+              severity: c.severity,
+              entries: c.entries,
+            })),
             written: false,
           }),
         );
@@ -1691,14 +1739,23 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         }
       }
       await saveVault({ index, mnemonic: targetMnemonic, path: vaultPath });
+      const collisions = findDerivationCollisions(index);
       io.out(
         JSON.stringify({
           imported: srcFile,
           into: vaultPath,
           schema_version: index.schema_version,
           entry_count: entryCount,
+          ...(collisions.length > 0 && {
+            derivation_collisions: collisions.map((c) => ({
+              index: c.index,
+              severity: c.severity,
+              entries: c.entries,
+            })),
+          }),
         }),
       );
+      for (const c of collisions) io.err(`warning: ${c.message}`);
       },
     );
 

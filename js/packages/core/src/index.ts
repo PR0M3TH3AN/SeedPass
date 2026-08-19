@@ -88,6 +88,12 @@ export {
   SchemaMigrationError,
 } from "./schema/migrations.js";
 export {
+  findDerivationCollisions,
+  APP32_KINDS,
+  type DerivationCollision,
+  type App32Kind,
+} from "./vault/derivationCollisions.js";
+export {
   importBackup,
   exportBackup,
   parseBackupWrapper,

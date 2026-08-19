@@ -445,6 +445,60 @@ describe("vault export/import", () => {
     expect(JSON.parse(allowed.stdout).entry_count).toBe(0);
   });
 
+  it("names entries that share a BIP-85 derivation index on import", async () => {
+    // ssh@N and pgp@N are the same Ed25519 key. Neither implementation can
+    // create that state, so an import is one of the ways it arrives — and the
+    // user needs telling, because the two entries look independent.
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-collide-"));
+    const source = join(dir, "source.enc");
+    await writeFile(
+      source,
+      await encryptV3(
+        deriveIndexKeyBytes(MNEMONIC),
+        utf8(
+          JSON.stringify({
+            schema_version: 4,
+            entries: {
+              "3": { kind: "ssh", type: "ssh", label: "deploy", index: 3, notes: "", tags: [], archived: false, modified_ts: 1700000000 },
+              "4": { kind: "pgp", type: "pgp", label: "sign", index: 3, notes: "", tags: [], archived: false, modified_ts: 1700000000 },
+            },
+          }),
+        ),
+      ),
+    );
+    const backup = join(dir, "collide.json");
+    await run("--vault", source, "vault", "export", backup);
+
+    const inspected = JSON.parse(
+      (await run("--vault", source, "vault", "import", backup, "--inspect")).stdout,
+    );
+    expect(inspected.derivation_collisions).toHaveLength(1);
+    expect(inspected.derivation_collisions[0].severity).toBe("identical-key");
+    expect(inspected.derivation_collisions[0].index).toBe(3);
+
+    // And the dedicated check reports it on an existing vault, with a
+    // non-zero exit status for scripts.
+    const checked = JSON.parse(
+      (await run("--vault", source, "util", "check-derivation")).stdout,
+    );
+    expect(checked.collisions).toHaveLength(1);
+    expect(checked.collisions[0].message).toContain("SAME private key");
+  });
+
+  it("stays silent about derivation on a normally created vault", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-nocollide-"));
+    const dest = join(dir, "backup.json");
+    await run("--vault", vaultPath, "vault", "export", dest);
+    const inspected = JSON.parse(
+      (await run("vault", "import", dest, "--inspect")).stdout,
+    );
+    expect(inspected.derivation_collisions).toEqual([]);
+    const checked = JSON.parse(
+      (await run("--vault", vaultPath, "util", "check-derivation")).stdout,
+    );
+    expect(checked.collisions).toEqual([]);
+  });
+
   it("reports the backup's own fingerprint and mode when inspecting", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-inspect-"));
     const dest = join(dir, "backup.json");
