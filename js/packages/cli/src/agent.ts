@@ -41,6 +41,7 @@ import {
   type SinkResult,
 } from "./sinks.js";
 import { AuditLog } from "./audit.js";
+import { loadConfig, passwordPolicyFromConfig } from "./configFile.js";
 import { INDEX_FILENAME } from "./appDir.js";
 
 export const DEFAULT_TTL_SECONDS = 900;
@@ -366,8 +367,14 @@ export class AgentDaemon {
       }
       ts = requested;
     }
+    // Password derivation bases the policy on the profile config and merges
+    // the entry's own block over it. The daemon reads the same config the TUI
+    // and CLI do, so a token-scoped `reveal` returns the same password the
+    // owner sees rather than one derived from the built-in defaults.
+    const config = await loadConfig(join(this.appDir, fingerprint), held.mnemonic);
     const secret = materializeSecret(vault.index, id, entry, held.mnemonic, {
       ...(ts !== undefined && { timestamp: ts }),
+      basePolicy: passwordPolicyFromConfig(config),
     });
     return { entry, id, token: auth.token, secret };
   }

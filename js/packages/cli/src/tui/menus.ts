@@ -44,9 +44,14 @@ import {
 import { AppDir, INDEX_FILENAME, DEFAULT_PBKDF2_ITERATIONS, BACKUP_EXTENSION, defaultBackupFilename } from "../appDir.js";
 import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type OpenedVault } from "../vaultFile.js";
 import { entryMetadata, refFor } from "../refs.js";
-import { materializeSecret } from "../secrets.js";
+import { materializeSecret, type MaterializedSecret } from "../secrets.js";
 import { clipboardSink } from "../sinks.js";
-import { loadConfig, mutateConfig, DEFAULT_RELAYS } from "../configFile.js";
+import {
+  loadConfig,
+  mutateConfig,
+  passwordPolicyFromConfig,
+  DEFAULT_RELAYS,
+} from "../configFile.js";
 import {
   ansi,
   confirm,
@@ -86,6 +91,28 @@ export interface Session {
 }
 
 // ---------------------------------------------------------------- utilities
+
+/**
+ * materializeSecret bound to this session's profile config.
+ *
+ * Every TUI path that turns an entry into a secret must go through here.
+ * Password derivation takes the profile config's policy as its base and
+ * merges the entry's own block over it; a call site that reaches for
+ * materializeSecret directly loses the config base and silently derives a
+ * different password than Python for any profile whose policy is not the
+ * default.
+ */
+function sessionSecret(
+  s: Session,
+  id: string,
+  entry: Entry,
+  options: { timestamp?: number } = {},
+): MaterializedSecret {
+  return materializeSecret(s.vault.index, id, entry, s.vault.mnemonic, {
+    ...options,
+    basePolicy: passwordPolicyFromConfig(s.config),
+  });
+}
 
 function title(s: Session, breadcrumb: string): void {
   header(s.ui, s.fingerprint, s.name, breadcrumb);
@@ -423,7 +450,7 @@ async function addPassword(s: Session): Promise<boolean> {
   });
   // Derived, not stored: show it once here the way Python does.
   const entry = s.vault.index.entries[id] as Entry;
-  const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
+  const secret = sessionSecret(s, id, entry);
   await reveal(s, secret.value, `Password for ${label}`);
   await announce(s, id, "Password");
   return true;
@@ -711,7 +738,7 @@ async function entryDetails(s: Session, id: string): Promise<void> {
     switch (choice) {
       case "s":
       case "c": {
-        const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
+        const secret = sessionSecret(s, id, entry);
         if (choice === "c") {
           try {
             const r = await copyToClipboard(s, secret.value);
@@ -864,7 +891,7 @@ async function showQr(s: Session, id: string, entry: Entry): Promise<void> {
   // dependency in a process that holds unlocked seeds — say so plainly and
   // offer the underlying value instead.
   warn(s.ui, "QR rendering is not available in this build.");
-  const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
+  const secret = sessionSecret(s, id, entry);
   if (await confirm(s.ui, "Show the value it would encode instead?")) {
     await reveal(s, secret.value, secret.descriptor);
   }
@@ -874,7 +901,7 @@ async function showQr(s: Session, id: string, entry: Entry): Promise<void> {
 async function exportDocument(s: Session, id: string, entry: Entry): Promise<void> {
   const out = await s.ui.ask("Output path: ");
   if (!out) return;
-  const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic);
+  const secret = sessionSecret(s, id, entry);
   try {
     if (await writeSecretFile(s, out, secret.value)) {
       ok(s.ui, `Document exported to: ${out}`);
@@ -914,9 +941,7 @@ async function totpCodes(s: Session): Promise<void> {
   for (const { id, entry } of rows) {
     const period = Number(entry.period ?? 30);
     const remaining = period - (now % period);
-    const secret = materializeSecret(s.vault.index, id, entry, s.vault.mnemonic, {
-      timestamp: now,
-    });
+    const secret = sessionSecret(s, id, entry, { timestamp: now });
     const code = secretModeOn(s) ? "".padEnd(6, "•") : secret.value;
     s.ui.say(
       `  ${ansi.cyan}${String(entry.label)}${ansi.reset}  ${ansi.bold}${code}${ansi.reset}  ` +

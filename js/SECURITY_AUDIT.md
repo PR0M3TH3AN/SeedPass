@@ -49,7 +49,7 @@ failure is flaky and is the direct evidence for finding M-1.
   fix must land on the Python side too, or the two implementations will disagree on which
   snapshot is "latest."
 
-### M-2 (Medium) — Config-level password policy is ignored; same entry derives different passwords in TS vs Python
+### M-2 (Medium) — Config-level password policy is ignored; same entry derives different passwords in TS vs Python — **FIXED 2026-08-18**
 
 - **Where:** `js/packages/core/src/derive/password.ts:53-64` (`resolvePolicy` hardcodes
   defaults); `js/packages/cli/src/secrets.ts:43-49` (only the entry's own `policy` block is
@@ -69,6 +69,19 @@ failure is flaky and is the direct evidence for finding M-1.
   `materializeSecret`/`generatePassword` as the base policy before applying the entry's
   overrides, and add a cross-implementation fixture with a non-default config policy —
   the current parity suite does not cover this case, which is why it passed.
+- **Fix (2026-08-18):** `materializeSecret` takes a `basePolicy` option and merges the
+  entry's block over it. All three callers supply the profile config's policy:
+  `program.ts` via `basePolicyForOptions` (which reads the config beside the index when
+  `--vault` names one directly), `agent.ts` via `loadConfig(join(appDir, fingerprint))`,
+  and the TUI via a new `sessionSecret` helper that every menu path now goes through, so
+  a future call site cannot silently omit the base. `util generate-password` is
+  deliberately unchanged and now documents itself as profile-less: it has no entry and no
+  profile, so its flags are the whole policy.
+- **Evidence:** `js/packages/cli/test/passwordPolicy.test.ts` — four cases against values
+  computed by the Python implementation (config-only v2, entry-overrides-one-field v2,
+  config-only v1, and exclude_ambiguous), each also asserted *unequal* to the value the
+  pre-fix code produced. Mutation-verified: dropping `basePolicy` from the merge in
+  `secrets.ts` turns all four red.
 
 ### L-1 (Low) — BIP-85 app-32 path is shared across password, SSH, and PGP derivation
 

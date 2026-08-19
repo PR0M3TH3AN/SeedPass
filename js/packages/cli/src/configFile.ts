@@ -11,7 +11,9 @@ import {
   deriveIndexKeyBytes,
   encryptV3,
   parseEncryptedFile,
+  passwordPolicyFromRecord,
   utf8,
+  type PasswordPolicy,
 } from "@seedpass/core";
 import { CONFIG_FILENAME } from "./appDir.js";
 import { atomicWrite, withVaultLock } from "./vaultFile.js";
@@ -46,6 +48,23 @@ export function defaultConfig(): Record<string, unknown> {
     min_digits: 2,
     min_special: 2,
   };
+}
+
+/**
+ * The profile's password policy, as the BASE that entry `policy` blocks
+ * override.
+ *
+ * Parity with ConfigManager.get_password_policy: the config keys carry the
+ * same snake_case names as an entry's policy block, so the entry parser reads
+ * both. Keys absent from the config stay absent here rather than being
+ * materialized as defaults — that is what lets an entry override exactly the
+ * fields it names and inherit the rest, matching Python's
+ * `dataclasses.replace(base, **overrides)`.
+ */
+export function passwordPolicyFromConfig(
+  config: Record<string, unknown>,
+): PasswordPolicy {
+  return passwordPolicyFromRecord(config);
 }
 
 export async function loadConfig(

@@ -17,6 +17,7 @@ import {
   deriveSshKeyPair,
   derivePgpKey,
   type Entry,
+  type PasswordPolicy,
   type VaultIndex,
 } from "@seedpass/core";
 
@@ -33,19 +34,28 @@ export function materializeSecret(
   id: string,
   entry: Entry,
   mnemonic: string,
-  options: { timestamp?: number } = {},
+  options: { timestamp?: number; basePolicy?: PasswordPolicy } = {},
 ): MaterializedSecret {
   switch (entry.kind) {
     case "password": {
-      // The entry's own policy block must be honored — Python merges it over
-      // the base policy before deriving, so ignoring it yields a different
-      // password for any entry created with policy flags.
+      // Policy resolves in three layers, and all three must be present or the
+      // derived password is simply wrong. Python builds its PasswordGenerator
+      // with the profile config's policy as the base
+      // (manager.py: policy=self.config_manager.get_password_policy()) and
+      // merges the entry's own `policy` block over it per derivation
+      // (_generate_password_for_entry). `basePolicy` is that config base;
+      // omitting it silently falls back to the built-in defaults, which is
+      // what made any profile with a non-default config policy derive
+      // different passwords here than in Python.
       const bip85 = Bip85.fromMnemonic(mnemonic);
       const value = generatePassword(bip85, {
         length: entry.length,
         index: Number(id),
         genVersion: entry.gen_version ?? 1,
-        policy: passwordPolicyFromRecord((entry as { policy?: unknown }).policy),
+        policy: {
+          ...(options.basePolicy ?? {}),
+          ...passwordPolicyFromRecord((entry as { policy?: unknown }).policy),
+        },
       });
       return { value, descriptor: `password for ${entry.label}` };
     }

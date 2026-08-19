@@ -232,6 +232,51 @@ before and after each was confirmed. Ordered by severity.
       non-existent ids exhausts a token. That ordering is deliberate
       anti-enumeration; confirm it is the trade wanted and write it down.
 
+### Findings from the 2026-08-18 independent audit
+
+Full report: [`js/SECURITY_AUDIT.md`](js/SECURITY_AUDIT.md) (Fable 5, line-by-line read
+of every non-test source file at `e9d8908`). Verdict: no criticals or highs. This is one
+AI family; the GPT-family pass in the blocker above is still outstanding and is what makes
+the review independent in the sense that matters.
+
+- [x] **(fixed 2026-08-18) M-2 — the profile config's password policy was ignored.**
+      Python bases derivation on `config_manager.get_password_policy()` and merges the
+      entry's `policy` block over it; the port merged the entry block over hardcoded
+      defaults and never read the config. Any profile with a non-default policy therefore
+      derived **different passwords** in TS than in Python, for every entry — reaching the
+      user as a wrong password, i.e. as data loss, with nothing failing anywhere.
+      `materializeSecret` now takes a `basePolicy`; the CLI, the agent and the TUI all
+      supply the profile config's policy, the TUI through a `sessionSecret` helper so no
+      menu path can omit it. Evidence:
+      `js/packages/cli/test/passwordPolicy.test.ts`, four cases against Python-computed
+      values, each also asserted unequal to the pre-fix output; mutation-verified (drop
+      `basePolicy` from the merge and all four go red).
+- [ ] **M-1 — restore can return a stale snapshot when two syncs land in the same second.**
+      Manifests sort by `created_at` (whole-second Nostr resolution) with the event id as
+      tie-break, which is arbitrary with respect to time, so the older of two same-second
+      snapshots wins roughly half the time and `nostr restore` silently drops the entries
+      created between them. Reproduces as the intermittent failure of "syncs the vault to
+      the relay and restores after local destruction" (~1 in 4 runs). **This one is a
+      protocol change, not a local fix:** the fix is a monotonic sequence number inside the
+      signed manifest, used as the secondary sort key, and it has to land in Python at the
+      same time or the two implementations will disagree about which snapshot is latest.
+      Decide the wire format before writing code.
+- [ ] **L-1 — BIP-85 app-32 path is shared across password, SSH and PGP derivation.**
+      Protocol-level, both implementations, needs versioning. Same care as M-1.
+- [ ] **L-2 / L-3 — merge-level data loss that is silent rather than wrong:** concurrent
+      same-id creation on two replicas discards one entry at merge; the 2048-entry
+      tombstone cap allows deletion replay. Both are arguably working as designed; the fix
+      for each is to surface the event rather than to change the merge.
+- [ ] **L-4 — remaining inert settings.** `additional_backup_path` is stored and confirmed
+      by the TUI and used by nothing. Same class as the five fixed on 2026-08-17: either
+      wire it up or have the menu say it is unavailable.
+- [ ] **L-5 / L-6 / L-7 — agent boundary hardening.** Anchor `label_regex` (unanchored
+      today, so a token's scope is substring-matched and wider than it reads); document
+      that an exec allowlist constrains the command word and not its arguments; validate
+      the wire-supplied `fingerprint` in the daemon's `put` before using it as a path
+      component. All owner-gated, none live holes.
+- [ ] **L-8 — plaintext backup import is not bound to a profile.**
+
 ### Cutover
 
 - [ ] Fold the CLI bundle's `.sha256` into the `release-integrity` signing

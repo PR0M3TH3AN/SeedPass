@@ -151,7 +151,12 @@ function resolveHome(p: string): string {
   return p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
 }
 import { AppDir, resolveAppDir, INDEX_FILENAME, BACKUP_EXTENSION, defaultBackupFilename } from "./appDir.js";
-import { loadConfig, saveConfig, mutateConfig } from "./configFile.js";
+import {
+  loadConfig,
+  saveConfig,
+  mutateConfig,
+  passwordPolicyFromConfig,
+} from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
 import { runTui } from "./tui/app.js";
@@ -233,6 +238,29 @@ async function openFromOptions(opts: GlobalOpts): Promise<OpenedVault> {
   const fp = await currentFingerprint(app, opts);
   const path = join(app.profileDir(fp), INDEX_FILENAME);
   return openVault(path, await resolveMnemonic(app, opts));
+}
+
+/**
+ * The profile config's password policy, which entry `policy` blocks override.
+ *
+ * Parity with Python, which constructs its PasswordGenerator with
+ * `policy=self.config_manager.get_password_policy()` and merges the entry's
+ * block over that base. Deriving from the built-in defaults instead produces
+ * a different password for every entry in a profile whose configured policy
+ * is not the default — indistinguishable from data loss at the point of use.
+ *
+ * `--vault` names an index file rather than a profile, so the config is
+ * looked for beside it; loadConfig returns defaults when none is there.
+ */
+async function basePolicyForOptions(
+  opts: GlobalOpts,
+  mnemonic: string,
+): Promise<PasswordPolicy> {
+  const app = new AppDir(resolveAppDir(opts.appDir));
+  const profileDir = opts.vault
+    ? dirname(resolveHome(opts.vault))
+    : app.profileDir(await currentFingerprint(app, opts));
+  return passwordPolicyFromConfig(await loadConfig(profileDir, mnemonic));
 }
 
 /**
@@ -351,11 +379,16 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
   const vault = await openFromOptions(opts);
   const localRows = async () =>
     Object.entries(vault.index.entries).map(([id, e]) => entryMetadata(id, e));
-  const localSecret = (id: string, timestamp?: number) => {
+  // Resolved on first use, not up front: reading the config costs another
+  // BIP-39 seed derivation, and `entry list` and friends never need a policy.
+  let basePolicy: PasswordPolicy | undefined;
+  const localSecret = async (id: string, timestamp?: number) => {
     const entry = vault.index.entries[id];
     if (!entry) throw new Error(`no entry ${id}`);
+    basePolicy ??= await basePolicyForOptions(opts, vault.mnemonic);
     return materializeSecret(vault.index, id, entry, vault.mnemonic, {
       ...(timestamp !== undefined && { timestamp }),
+      basePolicy,
     });
   };
   return {
@@ -367,7 +400,7 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
     },
     reveal: async (id, timestamp) => localSecret(id, timestamp),
     deliver: async (id, sink, command, timestamp) => {
-      const secret = localSecret(id, timestamp);
+      const secret = await localSecret(id, timestamp);
       const result =
         sink === "clipboard"
           ? await clipboardSink(secret.value)
@@ -1426,7 +1459,15 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
 
   util
     .command("generate-password")
-    .description("derive a password (Python parity: index 0, gen v1 by default)")
+    // Deliberately profile-less: this derives from SEEDPASS_MNEMONIC and the
+    // flags alone, never from a profile's configured policy. Unlike
+    // `entry reveal`, there is no entry and no profile to read a base policy
+    // from, so the flags ARE the policy — an unflagged run gives the built-in
+    // defaults, not whatever the active profile happens to be configured for.
+    .description(
+      "derive a password from the flags alone, ignoring any profile's " +
+        "configured policy (Python parity: index 0, gen v1 by default)",
+    )
     .option("--length <n>", "password length", "24")
     .option("--index <n>", "derivation index", "0")
     .option("--gen-version <v>", "generation version (1 or 2)", "1")
