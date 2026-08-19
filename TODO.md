@@ -251,22 +251,57 @@ the review independent in the sense that matters.
       `js/packages/cli/test/passwordPolicy.test.ts`, four cases against Python-computed
       values, each also asserted unequal to the pre-fix output; mutation-verified (drop
       `basePolicy` from the merge and all four go red).
-- [ ] **M-1 — restore can return a stale snapshot when two syncs land in the same second.**
-      Manifests sort by `created_at` (whole-second Nostr resolution) with the event id as
-      tie-break, which is arbitrary with respect to time, so the older of two same-second
-      snapshots wins roughly half the time and `nostr restore` silently drops the entries
-      created between them. Reproduces as the intermittent failure of "syncs the vault to
-      the relay and restores after local destruction" (~1 in 4 runs). **This one is a
-      protocol change, not a local fix:** the fix is a monotonic sequence number inside the
-      signed manifest, used as the secondary sort key, and it has to land in Python at the
-      same time or the two implementations will disagree about which snapshot is latest.
-      Decide the wire format before writing code.
-- [ ] **L-1 — BIP-85 app-32 path is shared across password, SSH and PGP derivation.**
-      Protocol-level, both implementations, needs versioning. Same care as M-1.
-- [ ] **L-2 / L-3 — merge-level data loss that is silent rather than wrong:** concurrent
-      same-id creation on two replicas discards one entry at merge; the 2048-entry
-      tombstone cap allows deletion replay. Both are arguably working as designed; the fix
-      for each is to surface the event rather than to change the merge.
+- [x] **(fixed 2026-08-19) M-1 — restore could return a stale snapshot when two syncs
+      landed in the same second.** Manifests now carry `published_ms`, a monotonic
+      publication timestamp inside the signed JSON, and both implementations order by it.
+      Python additionally stopped delegating "which snapshot is newest" to the relay (it
+      asked for `limit(1)` and restored whatever came back). Backwards compatible: a
+      manifest without the field orders at the start of its `created_at` second. The nostr
+      CLI test went from ~1-in-4 failures to 6/6 clean runs.
+      **Found while fixing:** Python's `publish_delta` republishes the manifest and needed
+      the field too (without it the manifest carrying the newest `delta_since` sorted below
+      the snapshot it superseded, so readers fetched deltas from a stale watermark), and
+      raising the fetch limit turned a vestigial fallback loop into a live downgrade path —
+      now it skips relay noise but refuses to reach past the newest manifest that parses.
+- [x] **(mitigated 2026-08-19) L-1 — BIP-85 app-32 is shared across password, SSH and PGP.**
+      Detection shipped in both implementations (`findDerivationCollisions` /
+      `find_derivation_collisions`), wired into import, `--inspect`, restore's merge, the
+      TUI, and a new `util check-derivation`. The lead test in each derives the keys and
+      compares bytes, so the claim is verified rather than asserted.
+      **The derivation change is deliberately deferred**, see the v2 design below.
+- [x] **(surfaced 2026-08-19) L-2 / L-3 — merge-level loss that is silent rather than
+      wrong.** Both implementations gained an optional `MergeReport`: same-id conflicts
+      (naming the kept and discarded entries) and a count of tombstones evicted at the
+      retention cap. `nostr restore` reports both. The resolution itself is unchanged —
+      it is frozen for parity — and the collector is write-only, asserted in both
+      implementations, because if observing could change the outcome it would be a
+      divergence rather than an observation.
+      **Found while fixing:** Python's `merge_index_payloads` mutated its `current`
+      argument (shallow copy sharing the nested entries dict), and an existing idempotency
+      test was passing only because of that aliasing.
+
+### L-1 v2 derivation: designed, deliberately not yet implemented
+
+Domain-separate the three app-32 uses so `ssh@N`, `pgp@N` and `password@N` stop
+sharing key material. Sketch, for whoever picks this up:
+
+- Keep v1 exactly as it is, forever — existing SSH keys are on servers and in
+  forges, existing PGP keys are published. Nothing already derived may change.
+- Add `derivation_version` to ssh/pgp entries, absent meaning 1, exactly as
+  `gen_version` works for passwords. New entries are stamped 2.
+- v2 takes the app-32 entropy and applies one HMAC-SHA256 step with a
+  kind-specific info string (`seedpass:v2:ssh`, `seedpass:v2:pgp`,
+  `seedpass:v2:password`). Prefer this over new BIP-85 app numbers, which risk
+  colliding with future registrations.
+- Land it in both implementations in one change, with cross-impl fixtures, and
+  an opt-in per-entry upgrade action — never a bulk migration. The same
+  "this changes the key; rotate it at the server first" confirmation the
+  password v2 upgrade needs.
+
+**Sequencing:** this is a new derivation path, and this project's own rule is
+that a derivation bug does not throw — it quietly produces a secret that
+cannot be recovered. Adding one immediately before the first outside review
+inverts the point of the review. Do it after.
 - [x] **(fixed 2026-08-18) L-4 — inert settings, and the unported subsystem behind them.**
       `additional_backup_path` was stored, confirmed by the TUI ("Additional backups will
       be written to X") and used by nothing — false assurance in a disaster-recovery

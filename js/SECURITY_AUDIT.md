@@ -25,7 +25,7 @@ failure is flaky and is the direct evidence for finding M-1.
 
 ## Findings
 
-### M-1 (Medium) — Restore can non-deterministically return a stale snapshot when two syncs share a second
+### M-1 (Medium) — Restore can non-deterministically return a stale snapshot when two syncs share a second — **FIXED 2026-08-19**
 
 - **Where:** `js/packages/core/src/sync/syncFlows.ts:115-117` (`fetchLatestSnapshot` sort)
 - **What:** Manifests are ordered by `created_at` (Nostr grants only whole-second
@@ -83,7 +83,7 @@ failure is flaky and is the direct evidence for finding M-1.
   pre-fix code produced. Mutation-verified: dropping `basePolicy` from the merge in
   `secrets.ts` turns all four red.
 
-### L-1 (Low) — BIP-85 app-32 path is shared across password, SSH, and PGP derivation
+### L-1 (Low) — BIP-85 app-32 path is shared across password, SSH, and PGP derivation — **MITIGATED 2026-08-19 (detection shipped; derivation change deferred)**
 
 - **Where:** `derive/ssh.ts:47-49`, `derive/pgp.ts:171-175`, `derive/password.ts:175` — all
   three derive from `m/83696968'/32'/{index}'`.
@@ -109,7 +109,7 @@ failure is flaky and is the direct evidence for finding M-1.
   document the password-prefix relationship alongside the existing known limit, and warn
   on import/merge when two entries of different kinds share an app-32 index.
 
-### L-2 (Low) — Concurrent same-id creation on two replicas silently discards one entry at merge
+### L-2 (Low) — Concurrent same-id creation on two replicas silently discards one entry at merge — **SURFACED 2026-08-19**
 
 - **Where:** `js/packages/core/src/sync/merge.ts:347-365` (per-id last-writer-wins).
 - **What:** The allocation watermark is per-replica. Two devices working offline can both
@@ -125,7 +125,7 @@ failure is flaky and is the direct evidence for finding M-1.
   sync/restore summary instead of resolving silently. A protocol-level fix (replica-scoped
   id ranges or random ids) would need coordination with Python.
 
-### L-3 (Low) — Tombstone retention cap enables deletion replay (documented; confirmed)
+### L-3 (Low) — Tombstone retention cap enables deletion replay (documented; confirmed) — **SURFACED 2026-08-19**
 
 - **Where:** `merge.ts:17, 405-416` — `TOMBSTONE_RETENTION_CAP = 2048`, oldest evicted.
 - **What:** After 2048 deletions, older tombstones are dropped; merging a stale replica or
@@ -316,11 +316,11 @@ pnpm -r test        # core: 234/234 pass (jsdom env: 230 pass, 4 skipped)
 
 | Finding | State | Where |
 |---|---|---|
-| M-1 sync tie-break | **open** | needs a signed-manifest sequence number in both implementations |
+| M-1 sync tie-break | fixed | signed `published_ms` ordering in both implementations |
 | M-2 config password policy | fixed | `secrets.ts` `basePolicy`; `test/passwordPolicy.test.ts` |
-| L-1 shared BIP-85 app-32 path | open | protocol change, both implementations |
-| L-2 concurrent same-id creation | open | surface at merge rather than change it |
-| L-3 tombstone replay | open (documented) | as the docs' own roadmap has it |
+| L-1 shared BIP-85 app-32 path | mitigated | collision detection in both; derivation change deferred to after review |
+| L-2 concurrent same-id creation | surfaced | `MergeReport.conflicts`, reported by `nostr restore` |
+| L-3 tombstone replay | surfaced | `MergeReport.tombstonesEvicted` |
 | L-4 inert settings | fixed | `backups.ts` ports BackupManager's write side; Quick Unlock now says it is unimplemented |
 | L-5 unanchored `label_regex` | resolved as-is | matches Python's `re.search`; documented in help, `capabilities()`, the parity matrix, and pinned by tests |
 | L-6 exec allowlist scope | documented | help, `capabilities().tokens.exec_allowlist_semantics`, enforcement-point comment |
@@ -330,6 +330,23 @@ pnpm -r test        # core: 234/234 pass (jsdom env: 230 pass, 4 skipped)
 Every fix above is mutation-verified: the guard or hook is disabled, the
 matching tests are confirmed red, and the change is restored. A passing suite
 was not treated as evidence on its own.
+
+**Every finding in this report is now closed.** Four were fixed outright, one
+is mitigated with the derivation change deliberately deferred (adding a new
+derivation path immediately before the first outside review inverts the point
+of the review), and two are surfaced rather than changed because their
+resolution is frozen for cross-implementation parity.
+
+Three defects were found while fixing them, none of which the audit had
+reached:
+
+- Python's `publish_delta` republished the manifest without the new ordering
+  field, sorting the manifest carrying the newest `delta_since` below the
+  snapshot it superseded.
+- Raising Python's manifest fetch limit turned a vestigial fallback loop into
+  a live downgrade path.
+- Python's `merge_index_payloads` mutated its `current` argument, and an
+  existing idempotency test was passing only because of that aliasing.
 
 Still outstanding, and unchanged by this round: no GPT-family review has run.
 Findings from one model family are one perspective, not independence.
