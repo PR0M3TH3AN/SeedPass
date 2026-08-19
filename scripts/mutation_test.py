@@ -51,6 +51,32 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CLI = REPO / "js" / "packages" / "cli"
 
+# This script deliberately writes broken security code into the working tree,
+# one file at a time, and restores it after each mutant. That is safe on its
+# own and NOT safe alongside anything else touching the repository: a `git
+# add -A` while a mutant is live commits a deliberately inverted security
+# check. That happened once during development -- an inverted fingerprint
+# check reached a commit -- so the guard below exists to make it structurally
+# impossible rather than a thing to remember.
+LOCK = REPO / ".mutation-test-running"
+
+
+def acquire_lock() -> None:
+    if LOCK.exists():
+        raise SystemExit(
+            f"{LOCK.name} exists: another mutation run is in progress, or a "
+            f"previous one died with a mutant still applied. Check "
+            f"`git diff` before deleting it."
+        )
+    LOCK.write_text(
+        "A mutation test is running. The working tree contains deliberately\n"
+        "broken code. Do not commit. Do not run `git add -A`.\n"
+    )
+
+
+def release_lock() -> None:
+    LOCK.unlink(missing_ok=True)
+
 # Each target names the source file and the tests that should defend it.
 # Running only the relevant suites keeps a full pass tractable; a mutant that
 # survives its own suite but would be caught by another is still a finding,
@@ -160,6 +186,12 @@ def main() -> int:
     overall_survivors: list[tuple[str, Mutant]] = []
     overall_counts = {"killed": 0, "survived": 0, "invalid": 0}
 
+    acquire_lock()
+    print(
+        "NOTE: the working tree will contain deliberately broken code until "
+        "this finishes.\n      Do not commit from another shell while it runs.\n"
+    )
+
     for name in targets:
         rel, tests = TARGETS[name]
         path = CLI / rel
@@ -174,7 +206,9 @@ def main() -> int:
         def restore(*_: object) -> None:
             path.write_text(original)
 
-        signal.signal(signal.SIGINT, lambda *a: (restore(), sys.exit(130)))
+        signal.signal(
+            signal.SIGINT, lambda *a: (restore(), release_lock(), sys.exit(130))
+        )
 
         try:
             for idx, mutant in enumerate(mutants, start=1):
@@ -203,6 +237,14 @@ def main() -> int:
                     print(f"  [{idx}/{len(mutants)}] line {mutant.line_no}: SURVIVED ({mutant.description})")
         finally:
             restore()
+            # Prove the restore worked rather than assuming it: a mutant left
+            # behind is a deliberately broken security check sitting in the
+            # tree waiting to be committed.
+            if path.read_text() != original:
+                release_lock()
+                raise SystemExit(f"FAILED TO RESTORE {rel} -- fix this before committing")
+
+    release_lock()
 
     total = sum(overall_counts.values())
     viable = overall_counts["killed"] + overall_counts["survived"]
