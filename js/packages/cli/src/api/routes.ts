@@ -8,7 +8,7 @@
  * is the part nobody notices — which secret a given entry produces.
  */
 
-import { readFile, stat } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import {
@@ -38,6 +38,11 @@ import {
   passwordPolicyFromRecord,
   removeLink,
   restoreEntry,
+  buildSemanticRecords,
+  searchSemanticRecords,
+  semanticManifest,
+  semanticStatus,
+  type SemanticRecord,
   totpCodeAt,
   Bip85,
   type Entry,
@@ -64,7 +69,6 @@ export const UNPORTED_PREFIXES: Array<{ prefix: string; feature: string }> = [
   { prefix: "/api/v1/high-risk", feature: "high-risk partitions" },
   { prefix: "/api/v1/agent/job-profiles", feature: "agent job profiles" },
   { prefix: "/api/v1/agent/recovery", feature: "agent recovery split" },
-  { prefix: "/api/v1/semantic", feature: "the semantic (vector search) index" },
 ];
 
 export interface ApiContext {
@@ -810,6 +814,84 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
         })),
       },
     };
+  });
+
+  // --------------------------------------------------------------- semantic
+
+  const semanticDir = (): string => join(profileDir(ctx), "semantic_index");
+  const semanticRecordsPath = (): string => join(semanticDir(), "records.json");
+  const semanticManifestPath = (): string => join(semanticDir(), "manifest.json");
+
+  async function readSemanticRecords(): Promise<SemanticRecord[]> {
+    if (!existsSync(semanticRecordsPath())) return [];
+    try {
+      const data = JSON.parse(await readFile(semanticRecordsPath(), "utf8"));
+      return Array.isArray(data) ? (data as SemanticRecord[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function buildSemantic(): Promise<number> {
+    const vault = await readVault(ctx);
+    const entries = Object.entries(vault.index.entries).map(([id, e]) => ({
+      ...(e as object),
+      id: Number(id),
+    })) as Array<Record<string, unknown>>;
+    const records = buildSemanticRecords(entries);
+    await mkdir(semanticDir(), { recursive: true });
+    // The records file is plaintext, so it holds metadata only and is written
+    // through atomicWrite for a genuine 0600 inode.
+    await atomicWrite(semanticRecordsPath(), new TextEncoder().encode(JSON.stringify(records, null, 2)));
+    await atomicWrite(
+      semanticManifestPath(),
+      new TextEncoder().encode(
+        JSON.stringify(
+          semanticManifest({
+            enabled: true,
+            built: true,
+            recordCount: records.length,
+            updatedAt: ctx.now() / 1000,
+          }),
+          null,
+          2,
+        ),
+      ),
+    );
+    return records.length;
+  }
+
+  server.route("GET", "/api/v1/semantic/status", async () => {
+    let manifest: Record<string, unknown> = {};
+    if (existsSync(semanticManifestPath())) {
+      try {
+        manifest = JSON.parse(await readFile(semanticManifestPath(), "utf8"));
+      } catch {
+        // Corrupt manifest reports as not-built; the fix is a rebuild.
+      }
+    }
+    return { json: semanticStatus(manifest, (await readSemanticRecords()).length) };
+  });
+
+  for (const path of ["/api/v1/semantic/build", "/api/v1/semantic/rebuild"]) {
+    server.route("POST", path, async () => {
+      // Build and rebuild are the same operation here: the records file is
+      // rewritten wholesale either way, so there is no stale state to clear.
+      return { json: { status: "ok", records: await buildSemantic() } };
+    });
+  }
+
+  server.route("POST", "/api/v1/semantic/search", async (req) => {
+    const body = bodyObject(req);
+    const records = await readSemanticRecords();
+    if (records.length === 0) {
+      throw new HttpError(409, "no semantic index; POST /api/v1/semantic/build first");
+    }
+    const hits = searchSemanticRecords(records, str(body["query"], "query"), {
+      k: optInt(body["k"], "k") ?? 10,
+      ...(typeof body["kind"] === "string" && { kind: body["kind"] }),
+    });
+    return { json: { results: hits.map((h) => ({ ...h, ref: refFor(String(h.entry_id)) })) } };
   });
 
   server.route("POST", "/api/v1/shutdown", async () => {

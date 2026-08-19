@@ -9,7 +9,7 @@
 
 import { Command } from "commander";
 import process from "node:process";
-import { entryMetadata, parseRef, resolveEntry } from "./refs.js";
+import { entryMetadata, parseRef, resolveEntry, refFor } from "./refs.js";
 import { materializeSecret } from "./secrets.js";
 import { clipboardSink, execSink, parseCommandSpec, stdinSink } from "./sinks.js";
 import { capabilities } from "./capabilities.js";
@@ -26,6 +26,11 @@ import {
   parseBackupWrapper,
   exportBackup,
   findDerivationCollisions,
+  buildSemanticRecords,
+  searchSemanticRecords,
+  semanticManifest,
+  semanticStatus,
+  type SemanticRecord,
   generateFingerprint,
   assertValidMnemonic,
   generateMnemonic,
@@ -1667,6 +1672,114 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         throw new Error(`server refused the shutdown request: HTTP ${res.status}`);
       }
       io.out(JSON.stringify({ status: "shutting down", host: o.host, port }));
+    });
+
+  const semantic = program
+    .command("semantic")
+    .description("local retrieval index over entry METADATA (never secrets)");
+
+  /**
+   * Records live in a plaintext file beside the vault, so the index holds
+   * only what is safe to leave unencrypted: labels, notes, tags, usernames,
+   * URLs, key names. Never a value. See buildSemanticRecords.
+   */
+  async function semanticPaths(opts: GlobalOpts) {
+    const app = new AppDir(resolveAppDir(opts.appDir));
+    const fp = await currentFingerprint(app, opts);
+    const dir = join(app.profileDir(fp), "semantic_index");
+    return { dir, records: join(dir, "records.json"), manifest: join(dir, "manifest.json") };
+  }
+
+  async function readRecords(path: string): Promise<SemanticRecord[]> {
+    if (!existsSync(path)) return [];
+    try {
+      const data = JSON.parse(await readFile(path, "utf8"));
+      return Array.isArray(data) ? (data as SemanticRecord[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  semantic
+    .command("build")
+    .description("(re)build the index from the current vault")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const vault = await openFromOptions(opts);
+      const paths = await semanticPaths(opts);
+      const entries = Object.entries(vault.index.entries).map(([id, e]) => ({
+        ...(e as object),
+        id: Number(id),
+      })) as Array<Record<string, unknown>>;
+      const records = buildSemanticRecords(entries);
+      await mkdir(paths.dir, { recursive: true });
+      // atomicWrite gives a fresh 0600 inode. Python created these at the
+      // process umask, which on a default install is 0664 — group and world
+      // readable, for a file sitting next to an encrypted vault.
+      await atomicWrite(
+        paths.records,
+        utf8(JSON.stringify(records, null, 2)),
+      );
+      await atomicWrite(
+        paths.manifest,
+        utf8(
+          JSON.stringify(
+            semanticManifest({
+              enabled: true,
+              built: true,
+              recordCount: records.length,
+              updatedAt: Date.now() / 1000,
+            }),
+            null,
+            2,
+          ),
+        ),
+      );
+      io.out(JSON.stringify({ built: records.length, index: paths.dir }));
+    });
+
+  semantic
+    .command("status")
+    .description("show whether the index exists and how current it is")
+    .action(async () => {
+      const opts = program.opts() as GlobalOpts;
+      const paths = await semanticPaths(opts);
+      let manifest: Record<string, unknown> = {};
+      if (existsSync(paths.manifest)) {
+        try {
+          manifest = JSON.parse(await readFile(paths.manifest, "utf8"));
+        } catch {
+          // A corrupt manifest reports as "not built" rather than failing:
+          // the fix is to rebuild, which the status is meant to prompt.
+        }
+      }
+      const records = await readRecords(paths.records);
+      io.out(JSON.stringify(semanticStatus(manifest, records.length), null, 2));
+    });
+
+  semantic
+    .command("search <query>")
+    .description("rank entries by metadata overlap (returns references, no secrets)")
+    .option("-k, --limit <n>", "maximum hits", "10")
+    .option("--kind <kind>", "restrict to one entry kind")
+    .action(async (query: string, o: { limit: string; kind?: string }) => {
+      const opts = program.opts() as GlobalOpts;
+      const paths = await semanticPaths(opts);
+      const records = await readRecords(paths.records);
+      if (records.length === 0) {
+        throw new Error("no semantic index; run 'semantic build' first");
+      }
+      const hits = searchSemanticRecords(records, query, {
+        k: parseIntOption(o.limit, "--limit", { min: 1 }),
+        ...(o.kind !== undefined && { kind: o.kind }),
+      });
+      io.out(
+        JSON.stringify(
+          hits.map((h) => ({ ...h, ref: refFor(String(h.entry_id)) })),
+          null,
+          2,
+        ),
+      );
     });
 
   const util = program.command("util").description("utility commands");

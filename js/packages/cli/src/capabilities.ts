@@ -99,7 +99,6 @@ export function capabilities(): Record<string, unknown> {
       "pgp RSA keys (ed25519 is supported; RSA generation is not reproducible)",
       "index0/atlas",
       "approval gates and high-risk partitions",
-      "semantic (vector search) command group",
       "Python's v2/v3 TUIs (interactive mode follows the legacy v1 menus)",
     ],
   };

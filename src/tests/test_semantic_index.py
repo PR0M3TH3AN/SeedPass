@@ -124,3 +124,101 @@ def test_semantic_index_service_build_and_status(tmp_path: Path) -> None:
 
     hybrid = service.search("agent", k=3, mode="hybrid")
     assert len(hybrid) >= 1
+
+
+def test_stored_secrets_are_never_written_to_the_index(tmp_path):
+    """The index is a plaintext file; secrets must not be in it.
+
+    `_extract_text` used to append a key_value entry's `value` -- the stored
+    secret itself -- which `build()` then wrote to
+    semantic_index/records.json in the clear, alongside a tokenized copy that
+    leaked it just as thoroughly. Nobody searches for a secret they do not
+    already know, so indexing it was pure downside: it handed the value to
+    anything that could read the profile directory (a backup, a sync client,
+    another user on a shared machine) without the master password.
+    """
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build(
+        [
+            {
+                "id": 1,
+                "kind": "key_value",
+                "label": "api-token",
+                "key": "DEPLOY_TOKEN",
+                "value": "SUPER-SECRET-VALUE-12345",
+                "notes": "production credentials",
+                "tags": ["ops"],
+            }
+        ]
+    )
+
+    raw = (tmp_path / "semantic_index" / "records.json").read_text(encoding="utf-8")
+    assert "SUPER-SECRET-VALUE-12345" not in raw
+    # Tokenized fragments leak it just as well as the whole string.
+    for fragment in ("super", "12345"):
+        assert fragment not in raw.lower()
+
+    # The entry is still findable by everything that is not the secret.
+    assert index.search("token")
+    assert index.search("production")
+    assert "DEPLOY_TOKEN" in raw
+
+
+def test_index_files_are_not_readable_by_other_users(tmp_path):
+    """Every other file in a profile is 0600; these were created at the umask."""
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.set_enabled(True)
+    index.build([{"id": 1, "kind": "document", "label": "notes", "content": "hello"}])
+    for name in ("records.json", "manifest.json"):
+        mode = (tmp_path / "semantic_index" / name).stat().st_mode & 0o777
+        assert mode == 0o600, f"{name} is {oct(mode)}"
+
+
+def test_model_id_marks_indexes_built_before_the_fix(tmp_path):
+    """A stale index still contains secrets, so it has to be distinguishable."""
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build([{"id": 1, "kind": "document", "label": "notes", "content": "hello"}])
+    assert index.status()["model_id"] == "seedpass-token-overlap-v2"
+
+
+def test_the_first_entry_a_profile_creates_is_searchable(tmp_path):
+    """Entry 0 is a real entry, not a missing one.
+
+    The check was `int(entry.get("id", 0) or 0) <= 0`, which conflated "no
+    id" with "id 0" — and entry ids start at 0, so the first entry any user
+    ever created was silently absent from every search result, with nothing
+    to indicate why.
+    """
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build(
+        [
+            {"id": 0, "kind": "password", "label": "bank.example", "notes": "first"},
+            {"id": 1, "kind": "password", "label": "forum.example", "notes": "second"},
+        ]
+    )
+    assert [hit["entry_id"] for hit in index.search("bank")] == [0]
+    assert [hit["entry_id"] for hit in index.search("forum")] == [1]
+
+
+def test_entries_without_a_usable_id_are_still_skipped(tmp_path):
+    """Which is what the old check was reaching for."""
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build(
+        [
+            {"kind": "document", "label": "no id", "content": "text"},
+            {"id": None, "kind": "document", "label": "null id", "content": "text"},
+            {"id": "abc", "kind": "document", "label": "bad id", "content": "text"},
+            {"id": -1, "kind": "document", "label": "negative", "content": "text"},
+        ]
+    )
+    assert index.search("text") == []

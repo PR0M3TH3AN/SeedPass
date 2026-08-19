@@ -10,7 +10,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -430,13 +430,77 @@ describe("vault export and import", () => {
   });
 });
 
+describe("semantic index", () => {
+  it("builds, reports status, and ranks by metadata", async () => {
+    const built = await call("POST", "/api/v1/semantic/build");
+    expect(built.status).toBe(200);
+    expect(built.json.records).toBeGreaterThan(0);
+
+    const status = await call("GET", "/api/v1/semantic/status");
+    expect(status.json.built).toBe(true);
+    expect(status.json.model_id).toBe("seedpass-token-overlap-v2");
+
+    const hits = await call("POST", "/api/v1/semantic/search", { body: { query: "bank" } });
+    expect(hits.json.results.length).toBeGreaterThan(0);
+    expect(hits.json.results[0].ref).toMatch(/^sp:\/\/entry\//);
+  });
+
+  it("never writes a stored secret into the plaintext index", async () => {
+    await call("POST", "/api/v1/semantic/build");
+    // The vault holds a key_value entry whose value is this string. The
+    // index file sits unencrypted next to the vault, so the value must not
+    // reach it — nor a tokenized form of it.
+    const raw = await readFile(
+      join(app.profileDir(FINGERPRINT), "semantic_index", "records.json"),
+      "utf8",
+    );
+    expect(raw).not.toContain("kv-secret-value");
+    expect(raw.toLowerCase()).not.toContain("kv-secret-value".toLowerCase());
+    // But the entry is still findable by its name.
+    const hits = await call("POST", "/api/v1/semantic/search", { body: { query: "api-token" } });
+    expect(hits.json.results.map((r: any) => r.label)).toContain("api-token");
+  });
+
+  it("writes the index at 0600, not the process umask", async () => {
+    await call("POST", "/api/v1/semantic/build");
+    const path = join(app.profileDir(FINGERPRINT), "semantic_index", "records.json");
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+  });
+
+  it("says so rather than returning nothing when no index exists", async () => {
+    const fresh = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN });
+    const other = await mkdtemp(join(tmpdir(), "seedpass-nosem-"));
+    const otherApp = new AppDir(other);
+    await otherApp.mutateFingerprints((d) => {
+      d.fingerprints.push(FINGERPRINT);
+      d.last_used = FINGERPRINT;
+    });
+    await mkdir(otherApp.profileDir(FINGERPRINT), { recursive: true });
+    await writeFile(
+      join(otherApp.profileDir(FINGERPRINT), INDEX_FILENAME),
+      await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify({ schema_version: 4, entries: {} }))),
+    );
+    registerRoutes(fresh, buildContext({ app: otherApp, fingerprint: FINGERPRINT, mnemonic: MNEMONIC }));
+    const bound = await fresh.listen();
+    try {
+      const res = await fetch(`http://${bound.host}:${bound.port}/api/v1/semantic/search`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+        body: JSON.stringify({ query: "anything" }),
+      });
+      expect(res.status).toBe(409);
+    } finally {
+      await fresh.close();
+    }
+  });
+});
+
 describe("the unported surface answers honestly", () => {
   it("returns 501 with the reason, not 404", async () => {
     for (const [method, path, feature] of [
       ["GET", "/api/v1/high-risk/status", "high-risk partitions"],
       ["GET", "/api/v1/agent/job-profiles", "agent job profiles"],
       ["POST", "/api/v1/agent/recovery/split", "agent recovery split"],
-      ["POST", "/api/v1/semantic/search", "semantic"],
     ] as const) {
       const res = await call(method, path);
       // 404 would read as "you typed the path wrong" and send an integrator

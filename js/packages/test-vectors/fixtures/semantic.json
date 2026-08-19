@@ -1,0 +1,325 @@
+{
+  "description": "semantic index records and rankings",
+  "entries": [
+    {
+      "id": 0,
+      "kind": "password",
+      "label": "first-ever.example",
+      "notes": "the very first entry a profile creates",
+      "tags": [
+        "edge"
+      ],
+      "username": "zero"
+    },
+    {
+      "id": 1,
+      "kind": "password",
+      "label": "bank.example",
+      "notes": "main current account",
+      "tags": [
+        "money",
+        "daily"
+      ],
+      "url": "https://bank.example",
+      "username": "alice"
+    },
+    {
+      "id": 2,
+      "key": "DEPLOY_TOKEN",
+      "kind": "key_value",
+      "label": "deploy-token",
+      "notes": "ci pipeline",
+      "tags": [
+        "ops"
+      ],
+      "value": "SECRET-MUST-NOT-APPEAR"
+    },
+    {
+      "content": "how to recover the bank account if locked out",
+      "id": 3,
+      "kind": "document",
+      "label": "recovery notes",
+      "tags": [
+        "docs"
+      ]
+    },
+    {
+      "id": 4,
+      "issuer": "Fastmail",
+      "kind": "totp",
+      "label": "email-2fa",
+      "notes": "",
+      "tags": [
+        "email"
+      ]
+    },
+    {
+      "fingerprint": "SHA256:abcdef",
+      "id": 5,
+      "kind": "ssh",
+      "label": "prod-server",
+      "notes": "production access",
+      "tags": [
+        "ops"
+      ]
+    },
+    {
+      "id": 6,
+      "kind": "nostr",
+      "label": "social",
+      "notes": "",
+      "npub": "npub1example",
+      "tags": []
+    },
+    {
+      "id": 7,
+      "kind": "seed",
+      "label": "child seed",
+      "notes": "not an indexed kind"
+    },
+    {
+      "content": "",
+      "id": 8,
+      "kind": "document",
+      "label": "",
+      "notes": "",
+      "tags": []
+    },
+    {
+      "id": 9,
+      "kind": "password",
+      "label": "linked",
+      "links": [
+        {
+          "note": "see recovery notes",
+          "relation": "depends_on"
+        }
+      ],
+      "notes": "",
+      "tags": []
+    },
+    {
+      "content": "skipped",
+      "kind": "document",
+      "label": "no id at all"
+    }
+  ],
+  "fixture_version": 1,
+  "kind_filtered": [
+    {
+      "entry_id": 5,
+      "excerpt": "prod-server\nproduction access\nops\nSHA256:abcdef",
+      "kind": "ssh",
+      "label": "prod-server",
+      "score": 0.142857
+    }
+  ],
+  "queries": {
+    "DEPLOY_TOKEN": [
+      {
+        "entry_id": 2,
+        "excerpt": "deploy-token\nci pipeline\nops\nDEPLOY_TOKEN",
+        "kind": "key_value",
+        "label": "deploy-token",
+        "score": 0.166667
+      }
+    ],
+    "bank": [
+      {
+        "entry_id": 1,
+        "excerpt": "bank.example\nmain current account\nmoney daily\nalice\nhttps://bank.example",
+        "kind": "password",
+        "label": "bank.example",
+        "score": 0.111111
+      },
+      {
+        "entry_id": 3,
+        "excerpt": "recovery notes\ndocs\nhow to recover the bank account if locked out",
+        "kind": "document",
+        "label": "recovery notes",
+        "score": 0.083333
+      }
+    ],
+    "bank account": [
+      {
+        "entry_id": 1,
+        "excerpt": "bank.example\nmain current account\nmoney daily\nalice\nhttps://bank.example",
+        "kind": "password",
+        "label": "bank.example",
+        "score": 0.222222
+      },
+      {
+        "entry_id": 3,
+        "excerpt": "recovery notes\ndocs\nhow to recover the bank account if locked out",
+        "kind": "document",
+        "label": "recovery notes",
+        "score": 0.166667
+      }
+    ],
+    "email": [
+      {
+        "entry_id": 4,
+        "excerpt": "email-2fa\nemail\nFastmail",
+        "kind": "totp",
+        "label": "email-2fa",
+        "score": 0.333333
+      }
+    ],
+    "first entry": [
+      {
+        "entry_id": 0,
+        "excerpt": "first-ever.example\nthe very first entry a profile creates\nedge\nzero",
+        "kind": "password",
+        "label": "first-ever.example",
+        "score": 0.181818
+      }
+    ],
+    "nothing matches here": [],
+    "ops production": [
+      {
+        "entry_id": 5,
+        "excerpt": "prod-server\nproduction access\nops\nSHA256:abcdef",
+        "kind": "ssh",
+        "label": "prod-server",
+        "score": 0.285714
+      },
+      {
+        "entry_id": 2,
+        "excerpt": "deploy-token\nci pipeline\nops\nDEPLOY_TOKEN",
+        "kind": "key_value",
+        "label": "deploy-token",
+        "score": 0.142857
+      }
+    ],
+    "recover locked": [
+      {
+        "entry_id": 3,
+        "excerpt": "recovery notes\ndocs\nhow to recover the bank account if locked out",
+        "kind": "document",
+        "label": "recovery notes",
+        "score": 0.166667
+      }
+    ]
+  },
+  "records": [
+    {
+      "entry_id": 0,
+      "kind": "password",
+      "label": "first-ever.example",
+      "text": "first-ever.example\nthe very first entry a profile creates\nedge\nzero",
+      "tokens": [
+        "a",
+        "creates",
+        "edge",
+        "entry",
+        "ever",
+        "example",
+        "first",
+        "profile",
+        "the",
+        "very",
+        "zero"
+      ]
+    },
+    {
+      "entry_id": 1,
+      "kind": "password",
+      "label": "bank.example",
+      "text": "bank.example\nmain current account\nmoney daily\nalice\nhttps://bank.example",
+      "tokens": [
+        "account",
+        "alice",
+        "bank",
+        "current",
+        "daily",
+        "example",
+        "https",
+        "main",
+        "money"
+      ]
+    },
+    {
+      "entry_id": 2,
+      "kind": "key_value",
+      "label": "deploy-token",
+      "text": "deploy-token\nci pipeline\nops\nDEPLOY_TOKEN",
+      "tokens": [
+        "ci",
+        "deploy",
+        "deploy_token",
+        "ops",
+        "pipeline",
+        "token"
+      ]
+    },
+    {
+      "entry_id": 3,
+      "kind": "document",
+      "label": "recovery notes",
+      "text": "recovery notes\ndocs\nhow to recover the bank account if locked out",
+      "tokens": [
+        "account",
+        "bank",
+        "docs",
+        "how",
+        "if",
+        "locked",
+        "notes",
+        "out",
+        "recover",
+        "recovery",
+        "the",
+        "to"
+      ]
+    },
+    {
+      "entry_id": 4,
+      "kind": "totp",
+      "label": "email-2fa",
+      "text": "email-2fa\nemail\nFastmail",
+      "tokens": [
+        "2fa",
+        "email",
+        "fastmail"
+      ]
+    },
+    {
+      "entry_id": 5,
+      "kind": "ssh",
+      "label": "prod-server",
+      "text": "prod-server\nproduction access\nops\nSHA256:abcdef",
+      "tokens": [
+        "abcdef",
+        "access",
+        "ops",
+        "prod",
+        "production",
+        "server",
+        "sha256"
+      ]
+    },
+    {
+      "entry_id": 6,
+      "kind": "nostr",
+      "label": "social",
+      "text": "social\nnpub1example",
+      "tokens": [
+        "npub1example",
+        "social"
+      ]
+    },
+    {
+      "entry_id": 9,
+      "kind": "password",
+      "label": "linked",
+      "text": "linked\ndepends_on\nsee recovery notes",
+      "tokens": [
+        "depends_on",
+        "linked",
+        "notes",
+        "recovery",
+        "see"
+      ]
+    }
+  ]
+}

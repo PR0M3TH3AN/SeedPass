@@ -89,6 +89,20 @@ export {
 } from "./schema/migrations.js";
 export { encodeQr, renderQrText, EC_LEVELS, type QrMatrix, type EcLevel } from "./util/qr.js";
 export {
+  buildSemanticRecords,
+  searchSemanticRecords,
+  semanticText,
+  semanticManifest,
+  semanticStatus,
+  tokenize,
+  SEMANTIC_KINDS,
+  SEMANTIC_MODEL_ID,
+  SEMANTIC_SCHEMA_VERSION,
+  type SemanticRecord,
+  type SemanticHit,
+  type SemanticStatus,
+} from "./vault/semanticIndex.js";
+export {
   findDerivationCollisions,
   APP32_KINDS,
   type DerivationCollision,

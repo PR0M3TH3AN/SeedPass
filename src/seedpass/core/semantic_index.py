@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -26,7 +27,10 @@ class SemanticIndex:
     MANIFEST_FILENAME = "manifest.json"
     RECORDS_FILENAME = "records.json"
     SCHEMA_VERSION = 1
-    MODEL_ID = "seedpass-token-overlap-v1"
+    #: Bumped from v1 when secret values stopped being indexed. An index
+    #: built by the old code still contains them, so `status()` reports the
+    #: stored id and a mismatch means "rebuild this, it holds secrets".
+    MODEL_ID = "seedpass-token-overlap-v2"
 
     ALLOWED_KINDS = {
         "document",
@@ -85,6 +89,10 @@ class SemanticIndex:
             json.dumps(serializable, ensure_ascii=True, sort_keys=True, indent=2),
             encoding="utf-8",
         )
+        # Labels, notes, usernames and URLs are still vault contents even with
+        # secret values excluded. Every other file in a profile is 0600; this
+        # one was created at the process umask (0664 on a default install).
+        os.chmod(self.records_path, 0o600)
         manifest = self._load_manifest()
         manifest.update(
             {
@@ -157,8 +165,20 @@ class SemanticIndex:
     ) -> list[SemanticRecord]:
         records: list[SemanticRecord] = []
         for entry in entries:
-            entry_id = int(entry.get("id", 0) or 0)
-            if entry_id <= 0:
+            # `id` 0 is a real entry -- it is the FIRST one any profile
+            # creates -- so it cannot double as "missing". The old test was
+            # `int(entry.get("id", 0) or 0) <= 0`, which silently dropped it
+            # along with genuinely absent ids, leaving every user's first
+            # entry permanently unfindable by search with nothing to indicate
+            # why.
+            raw_id = entry.get("id")
+            if raw_id is None:
+                continue
+            try:
+                entry_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if entry_id < 0:
                 continue
             kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
             if kind not in self.ALLOWED_KINDS:
@@ -197,8 +217,15 @@ class SemanticIndex:
             parts.append(str(entry.get("username", "")).strip())
             parts.append(str(entry.get("url", "")).strip())
         elif kind == "key_value":
+            # The key NAME only. `value` is the stored secret itself, and it
+            # used to be indexed here -- which wrote it, in the clear, to
+            # semantic_index/records.json alongside a tokenized copy. Nobody
+            # searches for a secret they do not already know, so indexing it
+            # was pure downside: every other file in the profile is encrypted
+            # and 0600, and this one handed the secret to anything that could
+            # read the directory (a backup, a sync client, another user on a
+            # shared box) without the master password.
             parts.append(str(entry.get("key", "")).strip())
-            parts.append(str(entry.get("value", "")).strip())
         elif kind == "totp":
             parts.append(str(entry.get("issuer", "")).strip())
         elif kind == "nostr":
@@ -238,6 +265,7 @@ class SemanticIndex:
             json.dumps(manifest, ensure_ascii=True, sort_keys=True, indent=2),
             encoding="utf-8",
         )
+        os.chmod(self.manifest_path, 0o600)
 
     def _load_records(self) -> list[dict[str, Any]]:
         if not self.records_path.exists():

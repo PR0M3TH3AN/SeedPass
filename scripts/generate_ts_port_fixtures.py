@@ -1285,6 +1285,77 @@ def gen_qr() -> dict:
     }
 
 
+def gen_semantic() -> dict:
+    """Reference records and rankings for the retrieval index.
+
+    Two properties are being pinned. The rankings must match so a query
+    answered on one implementation is answered the same way on the other. And
+    the records must contain no secret: the file this produces is plaintext
+    beside an encrypted vault, so anything indexed is readable without the
+    master password. The key_value case below carries a value that must not
+    appear anywhere in the output.
+    """
+    import tempfile
+
+    from seedpass.core.semantic_index import SemanticIndex
+
+    entries = [
+        {"id": 0, "kind": "password", "label": "first-ever.example",
+         "username": "zero", "notes": "the very first entry a profile creates",
+         "tags": ["edge"]},
+        {"id": 1, "kind": "password", "label": "bank.example", "username": "alice",
+         "url": "https://bank.example", "notes": "main current account",
+         "tags": ["money", "daily"]},
+        {"id": 2, "kind": "key_value", "label": "deploy-token", "key": "DEPLOY_TOKEN",
+         "value": "SECRET-MUST-NOT-APPEAR", "notes": "ci pipeline", "tags": ["ops"]},
+        {"id": 3, "kind": "document", "label": "recovery notes",
+         "content": "how to recover the bank account if locked out", "tags": ["docs"]},
+        {"id": 4, "kind": "totp", "label": "email-2fa", "issuer": "Fastmail",
+         "notes": "", "tags": ["email"]},
+        {"id": 5, "kind": "ssh", "label": "prod-server", "fingerprint": "SHA256:abcdef",
+         "notes": "production access", "tags": ["ops"]},
+        {"id": 6, "kind": "nostr", "label": "social", "npub": "npub1example",
+         "notes": "", "tags": []},
+        {"id": 7, "kind": "seed", "label": "child seed", "notes": "not an indexed kind"},
+        {"id": 8, "kind": "document", "label": "", "content": "", "notes": "", "tags": []},
+        {"id": 9, "kind": "password", "label": "linked", "notes": "", "tags": [],
+         "links": [{"relation": "depends_on", "note": "see recovery notes"}]},
+        {"kind": "document", "label": "no id at all", "content": "skipped"},
+    ]
+    queries = [
+        "bank",
+        "bank account",
+        "ops production",
+        "email",
+        "recover locked",
+        "nothing matches here",
+        "DEPLOY_TOKEN",
+        "first entry",
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        index = SemanticIndex(Path(tmpdir))
+        index.build(entries)
+        records = json.loads(
+            (Path(tmpdir) / "semantic_index" / "records.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        results = {q: index.search(q, k=10) for q in queries}
+        kind_filtered = index.search("ops", k=10, kind="ssh")
+
+    blob = json.dumps(records)
+    assert "SECRET-MUST-NOT-APPEAR" not in blob, "the index leaked a stored secret"
+
+    return {
+        "description": "semantic index records and rankings",
+        "entries": entries,
+        "records": records,
+        "queries": results,
+        "kind_filtered": kind_filtered,
+    }
+
+
 def main() -> None:
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -1309,6 +1380,7 @@ def main() -> None:
         "password_kdf.json": gen_password_kdf(),
         "legacy_payloads.json": gen_legacy_payloads(),
         "qr.json": gen_qr(),
+        "semantic.json": gen_semantic(),
     }
     entries_fixture, vault_fixture = gen_entries_and_vault()
     files["entries_index.json"] = entries_fixture
