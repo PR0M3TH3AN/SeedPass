@@ -90,6 +90,7 @@ export {
 export {
   importBackup,
   exportBackup,
+  parseBackupWrapper,
   portableBackupSchema,
   BackupImportError,
   PORTABLE_FORMAT_VERSION,

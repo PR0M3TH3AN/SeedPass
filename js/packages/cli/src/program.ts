@@ -23,6 +23,7 @@ import {
 } from "./vaultFile.js";
 import {
   importBackup,
+  parseBackupWrapper,
   exportBackup,
   generateFingerprint,
   assertValidMnemonic,
@@ -159,6 +160,7 @@ import {
 } from "./configFile.js";
 import { AgentClient, AgentDaemon, agentSocketPath, DEFAULT_TTL_SECONDS } from "./agent.js";
 import { AuditLog } from "./audit.js";
+import { createIndexBackup } from "./backups.js";
 import { runTui } from "./tui/app.js";
 
 export interface ProgramIo {
@@ -283,6 +285,17 @@ async function mutateVault<T>(
     const vault = await openVault(path, mnemonic);
     const result = await fn(vault);
     await saveVaultHoldingLock(vault);
+    // Rolling snapshot, after the write and still under the lock, matching
+    // Python's create_backup() call order. Best-effort by design: a failed
+    // backup must not make a committed vault write look like it failed.
+    try {
+      const config = await loadConfig(dirname(path), mnemonic);
+      await createIndexBackup({ indexPath: path, config });
+    } catch {
+      // Deliberately swallowed -- see BackupResult.mirrorError for the one
+      // failure that is worth surfacing; the rest are not worth failing a
+      // successful mutation over.
+    }
     return result;
   });
 }
@@ -1592,13 +1605,25 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .description("restore a portable backup into the active vault")
     .option("--inspect", "verify and summarize without writing")
     .option("--yes", "confirm replacing a vault that already has entries")
-    .action(async (srcFile: string, o: { inspect?: boolean; yes?: boolean }) => {
+    .option(
+      "--allow-fingerprint-mismatch",
+      "import a backup belonging to a DIFFERENT seed (every derived secret " +
+        "will change)",
+    )
+    .action(
+      async (
+        srcFile: string,
+        o: { inspect?: boolean; yes?: boolean; allowFingerprintMismatch?: boolean },
+      ) => {
       const opts = program.opts() as GlobalOpts;
       const app = new AppDir(resolveAppDir(opts.appDir));
       const raw = await readFile(srcFile);
-      // Encrypted backups need the seed; plaintext ones do not, so only
-      // resolve when required (and use the agent, not just the env).
-      const isEncrypted = !/"encryption_mode"\s*:\s*"none"/.test(raw.toString("utf8"));
+      // Read the envelope rather than pattern-matching the file text: the
+      // payload is attacker-influenced in the sense that it holds arbitrary
+      // user data, and deciding whether a seed is needed by regex over the
+      // whole file is a fragile way to ask a structural question.
+      const wrapper = parseBackupWrapper(new Uint8Array(raw));
+      const isEncrypted = wrapper.encryption_mode !== "none";
       const mnemonic = isEncrypted ? await resolveMnemonic(app, opts) : undefined;
       const parsed = await importBackup(new Uint8Array(raw), {
         ...(mnemonic !== undefined && { mnemonic }),
@@ -1612,6 +1637,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
             inspected: srcFile,
             schema_version: index.schema_version,
             entry_count: entryCount,
+            encryption_mode: wrapper.encryption_mode,
+            fingerprint: wrapper.fingerprint,
             written: false,
           }),
         );
@@ -1619,6 +1646,26 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       }
 
       const targetMnemonic = mnemonic ?? (await resolveMnemonic(app, opts));
+
+      // A seed-only backup is bound to its seed implicitly — the wrong seed
+      // cannot decrypt it. A plaintext backup has no such binding: it will
+      // import cleanly into any profile, and then every derived entry
+      // (passwords, SSH, PGP, seeds) silently produces a DIFFERENT secret
+      // than the original, because the secret comes from the target profile's
+      // seed and not from the backup. Nothing fails; the user just gets the
+      // wrong passwords. The wrapper records which seed it came from, so
+      // check it rather than trusting the operator to have noticed.
+      const targetFingerprint = generateFingerprint(targetMnemonic);
+      if (wrapper.fingerprint !== targetFingerprint && !o.allowFingerprintMismatch) {
+        throw new Error(
+          `backup belongs to profile ${wrapper.fingerprint}, but the target ` +
+            `is ${targetFingerprint}. Importing it would re-derive every ` +
+            `secret from the target's seed, silently producing different ` +
+            `passwords than the ones in the backup. Import into the matching ` +
+            `profile, or pass --allow-fingerprint-mismatch if that is really ` +
+            `what you want.`,
+        );
+      }
       // Resolve the profile only when the target actually depends on it: an
       // explicit --vault path needs no profile, and demanding one anyway made
       // `vault import --vault x` fail on machines with no ~/.seedpass — an
@@ -1644,7 +1691,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
           entry_count: entryCount,
         }),
       );
-    });
+      },
+    );
 
   return program;
 }

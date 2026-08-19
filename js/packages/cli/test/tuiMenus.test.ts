@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, writeFile, mkdir, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile, mkdir, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -23,6 +23,7 @@ import {
   addPasswordEntry,
   addKeyValueEntry,
   addTotpDeterministic,
+  exportBackup,
   type VaultIndex,
 } from "@seedpass/core";
 import { runTui } from "../src/tui/app.js";
@@ -116,6 +117,88 @@ beforeEach(async () => {
 
 afterEach(() => {
   delete process.env["SEEDPASS_MNEMONIC"];
+});
+
+/**
+ * Import guard: a plaintext backup carries no cryptographic binding to the
+ * seed it was taken from, so importing one into the wrong profile succeeds
+ * and then re-derives every secret from the WRONG seed. The TUI has to say so
+ * before it happens, because afterwards nothing looks broken.
+ */
+describe("importing a backup from another profile", () => {
+  const FOREIGN = mnemonics["legal12"]!;
+
+  async function writeForeignBackup(): Promise<string> {
+    const wrapper = await exportBackup(
+      { schema_version: 4, entries: {} },
+      { mnemonic: FOREIGN, fingerprint: generateFingerprint(FOREIGN), encrypt: false },
+    );
+    const path = join(appDir, "foreign-backup.json");
+    await writeFile(path, JSON.stringify(wrapper));
+    return path;
+  }
+
+  it("warns which profile the backup belongs to and abandons on refusal", async () => {
+    const path = await writeForeignBackup();
+    const ui = await run("7", "8", path, "n", "", "");
+    expect(ui.text).toContain(`belongs to profile ${generateFingerprint(FOREIGN)}`);
+    expect(ui.text).toContain("DIFFERENT");
+
+    // The vault is untouched: all four seeded entries still there.
+    const vault = await openVault(
+      join(new AppDir(appDir).profileDir(FINGERPRINT), INDEX_FILENAME),
+      MNEMONIC,
+    );
+    expect(Object.keys(vault.index.entries)).toHaveLength(4);
+  });
+
+  it("still allows it when the user confirms twice", async () => {
+    const path = await writeForeignBackup();
+    // "y" to the foreign-profile warning, then "y" to the replace-vault
+    // confirmation the import already had.
+    const ui = await run("7", "8", path, "y", "y", "", "");
+    expect(ui.text).toContain("Imported 0 entries");
+  });
+});
+
+describe("additional backup location", () => {
+  it("actually writes a copy there, having said it would", async () => {
+    const extra = await mkdtemp(join(tmpdir(), "seedpass-tui-extra-"));
+    // Settings > Set additional backup location > path, then add an entry so
+    // there is a mutation to snapshot.
+    const ui = await run(
+      "7", "10", extra, "", "",
+      "1", "1", "backup-me.example", "", "", "", "", "", "", "",
+    );
+    expect(ui.text).toContain(`Additional backups will be written to ${extra}`);
+
+    const mirrored = await readdir(extra);
+    expect(mirrored).toHaveLength(1);
+    expect(mirrored[0]).toMatch(
+      new RegExp(`^${FINGERPRINT}_entries_db_backup_\\d+\\.json\\.enc$`),
+    );
+  });
+
+  it("tells the user when the configured location stops working", async () => {
+    const app = new AppDir(appDir);
+    const blocker = join(app.profileDir(FINGERPRINT), "blocker-file");
+    await writeFile(blocker, "x");
+    const ui = await run(
+      "7", "10", join(blocker, "sub"), "", "",
+      "1", "1", "still-added.example", "", "", "", "", "", "", "",
+    );
+    expect(ui.text).toContain("Additional backup location failed");
+
+    // The mutation itself still committed.
+    const vault = await openVault(
+      join(app.profileDir(FINGERPRINT), INDEX_FILENAME),
+      MNEMONIC,
+    );
+    const labels = Object.values(vault.index.entries).map(
+      (e) => (e as unknown as Record<string, unknown>)["label"],
+    );
+    expect(labels).toContain("still-added.example");
+  });
 });
 
 describe("main menu", () => {

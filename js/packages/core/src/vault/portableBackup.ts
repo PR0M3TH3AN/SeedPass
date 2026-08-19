@@ -39,19 +39,34 @@ export class BackupImportError extends Error {
   }
 }
 
+/**
+ * Parse and validate a backup wrapper without decrypting or verifying it.
+ *
+ * Callers need the wrapper's metadata — `encryption_mode` to know whether a
+ * seed is required, `fingerprint` to check the backup belongs to the profile
+ * being imported into — *before* they can decide how to import. Reading those
+ * by pattern-matching the raw file text works until a payload happens to
+ * contain the same bytes; this parses the envelope instead.
+ *
+ * Structural validation only. A wrapper that parses here can still fail
+ * importBackup on checksum, format version, or decryption.
+ */
+export function parseBackupWrapper(wrapperJson: string | Uint8Array): PortableBackup {
+  const text =
+    typeof wrapperJson === "string" ? wrapperJson : new TextDecoder().decode(wrapperJson);
+  try {
+    return portableBackupSchema.parse(JSON.parse(text));
+  } catch (e) {
+    throw new BackupImportError(`invalid backup wrapper: ${String(e)}`);
+  }
+}
+
 /** Import a portable backup wrapper, returning the verified index payload. */
 export async function importBackup(
   wrapperJson: string | Uint8Array,
   options: { mnemonic?: string } = {},
 ): Promise<Record<string, unknown>> {
-  const text =
-    typeof wrapperJson === "string" ? wrapperJson : new TextDecoder().decode(wrapperJson);
-  let wrapper: PortableBackup;
-  try {
-    wrapper = portableBackupSchema.parse(JSON.parse(text));
-  } catch (e) {
-    throw new BackupImportError(`invalid backup wrapper: ${String(e)}`);
-  }
+  const wrapper = parseBackupWrapper(wrapperJson);
   if (wrapper.format_version !== PORTABLE_FORMAT_VERSION) {
     throw new BackupImportError("Unsupported backup format");
   }

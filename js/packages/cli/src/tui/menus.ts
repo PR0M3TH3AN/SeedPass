@@ -36,6 +36,7 @@ import {
   generateMnemonic,
   exportBackup,
   importBackup,
+  parseBackupWrapper,
   totpCodeAt,
   utf8,
   type Entry,
@@ -46,6 +47,7 @@ import { atomicWrite, openVault, saveVaultHoldingLock, withVaultLock, type Opene
 import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret, type MaterializedSecret } from "../secrets.js";
 import { clipboardSink } from "../sinks.js";
+import { createIndexBackup, type BackupResult } from "../backups.js";
 import {
   loadConfig,
   mutateConfig,
@@ -161,12 +163,24 @@ function isArchived(entry: Entry): boolean {
 /** Apply a change under the vault lock, re-reading first. */
 async function mutate(s: Session, fn: (vault: OpenedVault) => void): Promise<void> {
   const { path, mnemonic } = s.vault;
+  let backup: BackupResult | undefined;
   await withVaultLock(path, async () => {
     const fresh = await openVault(path, mnemonic);
     fn(fresh);
     await saveVaultHoldingLock(fresh);
     s.vault = fresh;
+    try {
+      backup = await createIndexBackup({ indexPath: path, config: s.config });
+    } catch {
+      // Best-effort: never turn a committed write into a visible failure.
+    }
   });
+  // The one backup failure worth interrupting for. A configured second
+  // location that silently stops working is exactly the false assurance the
+  // setting is supposed to provide protection against.
+  if (backup?.mirrorError) {
+    warn(s.ui, `Additional backup location failed: ${backup.mirrorError}`);
+  }
 }
 
 async function reload(s: Session): Promise<void> {
@@ -1034,7 +1048,15 @@ async function settingsMenu(s: Session): Promise<void> {
           await toggleConfig(s, "offline_mode", "Offline Mode");
           break;
         case "17":
-          await toggleConfig(s, "quick_unlock_enabled", "Quick Unlock");
+          // Kept in the menu for parity with Python's item list, but it does
+          // not toggle anything here. In Python the flag never changed how
+          // unlocking works either -- it writes an audit entry and raises a
+          // security finding. A switch that silently stores a preference
+          // nothing reads is worse than one that says so.
+          warn(s.ui, "Quick Unlock is not implemented in this build.");
+          s.ui.say("Unlocking always requires the master password. Use 'vault unlock'");
+          s.ui.say("with a TTL if you want a window where the seed stays available.");
+          await pause(s.ui);
           break;
         case "18":
           warn(s.ui, "The semantic index is not part of this build.");
@@ -1466,6 +1488,19 @@ async function importDatabase(s: Session): Promise<void> {
     await pause(s.ui);
     return;
   }
+  // Check which profile the backup came from before importing it. A
+  // seed-only backup is bound to its seed implicitly -- the wrong seed cannot
+  // decrypt it -- but a plaintext one imports into any profile and then
+  // re-derives every password, SSH key, PGP key and seed from THIS profile's
+  // seed, silently producing different secrets than the backup held. Nothing
+  // errors; the user simply gets wrong passwords.
+  const wrapper = parseBackupWrapper(raw);
+  if (wrapper.fingerprint !== s.fingerprint) {
+    warn(s.ui, `This backup belongs to profile ${wrapper.fingerprint}, not ${s.fingerprint}.`);
+    warn(s.ui, "Its entries would be re-derived from this profile's seed, so every");
+    warn(s.ui, "password, key and seed would come out DIFFERENT from the backup.");
+    if (!(await confirm(s.ui, "Import anyway?"))) return;
+  }
   const imported = (await importBackup(raw, { mnemonic: s.vault.mnemonic })) as {
     entries?: Record<string, unknown>;
     schema_version?: number;
@@ -1507,6 +1542,8 @@ async function exportTotpCodes(s: Session): Promise<void> {
 async function setBackupLocation(s: Session): Promise<void> {
   title(s, "Main Menu > Settings > Additional backup location");
   s.ui.say(`Current: ${String(s.config["additional_backup_path"] || "(none)")}`);
+  s.ui.say("Every change to the vault is snapshotted to the profile's backups/");
+  s.ui.say("directory. Set a path here to mirror each snapshot to a second place.");
   const path = await s.ui.ask("New path (blank to clear): ");
   await saveSetting(s, "additional_backup_path", path);
   ok(s.ui, path ? `Additional backups will be written to ${path}` : "Additional backup cleared.");

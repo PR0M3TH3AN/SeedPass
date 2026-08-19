@@ -19,7 +19,7 @@ import {
   totpCases,
   mnemonics,
 } from "@seedpass/test-vectors";
-import { deriveIndexKeyBytes, encryptV3, utf8 } from "@seedpass/core";
+import { deriveIndexKeyBytes, encryptV3, generateFingerprint, utf8 } from "@seedpass/core";
 import { buildProgram, type ProgramIo } from "../src/index.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
@@ -390,6 +390,68 @@ describe("vault export/import", () => {
     expect(String((guarded.error as Error).message)).toContain("--yes");
     const forced = await run("--vault", target, "vault", "import", backup, "--yes");
     expect(JSON.parse(forced.stdout).entry_count).toBe(10);
+  });
+
+  /**
+   * A plaintext backup has no cryptographic binding to the seed it came from
+   * — the wrong profile can read it perfectly well. Importing one re-derives
+   * every password, SSH key, PGP key and seed from the TARGET profile's seed,
+   * so the user ends up with a vault full of entries whose secrets differ
+   * from the ones the backup was taken to preserve. Nothing errors on the way
+   * through, which is what makes it worth refusing.
+   */
+  it("refuses a plaintext backup from a different seed unless told otherwise", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-foreign-"));
+    const foreignMnemonic = mnemonics["legal12"]!;
+    const saved = process.env["SEEDPASS_MNEMONIC"];
+
+    // A genuine backup of a genuinely different profile.
+    const foreignVault = join(dir, "foreign.enc");
+    await writeFile(
+      foreignVault,
+      await encryptV3(
+        deriveIndexKeyBytes(foreignMnemonic),
+        utf8(JSON.stringify({ schema_version: 4, entries: {} })),
+      ),
+    );
+    const backup = join(dir, "foreign-backup.json");
+    process.env["SEEDPASS_MNEMONIC"] = foreignMnemonic;
+    const exported = await run(
+      "--vault", foreignVault, "vault", "export", backup, "--plaintext",
+    );
+    expect(JSON.parse(exported.stdout).encrypted).toBe(false);
+    process.env["SEEDPASS_MNEMONIC"] = saved!;
+
+    const target = join(dir, "target.enc");
+    await writeFile(
+      target,
+      await encryptV3(
+        deriveIndexKeyBytes(MNEMONIC),
+        utf8(JSON.stringify({ schema_version: 4, entries: {} })),
+      ),
+    );
+
+    const refused = await run("--vault", target, "vault", "import", backup);
+    const message = String((refused.error as Error).message);
+    expect(message).toContain("belongs to profile");
+    expect(message).toContain("--allow-fingerprint-mismatch");
+
+    // Still possible on purpose — the point is that it cannot happen by
+    // accident, not that it is forbidden.
+    const allowed = await run(
+      "--vault", target, "vault", "import", backup, "--allow-fingerprint-mismatch",
+    );
+    expect(allowed.error).toBeUndefined();
+    expect(JSON.parse(allowed.stdout).entry_count).toBe(0);
+  });
+
+  it("reports the backup's own fingerprint and mode when inspecting", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-inspect-"));
+    const dest = join(dir, "backup.json");
+    await run("--vault", vaultPath, "vault", "export", dest);
+    const summary = JSON.parse((await run("vault", "import", dest, "--inspect")).stdout);
+    expect(summary.encryption_mode).toBe("seed-only");
+    expect(summary.fingerprint).toBe(generateFingerprint(MNEMONIC));
   });
 });
 
