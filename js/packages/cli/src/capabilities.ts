@@ -95,11 +95,23 @@ export function capabilities(): Record<string, unknown> {
     // Automation branches on this list, so it has to describe this build
     // rather than an earlier one. SSH and ed25519 PGP entries are at
     // byte-for-byte parity with Python and were wrongly listed here.
+    // Automation branches on this, so each entry says WHY, not just what.
+    // Three of these are choices; one is a hard constraint.
     not_yet_ported: [
-      "pgp RSA keys (ed25519 is supported; RSA generation is not reproducible)",
-      "index0/atlas",
-      "approval gates and high-risk partitions",
-      "Python's v2/v3 TUIs (interactive mode follows the legacy v1 menus)",
+      // Hard constraint: PyCryptodome's seeded prime search is not
+      // reproducible, so a TS implementation would derive a DIFFERENT key
+      // from the same seed. Refusing beats silently diverging.
+      "pgp RSA keys (ed25519 is at byte parity; RSA generation is not reproducible)",
+      // Python-derived state, recomputed on load. Carried through verbatim by
+      // the TS port so a Python profile round-trips, but not computed here.
+      "index0/atlas (preserved verbatim on read/write, never recomputed)",
+      // Deliberate: agent approval gates, high-risk partitions, job profiles
+      // and recovery split. The session agent's scoped tokens cover the
+      // automation cases; these add a second authorization model.
+      "agent approval gates, high-risk partitions, job profiles, recovery split",
+      // Deliberate: the TS interactive mode follows Python's legacy v1 menu
+      // tree. See docs/tui_v2_cutover_decision.md.
+      "Python's v2/v3 Textual TUIs (interactive mode follows the legacy v1 menus)",
     ],
   };
 }

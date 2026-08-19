@@ -380,6 +380,52 @@ inverts the point of the review. Do it after.
         code to `legacy/` (or are scoped down); `ts-parity` and
         `release-integrity` become the primary gates.
 
+### Ported on 2026-08-19
+
+- [x] **CLI gap closure** — `vault stats`, `vault change-password`,
+      `vault reveal-parent-seed`, `entry export-totp`, `config
+      toggle-secret-mode`, `config toggle-offline`, `api stop`. Passwords and
+      tokens come from the environment, never argv. `reveal-parent-seed`
+      follows `fingerprint create`'s egress rule: it refuses to print into a
+      pipe.
+- [x] **QR codes in the TUI** — byte mode, versions 1-40, all four EC levels,
+      zero dependencies. The block-structure table was extracted
+      programmatically from the reference library rather than transcribed, and
+      the tests compare every module against it. One documented divergence:
+      mask SELECTION, because the reference scores candidates with their
+      format modules blanked (a symbol that is not legal); all eight masks are
+      valid, so the tests pin the mask and check the selection rule
+      separately. Secret Mode suppresses the code — a QR is the secret in a
+      form a camera reads across a room.
+- [x] **Semantic (retrieval) index** — it was never vector search; it is
+      Jaccard overlap over tokenized metadata, which is why it was portable.
+      Ported to core, the CLI (`semantic build/status/search`) and the API.
+      **Two Python defects found and fixed while porting:** the index wrote
+      stored secrets to a plaintext 0664 file beside the encrypted vault, and
+      entry 0 — the first entry any profile creates — was silently
+      unsearchable. See the security note below.
+
+### Security note: the semantic index leaked secrets (fixed 2026-08-19)
+
+`SemanticIndex._extract_text` appended a `key_value` entry's `value` — the
+stored secret — and `build()` wrote it to `semantic_index/records.json` in the
+clear, plus a tokenized copy that leaked it just as well. The file was created
+at the process umask (0664 on a default install), next to a vault that is
+encrypted and 0600. Anything able to read the profile directory — a backup, a
+sync client, another user on a shared machine — obtained the secret without
+the master password.
+
+Exposure is limited to profiles that actually built an index (it is opt-in and
+off by default), but **any such index on disk still contains the secrets**:
+the fix does not rewrite existing files. `MODEL_ID` is bumped to
+`seedpass-token-overlap-v2` so a stale index is identifiable — `semantic
+status` reporting v1 means "rebuild this, it holds secrets".
+
+- [ ] **Decide whether to auto-detect and delete v1 index files on upgrade**,
+      rather than relying on the user to notice the model id. Leaning yes: the
+      file has no value once stale, and leaving it is leaving plaintext
+      secrets on disk.
+
 ### Unbuilt milestones
 
 - [ ] **Milestone 6 (static/PWA web app)** and **Milestone 7 (browser
@@ -387,8 +433,19 @@ inverts the point of the review. Do it after.
       started — `js/packages/` holds `core`, `cli` and `test-vectors` only. The
       branch is named for a web extension that does not exist yet; the CLI was
       the proving ground for the core.
-- [ ] **Decide whether the `api` (FastAPI) surface gets a TypeScript port at
-      all.** It is currently excluded from cutover gate 5 as "a separate
+- [x] **(done 2026-08-19) The `api` surface is ported.** `seedpass-js api
+      start` serves /api/v1 on `node:http` with no framework — the CLI ships
+      one audited bundle with an empty production dependency list, and a web
+      framework in a seed-holding process would be the largest supply-chain
+      change in the project. Loopback unless `--allow-remote`; bearer token
+      printed once; routes that produce plaintext also require the master
+      password header; body cap, rate limit, and a tighter unlock-attempt
+      budget that returns 429 even for the right password once spent.
+      Verified end to end that Python, the TS CLI and the TS API derive the
+      same secret for the same entry. Routes belonging to unported subsystems
+      answer 501 naming the feature, not 404.
+- [ ] ~~Decide whether the `api` (FastAPI) surface gets a TypeScript port at
+      all.~~ (superseded by the above) It is currently excluded from cutover gate 5 as "a separate
       surface, not vault behavior", and the session agent (unix socket, 0600,
       scoped tokens) covers agent automation without binding a port — a smaller
       attack surface for a process holding unlocked seeds. `src/seedpass/api.py`
