@@ -208,9 +208,10 @@ export {
   type EntryLink,
   type ResolvedLink,
 } from "./vault/entryMod.js";
-export { canonicalJson, canonicalHash } from "./sync/canonical.js";
+export { findAmbiguousNumbers, canonicalJson, canonicalHash } from "./sync/canonical.js";
 export {
   mergeIndexPayloads,
+  entryEventHash,
   emptyIndex0,
   safeInt,
   TOMBSTONE_RETENTION_CAP,

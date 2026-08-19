@@ -76,7 +76,7 @@ function entryHash(entry: Dict): string {
   return canonicalHash(entry);
 }
 
-function entryEventHash(entry: Dict): string {
+export function entryEventHash(entry: Dict): string {
   return canonicalHash({ entry, kind: "entry" });
 }
 

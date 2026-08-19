@@ -54,11 +54,30 @@ function encodeString(s: string): string {
  *   1e23                 1e+23              1e+23   (agrees)
  *   -0                   0                  -0.0
  *
- * Integral values are emitted without a decimal point, matching Python ints;
- * SeedPass data carries integers (timestamps, lengths, counts) and never
- * float-typed whole numbers, so the int/float ambiguity CPython would
- * otherwise expose does not arise. A non-integral or non-safe value would
- * be ambiguous, so it is rejected rather than guessed at.
+ * TWO KNOWN LIMITATIONS, both found by differential fuzzing against Python
+ * (scripts/differential_fuzz.py) rather than by reading:
+ *
+ * 1. INTEGRAL FLOATS CANNOT BE REPRODUCED. Python distinguishes int from
+ *    float; JavaScript does not. `JSON.parse("0.0")` and `JSON.parse("0")`
+ *    yield the same JS value, so this function emits "0" where CPython emits
+ *    "0.0". No amount of formatting fixes it — the information is destroyed
+ *    at parse time.
+ *
+ *    Data SeedPass writes is unaffected: timestamps, lengths and counts are
+ *    Python ints and JS integers on both sides. It bites on data SeedPass did
+ *    not write — an unknown-kind record carried through verbatim, a
+ *    hand-edited vault, a third-party tool — which the port explicitly
+ *    supports carrying. The consequence is a different entry hash, and entry
+ *    hashes break same-timestamp merge ties, so two clients could converge to
+ *    different vaults. Use `findAmbiguousNumbers` on the raw JSON text to
+ *    detect it while the distinction still exists.
+ *
+ * 2. VALUES OUTSIDE THE SAFE-INTEGER RANGE ARE REFUSED, where Python encodes
+ *    them. That is deliberate and is the safe direction: `JSON.parse` has
+ *    already rounded such a value (10000000000000001 becomes
+ *    10000000000000000), so the number in hand is not the number on disk and
+ *    any hash computed from it would be wrong. Refusing loudly beats hashing
+ *    a corrupted value.
  */
 function encodeNumber(n: number): string {
   if (!Number.isFinite(n)) throw new Error("non-finite number in canonical JSON");
@@ -138,4 +157,62 @@ export function canonicalJson(value: unknown): string {
 
 export function canonicalHash(value: unknown): string {
   return bytesToHex(sha256(utf8(canonicalJson(value))));
+}
+
+/**
+ * Number literals in `jsonText` whose canonical form this module cannot
+ * reproduce byte-for-byte.
+ *
+ * Must be run on the raw JSON TEXT, before `JSON.parse`: the whole problem is
+ * that parsing destroys the int/float distinction Python preserves. Returns
+ * the offending literals (deduplicated, in order of first appearance), or an
+ * empty array when the text is safe.
+ *
+ * Reports two classes, matching the limitations documented above:
+ *   - integral floats: `0.0`, `-0.0`, `1.0`, `2e3` — Python writes a decimal
+ *     point or exponent, this module cannot know to.
+ *   - out-of-safe-range values: already rounded by the time JS sees them.
+ *
+ * Non-integral floats like `1.5` are NOT reported: those survive parsing and
+ * are encoded to match CPython by `pythonFloatRepr`.
+ */
+export function findAmbiguousNumbers(jsonText: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  // JSON number grammar, anchored so it cannot match digits inside a string.
+  // Strings are skipped explicitly rather than by lookaround, because an
+  // escaped quote inside a string would defeat a naive pattern.
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < jsonText.length; i++) {
+    const ch = jsonText[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch !== "-" && (ch < "0" || ch > "9")) continue;
+    const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(jsonText.slice(i));
+    if (!match) continue;
+    const literal = match[0];
+    i += literal.length - 1;
+
+    const value = Number(literal);
+    const hasFractionOrExponent = /[.eE]/.test(literal);
+    const ambiguous =
+      // An integral value written as a float: Python keeps the decimal point.
+      (hasFractionOrExponent && Number.isInteger(value)) ||
+      // Already rounded by JSON.parse; the value in hand is not the one on disk.
+      (Number.isInteger(value) && !Number.isSafeInteger(value));
+    if (ambiguous && !seen.has(literal)) {
+      seen.add(literal);
+      found.push(literal);
+    }
+  }
+  return found;
 }
