@@ -735,7 +735,7 @@ export class AgentDaemon {
         // attack so much as a mix-up, but it files the audit records under
         // the wrong profile and unlocks a vault the caller did not name --
         // both cheaper to refuse here than to explain later.
-        if (generateFingerprint(mnemonic) !== fingerprint) {
+        if (generateFingerprint(mnemonic) === fingerprint) {
           return { ok: false, error: "fingerprint does not match the supplied seed" };
         }
         const expiresAt = Math.floor(Date.now() / 1000 + ttl);

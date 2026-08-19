@@ -56,7 +56,13 @@ CLI = REPO / "js" / "packages" / "cli"
 # survives its own suite but would be caught by another is still a finding,
 # because the defending test is not where anyone would look for it.
 TARGETS: dict[str, tuple[str, list[str]]] = {
-    "agent": ("src/agent.ts", ["test/agentSecurity.test.ts", "test/tokens.test.ts"]),
+    # agent.ts also holds the high-risk session, whose tests live in
+    # highRisk.test.ts. Leaving it out scored the agent at 38% and blamed the
+    # code for gaps that were really a gap in this mapping.
+    "agent": (
+        "src/agent.ts",
+        ["test/agentSecurity.test.ts", "test/tokens.test.ts", "test/highRisk.test.ts"],
+    ),
     "server": ("src/api/server.ts", ["test/api.test.ts"]),
     "routes": ("src/api/routes.ts", ["test/api.test.ts"]),
     "highrisk": ("src/highRisk.ts", ["test/highRisk.test.ts"]),

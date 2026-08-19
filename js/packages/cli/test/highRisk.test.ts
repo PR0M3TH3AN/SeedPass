@@ -365,6 +365,52 @@ describe("approval gates", () => {
     );
   });
 
+  it("refuses a ttl or use count that would make the approval meaningless", async () => {
+    // Mutation testing found these unguarded by any test. An approval issued
+    // with ttl 0 is expired the instant it exists; one with uses 0 can never
+    // be consumed. Both would look like a granted authorization to whoever
+    // requested it and silently authorize nothing — the confusing failure,
+    // not the safe one.
+    for (const ttl of [0, -1, 1.5, Number.NaN]) {
+      await expect(
+        issueApproval(appDir, { action: "export", ttlSeconds: ttl, uses: 1 }),
+      ).rejects.toThrow(/ttl must be a positive integer/);
+    }
+    for (const uses of [0, -1, 2.5, Number.NaN]) {
+      await expect(
+        issueApproval(appDir, { action: "export", ttlSeconds: 60, uses }),
+      ).rejects.toThrow(/uses must be a positive integer/);
+    }
+  });
+
+  it("treats an approval expiring exactly now as expired", async () => {
+    // The boundary, which no test previously pinned: `<=` refuses at the
+    // instant of expiry, `<` would allow one last use. Python uses `<=`, so
+    // this is parity as well as the safer direction.
+    const now = Date.now();
+    const issued = await issueApproval(appDir, {
+      action: "export",
+      ttlSeconds: 60,
+      uses: 1,
+      now: now - 60_000,
+    });
+    expect(Date.parse(issued.expires_at_utc)).toBe(now);
+    expect(
+      await consumeApproval(appDir, { approvalId: issued.id, action: "export", now }),
+    ).toEqual({ ok: false, reason: "approval_expired" });
+    // And one millisecond earlier it is still usable, so the boundary is
+    // exactly where it claims to be rather than approximately.
+    const still = await issueApproval(appDir, {
+      action: "export",
+      ttlSeconds: 60,
+      uses: 1,
+      now: now - 60_000 + 1,
+    });
+    expect(
+      await consumeApproval(appDir, { approvalId: still.id, action: "export", now }),
+    ).toEqual({ ok: true, reason: "approval_consumed" });
+  });
+
   it("refuses to issue an approval for an action it does not know", async () => {
     // An unknown action would produce an approval that gates nothing while
     // looking like it gates something.

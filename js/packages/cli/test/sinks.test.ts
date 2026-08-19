@@ -140,4 +140,30 @@ describe("clipboardSink auto-clear", () => {
       clip.restore();
     }
   });
+})
+
+describe("command spec parsing keeps every argument", () => {
+  it("does not tokenize when more than one element was supplied", () => {
+    // Mutation testing found this unguarded: turning the `&&` into `||` makes
+    // a multi-element spec whose FIRST element contains whitespace get
+    // tokenized, silently discarding every element after it. Losing an
+    // argument changes which command runs — dropping a `--dry-run` or a
+    // target path is exactly the kind of silent change that matters for a
+    // sink handed a secret.
+    expect(parseCommandSpec(["echo hi", "there"])).toEqual(["echo hi", ["there"]]);
+    expect(parseCommandSpec(["wc", "-c"])).toEqual(["wc", ["-c"]]);
+    expect(parseCommandSpec(["a b", "c d", "e"])).toEqual(["a b", ["c d", "e"]]);
+  });
+
+  it("tokenizes only a lone element containing whitespace", () => {
+    expect(parseCommandSpec(["wc -c"])).toEqual(["wc", ["-c"]]);
+    // A lone element with no whitespace needs no splitting, and splitting it
+    // must not change it.
+    expect(parseCommandSpec(["ls"])).toEqual(["ls", []]);
+  });
+
+  it("refuses an empty command rather than running something unintended", () => {
+    expect(() => parseCommandSpec([])).toThrow(/empty command/);
+    expect(() => parseCommandSpec([""])).toThrow(/empty command/);
+  });
 });
