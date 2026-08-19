@@ -149,9 +149,11 @@ everything still open, in the order it should be tackled.
       `js/packages/core/src/crypto`, `js/packages/core/src/derive`, and
       `js/packages/cli/src/agent.ts` first: a derivation bug does not throw, it
       quietly produces a secret that cannot be recovered. Blocks the merge below.
-- [ ] **Fix the findings from the 2026-08-17 self-review** (next section). Do
-      these before handing the branch to an outside reviewer so their time goes
-      on what an author cannot see.
+- [x] **(done 2026-08-17/18) Fix the findings from the 2026-08-17
+      self-review** (next section) — all ten closed, plus all seven findings
+      from the 2026-08-18 independent audit (`js/SECURITY_AUDIT.md`). The
+      branch is ready to hand to an outside reviewer: their time now goes on
+      what an author cannot see.
 
 ### Findings from the 2026-08-17 self-review
 
@@ -522,6 +524,10 @@ writes it (asserted by a test that scans every file in the app directory).
       started — `js/packages/` holds `core`, `cli` and `test-vectors` only. The
       branch is named for a web extension that does not exist yet; the CLI was
       the proving ground for the core.
+      **Transport is no longer a blocker for this:** the API is ported, so an
+      extension has something to talk to. The remaining question is whether a
+      browser should reach the API over loopback at all, or whether the
+      extension should embed the core directly — decide before starting M7.
 - [x] **(done 2026-08-19) The `api` surface is ported.** `seedpass-js api
       start` serves /api/v1 on `node:http` with no framework — the CLI ships
       one audited bundle with an empty production dependency list, and a web

@@ -17,7 +17,7 @@ P0 gate is green, Python remains the normative reference
 | Cross-implementation profile interop | green |
 | Sync protocol parity | green |
 | Agent security model | green (TS ahead of Python) |
-| Feature parity for daily use | green for daily use; scoped exclusions below |
+| Feature parity for daily use | green; two named exclusions below |
 | Interactive mode (TUI) | green — legacy (v1) menu tree ported |
 | Packaging + release | green |
 | Migration + rollback story | green |
@@ -53,24 +53,25 @@ evidence for treating that as load-bearing rather than optional.
    in cross-impl phase F: Python publishes a snapshot through a real relay
    and the TS CLI restores it with secrets intact. **Green.**
 
-5. **Feature parity for real daily use.** **Green for daily use**, with
-   scoped exclusions that are documented rather than hidden:
+5. **Feature parity for real daily use.** **Green**, with two remaining
+   exclusions, both of which are choices rather than gaps in effort:
    - **PGP RSA keys** — unsupported by design. PyCryptodome's seeded prime
      search is not reproducible, so TS refuses the key type instead of
      deriving a different key. ed25519 PGP is at byte-for-byte parity.
-   - **`semantic`** (local vector search) — a derived index that can be
-     rebuilt; plan §8.5 rates it P2.
-   - **`api`** (FastAPI server) — a separate surface, not vault behavior.
-   - **TUI v2/v3** — interactive mode ports the legacy (v1) menu tree only.
-   - **QR display in the TUI** — no QR encoder in this build; the menu item
-     remains and offers the underlying value instead.
+   - **TUI v2/v3** — interactive mode ports the legacy (v1) menu tree only;
+     see `docs/tui_v2_cutover_decision.md`.
    - **Script checksum verify/generate** — covers the Python source tree;
      replaced by the release bundle's `.sha256`.
 
-   Recommendation: none of these blocks cutover. Each is a bounded,
-   named gap with the Python implementation still available for it, and the
-   migration guide tells users exactly that. Revisit if a real profile is
-   found to depend on RSA PGP entries.
+   Closed since this list was written (2026-08-19): the `api` surface, the
+   `semantic` retrieval index, QR display in the TUI, `index0`/atlas, agent
+   high-risk partitions, approval gates, job profiles and recovery split.
+   Every Python API endpoint now has a TypeScript equivalent.
+
+   Recommendation: neither remaining exclusion blocks cutover. Both are
+   bounded and named, with the Python implementation still available, and the
+   migration guide says so. Revisit if a real profile is found to depend on
+   RSA PGP entries.
 
    Everything else is ported and cross-verified: all nine entry kinds,
    create/modify/archive/links, document import/export, both key
@@ -102,9 +103,10 @@ evidence for treating that as load-bearing rather than optional.
 
 - Web app, browser extension, desktop app — these are new surfaces, not
   parity requirements.
-- `_system.index0` / atlas content merge — Python-derived state, recomputed
-  on load; TS deliberately does not emit it and refuses to merge populated
-  index0 rather than corrupt it.
+- ~~`_system.index0` / atlas content merge~~ — **ported 2026-08-19.** TS now
+  emits events on every mutation, rebuilds checkpoints and canonical views,
+  and merges both sides deterministically, with hashes byte-identical to
+  Python's. No longer a non-gate; it is covered by gate 5.
 - TUI v2/v3 — not ported. Interactive mode (`seedpass-js` with no
   subcommand) reproduces the **legacy v1** menu tree instead: the same eight
   main-menu items, nine entry types, eighteen settings under the same
