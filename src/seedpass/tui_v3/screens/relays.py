@@ -24,9 +24,7 @@ class RelaysScreen(Screen):
         ("s", "sync_now", "Sync Now"),
     ]
 
-    CSS = (
-        MAINTENANCE_CSS
-        + """
+    CSS = MAINTENANCE_CSS + """
     RelaysScreen {
         background: #999999;
     }
@@ -53,7 +51,6 @@ class RelaysScreen(Screen):
         min-width: 16;
     }
     """
-    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Nostr Relay Management", classes="maintenance-title")
@@ -70,7 +67,9 @@ class RelaysScreen(Screen):
                     id="relay-input",
                     classes="maintenance-input",
                 )
-                yield Button("Add Relay", id="add-button", classes="maintenance-primary")
+                yield Button(
+                    "Add Relay", id="add-button", classes="maintenance-primary"
+                )
             yield Static(
                 format_status("ready", "Select a relay or add a new endpoint."),
                 id="relays-status",

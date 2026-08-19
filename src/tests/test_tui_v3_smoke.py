@@ -986,9 +986,7 @@ async def test_tui3_recover_profile_sets_success_status_before_bootstrap() -> No
         booted["fingerprint"] = fingerprint
         # Capture status text at the moment bootstrap fires
         try:
-            status_at_boot.append(
-                str(app.screen.query_one("#recover-status").render())
-            )
+            status_at_boot.append(str(app.screen.query_one("#recover-status").render()))
         except Exception:
             pass
 
@@ -1219,4 +1217,6 @@ async def test_tui3_toolbar_active_class_reflects_app_state() -> None:
         app.action_set_search_sort("label_asc")
         await pilot.pause()
         assert app.screen.query_one("#grid-sort-label_asc", Button).has_class("active")
-        assert not app.screen.query_one("#grid-sort-relevance", Button).has_class("active")
+        assert not app.screen.query_one("#grid-sort-relevance", Button).has_class(
+            "active"
+        )

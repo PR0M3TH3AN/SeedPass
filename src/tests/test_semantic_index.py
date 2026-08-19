@@ -265,7 +265,7 @@ def test_an_index_built_before_the_fix_is_deleted_on_first_touch(tmp_path):
 
 
 def test_an_unreadable_manifest_is_not_treated_as_stale(tmp_path):
-    """"Cannot tell" must not mean "delete it"."""
+    """ "Cannot tell" must not mean "delete it"."""
     from seedpass.core.semantic_index import SemanticIndex
 
     index = SemanticIndex(tmp_path)

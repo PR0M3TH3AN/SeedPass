@@ -35,7 +35,9 @@ def test_handle_verify_checksum_success(monkeypatch, tmp_path, capsys):
     chk_file.write_text("abc")
     monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
     monkeypatch.setattr(
-        type(pm), "_script_checksum_status", lambda self: (True, tmp_path / "seedpass.py")
+        type(pm),
+        "_script_checksum_status",
+        lambda self: (True, tmp_path / "seedpass.py"),
     )
     pm.handle_verify_checksum()
     assert "Checksum verification passed." in capsys.readouterr().out
@@ -47,7 +49,9 @@ def test_handle_verify_checksum_failure(monkeypatch, tmp_path, capsys):
     chk_file.write_text("xyz")
     monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
     monkeypatch.setattr(
-        type(pm), "_script_checksum_status", lambda self: (False, tmp_path / "seedpass.py")
+        type(pm),
+        "_script_checksum_status",
+        lambda self: (False, tmp_path / "seedpass.py"),
     )
     pm.handle_verify_checksum()
     assert "Checksum verification failed" in capsys.readouterr().out
@@ -61,7 +65,9 @@ def test_handle_verify_checksum_target_mismatch(monkeypatch, tmp_path, capsys):
     chk_file.write_text("abc")
     monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", chk_file)
     monkeypatch.setattr(
-        type(pm), "_script_checksum_status", lambda self: (None, tmp_path / "seedpass.py")
+        type(pm),
+        "_script_checksum_status",
+        lambda self: (None, tmp_path / "seedpass.py"),
     )
     pm.handle_verify_checksum()
     out = capsys.readouterr().out
@@ -74,7 +80,9 @@ def test_handle_verify_checksum_missing(monkeypatch, tmp_path, capsys):
     missing = tmp_path / "absent.txt"
     monkeypatch.setattr("seedpass.core.manager.SCRIPT_CHECKSUM_FILE", missing)
     monkeypatch.setattr(
-        type(pm), "_script_checksum_status", lambda self: (True, tmp_path / "seedpass.py")
+        type(pm),
+        "_script_checksum_status",
+        lambda self: (True, tmp_path / "seedpass.py"),
     )
     pm.handle_verify_checksum()
     note = pm.notifications.get_nowait()

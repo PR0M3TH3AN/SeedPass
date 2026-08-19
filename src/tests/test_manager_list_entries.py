@@ -138,7 +138,9 @@ def test_show_entry_details_by_index(monkeypatch):
         monkeypatch.setattr(
             "seedpass.core.manager.confirm_action", lambda *a, **k: False
         )
-        pm.password_generator = SimpleNamespace(generate_password=lambda l, i, gen_version=1: "pw123")
+        pm.password_generator = SimpleNamespace(
+            generate_password=lambda l, i, gen_version=1: "pw123"
+        )
         monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
 
         pm.show_entry_details_by_index(index)
@@ -177,7 +179,9 @@ def _detail_common(monkeypatch, pm):
     monkeypatch.setattr("seedpass.core.manager.timed_input", lambda *a, **k: "b")
     monkeypatch.setattr("seedpass.core.manager.time.sleep", lambda *a, **k: None)
     monkeypatch.setattr(pm, "notify", lambda *a, **k: None)
-    pm.password_generator = SimpleNamespace(generate_password=lambda l, i, gen_version=1: "pw123")
+    pm.password_generator = SimpleNamespace(
+        generate_password=lambda l, i, gen_version=1: "pw123"
+    )
     called = []
     monkeypatch.setattr(pm, "_entry_actions_menu", lambda *a, **k: called.append(True))
     return called
@@ -295,7 +299,9 @@ def test_show_entry_details_sensitive(monkeypatch, capsys, entry_type):
     with TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         pm, entry_mgr = _setup_manager(tmp_path)
-        pm.password_generator = SimpleNamespace(generate_password=lambda l, i, gen_version=1: "pw123")
+        pm.password_generator = SimpleNamespace(
+            generate_password=lambda l, i, gen_version=1: "pw123"
+        )
 
         monkeypatch.setattr(
             "seedpass.core.manager.confirm_action", lambda *a, **k: True

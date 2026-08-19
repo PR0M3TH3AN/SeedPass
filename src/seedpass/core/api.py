@@ -1625,10 +1625,7 @@ class SearchService:
                 continue
             summary[direction][relation] = summary[direction].get(relation, 0) + 1
             summary["combined"][relation] = summary["combined"].get(relation, 0) + 1
-        return {
-            key: dict(sorted(value.items()))
-            for key, value in summary.items()
-        }
+        return {key: dict(sorted(value.items())) for key, value in summary.items()}
 
     def multi_hop_neighbors(
         self,
@@ -1670,9 +1667,7 @@ class SearchService:
             # BFS: visited maps neighbor_id -> best result dict
             visited: dict[int, dict[str, Any]] = {}
             # frontier: (current_id, current_hop, path_so_far)
-            frontier: list[tuple[int, int, list[int]]] = [
-                (target_id, 0, [target_id])
-            ]
+            frontier: list[tuple[int, int, list[int]]] = [(target_id, 0, [target_id])]
 
             while frontier:
                 next_frontier: list[tuple[int, int, list[int]]] = []
@@ -1686,7 +1681,9 @@ class SearchService:
 
                     if direction_key in {"outgoing", "both"}:
                         for link in self._normalized_links(current_entry):
-                            link_relation = str(link.get("relation", "")).strip().lower()
+                            link_relation = (
+                                str(link.get("relation", "")).strip().lower()
+                            )
                             if relation_filter and link_relation != relation_filter:
                                 continue
                             neighbor_id = int(link.get("target_id", 0) or 0)
@@ -1729,7 +1726,11 @@ class SearchService:
                     if direction_key in {"incoming", "both"}:
                         for source in entries:
                             source_id = int(source.get("id", 0) or 0)
-                            if source_id <= 0 or source_id == target_id or source_id in path_set:
+                            if (
+                                source_id <= 0
+                                or source_id == target_id
+                                or source_id in path_set
+                            ):
                                 continue
                             archived = bool(source.get("archived", False))
                             if not include_archived and archived:
@@ -1737,7 +1738,9 @@ class SearchService:
                             for link in self._normalized_links(source):
                                 if int(link.get("target_id", 0) or 0) != current_id:
                                     continue
-                                link_relation = str(link.get("relation", "")).strip().lower()
+                                link_relation = (
+                                    str(link.get("relation", "")).strip().lower()
+                                )
                                 if relation_filter and link_relation != relation_filter:
                                     continue
                                 source_kind = self._entry_kind(source)

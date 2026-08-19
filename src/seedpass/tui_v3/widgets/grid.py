@@ -45,7 +45,9 @@ class GridMetrics(Static):
         filter_text = f"Filter: [b]{app.filter_kind}[/b]"
         sort_text = f"Sort: [b]{app.search_sort}[/b]"
         query_text = (
-            f' Query: [b]"{app.search_query}"[/b]' if str(app.search_query).strip() else ""
+            f' Query: [b]"{app.search_query}"[/b]'
+            if str(app.search_query).strip()
+            else ""
         )
         arch_text = " | [reverse] ARCHIVED [/reverse]" if app.show_archived else ""
 
@@ -241,9 +243,13 @@ class EntryDataTable(DataTable):
                 app.notify(f"Search failed: {e}", severity="error")
                 entries = []
         # Fallback to direct semantic search if requested and available
-        elif app.search_mode != "keyword" and "semantic" in app.services and active_query:
+        elif (
+            app.search_mode != "keyword" and "semantic" in app.services and active_query
+        ):
             try:
-                results = app.services["semantic"].search(active_query, mode=app.search_mode)
+                results = app.services["semantic"].search(
+                    active_query, mode=app.search_mode
+                )
                 # results is list of {entry_id, kind, label, score, excerpt}
                 for r in results:
                     eid = r["entry_id"]

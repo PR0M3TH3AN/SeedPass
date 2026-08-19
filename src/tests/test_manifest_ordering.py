@@ -59,7 +59,9 @@ class FakeEvent:
 
 
 def test_order_key_prefers_published_ms():
-    with_ms = Manifest(ver=1, algo="gzip", chunks=[], published_ms=SAME_SECOND * 1000 + 900)
+    with_ms = Manifest(
+        ver=1, algo="gzip", chunks=[], published_ms=SAME_SECOND * 1000 + 900
+    )
     assert manifest_order_ms(with_ms, SAME_SECOND) == SAME_SECOND * 1000 + 900
 
 
@@ -96,8 +98,14 @@ def test_event_id_still_breaks_an_exact_millisecond_tie():
     # contents, so no party chooses the winner.
     a = FakeEvent("1111", SAME_SECOND, SAME_SECOND * 1000 + 500)
     b = FakeEvent("2222", SAME_SECOND, SAME_SECOND * 1000 + 500)
-    assert [e.id for e in _sort_manifest_events_newest_first([a, b])] == ["2222", "1111"]
-    assert [e.id for e in _sort_manifest_events_newest_first([b, a])] == ["2222", "1111"]
+    assert [e.id for e in _sort_manifest_events_newest_first([a, b])] == [
+        "2222",
+        "1111",
+    ]
+    assert [e.id for e in _sort_manifest_events_newest_first([b, a])] == [
+        "2222",
+        "1111",
+    ]
 
 
 def test_an_unparseable_manifest_orders_by_created_at_without_raising():

@@ -112,9 +112,7 @@ V1_VECTORS = [
 
 def _generator(policy: PasswordPolicy) -> PasswordGenerator:
     seed = Bip39SeedGenerator(TEST_MNEMONIC).Generate()
-    return PasswordGenerator(
-        _SeedDeriver(), TEST_MNEMONIC, BIP85(seed), policy=policy
-    )
+    return PasswordGenerator(_SeedDeriver(), TEST_MNEMONIC, BIP85(seed), policy=policy)
 
 
 # --------------------------------------------------------------------------
@@ -422,9 +420,7 @@ def test_entry_with_gen_version_2_derives_v2():
     pm = _manager_with(pg)
     entry = {"length": 16, "gen_version": CURRENT_PASSWORD_GEN_VERSION}
     got = PasswordManager._generate_password_for_entry(pm, entry, 3)
-    assert got == pg.generate_password(
-        16, 3, gen_version=CURRENT_PASSWORD_GEN_VERSION
-    )
+    assert got == pg.generate_password(16, 3, gen_version=CURRENT_PASSWORD_GEN_VERSION)
     assert got != pg.generate_password(16, 3, gen_version=1)
 
 

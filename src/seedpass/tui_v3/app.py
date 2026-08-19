@@ -250,9 +250,7 @@ class CommandProcessor:
             self.app.action_setting_kdf_mode(args[0])
         elif cmd == "setting-kdf-iterations":
             if not args:
-                self.app.notify(
-                    "Usage: setting-kdf-iterations <n>", severity="warning"
-                )
+                self.app.notify("Usage: setting-kdf-iterations <n>", severity="warning")
                 return
             self.app.action_setting_kdf_iterations(args[0])
         elif cmd == "archive-filter":
@@ -2258,9 +2256,7 @@ class SeedPassTuiV3(App[None]):
         """Switch display density between compact and comfortable."""
         normalized = mode.lower()
         if normalized not in {"compact", "comfortable"}:
-            self.notify(
-                "Usage: density <compact|comfortable>", severity="warning"
-            )
+            self.notify("Usage: density <compact|comfortable>", severity="warning")
             return
         self.density_mode = normalized
         self.notify(f"Density: {normalized}")

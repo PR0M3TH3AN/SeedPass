@@ -520,12 +520,15 @@ def test_merged_deletion_does_not_recycle_entry_index():
         incoming = {
             "schema_version": 4,
             "entries": {
-                "2": {"kind": "password", "label": "web-c", "modified_ts": 10**10, "_deleted": True},
+                "2": {
+                    "kind": "password",
+                    "label": "web-c",
+                    "modified_ts": 10**10,
+                    "_deleted": True,
+                },
             },
         }
-        merged = merge_index_payloads(
-            vault.load_index(), incoming, source_tag="remote"
-        )
+        merged = merge_index_payloads(vault.load_index(), incoming, source_tag="remote")
         assert "2" not in merged["entries"]
         assert merged["_sync_meta"]["next_index"] == 3
         vault.save_index(merged)

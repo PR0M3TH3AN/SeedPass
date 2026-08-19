@@ -487,7 +487,8 @@ def _build_children_view(
     items = [
         _normalize_entry_summary(entry_id, entry)
         for entry_id, entry in sorted(
-            _normalize_mapping(entries).items(), key=lambda item: _entry_sort_key(item[0])
+            _normalize_mapping(entries).items(),
+            key=lambda item: _entry_sort_key(item[0]),
         )
         if isinstance(entry, dict)
     ]

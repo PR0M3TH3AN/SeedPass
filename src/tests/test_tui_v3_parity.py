@@ -365,6 +365,7 @@ async def test_v3_action_bar_global_row_uses_correct_handlers() -> None:
         # Export/Import Data use open_palette because they need a path argument
         # Verify both labels still present
         from rich.text import Text
+
         rendered = Text.from_markup(markup).plain
         assert "Export Data" in rendered
         assert "Import Data" in rendered

@@ -21,9 +21,7 @@ class ProfileManagementScreen(Screen):
         Binding("escape", "app.pop_screen", "Back", show=True),
     ]
 
-    CSS = (
-        MAINTENANCE_CSS
-        + """
+    CSS = MAINTENANCE_CSS + """
     ProfileManagementScreen {
         background: #999999;
     }
@@ -40,7 +38,6 @@ class ProfileManagementScreen(Screen):
         min-width: 14;
     }
     """
-    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Profile Management", classes="maintenance-title")
@@ -52,17 +49,29 @@ class ProfileManagementScreen(Screen):
             )
             yield Static("", id="profile-list", classes="maintenance-intro-dark")
             yield Label("Select Profile", classes="maintenance-label")
-            yield Input(placeholder="Profile number", id="profile-choice", classes="maintenance-input")
+            yield Input(
+                placeholder="Profile number",
+                id="profile-choice",
+                classes="maintenance-input",
+            )
             yield Label("Password (required for switch)", classes="maintenance-label")
-            yield Input(password=True, id="profile-password", classes="maintenance-input")
+            yield Input(
+                password=True, id="profile-password", classes="maintenance-input"
+            )
             yield Static(
-                format_status("ready", "Choose a profile number, then use Switch or Remove."),
+                format_status(
+                    "ready", "Choose a profile number, then use Switch or Remove."
+                ),
                 id="profile-status",
                 classes="maintenance-status-dark",
             )
             with Horizontal(id="profile-actions", classes="maintenance-actions"):
-                yield Button("Switch", id="profile-switch", classes="maintenance-primary")
-                yield Button("Remove", id="profile-remove", classes="maintenance-danger")
+                yield Button(
+                    "Switch", id="profile-switch", classes="maintenance-primary"
+                )
+                yield Button(
+                    "Remove", id="profile-remove", classes="maintenance-danger"
+                )
                 yield Button("Back", id="profile-back", classes="maintenance-secondary")
         yield Static(
             "ESC: Back | Ctrl+R: Refresh | Select a profile number to switch or remove",
@@ -113,7 +122,9 @@ class ProfileManagementScreen(Screen):
         if profiles:
             self.query_one("#profile-choice", Input).value = "1"
             self._set_status(
-                format_status("ready", "Choose a profile number, then use Switch or Remove.")
+                format_status(
+                    "ready", "Choose a profile number, then use Switch or Remove."
+                )
             )
 
     def _selected_profile(self) -> dict[str, str] | None:
@@ -124,7 +135,9 @@ class ProfileManagementScreen(Screen):
             return None
         idx = int(choice)
         if idx < 1 or idx > len(profiles):
-            self._set_status(format_status("warning", "Profile number is out of range."))
+            self._set_status(
+                format_status("warning", "Profile number is out of range.")
+            )
             return None
         return profiles[idx - 1]
 
@@ -160,7 +173,8 @@ class ProfileManagementScreen(Screen):
                 self._pending_remove_fingerprint = fingerprint
                 self._set_status(
                     format_status(
-                        "warning", f"Confirm: press Remove again to permanently delete profile '{label}'."
+                        "warning",
+                        f"Confirm: press Remove again to permanently delete profile '{label}'.",
                     )
                 )
                 return

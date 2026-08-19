@@ -17,7 +17,9 @@ from constants import DEFAULT_PASSWORD_LENGTH
 
 
 class FakePasswordGenerator:
-    def generate_password(self, length: int, index: int, gen_version: int = 1) -> str:  # noqa: D401
+    def generate_password(
+        self, length: int, index: int, gen_version: int = 1
+    ) -> str:  # noqa: D401
         return f"pw-{index}-{length}"
 
 

@@ -3185,7 +3185,8 @@ class PasswordManager:
         # call shape means every existing caller and test double that defines
         # generate_password(length, index) keeps working untouched.
         kwargs = (
-            {} if gen_version == LEGACY_PASSWORD_GEN_VERSION
+            {}
+            if gen_version == LEGACY_PASSWORD_GEN_VERSION
             else {"gen_version": gen_version}
         )
 

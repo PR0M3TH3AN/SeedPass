@@ -17,9 +17,7 @@ class NostrPubkeyScreen(Screen):
         Binding("c", "copy_pubkey", "Copy npub", show=True),
     ]
 
-    CSS = (
-        MAINTENANCE_CSS
-        + """
+    CSS = MAINTENANCE_CSS + """
     NostrPubkeyScreen {
         background: #999999;
     }
@@ -36,7 +34,6 @@ class NostrPubkeyScreen(Screen):
         min-width: 16;
     }
     """
-    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Active Profile npub", classes="maintenance-title")
@@ -52,8 +49,12 @@ class NostrPubkeyScreen(Screen):
                 classes="maintenance-status-light",
             )
             with Horizontal(id="pubkey-actions", classes="maintenance-actions"):
-                yield Button("Copy npub", id="pubkey-copy", classes="maintenance-primary")
-        yield Static("ESC: Back | C: Copy npub to clipboard", classes="maintenance-footer")
+                yield Button(
+                    "Copy npub", id="pubkey-copy", classes="maintenance-primary"
+                )
+        yield Static(
+            "ESC: Back | C: Copy npub to clipboard", classes="maintenance-footer"
+        )
 
     def on_mount(self) -> None:
         self._refresh_view()
@@ -86,7 +87,9 @@ class NostrPubkeyScreen(Screen):
         nostr = self.app.services.get("nostr")
         entry = self.app.services.get("entry")
         if not nostr or not entry:
-            self.app.notify("Clipboard or Nostr service unavailable", severity="warning")
+            self.app.notify(
+                "Clipboard or Nostr service unavailable", severity="warning"
+            )
             return
         try:
             npub = nostr.get_pubkey()

@@ -215,7 +215,9 @@ class AddEntryScreen(Screen):
                 )
                 return
 
-            self.app.notify(f"'{label}' ({kind}) saved — press v to reveal or c to copy.")
+            self.app.notify(
+                f"'{label}' ({kind}) saved — press v to reveal or c to copy."
+            )
             self.app.action_refresh()
             self.app.pop_screen()
         except Exception as e:
@@ -322,7 +324,9 @@ class SeedPlusScreen(Screen):
             else:
                 service.add_managed_account(label=label, index=index, tags=tags)
 
-            self.app.notify(f"'{label}' ({kind}) derived at index {index} — reproducible from your parent seed.")
+            self.app.notify(
+                f"'{label}' ({kind}) derived at index {index} — reproducible from your parent seed."
+            )
             self.app.action_refresh()
             self.app.pop_screen()
         except Exception as e:

@@ -38,16 +38,12 @@ sys.path.insert(0, str(REPO / "src"))
 CLI_BIN = REPO / "js" / "packages" / "cli" / "bin" / "seedpass-js.mjs"
 
 # Throwaway seeds. Never used for real funds or real vaults.
-SEED_A = (
-    "rival cover produce defy coconut arrow empty acid crime cereal strong icon"
-)
+SEED_A = "rival cover produce defy coconut arrow empty acid crime cereal strong icon"
 SEED_B = (
     "romance waste exercise alone pistol mushroom aunt series weasel muscle move skirt"
 )
 # Valid words, deliberately wrong checksum: both implementations must refuse it.
-SEED_INVALID = (
-    "gaze stereo trend brown chunk hero pole width once tent lift bird"
-)
+SEED_INVALID = "gaze stereo trend brown chunk hero pole width once tent lift bird"
 PASSWORD = "cross-impl-check-password"
 
 results: list[tuple[str, bool, str]] = []
@@ -273,10 +269,14 @@ def py_secrets_for(index: dict, seed: str) -> dict[str, str]:
             out[label] = entry["content"]
         elif kind == "seed":
             out[label] = derive_seed_phrase(
-                bip85, int(entry.get("index", int(idx))), int(entry.get("word_count", 24))
+                bip85,
+                int(entry.get("index", int(idx))),
+                int(entry.get("word_count", 24)),
             )
         elif kind == "managed_account":
-            out[label] = derive_seed_phrase(bip85, int(entry.get("index", int(idx))), 12)
+            out[label] = derive_seed_phrase(
+                bip85, int(entry.get("index", int(idx))), 12
+            )
         elif kind == "pgp":
             from seedpass.core.password_generation import derive_pgp_key
 
@@ -326,16 +326,16 @@ def phase_a(tmp: Path) -> None:
     fp = py_create_profile(app_dir, SEED_A, PASSWORD)
 
     try:
-        listed = json.loads(run_cli(app_dir, "entry", "list", env_extra={"SEEDPASS_MNEMONIC": SEED_A}))
+        listed = json.loads(
+            run_cli(app_dir, "entry", "list", env_extra={"SEEDPASS_MNEMONIC": SEED_A})
+        )
         check("TS opens the Python-created index", True)
     except Exception as exc:
         check("TS opens the Python-created index", False, str(exc))
         return
 
     py_seed, py_index = py_open_profile(app_dir, fp, PASSWORD)
-    py_labels = sorted(
-        e["label"] for e in py_index.get("entries", {}).values()
-    )
+    py_labels = sorted(e["label"] for e in py_index.get("entries", {}).values())
     ts_labels = sorted(row["label"] for row in listed)
     check("entry sets match", py_labels == ts_labels, f"{py_labels} != {ts_labels}")
 
@@ -359,7 +359,11 @@ def phase_a(tmp: Path) -> None:
     with agent_running(app_dir):
         try:
             run_cli(
-                app_dir, "vault", "unlock", "--ttl", "5",
+                app_dir,
+                "vault",
+                "unlock",
+                "--ttl",
+                "5",
                 env_extra={"SEEDPASS_PASSWORD": PASSWORD},
             )
             revealed = run_cli(app_dir, "entry", "reveal", "python-api")
@@ -370,7 +374,9 @@ def phase_a(tmp: Path) -> None:
             )
         except Exception as exc:
             check(
-                "TS unlocks the Python profile with the master password", False, str(exc)
+                "TS unlocks the Python profile with the master password",
+                False,
+                str(exc),
             )
 
 
@@ -379,25 +385,64 @@ def phase_b(tmp: Path) -> None:
     app_dir = tmp / "b"
     app_dir.mkdir()
     run_cli(
-        app_dir, "fingerprint", "add", "--name", "ts-made",
+        app_dir,
+        "fingerprint",
+        "add",
+        "--name",
+        "ts-made",
         env_extra={"SEEDPASS_MNEMONIC": SEED_B, "SEEDPASS_PASSWORD": PASSWORD},
     )
     env = {"SEEDPASS_MNEMONIC": SEED_B}
-    run_cli(app_dir, "entry", "add", "password", "ts-site.example", "--length", "22", env_extra=env)
+    run_cli(
+        app_dir,
+        "entry",
+        "add",
+        "password",
+        "ts-site.example",
+        "--length",
+        "22",
+        env_extra=env,
+    )
     run_cli(app_dir, "entry", "add", "totp", "ts-totp", env_extra=env)
-    run_cli(app_dir, "entry", "add", "key-value", "ts-api", "token", "ts-secret-value", env_extra=env)
+    run_cli(
+        app_dir,
+        "entry",
+        "add",
+        "key-value",
+        "ts-api",
+        "token",
+        "ts-secret-value",
+        env_extra=env,
+    )
     run_cli(app_dir, "entry", "add", "managed-account", "ts-managed", env_extra=env)
     run_cli(app_dir, "entry", "add", "ssh", "ts-ssh", env_extra=env)
     run_cli(app_dir, "entry", "add", "nostr", "ts-nostr", env_extra=env)
     run_cli(
-        app_dir, "entry", "add", "pgp", "ts-pgp", "--user-id", "ts@example.com",
+        app_dir,
+        "entry",
+        "add",
+        "pgp",
+        "ts-pgp",
+        "--user-id",
+        "ts@example.com",
         env_extra=env,
     )
-    run_cli(app_dir, "entry", "add", "document", "ts-doc", "ts document body", env_extra=env)
+    run_cli(
+        app_dir, "entry", "add", "document", "ts-doc", "ts document body", env_extra=env
+    )
     run_cli(app_dir, "entry", "add", "seed", "ts-seed", "--words", "24", env_extra=env)
     run_cli(
-        app_dir, "entry", "add", "totp", "ts-totp-imported",
-        "--secret", "JBSWY3DPEHPK3PXP", "--period", "45", "--digits", "8",
+        app_dir,
+        "entry",
+        "add",
+        "totp",
+        "ts-totp-imported",
+        "--secret",
+        "JBSWY3DPEHPK3PXP",
+        "--period",
+        "45",
+        "--digits",
+        "8",
         env_extra=env,
     )
 
@@ -422,7 +467,9 @@ def phase_b(tmp: Path) -> None:
         for k in py_secrets
         if py_secrets[k].rstrip("\n") != (ts_secrets.get(k) or "").rstrip("\n")
     ]
-    check("every secret derives identically", not mismatches, f"mismatched: {mismatches}")
+    check(
+        "every secret derives identically", not mismatches, f"mismatched: {mismatches}"
+    )
 
     # Python's schema validation should accept the TS-written index
     from seedpass.core.migrations import LATEST_VERSION  # type: ignore
@@ -452,11 +499,17 @@ def phase_c(tmp: Path) -> None:
     vault = Vault(enc_mgr, fp_dir)
     cfg_mgr = ConfigManager(vault, fp_dir)
     backup_mgr = BackupManager(fp_dir, cfg_mgr)
-    py_export = export_backup(vault, backup_mgr, fp_dir / "py-export.json", parent_seed=SEED_A)
+    py_export = export_backup(
+        vault, backup_mgr, fp_dir / "py-export.json", parent_seed=SEED_A
+    )
     try:
         summary = json.loads(
             run_cli(
-                app_a, "vault", "import", str(py_export), "--inspect",
+                app_a,
+                "vault",
+                "import",
+                str(py_export),
+                "--inspect",
                 env_extra={"SEEDPASS_MNEMONIC": SEED_A},
             )
         )
@@ -473,7 +526,10 @@ def phase_c(tmp: Path) -> None:
     fp_b = generate_fingerprint(SEED_B)
     ts_export = app_b / "ts-export.json"
     run_cli(
-        app_b, "vault", "export", str(ts_export),
+        app_b,
+        "vault",
+        "export",
+        str(ts_export),
         env_extra={"SEEDPASS_MNEMONIC": SEED_B},
     )
     fp_dir_b = app_b / fp_b
@@ -481,6 +537,7 @@ def phase_c(tmp: Path) -> None:
     vault_b = Vault(enc_b, fp_dir_b)
     cfg_b = ConfigManager(vault_b, fp_dir_b)
     backup_b = BackupManager(fp_dir_b, cfg_b)
+
     def user_data(index: dict) -> str:
         """User-visible state only.
 
@@ -504,7 +561,9 @@ def phase_c(tmp: Path) -> None:
             "user data changed across the round trip",
         )
     except Exception as exc:
-        check("Python imports a TS portable backup (checksum verified)", False, str(exc))
+        check(
+            "Python imports a TS portable backup (checksum verified)", False, str(exc)
+        )
 
 
 def phase_d(tmp: Path) -> None:
@@ -526,8 +585,15 @@ def phase_d(tmp: Path) -> None:
     detail = ""
     try:
         run_cli(
-            app_dir, "fingerprint", "add", "--name", "should-not-exist",
-            env_extra={"SEEDPASS_MNEMONIC": SEED_INVALID, "SEEDPASS_PASSWORD": PASSWORD},
+            app_dir,
+            "fingerprint",
+            "add",
+            "--name",
+            "should-not-exist",
+            env_extra={
+                "SEEDPASS_MNEMONIC": SEED_INVALID,
+                "SEEDPASS_PASSWORD": PASSWORD,
+            },
         )
         detail = "TS created a profile from an invalid phrase"
     except Exception as exc:
@@ -593,7 +659,9 @@ def phase_e(tmp: Path) -> None:
     check("Python and TS agree on the migrated entry set", py_labels == labels)
 
     # And TS must not have written a downgraded index back to disk
-    reloaded = Vault(EncryptionManager(derive_index_key(SEED_A), fp_dir), fp_dir).load_index()
+    reloaded = Vault(
+        EncryptionManager(derive_index_key(SEED_A), fp_dir), fp_dir
+    ).load_index()
     check(
         "Python still reads the profile after TS touched it",
         sorted(e["label"] for e in reloaded.get("entries", {}).values()) == labels,
@@ -686,9 +754,15 @@ def phase_f(tmp: Path) -> None:
             encrypted = vault.get_encrypted_index()
             manifest, manifest_id = asyncio.run(client.publish_snapshot(encrypted))
             published = bool(manifest_id) and bool(manifest.chunks)
-            check("Python publishes a snapshot to the relay", published, str(manifest_id))
+            check(
+                "Python publishes a snapshot to the relay", published, str(manifest_id)
+            )
         except Exception as exc:
-            check("Python publishes a snapshot to the relay", False, f"{type(exc).__name__}: {exc}")
+            check(
+                "Python publishes a snapshot to the relay",
+                False,
+                f"{type(exc).__name__}: {exc}",
+            )
             return
 
         # --- TypeScript restores from what Python published -------------------
@@ -714,7 +788,9 @@ def phase_f(tmp: Path) -> None:
                 f"{ts_labels} != {py_labels}",
             )
             revealed = run_cli(ts_dir, "entry", "reveal", "python-api", env_extra=env)
-            check("restored secrets are intact", revealed == "py-secret-value", revealed)
+            check(
+                "restored secrets are intact", revealed == "py-secret-value", revealed
+            )
         except Exception as exc:
             check("TS restores the Python-published snapshot", False, str(exc))
 
@@ -757,7 +833,9 @@ def phase_g(tmp: Path) -> None:
     links = json.loads(run_cli(app_dir, "entry", "links", "0", env_extra=env))
     check(
         "TS sees Python's link with a resolved target",
-        len(links) == 1 and links[0]["relation"] == "related_to" and links[0]["target_id"] == 2,
+        len(links) == 1
+        and links[0]["relation"] == "related_to"
+        and links[0]["target_id"] == 2,
         json.dumps(links),
     )
     archived = json.loads(run_cli(app_dir, "entry", "get", "1", env_extra=env))
@@ -770,7 +848,11 @@ def phase_g(tmp: Path) -> None:
     _vault2, em2, _cfg2 = _py_vault(app_dir, fp, SEED_A)
     entry0 = em2.retrieve_entry(0)
     entry1 = em2.retrieve_entry(1)
-    check("Python sees TS's edit", entry0.get("notes") == "edited-by-ts", str(entry0.get("notes")))
+    check(
+        "Python sees TS's edit",
+        entry0.get("notes") == "edited-by-ts",
+        str(entry0.get("notes")),
+    )
     check("Python sees TS's unarchive", entry1.get("archived") is False)
     check("Python sees TS's link removal", em2.get_links(0) == [])
 
@@ -786,14 +868,25 @@ def phase_h(tmp: Path) -> None:
         "schema_version": 4,
         "entries": {
             "0": {
-                "type": "password", "kind": "password", "label": "shared",
-                "length": 16, "archived": False, "notes": "from-current",
-                "tags": ["a"], "modified_ts": base_ts,
+                "type": "password",
+                "kind": "password",
+                "label": "shared",
+                "length": 16,
+                "archived": False,
+                "notes": "from-current",
+                "tags": ["a"],
+                "modified_ts": base_ts,
             },
             "1": {
-                "type": "key_value", "kind": "key_value", "label": "only-current",
-                "key": "k", "value": "v", "archived": False, "notes": "",
-                "tags": [], "modified_ts": base_ts,
+                "type": "key_value",
+                "kind": "key_value",
+                "label": "only-current",
+                "key": "k",
+                "value": "v",
+                "archived": False,
+                "notes": "",
+                "tags": [],
+                "modified_ts": base_ts,
             },
         },
     }
@@ -801,20 +894,33 @@ def phase_h(tmp: Path) -> None:
         "schema_version": 4,
         "entries": {
             "0": {
-                "type": "password", "kind": "password", "label": "shared",
-                "length": 16, "archived": True, "notes": "",
-                "tags": ["b"], "modified_ts": base_ts, "username": "incoming-user",
+                "type": "password",
+                "kind": "password",
+                "label": "shared",
+                "length": 16,
+                "archived": True,
+                "notes": "",
+                "tags": ["b"],
+                "modified_ts": base_ts,
+                "username": "incoming-user",
             },
             "2": {
-                "type": "password", "kind": "password", "label": "only-incoming",
-                "length": 20, "archived": False, "notes": "", "tags": [],
+                "type": "password",
+                "kind": "password",
+                "label": "only-incoming",
+                "length": 20,
+                "archived": False,
+                "notes": "",
+                "tags": [],
                 "modified_ts": base_ts + 5,
             },
         },
     }
 
     py_merged = merge_index_payloads(
-        json.loads(json.dumps(current)), json.loads(json.dumps(incoming)), source_tag="xtest"
+        json.loads(json.dumps(current)),
+        json.loads(json.dumps(incoming)),
+        source_tag="xtest",
     )
 
     # Run the TS merge through a tiny node harness against the same inputs
@@ -829,7 +935,9 @@ def phase_h(tmp: Path) -> None:
     try:
         proc = subprocess.run(
             ["node", str(script), json.dumps([current, incoming])],
-            capture_output=True, text=True, cwd=str(CLI_BIN.parent),
+            capture_output=True,
+            text=True,
+            cwd=str(CLI_BIN.parent),
         )
         if proc.returncode != 0:
             check("TS and Python merge identically", False, proc.stderr.strip()[:200])
@@ -880,7 +988,11 @@ def phase_i(tmp: Path) -> None:
     with agent_running(app_dir):
         try:
             run_cli(
-                app_dir, "vault", "unlock", "--ttl", "10",
+                app_dir,
+                "vault",
+                "unlock",
+                "--ttl",
+                "10",
                 env_extra={"SEEDPASS_PASSWORD": PASSWORD},
             )
             revealed = run_cli(app_dir, "entry", "reveal", "python-api")
@@ -937,8 +1049,26 @@ def phase_k(tmp: Path) -> None:
 
     # Simulate a migration window: the user works exclusively in TS for a
     # while, exercising creation, modification and archival.
-    run_cli(app_dir, "entry", "add", "password", "post-migration-site", "--length", "22", env_extra=env)
-    run_cli(app_dir, "entry", "add", "key-value", "post-migration-kv", "k", "rollback-value", env_extra=env)
+    run_cli(
+        app_dir,
+        "entry",
+        "add",
+        "password",
+        "post-migration-site",
+        "--length",
+        "22",
+        env_extra=env,
+    )
+    run_cli(
+        app_dir,
+        "entry",
+        "add",
+        "key-value",
+        "post-migration-kv",
+        "k",
+        "rollback-value",
+        env_extra=env,
+    )
     run_cli(app_dir, "entry", "add", "totp", "post-migration-totp", env_extra=env)
     run_cli(app_dir, "entry", "modify", "0", "--notes", "touched by ts", env_extra=env)
     run_cli(app_dir, "entry", "archive", "1", env_extra=env)
@@ -966,12 +1096,13 @@ def phase_k(tmp: Path) -> None:
 
     # And Python can still derive the secrets for what TS created.
     py_secrets = py_secrets_for(py_index, SEED_A)
-    ts_secrets = ts_secrets_for(app_dir, ["post-migration-site", "post-migration-kv"], SEED_A)
+    ts_secrets = ts_secrets_for(
+        app_dir, ["post-migration-site", "post-migration-kv"], SEED_A
+    )
     check(
         "secrets for TS-created entries match in Python",
         all(
-            py_secrets[k].rstrip("\n") == ts_secrets[k].rstrip("\n")
-            for k in ts_secrets
+            py_secrets[k].rstrip("\n") == ts_secrets[k].rstrip("\n") for k in ts_secrets
         ),
     )
 
@@ -1007,7 +1138,11 @@ def phase_l(tmp: Path) -> None:
         "blacklisted": "foreign meaning, not our archive flag",
         "website": "foreign meaning, not our label alias",
         "words": ["foreign", "list"],
-        "bitlogin": {"admins": ["npub1aaaa"], "roles": {"sales": ["npub1bbbb"]}, "policy_rev": 7},
+        "bitlogin": {
+            "admins": ["npub1aaaa"],
+            "roles": {"sales": ["npub1bbbb"]},
+            "policy_rev": 7,
+        },
     }
     foreign_top_level = {"spec": "bitlogin-v1", "org_count": 1}
 

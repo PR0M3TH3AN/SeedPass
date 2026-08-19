@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 MAINTENANCE_CSS = """
 .maintenance-title {
     background: #000000;

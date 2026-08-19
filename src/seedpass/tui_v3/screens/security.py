@@ -17,9 +17,7 @@ class ChangePasswordScreen(Screen):
         Binding("escape", "app.pop_screen", "Cancel", show=True),
     ]
 
-    CSS = (
-        MAINTENANCE_CSS
-        + """
+    CSS = MAINTENANCE_CSS + """
     ChangePasswordScreen {
         background: #999999;
     }
@@ -31,30 +29,47 @@ class ChangePasswordScreen(Screen):
         min-width: 18;
     }
     """
-    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Change Vault Password", classes="maintenance-title")
-        with Container(id="change-password-container", classes="maintenance-panel-dark"):
+        with Container(
+            id="change-password-container", classes="maintenance-panel-dark"
+        ):
             yield Static(
                 "Change the vault password for the active profile. You must provide the current password to authorize re-encryption.",
                 id="change-password-intro",
                 classes="maintenance-intro-dark",
             )
             yield Label("Current Password", classes="maintenance-label")
-            yield Input(password=True, id="change-password-old", classes="maintenance-input")
+            yield Input(
+                password=True, id="change-password-old", classes="maintenance-input"
+            )
             yield Label("New Password", classes="maintenance-label")
-            yield Input(password=True, id="change-password-new", classes="maintenance-input")
+            yield Input(
+                password=True, id="change-password-new", classes="maintenance-input"
+            )
             yield Label("Confirm New Password", classes="maintenance-label")
-            yield Input(password=True, id="change-password-confirm", classes="maintenance-input")
+            yield Input(
+                password=True, id="change-password-confirm", classes="maintenance-input"
+            )
             yield Static(
-                format_status("ready", "Enter the current and new password to continue."),
+                format_status(
+                    "ready", "Enter the current and new password to continue."
+                ),
                 id="change-password-status",
                 classes="maintenance-status-dark",
             )
-            with Horizontal(id="change-password-actions", classes="maintenance-actions"):
-                yield Button("Cancel", id="change-password-cancel", classes="maintenance-danger")
-                yield Button("Update Password", id="change-password-submit", classes="maintenance-primary")
+            with Horizontal(
+                id="change-password-actions", classes="maintenance-actions"
+            ):
+                yield Button(
+                    "Cancel", id="change-password-cancel", classes="maintenance-danger"
+                )
+                yield Button(
+                    "Update Password",
+                    id="change-password-submit",
+                    classes="maintenance-primary",
+                )
         yield Static("ESC: Cancel | Ctrl+S: Submit", classes="maintenance-footer")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -72,10 +87,14 @@ class ChangePasswordScreen(Screen):
         confirm = self.query_one("#change-password-confirm", Input).value
 
         if not old_password or not new_password:
-            self._set_status(format_status("warning", "Current and new passwords are required."))
+            self._set_status(
+                format_status("warning", "Current and new passwords are required.")
+            )
             return
         if new_password != confirm:
-            self._set_status(format_status("warning", "New password confirmation does not match."))
+            self._set_status(
+                format_status("warning", "New password confirmation does not match.")
+            )
             return
         self.app.action_change_password(old_password, new_password)
 
@@ -88,9 +107,7 @@ class BackupParentSeedScreen(Screen):
         Binding("escape", "app.pop_screen", "Cancel", show=True),
     ]
 
-    CSS = (
-        MAINTENANCE_CSS
-        + """
+    CSS = MAINTENANCE_CSS + """
     BackupParentSeedScreen {
         background: #999999;
     }
@@ -102,7 +119,6 @@ class BackupParentSeedScreen(Screen):
         min-width: 18;
     }
     """
-    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Backup Parent Seed", classes="maintenance-title")
@@ -113,17 +129,35 @@ class BackupParentSeedScreen(Screen):
                 classes="maintenance-intro-dark",
             )
             yield Label("Destination Path", classes="maintenance-label")
-            yield Input(placeholder="seed-backup.enc", id="backup-seed-path", classes="maintenance-input")
-            yield Label("Backup Passphrase (optional — encrypts the exported seed bundle)", classes="maintenance-label")
-            yield Input(password=True, id="backup-seed-password", classes="maintenance-input")
+            yield Input(
+                placeholder="seed-backup.enc",
+                id="backup-seed-path",
+                classes="maintenance-input",
+            )
+            yield Label(
+                "Backup Passphrase (optional — encrypts the exported seed bundle)",
+                classes="maintenance-label",
+            )
+            yield Input(
+                password=True, id="backup-seed-password", classes="maintenance-input"
+            )
             yield Static(
-                format_status("ready", "Enter the backup destination path to export an encrypted seed bundle."),
+                format_status(
+                    "ready",
+                    "Enter the backup destination path to export an encrypted seed bundle.",
+                ),
                 id="backup-seed-status",
                 classes="maintenance-status-dark",
             )
             with Horizontal(id="backup-seed-actions", classes="maintenance-actions"):
-                yield Button("Cancel", id="backup-seed-cancel", classes="maintenance-danger")
-                yield Button("Export Backup", id="backup-seed-submit", classes="maintenance-primary")
+                yield Button(
+                    "Cancel", id="backup-seed-cancel", classes="maintenance-danger"
+                )
+                yield Button(
+                    "Export Backup",
+                    id="backup-seed-submit",
+                    classes="maintenance-primary",
+                )
         yield Static("ESC: Cancel | Ctrl+S: Submit", classes="maintenance-footer")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

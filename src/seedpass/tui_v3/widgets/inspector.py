@@ -704,7 +704,9 @@ class BoardContainer(Vertical):
 
     def _update_hints(self, board_type: str) -> None:
         try:
-            self.query_one("#utility-hints-bar", UtilityHintsBar).update_kind(board_type)
+            self.query_one("#utility-hints-bar", UtilityHintsBar).update_kind(
+                board_type
+            )
         except Exception:
             pass
 
@@ -804,7 +806,15 @@ class LinkedItemsPanel(Vertical):
     """
 
     # Available kind filters — None means "all"
-    _KIND_CYCLE: list[str | None] = [None, "password", "nostr", "seed", "document", "note", "totp"]
+    _KIND_CYCLE: list[str | None] = [
+        None,
+        "password",
+        "nostr",
+        "seed",
+        "document",
+        "note",
+        "totp",
+    ]
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -829,10 +839,14 @@ class LinkedItemsPanel(Vertical):
         yield PivotBreadcrumbBar(id="pivot-breadcrumb-bar")
         yield Label("Linked Items", id="linked-items-title")
         yield Label("", id="linked-atlas-context")
-        yield Label("No linked items.", id="linked-items-summary", classes="linked-summary")
+        yield Label(
+            "No linked items.", id="linked-items-summary", classes="linked-summary"
+        )
         yield Label("", id="linked-filter-bar", classes="linked-filter-bar")
         with Vertical(id="linked-items-list"):
-            yield Label("Select an entry to inspect relationships.", classes="linked-empty")
+            yield Label(
+                "Select an entry to inspect relationships.", classes="linked-empty"
+            )
         yield Label("", id="linked-nav-hint", classes="linked-nav-hint")
 
     def _active_kind_filter(self) -> str | None:
@@ -848,7 +862,10 @@ class LinkedItemsPanel(Vertical):
             if kind is None:
                 self._current_filter_idx = idx
                 return
-            if any(str(item.get("kind", "")).strip().lower() == kind for item in neighbors_all):
+            if any(
+                str(item.get("kind", "")).strip().lower() == kind
+                for item in neighbors_all
+            ):
                 self._current_filter_idx = idx
                 return
         # No other kind found — stay at all
@@ -883,7 +900,8 @@ class LinkedItemsPanel(Vertical):
             return
 
         visible = [
-            item for item in neighbors
+            item
+            for item in neighbors
             if kind_filter is None
             or str(item.get("kind", "")).strip().lower() == kind_filter
         ]
@@ -920,7 +938,10 @@ class LinkedItemsPanel(Vertical):
                 )
             )
             for item in groups[(direction, relation)]:
-                label = str(item.get("label", "")).strip() or f"Entry #{item.get('entry_id', '?')}"
+                label = (
+                    str(item.get("label", "")).strip()
+                    or f"Entry #{item.get('entry_id', '?')}"
+                )
                 kind = str(item.get("kind", "")).strip() or "entry"
                 archived_tag = " [archived]" if item.get("archived") else ""
                 tags = item.get("tags", [])
@@ -948,7 +969,9 @@ class LinkedItemsPanel(Vertical):
         """Fetch label for an entry, falling back to its ID string."""
         try:
             entry = self.app.services["entry"].retrieve_entry(entry_id)
-            return str(entry.get("label") or f"#{entry_id}") if entry else f"#{entry_id}"
+            return (
+                str(entry.get("label") or f"#{entry_id}") if entry else f"#{entry_id}"
+            )
         except Exception:
             return f"#{entry_id}"
 
@@ -962,7 +985,9 @@ class LinkedItemsPanel(Vertical):
         if not history or current_entry_id is None:
             bar.clear()
             return
-        crumbs = [{"entry_id": eid, "label": self._get_entry_label(eid)} for eid in history]
+        crumbs = [
+            {"entry_id": eid, "label": self._get_entry_label(eid)} for eid in history
+        ]
         current_label = self._get_entry_label(current_entry_id)
         bar.set_crumbs(crumbs, current_label)
 
@@ -971,7 +996,9 @@ class LinkedItemsPanel(Vertical):
         try:
             ctx_label = self.query_one("#linked-atlas-context", Label)
             if self.atlas_source_scope:
-                ctx_label.update(f"[dim]◈ Atlas context: {self.atlas_source_scope}[/dim]")
+                ctx_label.update(
+                    f"[dim]◈ Atlas context: {self.atlas_source_scope}[/dim]"
+                )
             else:
                 ctx_label.update("")
         except Exception:
@@ -1027,14 +1054,20 @@ class LinkedItemsPanel(Vertical):
             )
             return
 
-        outgoing = ", ".join(
-            f"{relation}:{count}"
-            for relation, count in rel_summary.get("outgoing", {}).items()
-        ) or "none"
-        incoming = ", ".join(
-            f"{relation}:{count}"
-            for relation, count in rel_summary.get("incoming", {}).items()
-        ) or "none"
+        outgoing = (
+            ", ".join(
+                f"{relation}:{count}"
+                for relation, count in rel_summary.get("outgoing", {}).items()
+            )
+            or "none"
+        )
+        incoming = (
+            ", ".join(
+                f"{relation}:{count}"
+                for relation, count in rel_summary.get("incoming", {}).items()
+            )
+            or "none"
+        )
         summary_label.update(f"Outgoing {outgoing}  |  Incoming {incoming}")
 
         kind_filter = self._active_kind_filter()
@@ -1042,7 +1075,11 @@ class LinkedItemsPanel(Vertical):
             filter_bar.update(f"[b]Filter:[/b] {kind_filter}  (f: cycle kinds)")
         else:
             kinds_present = sorted(
-                {str(item.get("kind", "")).strip().lower() for item in neighbors if item.get("kind")}
+                {
+                    str(item.get("kind", "")).strip().lower()
+                    for item in neighbors
+                    if item.get("kind")
+                }
             )
             kinds_str = ", ".join(kinds_present) if kinds_present else "none"
             filter_bar.update(f"[dim]All kinds: {kinds_str}  (f: filter by kind)[/dim]")
@@ -1086,7 +1123,9 @@ class LinkedItemsPanel(Vertical):
             if search is None:
                 return
             try:
-                all_neighbors = search.linked_neighbors(entry_id, direction="both", limit=20)
+                all_neighbors = search.linked_neighbors(
+                    entry_id, direction="both", limit=20
+                )
             except Exception:
                 return
             self._cycle_kind_filter(all_neighbors)

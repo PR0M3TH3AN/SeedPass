@@ -120,6 +120,7 @@ class AtlasWayfinderScreen(Screen):
             return
         try:
             from ..widgets.inspector import LinkedItemsPanel  # noqa: PLC0415
+
             panel = self.app.query_one(LinkedItemsPanel)
             panel.atlas_source_scope = scope_path
         except Exception:

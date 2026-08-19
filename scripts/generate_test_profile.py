@@ -45,6 +45,8 @@ def test_app_dir() -> Path:
     another ``tests`` segment on each reload.
     """
     return Path(consts.APP_DIR) / "tests"
+
+
 from utils.key_derivation import derive_key_from_password, derive_index_key
 from seedpass.core.encryption import EncryptionManager
 from seedpass.core.vault import Vault

@@ -110,7 +110,8 @@ def rand_text(rng: random.Random) -> str:
     if rng.random() < 0.5:
         return rng.choice(INTERESTING_TEXT)
     return "".join(
-        rng.choice(string.ascii_letters + string.digits + " -_.") for _ in range(rng.randint(0, 12))
+        rng.choice(string.ascii_letters + string.digits + " -_.")
+        for _ in range(rng.randint(0, 12))
     )
 
 
@@ -262,7 +263,9 @@ def case_password(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
     index = rng.randint(0, 5000)
     version = rng.choice([1, 2])
     bip85 = BIP85(Bip39SeedGenerator(mnemonic).Generate(""))
-    pg = PasswordGenerator(_Deriver(), mnemonic, bip85, policy=PasswordPolicy(**policy_kwargs))
+    pg = PasswordGenerator(
+        _Deriver(), mnemonic, bip85, policy=PasswordPolicy(**policy_kwargs)
+    )
     kwargs = {} if version == 1 else {"gen_version": version}
     try:
         result: Any = pg.generate_password(length=length, index=index, **kwargs)
@@ -302,7 +305,9 @@ def case_merge(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
 def case_index0(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
     from seedpass.core import index0 as index0_mod
 
-    fp_dir = f"/tmp/seedpass/{''.join(rng.choice('0123456789ABCDEF') for _ in range(16))}"
+    fp_dir = (
+        f"/tmp/seedpass/{''.join(rng.choice('0123456789ABCDEF') for _ in range(16))}"
+    )
     payload: dict[str, Any] = {"schema_version": 4, "entries": rand_entries(rng)}
     events = []
     # Same reasoning as the tombstone cap: occasionally produce enough events,
@@ -313,7 +318,9 @@ def case_index0(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
     # peaked at 63 distinct subjects across 250 cases -- one short -- so the
     # eviction path stayed unreachable and a deliberate off-by-one there went
     # undetected. Bounded code has to be driven past its bound, with margin.
-    event_count = rng.randint(SUBJECT_CAP + 20, SUBJECT_CAP + 60) if big else rng.randint(0, 5)
+    event_count = (
+        rng.randint(SUBJECT_CAP + 20, SUBJECT_CAP + 60) if big else rng.randint(0, 5)
+    )
     # A large run is clustered into one day half the time, so both the subject
     # cap (per checkpoint) and the checkpoint retention limit get reached.
     day_spread = not big or rng.random() < 0.5
@@ -359,7 +366,12 @@ def case_index0(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
     return (
         "index0",
         result,
-        {"op": "index0", "fingerprintDir": fp_dir, "entries": payload.get("entries", {}), "events": events},
+        {
+            "op": "index0",
+            "fingerprintDir": fp_dir,
+            "entries": payload.get("entries", {}),
+            "events": events,
+        },
     )
 
 
@@ -397,7 +409,9 @@ def case_semantic(rng: random.Random) -> tuple[str, Any, dict[str, Any]]:
         try:
             index.build(entries)
             records = json.loads(
-                (Path(tmpdir) / "semantic_index" / "records.json").read_text(encoding="utf-8")
+                (Path(tmpdir) / "semantic_index" / "records.json").read_text(
+                    encoding="utf-8"
+                )
             )
             hits = index.search(query, k=10)
         except Exception as exc:
@@ -502,7 +516,9 @@ def run_ts(requests: list[dict[str, Any]]) -> list[Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=int, default=200, help="cases per surface")
-    parser.add_argument("--seed", type=int, default=1, help="RNG seed (reproduces a run)")
+    parser.add_argument(
+        "--seed", type=int, default=1, help="RNG seed (reproduces a run)"
+    )
     parser.add_argument(
         "--only",
         action="append",
@@ -514,7 +530,9 @@ def main() -> int:
     surfaces = args.only or sorted(BUILDERS)
     rng = random.Random(args.seed)
 
-    print(f"differential fuzz: seed={args.seed} cases={args.cases} surfaces={','.join(surfaces)}")
+    print(
+        f"differential fuzz: seed={args.seed} cases={args.cases} surfaces={','.join(surfaces)}"
+    )
 
     expected: list[tuple[str, int, Any]] = []
     requests: list[dict[str, Any]] = []
@@ -528,12 +546,16 @@ def main() -> int:
     print(f"  generated {len(requests)} cases; running the TypeScript side...")
     ts_results = run_ts(requests)
     if len(ts_results) != len(expected):
-        raise SystemExit(f"runner returned {len(ts_results)} results for {len(expected)} cases")
+        raise SystemExit(
+            f"runner returned {len(ts_results)} results for {len(expected)} cases"
+        )
 
     divergences: list[tuple[str, int, str, str, dict[str, Any]]] = []
     known: list[tuple[str, int]] = []
     skipped = 0
-    for (name, idx, python_result), ts_result, request in zip(expected, ts_results, requests):
+    for (name, idx, python_result), ts_result, request in zip(
+        expected, ts_results, requests
+    ):
         if request.get("op") == "noop":
             skipped += 1
             continue
@@ -552,7 +574,9 @@ def main() -> int:
     for surface in sorted(by_surface):
         failures = sum(1 for d in divergences if d[0] == surface)
         mark = "PASS" if failures == 0 else "FAIL"
-        print(f"  [{mark}] {surface}: {by_surface[surface] - failures}/{by_surface[surface]} agree")
+        print(
+            f"  [{mark}] {surface}: {by_surface[surface] - failures}/{by_surface[surface]} agree"
+        )
 
     if skipped:
         print(f"  ({skipped} cases skipped: the Python side refused the input)")
@@ -567,12 +591,21 @@ def main() -> int:
         )
 
     if divergences:
-        print(f"\n{len(divergences)} DIVERGENCE(S) — reproduce with --seed {args.seed}\n")
-        dump = Path("/tmp/claude-1000/-home-user/4efd790e-427f-430a-b379-ef8391e6744f/scratchpad/divergences.json")
-        dump.write_text(json.dumps([
-            {"surface": n, "case": i, "python": p_, "ts": t, "input": r}
-            for n, i, p_, t, r in divergences
-        ], indent=1))
+        print(
+            f"\n{len(divergences)} DIVERGENCE(S) — reproduce with --seed {args.seed}\n"
+        )
+        dump = Path(
+            "/tmp/claude-1000/-home-user/4efd790e-427f-430a-b379-ef8391e6744f/scratchpad/divergences.json"
+        )
+        dump.write_text(
+            json.dumps(
+                [
+                    {"surface": n, "case": i, "python": p_, "ts": t, "input": r}
+                    for n, i, p_, t, r in divergences
+                ],
+                indent=1,
+            )
+        )
         print(f"  (full list written to {dump})\n")
         for name, idx, py_canon, ts_canon, request in divergences[:5]:
             print(f"--- {name} case {idx} ---")

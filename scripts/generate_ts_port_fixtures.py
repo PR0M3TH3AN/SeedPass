@@ -58,8 +58,7 @@ MNEMONICS = {
         "abandon abandon abandon abandon abandon about"
     ),
     "legal12": (
-        "legal winner thank year wave sausage worth useful "
-        "legal winner thank yellow"
+        "legal winner thank year wave sausage worth useful " "legal winner thank yellow"
     ),
     "zoo24": (
         "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo "
@@ -326,7 +325,9 @@ def gen_fingerprints() -> dict:
         {
             "mnemonic_id": "abandon12-mixed-case-padded",
             "mnemonic": "  " + MNEMONICS[PRIMARY].upper() + "  ",
-            "fingerprint": generate_fingerprint("  " + MNEMONICS[PRIMARY].upper() + "  "),
+            "fingerprint": generate_fingerprint(
+                "  " + MNEMONICS[PRIMARY].upper() + "  "
+            ),
         }
     )
     return {
@@ -412,9 +413,7 @@ def _build_entries_index(post_add=None) -> dict:
             post_add(em)
 
         index = vault.load_index()
-        entries = {
-            k: v for k, v in index.items() if k != "_system"
-        }
+        entries = {k: v for k, v in index.items() if k != "_system"}
         return entries
 
 
@@ -461,7 +460,11 @@ def gen_password_kdf() -> dict:
 
     fp = generate_fingerprint(MNEMONICS[PRIMARY])
     pbkdf2_cases = []
-    for password in ("fixture-password", "correct horse battery staple", "  pässwörd  "):
+    for password in (
+        "fixture-password",
+        "correct horse battery staple",
+        "  pässwörd  ",
+    ):
         for iterations in (50_000, 100_000):
             key = derive_key_from_password(password, fp, iterations=iterations)
             pbkdf2_cases.append(
@@ -534,8 +537,10 @@ def gen_legacy_payloads() -> dict:
     seed_key_b64 = derive_key_from_password("fixture-password", fp)
     seed_key = base64.urlsafe_b64decode(seed_key_b64)
     seed_nonce = hashlib.sha256(b"seedpass-ts-fixture-seed-nonce").digest()[:12]
-    seed_ct = b"V3|" + seed_nonce + AESGCM(seed_key).encrypt(
-        seed_nonce, mnemonic.encode(), None
+    seed_ct = (
+        b"V3|"
+        + seed_nonce
+        + AESGCM(seed_key).encrypt(seed_nonce, mnemonic.encode(), None)
     )
     kdf_dict = {
         "name": "pbkdf2-sha256",
@@ -592,7 +597,9 @@ def gen_nostr_snapshot(vault_payload_b64: str) -> dict:
     limit = 800
     manifest, chunks = prepare_snapshot(encrypted, limit)
     # Re-chunk the pinned compression so chunk bytes/hashes are deterministic
-    pinned_chunks = [compressed[i : i + limit] for i in range(0, len(compressed), limit)]
+    pinned_chunks = [
+        compressed[i : i + limit] for i in range(0, len(compressed), limit)
+    ]
     metas = [
         {
             "id": f"seedpass-chunk-{i:04d}",
@@ -704,8 +711,12 @@ def gen_sync_merge() -> dict:
                 "schema_version": 4,
                 "entries": {
                     "0": entry(
-                        "site", t, notes="from-incoming", tags=["b", "a"],
-                        username="alice", archived=True,
+                        "site",
+                        t,
+                        notes="from-incoming",
+                        tags=["b", "a"],
+                        username="alice",
+                        archived=True,
                     )
                 },
             },
@@ -713,7 +724,10 @@ def gen_sync_merge() -> dict:
         ),
         _merge_case(
             "incoming-delete-creates-tombstone",
-            {"schema_version": 4, "entries": {"0": entry("site", t), "1": entry("keep", t)}},
+            {
+                "schema_version": 4,
+                "entries": {"0": entry("site", t), "1": entry("keep", t)},
+            },
             {
                 "schema_version": 4,
                 "entries": {"0": {**entry("site", t + 5), "_deleted": True}},
@@ -727,7 +741,12 @@ def gen_sync_merge() -> dict:
                 "entries": {},
                 "_sync_meta": {
                     "tombstones": {
-                        "0": {"deleted_ts": t, "entry_hash": "", "event_hash": "", "source": "x"}
+                        "0": {
+                            "deleted_ts": t,
+                            "entry_hash": "",
+                            "event_hash": "",
+                            "source": "x",
+                        }
                     }
                 },
             },
@@ -741,7 +760,12 @@ def gen_sync_merge() -> dict:
                 "entries": {},
                 "_sync_meta": {
                     "tombstones": {
-                        "0": {"deleted_ts": t + 20, "entry_hash": "", "event_hash": "", "source": "x"}
+                        "0": {
+                            "deleted_ts": t + 20,
+                            "entry_hash": "",
+                            "event_hash": "",
+                            "source": "x",
+                        }
                     }
                 },
             },
@@ -755,7 +779,12 @@ def gen_sync_merge() -> dict:
                 "entries": {},
                 "_sync_meta": {
                     "tombstones": {
-                        "0": {"deleted_ts": t + 1, "entry_hash": "aa", "event_hash": "", "source": "one"}
+                        "0": {
+                            "deleted_ts": t + 1,
+                            "entry_hash": "aa",
+                            "event_hash": "",
+                            "source": "one",
+                        }
                     }
                 },
             },
@@ -764,7 +793,12 @@ def gen_sync_merge() -> dict:
                 "entries": {},
                 "_sync_meta": {
                     "tombstones": {
-                        "0": {"deleted_ts": t + 9, "entry_hash": "bb", "event_hash": "", "source": "two"}
+                        "0": {
+                            "deleted_ts": t + 9,
+                            "entry_hash": "bb",
+                            "event_hash": "",
+                            "source": "two",
+                        }
                     }
                 },
             },
@@ -798,14 +832,25 @@ def gen_delta_replay() -> dict:
 
     def entry(label: str, ts: int) -> dict:
         return {
-            "type": "password", "kind": "password", "label": label,
-            "length": 16, "archived": False, "notes": "", "tags": [],
+            "type": "password",
+            "kind": "password",
+            "label": label,
+            "length": 16,
+            "archived": False,
+            "notes": "",
+            "tags": [],
             "modified_ts": ts,
         }
 
     snapshot_index = {"schema_version": 4, "entries": {"0": entry("base", t)}}
-    delta1 = {"schema_version": 4, "entries": {"0": entry("base-renamed", t + 10), "1": entry("added", t + 10)}}
-    delta2 = {"schema_version": 4, "entries": {"1": {**entry("added", t + 20), "_deleted": True}}}
+    delta1 = {
+        "schema_version": 4,
+        "entries": {"0": entry("base-renamed", t + 10), "1": entry("added", t + 10)},
+    }
+    delta2 = {
+        "schema_version": 4,
+        "entries": {"1": {**entry("added", t + 20), "_deleted": True}},
+    }
 
     def encrypt(payload: dict, nonce_seed: bytes) -> bytes:
         nonce = hashlib.sha256(nonce_seed).digest()[:12]
@@ -1158,7 +1203,11 @@ def gen_pgp_keys() -> dict:
     cases = []
     for mid in (PRIMARY, "zoo24"):
         bip85 = _bip85(MNEMONICS[mid])
-        for index, user_id in ((0, "fixture@example.com"), (3, ""), (7, "Test User <t@e.co>")):
+        for index, user_id in (
+            (0, "fixture@example.com"),
+            (3, ""),
+            (7, "Test User <t@e.co>"),
+        ):
             priv, pub, fp = derive_pgp_key(bip85, index, "ed25519", user_id)
             cases.append(
                 {
@@ -1300,26 +1349,85 @@ def gen_semantic() -> dict:
     from seedpass.core.semantic_index import SemanticIndex
 
     entries = [
-        {"id": 0, "kind": "password", "label": "first-ever.example",
-         "username": "zero", "notes": "the very first entry a profile creates",
-         "tags": ["edge"]},
-        {"id": 1, "kind": "password", "label": "bank.example", "username": "alice",
-         "url": "https://bank.example", "notes": "main current account",
-         "tags": ["money", "daily"]},
-        {"id": 2, "kind": "key_value", "label": "deploy-token", "key": "DEPLOY_TOKEN",
-         "value": "SECRET-MUST-NOT-APPEAR", "notes": "ci pipeline", "tags": ["ops"]},
-        {"id": 3, "kind": "document", "label": "recovery notes",
-         "content": "how to recover the bank account if locked out", "tags": ["docs"]},
-        {"id": 4, "kind": "totp", "label": "email-2fa", "issuer": "Fastmail",
-         "notes": "", "tags": ["email"]},
-        {"id": 5, "kind": "ssh", "label": "prod-server", "fingerprint": "SHA256:abcdef",
-         "notes": "production access", "tags": ["ops"]},
-        {"id": 6, "kind": "nostr", "label": "social", "npub": "npub1example",
-         "notes": "", "tags": []},
-        {"id": 7, "kind": "seed", "label": "child seed", "notes": "not an indexed kind"},
-        {"id": 8, "kind": "document", "label": "", "content": "", "notes": "", "tags": []},
-        {"id": 9, "kind": "password", "label": "linked", "notes": "", "tags": [],
-         "links": [{"relation": "depends_on", "note": "see recovery notes"}]},
+        {
+            "id": 0,
+            "kind": "password",
+            "label": "first-ever.example",
+            "username": "zero",
+            "notes": "the very first entry a profile creates",
+            "tags": ["edge"],
+        },
+        {
+            "id": 1,
+            "kind": "password",
+            "label": "bank.example",
+            "username": "alice",
+            "url": "https://bank.example",
+            "notes": "main current account",
+            "tags": ["money", "daily"],
+        },
+        {
+            "id": 2,
+            "kind": "key_value",
+            "label": "deploy-token",
+            "key": "DEPLOY_TOKEN",
+            "value": "SECRET-MUST-NOT-APPEAR",
+            "notes": "ci pipeline",
+            "tags": ["ops"],
+        },
+        {
+            "id": 3,
+            "kind": "document",
+            "label": "recovery notes",
+            "content": "how to recover the bank account if locked out",
+            "tags": ["docs"],
+        },
+        {
+            "id": 4,
+            "kind": "totp",
+            "label": "email-2fa",
+            "issuer": "Fastmail",
+            "notes": "",
+            "tags": ["email"],
+        },
+        {
+            "id": 5,
+            "kind": "ssh",
+            "label": "prod-server",
+            "fingerprint": "SHA256:abcdef",
+            "notes": "production access",
+            "tags": ["ops"],
+        },
+        {
+            "id": 6,
+            "kind": "nostr",
+            "label": "social",
+            "npub": "npub1example",
+            "notes": "",
+            "tags": [],
+        },
+        {
+            "id": 7,
+            "kind": "seed",
+            "label": "child seed",
+            "notes": "not an indexed kind",
+        },
+        {
+            "id": 8,
+            "kind": "document",
+            "label": "",
+            "content": "",
+            "notes": "",
+            "tags": [],
+        },
+        {
+            "id": 9,
+            "kind": "password",
+            "label": "linked",
+            "notes": "",
+            "tags": [],
+            "links": [{"relation": "depends_on", "note": "see recovery notes"}],
+        },
         {"kind": "document", "label": "no id at all", "content": "skipped"},
     ]
     queries = [
@@ -1401,12 +1509,22 @@ def gen_high_risk() -> dict:
 
     entries = {
         "3": {
-            "kind": "ssh", "type": "ssh", "label": "prod-server", "index": 3,
-            "notes": "deploy", "archived": False, "modified_ts": 1700000000,
+            "kind": "ssh",
+            "type": "ssh",
+            "label": "prod-server",
+            "index": 3,
+            "notes": "deploy",
+            "archived": False,
+            "modified_ts": 1700000000,
         },
         "5": {
-            "kind": "pgp", "type": "pgp", "label": "signing", "index": 5,
-            "notes": "", "archived": False, "modified_ts": 1700000100,
+            "kind": "pgp",
+            "type": "pgp",
+            "label": "signing",
+            "index": 5,
+            "notes": "",
+            "archived": False,
+            "modified_ts": 1700000100,
         },
     }
 
@@ -1464,16 +1582,31 @@ def gen_index0() -> dict:
     managed_dir = "/home/user/.seedpass/C557EEC878DFD852/accounts/AABBCCDDEEFF0011"
 
     entries = {
-        "0": {"kind": "password", "label": "bank.example", "modified_ts": 1700000100,
-              "tags": ["money", "daily"],
-              "links": [{"target_id": "2", "relation": "depends_on", "note": "recovery"}]},
-        "1": {"kind": "totp", "label": "email-2fa", "modified_ts": 1700000200,
-              "archived": True},
-        "2": {"kind": "ssh", "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
-              "modified_ts": 1700000300, "tags": ["ops", "\u00fcn\u00ef"]},
+        "0": {
+            "kind": "password",
+            "label": "bank.example",
+            "modified_ts": 1700000100,
+            "tags": ["money", "daily"],
+            "links": [{"target_id": "2", "relation": "depends_on", "note": "recovery"}],
+        },
+        "1": {
+            "kind": "totp",
+            "label": "email-2fa",
+            "modified_ts": 1700000200,
+            "archived": True,
+        },
+        "2": {
+            "kind": "ssh",
+            "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+            "modified_ts": 1700000300,
+            "tags": ["ops", "\u00fcn\u00ef"],
+        },
         "10": {"kind": "document", "label": "notes", "modified_ts": 1700000400},
-        "not-a-number": {"kind": "password", "label": "weird id",
-                         "modified_ts": 1700000500},
+        "not-a-number": {
+            "kind": "password",
+            "label": "weird id",
+            "modified_ts": 1700000500,
+        },
     }
 
     payload = {"schema_version": 4, "entries": entries}

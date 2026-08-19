@@ -77,7 +77,9 @@ class SettingsScreen(Screen):
                     return val if val is not None else default
                 except Exception:
                     return "[red](error)[/red]"
+
         else:
+
             def get_val(key, default=""):  # type: ignore[misc]
                 return "[dim](offline)[/dim]"
 

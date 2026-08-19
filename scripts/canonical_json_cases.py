@@ -29,7 +29,7 @@ CASES: list = [
     {"\U0001f600": 1, "！": 2},
     {"z": 1, "é": 2, "中": 3, "\U0001f600": 4},
     # Escaping
-    {"quote\"": "back\\slash"},
+    {'quote"': "back\\slash"},
     {"ctrl": "\x00\x01\x1f"},
     {"nl": "line\nbreak\ttab"},
     {"unicode": "café 中文 \U0001f512"},

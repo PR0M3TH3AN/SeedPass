@@ -7,7 +7,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 def test_retrieve_entry_shows_custom_fields(monkeypatch, capsys, password_manager):
     pm = password_manager
-    pm.password_generator = SimpleNamespace(generate_password=lambda l, i, gen_version=1: "pw")
+    pm.password_generator = SimpleNamespace(
+        generate_password=lambda l, i, gen_version=1: "pw"
+    )
     pm.nostr_client = SimpleNamespace()
 
     pm.entry_manager.add_entry(
