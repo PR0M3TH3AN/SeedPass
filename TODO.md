@@ -638,15 +638,45 @@ writes it (asserted by a test that scans every file in the app directory).
 
 ## CI health (noticed 2026-08-18 while preparing PR #989)
 
+- [x] **(addressed 2026-08-19) CI is now watched and the fuzzer runs in it.**
+      `scripts/differential_fuzz.py` is wired into ts-parity with three fixed
+      seeds (deterministic, bisectable) plus one derived from the run id, so
+      the explored input space grows over time. `cross_impl_check.py` was
+      already there — an earlier note in this file claiming otherwise was
+      wrong.
 - [ ] **ts-parity was red for 33 straight runs** on an environment-coupling
       bug local runs masked (`vault import --vault` demanded a default
       profile; fixed in cf433e3 with a hermetic SEEDPASS_APP_DIR in the CLI
       test harness). Standing lesson: CI results were never checked because
       local suites were green — check the workflow dashboard when a branch
       is long-lived.
-- [ ] **Pre-existing red checks on PR #989, not yet diagnosed** (they
-      predate this week's work): `tests` workflow failures on macOS
-      (3.10/3.11/3.12), the `briefcase` macOS build, and the Netlify
-      docs-seedpass deploy preview. All Python/docs-site era. Triage before
-      merge so #989's required checks are meaningful — either fix or
-      explicitly scope them out of the merge gate.
+- [x] **(diagnosed and mostly fixed 2026-08-19) Red checks on PR #989.**
+      Pulled the actual logs rather than guessing. Three distinct causes, not
+      one:
+      - **CI / dependency scan** — genuinely red for a good reason:
+        `pip-audit` found 100 known vulnerabilities across 15 packages,
+        including `cryptography` itself. **Fixed**: floors raised, lock and
+        `poetry.lock` regenerated, audit now clean. The stubborn one was
+        `starlette`, pinned `<0.48` for a FastAPI constraint that no longer
+        exists (fastapi 0.141 requires `>=0.46` unbounded), which had been
+        holding seven advisories open.
+      - **Tests, every OS and Python version** — `black --check` found 28
+        unformatted files, part pre-existing, part from this session.
+        **Fixed**, with fixtures regenerated afterwards to prove no hashed
+        value moved.
+      - **Installer Smoke, Windows only** — NOT fixed, and needs a decision.
+        `portalocker` pulls `pywin32` on Windows; `pip-compile` runs on Linux
+        and drops the Windows-only marker, so `pywin32` never reaches
+        `requirements.lock`. The Windows installer installs with
+        `--require-hashes`, which then refuses the unpinned transitive
+        `pywin32>=226`. Naming it in `src/requirements.txt` with a
+        `sys_platform == "win32"` marker does NOT work — pip-compile on Linux
+        drops it again — and hand-editing the lock is futile because four
+        workflows regenerate it.
+- [ ] **Decide how to produce a multi-platform lock** (blocks Windows
+      installer smoke). Options: run `pip-compile` on a Windows runner and
+      commit a second `requirements-windows.lock`; move to a resolver that
+      does platform-independent locking (uv); or drop `--require-hashes` on
+      Windows, which trades supply-chain integrity for a green check and is
+      the wrong trade. Note this affects only the Python installer, which is
+      the implementation being retired.
