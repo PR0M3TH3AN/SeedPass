@@ -7,12 +7,19 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtemp, readFile, writeFile, appendFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
 import { generateFingerprint } from "@seedpass/core";
-import { buildProgram, AgentDaemon, agentSocketPath, type ProgramIo } from "../src/index.js";
+import {
+  buildProgram,
+  AgentDaemon,
+  AgentClient,
+  agentSocketPath,
+  type ProgramIo,
+} from "../src/index.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
 const FINGERPRINT = generateFingerprint(MNEMONIC);
@@ -261,5 +268,158 @@ describe("audit chain", () => {
     await appendFile(path, JSON.stringify({ timestamp: "x", event: "forged", details: {}, sig: "00" }) + "\n");
     const r = await run(asOwner, "agent", "audit-verify");
     expect(String((r.error as Error).message)).toContain("audit chain broken");
+  });
+});
+
+describe("the exec allowlist", () => {
+  /**
+   * Mutation testing found this control had NO test at all: the clipboard
+   * check could be inverted, weakened, or removed entirely and the suite
+   * stayed green.
+   *
+   * It matters because the clipboard is readable by every process in the
+   * session. A token restricted to `cat` that may still reach the clipboard
+   * is not restricted to anything — the holder just copies the secret out.
+   * The allowlist would look enforced and contain nothing.
+   */
+  let restricted: string;
+  let unrestricted: string;
+
+  beforeAll(async () => {
+    restricted = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "restricted",
+        "--scope", "read", "use",
+        "--kind", "key_value",
+        "--ttl", "600",
+        "--uses", "20",
+        "--exec-allowlist", "cat",
+      )).stdout,
+    ).token;
+    unrestricted = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "unrestricted",
+        "--scope", "read", "use",
+        "--kind", "key_value",
+        "--ttl", "600",
+        "--uses", "20",
+      )).stdout,
+    ).token;
+  });
+
+  it("refuses the clipboard to a command-restricted token", async () => {
+    const r = await run(asTokenHolder(restricted), "use", "api-token", "--clipboard");
+    expect(String((r.error as Error).message)).toContain("clipboard not permitted");
+    expect(r.stdout).not.toContain("sinkable-secret");
+  });
+
+  it("permits the clipboard to a token with no allowlist", async () => {
+    // The restriction has to be conditional on there BEING an allowlist,
+    // otherwise it is just a blanket clipboard ban wearing a disguise, and
+    // the test above would pass for the wrong reason.
+    const r = await run(asTokenHolder(unrestricted), "use", "api-token", "--clipboard");
+    // Clipboard tooling is absent in CI; either it worked or it failed for a
+    // clipboard reason — what matters is that it was not refused by policy.
+    const message = r.error ? String((r.error as Error).message) : "";
+    expect(message).not.toContain("clipboard not permitted");
+  });
+
+  it("permits an allowlisted command and refuses one outside the list", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-allow-"));
+    const capture = join(dir, "out.txt");
+    const script = join(dir, "notcat.sh");
+    await writeFile(script, `#!/bin/sh\nprintf '%s' "$SEEDPASS_SECRET" > "${capture}"\n`, {
+      mode: 0o755,
+    });
+
+    // `cat` is allowlisted, so the delivery is permitted.
+    const allowed = await run(asTokenHolder(restricted), "use", "api-token", "--exec", "cat");
+    expect(allowed.error).toBeUndefined();
+
+    // The script is not, however harmless it looks.
+    const denied = await run(asTokenHolder(restricted), "use", "api-token", "--exec", script);
+    expect(String((denied.error as Error).message)).toContain("not permitted by this token");
+    expect(existsSync(capture)).toBe(false);
+  });
+});
+
+describe("the audit log distinguishes what the response deliberately does not", () => {
+  /**
+   * A denial and a missing entry return the SAME message on purpose, so the
+   * response cannot be used to enumerate which ids exist. The audit log is
+   * where the difference is supposed to be recorded — that is the whole
+   * reason two reason strings exist.
+   *
+   * Mutation testing found the two could be swapped with every test passing,
+   * because nothing read the log. An audit trail that records the wrong
+   * reason is worse than one that records nothing: it is evidence, and it
+   * would be wrong.
+   */
+  it("records why access was denied, even though the caller is not told", async () => {
+    // Straight to the daemon, by id. The CLI resolves references against the
+    // entries the token may already see, so it refuses locally and the
+    // request never arrives — which is correct behaviour and useless for
+    // testing what the DAEMON records.
+    //
+    // Entry 9999 does not exist; entry 2 (a password) exists but is outside
+    // this token's key_value/^api- constraints. The caller cannot tell them
+    // apart, and the operator must be able to.
+    // A fresh token: the shared one is revoked by an earlier test in this
+    // file, and a revoked token is refused at the token check — long before
+    // the entry-resolution step whose reasons this is about.
+    const fresh = JSON.parse(
+      (await run(
+        {},
+        "agent", "token-issue",
+        "--name", "audit-reasons",
+        "--scope", "read", "reveal",
+        "--kind", "key_value",
+        "--label-regex", "^api-",
+        "--ttl", "600",
+        "--uses", "10",
+      )).stdout,
+    ).token as string;
+
+    const client = new AgentClient(agentSocketPath(appDir));
+    await expect(
+      client.secret({ fingerprint: FINGERPRINT, id: "9999", token: fresh }),
+    ).rejects.toThrow();
+    await expect(
+      client.secret({ fingerprint: FINGERPRINT, id: "2", token: fresh }),
+    ).rejects.toThrow();
+
+    // Both refusals must read the same to the caller, or the response itself
+    // becomes the enumeration oracle the audit split exists to avoid.
+    const [a, b] = await Promise.all([
+      client.secret({ fingerprint: FINGERPRINT, id: "9999", token: fresh }).catch((e) => String(e.message)),
+      client.secret({ fingerprint: FINGERPRINT, id: "2", token: fresh }).catch((e) => String(e.message)),
+    ]);
+    expect(String(a).replace("9999", "ID")).toBe(String(b).replace("2", "ID"));
+
+    const log = await readFile(join(appDir, FINGERPRINT, "audit.log"), "utf8");
+    const denials = log
+      .split("\n")
+      .filter((line) => line.includes("access_denied"))
+      // The reason lives under `details`, alongside the action and entry id.
+      .map(
+        (line) =>
+          JSON.parse(line) as { details?: { reason?: string; entry_id?: string } },
+      );
+
+    const reasonFor = (entryId: string): string =>
+      String(
+        denials.filter((d) => d.details?.entry_id === entryId).at(-1)?.details?.reason ??
+          "",
+      );
+
+    // Asserting that both reasons merely APPEAR is not enough: swapping them
+    // leaves both present and the log confidently wrong. The pairing is the
+    // property — which id got which reason.
+    expect(reasonFor("9999")).toContain("no such entry");
+    expect(reasonFor("2")).toContain("outside token constraints");
   });
 });

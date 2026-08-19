@@ -452,6 +452,42 @@ describe("malformed daemon input cannot corrupt held state", () => {
     expect(JSON.stringify(owner)).not.toContain("abandon");
   });
 
+  it("refuses an empty exec allowlist rather than making the token unrestricted", async () => {
+    // Found by mutation testing. An empty allowlist used to be dropped, so a
+    // caller computing an allowlist that came out empty — meaning "permit
+    // nothing" — silently received a token permitting EVERY command. A
+    // fail-open in the one field whose entire job is restriction.
+    const r = await rawRequest({
+      op: "token-issue",
+      cap,
+      fingerprint: FINGERPRINT,
+      scopes: ["use"],
+      ttl: 600,
+      uses: 1,
+      exec_allowlist: [],
+    });
+    expect(r["ok"]).toBe(false);
+    expect(String(r["error"])).toContain("permit no command");
+    expect(r["token"]).toBeUndefined();
+  });
+
+  it("still accepts an allowlist with entries", async () => {
+    // The refusal above must be specific to the empty case; rejecting real
+    // allowlists would push callers toward omitting the field entirely, which
+    // is the permissive option.
+    const r = await rawRequest({
+      op: "token-issue",
+      cap,
+      fingerprint: FINGERPRINT,
+      scopes: ["use"],
+      ttl: 600,
+      uses: 1,
+      exec_allowlist: ["cat"],
+    });
+    expect(r["ok"]).toBe(true);
+    expect((r["record"] as Record<string, unknown>)["exec_allowlist"]).toEqual(["cat"]);
+  });
+
   it("token-issue refuses a bare-string scope and a non-numeric ttl without crashing", async () => {
     const strScope = await rawRequest({
       op: "token-issue", cap, fingerprint: FINGERPRINT, scopes: "reveal", ttl: 600, uses: 1,

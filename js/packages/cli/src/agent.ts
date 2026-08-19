@@ -375,6 +375,10 @@ export class AgentDaemon {
 
     if (sinkSpec) {
       const allowed = auth.token.exec_allowlist;
+      // mutation-equivalent: `length > 0` cannot differ from `length >= 0`
+      // here. An empty allowlist is refused at issue time, so a stored token
+      // either has no allowlist (undefined, short-circuiting the `&&`) or a
+      // non-empty one.
       if (allowed && allowed.length > 0 && sinkSpec.sink === "clipboard") {
         // The clipboard is readable by every process in the session, so it
         // defeats an allowlist just as thoroughly as an arbitrary command.
@@ -387,6 +391,8 @@ export class AgentDaemon {
           error: { ok: false, error: "denied: clipboard not permitted by this token" },
         };
       }
+      // mutation-equivalent: as above, an empty allowlist never reaches a
+      // stored token, so `> 0` and `>= 0` decide identically here.
       if (sinkSpec.sink !== "clipboard" && allowed && allowed.length > 0) {
         // The allowlist constrains the command WORD only. The token holder
         // still chooses every argument, and the child receives the secret in
@@ -591,6 +597,21 @@ export class AgentDaemon {
         const uses = positiveIntField(msg["uses"], 1);
         if (uses === null) return { ok: false, error: "uses must be a positive integer" };
         const secret = randomBytes(24).toString("base64url");
+        // An empty exec_allowlist used to be DROPPED, which turned it into an
+        // unrestricted token — a fail-open. Automation that computes an
+        // allowlist and arrives at zero entries meant "permit nothing" and
+        // silently received "permit everything". Refusing is the only reading
+        // that cannot be a surprise: a token permitting no command is useless,
+        // so asking for one is a mistake worth reporting rather than
+        // reinterpreting.
+        if (Array.isArray(msg["exec_allowlist"]) && (msg["exec_allowlist"] as string[]).length === 0) {
+          return {
+            ok: false,
+            error:
+              "exec_allowlist is empty, which would permit no command at all. " +
+              "Omit it for an unrestricted token, or name the commands to allow.",
+          };
+        }
         const record: TokenRecord = {
           id: `tok-${randomBytes(6).toString("hex")}`,
           name: String(msg["name"] ?? "agent"),
@@ -602,7 +623,7 @@ export class AgentDaemon {
           expires_at: Math.floor(this.now() + ttl),
           uses_remaining: uses,
           revoked: false,
-          ...(Array.isArray(msg["exec_allowlist"]) && (msg["exec_allowlist"] as string[]).length
+          ...(Array.isArray(msg["exec_allowlist"])
             ? { exec_allowlist: msg["exec_allowlist"] as string[] }
             : {}),
         };
