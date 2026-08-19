@@ -18,6 +18,11 @@ import {
   decryptV3,
   encryptV3,
   mergeIndexPayloads,
+  prepareSnapshot,
+  newManifestId,
+  signEvent,
+  buildChunkEvent,
+  buildManifestEvent,
   parseEncryptedFile,
   utf8,
   bytesToHex,
@@ -72,6 +77,141 @@ describe.skipIf(IS_JSDOM)("relay snapshot round trip", () => {
     const key = deriveIndexKeyBytes(MNEMONIC);
     const plain = await decryptV3(key, fetched!.encrypted);
     expect(bytesToHex(sha256(plain))).toBe(vaultV3Payload.plaintext_sha256);
+  });
+
+  /**
+   * Two snapshots in the same second used to be ordered by event id, which is
+   * stable but arbitrary with respect to time — so `nostr restore` returned
+   * the OLDER vault roughly half the time, and entries created between the
+   * two syncs disappeared with no warning. It surfaced only as an
+   * intermittent test failure, because whether the newer snapshot won came
+   * down to a hash comparison.
+   *
+   * The loop makes it deterministic: over this many distinct payloads, an
+   * id-ordered restore is overwhelmingly likely to pick the older snapshot at
+   * least once (p ≈ 1 - 2^-12 per run). A single pair would reproduce the bug
+   * only half the time, which is how it stayed a "flake" for so long.
+   */
+  it("returns the newer of two snapshots published in the same second", async () => {
+    const key = deriveIndexKeyBytes(MNEMONIC);
+    const keyIndex = deriveKeyIndex(MNEMONIC);
+    const SAME_SECOND = 1700001234;
+
+    for (let round = 0; round < 12; round++) {
+      const roundRelay = new MockRelay();
+      await roundRelay.start();
+      const roundPool = new RelayPool([roundRelay.url], { timeoutMs: 3000 });
+      try {
+        const payload = async (label: string) =>
+          encryptV3(
+            key,
+            utf8(
+              JSON.stringify({
+                schema_version: 4,
+                entries: {
+                  "1": {
+                    type: "password", kind: "password", label,
+                    length: 16, archived: false, notes: "", tags: [],
+                    modified_ts: SAME_SECOND,
+                  },
+                },
+              }),
+            ),
+          );
+
+        // Same created_at second, older published first — exactly what a
+        // scripted or automated double-sync produces.
+        await publishSnapshot(roundPool, PRIVKEY, keyIndex, await payload(`older-${round}`), {
+          limit: 50_000, createdAt: SAME_SECOND, publishedMs: SAME_SECOND * 1000 + 100,
+        });
+        await publishSnapshot(roundPool, PRIVKEY, keyIndex, await payload(`newer-${round}`), {
+          limit: 50_000, createdAt: SAME_SECOND, publishedMs: SAME_SECOND * 1000 + 900,
+        });
+
+        const fetched = await fetchLatestSnapshot(roundPool, PRIVKEY);
+        const state = JSON.parse(
+          new TextDecoder().decode(await decryptV3(key, fetched!.encrypted)),
+        ) as { entries: Record<string, { label: string }> };
+        expect(state.entries["1"]!.label).toBe(`newer-${round}`);
+      } finally {
+        await roundPool.close();
+        await roundRelay.stop();
+      }
+    }
+  });
+
+  it("orders a manifest with no published_ms by its created_at second", async () => {
+    // Manifests written before published_ms existed must still restore, and
+    // must not outrank a newer one published in the same second. Ordering the
+    // unknown one last instead would let a pre-upgrade snapshot beat every
+    // post-upgrade one for that second — the bug, reintroduced from the other
+    // direction.
+    const legacyRelay = new MockRelay();
+    await legacyRelay.start();
+    const legacyPool = new RelayPool([legacyRelay.url], { timeoutMs: 3000 });
+    try {
+      const key = deriveIndexKeyBytes(MNEMONIC);
+      const keyIndex = deriveKeyIndex(MNEMONIC);
+      const AT = 1700002222;
+      const payload = async (label: string) =>
+        encryptV3(
+          key,
+          utf8(
+            JSON.stringify({
+              schema_version: 4,
+              entries: {
+                "1": {
+                  type: "password", kind: "password", label, length: 16,
+                  archived: false, notes: "", tags: [], modified_ts: AT,
+                },
+              },
+            }),
+          ),
+        );
+
+      // A genuinely old-format manifest: published the way a pre-upgrade
+      // client did, with no published_ms key in the JSON at all. Built by
+      // hand rather than by asking publishSnapshot to omit it, so the test
+      // exercises the real legacy shape instead of a flag.
+      {
+        const legacyBytes = await payload("legacy");
+        const { manifest, chunks } = await prepareSnapshot(legacyBytes, 50_000);
+        for (let i = 0; i < chunks.length; i++) {
+          const meta = manifest.chunks[i]!;
+          const ev = signEvent(
+            PRIVKEY,
+            buildChunkEvent(meta.id, base64.encode(chunks[i]!), AT - 60),
+          );
+          await legacyPool.publish(ev);
+          meta.event_id = ev.id;
+        }
+        const { id, nonce } = newManifestId(keyIndex);
+        const legacyJson = JSON.stringify({
+          ver: manifest.ver,
+          algo: manifest.algo,
+          chunks: manifest.chunks,
+          delta_since: AT - 60,
+          nonce: base64.encode(nonce),
+          index0: null,
+        });
+        expect(legacyJson).not.toContain("published_ms");
+        await legacyPool.publish(
+          signEvent(PRIVKEY, buildManifestEvent(id, legacyJson, AT - 60)),
+        );
+      }
+      await publishSnapshot(legacyPool, PRIVKEY, keyIndex, await payload("current"), {
+        limit: 50_000, createdAt: AT, publishedMs: AT * 1000 + 5,
+      });
+
+      const fetched = await fetchLatestSnapshot(legacyPool, PRIVKEY);
+      const state = JSON.parse(
+        new TextDecoder().decode(await decryptV3(key, fetched!.encrypted)),
+      ) as { entries: Record<string, { label: string }> };
+      expect(state.entries["1"]!.label).toBe("current");
+    } finally {
+      await legacyPool.close();
+      await legacyRelay.stop();
+    }
   });
 
   it("publishes deltas and replays them onto the snapshot state", async () => {

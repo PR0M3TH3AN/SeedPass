@@ -6,6 +6,7 @@ import hmac
 import json
 import logging
 import os
+import threading
 import time
 from datetime import timedelta
 from typing import Tuple
@@ -24,6 +25,40 @@ from .backup_models import (
 
 logger = logging.getLogger("nostr.client")
 logger.setLevel(logging.WARNING)
+
+#: How many manifests to fetch before choosing the newest.
+#:
+#: This used to be 1, which delegated "which snapshot is latest" to the relay:
+#: whatever it chose to return was restored. Fetching a handful and ordering
+#: them locally by signed publication time takes that decision back. Small
+#: because manifests are tiny and only the newest few can ever win.
+MANIFEST_FETCH_LIMIT = 16
+
+#: Guards :func:`_next_published_ms` so concurrent publishes cannot collide.
+_published_ms_lock = threading.Lock()
+_last_published_ms = 0
+
+
+def _next_published_ms() -> int:
+    """Strictly increasing publication timestamp in milliseconds.
+
+    A wall-clock millisecond is not enough on its own: two snapshots published
+    back to back can land in the same millisecond, and the ordering then falls
+    through to the event-id tie-break -- arbitrary with respect to time, which
+    is the bug ``published_ms`` exists to fix, just in a narrower window.
+    Forcing each value above the last one this process produced makes it a
+    monotonic sequence that also happens to be a timestamp.
+
+    Across processes or machines the clock is still the only shared reference,
+    so this narrows the tie window rather than closing it everywhere.
+
+    Must match the TypeScript ``nextPublishedMs``
+    (js/packages/core/src/sync/syncFlows.ts).
+    """
+    global _last_published_ms
+    with _published_ms_lock:
+        _last_published_ms = max(int(time.time() * 1000), _last_published_ms + 1)
+        return _last_published_ms
 
 
 def prepare_snapshot(
@@ -57,6 +92,81 @@ def new_manifest_id(key_index: bytes) -> tuple[str, bytes]:
     nonce = os.urandom(16)
     digest = hmac.new(key_index, b"manifest|" + nonce, hashlib.sha256).hexdigest()
     return digest, nonce
+
+
+def _manifest_event_created_at(event) -> int:
+    """``created_at`` as whole seconds, across the SDK's shapes."""
+    value = getattr(event, "created_at", None)
+    if callable(value):
+        value = value()
+    if value is None:
+        value = getattr(event, "timestamp", 0)
+        if callable(value):
+            value = value()
+    if hasattr(value, "secs"):
+        value = value.secs
+    if callable(getattr(value, "as_secs", None)):
+        value = value.as_secs()
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _manifest_event_parses(event) -> bool:
+    """Is this a structurally valid manifest, as opposed to relay noise?
+
+    Distinguishes "the newest snapshot is incomplete" -- which must fail
+    loudly rather than fall back -- from "a relay handed us a junk event",
+    which should simply be ignored.
+    """
+    try:
+        data = json.loads(event.content())
+        return (
+            isinstance(data, dict)
+            and "ver" in data
+            and "algo" in data
+            and isinstance(data.get("chunks"), list)
+        )
+    except Exception:
+        return False
+
+
+def _sort_manifest_events_newest_first(events: list) -> list:
+    """Order manifest events newest-first, by signed publication time.
+
+    Previously this code took whatever the relay returned first, having asked
+    for ``limit(1)`` -- which hands the relay the choice of which snapshot a
+    restore returns. Even ordering by ``created_at`` is not enough on its own:
+    it is whole seconds, so two snapshots from the same second tie and the
+    tie-break decides the outcome. ``published_ms`` lives inside the signed
+    manifest, so it is both finer-grained and not something a relay can steer.
+
+    Event id is the final tie-break: it is a hash of the event's own contents,
+    giving a stable total order that no party chooses. Arrival order is never
+    used.
+
+    Must agree with the TypeScript ``fetchLatestSnapshot`` ordering.
+    """
+
+    def key(event):
+        created_at = _manifest_event_created_at(event)
+        order_ms = created_at * 1000
+        try:
+            data = json.loads(event.content())
+            raw = data.get("published_ms")
+            if raw is not None:
+                order_ms = int(raw)
+        except Exception:
+            # Unparseable manifests are rejected further down; order them by
+            # created_at so they do not jump the queue on the way there.
+            pass
+        event_id = getattr(event, "id", "")
+        if callable(event_id):
+            event_id = event_id()
+        return (order_ms, str(event_id))
+
+    return sorted(events, key=key, reverse=True)
 
 
 class SnapshotHandler:
@@ -109,6 +219,11 @@ class SnapshotHandler:
             manifest_id, nonce = new_manifest_id(self.key_index)
             manifest.nonce = base64.b64encode(nonce).decode("utf-8")
 
+        # Sub-second publication time, signed as part of the manifest, so a
+        # restore can tell two same-second snapshots apart. See
+        # Manifest.published_ms.
+        manifest.published_ms = _next_published_ms()
+
         manifest_json = json.dumps(
             {
                 "ver": manifest.ver,
@@ -117,6 +232,7 @@ class SnapshotHandler:
                 "delta_since": manifest.delta_since,
                 "nonce": manifest.nonce,
                 "index0": manifest.index0,
+                "published_ms": manifest.published_ms,
             }
         )
 
@@ -156,6 +272,11 @@ class SnapshotHandler:
                 nonce=data.get("nonce"),
                 index0=(
                     data.get("index0") if isinstance(data.get("index0"), dict) else None
+                ),
+                published_ms=(
+                    int(data["published_ms"])
+                    if data.get("published_ms") is not None
+                    else None
                 ),
             )
         except Exception:
@@ -236,7 +357,7 @@ class SnapshotHandler:
         f = nostr_client.Filter().author(pubkey).kind(nostr_client.Kind(KIND_MANIFEST))
         if ident:
             f = f.identifier(ident)
-        f = f.limit(1)
+        f = f.limit(MANIFEST_FETCH_LIMIT)
         try:
             events = (await self.client.fetch_events(f, timeout)).to_vec()
         except Exception as e:  # pragma: no cover - network errors
@@ -253,7 +374,7 @@ class SnapshotHandler:
                 nostr_client.Filter()
                 .author(pubkey)
                 .kind(nostr_client.Kind(KIND_MANIFEST))
-                .limit(1)
+                .limit(MANIFEST_FETCH_LIMIT)
             )
             try:
                 events = (await self.client.fetch_events(f, timeout)).to_vec()
@@ -268,11 +389,25 @@ class SnapshotHandler:
             if not events:
                 return None
 
+        events = _sort_manifest_events_newest_first(events)
+
+        # Newest first, and deliberately NOT a fallback loop over older ones.
+        #
+        # Fetching several manifests is about taking the "which is newest"
+        # decision back from the relay, not about accepting an older snapshot
+        # when the newest cannot be assembled. A relay that withholds one
+        # chunk of the current snapshot would otherwise walk the client
+        # silently backwards through its own history, and a restore that
+        # quietly returns last week's vault is indistinguishable from one that
+        # worked. Refusing is recoverable; a silent downgrade is not.
+        #
+        # Manifests that do not parse at all are skipped rather than fatal: a
+        # relay can inject any event it likes into a response, and one
+        # malformed frame must not deny service to a client whose own snapshot
+        # is intact. The first manifest that PARSES is the only one tried.
         for manifest_event in events:
             try:
                 result = await self._fetch_chunks_with_retry(manifest_event)
-                if result is not None:
-                    return result
             except Exception as e:  # pragma: no cover - network errors
                 self.last_error = str(e)
                 logger.error(
@@ -280,6 +415,19 @@ class SnapshotHandler:
                     self.relays,
                     e,
                 )
+                continue
+            if result is not None:
+                return result
+            if _manifest_event_parses(manifest_event):
+                # A real manifest we could not complete. Say so instead of
+                # reaching further back.
+                self.last_error = (
+                    "The newest snapshot could not be assembled (a relay did "
+                    "not return every chunk). Refusing to restore an older "
+                    "snapshot silently; retry, or add another relay."
+                )
+                logger.error("%s", self.last_error)
+                return None
         return None
 
     async def fetch_latest_snapshot(self) -> Tuple[Manifest, list[bytes]] | None:
@@ -373,6 +521,13 @@ class SnapshotHandler:
         with self._state_lock:
             if self.current_manifest is not None:
                 self.current_manifest.delta_since = int(created_at)
+                # Republishing the manifest under the same identifier makes
+                # this the newest version of it, so it needs a fresh
+                # published_ms like any other publish. Omitting it would sort
+                # the manifest carrying the newest delta_since BELOW the
+                # snapshot it supersedes, and readers would then fetch deltas
+                # from a stale watermark -- the update would simply not arrive.
+                self.current_manifest.published_ms = _next_published_ms()
                 manifest_json = json.dumps(
                     {
                         "ver": self.current_manifest.ver,
@@ -383,6 +538,7 @@ class SnapshotHandler:
                         "delta_since": self.current_manifest.delta_since,
                         "nonce": self.current_manifest.nonce,
                         "index0": self.current_manifest.index0,
+                        "published_ms": self.current_manifest.published_ms,
                     }
                 )
                 manifest_event = (

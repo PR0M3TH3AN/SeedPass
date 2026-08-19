@@ -21,6 +21,7 @@ import {
   KIND_MANIFEST,
   KIND_SNAPSHOT_CHUNK,
   newManifestId,
+  manifestOrderMs,
   parseManifest,
   prepareSnapshot,
   reassembleSnapshot,
@@ -30,6 +31,27 @@ import type { RelayPool } from "./relay.js";
 
 function nowUnix(): number {
   return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Strictly increasing publication timestamp in milliseconds.
+ *
+ * A wall-clock millisecond is not enough on its own: two snapshots published
+ * back to back can land in the same millisecond, and then the ordering falls
+ * through to the event-id tie-break — arbitrary with respect to time, which
+ * is the whole bug this field exists to fix, just in a narrower window.
+ * Forcing each value above the last one this process produced makes it a
+ * monotonic sequence that also happens to be a timestamp.
+ *
+ * Across processes or machines the clock is still the only shared reference,
+ * so this narrows the tie window rather than closing it everywhere. A vault
+ * synced from two machines in the same millisecond remains ordered by event
+ * id, and is unchanged by this.
+ */
+let lastPublishedMs = 0;
+function nextPublishedMs(): number {
+  lastPublishedMs = Math.max(Date.now(), lastPublishedMs + 1);
+  return lastPublishedMs;
 }
 
 export interface PublishedSnapshot {
@@ -45,9 +67,13 @@ export async function publishSnapshot(
   privateKeyHex: string,
   keyIndex: Uint8Array,
   encryptedBytes: Uint8Array,
-  options: { limit?: number; createdAt?: number } = {},
+  options: { limit?: number; createdAt?: number; publishedMs?: number } = {},
 ): Promise<PublishedSnapshot> {
   const createdAt = options.createdAt ?? nowUnix();
+  // Sub-second publication time, signed as part of the manifest. Two syncs in
+  // the same second are otherwise indistinguishable by time, and the restore
+  // side then has to guess which is newer.
+  const publishedMs = options.publishedMs ?? nextPublishedMs();
   const { manifest, chunks } = await prepareSnapshot(encryptedBytes, options.limit ?? 50_000);
 
   const chunkEventIds: string[] = [];
@@ -68,6 +94,7 @@ export async function publishSnapshot(
   const { id: manifestId, nonce } = newManifestId(keyIndex);
   manifest.nonce = base64.encode(nonce);
   manifest.delta_since = createdAt;
+  manifest.published_ms = publishedMs;
 
   const manifestJson = JSON.stringify({
     ver: manifest.ver,
@@ -76,6 +103,7 @@ export async function publishSnapshot(
     delta_since: manifest.delta_since,
     nonce: manifest.nonce,
     index0: manifest.index0,
+    published_ms: manifest.published_ms,
   });
   const manifestEvent = signEvent(
     privateKeyHex,
@@ -108,12 +136,32 @@ export async function fetchLatestSnapshot(
   const pubkey = signerPublicKeyHex(privateKeyHex);
   const manifests = await pool.fetch({ authors: [pubkey], kinds: [KIND_MANIFEST] });
   if (manifests.length === 0) return null;
-  // Newest first, with a tie-break the relay cannot choose. Arrival order
-  // is relay-controlled — sorting by it lets a relay decide which of two
-  // same-second snapshots wins. Event id is a hash of the event's own
-  // contents, so it gives a stable total order no party can steer.
+  // Newest first. `created_at` alone is whole seconds, so two snapshots
+  // published in the same second tie; the manifest's signed `published_ms`
+  // breaks that tie by actual publication time rather than arbitrarily.
+  // Getting this wrong is not a tie-break detail: the loser of the
+  // comparison IS the vault the user gets back, so an arbitrary tie-break
+  // silently restored a stale vault about half the time.
+  //
+  // Event id remains the final tie-break, for manifests that agree to the
+  // millisecond. Arrival order is never used — it is relay-controlled, which
+  // would let a relay choose the winner. Event id is a hash of the event's
+  // own contents, so it is a stable total order no party can steer.
+  const orderOf = new Map<string, number>();
+  for (const ev of manifests) {
+    let ms = ev.created_at * 1000;
+    try {
+      ms = manifestOrderMs(parseManifest(ev.content), ev.created_at);
+    } catch {
+      // Unparseable manifests are skipped further down; order them by
+      // created_at so they do not jump the queue on the way there.
+    }
+    orderOf.set(ev.id, ms);
+  }
   manifests.sort(
-    (a, b) => b.created_at - a.created_at || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    (a, b) =>
+      orderOf.get(b.id)! - orderOf.get(a.id)! ||
+      (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
   );
 
   // Falling back to an older manifest is a downgrade: a relay that withholds

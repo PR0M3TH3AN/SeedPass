@@ -54,8 +54,39 @@ export const manifestSchema = z
     delta_since: z.number().int().nullable().optional().default(null),
     nonce: z.string().nullable().optional().default(null),
     index0: z.record(z.string(), z.unknown()).nullable().optional().default(null),
+    /**
+     * Publication time in milliseconds, inside the signed manifest.
+     *
+     * Nostr's `created_at` has whole-second resolution, so two snapshots
+     * published in the same second tie, and the tie-break then decides which
+     * one a restore returns. An event-id tie-break is stable and
+     * relay-independent but arbitrary with respect to time, so the older
+     * snapshot won about half the time and `nostr restore` silently returned
+     * a stale vault — entries created between the two syncs simply vanished.
+     *
+     * This field is inside the manifest JSON, so it is covered by the event
+     * signature and a relay cannot steer it. Optional: manifests written
+     * before this field existed carry null and are ordered by `created_at`
+     * alone (see `manifestOrderMs`).
+     */
+    published_ms: z.number().int().nonnegative().nullable().optional().default(null),
   })
   .loose();
+
+/**
+ * Total ordering key for manifests, newest-largest.
+ *
+ * `published_ms` when the publisher recorded it, otherwise the start of the
+ * `created_at` second. That fallback makes a new-format manifest win a tie
+ * against an old-format one published in the same second. The alternative —
+ * ordering the unknown one last — would let a pre-upgrade snapshot outrank
+ * every post-upgrade one for that second, which is the failure this exists to
+ * prevent. Old-format manifests are by definition from before the upgrade, so
+ * the bias points the right way.
+ */
+export function manifestOrderMs(manifest: Manifest, createdAt: number): number {
+  return manifest.published_ms ?? createdAt * 1000;
+}
 
 export type ChunkMeta = z.infer<typeof chunkMetaSchema>;
 export type Manifest = z.infer<typeof manifestSchema>;
@@ -124,7 +155,17 @@ export async function prepareSnapshot(
     event_id: null,
   }));
   return {
-    manifest: { ver: 1, algo: "gzip", chunks: metas, delta_since: null, nonce: null, index0: null },
+    manifest: {
+      ver: 1,
+      algo: "gzip",
+      chunks: metas,
+      delta_since: null,
+      nonce: null,
+      index0: null,
+      // Stamped by publishSnapshot, which is the moment that actually
+      // matters; preparing a snapshot is not publishing it.
+      published_ms: null,
+    },
     chunks,
   };
 }
