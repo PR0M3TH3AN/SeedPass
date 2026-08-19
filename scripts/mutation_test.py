@@ -121,6 +121,14 @@ SECURITY_HINTS = re.compile(
 
 SKIP_LINE = re.compile(r"^\s*(//|\*|/\*)")
 
+# A line preceded by this marker has been triaged as an EQUIVALENT mutant:
+# the mutation provably cannot change behaviour, so no test can kill it and
+# chasing it is wasted effort. Marking it keeps future survivor lists
+# meaningful -- a survivor should mean "look at this", not "this again".
+# The marker must say WHY, so the judgement can be re-checked rather than
+# trusted.
+EQUIVALENT_MARKER = "mutation-equivalent:"
+
 
 @dataclass
 class Mutant:
@@ -130,10 +138,28 @@ class Mutant:
     description: str
 
 
+def _marked_equivalent(lines: list[str], line_no: int) -> bool:
+    """Is the code at `line_no` (1-based) preceded by an equivalence marker?"""
+    idx = line_no - 2  # the line directly above, 0-based
+    while idx >= 0 and SKIP_LINE.match(lines[idx]):
+        if EQUIVALENT_MARKER in lines[idx]:
+            return True
+        idx -= 1
+    return False
+
+
 def generate(source: str) -> list[Mutant]:
     mutants: list[Mutant] = []
-    for i, line in enumerate(source.splitlines(), start=1):
+    lines = source.splitlines()
+    for i, line in enumerate(lines, start=1):
         if SKIP_LINE.match(line) or not SECURITY_HINTS.search(line):
+            continue
+        # Skip lines a human has already judged unkillable, with a reason.
+        # Scans the whole contiguous comment block above, not just the line
+        # immediately before: the marker belongs at the START of an
+        # explanation, and requiring it on the last line would mean writing
+        # the reason upside down.
+        if _marked_equivalent(lines, i):
             continue
         for old, new in OPERATORS:
             if old not in line:
@@ -179,6 +205,17 @@ def main() -> int:
     parser.add_argument(
         "--limit", type=int, default=0, help="cap mutants per target (0 = all)"
     )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help=(
+            "skip the first N mutants. With --limit this runs a slice, so a "
+            "long target can be measured in foreground-sized pieces rather "
+            "than backgrounded -- this script writes broken security code "
+            "into the tree, and must not run unattended alongside commits."
+        ),
+    )
     parser.add_argument("--timeout", type=int, default=420)
     args = parser.parse_args()
 
@@ -196,10 +233,12 @@ def main() -> int:
         rel, tests = TARGETS[name]
         path = CLI / rel
         original = path.read_text()
-        mutants = generate(original)
+        all_mutants = generate(original)
+        mutants = all_mutants[args.offset :]
         if args.limit:
             mutants = mutants[: args.limit]
-        print(f"\n=== {name} ({rel}): {len(mutants)} mutants ===")
+        span = f"{args.offset + 1}-{args.offset + len(mutants)} of {len(all_mutants)}"
+        print(f"\n=== {name} ({rel}): mutants {span} ===")
 
         # Restore the file whatever happens, including Ctrl-C. Leaving a
         # deliberate security hole in the tree would be a spectacular own goal.
@@ -211,7 +250,7 @@ def main() -> int:
         )
 
         try:
-            for idx, mutant in enumerate(mutants, start=1):
+            for idx, mutant in enumerate(mutants, start=args.offset + 1):
                 lines = original.splitlines(keepends=True)
                 ending = "\n" if lines[mutant.line_no - 1].endswith("\n") else ""
                 lines[mutant.line_no - 1] = mutant.mutated + ending
@@ -222,7 +261,7 @@ def main() -> int:
                 )
                 if code != 0:
                     overall_counts["invalid"] += 1
-                    print(f"  [{idx}/{len(mutants)}] line {mutant.line_no}: invalid (does not typecheck)")
+                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: invalid (does not typecheck)")
                     continue
 
                 code, _ = run(
@@ -230,11 +269,11 @@ def main() -> int:
                 )
                 if code != 0:
                     overall_counts["killed"] += 1
-                    print(f"  [{idx}/{len(mutants)}] line {mutant.line_no}: killed  ({mutant.description})")
+                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: killed  ({mutant.description})")
                 else:
                     overall_counts["survived"] += 1
                     overall_survivors.append((f"{rel}:{mutant.line_no}", mutant))
-                    print(f"  [{idx}/{len(mutants)}] line {mutant.line_no}: SURVIVED ({mutant.description})")
+                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: SURVIVED ({mutant.description})")
         finally:
             restore()
             # Prove the restore worked rather than assuming it: a mutant left

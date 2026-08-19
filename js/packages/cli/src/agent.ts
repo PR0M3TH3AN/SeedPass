@@ -173,6 +173,13 @@ export class AgentDaemon {
     private readonly defaultTtl = DEFAULT_TTL_SECONDS,
     /** Profile root; required for token-mode vault/secret serving. */
     private readonly appDir?: string,
+    /**
+     * Seconds since the epoch. Injectable so expiry can be tested at its
+     * exact boundary rather than approximately — "expires at T" has to mean
+     * denied AT T, and a test that only checks T-1 and T+1 cannot tell
+     * `<=` from `<`.
+     */
+    private readonly now: () => number = () => Date.now() / 1000,
   ) {}
 
   /**
@@ -203,6 +210,10 @@ export class AgentDaemon {
    */
   private isOwner(msg: Record<string, unknown>): boolean {
     const presented = String(msg["cap"] ?? "");
+    // mutation-equivalent: turning this `||` into `&&` cannot change the
+    // outcome — an empty string on either side fails the length comparison
+    // below, so the early return is a statement of intent rather than the
+    // thing doing the rejecting. Kept because the rule is worth stating.
     if (!presented || !this.capability) return false;
     const a = Buffer.from(presented);
     const b = Buffer.from(this.capability);
@@ -261,7 +272,7 @@ export class AgentDaemon {
     );
     if (!token) return { deny: "unknown token" };
     if (token.revoked) return { deny: "token revoked" };
-    if (token.expires_at <= Date.now() / 1000) return { deny: "token expired" };
+    if (token.expires_at <= this.now()) return { deny: "token expired" };
     if (token.uses_remaining <= 0) return { deny: "token exhausted" };
     if (!token.scopes.includes(action)) return { deny: `scope '${action}' not granted` };
     // "read" is not consumption; secret-bearing actions decrement uses
@@ -408,7 +419,10 @@ export class AgentDaemon {
     let ts: number | undefined;
     if (msg["timestamp"] !== undefined) {
       const requested = Number(msg["timestamp"]);
-      const now = Math.floor(Date.now() / 1000);
+      // Same clock as expiry: a test clock that moved one but not the other
+      // would let a token expire while the skew window still measured real
+      // time, which is a difference no production path should have either.
+      const now = Math.floor(this.now());
       if (!Number.isFinite(requested) || Math.abs(requested - now) > TIMESTAMP_SKEW_SECONDS) {
         return {
           error: {
@@ -502,7 +516,7 @@ export class AgentDaemon {
   }
 
   private expire(): void {
-    const now = Date.now() / 1000;
+    const now = this.now();
     for (const [fp, held] of this.held) {
       if (held.expiresAt <= now) this.forget(fp);
     }
@@ -523,7 +537,7 @@ export class AgentDaemon {
   private highRiskTag(fingerprint: string): string {
     const session = this.highRisk.get(fingerprint);
     if (!session) return "";
-    if (session.expiresAt <= Date.now() / 1000) {
+    if (session.expiresAt <= this.now()) {
       this.highRisk.delete(fingerprint);
       return "";
     }
@@ -585,7 +599,7 @@ export class AgentDaemon {
           scopes: scopes as TokenScope[],
           kinds: (kinds as string[] | undefined) ?? null,
           label_regex: String(msg["label_regex"] ?? ".*"),
-          expires_at: Math.floor(Date.now() / 1000 + ttl),
+          expires_at: Math.floor(this.now() + ttl),
           uses_remaining: uses,
           revoked: false,
           ...(Array.isArray(msg["exec_allowlist"]) && (msg["exec_allowlist"] as string[]).length
@@ -738,7 +752,7 @@ export class AgentDaemon {
         if (generateFingerprint(mnemonic) !== fingerprint) {
           return { ok: false, error: "fingerprint does not match the supplied seed" };
         }
-        const expiresAt = Math.floor(Date.now() / 1000 + ttl);
+        const expiresAt = Math.floor(this.now() + ttl);
         // The audit key is derived from the held seed, so the seed must go in
         // before the record is written — but an audit failure must then undo
         // it. Otherwise a `put` that reports ok:false can leave the seed
@@ -774,7 +788,7 @@ export class AgentDaemon {
         }
         const ttl = positiveIntField(msg["ttl"], 300);
         if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
-        const expiresAt = Math.floor(Date.now() / 1000 + ttl);
+        const expiresAt = Math.floor(this.now() + ttl);
         this.highRisk.set(fingerprint, { tag, expiresAt });
         try {
           // Records THAT it was unlocked and for how long — never the tag.

@@ -8,14 +8,22 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createConnection } from "node:net";
-import { mkdtemp, readFile, writeFile, stat } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, stat, mkdir } from "node:fs/promises";
 import { join as joinPath } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
+import { encryptV3, deriveIndexKeyBytes, utf8 } from "@seedpass/core";
 import { generateFingerprint } from "@seedpass/core";
-import { buildProgram, AgentDaemon, agentSocketPath, type ProgramIo } from "../src/index.js";
+import {
+  buildProgram,
+  AgentDaemon,
+  AgentClient,
+  agentSocketPath,
+  INDEX_FILENAME,
+  type ProgramIo,
+} from "../src/index.js";
 
 const MNEMONIC = mnemonics["abandon12"]!;
 const FINGERPRINT = generateFingerprint(MNEMONIC);
@@ -494,5 +502,95 @@ describe("a use-scoped token cannot crash the agent", () => {
     expect((await rawRequest({ op: "ping" }))["pong"]).toBe(true);
     const status = JSON.parse((await run({}, "agent", "status")).stdout);
     expect(status.map((p: { fingerprint: string }) => p.fingerprint)).toContain(FINGERPRINT);
+  });
+});
+
+describe("the owner capability", () => {
+  it("refuses an empty or absent capability", async () => {
+    // Mutation testing showed `!presented || !this.capability` could become
+    // `&&` without any test noticing: the length comparison below it happens
+    // to reject an empty string too, so the early return is redundant. It is
+    // still the line that STATES the rule, and an empty credential being
+    // refused is worth asserting outright rather than relying on a length
+    // check further down to imply it.
+    for (const cap of ["", undefined]) {
+      const r = await rawRequest({
+        op: "status",
+        ...(cap !== undefined && { cap }),
+      });
+      expect(r["ok"]).toBe(false);
+      expect(String(r["error"])).toMatch(/owner/i);
+    }
+  });
+
+  it("refuses a capability of the right length but wrong content", async () => {
+    const real = (await readFile(daemon.capabilityPath, "utf8")).trim();
+    // Same length, so the length check cannot be what rejects it — this is
+    // the constant-time comparison doing its job.
+    const forged = "x".repeat(real.length);
+    expect(forged).toHaveLength(real.length);
+    const r = await rawRequest({ op: "status", cap: forged });
+    expect(r["ok"]).toBe(false);
+  });
+});
+
+describe("expiry is denied AT the boundary, not after it", () => {
+  /**
+   * Mutation testing found `token.expires_at <= now` could become `<` with
+   * every test still passing: the suite checked well before and well after
+   * expiry, which cannot tell the two apart. "Expires at T" has to mean
+   * denied AT T — otherwise a token is usable for one more request than it
+   * claims, which is the wrong direction for a credential.
+   *
+   * The daemon takes an injectable clock so this can be pinned exactly
+   * rather than raced against wall time.
+   */
+  const FROZEN = 1_800_000_000;
+
+  async function daemonAt(now: () => number): Promise<{ d: AgentDaemon; sock: string }> {
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-expiry-"));
+    // `put` writes an audit record, which needs the profile directory and an
+    // index to serve from.
+    const profile = join(dir, FINGERPRINT);
+    await mkdir(profile, { recursive: true });
+    await writeFile(
+      join(profile, INDEX_FILENAME),
+      await encryptV3(
+        deriveIndexKeyBytes(MNEMONIC),
+        utf8(JSON.stringify({ schema_version: 4, entries: {} })),
+      ),
+    );
+    const sock = join(dir, "agent.sock");
+    const d = new AgentDaemon(sock, 900, dir, now);
+    await d.start();
+    return { d, sock };
+  }
+
+  it("denies a token at the exact instant it expires", async () => {
+    let clock = FROZEN;
+    const { d, sock } = await daemonAt(() => clock);
+    try {
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 900);
+      const issued = await client.tokenIssue({
+        fingerprint: FINGERPRINT,
+        name: "boundary",
+        scopes: ["read"],
+        ttl: 60,
+        uses: 5,
+      });
+
+      // One second before expiry: usable.
+      clock = FROZEN + 59;
+      await expect(client.vaultEntries(FINGERPRINT, issued.token)).resolves.toBeDefined();
+
+      // EXACTLY at expiry: denied. This is the assertion `<` would fail.
+      clock = FROZEN + 60;
+      await expect(client.vaultEntries(FINGERPRINT, issued.token)).rejects.toThrow(
+        /expired/,
+      );
+    } finally {
+      await d.stop();
+    }
   });
 });
