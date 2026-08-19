@@ -219,3 +219,21 @@ export function semanticStatus(
     updated_at: Number(manifest["updated_at"] ?? 0),
   };
 }
+
+/**
+ * Is an index on disk one that was written before secrets stopped being
+ * indexed?
+ *
+ * Such a file holds stored secrets in the clear, and fixing the writer does
+ * not rewrite files already written — so anything that opens an index has to
+ * check, and callers delete rather than read. Expecting a user to notice a
+ * version string in a status field is not a remedy.
+ *
+ * A missing or unreadable manifest is NOT stale: there is nothing to purge,
+ * and treating "cannot tell" as "delete it" would throw away a good index.
+ */
+export function isStaleSemanticIndex(manifest: Record<string, unknown>): boolean {
+  const modelId = manifest["model_id"];
+  if (modelId === undefined || modelId === null) return false;
+  return String(modelId) !== SEMANTIC_MODEL_ID;
+}

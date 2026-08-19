@@ -11,6 +11,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, writeFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -465,6 +466,48 @@ describe("semantic index", () => {
     await call("POST", "/api/v1/semantic/build");
     const path = join(app.profileDir(FINGERPRINT), "semantic_index", "records.json");
     expect((await stat(path)).mode & 0o777).toBe(0o600);
+  });
+
+  it("deletes an index built before secrets stopped being indexed", async () => {
+    // Such a file holds stored secrets in the clear, and fixing the writer
+    // does not rewrite what is already on disk. Leaving it and reporting a
+    // version string in a status field is not a remedy.
+    await call("POST", "/api/v1/semantic/build");
+    const dir = join(app.profileDir(FINGERPRINT), "semantic_index");
+    const manifestPath = join(dir, "manifest.json");
+    const recordsPath = join(dir, "records.json");
+
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.model_id = "seedpass-token-overlap-v1";
+    await writeFile(manifestPath, JSON.stringify(manifest));
+    await writeFile(
+      recordsPath,
+      JSON.stringify([
+        { entry_id: 1, kind: "key_value", label: "x", text: "LEAKED-SECRET", tokens: ["leaked"] },
+      ]),
+    );
+
+    // Touching it at all removes it, and the leaked content never comes back
+    // out through search.
+    const status = await call("GET", "/api/v1/semantic/status");
+    expect(status.json.built).toBe(false);
+    expect(existsSync(recordsPath)).toBe(false);
+
+    const hits = await call("POST", "/api/v1/semantic/search", { body: { query: "leaked" } });
+    expect(hits.status).toBe(409);
+  });
+
+  it("keeps a current index rather than deleting anything it cannot identify", async () => {
+    // "Cannot tell" must not mean "delete it": that would throw away a good
+    // index on every corrupt-manifest read.
+    await call("POST", "/api/v1/semantic/build");
+    const dir = join(app.profileDir(FINGERPRINT), "semantic_index");
+    await writeFile(join(dir, "manifest.json"), "{ not json");
+    const status = await call("GET", "/api/v1/semantic/status");
+    expect(status.status).toBe(200);
+    expect(existsSync(join(dir, "records.json"))).toBe(true);
+    // Put it back for any later test.
+    await call("POST", "/api/v1/semantic/build");
   });
 
   it("says so rather than returning nothing when no index exists", async () => {

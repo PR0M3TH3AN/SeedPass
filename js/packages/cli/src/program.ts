@@ -30,6 +30,7 @@ import {
   searchSemanticRecords,
   semanticManifest,
   semanticStatus,
+  isStaleSemanticIndex,
   type SemanticRecord,
   generateFingerprint,
   assertValidMnemonic,
@@ -75,7 +76,7 @@ import {
   sshPublicKeyOpenSsh,
   utf8,
 } from "@seedpass/core";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { homedir } from "node:os";
@@ -1690,6 +1691,40 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     return { dir, records: join(dir, "records.json"), manifest: join(dir, "manifest.json") };
   }
 
+  async function readManifest(path: string): Promise<Record<string, unknown>> {
+    if (!existsSync(path)) return {};
+    try {
+      return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+    } catch {
+      // A corrupt manifest reads as "not built"; the fix is a rebuild, which
+      // is what status is meant to prompt.
+      return {};
+    }
+  }
+
+  /**
+   * Delete an index written before secrets stopped being indexed.
+   *
+   * Such a file holds stored secrets in the clear, and fixing the writer does
+   * not rewrite files already on disk. Deleting is safe — the index is a
+   * derived cache, rebuilt from the vault in milliseconds — and leaving it is
+   * leaving plaintext secrets next to an encrypted vault.
+   */
+  async function purgeStaleSemantic(paths: {
+    records: string;
+    manifest: string;
+  }): Promise<boolean> {
+    if (!isStaleSemanticIndex(await readManifest(paths.manifest))) return false;
+    for (const path of [paths.records, paths.manifest]) {
+      if (existsSync(path)) await rm(path, { force: true });
+    }
+    io.err(
+      "Removed a semantic index built by an older version: it stored entry " +
+        "secrets in plaintext. Run 'semantic build' to search again.",
+    );
+    return true;
+  }
+
   async function readRecords(path: string): Promise<SemanticRecord[]> {
     if (!existsSync(path)) return [];
     try {
@@ -1744,15 +1779,8 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .action(async () => {
       const opts = program.opts() as GlobalOpts;
       const paths = await semanticPaths(opts);
-      let manifest: Record<string, unknown> = {};
-      if (existsSync(paths.manifest)) {
-        try {
-          manifest = JSON.parse(await readFile(paths.manifest, "utf8"));
-        } catch {
-          // A corrupt manifest reports as "not built" rather than failing:
-          // the fix is to rebuild, which the status is meant to prompt.
-        }
-      }
+      await purgeStaleSemantic(paths);
+      const manifest = await readManifest(paths.manifest);
       const records = await readRecords(paths.records);
       io.out(JSON.stringify(semanticStatus(manifest, records.length), null, 2));
     });
@@ -1765,6 +1793,9 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
     .action(async (query: string, o: { limit: string; kind?: string }) => {
       const opts = program.opts() as GlobalOpts;
       const paths = await semanticPaths(opts);
+      // Reading a stale index would serve results derived from the secrets it
+      // should never have held.
+      await purgeStaleSemantic(paths);
       const records = await readRecords(paths.records);
       if (records.length === 0) {
         throw new Error("no semantic index; run 'semantic build' first");

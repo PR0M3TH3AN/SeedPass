@@ -8,7 +8,7 @@
  * is the part nobody notices — which secret a given entry produces.
  */
 
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import {
@@ -42,6 +42,7 @@ import {
   searchSemanticRecords,
   semanticManifest,
   semanticStatus,
+  isStaleSemanticIndex,
   type SemanticRecord,
   totpCodeAt,
   Bip85,
@@ -822,6 +823,30 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
   const semanticRecordsPath = (): string => join(semanticDir(), "records.json");
   const semanticManifestPath = (): string => join(semanticDir(), "manifest.json");
 
+  async function readSemanticManifest(): Promise<Record<string, unknown>> {
+    if (!existsSync(semanticManifestPath())) return {};
+    try {
+      return JSON.parse(await readFile(semanticManifestPath(), "utf8")) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Delete an index written before secrets stopped being indexed.
+   *
+   * Such a file holds stored secrets in the clear, and fixing the writer does
+   * not rewrite what is already on disk. Deleting is safe — it is a derived
+   * cache — and serving results from it would mean serving results derived
+   * from secrets it should never have held.
+   */
+  async function purgeStaleSemantic(): Promise<void> {
+    if (!isStaleSemanticIndex(await readSemanticManifest())) return;
+    for (const path of [semanticRecordsPath(), semanticManifestPath()]) {
+      if (existsSync(path)) await rm(path, { force: true });
+    }
+  }
+
   async function readSemanticRecords(): Promise<SemanticRecord[]> {
     if (!existsSync(semanticRecordsPath())) return [];
     try {
@@ -862,14 +887,8 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
   }
 
   server.route("GET", "/api/v1/semantic/status", async () => {
-    let manifest: Record<string, unknown> = {};
-    if (existsSync(semanticManifestPath())) {
-      try {
-        manifest = JSON.parse(await readFile(semanticManifestPath(), "utf8"));
-      } catch {
-        // Corrupt manifest reports as not-built; the fix is a rebuild.
-      }
-    }
+    await purgeStaleSemantic();
+    const manifest = await readSemanticManifest();
     return { json: semanticStatus(manifest, (await readSemanticRecords()).length) };
   });
 
@@ -883,6 +902,7 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
 
   server.route("POST", "/api/v1/semantic/search", async (req) => {
     const body = bodyObject(req);
+    await purgeStaleSemantic();
     const records = await readSemanticRecords();
     if (records.length === 0) {
       throw new HttpError(409, "no semantic index; POST /api/v1/semantic/build first");

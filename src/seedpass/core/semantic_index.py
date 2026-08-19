@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 WORD_RE = re.compile(r"[a-z0-9_]+")
 
@@ -50,7 +53,37 @@ class SemanticIndex:
         self.manifest_path = self.index_dir / self.MANIFEST_FILENAME
         self.records_path = self.index_dir / self.RECORDS_FILENAME
 
+    def purge_if_stale(self) -> bool:
+        """Delete an index built before secrets stopped being indexed.
+
+        An index whose manifest records an older ``model_id`` was written by
+        code that put stored secrets into ``records.json`` in the clear. The
+        fix to that code does not rewrite files already on disk, so the
+        plaintext sits there until something removes it -- and expecting a
+        user to notice a version string in a status field is not a remedy.
+
+        Deleting is safe: this index is a derived cache, rebuilt from the
+        vault in milliseconds. Returns True if anything was removed.
+        """
+        manifest = self._load_manifest()
+        if not manifest:
+            return False
+        if str(manifest.get("model_id", "")) == self.MODEL_ID:
+            return False
+        removed = False
+        for path in (self.records_path, self.manifest_path):
+            if path.exists():
+                path.unlink()
+                removed = True
+        if removed:
+            logger.warning(
+                "Removed a semantic index built by an older version: it stored "
+                "entry secrets in plaintext. Rebuild it to search again."
+            )
+        return removed
+
     def status(self) -> dict[str, Any]:
+        self.purge_if_stale()
         manifest = self._load_manifest()
         records = self._load_records()
         enabled = bool(manifest.get("enabled", False))
@@ -121,6 +154,9 @@ class SemanticIndex:
         k: int = 10,
         kind: str | None = None,
     ) -> list[dict[str, Any]]:
+        # Reading a stale index would also mean serving results derived from
+        # the secrets it should never have held.
+        self.purge_if_stale()
         records = self._load_records()
         if not records:
             return []

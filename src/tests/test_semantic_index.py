@@ -222,3 +222,55 @@ def test_entries_without_a_usable_id_are_still_skipped(tmp_path):
         ]
     )
     assert index.search("text") == []
+
+
+def test_an_index_built_before_the_fix_is_deleted_on_first_touch(tmp_path):
+    """A v1 index still holds plaintext secrets; the fix does not rewrite it.
+
+    Leaving it on disk and reporting a version string in a status field is not
+    a remedy. Deleting is safe -- the index is a derived cache, rebuilt from
+    the vault in milliseconds.
+    """
+    import json
+
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build([{"id": 1, "kind": "document", "label": "notes", "content": "hello"}])
+
+    manifest_path = tmp_path / "semantic_index" / "manifest.json"
+    records_path = tmp_path / "semantic_index" / "records.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["model_id"] = "seedpass-token-overlap-v1"
+    manifest_path.write_text(json.dumps(manifest))
+    records_path.write_text(
+        json.dumps(
+            [
+                {
+                    "entry_id": 1,
+                    "kind": "key_value",
+                    "label": "x",
+                    "text": "LEAKED-SECRET",
+                    "tokens": ["leaked", "secret"],
+                }
+            ]
+        )
+    )
+
+    # Searching it must neither return the leaked content nor leave it there.
+    assert index.search("leaked") == []
+    assert not records_path.exists()
+    assert not manifest_path.exists()
+    assert index.status()["built"] is False
+
+
+def test_an_unreadable_manifest_is_not_treated_as_stale(tmp_path):
+    """"Cannot tell" must not mean "delete it"."""
+    from seedpass.core.semantic_index import SemanticIndex
+
+    index = SemanticIndex(tmp_path)
+    index.build([{"id": 1, "kind": "document", "label": "notes", "content": "hello"}])
+    (tmp_path / "semantic_index" / "manifest.json").write_text("{ not json")
+
+    index.status()
+    assert (tmp_path / "semantic_index" / "records.json").exists()

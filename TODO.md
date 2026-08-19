@@ -421,10 +421,14 @@ the fix does not rewrite existing files. `MODEL_ID` is bumped to
 `seedpass-token-overlap-v2` so a stale index is identifiable — `semantic
 status` reporting v1 means "rebuild this, it holds secrets".
 
-- [ ] **Decide whether to auto-detect and delete v1 index files on upgrade**,
-      rather than relying on the user to notice the model id. Leaning yes: the
-      file has no value once stale, and leaving it is leaving plaintext
-      secrets on disk.
+- [x] **(done 2026-08-19) Stale index files are deleted on first touch.**
+      Both implementations check the manifest's `model_id` whenever they read
+      an index, and remove records + manifest if it predates the fix, so the
+      plaintext does not sit there waiting for a user to notice a version
+      string. Safe because the index is a derived cache rebuilt in
+      milliseconds. A manifest that cannot be read is NOT treated as stale —
+      "cannot tell" must not mean "delete it", or a corrupt-manifest read
+      would throw away a good index.
 
 ### Unbuilt milestones
 

@@ -94,6 +94,7 @@ export {
   semanticText,
   semanticManifest,
   semanticStatus,
+  isStaleSemanticIndex,
   tokenize,
   SEMANTIC_KINDS,
   SEMANTIC_MODEL_ID,
