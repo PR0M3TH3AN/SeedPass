@@ -42,6 +42,11 @@ const MNEMONIC = mnemonics["abandon12"]!;
 const FINGERPRINT = generateFingerprint(MNEMONIC);
 const PASSWORD = "api-test-password";
 const TOKEN = "test-token-not-random-on-purpose";
+// The fixture's entries, so tests can assert against what was actually seeded
+// instead of a hand-counted literal that has to be chased every time the
+// fixture grows.
+const FIXTURE_TOTP_LABELS = ["blank-secret-2fa", "email-2fa"];
+const FIXTURE_LABELS = ["api-token", "bank.example", ...FIXTURE_TOTP_LABELS].sort();
 
 let appDir: string;
 let app: AppDir;
@@ -105,6 +110,14 @@ beforeAll(async () => {
   addPasswordEntry(index, "bank.example", 16, { username: "alice", tags: ["money"] });
   addKeyValueEntry(index, "api-token", "TOKEN", "kv-secret-value");
   addTotpDeterministic(index, "email-2fa", MNEMONIC);
+  // A deterministic entry that also carries a BLANK `secret` field. Python
+  // and older indexes can produce this shape, and the export has to read it
+  // as "no stored secret, derive one" rather than exporting the empty string
+  // as if it were the key. Built here because the API refuses to create it.
+  addTotpDeterministic(index, "blank-secret-2fa", MNEMONIC);
+  for (const entry of Object.values(index.entries) as Record<string, unknown>[]) {
+    if (entry["label"] === "blank-secret-2fa") entry["secret"] = "";
+  }
   await writeFile(
     join(dir, INDEX_FILENAME),
     await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify(index))),
@@ -155,7 +168,13 @@ describe("what the API refuses", () => {
   it("keeps secret values out of listings", async () => {
     const res = await call("GET", "/api/v1/entry");
     expect(res.status).toBe(200);
-    expect(res.json).toHaveLength(3);
+    // Every fixture entry is listed — asserted against the fixture rather
+    // than a literal, so adding one does not silently weaken the check below
+    // into "no secrets in an empty list".
+    expect(res.json.length).toBeGreaterThan(0);
+    expect(res.json.map((r: { label: string }) => r.label).sort()).toEqual(
+      FIXTURE_LABELS,
+    );
     // Reference-first, like every other surface.
     expect(res.text).not.toContain("kv-secret-value");
     for (const row of res.json) expect(row.ref).toMatch(/^sp:\/\/entry\//);
@@ -391,6 +410,134 @@ describe("entries", () => {
   });
 });
 
+describe("profiles and vault state", () => {
+  // Everything here was reachable and unasserted: mutation testing disabled
+  // the delete guard, inverted the "current" flag and inverted the locked
+  // flag, and the suite stayed green through all three.
+  const OTHER = generateFingerprint(mnemonics["legal12"]!);
+
+  it("marks exactly the served profile as current", async () => {
+    await app.mutateFingerprints((data) => {
+      if (!data.fingerprints.includes(OTHER)) data.fingerprints.push(OTHER);
+      data.names[OTHER] = "other";
+    });
+    const res = await call("GET", "/api/v1/fingerprint");
+    expect(res.status).toBe(200);
+    const current = res.json.filter((f: { current: boolean }) => f.current);
+    // Assert the PAIRING, not that some entry is current: inverted, every
+    // profile except the served one is flagged, and "at least one is current"
+    // still holds. This is what a profile switcher shows the user.
+    expect(current).toHaveLength(1);
+    expect(current[0].fingerprint).toBe(FINGERPRINT);
+    expect(
+      res.json.find((f: { fingerprint: string }) => f.fingerprint === OTHER).current,
+    ).toBe(false);
+  });
+
+  it("refuses to delete the profile it is serving, but deletes another", async () => {
+    // Destructive and unrecoverable: without the guard the server removes the
+    // vault it is holding open, and keeps answering requests about it. Paired
+    // with a successful delete so the test cannot pass by refusing everything.
+    const refused = await call("DELETE", `/api/v1/fingerprint/${FINGERPRINT}`, {
+      password: PASSWORD,
+    });
+    expect(refused.status).toBe(400);
+    expect(existsSync(app.profileDir(FINGERPRINT))).toBe(true);
+
+    await mkdir(app.profileDir(OTHER), { recursive: true });
+    const deleted = await call("DELETE", `/api/v1/fingerprint/${OTHER}`, {
+      password: PASSWORD,
+    });
+    expect(deleted.status).toBe(200);
+    expect(existsSync(app.profileDir(OTHER))).toBe(false);
+  });
+
+  it("reports lock state that follows the actual seed", async () => {
+    expect((await call("GET", "/api/v1/vault/status")).json.locked).toBe(false);
+
+    expect((await call("POST", "/api/v1/vault/lock")).status).toBe(200);
+    expect((await call("GET", "/api/v1/vault/status")).json.locked).toBe(true);
+    // And the flag is not decorative — a locked vault refuses secrets.
+    expect((await call("GET", "/api/v1/entry/1/secret", { password: PASSWORD })).status)
+      .not.toBe(200);
+
+    const unlocked = await call("POST", "/api/v1/vault/unlock", { password: PASSWORD });
+    expect(unlocked.status).toBe(200);
+    expect((await call("GET", "/api/v1/vault/status")).json.locked).toBe(false);
+  });
+});
+
+describe("the high-risk status the API reports", () => {
+  // Nothing asserted this route, so mutation testing walked straight through
+  // it: `>` to `>=`, `&&` to `||`, and the expires_at null check inverted all
+  // survived. It is the only thing telling a caller whether the second factor
+  // is currently open, so every one of those is a lie about the vault's
+  // state. Built on its own context because it needs a clock it controls.
+  const AT_SECONDS = 1_800_000_000;
+
+  async function frozen(): Promise<{
+    ctx2: ReturnType<typeof buildContext>;
+    status: () => Promise<any>;
+    close: () => Promise<void>;
+    setClock: (seconds: number) => void;
+  }> {
+    let ms = AT_SECONDS * 1000;
+    const srv = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN });
+    const ctx2 = buildContext({
+      app,
+      fingerprint: FINGERPRINT,
+      mnemonic: MNEMONIC,
+      now: () => ms,
+    });
+    registerRoutes(srv, ctx2);
+    const bound = await srv.listen();
+    const url = `http://${bound.host}:${bound.port}/api/v1/high-risk/status`;
+    return {
+      ctx2,
+      setClock: (seconds: number) => {
+        ms = seconds * 1000;
+      },
+      status: async () =>
+        (await fetch(url, { headers: { authorization: `Bearer ${TOKEN}` } })).json(),
+      close: () => srv.close(),
+    };
+  }
+
+  it("reports unlocked only while a tag is held AND unexpired", async () => {
+    const { ctx2, status, setClock, close } = await frozen();
+    try {
+      // No tag at all.
+      expect((await status()).unlocked).toBe(false);
+      expect((await status()).expires_at).toBeNull();
+
+      ctx2.highRiskTag = "a".repeat(64);
+      ctx2.highRiskExpiresAt = AT_SECONDS + 60;
+      expect(await status()).toMatchObject({
+        unlocked: true,
+        expires_at: AT_SECONDS + 60,
+      });
+
+      // One second short of expiry: still open.
+      setClock(AT_SECONDS + 59);
+      expect((await status()).unlocked).toBe(true);
+
+      // EXACTLY at expiry: closed. `>=` would report one more second of a
+      // second factor that has lapsed.
+      setClock(AT_SECONDS + 60);
+      expect((await status()).unlocked).toBe(false);
+
+      // A future expiry with no tag is not an unlock — that is the `&&`.
+      // Without it, an expiry left behind by a previous session reads as open.
+      setClock(AT_SECONDS);
+      ctx2.highRiskTag = null;
+      ctx2.highRiskExpiresAt = AT_SECONDS + 600;
+      expect(await status()).toMatchObject({ unlocked: false, expires_at: null });
+    } finally {
+      await close();
+    }
+  });
+});
+
 describe("totp, config, relays, stats", () => {
   it("requires the master password for live TOTP codes", async () => {
     // A live code authenticates, so a leaked bearer token must not produce
@@ -404,9 +551,72 @@ describe("totp, config, relays, stats", () => {
   it("returns live TOTP codes with the time remaining", async () => {
     const res = await call("GET", "/api/v1/totp", { password: PASSWORD });
     expect(res.status).toBe(200);
-    expect(res.json.codes).toHaveLength(1);
-    expect(res.json.codes[0].code).toMatch(/^\d{6}$/);
-    expect(res.json.codes[0].seconds_remaining).toBeGreaterThan(0);
+    // One per TOTP entry in the fixture, and every one a real code.
+    expect(res.json.codes).toHaveLength(FIXTURE_TOTP_LABELS.length);
+    expect(res.json.codes.map((c: { label: string }) => c.label).sort()).toEqual(
+      FIXTURE_TOTP_LABELS,
+    );
+    for (const c of res.json.codes) {
+      expect(c.code).toMatch(/^\d{6}$/);
+      expect(c.seconds_remaining).toBeGreaterThan(0);
+    }
+  });
+
+  it("derives past a blank stored secret rather than exporting the blank", async () => {
+    // `typeof secret === "string" && secret` — the second half is the part
+    // that matters. Loosened to `||`, an entry whose `secret` is present but
+    // empty exports as an empty secret: an authenticator entry that silently
+    // produces nothing, from an export that looked like it worked.
+    const exported = await call("GET", "/api/v1/totp/export", { password: PASSWORD });
+    const entries = exported.json.entries as { label: string; secret: string }[];
+    const blank = entries.find((e) => e.label === "blank-secret-2fa");
+    expect(blank).toBeDefined();
+    expect(blank!.secret).toMatch(/^[A-Z2-7]{16,}$/);
+  });
+
+  it("exports an imported secret as imported, not re-derived from the seed", async () => {
+    // The export picks per entry: stored secret if it has one, derived
+    // otherwise. Invert that choice and every exported secret is still
+    // well-formed base32 — so shape assertions pass while the codes the user
+    // loads into their authenticator are for a different account entirely.
+    const IMPORTED = "JBSWY3DPEHPK3PXP";
+    const created = await call("POST", "/api/v1/entry", {
+      password: PASSWORD,
+      body: { kind: "totp", label: "imported-2fa", secret: IMPORTED },
+    });
+    expect(created.status).toBe(201);
+
+    const exported = await call("GET", "/api/v1/totp/export", { password: PASSWORD });
+    const entries = exported.json.entries as { label: string; secret: string }[];
+    const mine = entries.find((e) => e.label === "imported-2fa");
+    expect(mine?.secret).toBe(IMPORTED);
+    // And the derived entries in the same export are NOT the imported one:
+    // the branch has to be taken per entry, not once for the whole export.
+    for (const other of entries.filter((e) => e.label !== "imported-2fa")) {
+      expect(other.secret).not.toBe(IMPORTED);
+    }
+  });
+
+  it("derives a TOTP secret when none is supplied, rather than importing nothing", async () => {
+    // `secret.length > 0` decides between importing the caller's secret and
+    // deriving one from the seed. Relaxed to `>= 0`, an omitted-but-present
+    // empty secret would be IMPORTED -- an entry that looks like a second
+    // factor and is keyed on nothing. Nothing tested the empty case, so the
+    // relaxation went unnoticed.
+    const created = await call("POST", "/api/v1/entry", {
+      password: PASSWORD,
+      body: { kind: "totp", label: "derived-2fa", secret: "" },
+    });
+    expect(created.status).toBe(201);
+
+    const exported = await call("GET", "/api/v1/totp/export", { password: PASSWORD });
+    const entry = exported.json.entries.find(
+      (e: { label: string }) => e.label === "derived-2fa",
+    );
+    expect(entry).toBeDefined();
+    // A derived secret is real base32 of the usual length; an imported empty
+    // one could only be empty.
+    expect(entry.secret).toMatch(/^[A-Z2-7]{16,}$/);
   });
 
   it("gates the full 2FA export behind the master password", async () => {
@@ -606,6 +816,19 @@ describe("high-risk partition over the API", () => {
     expect(res.status).toBe(200);
     expect(res.json.configured).toBe(false);
     expect(res.json.unlocked).toBe(false);
+
+    // And unlocking says so, rather than blaming the factor. Without this
+    // check the request falls through to tagForFactor, which fails and
+    // reports "high_risk_factor_invalid" — telling someone who has never set
+    // a factor that the factor they just chose is wrong, permanently. Both
+    // refuse, so only the distinction is testable, and the distinction is
+    // the whole value.
+    const unconfigured = await call("POST", "/api/v1/high-risk/unlock", {
+      password: PASSWORD,
+      headers: { "x-seedpass-high-risk-factor": "anything-at-all" },
+    });
+    expect(unconfigured.status).toBe(409);
+    expect(unconfigured.json.detail).toContain("not_configured");
   });
 
   it("needs the master password AND the factor to unlock", async () => {
