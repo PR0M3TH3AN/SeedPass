@@ -1523,6 +1523,52 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       io.out(JSON.stringify({ agent: "stopped" }));
     });
 
+  program
+    .command("api")
+    .description(
+      "serve the HTTP API on loopback (holds an unlocked seed; prints a " +
+        "bearer token once)",
+    )
+    .option("--host <host>", "bind address", "127.0.0.1")
+    .option("--port <port>", "bind port", "8765")
+    .option(
+      "--allow-remote",
+      "permit a non-loopback bind (requires a TLS-terminating proxy in front)",
+    )
+    .option(
+      "--cors-origin <origin...>",
+      "allow these browser origins (repeatable; none by default)",
+    )
+    .option("--locked", "start locked; unlock via POST /api/v1/vault/unlock")
+    .action(
+      async (o: {
+        host: string;
+        port: string;
+        allowRemote?: boolean;
+        corsOrigin?: string[];
+        locked?: boolean;
+      }) => {
+        const opts = program.opts() as GlobalOpts;
+        const app = new AppDir(resolveAppDir(opts.appDir));
+        const fingerprint = await currentFingerprint(app, opts);
+        // Starting unlocked is the common case for a local automation
+        // server, but --locked lets an operator hand the port to something
+        // before the password exists anywhere.
+        const mnemonic = o.locked ? null : await resolveMnemonic(app, opts);
+        const { serveApi } = await import("./api/serve.js");
+        await serveApi({
+          app,
+          fingerprint,
+          mnemonic,
+          host: o.host,
+          port: parseIntOption(o.port, "--port", { min: 1, max: 65535 }),
+          ...(o.allowRemote !== undefined && { allowRemote: o.allowRemote }),
+          ...(o.corsOrigin !== undefined && { corsOrigins: o.corsOrigin }),
+          io,
+        });
+      },
+    );
+
   const util = program.command("util").description("utility commands");
 
   util

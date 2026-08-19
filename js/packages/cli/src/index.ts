@@ -7,3 +7,6 @@ export { capabilities } from "./capabilities.js";
 export { AppDir, resolveAppDir, INDEX_FILENAME, CONFIG_FILENAME } from "./appDir.js";
 export { loadConfig, saveConfig, defaultConfig, DEFAULT_RELAYS } from "./configFile.js";
 export { AgentDaemon, AgentClient, agentSocketPath } from "./agent.js";
+export { ApiServer, HttpError, resolveBind } from "./api/server.js";
+export { registerRoutes, UNPORTED_PREFIXES, type ApiContext } from "./api/routes.js";
+export { buildContext, serveApi } from "./api/serve.js";

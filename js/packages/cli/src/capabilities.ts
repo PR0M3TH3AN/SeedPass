@@ -75,6 +75,19 @@ export function capabilities(): Record<string, unknown> {
         "boundary: a token holder that can read the owner capability file can " +
         "still escalate. See docs/agent_security_model.md.",
     },
+    api: {
+      command: "seedpass-js api",
+      base_path: "/api/v1",
+      // Loopback by default because this process holds unlocked seeds; a
+      // non-loopback bind needs --allow-remote and should sit behind a
+      // TLS-terminating proxy.
+      binds: "127.0.0.1 unless --allow-remote",
+      auth: "bearer token, printed once at startup, never written to disk",
+      // A leaked bearer token alone must not read the vault.
+      plaintext_routes_require: "X-SeedPass-Password header in addition to the token",
+      locked_status: 423,
+      unported_status: 501,
+    },
     audit: {
       commands: ["agent audit-verify", "agent audit-tail"],
       chain: "HMAC-SHA256(prev_sig + canonical_payload), keyed by KEY_INDEX",
@@ -86,7 +99,7 @@ export function capabilities(): Record<string, unknown> {
       "pgp RSA keys (ed25519 is supported; RSA generation is not reproducible)",
       "index0/atlas",
       "approval gates and high-risk partitions",
-      "semantic (vector search) and api (FastAPI server) command groups",
+      "semantic (vector search) command group",
       "Python's v2/v3 TUIs (interactive mode follows the legacy v1 menus)",
       "QR code display in the TUI (no QR encoder in this build)",
     ],
