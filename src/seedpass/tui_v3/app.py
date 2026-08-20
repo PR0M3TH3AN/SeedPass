@@ -48,10 +48,13 @@ class CommandProcessor:
         self.app = app
 
     def execute(self, raw: str) -> None:
-        import shlex
+        # Shared with the v2 palette so the two cannot drift: plain
+        # shlex.split eats backslashes, which destroys every Windows path a
+        # user types into a command that takes one.
+        from seedpass.tui_v2.app import split_palette_args
 
         try:
-            parts = shlex.split(raw)
+            parts = split_palette_args(raw)
         except Exception as e:
             self.app.notify(f"Parse error: {e}", severity="error")
             return

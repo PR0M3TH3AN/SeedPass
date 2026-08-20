@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shlex
 import time
 from pathlib import Path
@@ -30,12 +31,39 @@ def parse_palette_command(command: str) -> tuple[str, list[str]]:
     if not raw:
         raise ValueError("Palette: command required")
     try:
-        parts = shlex.split(raw)
+        parts = split_palette_args(raw)
     except ValueError as exc:
         raise ValueError(f"Palette parse error: {exc}") from exc
     if not parts:
         raise ValueError("Palette: command required")
     return parts[0].lower(), parts[1:]
+
+
+def split_palette_args(raw: str, *, windows: bool | None = None) -> list[str]:
+    """Split a palette command line into tokens, preserving Windows paths.
+
+    `shlex.split` defaults to POSIX mode, where a backslash is an ESCAPE
+    character. On Windows that silently destroys every path a user types:
+    `C:\\Users\\me\\exports` comes back as `C:Usersmeexports`, so
+    doc-export, export-field, db-export, db-import and parent-seed-backup all
+    wrote to a mangled relative path — or nowhere — while reporting success.
+    Found by the Windows CI job once it could run these tests at all.
+
+    Non-POSIX mode keeps backslashes but also keeps the surrounding quotes on
+    a quoted token, so those are stripped back off. `windows` is a parameter
+    rather than a bare `os.name` check so both branches are testable from
+    either platform.
+    """
+    on_windows = os.name == "nt" if windows is None else windows
+    if not on_windows:
+        return shlex.split(raw)
+    parts = shlex.split(raw, posix=False)
+    unquoted: list[str] = []
+    for part in parts:
+        if len(part) >= 2 and part[0] == part[-1] and part[0] in "\"'":
+            part = part[1:-1]
+        unquoted.append(part)
+    return unquoted
 
 
 def pagination_window(

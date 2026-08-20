@@ -253,8 +253,18 @@ everything still open, in the order it should be tackled.
             deliberately with the sync round-trip re-validated against a real
             relay rather than folded into unrelated work.
             (Found 2026-08-20 on the first CI run of this branch.)
-      - [ ] **Two TUI tests still fail on Windows, and only Windows ever runs
-            them.** Surfaced 2026-08-20 once the Tests workflow could report a
+      - [x] **Two TUI tests still fail on Windows, and only Windows ever runs
+            them.** RESOLVED — and they were right. The tests were not
+            POSIX-assuming; the APP was. `parse_palette_command` used
+            `shlex.split`, which defaults to POSIX mode where a backslash is
+            an escape character, so on Windows
+            `C:\Users\me\exports` became `C:Usersmeexports` and every
+            palette command taking a path — doc-export, export-field,
+            db-export, db-import, parent-seed-backup, totp-export — wrote to a
+            mangled relative path or nowhere, while telling the user it had
+            worked. Both palettes now share `split_palette_args`, which takes
+            an explicit `windows` flag so BOTH branches are tested from either
+            platform. Original wording kept below for the record. Surfaced 2026-08-20 once the Tests workflow could report a
             Windows failure at all (see below). Four failed; two were literal
             `/tmp/...` comparisons against paths the app echoes
             platform-normalized, and those are fixed by deriving the expected

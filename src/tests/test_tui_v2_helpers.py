@@ -6,6 +6,7 @@ from seedpass.tui_v2.app import (
     pagination_window,
     parse_palette_command,
     render_qr_ascii,
+    split_palette_args,
     truncate_entry_for_display,
 )
 
@@ -79,3 +80,55 @@ def test_pagination_window_large_vault_sizes(rows: int) -> None:
     assert page == last_page
     assert total_pages >= 1
     assert 0 <= start <= end <= rows
+
+
+class TestSplitPaletteArgs:
+    """Both platform branches, tested from either platform.
+
+    `windows` is an explicit parameter rather than a bare `os.name` check
+    precisely so these can run everywhere. Without that, the Windows branch
+    would only ever be exercised on Windows — which is how the bug below
+    survived: shlex.split defaults to POSIX mode, where backslash is an ESCAPE
+    character, so every Windows path a user typed came back with its
+    separators eaten and doc-export, export-field, db-export, db-import and
+    parent-seed-backup wrote nowhere while reporting success.
+    """
+
+    def test_windows_paths_keep_their_separators(self) -> None:
+        assert split_palette_args(
+            r"doc-export C:\Users\me\Temp\exports", windows=True
+        ) == ["doc-export", r"C:\Users\me\Temp\exports"]
+
+    def test_posix_mode_would_have_eaten_them(self) -> None:
+        # The bug, pinned. If someone "simplifies" the helper back to a plain
+        # shlex.split, this is what Windows users get.
+        assert split_palette_args(
+            r"doc-export C:\Users\me\Temp\exports", windows=False
+        ) == ["doc-export", "C:UsersmeTempexports"]
+
+    def test_quoted_windows_paths_survive_with_quotes_removed(self) -> None:
+        # Non-POSIX shlex keeps the quotes on the token; they have to come off
+        # or the path gains a literal quote character.
+        assert split_palette_args(
+            'db-export "C:\\Program Files\\out.enc"', windows=True
+        ) == ["db-export", r"C:\Program Files\out.enc"]
+
+    def test_posix_behaviour_is_unchanged(self) -> None:
+        assert split_palette_args("doc-export /tmp/exports", windows=False) == [
+            "doc-export",
+            "/tmp/exports",
+        ]
+        assert split_palette_args('db-export "/tmp/with space.enc"', windows=False) == [
+            "db-export",
+            "/tmp/with space.enc",
+        ]
+
+    def test_quoting_still_groups_on_windows(self) -> None:
+        assert split_palette_args(
+            'link-add 42 related_to "note text"', windows=True
+        ) == [
+            "link-add",
+            "42",
+            "related_to",
+            "note text",
+        ]
