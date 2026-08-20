@@ -2681,7 +2681,7 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
             "pass123",
         )
         assert (
-            "Parent seed backup written to /tmp/seedpass-parent-backup.enc"
+            f"Parent seed backup written to {Path('/tmp/seedpass-parent-backup.enc')}"
             in _status_text(app)
         )
 

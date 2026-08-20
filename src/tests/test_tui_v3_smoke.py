@@ -676,7 +676,7 @@ async def test_tui3_change_password_and_seed_backup_flows_use_vault_service() ->
         app.screen.query_one("#backup-seed-password", Input).value = "pw456"
         await pilot.press("ctrl+s")
         await pilot.pause()
-        assert vault.backup_requests[-1] == ("/tmp/seed-second.enc", "pw456")
+        assert vault.backup_requests[-1] == (str(Path("/tmp/seed-second.enc")), "pw456")
 
 
 @pytest.mark.anyio
@@ -924,7 +924,7 @@ async def test_tui3_create_profile_screen_supports_backup_restore_mode() -> None
         screen.query_one("#create-password", Input).value = "hunter2"
         await pilot.press("enter")
         await pilot.pause()
-        assert restored["backup_path"] == "/tmp/profile-backup.enc"
+        assert restored["backup_path"] == str(Path("/tmp/profile-backup.enc"))
         assert booted == {"fingerprint": "BACKUPFP1", "password": "hunter2"}
 
 
