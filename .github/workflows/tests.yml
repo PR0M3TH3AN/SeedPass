@@ -35,6 +35,13 @@ jobs:
       - name: Run deterministic regression tests
         run: poetry run pytest -q src/tests/test_deterministic_artifact_regression.py
       - name: Run tests with coverage
+        # `shell: bash` is load-bearing, not tidiness. Without it Windows runs
+        # this block under pwsh, where only the LAST command decides whether
+        # the step failed -- so `coverage xml` succeeding hid pytest failing,
+        # and this job reported success on Windows while reading
+        # "2 failed, 1114 passed". A check that cannot go red is worse than no
+        # check, because it is trusted.
+        shell: bash
         run: |
           poetry run coverage run -m pytest
           poetry run coverage xml

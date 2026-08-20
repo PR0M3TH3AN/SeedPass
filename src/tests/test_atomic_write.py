@@ -1,6 +1,7 @@
 import json
 import pytest
 from multiprocessing import Process
+import sys
 from pathlib import Path
 
 from utils.atomic_write import atomic_write
@@ -77,6 +78,17 @@ def test_atomic_write_preserves_existing_on_failure(tmp_path: Path) -> None:
     assert dest_path.read_text() == "original content"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX mode bits do not exist on Windows: os.chmod only toggles the "
+        "read-only flag and st_mode reads back 0o666, so this assertion cannot "
+        "hold there. It is SKIPPED rather than relaxed because the property it "
+        "checks is real -- whether these files are protected from other users "
+        "on Windows is an open question about ACLs, recorded in TODO.md, and "
+        "a weakened assertion would answer it falsely."
+    ),
+)
 def test_atomic_write_permissions(tmp_path: Path) -> None:
     """File permissions should be set to 0o600 (owner read/write only)."""
     import stat

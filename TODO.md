@@ -253,6 +253,42 @@ everything still open, in the order it should be tackled.
             deliberately with the sync round-trip re-validated against a real
             relay rather than folded into unrelated work.
             (Found 2026-08-20 on the first CI run of this branch.)
+      - [ ] **Four TUI tests fail on Windows, and only Windows ever runs
+            them.** Surfaced 2026-08-20 once the Tests workflow could report
+            a Windows failure at all (see below). All four assume POSIX
+            paths: `test_tui2_textual_palette_profiles_and_settings` and
+            `test_tui3_change_password_and_seed_backup_flows_use_vault_service`
+            compare against literal `/tmp/...` strings while the app echoes
+            the platform-normalized `\tmp\...`;
+            `test_tui2_textual_copy_command_for_core_and_advanced_fields`
+            dies with FileNotFoundError on an `export-field` target; and
+            `test_tui2_textual_palette_notes_tags_fields_and_doc_export`
+            asserts False on a doc-export path.
+
+            They are left failing rather than patched blind: reproducing them
+            needs a Windows host, and guessing at path-normalization and
+            palette-argument parsing would mean changing tests to match an
+            assumption instead of a behaviour.
+
+            Note how this interacts with the textual item below: because
+            textual is undeclared, these tests SKIP on Linux and macOS and run
+            only on Windows, which is the one platform they were not written
+            for. Declaring textual would make them run where they were
+            written, which is probably the first move.
+      - [ ] **Are vault files protected from other users on Windows?**
+            `test_atomic_write_permissions` and
+            `test_index_files_are_not_readable_by_other_users` assert mode
+            0o600 and are now skipped on Windows, because POSIX mode bits do
+            not exist there -- `os.chmod` toggles a read-only flag and
+            `st_mode` reads back 0o666. Skipped rather than relaxed on
+            purpose: a weakened assertion would answer the question falsely.
+
+            The question itself is open and worth answering. On Windows these
+            files inherit directory ACLs rather than carrying an explicit
+            owner-only mode, and the semantic index in particular holds
+            stored secrets. Either verify the inherited ACL is user-scoped
+            and assert THAT on Windows, or set an explicit ACL and assert it.
+            (Recorded 2026-08-20.)
       - [ ] **`textual` is an undeclared dependency, so the entire TUI test
             surface has never run in CI.** It appears in neither
             `[tool.poetry.dependencies]`, `[tool.poetry.extras]`, nor the dev

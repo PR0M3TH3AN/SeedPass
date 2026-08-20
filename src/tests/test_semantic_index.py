@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import sys
+
+import pytest
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -166,6 +170,15 @@ def test_stored_secrets_are_never_written_to_the_index(tmp_path):
     assert "DEPLOY_TOKEN" in raw
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "POSIX mode bits do not exist on Windows -- see the same skip in "
+        "test_atomic_write.py. The semantic index holds stored secrets, so "
+        "whether it is protected on Windows matters and is recorded in "
+        "TODO.md rather than papered over here."
+    ),
+)
 def test_index_files_are_not_readable_by_other_users(tmp_path):
     """Every other file in a profile is 0600; these were created at the umask."""
     from seedpass.core.semantic_index import SemanticIndex
