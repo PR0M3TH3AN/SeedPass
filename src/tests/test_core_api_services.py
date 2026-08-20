@@ -772,6 +772,411 @@ class TestEntryServiceExtended:
         mock_manager.exit_managed_account.assert_called_once()
 
 
+class TestSearchServiceGraphTraversal:
+    """multi_hop_neighbors, filtered_neighbors and graph_pivot_results.
+
+    These three are the traversal behind atlas pivoting, and they arrived with
+    the graph feature almost entirely untested — between them roughly 240 of
+    the 269 uncovered lines in this module, which is what put
+    seedpass/core/api.py under its coverage gate.
+
+    They are tested against their documented contracts (hop numbering, path
+    recording, shortest-path retention, the stated pivot scoring) rather than
+    against whatever they happen to return, so a test failing here means the
+    documented behaviour changed.
+    """
+
+    @pytest.fixture
+    def service(self, mock_manager):
+        return SearchService(mock_manager)
+
+    @pytest.fixture
+    def graph(self, mock_manager, tmp_path):
+        """A small graph: 1 -> 2 -> 3, with archived 4 -> 1.
+
+        1 "Project Plan"  (document) --references--> 2
+        2 "Ops Vault"     (password) --depends_on--> 3
+        3 "Runbook"       (document)
+        4 "Old Note"      (document, archived) --mentions--> 1
+        """
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Project Plan", None, None, False, EntryType.DOCUMENT),
+            (2, "Ops Vault", "ops", "https://ops", False, EntryType.PASSWORD),
+            (3, "Runbook", None, None, False, EntryType.DOCUMENT),
+            (4, "Old Note", None, None, True, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "Project Plan",
+                "links": [{"target_id": 2, "relation": "references"}],
+            },
+            2: {
+                "id": 2,
+                "kind": "password",
+                "label": "Ops Vault",
+                "username": "ops",
+                "url": "https://ops",
+                "links": [{"target_id": 3, "relation": "depends_on"}],
+            },
+            3: {"id": 3, "kind": "document", "label": "Runbook"},
+            4: {
+                "id": 4,
+                "kind": "document",
+                "label": "Old Note",
+                "archived": True,
+                "links": [{"target_id": 1, "relation": "mentions"}],
+            },
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+        return f"seed/{tmp_path.name}"
+
+    # ------------------------------------------------------------ multi-hop
+
+    def test_reaches_two_hops_and_records_hop_and_path(self, service, graph):
+        rows = service.multi_hop_neighbors(1, hops=2, direction="outgoing")
+
+        assert [(r["entry_id"], r["hop"]) for r in rows] == [(2, 1), (3, 2)]
+        # `path` is the route taken, origin first — what a UI draws as a trail.
+        assert rows[0]["path"] == [1, 2]
+        assert rows[1]["path"] == [1, 2, 3]
+        assert rows[0]["relation"] == "references"
+        assert rows[1]["relation"] == "depends_on"
+        assert rows[0]["scope_path"] == graph
+
+    def test_hops_bounds_the_walk(self, service, graph):
+        # hops=1 must not reach 3, which is only reachable through 2.
+        rows = service.multi_hop_neighbors(1, hops=1, direction="outgoing")
+        assert [r["entry_id"] for r in rows] == [2]
+
+    def test_keeps_the_shortest_path_when_an_entry_is_reachable_twice(
+        self, service, mock_manager, tmp_path
+    ):
+        # 1 -> 2 -> 3 and also 1 -> 3 directly. 3 must come back as hop 1, not
+        # hop 2: "when the same entry is reachable via multiple paths only the
+        # shortest-hop path is retained".
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "Origin", None, None, False, EntryType.DOCUMENT),
+            (2, "Middle", None, None, False, EntryType.DOCUMENT),
+            (3, "Target", None, None, False, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "Origin",
+                "links": [
+                    {"target_id": 2, "relation": "references"},
+                    {"target_id": 3, "relation": "references"},
+                ],
+            },
+            2: {
+                "id": 2,
+                "kind": "document",
+                "label": "Middle",
+                "links": [{"target_id": 3, "relation": "depends_on"}],
+            },
+            3: {"id": 3, "kind": "document", "label": "Target"},
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+
+        rows = service.multi_hop_neighbors(1, hops=3, direction="outgoing")
+        by_id = {r["entry_id"]: r for r in rows}
+        assert by_id[3]["hop"] == 1
+        assert by_id[3]["path"] == [1, 3]
+
+    def test_a_cycle_terminates(self, service, mock_manager, tmp_path):
+        # 1 -> 2 -> 1. Without the path check this walks forever; the origin is
+        # also never returned as its own neighbor.
+        mock_manager.fingerprint_dir = tmp_path
+        mock_manager.entry_manager.search_entries.return_value = [
+            (1, "A", None, None, False, EntryType.DOCUMENT),
+            (2, "B", None, None, False, EntryType.DOCUMENT),
+        ]
+        entries = {
+            1: {
+                "id": 1,
+                "kind": "document",
+                "label": "A",
+                "links": [{"target_id": 2, "relation": "references"}],
+            },
+            2: {
+                "id": 2,
+                "kind": "document",
+                "label": "B",
+                "links": [{"target_id": 1, "relation": "references"}],
+            },
+        }
+        mock_manager.entry_manager.retrieve_entry.side_effect = lambda eid: entries[eid]
+
+        rows = service.multi_hop_neighbors(1, hops=5, direction="outgoing")
+        assert [r["entry_id"] for r in rows] == [2]
+
+    def test_direction_selects_which_edges_are_followed(self, service, graph):
+        incoming = service.multi_hop_neighbors(1, hops=1, direction="incoming")
+        assert [(r["entry_id"], r["direction"]) for r in incoming] == [(4, "incoming")]
+        assert incoming[0]["relation"] == "mentions"
+
+        both = service.multi_hop_neighbors(1, hops=1, direction="both")
+        assert sorted(r["entry_id"] for r in both) == [2, 4]
+
+        # An unrecognised direction falls back to "both" rather than refusing
+        # or returning nothing.
+        assert sorted(
+            r["entry_id"]
+            for r in service.multi_hop_neighbors(1, hops=1, direction="sideways")
+        ) == [2, 4]
+
+    def test_include_archived_false_drops_the_archived_neighbor(self, service, graph):
+        rows = service.multi_hop_neighbors(
+            1, hops=1, direction="both", include_archived=False
+        )
+        assert [r["entry_id"] for r in rows] == [2]
+
+    def test_relation_filter_selects_edges_by_name(self, service, graph):
+        rows = service.multi_hop_neighbors(
+            1, hops=2, direction="outgoing", relation="references"
+        )
+        # Only the `references` edge is followed, so 3 — reached by
+        # `depends_on` — is not present.
+        assert [r["entry_id"] for r in rows] == [2]
+
+    def test_kind_filter_also_prunes_the_walk(self, service, graph):
+        # Worth pinning because it is surprising: `kinds` filters the RESULTS,
+        # and because the filter is applied before the neighbor is queued it
+        # also prunes TRAVERSAL THROUGH that neighbor. Entry 3 is a document
+        # and would satisfy the filter, but it is only reachable through 2,
+        # which is a password and is therefore never stepped through.
+        rows = service.multi_hop_neighbors(
+            1, hops=2, direction="outgoing", kinds=["document"]
+        )
+        assert rows == []
+
+        # Filtering to the kind that IS on the path returns it.
+        rows = service.multi_hop_neighbors(
+            1, hops=2, direction="outgoing", kinds=["password"]
+        )
+        assert [r["entry_id"] for r in rows] == [2]
+
+    def test_limit_caps_results_and_never_returns_nothing(self, service, graph):
+        assert (
+            len(service.multi_hop_neighbors(1, hops=2, direction="outgoing", limit=1))
+            == 1
+        )
+        # `max(1, limit)`: a limit of 0 yields one row rather than an empty
+        # list, which would otherwise read as "no neighbors".
+        assert (
+            len(service.multi_hop_neighbors(1, hops=2, direction="outgoing", limit=0))
+            == 1
+        )
+
+    def test_a_missing_or_invalid_origin_returns_nothing(self, service, graph):
+        assert service.multi_hop_neighbors(0) == []
+        assert service.multi_hop_neighbors(-1) == []
+
+    # ------------------------------------------------------- direct filtered
+
+    def test_filtered_neighbors_selects_by_kind(self, service, graph):
+        assert [
+            r["entry_id"] for r in service.filtered_neighbors(1, kinds=["password"])
+        ] == [2]
+        # Direct neighbors only, so the archived document 4 appears while the
+        # two-hop document 3 does not.
+        assert [
+            r["entry_id"] for r in service.filtered_neighbors(1, kinds=["document"])
+        ] == [4]
+
+    def test_filtered_neighbors_without_kinds_is_every_direct_neighbor(
+        self, service, graph
+    ):
+        assert sorted(r["entry_id"] for r in service.filtered_neighbors(1)) == [2, 4]
+        assert sorted(
+            r["entry_id"] for r in service.filtered_neighbors(1, kinds=[])
+        ) == [2, 4]
+
+    def test_filtered_neighbors_honours_include_archived(self, service, graph):
+        rows = service.filtered_neighbors(1, kinds=["document"], include_archived=False)
+        assert rows == []
+
+    # ------------------------------------------------------------ graph pivot
+
+    def test_pivot_scores_outgoing_above_incoming(self, service, graph):
+        rows = service.graph_pivot_results(1)
+        by_id = {r["entry_id"]: r for r in rows}
+
+        # Documented scoring: a direct outgoing link is 1.0, incoming takes a
+        # 0.1 direction penalty. Both are hop 1 here, so no hop penalty.
+        assert by_id[2]["score"] == 1.0
+        assert by_id[4]["score"] == 0.9
+        # Highest score first — this is what orders the pivot list in the UI.
+        assert [r["entry_id"] for r in rows] == [2, 4]
+
+    def test_pivot_results_are_search_result_shaped(self, service, graph):
+        rows = service.graph_pivot_results(1, pivot_scope="atlas/plan")
+        row = next(r for r in rows if r["entry_id"] == 2)
+
+        # The point of this method is that graph hits are indistinguishable in
+        # SHAPE from search hits, so any surface consuming search output can
+        # consume these.
+        for field in (
+            "entry_id",
+            "label",
+            "kind",
+            "scope_path",
+            "archived",
+            "score",
+            "score_breakdown",
+            "match_reasons",
+            "excerpt",
+            "linked_hits",
+            "tags",
+            "modified_ts",
+            "meta",
+        ):
+            assert field in row
+
+        assert row["match_reasons"] == sorted(
+            {
+                "graph_pivot",
+                "relation:references",
+                "direction:outgoing",
+                "atlas:atlas/plan",
+            }
+        )
+        # The whole score is structural — nothing here came from text matching.
+        assert row["score_breakdown"]["structural"] == row["score"]
+        assert row["score_breakdown"]["lexical"] == 0.0
+        assert row["score_breakdown"]["semantic"] == 0.0
+        # linked_hits points back at the pivot, not at the neighbor.
+        assert row["linked_hits"] == [{"target_id": 1, "relation": "references"}]
+        # Direction is legible in the meta string: -> out, <- in.
+        assert row["meta"].startswith("->[references]")
+        assert "atlas:atlas/plan" in row["meta"]
+        assert next(r for r in rows if r["entry_id"] == 4)["meta"].startswith(
+            "<-[mentions]"
+        )
+
+    def test_pivot_never_puts_a_password_in_an_excerpt(self, service, graph):
+        # Entry 2 is a password. Excerpts are rendered straight into result
+        # lists, so secret-bearing kinds must come back empty.
+        row = next(r for r in service.graph_pivot_results(1) if r["entry_id"] == 2)
+        assert row["excerpt"] == ""
+
+    def test_pivot_honours_include_archived_and_limit(self, service, graph):
+        assert [
+            r["entry_id"]
+            for r in service.graph_pivot_results(1, include_archived=False)
+        ] == [2]
+        assert len(service.graph_pivot_results(1, limit=1)) == 1
+
+    def test_pivot_on_a_missing_origin_returns_nothing(self, service, graph):
+        assert service.graph_pivot_results(0) == []
+        assert service.graph_pivot_results(-5) == []
+
+
+class TestSearchServiceExcerpts:
+    """What text from an entry is allowed to reach a result list.
+
+    `_safe_excerpt` picks the field shown under a search hit, and
+    `_SECRET_EXCERPT_KINDS` names the kinds whose excerpt is suppressed
+    entirely by the callers. Between them they decide what a search result can
+    disclose, which makes the per-kind field choice worth pinning rather than
+    inferring from whichever kind a test happened to use.
+    """
+
+    @pytest.fixture
+    def service(self, mock_manager):
+        return SearchService(mock_manager)
+
+    def test_excerpt_field_per_kind(self, service):
+        excerpt = SearchService._safe_excerpt
+        # notes wins for every kind, when present.
+        assert excerpt({"notes": "a note", "content": "body"}, "document") == "a note"
+        # Otherwise the kind decides which field is legible.
+        assert excerpt({"content": "body text"}, "document") == "body text"
+        assert excerpt({"content": "body text"}, "note") == "body text"
+        assert excerpt({"username": "alice", "url": "https://x"}, "password") == "alice"
+        assert excerpt({"url": "https://x"}, "password") == "https://x"
+        assert excerpt({"key": "API_TOKEN"}, "key_value") == "API_TOKEN"
+        assert excerpt({"issuer": "GitHub"}, "totp") == "GitHub"
+        assert excerpt({"npub": "npub1abc"}, "nostr") == "npub1abc"
+        assert excerpt({"fingerprint": "AA:BB"}, "ssh") == "AA:BB"
+        assert excerpt({"fingerprint": "AA:BB"}, "pgp") == "AA:BB"
+        # A kind with no configured field discloses nothing beyond notes.
+        assert excerpt({"content": "body"}, "seed") == ""
+        assert excerpt({}, "document") == ""
+
+    def test_excerpt_never_reaches_a_secret_field(self, service):
+        # The named fields are metadata. A password, a seed phrase or a private
+        # key must not be reachable through this function whatever the kind.
+        secretish = {
+            "password": "hunter2",
+            "value": "s3cret",
+            "seed": "abandon abandon abandon",
+            "private_key": "-----BEGIN-----",
+            "secret": "JBSWY3DPEHPK3PXP",
+        }
+        for kind in [
+            "password",
+            "stored_password",
+            "totp",
+            "seed",
+            "managed_account",
+            "ssh",
+            "pgp",
+            "nostr",
+            "key_value",
+            "document",
+            "note",
+        ]:
+            assert SearchService._safe_excerpt(dict(secretish), kind) == ""
+
+    def test_excerpt_is_bounded(self, service):
+        # Excerpts are rendered into lists; an unbounded one is a UI hazard and
+        # a way to push a lot of vault content through a narrow surface.
+        assert (
+            len(SearchService._safe_excerpt({"notes": "x" * 1000}, "document")) == 220
+        )
+
+    def test_secret_bearing_kinds_are_declared(self, service):
+        # Callers suppress the excerpt entirely for these. If a new
+        # secret-bearing kind is added and not listed here, its metadata starts
+        # appearing in result lists.
+        assert SearchService._SECRET_EXCERPT_KINDS == {
+            "password",
+            "stored_password",
+            "totp",
+            "seed",
+            "managed_account",
+            "ssh",
+            "pgp",
+            "nostr",
+        }
+
+    def test_meta_field_precedence(self, service):
+        meta = SearchService._meta
+        assert meta({"username": "alice", "url": "https://x"}, "password") == "alice"
+        assert meta({"url": "https://x"}, "password") == "https://x"
+        assert meta({"key": "API_TOKEN"}, "key_value") == "API_TOKEN"
+        assert meta({"file_type": "pdf"}, "document") == "pdf"
+        assert meta({}, "managed_account") == "managed"
+        assert meta({}, "document") == ""
+
+    def test_custom_field_text_collects_names_and_values(self, service):
+        text = SearchService._custom_field_text
+        assert (
+            text({"custom_fields": [{"name": "env", "value": "prod"}]}) == "env\nprod"
+        )
+        # Non-list and non-dict members are ignored rather than raising: this
+        # reads whatever is in the vault, including entries other tools wrote.
+        assert text({"custom_fields": "not-a-list"}) == ""
+        assert text({"custom_fields": [None, 5, {"label": "team"}]}) == "team"
+        assert text({}) == ""
+
+
 class TestConfigService:
     @pytest.fixture
     def service(self, mock_manager):
