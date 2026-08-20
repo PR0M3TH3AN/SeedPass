@@ -17,7 +17,9 @@ class ChangePasswordScreen(Screen):
         Binding("escape", "app.pop_screen", "Cancel", show=True),
     ]
 
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     ChangePasswordScreen {
         background: #999999;
     }
@@ -29,6 +31,7 @@ class ChangePasswordScreen(Screen):
         min-width: 18;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Change Vault Password", classes="maintenance-title")
@@ -107,7 +110,9 @@ class BackupParentSeedScreen(Screen):
         Binding("escape", "app.pop_screen", "Cancel", show=True),
     ]
 
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     BackupParentSeedScreen {
         background: #999999;
     }
@@ -119,6 +124,7 @@ class BackupParentSeedScreen(Screen):
         min-width: 18;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Backup Parent Seed", classes="maintenance-title")

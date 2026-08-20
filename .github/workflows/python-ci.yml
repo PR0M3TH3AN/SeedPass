@@ -76,12 +76,25 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.lock') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      - name: Verify lockfile and install dependencies
+      # Regenerating the lockfile and diffing it proves the committed file
+      # really came from src/requirements.txt. It can only be done on ONE
+      # interpreter: pip-compile resolves version-conditional dependencies
+      # per Python version, so 3.10 and 3.11 produce genuinely different
+      # files (argon2-cffi-bindings among others), and a single committed
+      # lockfile cannot equal both. Run as written across this matrix the
+      # check was unsatisfiable -- whichever version the lockfile was built
+      # on, the other job failed. Linux/3.11 is the canonical generator, so
+      # the verification lives there.
+      - name: Verify the lockfile matches src/requirements.txt
+        if: runner.os == 'Linux'
         run: |
           python -m pip install --upgrade pip
           pip install pip-tools
           pip-compile --generate-hashes --output-file=requirements.lock src/requirements.txt
           git diff --exit-code requirements.lock
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
           pip install --require-hashes -r requirements.lock
       - name: Run dependency scan
         run: scripts/dependency_scan.sh --ignore-vuln GHSA-wj6h-64fc-37mp --ignore-vuln CVE-2025-62727

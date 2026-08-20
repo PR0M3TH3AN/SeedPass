@@ -17,7 +17,9 @@ class NostrPubkeyScreen(Screen):
         Binding("c", "copy_pubkey", "Copy npub", show=True),
     ]
 
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     NostrPubkeyScreen {
         background: #999999;
     }
@@ -34,6 +36,7 @@ class NostrPubkeyScreen(Screen):
         min-width: 16;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Active Profile npub", classes="maintenance-title")

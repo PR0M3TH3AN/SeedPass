@@ -53,7 +53,9 @@ def render_wayfinder(payload: dict) -> str:
 
 
 class AtlasWayfinderScreen(Screen):
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     #atlas-wayfinder-shell { background: #101010; }
     #atlas-wayfinder-actions {
         height: auto;
@@ -71,6 +73,7 @@ class AtlasWayfinderScreen(Screen):
         margin: 1 2;
     }
     """
+    )
 
     def __init__(self, payload: dict) -> None:
         super().__init__()

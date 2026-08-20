@@ -24,7 +24,9 @@ class RelaysScreen(Screen):
         ("s", "sync_now", "Sync Now"),
     ]
 
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     RelaysScreen {
         background: #999999;
     }
@@ -51,6 +53,7 @@ class RelaysScreen(Screen):
         min-width: 16;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Nostr Relay Management", classes="maintenance-title")

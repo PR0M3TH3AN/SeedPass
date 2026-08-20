@@ -77,6 +77,7 @@ def acquire_lock() -> None:
 def release_lock() -> None:
     LOCK.unlink(missing_ok=True)
 
+
 # Each target names the source file and the tests that should defend it.
 # Running only the relevant suites keeps a full pass tractable; a mutant that
 # survives its own suite but would be caught by another is still a finding,
@@ -123,8 +124,7 @@ SECURITY_HINTS = re.compile(
     # `kinds` list is half of what it may reach -- and leaving it out hid the
     # shape check that stops a string `kinds` becoming a substring match.
     # `mnemonic`/`seed` guard the material everything else protects.
-    r"kind|mnemonic|seed"
-    r")",
+    r"kind|mnemonic|seed" r")",
     re.IGNORECASE,
 )
 
@@ -192,9 +192,7 @@ def generate(source: str) -> list[Mutant]:
             mutated = line.replace(old, new, 1)
             if mutated == line:
                 continue
-            mutants.append(
-                Mutant(i, line, mutated, f"{old.strip()} -> {new.strip()}")
-            )
+            mutants.append(Mutant(i, line, mutated, f"{old.strip()} -> {new.strip()}"))
         # Force a guard to always allow. This is the single most informative
         # mutation for security code: if no test notices a check being removed
         # entirely, that check is unverified.
@@ -221,7 +219,10 @@ def generate(source: str) -> list[Mutant]:
         if (
             inline
             and not line.rstrip().endswith("{")
-            and (SECURITY_HINTS.search(inline.group(2)) or REFUSAL.search(inline.group(3)))
+            and (
+                SECURITY_HINTS.search(inline.group(2))
+                or REFUSAL.search(inline.group(3))
+            )
         ):
             mutants.append(
                 Mutant(
@@ -247,9 +248,7 @@ def run(cmd: list[str], cwd: Path, timeout: int) -> tuple[int, str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--target", default="all", choices=[*sorted(TARGETS), "all"]
-    )
+    parser.add_argument("--target", default="all", choices=[*sorted(TARGETS), "all"])
     parser.add_argument(
         "--limit", type=int, default=0, help="cap mutants per target (0 = all)"
     )
@@ -335,12 +334,12 @@ def main() -> int:
                 lines[mutant.line_no - 1] = mutant.mutated + ending
                 path.write_text("".join(lines))
 
-                code, _ = run(
-                    ["npx", "tsc", "--noEmit"], CLI, timeout=args.timeout
-                )
+                code, _ = run(["npx", "tsc", "--noEmit"], CLI, timeout=args.timeout)
                 if code != 0:
                     overall_counts["invalid"] += 1
-                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: invalid (does not typecheck)")
+                    print(
+                        f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: invalid (does not typecheck)"
+                    )
                     continue
 
                 code, _ = run(
@@ -348,11 +347,15 @@ def main() -> int:
                 )
                 if code != 0:
                     overall_counts["killed"] += 1
-                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: killed  ({mutant.description})")
+                    print(
+                        f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: killed  ({mutant.description})"
+                    )
                 else:
                     overall_counts["survived"] += 1
                     overall_survivors.append((f"{rel}:{mutant.line_no}", mutant))
-                    print(f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: SURVIVED ({mutant.description})")
+                    print(
+                        f"  [{idx}/{len(all_mutants)}] line {mutant.line_no}: SURVIVED ({mutant.description})"
+                    )
         finally:
             restore()
             # Prove the restore worked rather than assuming it: a mutant left
@@ -360,7 +363,9 @@ def main() -> int:
             # tree waiting to be committed.
             if path.read_text() != original:
                 release_lock()
-                raise SystemExit(f"FAILED TO RESTORE {rel} -- fix this before committing")
+                raise SystemExit(
+                    f"FAILED TO RESTORE {rel} -- fix this before committing"
+                )
 
     release_lock()
 
@@ -372,7 +377,9 @@ def main() -> int:
         f"{overall_counts['invalid']} invalid (of {total})"
     )
     if viable:
-        print(f"mutation score: {overall_counts['killed'] / viable:.0%} of viable mutants caught")
+        print(
+            f"mutation score: {overall_counts['killed'] / viable:.0%} of viable mutants caught"
+        )
 
     if unmeasured:
         print(
@@ -383,7 +390,9 @@ def main() -> int:
             print(f"  {where}")
 
     if overall_survivors:
-        print(f"\nSURVIVORS — each is either a gap or an equivalent mutant, and needs judging:\n")
+        print(
+            f"\nSURVIVORS — each is either a gap or an equivalent mutant, and needs judging:\n"
+        )
         for where, mutant in overall_survivors:
             print(f"  {where}  [{mutant.description}]")
             print(f"    was: {mutant.original.strip()[:110]}")

@@ -21,7 +21,9 @@ class ProfileManagementScreen(Screen):
         Binding("escape", "app.pop_screen", "Back", show=True),
     ]
 
-    CSS = MAINTENANCE_CSS + """
+    CSS = (
+        MAINTENANCE_CSS
+        + """
     ProfileManagementScreen {
         background: #999999;
     }
@@ -38,6 +40,7 @@ class ProfileManagementScreen(Screen):
         min-width: 14;
     }
     """
+    )
 
     def compose(self) -> ComposeResult:
         yield Static("SeedPass ◈ Profile Management", classes="maintenance-title")
