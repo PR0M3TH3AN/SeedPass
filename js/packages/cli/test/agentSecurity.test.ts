@@ -622,6 +622,34 @@ describe("token-issue validates before it mints", () => {
     expect(r["token"]).toBeUndefined();
   });
 
+  it("refuses a scope it does not recognise, naming it", async () => {
+    // A bogus scope grants nothing downstream — tokenAllows asks for read,
+    // use or reveal by name — so dropping this check fails closed. But it
+    // fails closed SILENTLY: the operator gets a token back, believes they
+    // issued it, and only finds out when the job using it is denied. And a
+    // near-miss is the likely case: "Read", "reveal " with a space, "write"
+    // by analogy with other systems.
+    const base = {
+      op: "token-issue",
+      cap: ownerCap,
+      fingerprint: FINGERPRINT,
+      name: "bad-scope",
+      ttl: 600,
+      uses: 1,
+    };
+    for (const scopes of [["admin"], ["read", "write"], ["Read"], ["reveal "]]) {
+      const r = await rawRequest({ ...base, scopes });
+      expect(r["ok"]).toBe(false);
+      expect(String(r["error"])).toContain("unknown scopes");
+      expect(r["token"]).toBeUndefined();
+    }
+
+    // All three real scopes together are fine, so this rejects the unknown
+    // ones rather than anything about issuing a multi-scope token.
+    const good = await rawRequest({ ...base, scopes: ["read", "use", "reveal"] });
+    expect(good["ok"]).toBe(true);
+  });
+
   it("refuses a bare string where an array is required", async () => {
     // `"read"` and `["read"]` are easy to confuse when hand-writing the
     // protocol, and the difference is not cosmetic: a string `kinds` turns
@@ -659,6 +687,28 @@ describe("token-issue validates before it mints", () => {
     });
     expect(good["ok"]).toBe(true);
     expect(String(good["token"]).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the wire protocol refuses shapes, not just values", () => {
+  it("insists a sink command is an array of strings", async () => {
+    // The exec allowlist is checked with parseCommandSpec against the SAME
+    // array that is later spawned, so a wrong shape cannot cause the check
+    // and the spawn to disagree — every malformed shape fails closed. But
+    // "fails closed" here means a TypeError or a nonsense command word, not
+    // a refusal, and this daemon's stated posture is that every caller is
+    // untrusted. Refuse the shape while it is still describable.
+    for (const command of ["wc -c", 42, { cmd: "wc" }, ["wc", 5], [null]]) {
+      const r = await rawRequest({
+        op: "use-sink",
+        fingerprint: FINGERPRINT,
+        id: "1",
+        sink: "exec",
+        command,
+      });
+      expect(r["ok"]).toBe(false);
+      expect(String(r["error"])).toContain("array of strings");
+    }
   });
 });
 
