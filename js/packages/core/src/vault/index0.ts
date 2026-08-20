@@ -343,7 +343,13 @@ export function normalizeViewManifest(raw: unknown): Dict {
   };
 }
 
-export function recomputeIndex0Stats(index0: Dict): Dict {
+// Typed to exactly what it reads. It used to take a bare Dict, so every one
+// of its five callers — all holding a real Index0 — had to launder it through
+// `as unknown as Dict` to get in. A Pick says what the function needs, admits
+// any Index0 without ceremony, and still accepts a partial one.
+export function recomputeIndex0Stats(
+  index0: Pick<Index0, "events" | "checkpoints" | "heads">,
+): Dict {
   const events = normalizeMapping(index0["events"]);
   const checkpoints = normalizeMapping(index0["checkpoints"]);
   const heads = normalizeMapping(index0["heads"]);
@@ -394,7 +400,7 @@ export function normalizeIndex0(raw: unknown): Index0 {
     const normalizedHead = normalizeHead(head);
     if (normalizedHead) normalized.heads[String(writerId)] = normalizedHead;
   }
-  normalized.stats = recomputeIndex0Stats(normalized as unknown as Dict);
+  normalized.stats = recomputeIndex0Stats(normalized);
   return normalized;
 }
 
@@ -544,7 +550,7 @@ export function appendIndex0Event(payload: unknown, options: AppendEventOptions)
     head_hash: computeHeadHash(event),
     modified_ts: event["modified_ts"] as number,
   };
-  system.stats = recomputeIndex0Stats(system as unknown as Dict);
+  system.stats = recomputeIndex0Stats(system);
   return out;
 }
 
@@ -658,7 +664,7 @@ export function compactIndex0(
     normalized as unknown as Dict,
     options,
   );
-  normalized.stats = recomputeIndex0Stats(normalized as unknown as Dict);
+  normalized.stats = recomputeIndex0Stats(normalized);
   return normalized;
 }
 
@@ -850,7 +856,7 @@ export function rebuildCanonicalViewsPayload(
   const sortedViews: Record<string, Dict> = {};
   for (const key of Object.keys(views).sort(compareCodePoints)) sortedViews[key] = views[key]!;
   index0.canonical_views = sortedViews;
-  index0.stats = recomputeIndex0Stats(index0 as unknown as Dict);
+  index0.stats = recomputeIndex0Stats(index0);
   (out["_system"] as Dict)["index0"] = index0;
   return out;
 }
@@ -1038,6 +1044,6 @@ export function mergeSystemIndex0(current: unknown, incoming: unknown): Index0 {
     heads: sortRecords(heads),
     stats: {},
   };
-  merged.stats = recomputeIndex0Stats(merged as unknown as Dict);
+  merged.stats = recomputeIndex0Stats(merged);
   return merged;
 }

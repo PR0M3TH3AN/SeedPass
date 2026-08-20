@@ -12,6 +12,7 @@ import { base64 } from "@scure/base";
 import { z } from "zod";
 import { canonicalJson, canonicalHash } from "../sync/canonical.js";
 import { deriveIndexKeyBytes } from "./indexKey.js";
+import type { VaultIndex } from "../schema/entries.js";
 import { decryptPayload } from "./payload.js";
 import { encryptV3 } from "./aead.js";
 import { utf8 } from "../util/bytes.js";
@@ -102,7 +103,11 @@ export async function importBackup(
 
 /** Export an index as a portable backup wrapper (format_version 1). */
 export async function exportBackup(
-  index: Record<string, unknown>,
+  // A live VaultIndex or a round-tripped backup payload: both are passed, and
+  // the function treats either as an opaque JSON document to canonicalize and
+  // encrypt. Naming both is what lets a caller holding a real index hand it
+  // over without laundering it through `as unknown as Record<string, unknown>`.
+  index: VaultIndex | Record<string, unknown>,
   options: {
     mnemonic: string;
     fingerprint: string;

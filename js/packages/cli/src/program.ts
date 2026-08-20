@@ -2425,7 +2425,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         existsSync(resolved) && statSync(resolved).isDirectory()
           ? join(resolved, defaultBackupFilename(fingerprint))
           : resolved;
-      const wrapper = await exportBackup(vault.index as Record<string, unknown>, {
+      const wrapper = await exportBackup(vault.index, {
         mnemonic: vault.mnemonic,
         fingerprint,
         encrypt: !o.plaintext,

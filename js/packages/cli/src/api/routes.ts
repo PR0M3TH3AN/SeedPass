@@ -745,7 +745,7 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
       const vault = await readVault(ctx);
       const body = bodyObject(req);
       const encrypt = body["plaintext"] !== true;
-      const wrapper = await exportBackup(vault.index as unknown as Record<string, unknown>, {
+      const wrapper = await exportBackup(vault.index, {
         mnemonic,
         fingerprint: generateFingerprint(mnemonic),
         encrypt,

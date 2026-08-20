@@ -1505,7 +1505,7 @@ async function exportDatabase(s: Session): Promise<void> {
   } else if (!basename(dest).includes(".")) {
     dest = `${dest}${BACKUP_EXTENSION}`;
   }
-  const payload = await exportBackup(s.vault.index as unknown as Record<string, unknown>, {
+  const payload = await exportBackup(s.vault.index, {
     mnemonic: s.vault.mnemonic,
     fingerprint: s.fingerprint,
   });
