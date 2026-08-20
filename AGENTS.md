@@ -182,6 +182,52 @@ SeedPass maintains a comprehensive test infrastructure. Agents should use the ce
    bash scripts/run_ci_tests.sh
    ```
 
+### Local CI: the two gates that matter
+
+TypeScript is the implementation going forward; Python is the reference it is
+validated against. Both are covered by two gates, and they have meanings, not
+just names:
+
+```bash
+./scripts/ci_prepush.sh    # ~45s. Run before every push.
+./scripts/ci_parity.sh     # minutes. Run before calling a branch ready.
+```
+
+**An agent may not report a task complete or push until `ci_prepush.sh`
+passes, and may not call a branch merge-ready until `ci_parity.sh` passes.**
+
+Both begin with `scripts/ci_preflight.py`, which verifies this machine agrees
+with the lockfiles and refuses to continue when it does not. That is not
+ceremony. On 2026-08-20 the local environment held black 26.1.0 while
+`poetry.lock` pinned 24.10.0, so `poetry run black --check .` passed locally
+and failed on GitHub — and an earlier commit titled "satisfy the black gate"
+had already reformatted five files with the wrong black, making CI worse
+while looking like a fix. A local gate that disagrees with CI is worse than
+no gate, because people stop reading the real result.
+
+If preflight fails, repair with:
+
+```bash
+./scripts/dev_sync.sh      # the only script that mutates your environment
+```
+
+Two rules follow from this and apply to everything you write here:
+
+- **Invoke tools through the repository, never off PATH.** `poetry run black`,
+  `pnpm -C js lint` — never a bare `black` or `oxlint`. A bare name is exactly
+  how a local run and a CI run end up disagreeing about the same source.
+- **Never add a check that cannot fail.** Two shipped examples were found and
+  removed on 2026-08-20: a test step whose failures pwsh discarded on Windows,
+  and an SBOM step that swallowed its own error and uploaded nothing. A green
+  check nobody can turn red is worse than an absent one, because it is
+  trusted.
+
+Enable the pre-push hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
    Currently the test folder is located in `src/tests/`. New tests should be placed there so `pytest` can discover them automatically.
 
 ## Style Guidelines

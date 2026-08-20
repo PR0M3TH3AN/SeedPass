@@ -42,21 +42,12 @@ jobs:
       - name: Build the distributable CLI
         run: pnpm --filter @seedpass/cli build
       - name: Smoke-test the bundle standalone
-        # Run from a directory with no node_modules to prove the bundle
-        # carries everything it needs.
-        run: |
-          set -eu
-          BIN="$PWD/packages/cli/dist/seedpass-js.mjs"
-          APP_DIR="$(mktemp -d)"
-          cd "$(mktemp -d)"
-          node "$BIN" --version
-          node "$BIN" capabilities > /dev/null
-          export SEEDPASS_APP_DIR="$APP_DIR"
-          export SEEDPASS_MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-          export SEEDPASS_PASSWORD="ci-smoke-password"
-          node "$BIN" fingerprint add --name ci > /dev/null
-          node "$BIN" entry add password ci-site --length 16 > /dev/null
-          test -n "$(node "$BIN" entry reveal ci-site)"
+        # js/scripts/smoke-cli.mjs, not an inline shell script. The version
+        # that used to live here used mktemp/export/`test -n`, so it could
+        # only run on Unix -- which meant the artifact users actually execute
+        # was never smoke-tested on Windows. Same file now runs everywhere,
+        # and checks determinism rather than just "some output appeared".
+        run: node scripts/smoke-cli.mjs
       - name: Verify the packed npm tarball installs and runs
         # `files`/`exports` mistakes only surface at install time: a package
         # that omits its entry point still builds and tests fine here.

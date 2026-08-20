@@ -1,0 +1,134 @@
+name: TypeScript Platform
+
+# Three operating systems, running the checks that can only be answered by an
+# actual machine of that kind.
+#
+# The division of labour with ts-parity.yml is deliberate. Everything that is
+# a property of the CODE -- cross-implementation agreement, fixture drift,
+# differential fuzzing -- is asked once, on Linux, because asking it three
+# times measures nothing extra. What goes here is the set of questions where
+# the platform IS the variable: does the bundle build, run and install on a
+# machine that is not the one we develop on.
+#
+# That distinction is not theoretical. On 2026-08-20 every CI failure that
+# survived local checking was a platform difference -- MSYS2 shadowing
+# `python` on PATH, pwsh discarding a non-final exit code, portalocker
+# needing pywin32, and shlex eating the backslashes out of Windows paths in
+# the TUI. None of those are visible from Linux, and all of them reached
+# users' machines rather than ours.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - ".github/workflows/ts-platform.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - ".github/workflows/ts-platform.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  platform:
+    strategy:
+      # Not fail-fast: when something breaks on one platform the useful
+      # question is immediately "and the others?", which a cancelled sibling
+      # cannot answer.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: js
+        # bash everywhere, including Windows. Under pwsh only the LAST command
+        # in a multi-line block decides whether a step failed, which is how
+        # the Tests workflow reported success while its own log read
+        # "2 failed, 1114 passed".
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm -r typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Tests
+        run: pnpm -r test
+      - name: Build the distributable CLI
+        run: pnpm build
+      - name: Smoke-test the bundle standalone
+        # The same Node script that runs locally and in ts-parity. It executes
+        # the bundle from a directory with no node_modules, so a dependency
+        # that failed to bundle surfaces here and not in a user's install,
+        # and it reveals the same entry twice to check the secret is
+        # deterministic -- which for this product is the whole point.
+        run: pnpm smoke
+      - name: Verify the packed npm tarball installs and runs
+        run: |
+          pnpm --filter @seedpass/cli pack --pack-destination "$RUNNER_TEMP"
+          TARBALL="$(ls "$RUNNER_TEMP"/seedpass-cli-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/packtest"
+          cd "$RUNNER_TEMP/packtest"
+          npm init -y > /dev/null
+          npm install "$TARBALL" > /dev/null
+          ./node_modules/.bin/seedpass-js --version
+      - name: Record the bundle hash
+        run: |
+          shasum -a 256 packages/cli/dist/seedpass-js.mjs | awk '{print $1}' \
+            > "$RUNNER_TEMP/bundle.sha256"
+          echo "${{ matrix.os }}: $(cat "$RUNNER_TEMP/bundle.sha256")"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-sha-${{ matrix.os }}
+          path: ${{ runner.temp }}/bundle.sha256
+          if-no-files-found: error
+
+  # EXPERIMENT, not yet a requirement.
+  #
+  # build.mjs already emits a SHA-256 over exactly the file users execute, and
+  # two builds on one machine are byte-identical -- so same-machine
+  # determinism holds and the cross-platform question is a real one rather
+  # than a fantasy. If esbuild produces identical bytes on all three, that is
+  # a reproducibility invariant worth promoting to required. If it does not,
+  # the interesting part is WHY: path separators baked into a banner, line
+  # endings, a platform-specific esbuild binary. Either answer is worth
+  # having, and neither is worth blocking a merge over until we know which.
+  reproducible:
+    needs: platform
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundle-sha-*
+          path: hashes
+      - name: Compare the three bundle hashes
+        run: |
+          echo "Bundle SHA-256 per platform:"
+          found=0
+          for f in hashes/bundle-sha-*/bundle.sha256; do
+            [ -f "$f" ] || continue
+            found=$((found + 1))
+            printf '  %-28s %s\n' "$(basename "$(dirname "$f")")" "$(cat "$f")"
+          done
+          if [ "$found" -lt 2 ]; then
+            echo "::warning::fewer than two platforms produced a bundle hash"
+            exit 0
+          fi
+          if [ "$(cat hashes/bundle-sha-*/bundle.sha256 | sort -u | wc -l)" -eq 1 ]; then
+            echo "::notice::the bundle is byte-identical across platforms"
+          else
+            echo "::warning::the bundle differs by platform — worth understanding before this becomes a required check"
+          fi
