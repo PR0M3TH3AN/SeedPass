@@ -662,6 +662,47 @@ describe("token-issue validates before it mints", () => {
   });
 });
 
+describe("starting a daemon over an existing socket", () => {
+  it("refuses to replace a LIVE agent", async () => {
+    // Without this check the second daemon deletes the socket and listens in
+    // its place. The first keeps running — holding unlocked seeds, with an
+    // expiry sweep nobody can reach and an audit log nobody is writing to.
+    // Silently orphaning a process that holds seeds is worse than failing to
+    // start, which is what makes this a refusal rather than a convenience.
+    const { d, sock } = await daemonAt(() => FROZEN);
+    try {
+      const second = new AgentDaemon(sock, 900, join(sock, ".."), () => FROZEN);
+      await expect(second.start()).rejects.toThrow(/already running/);
+
+      // The original is still the one serving that socket.
+      expect(await AgentClient.ping(sock)).toBe(true);
+      const client = new AgentClient(sock);
+      await client.put(FINGERPRINT, MNEMONIC, 900);
+      expect(await client.ownerMnemonic(FINGERPRINT)).toBe(MNEMONIC);
+    } finally {
+      await d.stop();
+    }
+  });
+
+  it("cleans up a stale socket file rather than refusing forever", async () => {
+    // The other half: a crashed agent leaves its socket behind, and treating
+    // that as "already running" would make the agent unstartable until
+    // someone deleted a file by hand.
+    const dir = await mkdtemp(join(tmpdir(), "seedpass-stale-"));
+    const sock = join(dir, "agent.sock");
+    await writeFile(sock, "not a live socket");
+    expect(await AgentClient.ping(sock)).toBe(false);
+
+    const d = new AgentDaemon(sock, 900, dir, () => FROZEN);
+    await d.start();
+    try {
+      expect(await AgentClient.ping(sock)).toBe(true);
+    } finally {
+      await d.stop();
+    }
+  });
+});
+
 describe("put refuses a half-supplied identity", () => {
   // `put` is the only door a seed comes through, and everything after it
   // trusts that both halves arrived. Mutation testing turned the `||` in its
