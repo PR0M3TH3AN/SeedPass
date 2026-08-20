@@ -1,5 +1,13 @@
 from __future__ import annotations
 import pytest
+
+# textual is not a declared dependency, so it is absent from any environment
+# built from the lockfile. Every other TUI test guards its import this way;
+# this file did not, so instead of skipping it failed COLLECTION, which takes
+# the whole run down with it -- the entire Python suite went red on Linux and
+# macOS over a module no test here can rely on.
+pytest.importorskip("textual")
+
 from unittest.mock import MagicMock
 from rich.text import Text
 from textual.widgets import DataTable

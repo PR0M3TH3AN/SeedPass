@@ -235,6 +235,28 @@ everything still open, in the order it should be tackled.
             It found one real defect — the config API accepting any key and
             any value, fixed in the same session — and one property worth
             recording rather than unilaterally changing, below.
+      - [ ] **`textual` is an undeclared dependency, so the entire TUI test
+            surface has never run in CI.** It appears in neither
+            `[tool.poetry.dependencies]`, `[tool.poetry.extras]`, nor the dev
+            group, so no environment built from the lockfile has it. Every
+            TUI test therefore begins `pytest.importorskip("textual")` and
+            SKIPS — v2 action matrix, parity scenarios, keyboard stress,
+            textual interactions, and now v3 parity. They have been passing
+            by not running.
+
+            The check meant to notice this cannot: `seedpass tui2 --check`
+            uses `importlib.util.find_spec` and reports
+            `status: "unavailable"` with a zero exit, so the CI smoke step
+            passes whether or not the TUI can start. A fresh install from the
+            lockfile ships a TUI that does not work, and nothing in CI says
+            so.
+
+            Decide which the TUI is: a supported feature, in which case
+            declare `textual` and let those tests actually run; or an
+            optional extra, in which case declare it as one, and make the
+            smoke step assert something that can fail. Do not leave it as a
+            dependency nobody declared and tests nobody runs.
+            (Found 2026-08-20 while fixing the first CI run of this branch.)
       - [ ] **A nested export path answers 500 instead of a refusal.**
             `POST /api/v1/entry/:id/document/export` with
             `{"path": "exports/nested/secret.txt"}` fails with an opaque
