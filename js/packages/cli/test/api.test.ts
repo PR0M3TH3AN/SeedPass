@@ -226,6 +226,30 @@ describe("what the API refuses", () => {
     }
   });
 
+  it("refuses a body that is not a JSON object", async () => {
+    // typeof [] is "object", so the array check is doing real work rather
+    // than restating the typeof. Without it an array body reaches the
+    // handlers, where `body["kind"]` is undefined and the caller is told a
+    // field is missing — sending them looking for the wrong problem.
+    for (const raw of ["[1,2,3]", '"a string"', "42", "null"]) {
+      const res = await call("POST", "/api/v1/entry", {
+        password: PASSWORD,
+        raw,
+        headers: { "content-type": "application/json" },
+      });
+      expect(res.status).toBe(400);
+      expect(res.json.detail).toContain("JSON object");
+    }
+
+    // An object still works, so this is rejecting the shape and not the route.
+    expect(
+      (await call("POST", "/api/v1/entry", {
+        password: PASSWORD,
+        body: { kind: "password", label: "shape-check" },
+      })).status,
+    ).toBe(201);
+  });
+
   it("refuses a config key it does not know, instead of storing it forever", async () => {
     // This route used to take the key from the URL and the value from the
     // body with no validation at all, so `inactivity_timout` was accepted,
