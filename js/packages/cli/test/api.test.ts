@@ -221,6 +221,34 @@ describe("what the API refuses", () => {
     expect(existsSync(inside.json.path)).toBe(true);
   });
 
+  it("imports a document from a path, and says 404 when there is no file", async () => {
+    // Without the existence check, readFile's ENOENT surfaces as 500 — "the
+    // server broke" for a filename the caller simply got wrong. Both halves
+    // are asserted so the test cannot pass by the route being broken.
+    const missing = await call("POST", "/api/v1/entry/document/import", {
+      password: PASSWORD,
+      body: { label: "nope", path: "no-such-file.txt" },
+    });
+    expect(missing.status).toBe(404);
+    expect(missing.json.detail).toContain("file not found");
+
+    const path = join(app.profileDir(FINGERPRINT), "importable.txt");
+    await writeFile(path, "document contents");
+    const imported = await call("POST", "/api/v1/entry/document/import", {
+      password: PASSWORD,
+      body: { label: "imported-doc", path: "importable.txt" },
+    });
+    expect(imported.status).toBe(201);
+
+    // And the traversal guard applies to the import side too, not only export.
+    expect(
+      (await call("POST", "/api/v1/entry/document/import", {
+        password: PASSWORD,
+        body: { label: "escape", path: "../../../etc/passwd" },
+      })).status,
+    ).toBe(400);
+  });
+
   it("validates optional integers at every edge, not just the obvious one", async () => {
     // optInt guards `length`, `period`, `digits`, `index`, `delay` and the
     // history `target`. Each of its three clauses was unasserted.
@@ -302,6 +330,29 @@ describe("what the API refuses", () => {
     expect(typo.status).toBe(400);
     expect(typo.json.detail).toContain("Unknown key");
     expect((await call("GET", "/api/v1/config/inactivity_timout")).json.value).toBeNull();
+
+    // A body with no `value` at all. The boolean keys are where this bites:
+    // Boolean(undefined) is false, so without the check `PUT
+    // /api/v1/config/offline_mode` with an empty body would quietly SET
+    // offline_mode to false rather than refuse.
+    for (const key of ["offline_mode", "secret_mode_enabled", "relays"]) {
+      const res = await call("PUT", `/api/v1/config/${key}`, {
+        password: PASSWORD,
+        body: {},
+      });
+      expect(res.status).toBe(400);
+      expect(res.json.detail).toContain("value is required");
+    }
+    // Unchanged by the refusals above.
+    expect((await call("GET", "/api/v1/config/offline_mode")).json.value).toBe(false);
+    await call("PUT", "/api/v1/config/offline_mode", { body: { value: true } });
+    expect((await call("GET", "/api/v1/config/offline_mode")).json.value).toBe(true);
+    expect(
+      (await call("PUT", "/api/v1/config/offline_mode", { body: {} })).status,
+    ).toBe(400);
+    // Still true — the empty body did not reset it.
+    expect((await call("GET", "/api/v1/config/offline_mode")).json.value).toBe(true);
+    await call("PUT", "/api/v1/config/offline_mode", { body: { value: false } });
 
     // Nor a key that only LOOKS like an object property.
     expect(
