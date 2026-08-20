@@ -53,7 +53,9 @@ export class ConsoleUi implements Ui {
   }
 
   clear(): void {
-    if ((this.out as unknown as { isTTY?: boolean }).isTTY) {
+    // `in` narrows instead of asserting: NodeJS.WritableStream has no isTTY,
+    // but the process streams do, and this asks rather than declares.
+    if ("isTTY" in this.out && this.out.isTTY) {
       // Clear and reset the cursor, then clear scrollback: menus redraw
       // constantly, and without the third sequence a session leaves hundreds
       // of stale screens behind it.

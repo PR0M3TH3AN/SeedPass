@@ -417,11 +417,11 @@ function recordIndex0(
   try {
     const updated = emitEntryEvents(vault.index, {
       before,
-      after: vault.index.entries as unknown as Record<string, unknown>,
+      after: vault.index.entries,
       fingerprintDir,
       now: Math.floor(Date.now() / 1000),
     });
-    (vault.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+    (vault.index)["_system"] = updated["_system"];
   } catch {
     // Deliberately swallowed; see the note above.
   }
@@ -476,7 +476,7 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
    * it needs the second factor to be live in the agent.
    */
   const hydrate = async (id: string, entry: Entry): Promise<Entry> => {
-    const record = entry as unknown as Record<string, unknown>;
+    const record = entry;
     if (!isPartitionStub(record)) return entry;
     const client = new AgentClient(agentSocketPath(app.root));
     const fp = await currentFingerprint(app, opts);
@@ -1478,10 +1478,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
         let local: Record<string, unknown> | null = null;
         if (localExists) {
           try {
-            local = (await openVault(vaultPath, mnemonic)).index as unknown as Record<
-              string,
-              unknown
-            >;
+            local = (await openVault(vaultPath, mnemonic)).index;
           } catch {
             local = null; // unreadable local vault: treat the restore as recovery
           }
@@ -2026,12 +2023,17 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       await mutateVault(opts, async (vault) => {
         const partition = await readPartition(profileDir, tag);
         for (const [id, raw] of Object.entries(vault.index.entries)) {
-          const entry = raw as unknown as Record<string, unknown>;
+          const entry = raw;
           if (isPartitionStub(entry)) continue; // already moved
           const kind = String(entry["kind"] ?? entry["type"] ?? "").toLowerCase();
           if (!kinds.has(kind)) continue;
           partition[id] = entry;
-          (vault.index.entries as unknown as Record<string, unknown>)[id] =
+          // Same single assertion as entryOps.insert, for the same reason:
+          // partitionStub builds a valid stub, but `kind` is a runtime string
+          // and the entry union is keyed on literals, so the compiler cannot
+          // see the two line up. Validated on the way back out by
+          // parsePartitionRecord.
+          (vault.index.entries as Record<string, Record<string, unknown>>)[id] =
             partitionStub(id, entry, kind, Date.now() / 1000);
           moved.push(id);
         }
@@ -2487,7 +2489,7 @@ export function buildProgram(io: ProgramIo = defaultIo): Command {
       const byKind: Record<string, number> = {};
       let archived = 0;
       for (const entry of Object.values(vault.index.entries)) {
-        const e = entry as unknown as Record<string, unknown>;
+        const e = entry;
         const kind = String(e["kind"] ?? e["type"] ?? "unknown");
         byKind[kind] = (byKind[kind] ?? 0) + 1;
         if (e["archived"] === true) archived++;

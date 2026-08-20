@@ -205,11 +205,11 @@ async function mutate<T>(
     try {
       const updated = emitEntryEvents(vault.index, {
         before,
-        after: vault.index.entries as unknown as Record<string, unknown>,
+        after: vault.index.entries,
         fingerprintDir: profileDir(ctx),
         now: Math.floor(ctx.now() / 1000),
       });
-      (vault.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+      (vault.index)["_system"] = updated["_system"];
     } catch {
       // Derived state; never fail a committed write over it.
     }
@@ -284,7 +284,7 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
     const rows = Object.entries(vault.index.entries)
       .map(([id, entry]) => ({ id, entry: entry as Entry }))
       .filter(({ entry }) => {
-        const e = entry as unknown as Record<string, unknown>;
+        const e = entry;
         if (!includeArchived && e["archived"] === true) return false;
         if (kindFilter && String(e["kind"] ?? e["type"] ?? "") !== kindFilter) return false;
         if (!query) return true;
@@ -631,9 +631,9 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
     const vault = await readVault(ctx);
     const now = Math.floor(ctx.now() / 1000);
     const codes = Object.entries(vault.index.entries)
-      .filter(([, e]) => String((e as unknown as Record<string, unknown>)["kind"] ?? "") === "totp")
+      .filter(([, e]) => String((e)["kind"] ?? "") === "totp")
       .map(([id, e]) => {
-        const entry = e as unknown as Record<string, unknown>;
+        const entry = e;
         const secret = materializeSecret(vault.index, id, e as Entry, mnemonic, {
           timestamp: now,
         });
@@ -660,9 +660,9 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
       // Every TOTP secret in the vault, in plaintext. Password-gated for
       // that reason alone.
       const entries = Object.entries(vault.index.entries)
-        .filter(([, e]) => String((e as unknown as Record<string, unknown>)["kind"] ?? "") === "totp")
+        .filter(([, e]) => String((e)["kind"] ?? "") === "totp")
         .map(([, e]) => {
-          const entry = e as unknown as Record<string, unknown>;
+          const entry = e;
           // The SECRET, not a code. materializeSecret returns the current
           // 6-digit code for a totp entry, which would make this export look
           // correct and be useless — an authenticator cannot be seeded from
@@ -894,7 +894,7 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
     const counts: Record<string, number> = {};
     let archived = 0;
     for (const entry of Object.values(vault.index.entries)) {
-      const e = entry as unknown as Record<string, unknown>;
+      const e = entry;
       const kind = String(e["kind"] ?? e["type"] ?? "unknown");
       counts[kind] = (counts[kind] ?? 0) + 1;
       if (e["archived"] === true) archived++;

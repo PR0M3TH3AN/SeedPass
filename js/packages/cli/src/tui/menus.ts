@@ -123,7 +123,7 @@ function title(s: Session, breadcrumb: string): void {
 }
 
 function kindOf(entry: Entry): string {
-  const e = entry as unknown as Record<string, unknown>;
+  const e = entry;
   return String(e["kind"] ?? e["type"] ?? "unknown");
 }
 
@@ -134,7 +134,7 @@ function kindOf(entry: Entry): string {
  * seed at the entry's index — the same secret the code is computed from.
  */
 function totpUri(entry: Entry, mnemonic: string): string {
-  const e = entry as unknown as Record<string, unknown>;
+  const e = entry;
   const secret =
     typeof e["secret"] === "string" && e["secret"]
       ? (e["secret"] as string)
@@ -174,11 +174,11 @@ async function mutate(s: Session, fn: (vault: OpenedVault) => void): Promise<voi
     try {
       const updated = emitEntryEvents(fresh.index, {
         before,
-        after: fresh.index.entries as unknown as Record<string, unknown>,
+        after: fresh.index.entries,
         fingerprintDir: s.app.profileDir(s.fingerprint),
         now: Math.floor(s.clock() / 1000),
       });
-      (fresh.index as unknown as Record<string, unknown>)["_system"] = updated["_system"];
+      (fresh.index)["_system"] = updated["_system"];
     } catch {
       // Derived state; never fail a committed write over it.
     }
@@ -1576,7 +1576,7 @@ async function exportTotpCodes(s: Session): Promise<void> {
     ({ entry }) => kindOf(entry) === "totp" && !isArchived(entry),
   );
   const uris = rows.map(({ entry }) => ({
-    label: String((entry as unknown as Record<string, unknown>)["label"] ?? ""),
+    label: String((entry)["label"] ?? ""),
     uri: totpUri(entry, s.vault.mnemonic),
   }));
   // This file is every 2FA secret in the vault, in plaintext.

@@ -250,6 +250,18 @@ export const partitionStubSchema = z
   })
   .loose();
 
+// The one assertion chain left in the codebase, and it is structural rather
+// than evidential. `z.preprocess` types its output from the inner union,
+// which here is `partitionStub | knownKinds | unknownKind` — a wider type
+// than `Entry` by construction, because a stub and an unknown-kind record are
+// both legitimate index members that no typed operation should touch. Every
+// consumer wants `Entry`. There is no zod spelling that expresses "parses to
+// a superset, hands back the narrow type" without an assertion.
+//
+// It is safe in the way the rule cares about: nothing is being CLAIMED about
+// unvalidated data. The value has just been parsed, one line above, by the
+// schema being cast.
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions
 export const entrySchema = z.preprocess(
   withKind,
   // The stub comes first: it is the narrower shape, and a stub of a known

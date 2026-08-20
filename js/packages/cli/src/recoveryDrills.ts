@@ -73,7 +73,16 @@ function canonical(value: unknown): string {
     .join(",")}}`;
 }
 
-function sign(key: Uint8Array, previousSig: string, record: DrillRecord): string {
+// Takes any record: it HMACs a canonical serialization, so the shape is not
+// something it needs or checks. Verification re-signs a parsed line and
+// compares — a wrong shape simply fails to match, which is reported as
+// sig_mismatch. Declaring DrillRecord here made the verifier assert a shape
+// it had not established, to satisfy a parameter that never used it.
+function sign(
+  key: Uint8Array,
+  previousSig: string,
+  record: DrillRecord | Record<string, unknown>,
+): string {
   return hmacSha256Hex(key, utf8(`${previousSig}${canonical(record)}`));
 }
 
@@ -209,7 +218,7 @@ export async function verifyRecoveryDrills(
       continue;
     }
     delete body["sig"];
-    if (sign(key, previousSig, body as unknown as DrillRecord) !== sig) {
+    if (sign(key, previousSig, body) !== sig) {
       errors.push(`sig_mismatch_line:${index}`);
     }
     // Chain forward on the RECORDED signature, not the computed one: a single

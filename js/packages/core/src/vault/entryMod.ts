@@ -96,7 +96,7 @@ const ALLOWED_FIELDS: Record<string, Set<string>> = {
 };
 
 function entryDict(index: VaultIndex, id: string): Dict {
-  const entry = (index.entries as unknown as Record<string, Dict>)[id];
+  const entry = (index.entries)[id];
   if (typeof entry !== "object" || entry === null) {
     throw new Error(`Entry not found: ${id}`);
   }
@@ -211,7 +211,7 @@ export interface ResolvedLink extends EntryLink {
 /** Links for an entry with resolved target metadata. */
 export function getLinks(index: VaultIndex, id: string): ResolvedLink[] {
   const src = entryDict(index, id);
-  const entries = index.entries as unknown as Record<string, Dict>;
+  const entries = index.entries;
   return normalizeLinks(src["links"] ?? []).map((link) => {
     const target = entries[String(link.target_id)];
     return {

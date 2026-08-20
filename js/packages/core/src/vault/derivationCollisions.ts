@@ -73,7 +73,7 @@ export function findDerivationCollisions(index: VaultIndex): DerivationCollision
   const byIndex = new Map<number, Array<{ id: string; kind: App32Kind; label: string }>>();
 
   for (const [id, raw] of Object.entries(index.entries)) {
-    const entry = raw as unknown as Record<string, unknown>;
+    const entry = raw;
     const kind = String(entry["kind"] ?? entry["type"] ?? "");
     if (!(APP32_KINDS as readonly string[]).includes(kind)) continue;
     const derivationIndex = derivationIndexOf(id, entry);

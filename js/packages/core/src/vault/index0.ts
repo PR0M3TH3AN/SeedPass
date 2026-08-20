@@ -444,13 +444,27 @@ export function deriveIndex0Context(
   };
 }
 
+/**
+ * A payload whose `_system.index0` has been through normalizeIndex0.
+ *
+ * The type exists so the guarantee survives the return. ensureIndex0Payload
+ * always normalized, but declared `Dict`, so all three callers immediately
+ * asserted the knowledge back with `as unknown as Index0` — three chained
+ * assertions standing in for a fact the function had already established one
+ * line earlier.
+ */
+export type Index0Payload = Dict & { _system: Dict & { index0: Index0 } };
+
 /** Ensure `_system.index0` exists and is normalized, without touching entries. */
-export function ensureIndex0Payload(data: unknown): Dict {
-  const out = isDict(data) ? { ...data } : {};
-  const system = isDict(out["_system"]) ? { ...(out["_system"] as Dict) } : {};
-  system["index0"] = normalizeIndex0(system["index0"]);
-  out["_system"] = system;
-  return out;
+export function ensureIndex0Payload(data: unknown): Index0Payload {
+  const base = isDict(data) ? { ...data } : {};
+  const system = isDict(base["_system"]) ? { ...(base["_system"] as Dict) } : {};
+  // Built in the shape it promises rather than assembled and then asserted,
+  // so nothing here has to be taken on trust.
+  return {
+    ...base,
+    _system: { ...system, index0: normalizeIndex0(system["index0"]) },
+  };
 }
 
 // ------------------------------------------------------------------- events
@@ -528,7 +542,7 @@ export interface AppendEventOptions extends Omit<
  */
 export function appendIndex0Event(payload: unknown, options: AppendEventOptions): Dict {
   const out = ensureIndex0Payload(payload);
-  const system = (out["_system"] as Dict)["index0"] as unknown as Index0;
+  const system = out._system.index0;
   const context = deriveIndex0Context(options.fingerprintDir, {
     ...(options.actorType !== undefined && { actorType: options.actorType }),
   });
@@ -609,7 +623,10 @@ export function buildDailyCheckpoint(
 }
 
 export function rebuildIndex0Checkpoints(
-  index0: Dict,
+  // Reads only `events`, like recomputeIndex0Stats reads only three fields.
+  // Typed to that rather than to a bare Dict, so an Index0 goes in without a
+  // cast.
+  index0: Pick<Index0, "events">,
   options: { maxCheckpointsPerWriter?: number } = {},
 ): Record<string, Dict> {
   const maxPerWriter = options.maxCheckpointsPerWriter ?? INDEX0_MAX_CHECKPOINTS_PER_WRITER;
@@ -661,7 +678,7 @@ export function compactIndex0(
 ): Index0 {
   const normalized = normalizeIndex0(index0);
   normalized.checkpoints = rebuildIndex0Checkpoints(
-    normalized as unknown as Dict,
+    normalized,
     options,
   );
   normalized.stats = recomputeIndex0Stats(normalized);
@@ -789,9 +806,9 @@ function buildRecentActivityView(
 export function rebuildCanonicalViewsPayload(
   payload: unknown,
   options: { fingerprintDir?: string | null } = {},
-): Dict {
+): Index0Payload {
   const out = ensureIndex0Payload(payload);
-  const index0 = (out["_system"] as Dict)["index0"] as unknown as Index0;
+  const index0 = out._system.index0;
   const entries = normalizeMapping(out["entries"]);
   const events = Object.values(index0.events)
     .map((event) => normalizeIndex0Event(event))
@@ -864,9 +881,9 @@ export function rebuildCanonicalViewsPayload(
 export function compactIndex0Payload(
   payload: unknown,
   options: { maxCheckpointsPerWriter?: number; fingerprintDir?: string | null } = {},
-): Dict {
+): Index0Payload {
   const out = ensureIndex0Payload(payload);
-  (out["_system"] as Dict)["index0"] = compactIndex0((out["_system"] as Dict)["index0"], {
+  out._system.index0 = compactIndex0(out._system.index0, {
     ...(options.maxCheckpointsPerWriter !== undefined && {
       maxCheckpointsPerWriter: options.maxCheckpointsPerWriter,
     }),
@@ -885,7 +902,7 @@ export function buildManifestIndex0Metadata(
   const compacted = compactIndex0Payload(payload, {
     ...(options.fingerprintDir !== undefined && { fingerprintDir: options.fingerprintDir }),
   });
-  const index0 = (compacted["_system"] as Dict)["index0"] as unknown as Index0;
+  const index0 = compacted._system.index0;
   const checkpoints = Object.values(index0.checkpoints).filter(isDict);
   const selected = [...checkpoints]
     .sort((a, b) => {

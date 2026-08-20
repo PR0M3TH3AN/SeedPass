@@ -13,7 +13,7 @@
 #     preflight                    2.6s
 #     poetry check --lock          0.6s
 #     black --check                2.5s
-#     oxlint                       0.9s   (not enabled yet, see below)
+#     oxlint                       0.9s
 #     tsc --noEmit (workspace)     7.3s
 #     pytest determinism subset    5.4s
 #     vitest core (node)          24.0s
@@ -50,14 +50,8 @@ poetry check --lock
 step "python: formatting (the pinned black, not whatever is on PATH)"
 poetry run black --check .
 
-# NOT YET. `pnpm -C js lint` currently exits non-zero on 35 known chained type
-# assertions -- one design problem (VaultIndex does not model what a vault
-# index contains) counted 35 times. Putting a red check in the push gate is
-# how a gate becomes something people route around, so it goes in when it goes
-# green, not before. Track it with:  pnpm -C js lint
-#
-# step "javascript: lint"
-# pnpm -C js lint
+step "javascript: lint"
+pnpm -C js lint
 
 step "javascript: typecheck"
 pnpm -C js typecheck

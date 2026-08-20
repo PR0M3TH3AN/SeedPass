@@ -75,7 +75,7 @@ export function nextIndex(index: VaultIndex): number {
 
 /** The persisted allocation watermark, 0 when absent (pre-watermark vault). */
 function storedNextIndex(index: VaultIndex): number {
-  const meta = (index as unknown as Dict)["_sync_meta"];
+  const meta = (index)["_sync_meta"];
   if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return 0;
   const raw = Number((meta as Dict)["next_index"]);
   return Number.isSafeInteger(raw) && raw > 0 ? raw : 0;
@@ -83,7 +83,7 @@ function storedNextIndex(index: VaultIndex): number {
 
 /** One past the highest tombstoned id. Non-numeric tombstone keys are historical junk and skipped. */
 function tombstoneFloor(index: VaultIndex): number {
-  const meta = (index as unknown as Dict)["_sync_meta"];
+  const meta = (index)["_sync_meta"];
   if (typeof meta !== "object" || meta === null || Array.isArray(meta)) return 0;
   const tombstones = (meta as Dict)["tombstones"];
   if (typeof tombstones !== "object" || tombstones === null || Array.isArray(tombstones)) return 0;
@@ -103,7 +103,7 @@ function tombstoneFloor(index: VaultIndex): number {
  * preserve it without a schema bump.
  */
 function bumpNextIndex(index: VaultIndex, id: number): void {
-  const container = index as unknown as Dict;
+  const container = index;
   const meta =
     typeof container["_sync_meta"] === "object" &&
     container["_sync_meta"] !== null &&
@@ -116,8 +116,12 @@ function bumpNextIndex(index: VaultIndex, id: number): void {
 
 /** Next TOTP derivation index: max over totp entries' index field + 1. */
 export function nextTotpIndex(index: VaultIndex): number {
-  const indices = Object.values(index.entries as unknown as Record<string, Dict>)
-    .filter((e) => e["type"] === "totp" || e["kind"] === "totp")
+  const indices = Object.values(index.entries)
+    // `kind` alone, not `type || kind`. withKind() populates kind from type
+    // during parsing and the entry union is discriminated on it, so the
+    // second half of that condition could never be true — the compiler said
+    // so the moment the casts stopped blinding it.
+    .filter((e) => e["kind"] === "totp")
     .map((e) => Math.trunc(Number(e["index"] ?? 0)));
   return indices.length > 0 ? Math.max(...indices) + 1 : 0;
 }
@@ -133,7 +137,10 @@ function insert(index: VaultIndex, id: number, entry: Dict): string {
   if (Object.prototype.hasOwnProperty.call(index.entries, key)) {
     throw new Error(`refusing to overwrite existing entry ${key}`);
   }
-  (index.entries as unknown as Dict)[key] = entry;
+  // One direct assertion, not a chain: `insert` receives an entry the caller
+  // has just assembled field by field, and a literal's `type: "totp"` widens
+  // to string without a const assertion at every call site.
+  (index.entries as Record<string, Dict>)[key] = entry;
   // Covers explicit-id inserts too: an entry created at #500 pushes the
   // watermark past 500 even though nextIndex never saw it.
   bumpNextIndex(index, id);
