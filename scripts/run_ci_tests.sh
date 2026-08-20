@@ -13,23 +13,37 @@ fi
 # bare `python` resolved to that one and the whole suite died with "No module
 # named pytest", after the determinism gate had already passed using the
 # `pytest` executable, which MSYS2 does not provide.
-if [[ -x ".venv/bin/python" ]]; then
-    py_bin=".venv/bin/python"
-else
-    py_bin=""
-    for candidate in python python3; do
-        if command -v "$candidate" >/dev/null 2>&1 \
-            && "$candidate" -c "import pytest" >/dev/null 2>&1; then
-            py_bin="$candidate"
-            break
-        fi
-    done
-    if [[ -z "$py_bin" ]]; then
-        echo "no interpreter on PATH can import pytest" >&2
-        command -v python python3 >&2 || true
-        exit 1
-    fi
+candidates=()
+[[ -x ".venv/bin/python" ]] && candidates+=(".venv/bin/python")
+# setup-python exports pythonLocation but does not necessarily put it first on
+# PATH. On Windows the MSYS2 toolchain is prepended so native wheels can
+# build, and it ships its own python.exe AND python3 -- so BOTH bare names
+# resolve to an interpreter with no pytest, and the toolchain that has to be
+# on PATH is the very thing that hides the interpreter we want.
+if [[ -n "${pythonLocation:-}" ]]; then
+    candidates+=("${pythonLocation}/python" "${pythonLocation}/python.exe" "${pythonLocation}/bin/python")
 fi
+candidates+=(python python3)
+# Last resort: pytest itself is resolvable here (the determinism gate runs it
+# that way), so its own directory locates a usable interpreter.
+if command -v pytest >/dev/null 2>&1; then
+    pytest_dir="$(dirname "$(command -v pytest)")"
+    candidates+=("$pytest_dir/python" "$pytest_dir/python.exe" "$pytest_dir/../python" "$pytest_dir/../python.exe")
+fi
+
+py_bin=""
+for candidate in "${candidates[@]}"; do
+    if "$candidate" -c "import pytest" >/dev/null 2>&1; then
+        py_bin="$candidate"
+        break
+    fi
+done
+if [[ -z "$py_bin" ]]; then
+    echo "no interpreter can import pytest; tried:" >&2
+    printf '  %s\n' "${candidates[@]}" >&2
+    exit 1
+fi
+echo "test interpreter: $py_bin"
 
 if [[ "${DETERMINISM_GATE:-1}" == "1" ]]; then
     ./scripts/run_determinism_tests.sh
