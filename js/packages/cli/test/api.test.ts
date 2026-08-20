@@ -587,9 +587,62 @@ describe("entries", () => {
     expect(removed.json.links).toHaveLength(0);
   });
 
+  it("answers 404 on EVERY entry-scoped route for an id that is not there", async () => {
+    // Four of these (PUT, archive, unarchive, GET links) had no test at all,
+    // so their existence checks could be removed and the underlying op would
+    // run against a missing entry — answering 400 or 500 instead of 404, and
+    // telling a client to fix its request or retry when neither would help.
+    //
+    // Enumerated rather than listed by hand so a NEW entry-scoped route is
+    // covered the day it is added, which is when the check is most likely to
+    // be forgotten.
+    const source = await readFile(
+      fileURLToPath(new URL("../src/api/routes.ts", import.meta.url)),
+      "utf8",
+    );
+    const routes = [
+      ...source.matchAll(/server\.route\(\s*"(\w+)",\s*\n?\s*"(\/api\/v1\/entry\/:entry_id[^"]*)"/g),
+    ].map(([, method, pattern]) => {
+      let path = pattern!.replace(":entry_id", "9999");
+      // DELETE links validates its `target` before looking the entry up, and
+      // that ordering is fine — request validation before state. Supply a
+      // valid one so a 400 here could only mean the entry check is missing.
+      if (method === "DELETE" && path.endsWith("/links")) path += "?target=0";
+      return [method!, path] as const;
+    });
+
+    // Every one of them, so the enumeration is doing something.
+    expect(routes.length).toBeGreaterThanOrEqual(6);
+
+    for (const [method, path] of routes) {
+      const res = await call(method, path, {
+        password: PASSWORD,
+        // Bodies valid enough that a 400 could only come from the entry being
+        // missing, never from the body being wrong. GET and DELETE take none.
+        ...(method === "GET" || method === "DELETE"
+          ? {}
+          : { body: { target: "0", path: "unused.txt", label: "x" } }),
+      });
+      expect({ method, path, status: res.status }).toEqual({
+        method,
+        path,
+        status: 404,
+      });
+    }
+  });
+
   it("returns 404 for an entry that does not exist and 400 for a nonsense id", async () => {
     expect((await call("GET", "/api/v1/entry/9999", { password: PASSWORD })).status).toBe(404);
     expect((await call("GET", "/api/v1/entry/not-a-number", { password: PASSWORD })).status).toBe(400);
+    // The SECRET route has its own existence check, and only this one was
+    // covered. Without it the missing entry reaches the partition hydrator
+    // and answers 500 — "the server broke" for an id that is simply not
+    // there. Both statuses matter to a client deciding whether to retry.
+    const secret = await call("GET", "/api/v1/entry/9999/secret", { password: PASSWORD });
+    expect(secret.status).toBe(404);
+    expect(
+      (await call("GET", "/api/v1/entry/not-a-number/secret", { password: PASSWORD })).status,
+    ).toBe(400);
   });
 });
 
