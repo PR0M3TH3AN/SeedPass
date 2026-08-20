@@ -116,12 +116,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install dependencies
-        # See tests.yml: on Windows a multi-line block runs under pwsh, where
-        # a failure in any but the last command is silently ignored.
+        # `shell: bash` so a failure in any command fails the step -- under
+        # pwsh only the last one counts (see tests.yml). Under bash on Windows
+        # a bare `python` then resolves to MSYS2's, which has no pip, so the
+        # interpreter is chosen the same way run_ci_tests.sh chooses one: by
+        # what it can actually do, falling back to the pythonLocation that
+        # setup-python exports but does not put first on PATH.
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
+          PY=""
+          for candidate in python python3 "${pythonLocation:-}/python" "${pythonLocation:-}/python.exe"; do
+            if "$candidate" -m pip --version >/dev/null 2>&1; then
+              PY="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$PY" ]]; then
+            echo "no interpreter with pip found (pythonLocation=${pythonLocation:-unset})" >&2
+            exit 1
+          fi
+          echo "install interpreter: $PY"
+          "$PY" -m pip install --upgrade pip
+          "$PY" -m pip install --require-hashes -r requirements.lock
       - name: Run dependency scan
         run: scripts/dependency_scan.sh --ignore-vuln GHSA-wj6h-64fc-37mp --ignore-vuln CVE-2025-62727
       - name: Determine stress args
