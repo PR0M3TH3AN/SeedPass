@@ -100,6 +100,7 @@ export {
   generatePartitionKey,
   partitionStub,
   isPartitionStub,
+  parsePartitionRecord,
   type PartitionEnvelope,
 } from "./vault/highRiskPartition.js";
 export {

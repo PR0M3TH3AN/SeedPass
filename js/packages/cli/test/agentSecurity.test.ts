@@ -9,7 +9,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createConnection } from "node:net";
 import { mkdtemp, readFile, writeFile, stat, mkdir } from "node:fs/promises";
-import { join as joinPath } from "node:path";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -20,7 +19,6 @@ import {
   buildProgram,
   AgentDaemon,
   AgentClient,
-  agentSocketPath,
   INDEX_FILENAME,
   type ProgramIo,
 } from "../src/index.js";

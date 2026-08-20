@@ -19,6 +19,7 @@ import {
   partitionKeyTag,
   partitionStub,
   isPartitionStub,
+  parsePartitionRecord,
   HighRiskError,
   HIGH_RISK_KINDS,
   parseVaultIndex,
@@ -194,5 +195,81 @@ describe("a stub still parses as part of the index", () => {
     const entries = index.entries as unknown as Record<string, Record<string, unknown>>;
     delete entries[id]!["word_count"];
     expect(() => parseVaultIndex(JSON.parse(JSON.stringify(index)))).toThrow();
+  });
+});
+
+describe("a partition record is validated before it becomes a secret", () => {
+  /**
+   * decryptPartition proves the file is AUTHENTIC — it decrypts under the
+   * partition key and Fernet carries an HMAC. It says nothing about a
+   * record's SHAPE, and callers used to assert the result straight into
+   * `Entry` and hand it to materializeSecret. That was the one path in the
+   * vault reaching secret derivation without passing the schema, and it is
+   * where the ssh keys, pgp keys and seeds live.
+   */
+  it("returns a well-formed record as a typed entry", () => {
+    const record = {
+      type: "ssh",
+      kind: "ssh",
+      label: "prod-server",
+      index: 0,
+      archived: false,
+      notes: "",
+    };
+    const parsed = parsePartitionRecord("7", record);
+    expect(parsed.kind).toBe("ssh");
+    expect(parsed.label).toBe("prod-server");
+  });
+
+  it("refuses a record that does not match its own kind", () => {
+    // A seed entry without word_count. Python writes these files too and
+    // validates nothing, so a shape divergence between the implementations
+    // arrives here — and deriving from it would return a confidently wrong
+    // secret, which is worse than an error.
+    expect(() =>
+      parsePartitionRecord("7", {
+        type: "seed",
+        kind: "seed",
+        label: "cold-wallet",
+        index: 0,
+      }),
+    ).toThrow(HighRiskError);
+    try {
+      parsePartitionRecord("7", { type: "seed", kind: "seed", label: "x", index: 0 });
+    } catch (e) {
+      expect((e as HighRiskError).reason).toBe("invalid_partition_record");
+    }
+  });
+
+  it("never puts the record in the error message", () => {
+    // The record IS the secret. An error that quotes it writes it to whatever
+    // is reading stderr or an HTTP response body.
+    try {
+      parsePartitionRecord("7", {
+        type: "seed",
+        kind: "seed",
+        label: "cold-wallet",
+        index: 0,
+        secret_material: "abandon abandon abandon",
+      });
+      expect.unreachable("should have refused");
+    } catch (e) {
+      const text = String((e as Error).message) + String((e as Error).stack ?? "");
+      expect(text).not.toContain("abandon");
+      expect(text).not.toContain("cold-wallet");
+      expect(text).toContain("entry 7");
+    }
+  });
+
+  it("still carries a record of an unknown kind through", () => {
+    // Spec §8.2: a record written by a newer build or another application is
+    // carried untouched, never dropped. Validation must not have quietly
+    // turned that into a refusal.
+    const parsed = parsePartitionRecord("9", {
+      kind: "some_future_kind",
+      label: "from a newer build",
+      whatever: 1,
+    });
+    expect(parsed.kind).toBe("some_future_kind");
   });
 });

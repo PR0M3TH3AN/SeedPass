@@ -30,6 +30,7 @@ import {
   splitSecret,
   recoverSecret,
   isPartitionStub,
+  parsePartitionRecord,
   emitEntryEvents,
   partitionStub,
   type Entry,
@@ -170,7 +171,6 @@ function resolveHome(p: string): string {
 import { AppDir, resolveAppDir, INDEX_FILENAME, BACKUP_EXTENSION, defaultBackupFilename, DEFAULT_PBKDF2_ITERATIONS } from "./appDir.js";
 import {
   loadConfig,
-  saveConfig,
   mutateConfig,
   passwordPolicyFromConfig,
 } from "./configFile.js";
@@ -497,7 +497,8 @@ async function openReadAccess(opts: GlobalOpts): Promise<ReadAccess> {
           `partition file; the partition may be from a different factor.`,
       );
     }
-    return full as unknown as Entry;
+    // Validated, not asserted: this record is about to become a secret.
+    return parsePartitionRecord(id, full);
   };
 
   const localSecret = async (id: string, timestamp?: number) => {

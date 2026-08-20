@@ -15,7 +15,6 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import process from "node:process";
 import { mnemonics } from "@seedpass/test-vectors";
 import {
   generateFingerprint,
@@ -1364,6 +1363,49 @@ describe("high-risk partition over the API", () => {
       expect(await expired.text()).not.toContain(secret);
       // And the stale tag is dropped rather than left to be retried against.
       expect(ctx2.highRiskTag).toBeNull();
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("refuses a partition record whose shape it cannot trust", async () => {
+    // The record decrypts — it is authentic, written under the right factor.
+    // It is just not a valid entry. Deriving from it would hand back a
+    // confidently wrong secret, so the route refuses instead.
+    if (!factorConfigured(appDir)) await setFactor(appDir, "api-second-factor");
+    const tag = await tagForFactor(appDir, "api-second-factor");
+    const dir = app.profileDir(FINGERPRINT);
+
+    const vaultIndex = { schema_version: 4, entries: {} } as VaultIndex;
+    const stubId = addSshKeyEntry(vaultIndex, "sealed-bad", {});
+    const entries = vaultIndex.entries as unknown as Record<string, Record<string, unknown>>;
+    entries[stubId] = partitionStub(stubId, entries[stubId]!, "ssh", Date.now() / 1000);
+    await writeFile(
+      join(dir, INDEX_FILENAME),
+      await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify(vaultIndex))),
+    );
+    // A seed record with no word_count — the exact shape a divergence between
+    // the two implementations would produce.
+    await writePartition(dir, tag, {
+      [stubId]: { type: "seed", kind: "seed", label: "sealed-bad", index: 0 },
+    });
+
+    const srv = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN, rateLimit: 100_000 });
+    const ctx2 = buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC });
+    registerRoutes(srv, ctx2);
+    const bound = await srv.listen();
+    try {
+      ctx2.highRiskTag = tag;
+      ctx2.highRiskExpiresAt = Math.floor(Date.now() / 1000) + 600;
+      const res = await fetch(
+        `http://${bound.host}:${bound.port}/api/v1/entry/${stubId}/secret`,
+        { headers: { authorization: `Bearer ${TOKEN}`, "x-seedpass-password": PASSWORD } },
+      );
+      expect(res.status).toBe(409);
+      const body = await res.text();
+      expect(body).toContain("does not match any known entry shape");
+      // And the refusal does not echo the record back over the wire.
+      expect(body).not.toContain("sealed-bad");
     } finally {
       await srv.close();
     }

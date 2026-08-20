@@ -18,6 +18,7 @@ import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { base64, base64url } from "@scure/base";
 import { fernetDecrypt, fernetEncrypt } from "./fernet.js";
 import { bytesToHex, utf8 } from "../util/bytes.js";
+import { entrySchema, type Entry } from "../schema/entries.js";
 
 export const PARTITION_FILENAME = "seedpass_high_risk_entries.json.enc";
 export const PARTITION_SCHEMA_VERSION = 1;
@@ -72,8 +73,12 @@ export async function decryptPartition(
   let plaintext: Uint8Array;
   try {
     plaintext = await fernetDecrypt(partitionFileKey(tag), blob);
-  } catch (cause) {
-    // The same reason string Python raises, so callers can branch on it.
+  } catch {
+    // The cause is dropped deliberately, not carelessly: the reason a Fernet
+    // decrypt failed distinguishes "wrong key" from "corrupt blob", and
+    // surfacing that difference hands a caller an oracle for probing the
+    // factor. One reason string, the same one Python raises so callers can
+    // branch on it, and nothing about which way it failed.
     throw new HighRiskError("invalid_partition_key_tag", "invalid_partition_key_tag");
   }
   let data: unknown;
@@ -221,6 +226,48 @@ export function partitionStub(
     partition_ref: id,
     modified_ts: Number(entry["modified_ts"] ?? Math.floor(now)),
   };
+}
+
+/**
+ * Validate one decrypted partition record before anything derives from it.
+ *
+ * WHY THIS EXISTS
+ *
+ * `decryptPartition` proves the file is AUTHENTIC -- it decrypts under the
+ * partition key, and Fernet carries an HMAC, so nobody without the factor
+ * wrote it. It says nothing about the record's SHAPE: it checks only that
+ * each value is an object. Callers then asserted the result into `Entry` and
+ * handed it to materializeSecret.
+ *
+ * That was the one place in the vault where a record reached secret
+ * derivation without passing the schema. Everything arriving through the
+ * index goes through parseVaultIndex; the partition path did not, and the
+ * partition is where the ssh keys, pgp keys and seeds live. Python writes
+ * these files too and validates nothing, so a shape divergence between the
+ * implementations -- a renamed field, a kind added on one side -- would not
+ * have raised anything here. It would have derived from whatever fields it
+ * found and returned a confidently wrong secret, which is worse than an
+ * error by a wide margin.
+ *
+ * Validated per RECORD rather than for the whole file on read, so one odd
+ * record fails one entry instead of locking the user out of every secret in
+ * the partition.
+ *
+ * The error names the entry and nothing else. The record is the secret.
+ */
+export function parsePartitionRecord(
+  id: string,
+  raw: Record<string, unknown>,
+): Entry {
+  const result = entrySchema.safeParse(raw);
+  if (!result.success) {
+    throw new HighRiskError(
+      "invalid_partition_record",
+      `the high-risk record for entry ${id} does not match any known entry ` +
+        `shape, so deriving from it could return the wrong secret`,
+    );
+  }
+  return result.data;
 }
 
 /** Is this index entry a stub standing in for a partitioned record? */

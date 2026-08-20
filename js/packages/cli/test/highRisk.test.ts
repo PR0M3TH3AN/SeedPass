@@ -22,7 +22,6 @@ import {
   utf8,
   addSshKeyEntry,
   addPasswordEntry,
-  partitionKeyTag,
   type VaultIndex,
 } from "@seedpass/core";
 import {

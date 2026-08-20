@@ -10,7 +10,7 @@
 
 import { readFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, dirname, join, resolve as resolvePath } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import {
   addDocumentEntry,
   addKeyValueEntry,
@@ -39,6 +39,7 @@ import {
   removeLink,
   restoreEntry,
   isPartitionStub,
+  parsePartitionRecord,
   emitEntryEvents,
   splitSecret,
   recoverSecret,
@@ -48,7 +49,6 @@ import {
   semanticStatus,
   isStaleSemanticIndex,
   type SemanticRecord,
-  totpCodeAt,
   Bip85,
   type Entry,
   type PasswordPolicy,
@@ -65,7 +65,7 @@ import {
   ConfigValueError,
 } from "../configFile.js";
 import { openVault, saveVault, saveVaultHoldingLock, withVaultLock, atomicWrite } from "../vaultFile.js";
-import { entryMetadata, refFor, resolveEntry } from "../refs.js";
+import { entryMetadata, refFor } from "../refs.js";
 import { materializeSecret } from "../secrets.js";
 import { createIndexBackup } from "../backups.js";
 import { factorConfigured, tagForFactor, readPartition, partitionPath } from "../highRisk.js";
@@ -81,7 +81,7 @@ import {
   listRecoveryDrills,
   verifyRecoveryDrills,
 } from "../recoveryDrills.js";
-import { HttpError, type ApiRequest, type ApiResponse, type ApiServer } from "./server.js";
+import { HttpError, type ApiRequest, type ApiServer } from "./server.js";
 
 /**
  * Route prefixes that exist in the Python API but are not implemented here.
@@ -136,8 +136,8 @@ export interface ApiContext {
 async function hydratePartitionedFor(
   ctx: ApiContext,
   id: string,
-  entry: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+  entry: Entry,
+): Promise<Entry> {
   if (!isPartitionStub(entry)) return entry;
   const live = ctx.highRiskTag !== null && ctx.highRiskExpiresAt > ctx.now() / 1000;
   if (!live) {
@@ -156,7 +156,14 @@ async function hydratePartitionedFor(
       `entry ${id} points at a high-risk record that is not in the partition file`,
     );
   }
-  return full;
+  // Validated, not asserted: this record is about to become a secret. A
+  // HighRiskError here is a 409 like the missing-record case above -- the
+  // request is fine, the stored data is not what it claims to be.
+  try {
+    return parsePartitionRecord(id, full);
+  } catch (e) {
+    throw new HttpError(409, (e as Error).message);
+  }
 }
 
 function requireUnlocked(ctx: ApiContext): string {
@@ -320,10 +327,10 @@ export function registerRoutes(server: ApiServer, ctx: ApiContext): void {
       const id = entryIdOf(req);
       const stub = vault.index.entries[id];
       if (!stub) throw new HttpError(404, "Not found");
-      const entry = await hydratePartitionedFor(ctx, id, stub as unknown as Record<string, unknown>);
+      const entry = await hydratePartitionedFor(ctx, id, stub);
       const timestamp = optInt(req.query.get("at") ?? undefined, "at");
       const config = await loadConfig(profileDir(ctx), mnemonic);
-      const secret = materializeSecret(vault.index, id, entry as Entry, mnemonic, {
+      const secret = materializeSecret(vault.index, id, entry, mnemonic, {
         ...(timestamp !== undefined && { timestamp }),
         basePolicy: passwordPolicyFromConfig(config),
       });
