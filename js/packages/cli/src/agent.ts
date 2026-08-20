@@ -899,13 +899,25 @@ export class AgentDaemon {
       this.connections--;
     });
     let buffer = "";
+    let refused = false;
     socket.on("data", (chunk) => {
       // Without a cap, a peer that never sends a newline grows this string
       // without bound while every chunk rescans it — gigabytes of RSS and a
       // pegged event loop, from an unauthenticated connection.
+      if (refused) return; // already answered; stop buffering this peer
       if (buffer.length + chunk.length > MAX_LINE_BYTES) {
-        socket.write(JSON.stringify({ ok: false, error: "request too large" }) + "\n");
-        socket.destroy();
+        refused = true;
+        // `end(payload, cb)` and THEN destroy, not `write` followed by an
+        // immediate `destroy`. destroy() tears the socket down at once and
+        // discards whatever is still buffered: on Linux the write usually
+        // reaches the kernel first and the peer sees the refusal, on macOS it
+        // does not and the peer sees an unexplained hangup. The callback
+        // fires once the bytes are flushed, so the reason is delivered and
+        // the connection still closes rather than being held open by a peer
+        // that keeps sending.
+        socket.end(JSON.stringify({ ok: false, error: "request too large" }) + "\n", () => {
+          socket.destroy();
+        });
         return;
       }
       buffer += chunk.toString("utf8");

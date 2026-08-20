@@ -41,9 +41,15 @@ describe("parseCommandSpec", () => {
     ]);
   });
 
+  // Explicitly the POSIX branch. Without the flag this reads process.platform
+  // and asserts POSIX behaviour on Windows, where backslash is a path
+  // separator and deliberately is not an escape.
   it("honours backslash escapes outside single quotes", () => {
-    expect(parseCommandSpec(["cmd a\\ b"])).toEqual(["cmd", ["a b"]]);
-    expect(parseCommandSpec(["cmd 'a\\ b'"])).toEqual(["cmd", ["a\\ b"]]);
+    expect(parseCommandSpec(["cmd a\\ b"], { windows: false })).toEqual(["cmd", ["a b"]]);
+    expect(parseCommandSpec(["cmd 'a\\ b'"], { windows: false })).toEqual([
+      "cmd",
+      ["a\\ b"],
+    ]);
   });
 
   it("collapses runs of whitespace", () => {
