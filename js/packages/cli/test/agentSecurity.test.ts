@@ -732,9 +732,32 @@ describe("a denied request is not a quiet zero", () => {
     process.env["SEEDPASS_AGENT_CAP"] = "not-the-capability";
     try {
       const client = new AgentClient(sock);
-      await expect(client.lock()).rejects.toThrow(/owner capability/);
-      await expect(client.highRiskLock(FINGERPRINT)).rejects.toThrow(/owner capability/);
-      await expect(client.highRiskStatus(FINGERPRINT)).rejects.toThrow(/owner capability/);
+      // Every owner-op method, so a new one added later is covered too.
+      const calls: [string, () => Promise<unknown>][] = [
+        ["lock", () => client.lock()],
+        ["highRiskLock", () => client.highRiskLock(FINGERPRINT)],
+        ["highRiskStatus", () => client.highRiskStatus(FINGERPRINT)],
+        // shutdown() returns void, so a dropped check reads as "the daemon
+        // stopped" while it is still running and still holding seeds.
+        ["shutdown", () => client.shutdown()],
+        // status() falls back to [], which reads as "no profiles are held".
+        ["status", () => client.status()],
+        // tokenIssue() would hand back the STRING "undefined" as a token.
+        ["tokenIssue", () => client.tokenIssue({ fingerprint: FINGERPRINT, scopes: ["read"] })],
+        ["tokenList", () => client.tokenList(FINGERPRINT)],
+        // tokenRevoke() returns void: "token revoked", while it stays live.
+        ["tokenRevoke", () => client.tokenRevoke("some-token-id")],
+        ["put", () => client.put(FINGERPRINT, MNEMONIC, 900)],
+      ];
+      for (const [name, call] of calls) {
+        await expect(call(), `${name} must throw when denied`).rejects.toThrow(
+          /owner capability/,
+        );
+      }
+
+      // The daemon is genuinely still up — proof that `shutdown` above did
+      // not quietly succeed while reporting nothing.
+      expect(await AgentClient.ping(sock)).toBe(true);
     } finally {
       if (previous === undefined) delete process.env["SEEDPASS_AGENT_CAP"];
       else process.env["SEEDPASS_AGENT_CAP"] = previous;
