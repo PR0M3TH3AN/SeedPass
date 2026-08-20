@@ -156,8 +156,8 @@ everything still open, in the order it should be tackled.
             that have NO differential oracle because Python has no
             equivalent: the session agent, the API HTTP layer, high-risk
             session handling, sinks. Done 2026-08-19 via
-            `scripts/mutation_test.py`. All six targets sweep to ZERO
-            survivors: 132 mutants, 87 killed, 45 non-compiling. Re-run with
+            `scripts/mutation_test.py`. All seven targets sweep to ZERO
+            survivors: 234 mutants, 149 killed, 85 non-compiling. Re-run with
             `.venv/bin/python scripts/mutation_test.py --target all`; it is
             slow (~25s/mutant) so use `--offset/--limit` to slice it, and
             never run it unattended — it writes deliberately broken security
@@ -173,13 +173,31 @@ everything still open, in the order it should be tackled.
             high-risk factor was refused in both implementations and tested
             in neither.
 
-            Two blind spots in the harness itself mattered as much as the
-            findings. It only mutated block-form guards, so every one-line
-            `if (cond) return ...;` — which is how most of the load-bearing
-            checks are written — was invisible; `src/highRisk.ts` generated
-            zero mutants and printed as a clean sweep. Both fixed: inline
-            guards are mutated, and a target that generates no mutants now
-            reports NOT MEASURED rather than passing silently.
+            Three blind spots in the harness itself mattered as much as the
+            findings, and each was found by fixing the one before it:
+
+            1. It only mutated block-form guards, so every one-line
+               `if (cond) return ...;` — how most load-bearing checks are
+               written — was invisible. `src/highRisk.ts` generated zero
+               mutants and printed as a clean sweep.
+            2. A target generating no mutants reported identically to a clean
+               one. It now reports NOT MEASURED, and that reporting caught
+               the next blind spot on its first run against a new target.
+            3. Selection was by an auth vocabulary (token, scope, expire), so
+               `src/configFile.ts` — whose validators are the API's only
+               defence against nonsense being written permanently into an
+               encrypted file — generated nothing. Guards are now selected by
+               whether their body REFUSES, vocabulary or not. That took the
+               corpus from 132 mutants to 234 and found real gaps in every
+               target it touched.
+
+            The recurring shape across the whole sweep: two code paths both
+            refuse, so only the REASON or the BOUNDARY is observable, and
+            nothing observed either. A 500 where a 404 belongs, "your
+            envelope is corrupt" where "you never set one up" belongs, an
+            approval scoping check that refused everything, a denied request
+            returning 0 and printing as "0 profiles locked" while the seeds
+            stayed resident.
       - [ ] **DECISION TO RECORD: the API's settable config keys are a
             superset of Python's.** Python's `update_config` allowlists 8
             keys; the TypeScript route now allowlists 23, because it can set
