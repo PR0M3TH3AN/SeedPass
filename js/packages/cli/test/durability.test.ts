@@ -7,6 +7,7 @@
  */
 
 import { beforeAll, describe, expect, it } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, readFile, writeFile, stat, chmod } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -75,7 +76,7 @@ describe("numeric input validation", () => {
 });
 
 describe("atomic, permission-correct writes", () => {
-  it("leaves no temp files and keeps the vault at 0600", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("leaves no temp files and keeps the vault at 0600", async () => {
     await chmod(vaultPath, 0o644); // simulate a loosened file
     await run("--vault", vaultPath, "entry", "add", "key-value", "perm", "k", "v");
     const info = await stat(vaultPath);

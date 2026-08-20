@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, mkdir, readdir, readFile, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -77,7 +78,7 @@ async function backupNames(): Promise<string[]> {
 }
 
 describe("createIndexBackup", () => {
-  it("writes a Python-named snapshot at 0600 and copies the ciphertext verbatim", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("writes a Python-named snapshot at 0600 and copies the ciphertext verbatim", async () => {
     const result = await createIndexBackup({ indexPath, config: {}, now: 1111 });
     expect(result.written).toBe(join(profileDir, BACKUP_DIR_NAME, backupFilename(1111)));
     // Exactly Python's BACKUP_FILENAME_TEMPLATE.
@@ -90,7 +91,7 @@ describe("createIndexBackup", () => {
     expect(await readFile(result.written!)).toEqual(await readFile(indexPath));
   });
 
-  it("mirrors to additional_backup_path, prefixed by fingerprint as Python does", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("mirrors to additional_backup_path, prefixed by fingerprint as Python does", async () => {
     const extra = await mkdtemp(join(tmpdir(), "seedpass-extra-"));
     const result = await createIndexBackup({
       indexPath,

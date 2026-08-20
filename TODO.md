@@ -307,6 +307,21 @@ everything still open, in the order it should be tackled.
             work.
             (Recorded 2026-08-20.)
       - [ ] **Are vault files protected from other users on Windows?**
+            SCOPE GREW 2026-08-20: this is no longer two Python tests. When
+            the JavaScript suite first ran on Windows, eight more `0600`
+            assertions failed for the same reason — the vault index itself,
+            index backups, the parent-seed phrase file, job profiles, the
+            recovery-drill key and log, 2FA exports, and the semantic index,
+            which holds stored secrets. All are now guarded by
+            `NO_POSIX_PERMISSIONS` in js/packages/cli/test/helpers/platform.ts
+            with the reason attached.
+
+            Skipping states the gap, it does not close it. With TypeScript
+            becoming the only implementation, "are the user's secrets
+            protected from other accounts on Windows" is a shipping question,
+            not a test-suite question. Either verify the inherited ACL is
+            user-scoped and assert THAT on Windows, or set an explicit ACL and
+            assert it.
             `test_atomic_write_permissions` and
             `test_index_files_are_not_readable_by_other_users` assert mode
             0o600 and are now skipped on Windows, because POSIX mode bits do

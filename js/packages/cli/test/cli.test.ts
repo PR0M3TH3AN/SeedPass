@@ -217,12 +217,19 @@ describe("sink delivery keeps secrets out of CLI output", () => {
   it("use --exec injects SEEDPASS_SECRET into the child env only", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-sink-"));
     const capture = join(dir, "captured.txt");
-    const script = join(dir, "cap.sh");
-    await writeFile(script, `#!/bin/sh\nprintf '%s' "$SEEDPASS_SECRET" > "${capture}"\n`, {
-      mode: 0o755,
-    });
+    // A Node script run by the interpreter already running these tests,
+    // rather than a `#!/bin/sh` file. Shebangs and /bin/sh do not exist on
+    // Windows, so this whole describe block failed there the first time the
+    // suite ran on it. `process.execPath` exists on every platform by
+    // definition, and quoting the spec lets a path with spaces survive.
+    const script = join(dir, "cap.cjs");
+    await writeFile(
+      script,
+      `require("fs").writeFileSync(${JSON.stringify(capture)}, process.env.SEEDPASS_SECRET ?? "");`,
+    );
 
-    const r = await run("--vault", vaultPath, "use", "api-token", "--exec", script);
+    const spec = `"${process.execPath}" "${script}"`;
+    const r = await run("--vault", vaultPath, "use", "api-token", "--exec", spec);
     const delivered = JSON.parse(r.stdout);
     expect(delivered.sink).toBe("exec");
     expect(delivered.exitCode).toBe(0);
@@ -237,10 +244,17 @@ describe("sink delivery keeps secrets out of CLI output", () => {
   it("use --stdin-to pipes the secret to the command's stdin", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-sink-"));
     const capture = join(dir, "captured.txt");
-    const script = join(dir, "cap.sh");
-    await writeFile(script, `#!/bin/sh\ncat > "${capture}"\n`, { mode: 0o755 });
+    const script = join(dir, "cap.cjs");
+    await writeFile(
+      script,
+      `let b = "";
+       process.stdin.setEncoding("utf8");
+       process.stdin.on("data", (d) => { b += d; });
+       process.stdin.on("end", () => require("fs").writeFileSync(${JSON.stringify(capture)}, b));`,
+    );
 
-    const r = await run("--vault", vaultPath, "use", "api-token", "--stdin-to", script);
+    const spec = `"${process.execPath}" "${script}"`;
+    const r = await run("--vault", vaultPath, "use", "api-token", "--stdin-to", spec);
     expect(JSON.parse(r.stdout).sink).toBe("stdin");
     expect(await readFile(capture, "utf8")).toBe("abc123");
     expect(r.stdout).not.toContain("abc123");
@@ -252,12 +266,18 @@ describe("sink delivery keeps secrets out of CLI output", () => {
     // way to include flags.
     const dir = await mkdtemp(join(tmpdir(), "seedpass-spec-"));
     const capture = join(dir, "captured.txt");
-    const script = join(dir, "cap.sh");
-    await writeFile(script, `#!/bin/sh\nprintf '%s %s' "$1" "$(cat)" > "${capture}"\n`, {
-      mode: 0o755,
-    });
+    const script = join(dir, "cap.cjs");
+    await writeFile(
+      script,
+      `let b = "";
+       process.stdin.setEncoding("utf8");
+       process.stdin.on("data", (d) => { b += d; });
+       process.stdin.on("end", () =>
+         require("fs").writeFileSync(${JSON.stringify(capture)}, process.argv[2] + " " + b));`,
+    );
     const r = await run(
-      "--vault", vaultPath, "use", "api-token", "--stdin-to", `${script} -flagged`,
+      "--vault", vaultPath, "use", "api-token",
+      "--stdin-to", `"${process.execPath}" "${script}" -flagged`,
     );
     expect(JSON.parse(r.stdout).sink).toBe("stdin");
     expect(await readFile(capture, "utf8")).toBe("-flagged abc123");

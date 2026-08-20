@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, readFile, writeFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -90,7 +91,7 @@ describe("fingerprint create", () => {
     expect((await app.readFingerprints()).fingerprints).toHaveLength(0);
   });
 
-  it("writes the phrase to a 0600 file and creates a matching profile", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("writes the phrase to a 0600 file and creates a matching profile", async () => {
     const out = join(scratch, "seed.txt");
     const r = await run("fingerprint", "create", "--name", "test", "--words", "24", "--out", out);
     const result = JSON.parse(r.stdout);

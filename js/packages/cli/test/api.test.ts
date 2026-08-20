@@ -10,6 +10,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1152,7 +1153,7 @@ describe("semantic index", () => {
     expect(hits.json.results.map((r: any) => r.label)).toContain("api-token");
   });
 
-  it("writes the index at 0600, not the process umask", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("writes the index at 0600, not the process umask", async () => {
     await call("POST", "/api/v1/semantic/build");
     const path = join(app.profileDir(FINGERPRINT), "semantic_index", "records.json");
     expect((await stat(path)).mode & 0o777).toBe(0o600);

@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { NO_CLIPBOARD } from "./helpers/platform.js";
 import { parseCommandSpec } from "../src/sinks.js";
 
 describe("parseCommandSpec", () => {
@@ -102,7 +103,7 @@ async function fakeClipboard(): Promise<{ dir: string; stateFile: string; restor
 }
 
 describe("clipboardSink auto-clear", () => {
-  it("copies the secret and, by default, never wipes it", async () => {
+  it.skipIf(NO_CLIPBOARD)("copies the secret and, by default, never wipes it", async () => {
     const clip = await fakeClipboard();
     try {
       await clipboardSink("s3cr3t");
@@ -115,7 +116,7 @@ describe("clipboardSink auto-clear", () => {
     }
   });
 
-  it("wipes the secret after the delay when it is still ours", async () => {
+  it.skipIf(NO_CLIPBOARD)("wipes the secret after the delay when it is still ours", async () => {
     const clip = await fakeClipboard();
     try {
       const r = await clipboardSink("wipe-me", { clearAfterSeconds: 0.15 });
@@ -205,5 +206,52 @@ describe("the environment a sink child receives", () => {
     // job. A backstop that swallowed it would break the feature.
     const env = sinkEnv({ SEEDPASS_SECRET: "the-secret" });
     expect(env["SEEDPASS_SECRET"]).toBe("the-secret");
+  });
+});
+
+describe("command specs on Windows", () => {
+  /**
+   * `windows` is an explicit parameter so both branches run on any machine.
+   * Without that, the Windows branch could only ever execute on Windows —
+   * which is precisely how this survived: the JavaScript suite had never run
+   * there until 2026-08-20, and when it did, three sink tests failed at once.
+   *
+   * The bug: tokenize treated backslash as a POSIX escape unconditionally, so
+   * every Windows path handed to --exec or --stdin-to lost its separators
+   * before it was spawned.
+   */
+  it("keeps the separators in a Windows path", () => {
+    expect(parseCommandSpec(["C:\\Tools\\bin.exe -c"], { windows: true })).toEqual([
+      "C:\\Tools\\bin.exe",
+      ["-c"],
+    ]);
+  });
+
+  it("keeps them inside quotes too, where a path with spaces has to live", () => {
+    expect(
+      parseCommandSpec(['"C:\\Program Files\\tool.exe" --flag'], { windows: true }),
+    ).toEqual(["C:\\Program Files\\tool.exe", ["--flag"]]);
+  });
+
+  it("pins what the POSIX branch does to the same input", () => {
+    // Not a hypothetical. This is what every Windows user got: a command
+    // named "C:Program" and an argument called "Filestool.exe".
+    expect(
+      parseCommandSpec(['"C:\\Program Files\\tool.exe" --flag'], { windows: false }),
+    ).toEqual(["C:Program Filestool.exe", ["--flag"]]);
+  });
+
+  it("still escapes on POSIX, where a shell would", () => {
+    expect(parseCommandSpec(["printf a\\ b"], { windows: false })).toEqual([
+      "printf",
+      ["a b"],
+    ]);
+  });
+
+  it("quoting still groups on Windows", () => {
+    expect(parseCommandSpec(['sh -c "do the thing"'], { windows: true })).toEqual([
+      "sh",
+      ["-c", "do the thing"],
+    ]);
   });
 });

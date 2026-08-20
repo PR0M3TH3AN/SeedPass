@@ -10,7 +10,7 @@
 
 import { readFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, resolve as resolvePath } from "node:path";
+import { join, resolve as resolvePath, relative, isAbsolute, sep } from "node:path";
 import {
   addDocumentEntry,
   addKeyValueEntry,
@@ -264,7 +264,20 @@ function optInt(value: unknown, field: string): number | undefined {
 function resolveWithinProfile(ctx: ApiContext, raw: string): string {
   const root = resolvePath(profileDir(ctx));
   const target = resolvePath(root, raw);
-  if (target !== root && !target.startsWith(root + "/")) {
+  // `relative`, not string prefixes. The previous check was
+  // `target.startsWith(root + "/")` with a hardcoded forward slash, which on
+  // Windows never matched anything: resolve() returns
+  // `C:\profile\file.txt` and the comparison asked for `C:\profile/`. It
+  // failed CLOSED, so nothing leaked — it simply refused every path,
+  // including the legitimate ones, which meant document export and import
+  // did not work on Windows at all. Found the first time this suite ran
+  // there.
+  //
+  // A path inside root has a relative form that is neither empty-with-`..`
+  // nor absolute; that holds on every platform and needs no separator of our
+  // own choosing.
+  const rel = relative(root, target);
+  if (rel !== "" && (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel))) {
     throw new HttpError(400, "path must stay inside the profile directory");
   }
   return target;

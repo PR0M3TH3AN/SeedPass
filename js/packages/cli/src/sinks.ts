@@ -56,6 +56,9 @@ export function sinkEnv(
  * one quoted string (`--exec "wc -c"`) is the documented way to include
  * flags; split it here.
  *
+ * On Windows a backslash is a path separator and never an escape; on POSIX
+ * it escapes, as a shell would. Quotes group on both.
+ *
  * Quotes group, they do not pass through. Splitting on whitespace alone was
  * wrong for the single most common sink command there is:
  * `--exec 'sh -c "do the thing"'` handed sh the two tokens `"do` and
@@ -63,15 +66,24 @@ export function sinkEnv(
  * tokenization only — no shell runs here, so there is no expansion,
  * globbing, or substitution, and a `$VAR` inside the spec stays literal.
  */
-export function parseCommandSpec(spec: string[]): [string, string[]] {
-  const parts = spec.length === 1 && /\s/.test(spec[0]!) ? tokenize(spec[0]!) : spec;
+export function parseCommandSpec(
+  spec: string[],
+  // Explicit rather than read from process.platform, so BOTH branches are
+  // testable from either operating system. The Windows branch could
+  // otherwise only ever run on Windows, which is exactly how the bug below
+  // survived until this repository started testing there.
+  options: { windows?: boolean } = {},
+): [string, string[]] {
+  const onWindows = options.windows ?? process.platform === "win32";
+  const parts =
+    spec.length === 1 && /\s/.test(spec[0]!) ? tokenize(spec[0]!, onWindows) : spec;
   const [cmd, ...args] = parts;
   if (!cmd) throw new Error("empty command");
   return [cmd, args];
 }
 
 /** Whitespace split that honours '...', "...", and backslash escapes. */
-function tokenize(spec: string): string[] {
+function tokenize(spec: string, onWindows: boolean): string[] {
   const tokens: string[] = [];
   let current = "";
   let started = false;
@@ -90,9 +102,13 @@ function tokenize(spec: string): string[] {
       quote = ch;
     } else if (ch === quote) {
       quote = null;
-    } else if (ch === "\\" && quote !== "'" && i + 1 < spec.length) {
-      // Backslash escapes the next character, except inside single quotes
-      // where POSIX makes it literal.
+    } else if (ch === "\\" && !onWindows && quote !== "'" && i + 1 < spec.length) {
+      // POSIX: backslash escapes the next character, except inside single
+      // quotes. NOT on Windows, where it is the path separator -- treating it
+      // as an escape there turned `C:\\Program Files\\tool.exe` into
+      // `C:Program` plus `Filestool.exe`, so every --exec and --stdin-to
+      // naming a real Windows path was silently mangled before it was
+      // spawned. Found when this suite first ran on Windows.
       current += spec[++i]!;
     } else {
       current += ch;

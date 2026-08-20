@@ -8,6 +8,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, readFile, writeFile, stat, appendFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -78,7 +79,7 @@ describe("job profiles", () => {
     ).rejects.toThrow(/job_id_required/);
   });
 
-  it("stores the file at 0600", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("stores the file at 0600", async () => {
     expect((await stat(join(appDir, "agent_jobs.json"))).mode & 0o777).toBe(0o600);
   });
 });
@@ -249,7 +250,7 @@ describe("recovery drills", () => {
     expect(await verifyRecoveryDrills(dir)).toEqual({ valid: true, checked: 0, errors: [] });
   });
 
-  it("keeps the key and log at 0600", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("keeps the key and log at 0600", async () => {
     const dir = await mkdtemp(join(tmpdir(), "seedpass-modes-"));
     const backup = join(dir, "b");
     await writeFile(backup, "x");

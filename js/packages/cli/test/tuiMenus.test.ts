@@ -10,6 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { NO_POSIX_PERMISSIONS } from "./helpers/platform.js";
 import { mkdtemp, writeFile, mkdir, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -643,7 +644,7 @@ describe("inactivity timeout locks the vault", () => {
 import { stat, chmod } from "node:fs/promises";
 
 describe("secret-bearing exports get a fresh 0600 file", () => {
-  it("re-creates a pre-existing world-readable file as 0600 on 2FA export", async () => {
+  it.skipIf(NO_POSIX_PERMISSIONS)("re-creates a pre-existing world-readable file as 0600 on 2FA export", async () => {
     const dest = join(appDir, "totp-export.json");
     // An attacker (or just history) left a 0644 file at the destination.
     // writeFile(mode) would keep 0644 — every TOTP secret world-readable.

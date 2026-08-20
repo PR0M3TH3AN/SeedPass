@@ -343,8 +343,23 @@ describe("second-audit findings", () => {
         }
       });
       socket.on("error", (e) => {
+        // EPIPE and ECONNRESET here are the SERVER DOING ITS JOB, not a
+        // failure. It caps the line, answers, and hangs up — and on macOS
+        // that hangup lands while this client is still pushing the remaining
+        // megabyte, so the write fails. On Linux the socket buffer swallows
+        // the whole payload first and the client never notices. Treating the
+        // client's own broken pipe as fatal made this test pass on one
+        // platform and fail on the other for the same correct behaviour.
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code === "EPIPE" || code === "ECONNRESET") return;
         clearTimeout(timer);
         reject(e);
+      });
+      socket.on("close", () => {
+        // Only reaches here if the reply never arrived: `data` resolves and
+        // destroys the socket as soon as it sees a newline.
+        clearTimeout(timer);
+        reject(new Error("the daemon closed the connection without replying"));
       });
     });
     expect(reply["ok"]).toBe(false);
@@ -527,7 +542,13 @@ describe("a use-scoped token cannot crash the agent", () => {
 
     const r = await rawRequest({
       op: "use-sink", fingerprint: FINGERPRINT, id, token: useToken,
-      sink: "stdin", command: ["/bin/true"],
+      // `process.execPath` rather than /bin/true: that path does not exist on
+      // macOS (it is /usr/bin/true), so the spawn failed with ENOENT and the
+      // request was refused — which looked like the crash-safety fix having
+      // regressed when it had not. The Node binary running this test exists
+      // on every platform by definition, and `-e ""` exits immediately
+      // without reading stdin, which is exactly the case under test.
+      sink: "stdin", command: [process.execPath, "-e", ""],
     });
     expect(r["ok"]).toBe(true);
 
