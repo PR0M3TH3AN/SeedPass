@@ -10,36 +10,42 @@ on:
 
 jobs:
   # Regenerating the lockfile and diffing it proves the committed file really
-  # came from src/requirements.txt. It has to happen on ONE interpreter, and
-  # specifically on LOCK_PYTHON below, so it cannot ride the build matrix.
+  # came from src/requirements.txt. That is one question about one artifact,
+  # so it is asked once here rather than once per matrix entry.
   #
-  # pip-compile resolves version-conditional dependencies for the interpreter
-  # it runs on, and the result carries no markers. Python 3.10 needs
-  # async-timeout (aiohttp requires it below 3.11) and 3.11 does not, so the
-  # two resolutions are genuinely different files -- 135 lines apart,
-  # argon2-cffi-bindings among them. One committed lockfile cannot equal both.
+  # WHY uv AND NOT pip-compile
   #
-  # Compiling on the LOWEST supported version is what makes a single lockfile
-  # work everywhere: 3.10's resolution is a superset, and it installs cleanly
-  # under --require-hashes on 3.11. The reverse does not -- a 3.11 lockfile
-  # is missing async-timeout, so on 3.10 pip tries to fetch it unpinned and
-  # --require-hashes refuses. Both halves of that were failing here: the diff
-  # could never match on one platform, and the install could never succeed on
-  # the other.
+  # This lockfile has to serve Linux, macOS and Windows across Python
+  # 3.10-3.12, and pip-compile resolves for the single environment it runs on
+  # and emits no markers. Two dependencies make that impossible: aiohttp
+  # needs async-timeout only below 3.11, and portalocker needs pywin32 only
+  # on Windows. So every pip-compile output was wrong somewhere -- a
+  # Linux/3.11 lockfile made the Windows job fail with "must have their
+  # versions pinned" for pywin32, and a Windows/3.10 one could never match
+  # the diff elsewhere. The Windows entry of this job had never been able to
+  # install from this file.
+  #
+  # `uv pip compile --universal` resolves across all of them and emits the
+  # markers, so ONE lockfile covers every target. The output is still an
+  # ordinary pip requirements file: nothing downstream changes, the build
+  # jobs still install it with plain `pip install --require-hashes`. Only the
+  # generator is different, and it is pinned so this diff stays deterministic.
   lockfile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          # Must equal the minimum in pyproject's `python = ">=3.10,<3.13"`.
-          # Raising that floor means regenerating requirements.lock here.
           python-version: "3.10"
       - name: Verify the lockfile matches src/requirements.txt
         run: |
           python -m pip install --upgrade pip
-          pip install pip-tools
-          pip-compile --generate-hashes --output-file=requirements.lock src/requirements.txt
+          pip install uv==0.10.4
+          # --python-version must equal the minimum in pyproject's
+          # `python = ">=3.10,<3.13"`. Raising that floor means regenerating
+          # requirements.lock with the new value.
+          uv pip compile --universal --generate-hashes --python-version 3.10 \
+            -o requirements.lock src/requirements.txt
           git diff --exit-code requirements.lock
 
   secret-scan:
