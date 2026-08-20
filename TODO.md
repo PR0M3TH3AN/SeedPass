@@ -306,6 +306,28 @@ everything still open, in the order it should be tackled.
             loops so it can be tested without them. The second is the real
             work.
             (Recorded 2026-08-20.)
+      - [ ] **THE SESSION AGENT DOES NOT RUN ON WINDOWS.** Found 2026-08-20,
+            the first time the JavaScript suite executed there: four test
+            files die in `beforeAll` with
+            `listen EACCES ... \agent.sock`. Node on Windows requires a named
+            pipe (`\\.\pipe\name`) for `server.listen(path)`; a filesystem
+            path is not a valid endpoint. Nothing about the daemon works
+            there — no `seedpass agent`, so no held seeds, no tokens, no
+            high-risk sessions, no sink delivery.
+
+            This is not a path substitution. The agent's ACCESS CONTROL is the
+            socket's 0600 mode: the trust boundary is "only this user can
+            connect", enforced by the filesystem. Named pipes have their own
+            ACL model, so supporting Windows means answering what the 0600
+            was buying and how to buy it again — a security design question,
+            and it should be decided rather than improvised.
+
+            Until then the four files are excluded on Windows in
+            js/packages/cli/vitest.config.ts, with the reason written there.
+            With TypeScript becoming the only implementation this is a
+            shipping decision: either the agent gains a Windows transport, or
+            SeedPass documents the daemon as POSIX-only and the Windows CLI
+            works without it.
       - [ ] **Are vault files protected from other users on Windows?**
             SCOPE GREW 2026-08-20: this is no longer two Python tests. When
             the JavaScript suite first ran on Windows, eight more `0600`
