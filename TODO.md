@@ -235,6 +235,24 @@ everything still open, in the order it should be tackled.
             It found one real defect — the config API accepting any key and
             any value, fixed in the same session — and one property worth
             recording rather than unilaterally changing, below.
+      - [ ] **Migrate `src/nostr/client.py` to nostr-sdk 0.44+.** The
+            dependency is pinned `>=0.43,<0.44` because 0.44 removed
+            `NostrSigner`'s constructors — `NostrSigner.keys(...)`, which
+            client.py:107 calls — and changed `Client`'s constructor, which
+            client.py:108 uses. Verified against 0.45.0: `NostrSigner` is left
+            with only `get_public_key`, `sign_event` and the nip04/nip44
+            methods, and `Client.__init__` takes no arguments.
+
+            This surfaced as CI red while the Tests workflow stayed green,
+            because the two install from different lockfiles and they had
+            drifted: `poetry.lock` held 0.43.0, `requirements.lock` had
+            resolved to 0.45.0 under the old unbounded `>=0.43`. Both are now
+            on the 0.43 line and agree. There is no advisory against 0.43, so
+            the bound costs nothing today — but it is a bound, and the
+            migration touches signing and client setup, so it wants doing
+            deliberately with the sync round-trip re-validated against a real
+            relay rather than folded into unrelated work.
+            (Found 2026-08-20 on the first CI run of this branch.)
       - [ ] **`textual` is an undeclared dependency, so the entire TUI test
             surface has never run in CI.** It appears in neither
             `[tool.poetry.dependencies]`, `[tool.poetry.extras]`, nor the dev

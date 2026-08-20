@@ -16,7 +16,7 @@ mnemonic = "*"
 aiohttp = ">=3.14.3"
 bcrypt = "*"
 portalocker = ">=2.8"
-nostr-sdk = ">=0.43"
+nostr-sdk = ">=0.43,<0.44"
 websocket-client = "1.7.0"
 websockets = ">=15.0.0"
 tomli = "*"
@@ -106,7 +106,7 @@ requires = [
     "aiohttp>=3.14.3",
     "bcrypt",
     "portalocker>=2.8",
-    "nostr-sdk>=0.43",
+    "nostr-sdk>=0.43,<0.44",
     "websocket-client==1.7.0",
     "websockets>=15.0.0",
     "tomli",

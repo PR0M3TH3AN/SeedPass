@@ -11,7 +11,9 @@ pytest>=9.0.3,<10
 pytest-cov>=4,<7
 pytest-xdist>=3,<4
 portalocker>=2.8,<4
-nostr-sdk>=0.43,<1
+# 0.44 removed NostrSigner.keys and changed Client's constructor; the
+# client code does not build against it yet. See TODO.md.
+nostr-sdk>=0.43,<0.44
 websocket-client>=1.7,<2
 
 websockets>=15,<16
