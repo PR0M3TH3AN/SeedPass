@@ -34,7 +34,13 @@ import {
   INDEX_FILENAME,
   type ProgramIo,
 } from "../src/index.js";
-import { setFactor, tagForFactor, factorConfigured, partitionPath } from "../src/highRisk.js";
+import {
+  setFactor,
+  tagForFactor,
+  factorConfigured,
+  partitionPath,
+  envelopePath,
+} from "../src/highRisk.js";
 import {
   issueApproval,
   listApprovals,
@@ -150,6 +156,25 @@ describe("the factor", () => {
     const r = await run({ ...asOwner, SEEDPASS_HIGH_RISK_FACTOR: undefined },
       "agent", "high-risk", "unlock");
     expect(String((r.error as Error).message)).toContain("SEEDPASS_HIGH_RISK_FACTOR");
+  });
+
+  it("says NOT CONFIGURED rather than blaming the envelope", async () => {
+    // Without the existsSync guard, readFile's ENOENT is caught by the same
+    // handler that catches malformed JSON, so a profile that never set a
+    // factor is told its partition envelope is invalid. Both refuse, so only
+    // the reason is observable — and the reason is the whole difference
+    // between "set one up" and "yours is corrupt, restore a backup".
+    const fresh = await mkdtemp(join(tmpdir(), "seedpass-no-envelope-"));
+    await expect(tagForFactor(fresh, "anything")).rejects.toMatchObject({
+      reason: "high_risk_partition_not_configured",
+    });
+
+    // A file that exists but is not JSON is the case that reason belongs to.
+    await setFactor(fresh, "a-real-factor");
+    await writeFile(envelopePath(fresh), "{not json");
+    await expect(tagForFactor(fresh, "a-real-factor")).rejects.toMatchObject({
+      reason: "invalid_partition_envelope",
+    });
   });
 
   it("verifies correctly and rejects a wrong one", async () => {
@@ -349,6 +374,44 @@ describe("approval gates", () => {
 
     // Still unconsumed after all those failures.
     expect((await listApprovals(appDir)).find((a) => a.id === issued.id)!.uses_remaining).toBe(1);
+  });
+
+  it("honours resource scoping in both directions", async () => {
+    // Only the FAILING side of resource scoping was tested, and the check is
+    // `record !== "*" && record !== requested` — for a scoped record and a
+    // different resource both halves are true, so `&&` and `||` agree and a
+    // mutation there was invisible. These are the two cases where they
+    // differ, and they are the cases that make scoping useful rather than
+    // merely restrictive.
+    const scoped = await issueApproval(appDir, {
+      action: "export",
+      resource: "vault-a",
+      ttlSeconds: 300,
+      uses: 1,
+    });
+    // A scoped approval works for the resource it names.
+    expect(
+      await consumeApproval(appDir, {
+        approvalId: scoped.id,
+        action: "export",
+        resource: "vault-a",
+      }),
+    ).toEqual({ ok: true, reason: "approval_consumed" });
+
+    // A wildcard approval works for any resource — that is what "*" is for.
+    const wildcard = await issueApproval(appDir, {
+      action: "export",
+      resource: "*",
+      ttlSeconds: 300,
+      uses: 1,
+    });
+    expect(
+      await consumeApproval(appDir, {
+        approvalId: wildcard.id,
+        action: "export",
+        resource: "some-specific-vault",
+      }),
+    ).toEqual({ ok: true, reason: "approval_consumed" });
   });
 
   it("refuses an expired approval", async () => {

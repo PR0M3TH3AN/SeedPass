@@ -312,6 +312,30 @@ describe("what the API refuses", () => {
         body: JSON.stringify({ kind: "password", label: "x".repeat(500) }),
       });
       expect(res.status).toBe(413);
+
+      // The BOUNDARY, which nothing checked: a limit of N bytes has to mean N
+      // bytes are allowed. `>` accepts exactly N and `>=` rejects it, and
+      // sending 500 bytes at a 64-byte cap cannot tell the two apart — so the
+      // cap could quietly become off-by-one and only show up as a request
+      // that fails at a size the operator configured as fine.
+      const url = `http://${bound.host}:${bound.port}/api/v1/entry`;
+      const send = (body: string) =>
+        fetch(url, {
+          method: "POST",
+          headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+          body,
+        });
+
+      // Exactly 64 bytes of valid JSON: accepted (whatever the route then
+      // makes of it — the point is that it is not refused for its size).
+      const padded = `{"kind":"password","label":"${"x".repeat(64 - 30)}"}`;
+      expect(padded.length).toBe(64);
+      expect((await send(padded)).status).not.toBe(413);
+
+      // One byte more: refused.
+      const overBy1 = `{"kind":"password","label":"${"x".repeat(64 - 29)}"}`;
+      expect(overBy1.length).toBe(65);
+      expect((await send(overBy1)).status).toBe(413);
     } finally {
       await small.close();
     }
