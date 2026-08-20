@@ -712,6 +712,37 @@ describe("the wire protocol refuses shapes, not just values", () => {
   });
 });
 
+describe("a denied request is not a quiet zero", () => {
+  it("throws instead of reporting a false success", async () => {
+    // Every owner-op client method checks `ok` and throws. Drop that check
+    // and the method returns whatever the failed response coerces to, which
+    // for each of these is a value that reads as a legitimate outcome:
+    //
+    //   lock()           -> 0      "0 profiles locked" — but the seeds are
+    //                              still resident, and the user was told the
+    //                              vault was locked.
+    //   highRiskLock()   -> false  indistinguishable from "there was nothing
+    //                              to lock".
+    //   highRiskStatus() -> { unlocked: false, expires_at: NaN }
+    //
+    // A refusal that looks like a successful no-op is worse than an error,
+    // because nobody retries it.
+    const { d, sock } = await daemonAt(() => FROZEN);
+    const previous = process.env["SEEDPASS_AGENT_CAP"];
+    process.env["SEEDPASS_AGENT_CAP"] = "not-the-capability";
+    try {
+      const client = new AgentClient(sock);
+      await expect(client.lock()).rejects.toThrow(/owner capability/);
+      await expect(client.highRiskLock(FINGERPRINT)).rejects.toThrow(/owner capability/);
+      await expect(client.highRiskStatus(FINGERPRINT)).rejects.toThrow(/owner capability/);
+    } finally {
+      if (previous === undefined) delete process.env["SEEDPASS_AGENT_CAP"];
+      else process.env["SEEDPASS_AGENT_CAP"] = previous;
+      await d.stop();
+    }
+  });
+});
+
 describe("starting a daemon over an existing socket", () => {
   it("refuses to replace a LIVE agent", async () => {
     // Without this check the second daemon deletes the socket and listens in
