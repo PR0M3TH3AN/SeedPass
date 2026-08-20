@@ -907,17 +907,22 @@ export class AgentDaemon {
       if (refused) return; // already answered; stop buffering this peer
       if (buffer.length + chunk.length > MAX_LINE_BYTES) {
         refused = true;
-        // `end(payload, cb)` and THEN destroy, not `write` followed by an
-        // immediate `destroy`. destroy() tears the socket down at once and
-        // discards whatever is still buffered: on Linux the write usually
-        // reaches the kernel first and the peer sees the refusal, on macOS it
-        // does not and the peer sees an unexplained hangup. The callback
-        // fires once the bytes are flushed, so the reason is delivered and
-        // the connection still closes rather than being held open by a peer
-        // that keeps sending.
-        socket.end(JSON.stringify({ ok: false, error: "request too large" }) + "\n", () => {
-          socket.destroy();
-        });
+        // end(), and specifically NOT destroy(). Destroying a socket that
+        // still has inbound data pending makes the OS send an RST, and an RST
+        // discards the PEER's unread receive buffer -- carrying off the very
+        // refusal we just wrote. On Linux the reply usually beat the reset;
+        // on macOS and Windows it did not, and the caller saw an unexplained
+        // hangup instead of "request too large". end() sends FIN, which
+        // leaves the peer's buffer intact.
+        //
+        // Reads continue (the `refused` flag makes them cheap), so the kernel
+        // buffer keeps draining and nothing grows. The timer is the backstop
+        // against a peer that never closes; unref'd so it cannot by itself
+        // keep the process alive.
+        socket.end(JSON.stringify({ ok: false, error: "request too large" }) + "\n");
+        const abandon = setTimeout(() => socket.destroy(), 5_000);
+        abandon.unref();
+        socket.once("close", () => clearTimeout(abandon));
         return;
       }
       buffer += chunk.toString("utf8");
