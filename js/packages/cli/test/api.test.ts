@@ -986,6 +986,40 @@ describe("totp, config, relays, stats", () => {
     expect(reset.json.relays).not.toContain("wss://relay.example");
   });
 
+  it("deletes the relay at the index named, and no other", async () => {
+    // DELETE /relays/:idx had no test at all. An off-by-one here does not
+    // fail — it removes the WRONG relay, so a user dropping one they distrust
+    // keeps it and loses one they wanted. Asserting the exact resulting list
+    // is the only way to see that; a length check would pass either way.
+    const three = ["wss://a.example", "wss://b.example", "wss://c.example"];
+    await call("PUT", "/api/v1/config/relays", {
+      password: PASSWORD,
+      body: { value: three },
+    });
+
+    // Index 0 is a valid index, not a missing one.
+    const first = await call("DELETE", "/api/v1/relays/0");
+    expect(first.status).toBe(200);
+    expect(first.json.relays).toEqual(["wss://b.example", "wss://c.example"]);
+
+    // The LAST index is in range; one past it is not. `>=` versus `>` is
+    // exactly this boundary.
+    expect((await call("DELETE", "/api/v1/relays/2")).status).toBe(404);
+    const last = await call("DELETE", "/api/v1/relays/1");
+    expect(last.status).toBe(200);
+    expect(last.json.relays).toEqual(["wss://b.example"]);
+
+    // And an index that is not a non-negative integer is a 400, not a 404:
+    // the caller's request is malformed, not pointing at something absent.
+    for (const idx of ["-1", "1.5", "abc"]) {
+      const res = await call("DELETE", `/api/v1/relays/${idx}`);
+      expect(res.status).toBe(400);
+      expect(res.json.detail).toContain("non-negative integer");
+    }
+
+    await call("POST", "/api/v1/relays/reset");
+  });
+
   it("reports profile statistics", async () => {
     const res = await call("GET", "/api/v1/stats");
     expect(res.json.fingerprint).toBe(FINGERPRINT);
