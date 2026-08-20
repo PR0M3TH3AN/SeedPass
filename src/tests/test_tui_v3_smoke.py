@@ -924,7 +924,12 @@ async def test_tui3_create_profile_screen_supports_backup_restore_mode() -> None
         screen.query_one("#create-password", Input).value = "hunter2"
         await pilot.press("enter")
         await pilot.pause()
-        assert restored["backup_path"] == str(Path("/tmp/profile-backup.enc"))
+        # NOT str(Path(...)): CreateProfileScreen stores this field as the raw
+        # `.value.strip()` from the input, without normalizing it, so the
+        # literal is what the app actually passes through. The two forms are
+        # identical on POSIX, which is exactly why changing this on inference
+        # rather than on evidence broke Windows and nothing local caught it.
+        assert restored["backup_path"] == "/tmp/profile-backup.enc"
         assert booted == {"fingerprint": "BACKUPFP1", "password": "hunter2"}
 
 
