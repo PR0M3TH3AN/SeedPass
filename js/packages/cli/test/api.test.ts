@@ -201,6 +201,46 @@ describe("what the API refuses", () => {
       expect(res.status).toBe(400);
       expect(res.json.detail).toContain("inside the profile directory");
     }
+
+    // The POSITIVE half. The guard is `target !== root && !target.startsWith(
+    // root + "/")` — turn that `&&` into `||` and every path except the
+    // profile root itself is refused, which the traversal cases above cannot
+    // see because they expect a refusal either way. A check that refuses
+    // everything is not a working check.
+    const inside = await call("POST", "/api/v1/entry/0/document/export", {
+      password: PASSWORD,
+      // Flat, not nested: atomicWrite does not create parent directories,
+      // and a nested path answers 500 rather than a clear refusal — recorded
+      // in TODO.md rather than fixed inside a test for a different property.
+      body: { path: "exported-secret.txt" },
+    });
+    expect(inside.status).toBe(200);
+    expect(inside.json.path).toBe(
+      join(app.profileDir(FINGERPRINT), "exported-secret.txt"),
+    );
+    expect(existsSync(inside.json.path)).toBe(true);
+  });
+
+  it("validates optional integers at every edge, not just the obvious one", async () => {
+    // optInt guards `length`, `period`, `digits`, `index`, `delay` and the
+    // history `target`. Each of its three clauses was unasserted.
+    for (const delay of [1.5, -1, "soon"]) {
+      const res = await call("POST", "/api/v1/secret-mode", {
+        password: PASSWORD,
+        body: { enabled: true, delay },
+      });
+      expect(res.status).toBe(400);
+      expect(res.json.detail).toContain("delay");
+    }
+
+    // Zero is NOT negative, and optInt says non-negative. A delay of 0 is a
+    // real choice, so `n < 0` must not quietly become `n <= 0`.
+    const zero = await call("POST", "/api/v1/secret-mode", {
+      password: PASSWORD,
+      body: { enabled: true, delay: 0 },
+    });
+    expect(zero.status).toBe(200);
+    expect((await call("GET", "/api/v1/config/clipboard_clear_delay")).json.value).toBe(0);
   });
 
   it("refuses a non-loopback bind unless explicitly allowed", () => {

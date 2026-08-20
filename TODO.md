@@ -217,6 +217,16 @@ everything still open, in the order it should be tackled.
             It found one real defect — the config API accepting any key and
             any value, fixed in the same session — and one property worth
             recording rather than unilaterally changing, below.
+      - [ ] **A nested export path answers 500 instead of a refusal.**
+            `POST /api/v1/entry/:id/document/export` with
+            `{"path": "exports/nested/secret.txt"}` fails with an opaque
+            "internal error": `atomicWrite` does not create parent
+            directories, by design. The path is caller-supplied, so this
+            should be a 400 naming the missing directory — a 500 tells the
+            caller the server broke when they simply named somewhere that
+            does not exist. Small; left out of the commit that found it
+            because that commit was about the traversal guard.
+            (Found 2026-08-19 during the mutation sweep.)
       - [ ] **DECISION TO RECORD: an unencrypted portable backup is
             unauthenticated, and import accepts it silently.** With
             `encryption_mode: "none"` the payload is used verbatim; the
