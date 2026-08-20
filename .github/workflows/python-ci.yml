@@ -3,8 +3,32 @@ name: CI
 on:
   push:
     branches: [ "**" ]
+    paths:
+      # The Python implementation and everything that pins its environment.
+      # It is the reference implementation the TypeScript port is validated
+      # against, so it still has to be tested — but a docs edit or a change
+      # under js/ has no business firing 4 jobs.
+      - "src/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "requirements.lock"
+      - "conftest.py"
+      - ".github/workflows/python-ci.yml"
   pull_request:
     branches: [ "**" ]
+    paths:
+      # The Python implementation and everything that pins its environment.
+      # It is the reference implementation the TypeScript port is validated
+      # against, so it still has to be tested — but a docs edit or a change
+      # under js/ has no business firing 4 jobs.
+      - "src/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "poetry.lock"
+      - "requirements.lock"
+      - "conftest.py"
+      - ".github/workflows/python-ci.yml"
   schedule:
     - cron: '0 3 * * *'
 

@@ -55,7 +55,9 @@ failures: list[str] = []
 
 
 def ok(label: str, detail: str = "") -> None:
-    print(f"  {GREEN}ok{RESET}   {label}" + (f" {DIM}{detail}{RESET}" if detail else ""))
+    print(
+        f"  {GREEN}ok{RESET}   {label}" + (f" {DIM}{detail}{RESET}" if detail else "")
+    )
 
 
 def bad(label: str, detail: str, fix: str) -> None:
@@ -101,14 +103,22 @@ def check_python_env() -> None:
 
     locked = parse_lock_versions(REPO / "poetry.lock")
     code, out = run(
-        ["poetry", "run", "python", "-c",
-         "import json;from importlib.metadata import distributions;"
-         "print(json.dumps({d.metadata['Name'].lower(): d.version "
-         "for d in distributions() if d.metadata['Name']}))"]
+        [
+            "poetry",
+            "run",
+            "python",
+            "-c",
+            "import json;from importlib.metadata import distributions;"
+            "print(json.dumps({d.metadata['Name'].lower(): d.version "
+            "for d in distributions() if d.metadata['Name']}))",
+        ]
     )
     if code != 0:
-        bad("cannot inspect the poetry environment", out.splitlines()[-1] if out else "",
-            "./scripts/dev_sync.sh")
+        bad(
+            "cannot inspect the poetry environment",
+            out.splitlines()[-1] if out else "",
+            "./scripts/dev_sync.sh",
+        )
         return
     installed = json.loads(out.splitlines()[-1])
 
@@ -122,11 +132,16 @@ def check_python_env() -> None:
         elif have != want:
             drift.append(f"{tool} {have} != locked {want}")
     if drift:
-        bad("installed tools disagree with poetry.lock", "; ".join(drift),
-            "./scripts/dev_sync.sh")
+        bad(
+            "installed tools disagree with poetry.lock",
+            "; ".join(drift),
+            "./scripts/dev_sync.sh",
+        )
     else:
-        ok("black, pytest and coverage match poetry.lock",
-           " ".join(f"{t}={locked.get(t,'?')}" for t in VERDICT_TOOLS))
+        ok(
+            "black, pytest and coverage match poetry.lock",
+            " ".join(f"{t}={locked.get(t,'?')}" for t in VERDICT_TOOLS),
+        )
 
 
 def check_js_env() -> None:
@@ -136,19 +151,28 @@ def check_js_env() -> None:
     want_node = str(pkg.get("engines", {}).get("node", "")).lstrip("^>=~ ")
     have_node = sys.version and run(["node", "--version"])[1].lstrip("v")
     if not want_node:
-        bad("js/package.json declares no engines.node", "nothing to check against",
-            'add "engines": {"node": ">=22"} to js/package.json')
+        bad(
+            "js/package.json declares no engines.node",
+            "nothing to check against",
+            'add "engines": {"node": ">=22"} to js/package.json',
+        )
     elif have_node.split(".")[0] != want_node.split(".")[0]:
-        bad("node major differs from engines.node", f"have {have_node}, want {want_node}",
-            f"install Node {want_node.split('.')[0]}")
+        bad(
+            "node major differs from engines.node",
+            f"have {have_node}, want {want_node}",
+            f"install Node {want_node.split('.')[0]}",
+        )
     else:
         ok("node matches engines.node", f"v{have_node}")
 
     want_pnpm = str(pkg.get("packageManager", "")).removeprefix("pnpm@")
     have_pnpm = run(["pnpm", "--version"])[1]
     if want_pnpm and have_pnpm != want_pnpm:
-        bad("pnpm differs from packageManager", f"have {have_pnpm}, want {want_pnpm}",
-            "corepack enable && corepack prepare --activate")
+        bad(
+            "pnpm differs from packageManager",
+            f"have {have_pnpm}, want {want_pnpm}",
+            "corepack enable && corepack prepare --activate",
+        )
     else:
         ok("pnpm matches packageManager", have_pnpm)
 
@@ -157,8 +181,11 @@ def check_js_env() -> None:
     if code == 0:
         ok("node_modules satisfies pnpm-lock.yaml")
     else:
-        bad("pnpm-lock.yaml not satisfied", out.splitlines()[-1] if out else "",
-            "./scripts/dev_sync.sh")
+        bad(
+            "pnpm-lock.yaml not satisfied",
+            out.splitlines()[-1] if out else "",
+            "./scripts/dev_sync.sh",
+        )
 
 
 def main() -> int:
@@ -168,7 +195,9 @@ def main() -> int:
 
     print()
     if failures:
-        print(f"{RED}preflight failed{RESET} — a local gate run now could disagree with CI.\n")
+        print(
+            f"{RED}preflight failed{RESET} — a local gate run now could disagree with CI.\n"
+        )
         for f in failures:
             print(f"  - {f}")
         print("\nRepair with:  ./scripts/dev_sync.sh")

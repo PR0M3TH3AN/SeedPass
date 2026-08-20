@@ -3,3 +3,4 @@ packages:
   - apps/*
 allowBuilds:
   esbuild: true
+  libxmljs2: set this to true or false

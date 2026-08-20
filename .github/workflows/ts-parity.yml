@@ -94,19 +94,19 @@ jobs:
         # The Python side has had a dependency audit for a while; the
         # JavaScript tree had none.
         run: pnpm audit --audit-level moderate
-      - name: Generate a CycloneDX SBOM
-        run: |
-          npx --yes @cyclonedx/cyclonedx-npm@latest \
-            --output-format JSON \
-            --output-file "$RUNNER_TEMP/seedpass-js-sbom.json" \
-            --package-lock-only || echo "SBOM generation failed (non-fatal)"
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: seedpass-js-sbom
-          path: ${{ runner.temp }}/seedpass-js-sbom.json
-          if-no-files-found: warn
+      # An SBOM step used to sit here and it never worked. It invoked
+      # `@cyclonedx/cyclonedx-npm@latest --package-lock-only`, which is the
+      # NPM tool and reads package-lock.json — a file this pnpm workspace does
+      # not have and never will. It then swallowed the failure with
+      # `|| echo "non-fatal"` and uploaded with `if-no-files-found: warn`, so
+      # two separate layers stopped it from ever going red. Its logs said
+      # "No files were found with the provided path" on every run.
+      #
+      # Removed rather than pinned: pinning the version of a tool that cannot
+      # read this repository's lockfile fixes the wrong problem. Generating a
+      # real SBOM needs a pnpm-native generator, which is tracked in TODO.md.
+      # `pnpm audit` above is the supply-chain check that actually runs and
+      # actually fails.
 
   # Fixtures prove the two implementations compute the same values; this job
   # proves they can read each other's on-disk profiles and backups.

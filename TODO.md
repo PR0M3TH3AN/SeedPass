@@ -342,6 +342,22 @@ everything still open, in the order it should be tackled.
             smoke step assert something that can fail. Do not leave it as a
             dependency nobody declared and tests nobody runs.
             (Found 2026-08-20 while fixing the first CI run of this branch.)
+      - [ ] **The JavaScript SBOM needs a pnpm-native generator.** The old
+            step invoked `@cyclonedx/cyclonedx-npm --package-lock-only`, which
+            is the npm tool and reads `package-lock.json` — a file this pnpm
+            workspace does not have. It then swallowed the failure twice over
+            (`|| echo "non-fatal"` and `if-no-files-found: warn`), so it
+            reported success on every run while its own log said "No files
+            were found with the provided path". Removed 2026-08-20 rather than
+            pinned, because pinning a tool that cannot read our lockfile fixes
+            the wrong problem.
+
+            `pnpm audit --audit-level moderate` remains and does fail on
+            findings, so supply-chain checking is not absent — only the bill
+            of materials is. The shipped bundle has six production
+            dependencies, so a generator over `pnpm list --json` is likely
+            simpler and more auditable than another third-party tool, and
+            fits the zero-dependency posture of the bundle itself.
       - [ ] **A nested export path answers 500 instead of a refusal.**
             `POST /api/v1/entry/:id/document/export` with
             `{"path": "exports/nested/secret.txt"}` fails with an opaque
