@@ -5,13 +5,7 @@
   "description": "TypeScript port of SeedPass (workspace root)",
   "scripts": {
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
-    "lint": "oxlint"
+    "typecheck": "pnpm -r typecheck"
   },
-  "packageManager": "pnpm@11.21.0",
-  "devDependencies": {
-    "@oxlint/plugins": "1.78.0",
-    "oxlint": "1.78.0"
-  },
-  "type": "module"
+  "packageManager": "pnpm@11.21.0"
 }
