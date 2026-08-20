@@ -289,6 +289,23 @@ everything still open, in the order it should be tackled.
             only on Windows, which is the one platform they were not written
             for. Declaring textual would make them run where they were
             written, which is probably the first move.
+      - [ ] **`src/seedpass/core/manager.py` sits two tenths of a point above
+            its coverage floor.** 60.74% against a 60.00% threshold on Linux,
+            59.80% on Windows — which is why the floor is now measured on
+            Linux only (see `scripts/run_ci_tests.sh`): the module holds
+            POSIX-only paths that cannot execute on Windows, and Windows runs
+            MORE tests, not fewer, so the gap is unreachable code rather than
+            absent tests.
+
+            That is the right call for the gate and not a substitute for the
+            real problem, which is that a 2970-statement module central to the
+            application is 60% covered with no headroom. The uncovered blocks
+            are almost entirely the interactive `input()`/`print()` menu
+            handlers, so raising the number means either testing prompt flows
+            (brittle, low value) or extracting the logic out of the prompt
+            loops so it can be tested without them. The second is the real
+            work.
+            (Recorded 2026-08-20.)
       - [ ] **Are vault files protected from other users on Windows?**
             `test_atomic_write_permissions` and
             `test_index_files_are_not_readable_by_other_users` assert mode
