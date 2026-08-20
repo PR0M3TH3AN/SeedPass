@@ -1041,6 +1041,25 @@ describe("vault export and import", () => {
     });
     expect(refused.status).toBe(409);
     expect(refused.json.detail).toContain("belongs to profile");
+
+    // An empty body is a caller mistake, not a server fault. Without the
+    // explicit check, parseBackupWrapper's JSON error escapes as 500.
+    const empty = await call("POST", "/api/v1/vault/import", {
+      password: PASSWORD,
+      raw: "",
+      headers: { "content-type": "application/json" },
+    });
+    expect(empty.status).toBe(400);
+    expect(empty.json.detail).toContain("backup body is required");
+
+    // As is a body that is not a backup at all.
+    const garbage = await call("POST", "/api/v1/vault/import", {
+      password: PASSWORD,
+      raw: "{not a backup}",
+      headers: { "content-type": "application/json" },
+    });
+    expect(garbage.status).toBeGreaterThanOrEqual(400);
+    expect(garbage.status).toBeLessThan(500);
   });
 });
 
