@@ -193,7 +193,16 @@ is further down this file.
     against that branch, and update #989 at checkpoints rather than on every
     experimental commit. That, not more filtering, is what stops thirteen
     jobs running for a docs edit.
-12. **Slim ts-parity.yml.** Its `parity` job now duplicates ts-platform's
+12. **`beta` needs the same universal lockfile this branch got.** Installer
+    Smoke has been failing on `windows-latest` with the identical
+    `--require-hashes ... must have their versions pinned with ==` error that
+    was fixed here on 2026-08-20 — because `scripts/install.ps1` checks out
+    `beta` and installs THAT branch's `requirements.lock`, which is still a
+    pip-compile file and therefore has no `pywin32` for Windows. Not caused
+    by this branch and not fixable from it: port the
+    `uv pip compile --universal` change to `beta`, or the Windows installer
+    stays broken for anyone following the documented install path.
+13. **Slim ts-parity.yml.** Its `parity` job now duplicates ts-platform's
     Ubuntu work (typecheck, tests, build, smoke, pack). Left alone
     deliberately so a new workflow and a restructure did not land together;
     safe to do now that ts-platform is green on all three.
