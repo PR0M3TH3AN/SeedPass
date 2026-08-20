@@ -1,13 +1,17 @@
 import asyncio
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from helpers import create_vault
 
 from seedpass.core.entry_management import EntryManager
 from seedpass.core.backup import BackupManager
 from seedpass.core.config_manager import ConfigManager
 from seedpass.core.manager import PasswordManager, EncryptionMode
+
+pytestmark = pytest.mark.determinism
 
 
 def _init_pm(dir_path: Path, client) -> PasswordManager:
@@ -27,6 +31,15 @@ def _init_pm(dir_path: Path, client) -> PasswordManager:
     pm.fingerprint_dir = dir_path
     pm.is_dirty = False
     return pm
+
+
+def _deterministic_text_bytes(size: int) -> str:
+    block = (
+        "SeedPass sync payload block for deterministic Nostr/backup tests. "
+        "0123456789 abcdefghijklmnopqrstuvwxyz\n"
+    )
+    repeats = (size // len(block)) + 1
+    return (block * repeats)[:size]
 
 
 def test_full_sync_roundtrip(dummy_nostr_client):
@@ -66,7 +79,8 @@ def test_full_sync_roundtrip(dummy_nostr_client):
         assert sorted(labels) == ["site1", "site2"]
 
 
-def test_large_document_sync_roundtrip(dummy_nostr_client):
+@pytest.mark.parametrize("size_bytes", [64 * 1024, 512 * 1024, 2 * 1024 * 1024])
+def test_large_document_sync_roundtrip(dummy_nostr_client, size_bytes: int):
     client, relay = dummy_nostr_client
     with TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
@@ -78,7 +92,8 @@ def test_large_document_sync_roundtrip(dummy_nostr_client):
         pm_a = _init_pm(dir_a, client)
         pm_b = _init_pm(dir_b, client)
 
-        large_content = "line\n" * 120_000
+        large_content = _deterministic_text_bytes(size_bytes)
+        expected_hash = hashlib.sha256(large_content.encode("utf-8")).hexdigest()
         doc_id = pm_a.entry_manager.add_document(
             "LargeDoc",
             large_content,
@@ -95,4 +110,7 @@ def test_large_document_sync_roundtrip(dummy_nostr_client):
         assert restored is not None
         assert restored["kind"] == "document"
         assert restored["file_type"] == "txt"
-        assert restored["content"] == large_content
+        assert (
+            hashlib.sha256(restored["content"].encode("utf-8")).hexdigest()
+            == expected_hash
+        )

@@ -8,6 +8,37 @@
 
 ---
 
+## 🚧 The TypeScript rebuild (this branch)
+
+SeedPass has been rebuilt from the ground up in **TypeScript** — a browser-safe
+core (`js/packages/core`), a CLI (`js/packages/cli`, installed as
+`seedpass-js`), and an interactive TUI mirroring the classic menus. It reads
+and writes the **same vaults, backups, and Nostr snapshots** as the Python
+implementation documented below: `scripts/cross_impl_check.py` (38 checks, in
+CI) has each implementation open the other's vaults, derive identical secrets,
+and restore the other's backups on every change.
+
+**Status: feature-complete for daily use, under independent security review
+([PR #989](https://github.com/PR0M3TH3AN/SeedPass/pull/989)) — do not put
+irreplaceable secrets in it until that review lands.** After the review, the
+TypeScript implementation becomes the main line and Python retires to
+`legacy/` as the reference implementation.
+
+Where to look:
+
+- [`docs/typescript_migration_guide.md`](docs/typescript_migration_guide.md) —
+  using `seedpass-js` against an existing vault (short version: point it at
+  `~/.seedpass` and it works; there is no migration step)
+- [`docs/seedpass_vault_identity_spec.md`](docs/seedpass_vault_identity_spec.md) —
+  the shared vault & identity format both implementations conform to
+- [`docs/typescript_cutover_plan.md`](docs/typescript_cutover_plan.md) — the
+  gates for the cutover and their current state
+
+Everything below this line documents the **Python implementation** — still
+what `install.sh` installs today, and accurate until the cutover.
+
+---
+
 **⚠️ Disclaimer**
 
 This software was not developed by an experienced security expert and should be used with caution. There may be bugs and missing features. Each vault chunk is limited to 50 KB and SeedPass periodically publishes a new snapshot to keep accumulated deltas small. The security of the program's memory management and logs has not been evaluated and may leak sensitive information. Loss or exposure of the parent seed places all derived passwords, accounts, and other artifacts at risk.
@@ -108,6 +139,7 @@ For machine-readable discovery, run:
 ```bash
 seedpass capabilities --format json
 seedpass agent bootstrap-context
+seedpass tui2 --check
 ```
 
 ## Architecture Overview
@@ -324,7 +356,7 @@ You can then launch SeedPass and create a backup:
 seedpass
 
 # Export your index
-seedpass vault export --file "~/seedpass_backup.json"
+seedpass vault export --file "~/seedpass_backup.seedpass"
 
 # Later you can restore it
 seedpass vault import --file "~/seedpass_backup.json"
@@ -443,6 +475,24 @@ Once installed, launch the interactive TUI with:
 
 ```bash
 seedpass
+```
+
+Force the new Textual TUI v2 explicitly:
+
+```bash
+seedpass tui2
+```
+
+To launch the legacy interactive TUI explicitly:
+
+```bash
+seedpass legacy
+```
+
+You can also force legacy from any command invocation with:
+
+```bash
+seedpass --legacy-tui
 ```
 
 You can also run directly from the repository with:
@@ -786,6 +836,7 @@ For AI-agent driven interactive testing and current test command tiers, see:
 
 - `docs/ai_agent_tui_testing.md`
 - `docs/agent_testing_roadmap.md`
+- `docs/agent_test_format.md`
 
 ### Exploring Nostr Index Size Limits
 

@@ -1,0 +1,326 @@
+/**
+ * Entry and vault-index schemas, current schema_version 4.
+ *
+ * Parity targets: src/seedpass/core/entry_types.py, entry_management.py and
+ * migrations.py. Schemas are intentionally tolerant of unknown extra fields
+ * (loose objects) so that entries written by a newer minor revision survive a
+ * read/write cycle — but an index whose schema_version is above
+ * CURRENT_SCHEMA_VERSION must be refused, never silently rewritten
+ * (plan section 13, Milestone 3 exit criteria).
+ */
+
+import { z } from "zod";
+import { applyMigrations } from "./migrations.js";
+
+export const CURRENT_SCHEMA_VERSION = 4;
+
+export const customFieldSchema = z
+  .object({
+    label: z.string(),
+    value: z.string(),
+    is_hidden: z.boolean().optional(),
+  })
+  .loose();
+
+/** Fields shared by every entry kind (docs/entry_types.md). */
+const baseEntry = {
+  type: z.string(),
+  kind: z.string(),
+  label: z.string(),
+  archived: z.boolean().default(false),
+  date_added: z.string().optional(),
+  date_modified: z.string().optional(),
+  modified_ts: z.number().int().optional(),
+  notes: z.string().default(""),
+  tags: z.array(z.string()).default([]),
+  links: z.array(z.unknown()).default([]),
+  custom_fields: z.array(customFieldSchema).optional(),
+  origin: z.string().optional(),
+};
+
+export const passwordEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("password"),
+    kind: z.literal("password"),
+    length: z.number().int().min(8).max(128),
+    // Absent gen_version means v1 (frozen); see password_generation.py
+    gen_version: z.number().int().optional(),
+    username: z.string().optional(),
+    url: z.string().optional(),
+  })
+  .loose();
+
+export const totpEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("totp"),
+    kind: z.literal("totp"),
+    deterministic: z.boolean().optional(),
+    period: z.number().int().positive().default(30),
+    digits: z.number().int().positive().default(6),
+    /** Derivation index — present for deterministic entries. */
+    index: z.number().int().nonnegative().optional(),
+    /** Imported base32 secret — present for non-deterministic entries. */
+    secret: z.string().optional(),
+  })
+  .loose()
+  .check((ctx) => {
+    if (ctx.value.index === undefined && ctx.value.secret === undefined) {
+      ctx.issues.push({
+        code: "custom",
+        message: "totp entry needs a derivation index or an imported secret",
+        input: ctx.value,
+      });
+    }
+  });
+
+export const sshEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("ssh"),
+    kind: z.literal("ssh"),
+    index: z.number().int().nonnegative(),
+  })
+  .loose();
+
+export const seedEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("seed"),
+    kind: z.literal("seed"),
+    index: z.number().int().nonnegative(),
+    word_count: z.union([z.literal(12), z.literal(18), z.literal(24)]),
+  })
+  .loose();
+
+export const pgpEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("pgp"),
+    kind: z.literal("pgp"),
+    index: z.number().int().nonnegative(),
+    key_type: z.string().default("ed25519"),
+    user_id: z.string().default(""),
+  })
+  .loose();
+
+export const nostrEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("nostr"),
+    kind: z.literal("nostr"),
+    index: z.number().int().nonnegative(),
+  })
+  .loose();
+
+export const keyValueEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("key_value"),
+    kind: z.literal("key_value"),
+    key: z.string(),
+    value: z.string(),
+  })
+  .loose();
+
+export const managedAccountEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("managed_account"),
+    kind: z.literal("managed_account"),
+    index: z.number().int().nonnegative(),
+    word_count: z.union([z.literal(12), z.literal(18), z.literal(24)]),
+    fingerprint: z.string().regex(/^[0-9A-F]{16}$/),
+  })
+  .loose();
+
+export const documentEntrySchema = z
+  .object({
+    ...baseEntry,
+    type: z.literal("document"),
+    kind: z.literal("document"),
+    content: z.string(),
+    file_type: z.string().default("txt"),
+  })
+  .loose();
+
+/**
+ * Pre-v2 Python entries carry only `type`; `kind` arrived later and Python's
+ * migrations deliberately do not backfill it (its readers fall back to
+ * `type`). Fill it in for validation so legacy entries can be discriminated,
+ * which also brings them to the shape Python writes for new entries.
+ */
+function withKind(value: unknown): unknown {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const entry = value as Record<string, unknown>;
+    if (entry["kind"] === undefined && typeof entry["type"] === "string") {
+      return { ...entry, kind: entry["type"] };
+    }
+  }
+  return value;
+}
+
+export const entryUnionSchema = z.discriminatedUnion("kind", [
+  passwordEntrySchema,
+  totpEntrySchema,
+  sshEntrySchema,
+  seedEntrySchema,
+  pgpEntrySchema,
+  nostrEntrySchema,
+  keyValueEntrySchema,
+  managedAccountEntrySchema,
+  documentEntrySchema,
+]);
+
+/** The entry kinds this build understands and validates strictly. */
+export const KNOWN_ENTRY_KINDS = new Set([
+  "password",
+  "totp",
+  "ssh",
+  "seed",
+  "pgp",
+  "nostr",
+  "key_value",
+  "managed_account",
+  "document",
+]);
+
+/**
+ * A record whose kind this build does not understand — written by a newer
+ * build or by another application sharing the vault (spec §8.2/§8.3, e.g. a
+ * future BitLogin `bitlogin_org` record). It is carried through verbatim and
+ * excluded from typed operations. The refine is what keeps this from being a
+ * validation bypass: a malformed record of a KNOWN kind must still fail the
+ * strict union above, never fall through to here.
+ */
+export const unknownEntrySchema = z
+  .object({ kind: z.string() })
+  .loose()
+  .refine((entry) => !KNOWN_ENTRY_KINDS.has(entry.kind), {
+    message: "known entry kinds must validate against their own schema",
+  });
+
+export type UnknownEntry = z.infer<typeof unknownEntrySchema>;
+
+/**
+ * Statically, `entries` values are the known kinds — the type every typed
+ * operation works with, and exhaustive switches keep their meaning. At
+ * runtime, an unknown-kind record parses opaquely instead of failing the
+ * whole index (spec §8.2: carry through untouched, never drop, never brick
+ * the vault). Code branching on `kind` must treat an unrecognized value as
+ * opaque — materializeSecret's throwing default is the model.
+ */
+/**
+ * A high-risk partition STUB: the placeholder left in the index when an
+ * entry's substance moves into the encrypted partition file.
+ *
+ * A stub is a different shape from the entry it stands for, and validating it
+ * against that entry's full schema is simply wrong. `seed` is where the
+ * mistake bit: `seedEntrySchema` requires `word_count`, and a stub carries
+ * only kind, index, label, archived and the partition pointers — by design,
+ * so an index read without the factor discloses that a high-risk entry exists
+ * and nothing about it. So `agent high-risk migrate` on any vault holding a
+ * seed entry produced an index that would not parse, and saveVault refused to
+ * write it — after writePartition had already copied the secret into the
+ * partition file.
+ *
+ * Python builds the byte-identical stub (high_risk_partition_store.py,
+ * migrate_high_risk_entries) but validates nothing on save, so it writes one
+ * happily. A vault Python had migrated could therefore not be OPENED by this
+ * implementation at all. Fixing it here rather than by adding `word_count` to
+ * the stub keeps the two byte-identical, which is what sync's canonical
+ * hashing needs.
+ *
+ * This is not a validation bypass: a stub holds no secret material, so there
+ * is nothing for a malformed one to smuggle. It must still be a stub — the
+ * `partition` literal is the discriminator, and anything claiming a known
+ * kind without it still faces that kind's own schema.
+ */
+export const partitionStubSchema = z
+  .object({
+    kind: z.string(),
+    type: z.string().optional(),
+    partition: z.literal("high_risk"),
+    partition_ref: z.union([z.string(), z.number()]),
+    index: z.number().int().nonnegative(),
+    label: z.string(),
+    archived: z.boolean().default(false),
+    modified_ts: z.number().optional(),
+  })
+  .loose();
+
+// The one assertion chain left in the codebase, and it is structural rather
+// than evidential. `z.preprocess` types its output from the inner union,
+// which here is `partitionStub | knownKinds | unknownKind` — a wider type
+// than `Entry` by construction, because a stub and an unknown-kind record are
+// both legitimate index members that no typed operation should touch. Every
+// consumer wants `Entry`. There is no zod spelling that expresses "parses to
+// a superset, hands back the narrow type" without an assertion.
+//
+// It is safe in the way the rule cares about: nothing is being CLAIMED about
+// unvalidated data. The value has just been parsed, one line above, by the
+// schema being cast.
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions
+export const entrySchema = z.preprocess(
+  withKind,
+  // The stub comes first: it is the narrower shape, and a stub of a known
+  // kind must not be measured against that kind's full schema.
+  z.union([partitionStubSchema, entryUnionSchema, unknownEntrySchema]),
+) as unknown as z.ZodType<Entry>;
+
+export type Entry = z.infer<typeof entryUnionSchema>;
+export type PasswordEntry = z.infer<typeof passwordEntrySchema>;
+export type TotpEntry = z.infer<typeof totpEntrySchema>;
+
+export const vaultIndexSchema = z
+  .object({
+    schema_version: z.number().int(),
+    entries: z.record(z.string(), entrySchema),
+  })
+  .loose();
+
+export type VaultIndex = z.infer<typeof vaultIndexSchema>;
+
+export class UnsupportedSchemaVersionError extends Error {
+  constructor(public readonly version: number) {
+    super(
+      `Vault index schema_version ${version} is newer than supported ` +
+        `${CURRENT_SCHEMA_VERSION}; refusing to read it. Upgrade this client.`,
+    );
+    this.name = "UnsupportedSchemaVersionError";
+  }
+}
+
+/**
+ * Parse a decrypted vault index, migrating older schema versions forward.
+ *
+ * Future versions are refused rather than silently rewritten: a newer client
+ * may have written fields this build would drop on save.
+ *
+ * Pass `{ migrate: false }` to reject anything that is not already current —
+ * useful where a caller must not silently upgrade on-disk data.
+ */
+export function parseVaultIndex(
+  data: unknown,
+  options: { migrate?: boolean } = {},
+): VaultIndex {
+  // A pre-v1 index has no schema_version field at all, so the probe must
+  // tolerate its absence and treat it as version 0.
+  const versionProbe = z
+    .object({ schema_version: z.number().int().default(0) })
+    .loose()
+    .parse(data);
+  if (versionProbe.schema_version > CURRENT_SCHEMA_VERSION) {
+    throw new UnsupportedSchemaVersionError(versionProbe.schema_version);
+  }
+  if (versionProbe.schema_version < CURRENT_SCHEMA_VERSION) {
+    if (options.migrate === false) {
+      throw new Error(
+        `Vault index schema_version ${versionProbe.schema_version} needs migration`,
+      );
+    }
+    return vaultIndexSchema.parse(applyMigrations(data));
+  }
+  return vaultIndexSchema.parse(data);
+}

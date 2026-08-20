@@ -27,7 +27,14 @@ def test_initialize_profile_creates_directories(monkeypatch):
         seed, mgr, dir_path, fingerprint, cfg_mgr = gtp.initialize_profile("test")
         assert cfg_mgr is not None
 
-        assert constants.APP_DIR.exists()
-        assert (constants.APP_DIR / "test_seed.txt").exists()
+        # Generated profiles live under APP_DIR/tests so they never mix with
+        # real ones. The script used to achieve this by mutating
+        # constants.APP_DIR at import time, which leaked into every other
+        # importer in the process; it now derives the path per call.
+        test_dir = gtp.test_app_dir()
+        assert test_dir == constants.APP_DIR / "tests"
+        assert test_dir.exists()
+        assert (test_dir / "test_seed.txt").exists()
+        assert dir_path.parent == test_dir
         assert dir_path.exists()
         assert dir_path.name == fingerprint

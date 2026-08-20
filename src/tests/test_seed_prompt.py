@@ -5,6 +5,7 @@ from utils import seed_prompt
 
 def test_masked_input_posix_backspace(monkeypatch, capsys):
     seq = iter(["a", "b", "\x7f", "c", "\n"])
+    monkeypatch.setattr(seed_prompt.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(seed_prompt.sys.stdin, "read", lambda n=1: next(seq))
     monkeypatch.setattr(seed_prompt.sys.stdin, "fileno", lambda: 0)
 
@@ -36,6 +37,7 @@ def test_masked_input_posix_backspace(monkeypatch, capsys):
 
 def test_masked_input_windows_space(monkeypatch, capsys):
     seq = iter(["x", "y", " ", "z", "\r"])
+    monkeypatch.setattr(seed_prompt.sys.stdin, "isatty", lambda: True)
     fake_msvcrt = types.SimpleNamespace(getwch=lambda: next(seq))
     monkeypatch.setattr(seed_prompt, "msvcrt", fake_msvcrt)
     monkeypatch.setattr(seed_prompt.sys, "platform", "win32", raising=False)
@@ -49,6 +51,7 @@ def test_masked_input_windows_space(monkeypatch, capsys):
 
 def test_masked_input_posix_ctrl_c(monkeypatch):
     seq = iter(["\x03"])
+    monkeypatch.setattr(seed_prompt.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(seed_prompt.sys.stdin, "read", lambda n=1: next(seq))
     monkeypatch.setattr(seed_prompt.sys.stdin, "fileno", lambda: 0)
 
@@ -70,6 +73,7 @@ def test_masked_input_posix_ctrl_c(monkeypatch):
 
 def test_masked_input_windows_ctrl_c(monkeypatch):
     seq = iter(["\x03"])
+    monkeypatch.setattr(seed_prompt.sys.stdin, "isatty", lambda: True)
     fake_msvcrt = types.SimpleNamespace(getwch=lambda: next(seq))
     monkeypatch.setattr(seed_prompt, "msvcrt", fake_msvcrt)
     monkeypatch.setattr(seed_prompt.sys, "platform", "win32", raising=False)
@@ -91,6 +95,12 @@ def test_prompt_seed_words_valid(monkeypatch):
 
     result = seed_prompt.prompt_seed_words(len(words))
     assert result == phrase
+
+
+def test_masked_input_requires_tty(monkeypatch):
+    monkeypatch.setattr(seed_prompt.sys.stdin, "isatty", lambda: False)
+    with pytest.raises(EOFError, match="requires a TTY"):
+        seed_prompt.masked_input("Enter: ")
 
 
 def test_prompt_seed_words_invalid_word(monkeypatch):

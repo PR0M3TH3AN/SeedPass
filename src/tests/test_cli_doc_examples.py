@@ -38,7 +38,7 @@ class DummyPM:
             export_totp_entries=lambda seed: {"entries": []},
         )
         self.password_generator = SimpleNamespace(
-            generate_password=lambda length, index=None: "pw"
+            generate_password=lambda length, index=None, **_: "pw"
         )
         self.parent_seed = "seed"
         self.handle_display_totp_codes = lambda: None

@@ -376,7 +376,7 @@ def entry_modify(
     links_json: Optional[str] = typer.Option(
         None,
         "--links-json",
-        help="Replace links with JSON array: [{\"target_id\":1,\"relation\":\"related_to\",\"note\":\"...\"}]",
+        help='Replace links with JSON array: [{"target_id":1,"relation":"related_to","note":"..."}]',
     ),
 ) -> None:
     """Modify an existing entry."""

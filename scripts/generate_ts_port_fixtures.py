@@ -1,0 +1,1740 @@
+#!/usr/bin/env python3
+"""Generate deterministic parity fixtures for the TypeScript port.
+
+Writes JSON fixture files to js/packages/test-vectors/fixtures/. The
+TypeScript core must reproduce every expected output byte-for-byte; see
+docs/typescript_web_extension_port_plan.md sections 6, 8 and 21.
+
+Safety: every fixture derives from the public BIP-39 test mnemonics below.
+Never point this script at a real profile or seed.
+
+Determinism: running this twice on the same commit must produce identical
+bytes. Anything time- or randomness-dependent (entry timestamps, the vault
+fixture nonce, KDF salts) is pinned to fixed values. The pinned nonce/salt
+are FIXTURE-ONLY conveniences — production code draws them from os.urandom.
+
+Usage:
+    .venv/bin/python scripts/generate_ts_port_fixtures.py
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "src"))
+
+from bip_utils import Bip39SeedGenerator  # noqa: E402
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # noqa: E402
+
+from local_bip85.bip85 import BIP85  # noqa: E402
+from nostr.coincurve_keys import Keys  # noqa: E402
+from nostr.key_manager import NOSTR_KEY_APP_ID  # noqa: E402
+from seedpass.core.password_generation import (  # noqa: E402
+    CURRENT_PASSWORD_GEN_VERSION,
+    LEGACY_PASSWORD_GEN_VERSION,
+    PasswordGenerator,
+    PasswordPolicy,
+)
+from seedpass.core.totp import TotpManager  # noqa: E402
+from utils.fingerprint import generate_fingerprint  # noqa: E402
+from utils.key_derivation import derive_index_key, derive_totp_secret  # noqa: E402
+
+FIXTURES_DIR = REPO / "js" / "packages" / "test-vectors" / "fixtures"
+FIXTURE_VERSION = 1
+FIXED_UNIX = 1700000000  # 2023-11-14T22:13:20Z — pins entry timestamps
+
+# Public, well-known BIP-39 test vectors. Never real funds, never a real vault.
+MNEMONICS = {
+    "abandon12": (
+        "abandon abandon abandon abandon abandon abandon "
+        "abandon abandon abandon abandon abandon about"
+    ),
+    "legal12": (
+        "legal winner thank year wave sausage worth useful " "legal winner thank yellow"
+    ),
+    "zoo24": (
+        "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo "
+        "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote"
+    ),
+}
+PRIMARY = "abandon12"
+
+POLICIES = {
+    "default": {},
+    "exclude_ambiguous": {"exclude_ambiguous": True},
+    "safe_special": {"special_mode": "safe"},
+    "no_special": {"include_special_chars": False},
+    "custom_special": {"allowed_special_chars": "!@#"},
+    "high_minima": {
+        "min_uppercase": 5,
+        "min_lowercase": 5,
+        "min_digits": 5,
+        "min_special": 5,
+    },
+}
+
+# (text, ec_level) — spans all four EC levels, versions 1..17, and the
+# version-7 boundary where version-information blocks start being written.
+QR_CASES = [
+    (
+        "otpauth://totp/email-2fa?secret=JBSWY3DPEHPK3PXP"
+        "&issuer=SeedPass&period=30&digits=6",
+        "M",
+    ),
+    ("nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5", "M"),
+    ("JBSWY3DPEHPK3PXP", "L"),
+    ("https://example.com/a/fairly/long/path?with=query&params=yes", "Q"),
+    ("x", "H"),
+    ("A" * 200, "M"),
+    ("A" * 600, "L"),
+    ("mixed \u00e9\u00e8 unicode \u2713 bytes", "M"),
+    ("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyMaterialHere user@host", "M"),
+    ("0123456789" * 8, "Q"),
+]
+
+# (policy, length, index) — lengths cross the 32-byte v1 stream-wrap boundary
+PASSWORD_CASES = [
+    ("default", 8, 0),
+    ("default", 16, 0),
+    ("default", 16, 1),
+    ("default", 16, 7),
+    ("default", 16, 4095),
+    ("default", 20, 3),
+    ("default", 32, 2),
+    ("default", 33, 2),
+    ("default", 64, 5),
+    ("default", 128, 11),
+    ("exclude_ambiguous", 16, 0),
+    ("exclude_ambiguous", 40, 2),
+    ("safe_special", 16, 0),
+    ("safe_special", 40, 2),
+    ("no_special", 16, 0),
+    ("no_special", 40, 2),
+    ("custom_special", 16, 0),
+    ("high_minima", 24, 0),
+]
+
+
+class _SeedDeriver:
+    """Mirrors EncryptionManager.derive_seed_from_mnemonic without a vault."""
+
+    def derive_seed_from_mnemonic(self, mnemonic, passphrase=""):
+        return Bip39SeedGenerator(mnemonic).Generate(passphrase)
+
+
+def _write(name: str, data: dict) -> None:
+    path = FIXTURES_DIR / name
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+    print(f"wrote {path.relative_to(REPO)}")
+
+
+def _bip85(mnemonic: str) -> BIP85:
+    return BIP85(Bip39SeedGenerator(mnemonic).Generate())
+
+
+def gen_bip39() -> dict:
+    cases = []
+    for mid, mnemonic in MNEMONICS.items():
+        seed = Bip39SeedGenerator(mnemonic).Generate()
+        cases.append(
+            {
+                "id": mid,
+                "mnemonic": mnemonic,
+                "passphrase": "",
+                "seed_hex": seed.hex(),
+            }
+        )
+    return {"description": "BIP-39 mnemonic -> 64-byte seed", "cases": cases}
+
+
+def gen_bip85_entropy() -> dict:
+    cases = []
+    specs = [
+        # (app_no, index, entropy_bytes, word_count) — word_count only for 39
+        (32, 0, 64, None),
+        (32, 1, 64, None),
+        (32, 0, 32, None),
+        (39, 0, 16, 12),
+        (39, 0, 32, 24),
+        (39, 3, 16, 12),
+        (NOSTR_KEY_APP_ID, 0, 32, None),
+    ]
+    for mid in ("abandon12", "zoo24"):
+        bip85 = _bip85(MNEMONICS[mid])
+        for app_no, index, nbytes, word_count in specs:
+            entropy = bip85.derive_entropy(
+                index=index,
+                entropy_bytes=nbytes,
+                app_no=app_no,
+                word_count=word_count,
+            )
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "app_no": app_no,
+                    "index": index,
+                    "entropy_bytes": nbytes,
+                    "word_count": word_count,
+                    "entropy_hex": entropy.hex(),
+                }
+            )
+    return {
+        "description": (
+            "BIP-85 entropy: BIP32-SLIP10-secp256k1 path derivation, then "
+            "HMAC-SHA512(key=b'bip-entropy-from-k', child_privkey)[:entropy_bytes]. "
+            "Paths: app 39 -> m/83696968'/39'/0'/{word_count}'/{index}'; "
+            "app 32 -> m/83696968'/32'/{index}'; "
+            "other -> m/83696968'/{app_no}'/{index}'"
+        ),
+        "cases": cases,
+    }
+
+
+def gen_passwords(gen_version: int) -> dict:
+    cases = []
+    for mid in (PRIMARY,):
+        mnemonic = MNEMONICS[mid]
+        bip85 = _bip85(mnemonic)
+        for policy_name, length, index in PASSWORD_CASES:
+            policy = PasswordPolicy(**POLICIES[policy_name])
+            pg = PasswordGenerator(_SeedDeriver(), mnemonic, bip85, policy=policy)
+            password = pg.generate_password(
+                length=length, index=index, gen_version=gen_version
+            )
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "policy": policy_name,
+                    "policy_params": POLICIES[policy_name],
+                    "length": length,
+                    "index": index,
+                    "password": password,
+                }
+            )
+    return {
+        "description": f"Deterministic password derivation, gen_version={gen_version}",
+        "gen_version": gen_version,
+        "cases": cases,
+    }
+
+
+def gen_totp() -> dict:
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        mnemonic = MNEMONICS[mid]
+        for index in (0, 1, 7):
+            secret = derive_totp_secret(mnemonic, index)
+            codes = {
+                str(ts): TotpManager.current_code_from_secret(secret, ts)
+                for ts in (0, FIXED_UNIX, FIXED_UNIX + 30)
+            }
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "index": index,
+                    "secret_b32": secret,
+                    "period": 30,
+                    "digits": 6,
+                    "codes_at": codes,
+                }
+            )
+    return {
+        "description": (
+            "TOTP secret derivation: path m/83696968'/39'/1414485072'/{index}' "
+            "(1414485072 = 0x544F5450 = int.from_bytes(b'TOTP')), entropy = "
+            "HMAC-SHA512(b'bip-entropy-from-k', k), secret = "
+            "base32(SHA256(entropy[:32])[:20]); codes are RFC 6238 SHA-1 6-digit"
+        ),
+        "cases": cases,
+    }
+
+
+def gen_nostr_keys() -> dict:
+    cases = []
+    for mid in (PRIMARY, "legal12"):
+        bip85 = _bip85(MNEMONICS[mid])
+        for index in (0, 1, 7):
+            entropy = bip85.derive_entropy(
+                index=index, entropy_bytes=32, app_no=NOSTR_KEY_APP_ID
+            )
+            keys = Keys(priv_k=entropy.hex())
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "account_index": index,
+                    "private_key_hex": keys.private_key_hex(),
+                    "public_key_hex": keys.public_key_hex(),
+                    "npub": Keys.hex_to_bech32(keys.public_key_hex(), "npub"),
+                    "nsec": Keys.hex_to_bech32(keys.private_key_hex(), "nsec"),
+                }
+            )
+    return {
+        "description": (
+            "Nostr keys: BIP-85 app 1237, 32 bytes -> secp256k1 private key; "
+            "public key is x-only (compressed pubkey minus prefix byte); "
+            "npub/nsec are bech32"
+        ),
+        "cases": cases,
+    }
+
+
+def gen_managed_seeds() -> dict:
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        bip85 = _bip85(MNEMONICS[mid])
+        for words in (12, 24):
+            for index in (0, 1):
+                child = bip85.derive_mnemonic(index=index, words_num=words)
+                cases.append(
+                    {
+                        "mnemonic_id": mid,
+                        "words": words,
+                        "index": index,
+                        "child_mnemonic": child,
+                        "child_fingerprint": generate_fingerprint(child),
+                    }
+                )
+    return {
+        "description": (
+            "BIP-85 child mnemonics (managed accounts / derived seed phrases), "
+            "BIP-39 English wordlist"
+        ),
+        "cases": cases,
+    }
+
+
+def gen_fingerprints() -> dict:
+    cases = [
+        {
+            "mnemonic_id": mid,
+            "mnemonic": mnemonic,
+            "fingerprint": generate_fingerprint(mnemonic),
+        }
+        for mid, mnemonic in MNEMONICS.items()
+    ]
+    # Normalization: fingerprint input is strip().lower()
+    cases.append(
+        {
+            "mnemonic_id": "abandon12-mixed-case-padded",
+            "mnemonic": "  " + MNEMONICS[PRIMARY].upper() + "  ",
+            "fingerprint": generate_fingerprint(
+                "  " + MNEMONICS[PRIMARY].upper() + "  "
+            ),
+        }
+    )
+    return {
+        "description": (
+            "Profile fingerprint: SHA256(mnemonic.strip().lower()) hex, "
+            "first 16 chars, uppercased"
+        ),
+        "cases": cases,
+    }
+
+
+def gen_index_keys() -> dict:
+    cases = []
+    for mid, mnemonic in MNEMONICS.items():
+        key_b64 = derive_index_key(mnemonic).decode()
+        cases.append({"mnemonic_id": mid, "index_key_urlsafe_b64": key_b64})
+    return {
+        "description": (
+            "Vault index key (seed-only mode): seed = BIP39(mnemonic); "
+            "master = HKDF-SHA256(seed, salt=None, info=b'seedpass:v1:master'); "
+            "key = HKDF-SHA256(master, salt=None, info=b'seedpass:v1:storage'); "
+            "urlsafe base64"
+        ),
+        "cases": cases,
+    }
+
+
+def _build_entries_index(post_add=None) -> dict:
+    """Build a real entries index with one entry of each kind, timestamps pinned.
+
+    ``post_add(em)`` runs extra EntryManager operations before the index is
+    read back (used by the modification-parity fixture).
+    """
+    from seedpass.core.backup import BackupManager
+    from seedpass.core.config_manager import ConfigManager
+    from seedpass.core.entry_management import EntryManager
+    from seedpass.core.encryption import EncryptionManager
+    from seedpass.core.vault import Vault
+    from utils.key_derivation import derive_key_from_password
+
+    mnemonic = MNEMONICS[PRIMARY]
+
+    # Pin every timestamp EntryManager writes
+    EntryManager._now_unix = staticmethod(lambda: FIXED_UNIX)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        dir_path = Path(tmp)
+        fp = generate_fingerprint(mnemonic)
+        seed_key = derive_key_from_password("fixture-password", fp)
+        EncryptionManager(seed_key, dir_path).encrypt_parent_seed(mnemonic)
+
+        index_key = derive_index_key(mnemonic)
+        enc_mgr = EncryptionManager(index_key, dir_path)
+        vault = Vault(enc_mgr, dir_path)
+        cfg_mgr = ConfigManager(vault, dir_path)
+        backup_mgr = BackupManager(dir_path, cfg_mgr)
+        em = EntryManager(vault, backup_mgr)
+
+        em.add_entry(
+            "example.com",
+            16,
+            username="alice",
+            url="https://example.com",
+            notes="password note",
+            tags=["web"],
+        )
+        em.add_totp("example-totp", mnemonic, deterministic=True, tags=["otp"])
+        em.add_totp(
+            "imported-totp",
+            secret="JBSWY3DPEHPK3PXP",
+            period=45,
+            digits=8,
+        )
+        em.add_ssh_key("example-ssh", mnemonic, notes="ssh note")
+        em.add_nostr_key("example-nostr", mnemonic)
+        em.add_key_value("api-token", "token", "abc123", tags=["api"])
+        em.add_document("example-doc", "hello fixture world", file_type="txt")
+        em.add_seed("example-seed", mnemonic, words_num=24)
+        em.add_managed_account("example-managed", mnemonic)
+        em.add_pgp_key("example-pgp", mnemonic, user_id="fixture@example.com")
+
+        if post_add is not None:
+            post_add(em)
+
+        index = vault.load_index()
+        entries = {k: v for k, v in index.items() if k != "_system"}
+        return entries
+
+
+def gen_entries_and_vault() -> tuple[dict, dict]:
+    entries = _build_entries_index()
+
+    plaintext = json.dumps(entries, indent=2, sort_keys=True).encode()
+    key = base64.urlsafe_b64decode(derive_index_key(MNEMONICS[PRIMARY]))
+    # FIXTURE-ONLY fixed nonce so the blob is reproducible; production uses
+    # os.urandom(12) per encryption (see EncryptionManager.encrypt_data).
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-nonce").digest()[:12]
+    blob = b"V3|" + nonce + AESGCM(key).encrypt(nonce, plaintext, None)
+
+    entries_fixture = {
+        "description": (
+            "Decrypted entries index (one entry of each kind), _system "
+            "stripped, timestamps pinned to FIXED_UNIX"
+        ),
+        "fixed_unix": FIXED_UNIX,
+        "mnemonic_id": PRIMARY,
+        "entries": entries,
+    }
+    vault_fixture = {
+        "description": (
+            "Encrypted vault payload, format b'V3|' + nonce(12) + AES-GCM "
+            "ciphertext+tag, key = raw bytes of index_key fixture. Nonce is "
+            "fixed for fixture reproducibility only."
+        ),
+        "mnemonic_id": PRIMARY,
+        "nonce_hex": nonce.hex(),
+        "payload_b64": base64.b64encode(blob).decode(),
+        "plaintext_sha256": hashlib.sha256(plaintext).hexdigest(),
+        "plaintext_canonical_json": "entries_index.json#entries (indent=2, sort_keys)",
+    }
+    return entries_fixture, vault_fixture
+
+
+def gen_password_kdf() -> dict:
+    from utils.key_derivation import (
+        KdfConfig,
+        derive_key_from_password,
+        derive_key_from_password_argon2,
+    )
+
+    fp = generate_fingerprint(MNEMONICS[PRIMARY])
+    pbkdf2_cases = []
+    for password in (
+        "fixture-password",
+        "correct horse battery staple",
+        "  pässwörd  ",
+    ):
+        for iterations in (50_000, 100_000):
+            key = derive_key_from_password(password, fp, iterations=iterations)
+            pbkdf2_cases.append(
+                {
+                    "password": password,
+                    "fingerprint": fp,
+                    "iterations": iterations,
+                    "key_urlsafe_b64": key.decode(),
+                }
+            )
+
+    argon2_cases = []
+    for params in (
+        {"time_cost": 2, "memory_cost": 64 * 1024, "parallelism": 8},
+        {"time_cost": 1, "memory_cost": 8 * 1024, "parallelism": 1},
+    ):
+        kdf = KdfConfig(
+            name="argon2id",
+            version=1,
+            params=params,
+            salt_b64=base64.b64encode(b"fixture-salt-16b").decode(),
+        )
+        key = derive_key_from_password_argon2("fixture-password", kdf)
+        argon2_cases.append(
+            {
+                "password": "fixture-password",
+                "kdf": {
+                    "name": kdf.name,
+                    "version": kdf.version,
+                    "params": kdf.params,
+                    "salt_b64": kdf.salt_b64,
+                },
+                "key_urlsafe_b64": key.decode(),
+            }
+        )
+
+    return {
+        "description": (
+            "Password-based key derivation. PBKDF2: NFKD-normalized+stripped "
+            "password, salt = SHA256(fingerprint)[:16], PBKDF2-HMAC-SHA256, "
+            "32 bytes, urlsafe b64. Argon2id: NFKD+strip, salt from config, "
+            "hash_len 32, urlsafe b64. Salts pinned for fixtures only."
+        ),
+        "pbkdf2_cases": pbkdf2_cases,
+        "argon2id_cases": argon2_cases,
+    }
+
+
+def gen_legacy_payloads() -> dict:
+    from cryptography.fernet import Fernet
+
+    mnemonic = MNEMONICS[PRIMARY]
+    key_b64 = derive_index_key(mnemonic)
+    raw_key = base64.urlsafe_b64decode(key_b64)
+    fernet = Fernet(key_b64)
+
+    plaintext = b'{"legacy": true, "hello": "fixture"}'
+    iv = hashlib.sha256(b"seedpass-ts-fixture-fernet-iv").digest()[:16]
+    token = fernet._encrypt_from_parts(plaintext, FIXED_UNIX, iv)
+
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-v2-nonce").digest()[:12]
+    v2_gcm = b"V2:" + nonce + AESGCM(raw_key).encrypt(nonce, plaintext, None)
+    v2_fernet = b"V2:" + token
+
+    # Serialized parent-seed file: JSON {"kdf": ..., "ct": b64(V3 blob)},
+    # encrypted with the password-derived key (not the index key).
+    from utils.key_derivation import derive_key_from_password
+
+    fp = generate_fingerprint(mnemonic)
+    seed_key_b64 = derive_key_from_password("fixture-password", fp)
+    seed_key = base64.urlsafe_b64decode(seed_key_b64)
+    seed_nonce = hashlib.sha256(b"seedpass-ts-fixture-seed-nonce").digest()[:12]
+    seed_ct = (
+        b"V3|"
+        + seed_nonce
+        + AESGCM(seed_key).encrypt(seed_nonce, mnemonic.encode(), None)
+    )
+    kdf_dict = {
+        "name": "pbkdf2-sha256",
+        "version": 1,
+        "params": {"iterations": 100000},
+        "salt_b64": "",
+    }
+    wrapper = json.dumps(
+        {"kdf": kdf_dict, "ct": base64.b64encode(seed_ct).decode()},
+        separators=(",", ":"),
+    ).encode()
+
+    return {
+        "description": (
+            "Legacy/migration payload formats the TS port must read: raw "
+            "Fernet token, V2-prefixed AES-GCM, V2-prefixed Fernet "
+            "(wrong-header case), and the JSON kdf/ct file wrapper around a "
+            "V3 blob. IVs/nonces/timestamps pinned for fixtures only."
+        ),
+        "mnemonic_id": PRIMARY,
+        "plaintext_utf8": plaintext.decode(),
+        "fernet_token_b64": base64.b64encode(token).decode(),
+        "v2_gcm_payload_b64": base64.b64encode(v2_gcm).decode(),
+        "v2_fernet_payload_b64": base64.b64encode(v2_fernet).decode(),
+        "parent_seed_file": {
+            "password": "fixture-password",
+            "fingerprint": generate_fingerprint(mnemonic),
+            "wrapper_b64": base64.b64encode(wrapper).decode(),
+            "expected_seed_mnemonic_id": PRIMARY,
+        },
+    }
+
+
+def _derive_key_index(mnemonic: str) -> bytes:
+    from utils.key_hierarchy import kd
+
+    seed = Bip39SeedGenerator(mnemonic).Generate()
+    master = kd(seed, b"seedpass:v1:master")
+    return kd(master, b"seedpass:v1:index")
+
+
+def gen_nostr_snapshot(vault_payload_b64: str) -> dict:
+    import gzip as gzip_mod
+    import hmac as hmac_mod
+
+    from nostr.snapshot import prepare_snapshot
+
+    mnemonic = MNEMONICS[PRIMARY]
+    encrypted = base64.b64decode(vault_payload_b64)
+
+    # mtime=0 pins the gzip header; production uses current time, which only
+    # affects the compressed bytes, not decompression.
+    compressed = gzip_mod.compress(encrypted, mtime=0)
+    limit = 800
+    manifest, chunks = prepare_snapshot(encrypted, limit)
+    # Re-chunk the pinned compression so chunk bytes/hashes are deterministic
+    pinned_chunks = [
+        compressed[i : i + limit] for i in range(0, len(compressed), limit)
+    ]
+    metas = [
+        {
+            "id": f"seedpass-chunk-{i:04d}",
+            "size": len(c),
+            "hash": hashlib.sha256(c).hexdigest(),
+            "event_id": None,
+        }
+        for i, c in enumerate(pinned_chunks)
+    ]
+
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-manifest-nonce").digest()[:16]
+    key_index = _derive_key_index(mnemonic)
+    manifest_id = hmac_mod.new(
+        key_index, b"manifest|" + nonce, hashlib.sha256
+    ).hexdigest()
+
+    manifest_json = json.dumps(
+        {
+            "ver": 1,
+            "algo": "gzip",
+            "chunks": metas,
+            "delta_since": FIXED_UNIX,
+            "nonce": base64.b64encode(nonce).decode(),
+            "index0": None,
+        }
+    )
+
+    return {
+        "description": (
+            "Nostr snapshot model: gzip(encrypted index) split into <=limit "
+            "chunks; chunk id 'seedpass-chunk-%04d', sha256 hash; manifest "
+            "kind 30070 (d-tag = manifest id), chunks kind 30071 (d-tag = "
+            "chunk id, content = b64), deltas kind 30072. Manifest id = "
+            "HMAC-SHA256(key_index, b'manifest|' + nonce) hex, key_index = "
+            "HKDF chain master->'seedpass:v1:index'. gzip mtime pinned to 0 "
+            "for the fixture."
+        ),
+        "mnemonic_id": PRIMARY,
+        "event_kinds": {"manifest": 30070, "snapshot_chunk": 30071, "delta": 30072},
+        "chunk_limit": limit,
+        "encrypted_b64": vault_payload_b64,
+        "compressed_b64": base64.b64encode(compressed).decode(),
+        "chunks_b64": [base64.b64encode(c).decode() for c in pinned_chunks],
+        "chunk_metas": metas,
+        "key_index_hex": key_index.hex(),
+        "manifest_nonce_b64": base64.b64encode(nonce).decode(),
+        "manifest_id": manifest_id,
+        "manifest_json": manifest_json,
+        "unpinned_chunk_count": len(chunks),
+    }
+
+
+def _merge_case(name: str, current: dict, incoming: dict, source_tag: str) -> dict:
+    import copy
+
+    from seedpass.core.sync_conflict import merge_index_payloads
+
+    merged = merge_index_payloads(
+        copy.deepcopy(current), copy.deepcopy(incoming), source_tag=source_tag
+    )
+    return {
+        "name": name,
+        "current": current,
+        "incoming": incoming,
+        "source_tag": source_tag,
+        "merged": merged,
+    }
+
+
+def gen_sync_merge() -> dict:
+    t = FIXED_UNIX
+
+    def entry(label: str, ts: int, **kw) -> dict:
+        base = {
+            "type": "password",
+            "kind": "password",
+            "label": label,
+            "length": 16,
+            "archived": False,
+            "notes": "",
+            "tags": [],
+            "modified_ts": ts,
+        }
+        base.update(kw)
+        return base
+
+    cases = [
+        _merge_case(
+            "newer-incoming-wins",
+            {"schema_version": 4, "entries": {"0": entry("site", t)}},
+            {"schema_version": 4, "entries": {"0": entry("site-renamed", t + 10)}},
+            "tag-newer",
+        ),
+        _merge_case(
+            "older-incoming-loses",
+            {"schema_version": 4, "entries": {"0": entry("site", t + 10)}},
+            {"schema_version": 4, "entries": {"0": entry("site-old", t)}},
+            "tag-older",
+        ),
+        _merge_case(
+            "equal-ts-field-union",
+            {
+                "schema_version": 4,
+                "entries": {
+                    "0": entry("site", t, notes="", tags=["a", "c"], username="")
+                },
+            },
+            {
+                "schema_version": 4,
+                "entries": {
+                    "0": entry(
+                        "site",
+                        t,
+                        notes="from-incoming",
+                        tags=["b", "a"],
+                        username="alice",
+                        archived=True,
+                    )
+                },
+            },
+            "tag-equal",
+        ),
+        _merge_case(
+            "incoming-delete-creates-tombstone",
+            {
+                "schema_version": 4,
+                "entries": {"0": entry("site", t), "1": entry("keep", t)},
+            },
+            {
+                "schema_version": 4,
+                "entries": {"0": {**entry("site", t + 5), "_deleted": True}},
+            },
+            "tag-delete",
+        ),
+        _merge_case(
+            "entry-newer-than-tombstone-survives",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {
+                            "deleted_ts": t,
+                            "entry_hash": "",
+                            "event_hash": "",
+                            "source": "x",
+                        }
+                    }
+                },
+            },
+            {"schema_version": 4, "entries": {"0": entry("revived", t + 20)}},
+            "tag-revive",
+        ),
+        _merge_case(
+            "tombstone-beats-older-entry",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {
+                            "deleted_ts": t + 20,
+                            "entry_hash": "",
+                            "event_hash": "",
+                            "source": "x",
+                        }
+                    }
+                },
+            },
+            {"schema_version": 4, "entries": {"0": entry("stale", t)}},
+            "tag-stale",
+        ),
+        _merge_case(
+            "tombstone-vs-tombstone-newer-wins",
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {
+                            "deleted_ts": t + 1,
+                            "entry_hash": "aa",
+                            "event_hash": "",
+                            "source": "one",
+                        }
+                    }
+                },
+            },
+            {
+                "schema_version": 4,
+                "entries": {},
+                "_sync_meta": {
+                    "tombstones": {
+                        "0": {
+                            "deleted_ts": t + 9,
+                            "entry_hash": "bb",
+                            "event_hash": "",
+                            "source": "two",
+                        }
+                    }
+                },
+            },
+            "tag-tt",
+        ),
+        _merge_case(
+            "empty-current-adopts-incoming",
+            {},
+            {"schema_version": 4, "entries": {"3": entry("new", t)}},
+            "tag-adopt",
+        ),
+    ]
+    return {
+        "description": (
+            "merge_index_payloads parity cases. merged output includes the "
+            "normalized empty _system.index0 skeleton and _sync_meta with "
+            "strategy modified_ts_hash_tombstone_v2."
+        ),
+        "cases": cases,
+    }
+
+
+def gen_delta_replay() -> dict:
+    import copy
+
+    from seedpass.core.index0 import ensure_index0_payload
+    from seedpass.core.sync_conflict import merge_index_payloads
+
+    key = base64.urlsafe_b64decode(derive_index_key(MNEMONICS[PRIMARY]))
+    t = FIXED_UNIX
+
+    def entry(label: str, ts: int) -> dict:
+        return {
+            "type": "password",
+            "kind": "password",
+            "label": label,
+            "length": 16,
+            "archived": False,
+            "notes": "",
+            "tags": [],
+            "modified_ts": ts,
+        }
+
+    snapshot_index = {"schema_version": 4, "entries": {"0": entry("base", t)}}
+    delta1 = {
+        "schema_version": 4,
+        "entries": {"0": entry("base-renamed", t + 10), "1": entry("added", t + 10)},
+    }
+    delta2 = {
+        "schema_version": 4,
+        "entries": {"1": {**entry("added", t + 20), "_deleted": True}},
+    }
+
+    def encrypt(payload: dict, nonce_seed: bytes) -> bytes:
+        nonce = hashlib.sha256(nonce_seed).digest()[:12]
+        plaintext = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return b"V3|" + nonce + AESGCM(key).encrypt(nonce, plaintext, None)
+
+    enc_deltas = [
+        encrypt(delta1, b"seedpass-ts-fixture-delta-1"),
+        encrypt(delta2, b"seedpass-ts-fixture-delta-2"),
+    ]
+
+    # Reproduce decrypt_and_save_index_from_nostr(merge=True) semantics
+    state = ensure_index0_payload(copy.deepcopy(snapshot_index))
+    for enc, payload in zip(enc_deltas, [delta1, delta2]):
+        source_tag = hashlib.sha256(enc).hexdigest()[:16]
+        incoming = ensure_index0_payload(copy.deepcopy(payload))
+        state = merge_index_payloads(state, incoming, source_tag=source_tag)
+
+    return {
+        "description": (
+            "Delta replay: start from a snapshot index, decrypt each V3 delta "
+            "payload, merge in order with source_tag = "
+            "sha256(encrypted_delta)[:16]. Nonces pinned (fixture-only)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "snapshot_index": snapshot_index,
+        "delta_payloads_b64": [base64.b64encode(e).decode() for e in enc_deltas],
+        "delta_plaintexts": [delta1, delta2],
+        "final_state": state,
+    }
+
+
+def gen_portable_backup(entries: dict) -> dict:
+    from utils.checksum import canonical_json_dumps, json_checksum
+
+    mnemonic = MNEMONICS[PRIMARY]
+    index_data = entries
+    canonical = canonical_json_dumps(index_data)
+    checksum = json_checksum(index_data)
+
+    key = base64.urlsafe_b64decode(derive_index_key(mnemonic))
+    nonce = hashlib.sha256(b"seedpass-ts-fixture-export-nonce").digest()[:12]
+    payload = b"V3|" + nonce + AESGCM(key).encrypt(nonce, canonical.encode(), None)
+
+    encrypted_wrapper = {
+        "format_version": 1,
+        "created_at": FIXED_UNIX,
+        "fingerprint": generate_fingerprint(mnemonic),
+        "encryption_mode": "seed-only",
+        "cipher": "aes-gcm",
+        "checksum": checksum,
+        "payload": base64.b64encode(payload).decode(),
+    }
+    plaintext_wrapper = {
+        "format_version": 1,
+        "created_at": FIXED_UNIX,
+        "fingerprint": generate_fingerprint(mnemonic),
+        "encryption_mode": "none",
+        "cipher": "none",
+        "checksum": checksum,
+        "payload": base64.b64encode(canonical.encode()).decode(),
+    }
+
+    return {
+        "description": (
+            "Portable backup wrapper (portable_backup.py, format_version 1). "
+            "payload = V3 AES-GCM over canonical JSON of the index, key = "
+            "index key of the parent seed; checksum = "
+            "sha256(canonical_json(index)). Nonce/created_at pinned "
+            "(fixture-only)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "index": index_data,
+        "canonical_json_sha256": checksum,
+        "encrypted_wrapper": encrypted_wrapper,
+        "plaintext_wrapper": plaintext_wrapper,
+    }
+
+
+def gen_entry_secrets() -> dict:
+    """Expected reveal values for the fixture vault, via the same low-level
+    functions EntryManager retrieval uses."""
+    from nostr.coincurve_keys import Keys
+    from seedpass.core.password_generation import (
+        PasswordGenerator,
+        PasswordPolicy,
+        derive_seed_phrase,
+    )
+
+    mnemonic = MNEMONICS[PRIMARY]
+    bip85 = _bip85(mnemonic)
+
+    # Entry 0: password, length 16, gen_version 2, derivation index 0
+    pg = PasswordGenerator(_SeedDeriver(), mnemonic, bip85, policy=PasswordPolicy())
+    password = pg.generate_password(length=16, index=0, gen_version=2)
+
+    # Entry 1: deterministic TOTP, derivation index 0
+    totp_secret = derive_totp_secret(mnemonic, 0)
+    totp_code = TotpManager.current_code_from_secret(totp_secret, FIXED_UNIX)
+
+    # Entry 4: nostr key entry — DEFAULT BIP-85 app 39 (not 1237)
+    entropy = bip85.derive_entropy(index=4, entropy_bytes=32)
+    nostr_keys = Keys(priv_k=entropy.hex())
+    nsec = Keys.hex_to_bech32(nostr_keys.private_key_hex(), "nsec")
+    npub = Keys.hex_to_bech32(nostr_keys.public_key_hex(), "npub")
+
+    # Entry 7: seed entry, index 7, 24 words; entry 8: managed account, 12 words
+    seed_phrase = derive_seed_phrase(bip85, 7, 24)
+    managed_phrase = derive_seed_phrase(bip85, 8, 12)
+
+    return {
+        "description": (
+            "Expected plaintext values for entries in entries_index.json, "
+            "computed via the same functions EntryManager retrieval uses. "
+            "Nostr entry keys use the DEFAULT BIP-85 app 39 path, unlike the "
+            "sync client identity (app 1237)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "password_entry_0": password,
+        "totp_entry_1_code_at": {str(FIXED_UNIX): totp_code},
+        "nostr_entry_4": {"nsec": nsec, "npub": npub},
+        "seed_entry_7_mnemonic": seed_phrase,
+        "managed_entry_8_mnemonic": managed_phrase,
+    }
+
+
+def gen_nostr_events(snapshot: dict, delta_replay: dict) -> dict:
+    """Signed Nostr events for the snapshot/chunk/delta model.
+
+    Event ids are deterministic (NIP-01 serialization); BIP-340 signatures
+    use random aux data and are NOT. To keep the generator byte-deterministic
+    we reuse the previously committed signature whenever the event id is
+    unchanged — a fresh signature is only produced for new/changed events.
+    """
+    import json as json_mod
+
+    from nostr_sdk import EventBuilder, EventId, Keys, Kind, Tag, Timestamp
+
+    # Sync client identity: BIP-85 app 1237, account index 0 (nostr_keys.json)
+    bip85 = _bip85(MNEMONICS[PRIMARY])
+    entropy = bip85.derive_entropy(index=0, entropy_bytes=32, app_no=NOSTR_KEY_APP_ID)
+    keys = Keys.parse(entropy.hex())
+
+    existing_sigs: dict[str, str] = {}
+    existing_path = FIXTURES_DIR / "nostr_events.json"
+    if existing_path.exists():
+        try:
+            for ev in json_mod.loads(existing_path.read_text())["events"]:
+                existing_sigs[ev["event"]["id"]] = ev["event"]["sig"]
+        except Exception:
+            pass
+
+    def build(name: str, kind: int, content: str, tags: list) -> dict:
+        builder = (
+            EventBuilder(Kind(kind), content)
+            .tags(tags)
+            .custom_created_at(Timestamp.from_secs(FIXED_UNIX))
+        )
+        event = json_mod.loads(builder.sign_with_keys(keys).as_json())
+        cached_sig = existing_sigs.get(event["id"])
+        if cached_sig:
+            event["sig"] = cached_sig
+        return {"name": name, "event": event}
+
+    events = [
+        build(
+            "chunk-0",
+            30071,
+            snapshot["chunks_b64"][0],
+            [Tag.identifier(snapshot["chunk_metas"][0]["id"])],
+        ),
+        build(
+            "manifest",
+            30070,
+            snapshot["manifest_json"],
+            [Tag.identifier(snapshot["manifest_id"])],
+        ),
+        build(
+            "delta-1",
+            30072,
+            delta_replay["delta_payloads_b64"][0],
+            [Tag.event(EventId.parse(snapshot["manifest_id"]))],
+        ),
+    ]
+
+    return {
+        "description": (
+            "Signed Nostr events from the Python-side nostr_sdk (rust-nostr) "
+            "with pinned created_at. Ids are NIP-01-deterministic; signatures "
+            "are cached across generator runs (BIP-340 aux randomness)."
+        ),
+        "mnemonic_id": PRIMARY,
+        "signer_private_key_hex": entropy.hex(),
+        "signer_public_key_hex": keys.public_key().to_hex(),
+        "events": events,
+    }
+
+
+MOD_UNIX = FIXED_UNIX + 100
+
+
+def gen_entry_mods() -> dict:
+    """Apply a modification sequence via the real EntryManager and capture
+    the result; TS replicates the same ops and must match byte-for-byte."""
+    from seedpass.core.entry_management import EntryManager
+
+    def mods(em: EntryManager) -> None:
+        # Later timestamp so touched entries visibly differ from creation
+        EntryManager._now_unix = staticmethod(lambda: MOD_UNIX)
+        em.modify_entry(
+            0,
+            username="alice2",
+            url="https://example.org",
+            notes="updated note",
+            tags=["web", "prod"],
+            min_digits=3,
+            special_mode="safe",
+        )
+        em.modify_entry(1, period=60, digits=8)
+        em.modify_entry(5, label="api-token-renamed", value="rotated-value")
+        em.archive_entry(6)
+        em.restore_entry(6)
+        em.archive_entry(3)
+        em.add_link(0, 1, relation="totp", note="2fa for site")
+        em.add_link(0, 5, relation="related_to")
+        em.add_link(5, 0)
+        em.remove_link(0, 5)
+
+    entries = _build_entries_index(post_add=mods)
+    return {
+        "description": (
+            "Entries index after a modification sequence (modify_entry, "
+            "archive/restore, add_link/remove_link) applied by the real "
+            "EntryManager at MOD_UNIX. TS replays the same ops from the "
+            "creation state and must match."
+        ),
+        "fixed_unix": FIXED_UNIX,
+        "mod_unix": MOD_UNIX,
+        "mnemonic_id": PRIMARY,
+        "entries": entries,
+    }
+
+
+def gen_migrations() -> dict:
+    """Legacy index payloads at every historical schema version, with the
+    result Python's apply_migrations produces for each."""
+    import copy
+
+    from seedpass.core.migrations import LATEST_VERSION, apply_migrations
+
+    # v0: no schema_version, passwords keyed by index, "website" not "label"
+    v0 = {
+        "passwords": {
+            "0": {
+                "website": "legacy-site.example",
+                "length": 16,
+                "username": "olduser",
+                "url": "https://legacy.example",
+            },
+            "1": {"website": "second-site.example", "length": 12},
+        }
+    }
+    # v1: schema_version present, still the passwords shape
+    v1 = {"schema_version": 1, **copy.deepcopy(v0)}
+    # v2: entries exist, but without custom_fields/origin/tags
+    v2 = {
+        "schema_version": 2,
+        "entries": {
+            "0": {
+                "type": "password",
+                "kind": "password",
+                "label": "v2-site.example",
+                "length": 20,
+                "notes": "",
+                "username": "u",
+            },
+            "1": {
+                "type": "totp",
+                "kind": "totp",
+                "label": "v2-totp",
+                "index": 0,
+                "period": 30,
+                "digits": 6,
+                "notes": "",
+            },
+        },
+    }
+    # v3: has custom_fields/origin but no tags
+    v3 = copy.deepcopy(v2)
+    v3["schema_version"] = 3
+    for entry in v3["entries"].values():
+        entry["custom_fields"] = []
+        entry["origin"] = ""
+
+    cases = []
+    for name, payload in (("v0", v0), ("v1", v1), ("v2", v2), ("v3", v3)):
+        cases.append(
+            {
+                "name": name,
+                "input": copy.deepcopy(payload),
+                "migrated": apply_migrations(copy.deepcopy(payload)),
+            }
+        )
+
+    return {
+        "description": (
+            "Schema migrations 0->4 as applied by seedpass.core.migrations."
+            " v0->v1 injects schema_version; v1->v2 renames passwords to"
+            " entries and website to label; v2->v3 adds custom_fields/origin"
+            " defaults; v3->v4 adds tags defaults."
+        ),
+        "latest_version": LATEST_VERSION,
+        "cases": cases,
+    }
+
+
+def gen_ssh_keys() -> dict:
+    from seedpass.core.password_generation import derive_ssh_key_pair
+
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        mnemonic = MNEMONICS[mid]
+        bip85 = _bip85(mnemonic)
+        for index in (0, 1, 7):
+            priv_pem, pub_pem = derive_ssh_key_pair(mnemonic, index)
+            entropy = bip85.derive_entropy(index=index, entropy_bytes=32, app_no=32)
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "index": index,
+                    "entropy_hex": entropy.hex(),
+                    "private_key_pem": priv_pem,
+                    "public_key_pem": pub_pem,
+                }
+            )
+    return {
+        "description": (
+            "SSH key pairs: BIP-85 app 32, 32 bytes of entropy used directly "
+            "as an Ed25519 private key. Serialized as PKCS#8 PEM (private) "
+            "and SubjectPublicKeyInfo PEM (public), matching Python's "
+            "cryptography output byte-for-byte."
+        ),
+        "cases": cases,
+    }
+
+
+def gen_pgp_keys() -> dict:
+    from seedpass.core.password_generation import derive_pgp_key
+
+    cases = []
+    for mid in (PRIMARY, "zoo24"):
+        bip85 = _bip85(MNEMONICS[mid])
+        for index, user_id in (
+            (0, "fixture@example.com"),
+            (3, ""),
+            (7, "Test User <t@e.co>"),
+        ):
+            priv, pub, fp = derive_pgp_key(bip85, index, "ed25519", user_id)
+            cases.append(
+                {
+                    "mnemonic_id": mid,
+                    "index": index,
+                    "user_id": user_id,
+                    "fingerprint": fp,
+                    "private_key_armored": priv,
+                    "public_key_armored": pub,
+                }
+            )
+    return {
+        "description": (
+            "Deterministic PGP (Ed25519/EdDSA) keys from BIP-85 app 32, "
+            "created 2000-01-01T00:00:00Z, as PGPy serializes them. EdDSA "
+            "signatures are deterministic, so the armored output is "
+            "byte-reproducible."
+        ),
+        "created_at": 946684800,
+        "cases": cases,
+    }
+
+
+def gen_kdf_metadata() -> dict:
+    return {
+        "description": (
+            "Vault KDF metadata shapes the TS port must parse. Salts here are "
+            "pinned for the fixture; production salts come from os.urandom."
+        ),
+        "current_kdf_version": 1,
+        "configs": [
+            {
+                "name": "argon2id",
+                "version": 1,
+                "params": {"time_cost": 2, "memory_cost": 65536, "parallelism": 8},
+                "salt_b64": base64.b64encode(b"fixture-salt-16b").decode(),
+            },
+            {
+                "name": "pbkdf2-sha256",
+                "version": 1,
+                "params": {"iterations": 100000, "dklen": 32},
+                "salt_note": "salt = SHA256(fingerprint)[:16] — deterministic",
+            },
+        ],
+    }
+
+
+def gen_qr() -> dict:
+    """QR reference matrices for the TypeScript encoder.
+
+    Byte mode is forced: the library auto-selects alphanumeric mode for an
+    all-uppercase string, which is a different encoding of the same text
+    rather than a different answer to the same question, and the TS encoder
+    is byte-mode only.
+
+    The chosen mask is recorded so the TS tests can pin it. The two
+    implementations disagree about mask SELECTION -- the spec scores the
+    finished symbol, this library scores one with its format modules blanked
+    (`makeImpl(test=True, ...)`) -- and every one of the eight masks is a
+    valid, scannable code, so the tests compare matrices at a fixed mask
+    rather than reproducing the quirk.
+    """
+    import qrcode
+    import qrcode.util as qr_util
+    from qrcode.constants import (
+        ERROR_CORRECT_H,
+        ERROR_CORRECT_L,
+        ERROR_CORRECT_M,
+        ERROR_CORRECT_Q,
+    )
+
+    levels = {
+        "L": ERROR_CORRECT_L,
+        "M": ERROR_CORRECT_M,
+        "Q": ERROR_CORRECT_Q,
+        "H": ERROR_CORRECT_H,
+    }
+    format_ec = {"L": 1, "M": 0, "Q": 3, "H": 2}
+
+    def format_bits(level: str, mask: int) -> int:
+        data = (format_ec[level] << 3) | mask
+        rem = data
+        for _ in range(10):
+            rem = (rem << 1) ^ ((rem >> 9) * 0x537)
+        return ((data << 10) | rem) ^ 0x5412
+
+    def read_mask(matrix, level: str) -> int:
+        bits = 0
+        for i in range(15):
+            if i < 6:
+                r, c = i, 8
+            elif i < 8:
+                r, c = i + 1, 8
+            elif i == 8:
+                r, c = 8, 7
+            else:
+                r, c = 8, 14 - i
+            if matrix[r][c]:
+                bits |= 1 << i
+        for mask in range(8):
+            if format_bits(level, mask) == bits:
+                return mask
+        raise AssertionError("no mask matched the encoded format information")
+
+    cases: list[dict] = []
+    for text, level in QR_CASES:
+        q = qrcode.QRCode(error_correction=levels[level], border=0)
+        q.add_data(qr_util.QRData(text, mode=qr_util.MODE_8BIT_BYTE))
+        q.make(fit=True)
+        matrix = [[bool(v) for v in row] for row in q.get_matrix()]
+        cases.append(
+            {
+                "text": text,
+                "level": level,
+                "version": q.version,
+                "size": len(matrix),
+                "mask": read_mask(matrix, level),
+                "modules": matrix,
+            }
+        )
+    return {
+        "description": "QR matrices (byte mode) from the qrcode library",
+        "cases": cases,
+    }
+
+
+def gen_semantic() -> dict:
+    """Reference records and rankings for the retrieval index.
+
+    Two properties are being pinned. The rankings must match so a query
+    answered on one implementation is answered the same way on the other. And
+    the records must contain no secret: the file this produces is plaintext
+    beside an encrypted vault, so anything indexed is readable without the
+    master password. The key_value case below carries a value that must not
+    appear anywhere in the output.
+    """
+    import tempfile
+
+    from seedpass.core.semantic_index import SemanticIndex
+
+    entries = [
+        {
+            "id": 0,
+            "kind": "password",
+            "label": "first-ever.example",
+            "username": "zero",
+            "notes": "the very first entry a profile creates",
+            "tags": ["edge"],
+        },
+        {
+            "id": 1,
+            "kind": "password",
+            "label": "bank.example",
+            "username": "alice",
+            "url": "https://bank.example",
+            "notes": "main current account",
+            "tags": ["money", "daily"],
+        },
+        {
+            "id": 2,
+            "kind": "key_value",
+            "label": "deploy-token",
+            "key": "DEPLOY_TOKEN",
+            "value": "SECRET-MUST-NOT-APPEAR",
+            "notes": "ci pipeline",
+            "tags": ["ops"],
+        },
+        {
+            "id": 3,
+            "kind": "document",
+            "label": "recovery notes",
+            "content": "how to recover the bank account if locked out",
+            "tags": ["docs"],
+        },
+        {
+            "id": 4,
+            "kind": "totp",
+            "label": "email-2fa",
+            "issuer": "Fastmail",
+            "notes": "",
+            "tags": ["email"],
+        },
+        {
+            "id": 5,
+            "kind": "ssh",
+            "label": "prod-server",
+            "fingerprint": "SHA256:abcdef",
+            "notes": "production access",
+            "tags": ["ops"],
+        },
+        {
+            "id": 6,
+            "kind": "nostr",
+            "label": "social",
+            "npub": "npub1example",
+            "notes": "",
+            "tags": [],
+        },
+        {
+            "id": 7,
+            "kind": "seed",
+            "label": "child seed",
+            "notes": "not an indexed kind",
+        },
+        {
+            "id": 8,
+            "kind": "document",
+            "label": "",
+            "content": "",
+            "notes": "",
+            "tags": [],
+        },
+        {
+            "id": 9,
+            "kind": "password",
+            "label": "linked",
+            "notes": "",
+            "tags": [],
+            "links": [{"relation": "depends_on", "note": "see recovery notes"}],
+        },
+        {"kind": "document", "label": "no id at all", "content": "skipped"},
+    ]
+    queries = [
+        "bank",
+        "bank account",
+        "ops production",
+        "email",
+        "recover locked",
+        "nothing matches here",
+        "DEPLOY_TOKEN",
+        "first entry",
+    ]
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        index = SemanticIndex(Path(tmpdir))
+        index.build(entries)
+        records = json.loads(
+            (Path(tmpdir) / "semantic_index" / "records.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        results = {q: index.search(q, k=10) for q in queries}
+        kind_filtered = index.search("ops", k=10, kind="ssh")
+
+    blob = json.dumps(records)
+    assert "SECRET-MUST-NOT-APPEAR" not in blob, "the index leaked a stored secret"
+
+    return {
+        "description": "semantic index records and rankings",
+        "entries": entries,
+        "records": records,
+        "queries": results,
+        "kind_filtered": kind_filtered,
+    }
+
+
+def gen_high_risk() -> dict:
+    """Interop vectors for the high-risk partition.
+
+    Both implementations read and write these two files, so the fixture is
+    what proves the format is genuinely shared rather than merely
+    self-consistent. A partition only one side can open would be worse than
+    none: the entries are SSH keys, PGP keys and seeds, and a user who cannot
+    open them has lost them.
+
+    The salt and partition key are fixed so the envelope is reproducible;
+    production draws both at random.
+    """
+    import tempfile
+
+    from cryptography.fernet import Fernet
+
+    from seedpass.core import agent_secret_isolation as iso
+    from seedpass.core import high_risk_partition_store as store
+
+    factor = "second-factor-passphrase"
+    salt = bytes(range(16))
+    partition_key = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii")
+
+    # Fernet embeds a random IV and the current time, so `encrypt` would emit
+    # different bytes on every run and the fixture-drift CI job would fail
+    # each time it regenerated. `_encrypt_from_parts` pins both. Production
+    # must never do this -- a repeated IV under one key breaks CBC -- which is
+    # why it appears only here, in a generator producing test vectors from a
+    # fixed key.
+    fixed_iv = bytes(range(16))
+    fixed_time = 1700000000
+    wrapping_key = iso._derive_wrapping_key(factor, salt, iso.PARTITION_KDF_ITERATIONS)
+    envelope = {
+        "version": iso.PARTITION_ENVELOPE_VERSION,
+        "kdf": "pbkdf2-sha256",
+        "iterations": iso.PARTITION_KDF_ITERATIONS,
+        "salt_b64": base64.b64encode(salt).decode("ascii"),
+        "wrapped_partition_key": Fernet(wrapping_key)
+        ._encrypt_from_parts(partition_key.encode("utf-8"), fixed_time, fixed_iv)
+        .decode("utf-8"),
+    }
+    tag = iso._partition_key_tag(partition_key)
+
+    entries = {
+        "3": {
+            "kind": "ssh",
+            "type": "ssh",
+            "label": "prod-server",
+            "index": 3,
+            "notes": "deploy",
+            "archived": False,
+            "modified_ts": 1700000000,
+        },
+        "5": {
+            "kind": "pgp",
+            "type": "pgp",
+            "label": "signing",
+            "index": 5,
+            "notes": "",
+            "archived": False,
+            "modified_ts": 1700000100,
+        },
+    }
+
+    # Same reason: build the partition blob with a pinned IV and time rather
+    # than calling save_partition_entries, whose Fernet output is random.
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "partition": "high_risk",
+            "updated_at_utc": float(fixed_time),
+            "entries": entries,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    file_key = hashlib.sha256(tag.encode("utf-8")).digest()
+    blob = Fernet(base64.urlsafe_b64encode(file_key))._encrypt_from_parts(
+        payload, fixed_time, fixed_iv
+    )
+    # Prove the pinned construction is what the real writer/reader accept.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        profile = Path(tmpdir) / "PROFILE"
+        profile.mkdir()
+        (profile / store.PARTITION_FILENAME).write_bytes(blob)
+        assert store.load_partition_entries(profile, tag) == entries
+
+    return {
+        "description": "high-risk partition envelope and file, for cross-impl checks",
+        "factor": factor,
+        "partition_key": partition_key,
+        "tag": tag,
+        "envelope": envelope,
+        "entries": entries,
+        "partition_file_b64": base64.b64encode(blob).decode("ascii"),
+    }
+
+
+def gen_index0() -> dict:
+    """index0/atlas reference state for the TypeScript port.
+
+    Everything in index0 is hashed with SHA-256 over Python's canonical JSON,
+    and the merge picks winners by comparing those hashes -- so a single byte
+    of encoding disagreement makes the two implementations permanently
+    disagree about which record wins. These vectors are compared whole, via
+    canonical JSON, rather than field by field.
+
+    The inputs deliberately include non-ASCII labels and tags (ensure_ascii
+    escaping), a non-numeric entry id (view ordering must degrade, not throw),
+    two writers on two days (checkpoint grouping and retention), and a managed
+    account (the second scope path).
+    """
+    from seedpass.core import index0 as index0_mod
+
+    fp_dir = "/home/user/.seedpass/C557EEC878DFD852"
+    managed_dir = "/home/user/.seedpass/C557EEC878DFD852/accounts/AABBCCDDEEFF0011"
+
+    entries = {
+        "0": {
+            "kind": "password",
+            "label": "bank.example",
+            "modified_ts": 1700000100,
+            "tags": ["money", "daily"],
+            "links": [{"target_id": "2", "relation": "depends_on", "note": "recovery"}],
+        },
+        "1": {
+            "kind": "totp",
+            "label": "email-2fa",
+            "modified_ts": 1700000200,
+            "archived": True,
+        },
+        "2": {
+            "kind": "ssh",
+            "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+            "modified_ts": 1700000300,
+            "tags": ["ops", "\u00fcn\u00ef"],
+        },
+        "10": {"kind": "document", "label": "notes", "modified_ts": 1700000400},
+        "not-a-number": {
+            "kind": "password",
+            "label": "weird id",
+            "modified_ts": 1700000500,
+        },
+    }
+
+    payload = {"schema_version": 4, "entries": entries}
+    specs = [
+        (1700000100, "entry.created", "0", "password"),
+        (1700000200, "entry.created", "1", "totp"),
+        (1700086400, "entry.updated", "0", "password"),
+        (1700086500, "entry.archived", "1", "totp"),
+    ]
+    for i, (ts, event_type, subject_id, subject_kind) in enumerate(specs):
+        payload = index0_mod.append_index0_event(
+            payload,
+            event_type=event_type,
+            subject_type="entry",
+            subject_id=subject_id,
+            subject_kind=subject_kind,
+            modified_ts=ts,
+            fingerprint_dir=fp_dir,
+            tags=["auto"],
+            summary=f"event {i} \u2014 \u00fcn\u00ef",
+        )
+    payload = index0_mod.append_index0_event(
+        payload,
+        event_type="entry.created",
+        subject_type="entry",
+        subject_id="7",
+        subject_kind="seed",
+        modified_ts=1700090000,
+        fingerprint_dir=managed_dir,
+    )
+
+    compacted = index0_mod.compact_index0_payload(payload, fingerprint_dir=fp_dir)
+    other = index0_mod.append_index0_event(
+        {"schema_version": 4, "entries": entries},
+        event_type="entry.created",
+        subject_type="entry",
+        subject_id="99",
+        subject_kind="password",
+        modified_ts=1700099999,
+        fingerprint_dir=fp_dir,
+    )
+    scope = index0_mod.derive_index0_context(fp_dir)["scope_path"]
+
+    return {
+        "description": "index0/atlas events, checkpoints, views and merge",
+        "entries": entries,
+        "context_root": index0_mod.derive_index0_context(fp_dir),
+        "context_managed": index0_mod.derive_index0_context(managed_dir),
+        "appended": payload,
+        "compacted": compacted,
+        "manifest_meta": index0_mod.build_manifest_index0_metadata(
+            payload, fingerprint_dir=fp_dir
+        ),
+        "other": other,
+        "merged": index0_mod.merge_system_index0(
+            compacted["_system"]["index0"], other["_system"]["index0"]
+        ),
+        "views": index0_mod.list_canonical_views(compacted["_system"]["index0"]),
+        "one_view": index0_mod.get_canonical_view(
+            compacted["_system"]["index0"],
+            view_type="counts_by_kind",
+            scope_path=scope,
+        ),
+    }
+
+
+def main() -> None:
+    FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
+
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True
+    ).stdout.strip()
+
+    files: dict[str, dict] = {
+        "bip39_seeds.json": gen_bip39(),
+        "bip85_entropy.json": gen_bip85_entropy(),
+        "passwords_v1.json": gen_passwords(LEGACY_PASSWORD_GEN_VERSION),
+        "passwords_v2.json": gen_passwords(CURRENT_PASSWORD_GEN_VERSION),
+        "totp.json": gen_totp(),
+        "nostr_keys.json": gen_nostr_keys(),
+        "managed_seeds.json": gen_managed_seeds(),
+        "fingerprints.json": gen_fingerprints(),
+        "index_keys.json": gen_index_keys(),
+        "kdf_metadata.json": gen_kdf_metadata(),
+        "migrations.json": gen_migrations(),
+        "ssh_keys.json": gen_ssh_keys(),
+        "pgp_keys.json": gen_pgp_keys(),
+        "password_kdf.json": gen_password_kdf(),
+        "legacy_payloads.json": gen_legacy_payloads(),
+        "qr.json": gen_qr(),
+        "semantic.json": gen_semantic(),
+        "high_risk.json": gen_high_risk(),
+        "index0.json": gen_index0(),
+    }
+    entries_fixture, vault_fixture = gen_entries_and_vault()
+    files["entries_index.json"] = entries_fixture
+    files["vault_v3_payload.json"] = vault_fixture
+    files["nostr_snapshot.json"] = gen_nostr_snapshot(vault_fixture["payload_b64"])
+    files["portable_backup.json"] = gen_portable_backup(entries_fixture["entries"])
+    files["entry_secrets.json"] = gen_entry_secrets()
+    files["entry_mods.json"] = gen_entry_mods()
+    files["sync_merge.json"] = gen_sync_merge()
+    files["delta_replay.json"] = gen_delta_replay()
+    files["nostr_events.json"] = gen_nostr_events(
+        files["nostr_snapshot.json"], files["delta_replay.json"]
+    )
+
+    for name, data in files.items():
+        data["fixture_version"] = FIXTURE_VERSION
+        _write(name, data)
+
+    manifest = {
+        "fixture_version": FIXTURE_VERSION,
+        "python_commit": commit,
+        "generator": "scripts/generate_ts_port_fixtures.py",
+        "redaction_policy": (
+            "All fixtures derive from public BIP-39 test mnemonics "
+            "(abandon.../legal.../zoo...). Secret-shaped outputs are "
+            "generated test material, never from a live profile."
+        ),
+        "determinism": (
+            "Byte-identical across runs on the same commit: timestamps pinned "
+            "to fixed_unix, vault nonce and KDF salts pinned (fixture-only)."
+        ),
+        "files": sorted(files.keys()),
+    }
+    _write("manifest.json", manifest)
+
+
+if __name__ == "__main__":
+    main()

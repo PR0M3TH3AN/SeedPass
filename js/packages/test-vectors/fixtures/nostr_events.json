@@ -1,0 +1,60 @@
+{
+  "description": "Signed Nostr events from the Python-side nostr_sdk (rust-nostr) with pinned created_at. Ids are NIP-01-deterministic; signatures are cached across generator runs (BIP-340 aux randomness).",
+  "events": [
+    {
+      "event": {
+        "content": "H4sIAAAAAAACAwEPEPDvVjN8yABUBOsovylao1dfY22Y+jyUbNfT/kYvIQVefc005RoRSlS5R56Yva997vgYZzeN2zz+usNgn8Vr+F/Kj4LYYzXs+iO1j+SzJ4vvhTGc2eKUMVcbFw5+agTunmYu3M1LbUu1mnYvAgMntlyKwPop5qDz2uS79IHKhPrc6DlD1BApeAOrlM19e5PcRU1nE/DZU8CqOvXbxB+s3C1foPZG8xwloIXPrU9xdqBy5sZOXvF2mVO+aWhiTG0054hCXh4bxdXQcw1fVyjfHLwN3bdpsVFNVSM2L7Bo3cpiProrHmfxKTd00/kC2ck5P/ddMJG55So1isccpBZA8xEcd8Fk7dYkUHKDe9pyh8DNHlRpG5LMDALlGis+KecGmuK+TXM9pluiMIFvSDAClKSe7Nf8soQDb2ZN6VrWBucn2qajN0Fp+uHI9ZqF+kbw2bEZLfKUC8dfEUt0pQwzmVUKFwV8UbACyZTMUv6HY9L/YQfaf+ZZu8CJH+YNzA89RmaCjIaK2m7U8LJP/vCyeq0vHmQi4qeh4Li+M/928a6cwiT2W6eOQ6ffF22sVe6uXpGOw9/2ctVXOndcHjlwvmQPIHM9JWsVkMsHkun/rq8A5PkFFbps5AdSVy7O95vKOI97Uw7l13zIWGq/FOpIIdTckmujyFAa6xJFYg106ijtUqck9mBDsN+iDRlGpAFLnxHP2gzDZtBNUS7f8mATNvjyP5c3swPmVvus7iIj0Dk69jl2NElyUhWVU27AX0sZiDYpH0g2/9fYo4AZJyIQAsxd6tGX6iC3PmRIxFn2HcZqmt99XPWAITbI+wOsB9XsVRw02frg8JaAwwfZZk8KqLv7sNWZoi+1AdXg9b9xvFEHFlZvPXnXiKtpf1crPbeGUjSO5gnc2ifC1z1SLtAdTJTeha3A55DACybQRlfcImovXzRo+RjNYyDrtfUvb5nKHhw65SD4fMnCziZh+s6k9nhQ1Aqxy/FSEKAmX+kpAUnT+T8yHzvP4Eq3ljTW8UM0V3YaFGwdSgy7lbu+ZydeZmelNYk=",
+        "created_at": 1700000000,
+        "id": "40e5d66e8165fa02af911469351a6b41d67d0f4f1f0f59f2bf25de73be84b5f2",
+        "kind": 30071,
+        "pubkey": "257f22c3049cf52100bdf17d6bce85b7c9d648850e4e3c1965733dd176b646e0",
+        "sig": "0be5c33ae156154b70bc3d3990b8bc4e5089514fc69bf98772ea367c6ce1436886b9f9bd4d8823a3879d986fb0faa8da0ea68e869409ad3814bb230fe81c3cb6",
+        "tags": [
+          [
+            "d",
+            "seedpass-chunk-0000"
+          ]
+        ]
+      },
+      "name": "chunk-0"
+    },
+    {
+      "event": {
+        "content": "{\"ver\": 1, \"algo\": \"gzip\", \"chunks\": [{\"id\": \"seedpass-chunk-0000\", \"size\": 800, \"hash\": \"11325bc9b81def0f846a3e13ef1bf26fba08cc37828f3b3b1eac17f685ef2dce\", \"event_id\": null}, {\"id\": \"seedpass-chunk-0001\", \"size\": 800, \"hash\": \"412b97ba88ab3c579d25d677181928a7a1925a2d401a2380e56fb0065b376cbd\", \"event_id\": null}, {\"id\": \"seedpass-chunk-0002\", \"size\": 800, \"hash\": \"01728a50deedd31079ac2677e513285c5d6eaac59ac030eaa7dac7e3e85180dd\", \"event_id\": null}, {\"id\": \"seedpass-chunk-0003\", \"size\": 800, \"hash\": \"0ecbf450f3e44d9db7024243e18786107e7c37a17146d046f29d054ad13ab26d\", \"event_id\": null}, {\"id\": \"seedpass-chunk-0004\", \"size\": 800, \"hash\": \"0927efbc911129ea2b4fa7b9491f0fa62da933cc8d883ac7b659f111b9f0f49b\", \"event_id\": null}, {\"id\": \"seedpass-chunk-0005\", \"size\": 134, \"hash\": \"3f19fbd0b5b1e132044b996030394b13f1cb3b2a3ddcc925b010d96fcab15826\", \"event_id\": null}], \"delta_since\": 1700000000, \"nonce\": \"PAqvfNIUFpEog1t93a3M4A==\", \"index0\": null}",
+        "created_at": 1700000000,
+        "id": "b9e5972d775f045350a221f9f4717ef83fae8d66c125bce33cdc671e0bf6e7d1",
+        "kind": 30070,
+        "pubkey": "257f22c3049cf52100bdf17d6bce85b7c9d648850e4e3c1965733dd176b646e0",
+        "sig": "6d7057e826f618faf252581be75872bbb2f168a28e1af319382fd119cfe51c2be4478659f82ea44081f1d2b0769eb12dfeac2faf28b4f3ee39830b864a9112bb",
+        "tags": [
+          [
+            "d",
+            "168836eb089b4d0b57f92b3b14eaeb9e875ee9dcd8f59c80f6d027e08f273c12"
+          ]
+        ]
+      },
+      "name": "manifest"
+    },
+    {
+      "event": {
+        "content": "VjN8dk5XXH5X36Xdmu5olZDxZJTpOTZDjskABP6osJd8Rftxc7YoBfXa/Yh4XHpySBsf70Vnm0Q0m1xQBOoeShxXtCgUbQ48x8pY3NnY3suMDjlqou0ti5vuMVknTRPwgyBnFAo1DUeGmZSidFK0/z8EfxqanEklB9e9yUtqOiN04UmwK8tnr0u0n2pJd82oppv3PNPZs4FFFFmiD1d+ZVlOBEyuziEmTjuhP6axqflqEv4Y2nox82w+XvBbFhkCO2lVO9Q++81rhE8OKJ9q9iuUURD+U83UjhLTdNavcu+jk2r4AyUMQh9rK43IabeEK5cFJmFpLWNOinzouOvQJQ9yGPvccYmarBIza8BsiJLINnX1oNNRk8TG3NQ4i8bKdeXBaATuBeLPDVhF2GKICGzy3sQN7CbvB5BjPBKD4+om2eVU8MJW2AKCz5WTMADF",
+        "created_at": 1700000000,
+        "id": "640d785f97902b72f152294b5497054bb159ff2ba66b7b4b89d0d8946596b286",
+        "kind": 30072,
+        "pubkey": "257f22c3049cf52100bdf17d6bce85b7c9d648850e4e3c1965733dd176b646e0",
+        "sig": "871a1b745e2e0ce7f7fd341666543f7961a1029ddfa8f45f46ddc78fe26011f312b6235dee97890c0d9bc20b9fe33cb4fd6391376c17e353bb2aca1d89b8c4f4",
+        "tags": [
+          [
+            "e",
+            "168836eb089b4d0b57f92b3b14eaeb9e875ee9dcd8f59c80f6d027e08f273c12"
+          ]
+        ]
+      },
+      "name": "delta-1"
+    }
+  ],
+  "fixture_version": 1,
+  "mnemonic_id": "abandon12",
+  "signer_private_key_hex": "0ac7be6c7b08bf16ead8778494cf7256c566fb68bb09c0285b056d8a568516fc",
+  "signer_public_key_hex": "257f22c3049cf52100bdf17d6bce85b7c9d648850e4e3c1965733dd176b646e0"
+}

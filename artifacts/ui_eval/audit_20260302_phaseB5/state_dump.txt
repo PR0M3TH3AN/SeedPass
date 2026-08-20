@@ -1,0 +1,24 @@
+=== TREE GROUP HEADER CHECK ===
+filters_panel:
+SeedPass ◈ TUI v2
+Fingerprint: fp-a
+
+Selected: (none)
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 2 | Page: 1/1
+
+Profile Tree
+------------
+▶ ■ fp-a             | Seed: fp-a
+    👤 Managed Users
+      #1    Managed User 1
+    🤖 Agents
+      #2    Agent Alpha
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)

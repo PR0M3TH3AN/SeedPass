@@ -14,7 +14,7 @@ from seedpass.core.config_manager import ConfigManager
 
 
 class FakePasswordGenerator:
-    def generate_password(self, length: int, index: int) -> str:  # noqa: D401
+    def generate_password(self, length: int, index: int, **_) -> str:  # noqa: D401
         return "pw"
 
 

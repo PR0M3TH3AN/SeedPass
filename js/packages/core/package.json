@@ -1,0 +1,33 @@
+{
+  "name": "@seedpass/core",
+  "version": "0.0.1",
+  "description": "SeedPass protocol core: deterministic derivation, vault, sync",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run && vitest run --environment jsdom",
+    "test:node": "vitest run",
+    "test:browser-env": "vitest run --environment jsdom",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "@scure/base": "^2.0.0",
+    "@scure/bip32": "^2.0.0",
+    "@scure/bip39": "^2.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@seedpass/test-vectors": "workspace:*",
+    "@types/ws": "^8.18.1",
+    "jsdom": "^30.0.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "ws": "^8.21.3"
+  }
+}

@@ -29,10 +29,8 @@ from dataclasses import dataclass
 from termcolor import colored
 from pathlib import Path
 import shutil
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.backends import default_backend
 from bip_utils import Bip39SeedGenerator
 
 from . import compat  # noqa: F401
@@ -75,8 +73,25 @@ class PasswordPolicy:
     exclude_ambiguous: bool = False
 
 
+# Generation versions. Entries record which one produced them; absent means 1.
+#
+# v1 -- the original algorithm. Frozen forever: passwords are re-derived on
+#       demand and never stored, so every live vault entry depends on it
+#       reproducing byte-identically. Pinned by
+#       src/tests/test_entropy_integrity.py::test_v1_password_vectors_are_frozen.
+# v2 -- drops the forced equal-quarters class quota, uses rejection sampling to
+#       remove modulo bias, and draws from an unbounded HMAC-expanded stream.
+LEGACY_PASSWORD_GEN_VERSION = 1
+CURRENT_PASSWORD_GEN_VERSION = 2
+
+
 class DeterministicStream:
-    """Helper class to manage deterministic stream of values from a derived key."""
+    """Byte stream for v1: cycles ``dk`` with wraparound.
+
+    Retained unchanged because v1 output depends on it, including the
+    wraparound. v2 uses :class:`ExpandedStream` instead -- wrapping a fixed key
+    is a repeating pad, not a stream.
+    """
 
     def __init__(self, dk: bytes):
         self.dk = dk
@@ -91,6 +106,52 @@ class DeterministicStream:
     @property
     def current_index(self) -> int:
         return self.index
+
+
+class ExpandedStream:
+    """Unbounded deterministic byte stream for v2 (audit item M3).
+
+    Generates SHA-256 blocks on demand as ``HMAC(dk, info || counter)`` rather
+    than cycling a fixed 32-byte key, so it never repeats within any usable
+    password length. ``info`` domain-separates independent streams derived from
+    the same ``dk``.
+    """
+
+    def __init__(self, dk: bytes, info: bytes = b""):
+        self._key = dk
+        self._info = info
+        self._block = b""
+        self._pos = 0
+        self._counter = 0
+
+    def get_value(self) -> int:
+        if self._pos >= len(self._block):
+            msg = self._info + self._counter.to_bytes(4, "big")
+            self._block = hmac.new(self._key, msg, hashlib.sha256).digest()
+            self._counter += 1
+            self._pos = 0
+        value = self._block[self._pos]
+        self._pos += 1
+        return value
+
+
+def _uniform_index(stream, max_exclusive: int) -> int:
+    """Uniform value in ``[0, max_exclusive)`` by rejection sampling.
+
+    Avoids the modulo bias in ``byte % len(alphabet)`` (audit item M2): with a
+    94-character alphabet, plain modulo gives 68 characters probability 3/256
+    and the other 26 only 2/256. Requires an unbounded stream, since rejection
+    consumes a variable number of bytes -- hence :class:`ExpandedStream`.
+    """
+    if max_exclusive <= 0:
+        raise ValueError("max_exclusive must be positive")
+    if max_exclusive > 256:
+        raise ValueError("_uniform_index supports single-byte ranges only")
+    limit = 256 - (256 % max_exclusive)
+    while True:
+        value = stream.get_value()
+        if value < limit:
+            return value % max_exclusive
 
 
 class PasswordGenerator:
@@ -137,19 +198,18 @@ class PasswordGenerator:
             raise
 
     def _derive_password_entropy(self, index: int) -> bytes:
-        """Derive deterministic entropy for password generation."""
+        """Derive deterministic entropy for password generation.
+
+        Chain: BIP-85 (64 bytes, app_no=32) -> PBKDF2-HMAC-SHA256 (empty salt,
+        100k iterations) -> 32-byte derived key.
+
+        The empty salt is deliberate: a random salt would break the determinism
+        this whole module exists to provide (see the module docstring). The
+        iteration count is not doing password-stretching work here -- the input
+        is already 64 bytes of high-entropy BIP-85 output, not a human secret.
+        """
         entropy = self.bip85.derive_entropy(index=index, entropy_bytes=64, app_no=32)
         logger.debug("Entropy derived for password generation.")
-
-        hkdf = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=b"password-generation",
-            backend=default_backend(),
-        )
-        hkdf_derived = hkdf.derive(entropy)
-        logger.debug("Derived key using HKDF.")
 
         dk = hashlib.pbkdf2_hmac("sha256", entropy, b"", 100000)
         logger.debug("Derived key using PBKDF2.")
@@ -189,22 +249,38 @@ class PasswordGenerator:
         return shuffled
 
     def generate_password(
-        self, length: int = DEFAULT_PASSWORD_LENGTH, index: int = 0
+        self,
+        length: int = DEFAULT_PASSWORD_LENGTH,
+        index: int = 0,
+        gen_version: int = LEGACY_PASSWORD_GEN_VERSION,
     ) -> str:
         """
         Generates a deterministic password based on the parent seed, desired length, and index.
 
-        Steps:
+        Common to both versions:
         1. Derive entropy using BIP-85.
-        2. Use HKDF-HMAC-SHA256 to derive a key from entropy.
-        3. Map the derived key to all allowed characters.
-        4. Ensure the password meets complexity requirements.
-        5. Shuffle the password deterministically based on the derived key.
-        6. Trim or extend the password to the desired length.
+        2. Use PBKDF2-HMAC-SHA256 to derive a 32-byte key from that entropy.
+
+        Version 1 (default, frozen) then:
+        3. Maps derived bytes to characters with ``byte % len(alphabet)``.
+        4. Enforces minimum counts, adds symbols, and forces an equal quota of
+           each character class across the whole password.
+        5. Shuffles, extends/trims to length, re-enforces, shuffles again.
+
+        Version 2 then:
+        3. Draws exactly ``length`` characters by rejection sampling from an
+           unbounded HMAC-expanded stream (no modulo bias, no repeating pad).
+        4. Enforces only the policy minima, without pinning the composition.
+        5. Shuffles once.
+
+        ``gen_version`` defaults to 1 so that every caller which does not
+        explicitly opt in keeps deriving exactly what it derived before. Entry
+        records carry the version; see ``_generate_password_for_entry``.
 
         Parameters:
             length (int): Desired length of the password.
             index (int): Index for deriving child entropy.
+            gen_version (int): Generation algorithm version (1 or 2).
 
         Returns:
             str: The generated password.
@@ -227,25 +303,17 @@ class PasswordGenerator:
                 )
 
             dk = self._derive_password_entropy(index=index)
+            all_allowed, allowed_special = self._alphabets()
 
-            letters = string.ascii_letters
-            digits = string.digits
+            if gen_version == CURRENT_PASSWORD_GEN_VERSION:
+                return self._generate_password_v2(
+                    length, dk, all_allowed, allowed_special
+                )
+            if gen_version != LEGACY_PASSWORD_GEN_VERSION:
+                raise ValueError(
+                    f"Unknown password generation version: {gen_version!r}"
+                )
 
-            if self.policy.exclude_ambiguous:
-                ambiguous = "O0Il1"
-                letters = "".join(c for c in letters if c not in ambiguous)
-                digits = "".join(c for c in digits if c not in ambiguous)
-
-            if not self.policy.include_special_chars:
-                allowed_special = ""
-            elif self.policy.allowed_special_chars is not None:
-                allowed_special = self.policy.allowed_special_chars
-            elif self.policy.special_mode == "safe":
-                allowed_special = SAFE_SPECIAL_CHARS
-            else:
-                allowed_special = string.punctuation
-
-            all_allowed = letters + digits + allowed_special
             password = self._map_entropy_to_chars(dk, all_allowed)
             password = self._enforce_complexity(
                 password, all_allowed, allowed_special, dk
@@ -281,6 +349,139 @@ class PasswordGenerator:
             logger.error(f"Error generating password: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate password: {e}", "red"))
             raise
+
+    def _alphabets(self) -> tuple[str, str]:
+        """Return ``(all_allowed, allowed_special)`` for the active policy."""
+        letters = string.ascii_letters
+        digits = string.digits
+
+        if self.policy.exclude_ambiguous:
+            ambiguous = "O0Il1"
+            letters = "".join(c for c in letters if c not in ambiguous)
+            digits = "".join(c for c in digits if c not in ambiguous)
+
+        if not self.policy.include_special_chars:
+            allowed_special = ""
+        elif self.policy.allowed_special_chars is not None:
+            allowed_special = self.policy.allowed_special_chars
+        elif self.policy.special_mode == "safe":
+            allowed_special = SAFE_SPECIAL_CHARS
+        else:
+            allowed_special = string.punctuation
+
+        return letters + digits + allowed_special, allowed_special
+
+    def _class_sets(self, allowed_special: str) -> dict[str, str]:
+        """Character class -> its allowed members under the active policy."""
+        uppercase = string.ascii_uppercase
+        lowercase = string.ascii_lowercase
+        digits = string.digits
+        if self.policy.exclude_ambiguous:
+            ambiguous = "O0Il1"
+            uppercase = "".join(c for c in uppercase if c not in ambiguous)
+            lowercase = "".join(c for c in lowercase if c not in ambiguous)
+            digits = "".join(c for c in digits if c not in ambiguous)
+        return {
+            "upper": uppercase,
+            "lower": lowercase,
+            "digit": digits,
+            "special": allowed_special,
+        }
+
+    def _generate_password_v2(
+        self, length: int, dk: bytes, all_allowed: str, allowed_special: str
+    ) -> str:
+        """Version 2 generation (audit items M1, M2, M3).
+
+        Unlike v1 this does not pin the character-class composition. v1 forced
+        exactly ``length/4`` of each class into every password, which cost
+        5.7-11.5 bits over the usable length range and made any SeedPass
+        password recognisable by its composition alone. v2 enforces only what
+        the policy actually asks for.
+        """
+        class_sets = self._class_sets(allowed_special)
+        minima = {
+            "upper": self.policy.min_uppercase,
+            "lower": self.policy.min_lowercase,
+            "digit": self.policy.min_digits,
+            "special": self.policy.min_special if allowed_special else 0,
+        }
+        # Drop classes the policy excludes entirely, so they are never required
+        # and never counted as donors.
+        minima = {k: v for k, v in minima.items() if class_sets[k]}
+
+        required = sum(minima.values())
+        if required > length:
+            raise ValueError(
+                f"Policy requires at least {required} characters "
+                f"({', '.join(f'{v} {k}' for k, v in minima.items() if v)}) "
+                f"but the requested length is {length}."
+            )
+
+        char_stream = ExpandedStream(dk, b"seedpass-v2-chars")
+        policy_stream = ExpandedStream(dk, b"seedpass-v2-policy")
+
+        chars = [
+            all_allowed[_uniform_index(char_stream, len(all_allowed))]
+            for _ in range(length)
+        ]
+
+        self._enforce_minima_v2(chars, policy_stream, class_sets, minima)
+
+        shuffle_key = hmac.new(dk, b"seedpass-v2-shuffle", hashlib.sha256).digest()
+        chars = self._fisher_yates_hmac(chars, shuffle_key)
+        return "".join(chars)
+
+    @staticmethod
+    def _classify(char: str, class_sets: dict[str, str]) -> str | None:
+        for name, members in class_sets.items():
+            if char in members:
+                return name
+        return None
+
+    def _enforce_minima_v2(
+        self,
+        chars: list[str],
+        stream: "ExpandedStream",
+        class_sets: dict[str, str],
+        minima: dict[str, int],
+    ) -> None:
+        """Raise deficient classes to their minimum without breaking others.
+
+        v1's ``_enforce_minimum_counts`` overwrites uniformly random positions,
+        so satisfying one minimum could destroy another; v1 got away with it
+        only because ``_balance_distribution`` then rewrote nearly every
+        position anyway. v2 has no such backstop, so donor positions are chosen
+        only from classes that currently have a surplus.
+        """
+        counts = {name: 0 for name in class_sets}
+        for char in chars:
+            name = self._classify(char, class_sets)
+            if name is not None:
+                counts[name] += 1
+
+        for name, minimum in minima.items():
+            while counts[name] < minimum:
+                donors = [
+                    i
+                    for i, char in enumerate(chars)
+                    if (other := self._classify(char, class_sets)) != name
+                    and other is not None
+                    and counts[other] > minima.get(other, 0)
+                ]
+                if not donors:
+                    # Unreachable while sum(minima) <= length, which the caller
+                    # enforces; kept so a future policy change fails loudly.
+                    raise ValueError(
+                        f"Cannot satisfy minimum for {name!r} without violating "
+                        f"another policy minimum."
+                    )
+                position = donors[_uniform_index(stream, len(donors))]
+                donor_class = self._classify(chars[position], class_sets)
+                members = class_sets[name]
+                chars[position] = members[_uniform_index(stream, len(members))]
+                counts[donor_class] -= 1
+                counts[name] += 1
 
     def _count_char_types(
         self,
@@ -523,8 +724,10 @@ def derive_seed_phrase(bip85: BIP85, idx: int, words: int = 24) -> str:
 
 def derive_pgp_key(
     bip85: BIP85, idx: int, key_type: str = "ed25519", user_id: str = ""
-) -> tuple[str, str]:
-    """Derive a deterministic PGP private key and return it with its fingerprint.
+) -> tuple[str, str, str]:
+    """Derive deterministic armored PGP material.
+
+    Returns ``(private_key, public_key, fingerprint)``.
 
     For RSA keys the randomness required during key generation is provided by
     an HMAC-SHA256 based deterministic generator seeded from the BIP-85
@@ -623,4 +826,4 @@ def derive_pgp_key(
         compression=[CompressionAlgorithm.ZLIB],
         created=created,
     )
-    return str(key), key.fingerprint
+    return str(key), str(key.pubkey), key.fingerprint

@@ -132,6 +132,7 @@ Useful options:
 Coverage gate helper:
 
 - `python scripts/check_critical_coverage.py artifacts/coverage/coverage.json`
+- `./scripts/tui2_coverage_gate.sh` (focused TUI v2 + service-path thresholds)
 - Use `--threshold PATH=PERCENT` to override defaults.
 - Use `--no-default-thresholds` for focused local smoke checks.
 

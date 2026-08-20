@@ -1,0 +1,398 @@
+
+=== ui_board_idle ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Select an entry to view context actions.
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: (none)
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Inspector idle.
+
+Select an entry from the grid to inspect details.
+
+=== board_password ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Rev (v) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (password)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #1  Login 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #1  Login 1
+------------------------
+🗝 Password Board
+Kind: password | Modified: (unknown) | Archived: No
+Index Num*: (auto)
+Login Fields
++- Credentials ---------------------+
+| Password*: hidden (v reveal, g qr) |
+| Username*: alice                   |
+| URL      : https://example.com     |
+| Length   : 18 chars                |
++------------------------------------+
+Operations
++- Quick Actions ----------------------+
+| ▣ Copy Password  ▣ Create New  ▣ Edit |
++---------------------------------------+
+Tags/Notes: side panel.
+Actions: e edit | a archive
+
+=== board_note ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Edit Doc (e) ▣ Save (Ctrl+S) ▣ Arch (a) ▣ doc-export (document)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #2  Note 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #2  Note 1
+----------------------------
+📄 Note Board
+Kind: document | Modified: (unknown) | Archived: No
+Index Num*: (auto) | File Type: md
+Document Fields
++- Content -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Content Length: 230 chars                                                                                                                                                                            |
+| Preview       : This is a long note content for layout audit. This is a long note content for layout audit. This is a long note content for layout audit. This is a long note content for layout aud |
++------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+Operations
++- Quick Actions -+
+| ▣ Edit  ▣ Export |
++------------------+
+Tags/Notes: side panel.
+Actions: e edit | Ctrl+S save | Esc cancel | a archive
+
+=== board_totp ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+2FA Board (6) ▣ Rev (v) ▣ QR (g) ▣ Arch (a) (totp)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #3  Auth 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #3  Auth 1
+----------------------------
+📱 2FA Board
+Kind: totp | Modified: (unknown) | Archived: No
+Index Num*: (auto)
+2FA Fields
+Period : 30s
+Digits : 6
+Current Code: hidden (use '6' board or 'v' reveal)
+Secret: hidden | URI via QR
+Operations
+▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR
+Tags/Notes: side panel.
+Actions: 6 board | 2fa-copy <id> | 2fa-copy-url <id> | v reveal | g qr | a archive
+
+=== board_ssh ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Rev (v cfm) ▣ Arch (a) ▣ copy/export-field (ssh)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #6  SSH 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #6  SSH 1
+----------------------------
+🖧 SSH Board
+Kind: ssh | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 6
+▣ Copy Public  ▣ Export Public
+▣ Reveal Private  ▣ Copy Private  ▣ Export Private
+Public Key: ssh-ed25519 AAAA-6
+Private Key: hidden (use 'v confirm' to reveal)
+Tags/Notes: side panel.
+Actions: v reveal | e edit | a archive | Ctrl+P copy/export-field
+
+=== board_pgp ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Rev (v cfm) ▣ Arch (a) ▣ copy/export-field (pgp)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #7  PGP 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #7  PGP 1
+----------------------------
+🔒 PGP Board
+Kind: pgp | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 7
+▣ Copy Public  ▣ Export Public
+▣ Reveal Private  ▣ Copy Private  ▣ Export Private
+Fingerprint: FPR-7
+Public Key: available
+Private Key: hidden (use 'v confirm' to reveal)
+Tags/Notes: side panel.
+Actions: v reveal | e edit | a archive | Ctrl+P copy/export-field
+
+=== board_nostr ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Rev (v) ▣ QR (g public/private) ▣ Arch (a) (nostr)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #8  Nostr 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Entry #8  Nostr 1
+----------------------------
+⚡ Nostr Board
+Kind: nostr | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 8
+▣ Copy npub  ▣ Copy nsec  ▣ Edit
+▣ QR Public  ▣ QR Private
+npub: npub1demo
+nsec: hidden (use 'v confirm' to reveal)
+Tags/Notes: side panel.
+Actions: v reveal | g qr | qr private cfm | a archive
+
+=== board_seed ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Rev (v cfm) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (seed)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #4  Seed 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+🌱 Entry #4  Seed 1
+------------------------
+Kind: seed | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 4 | Edit: e
+🌱 BIP-39 Seed Board
+▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)
+Seed Phrase*: hidden (v confirm) | Word Count: 12
+Index Num*: (auto)
+Tags/Notes: side panel.
+Actions: v reveal(cfm) | g qr | copy seed cfm | export-field seed <path> cfm | a archive
+
+=== board_managed_seed ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+managed-load ▣ managed-exit ▣ Rev (v cfm) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (managed_account)
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+Path: (default)
+Session: unlocked | Profiles: 1 | Managed: (none)
+Scope: filter=all arch=active links=all
+Selected: #5  Managed 1
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+👥 Entry #5  Managed 1
+------------------------
+Kind: managed_account | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 5 | Edit: e
+👥 Managed Account Seed Board
+▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)
+Seed Phrase*: hidden (v confirm) | Word Count: 12
+Index Num*: (auto)
+Tags/Notes: side panel.
+Actions: v reveal(cfm) | g qr | copy seed cfm | export-field seed <path> cfm | a archive
+
+=== ui_board_managed_loaded ===
+-- action-strip --
+Shift+S Set  Shift+A Add  Shift+C Seed+  Shift+R Seed-  Shift+H Reveal  Shift+E Export  Shift+I Import  B Backup  Ctrl+P Cmd  Dense
+Select an entry to view context actions.
+-- filters --
+SeedPass ◈ TUI v2
+Fingerprint: fp-m1
+Path: (default) > fp-m1
+Session: unlocked | Profiles: 1 | Managed: #5
+Scope: filter=all arch=active links=all
+Selected: (none)
+Results: 8 | Page: 1/1
+
+Tree
+----
+▶ ■ default          | Seed: (default)  M:1 A:1
+    👤 Managed (1)
+      #5    Managed 1
+    🤖 Agents (1)
+      #8    Nostr 1
+
+Keys: / j f Shift+F m h p/n ? r x  Pane:1/2/3  Tree:↑/↓ Ctrl+O Ctrl+B
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6
+-- grid-heading --
+Entry Grid  |  Pg 1/1  Rows 8/8  Density compact  Search (KEYWORD) hybrid semantic
+Sel Id       Entry#   Label                       Kind            Meta                      Arch
+------------------------------------------------------------------------------------------------
+-- entry-detail --
+Inspector idle.
+
+Select an entry from the grid to inspect details.

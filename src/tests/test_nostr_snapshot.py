@@ -8,11 +8,20 @@ import os
 import asyncio
 import sys
 from unittest.mock import patch
+import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from nostr.client import prepare_snapshot, NostrClient
 from seedpass.core.encryption import EncryptionManager
+
+pytestmark = pytest.mark.determinism
+
+
+def _deterministic_bytes(size: int) -> bytes:
+    block = b"SeedPass snapshot chunk payload 0123456789 abcdefghijklmnopqrstuvwxyz\n"
+    repeats = (size // len(block)) + 1
+    return (block * repeats)[:size]
 
 
 def test_prepare_snapshot_roundtrip():
@@ -24,6 +33,30 @@ def test_prepare_snapshot_roundtrip():
     assert hashlib.sha256(chunks[0]).hexdigest() == manifest.chunks[0].hash
     assert manifest.chunks[0].id == "seedpass-chunk-0000"
     assert data == gzip.decompress(joined)
+
+
+@pytest.mark.parametrize(
+    "size_bytes,limit",
+    [
+        (64 * 1024, 16 * 1024),
+        (512 * 1024, 64 * 1024),
+        (2 * 1024 * 1024, 128 * 1024),
+    ],
+)
+def test_prepare_snapshot_chunk_hash_integrity_by_size_tier(
+    size_bytes: int, limit: int
+):
+    payload = _deterministic_bytes(size_bytes)
+    manifest, chunks = prepare_snapshot(payload, limit)
+    assert len(chunks) == len(manifest.chunks)
+    assert len(chunks) >= 1
+
+    for meta, chunk in zip(manifest.chunks, chunks):
+        assert hashlib.sha256(chunk).hexdigest() == meta.hash
+        assert meta.size == len(chunk)
+
+    joined = b"".join(chunks)
+    assert gzip.decompress(joined) == payload
 
 
 class DummyEvent:

@@ -1,0 +1,62 @@
+[
+	{
+		"id": "group-da4f1a1b",
+		"name": "v3-parity-polish",
+		"memberIssueIds": [
+			"SeedPass-57f6",
+			"SeedPass-68c4",
+			"SeedPass-865f"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-06T18:15:54.676Z",
+		"completedAt": "2026-03-06T18:40:28.735Z"
+	},
+	{
+		"id": "group-8f7fcbaf",
+		"name": "bugfix-and-v3-polish",
+		"memberIssueIds": [
+			"SeedPass-1d93",
+			"SeedPass-6d26",
+			"SeedPass-36fb",
+			"SeedPass-c211"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-07T03:32:03.525Z",
+		"completedAt": "2026-03-10T00:55:36.367Z"
+	},
+	{
+		"id": "group-6ac0330a",
+		"name": "search-graph-and-mulch",
+		"memberIssueIds": [
+			"SeedPass-dd29",
+			"SeedPass-de11",
+			"SeedPass-2603"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-10T01:41:12.693Z",
+		"completedAt": "2026-03-10T19:14:21.103Z"
+	},
+	{
+		"id": "group-1ee89895",
+		"name": "slice-b-deep-graph-atlas",
+		"memberIssueIds": [
+			"SeedPass-4a47",
+			"SeedPass-63f4"
+		],
+		"status": "completed",
+		"createdAt": "2026-03-11T01:40:50.732Z",
+		"completedAt": "2026-03-11T18:34:41.447Z"
+	},
+	{
+		"id": "group-6d40a159",
+		"name": "slice-c-utility-security",
+		"memberIssueIds": [
+			"SeedPass-8781",
+			"SeedPass-5b75",
+			"SeedPass-e0e7"
+		],
+		"status": "active",
+		"createdAt": "2026-03-11T18:39:35.519Z",
+		"completedAt": null
+	}
+]

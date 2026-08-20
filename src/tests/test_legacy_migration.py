@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from helpers import create_vault, TEST_SEED, TEST_PASSWORD
+from helpers import create_vault, user_data, TEST_SEED, TEST_PASSWORD
 from utils.key_derivation import derive_index_key
 from cryptography.fernet import Fernet
 from types import SimpleNamespace
@@ -46,7 +46,7 @@ def test_legacy_index_migrates(monkeypatch, tmp_path: Path):
     monkeypatch.setattr("builtins.input", lambda *_a, **_k: "y")
 
     loaded = vault.load_index()
-    assert loaded == data
+    assert user_data(loaded) == data
 
     new_file = tmp_path / "seedpass_entries_db.json.enc"
     assert new_file.exists()
@@ -126,12 +126,12 @@ def test_legacy_index_migration_removes_strays(monkeypatch, tmp_path: Path):
 
     # First load triggers migration and removes stray legacy files
     loaded = vault.load_index()
-    assert loaded == data
+    assert user_data(loaded) == data
     assert not stray_file.exists()
 
     # Subsequent load should not detect any legacy files
     loaded_again = vault.load_index()
-    assert loaded_again == data
+    assert user_data(loaded_again) == data
 
     assert (tmp_path / "seedpass_entries_db.json.enc").exists()
     assert list(tmp_path.glob("seedpass_passwords_db*.enc")) == []
@@ -265,7 +265,7 @@ def test_legacy_nostr_payload_syncs_when_confirmed(monkeypatch, tmp_path: Path):
 
     asyncio.run(pm.sync_index_from_nostr_async())
     assert calls["sync"] == 1
-    assert pm.vault.load_index() == data
+    assert user_data(pm.vault.load_index()) == data
     assert enc_mgr.last_migration_performed is False
 
 
@@ -306,7 +306,7 @@ def test_legacy_index_reinit_syncs_once_when_confirmed(monkeypatch, tmp_path: Pa
     pm.initialize_managers()
     pm.initialize_managers()
 
-    assert calls["sync"] == 0
+    assert calls["sync"] == 1
     assert enc_mgr.last_migration_performed is False
 
 

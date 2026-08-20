@@ -279,7 +279,7 @@ def _resolve_secret_for_kind(
         secret, _pub = pm.entry_manager.get_ssh_key_pair(index, pm.parent_seed)
         return secret
     if kind == EntryType.PGP.value:
-        secret, _fp = pm.entry_manager.get_pgp_key(index, pm.parent_seed)
+        secret, _pub, _fp = pm.entry_manager.get_pgp_key(index, pm.parent_seed)
         return secret
     if kind == EntryType.NOSTR.value:
         _npub, secret = pm.entry_manager.get_nostr_key_pair(index, pm.parent_seed)
@@ -3676,7 +3676,9 @@ def agent_export_manifest_verify(
 def agent_document_import(
     ctx: typer.Context,
     file: Path = typer.Option(..., "--file", help="Input file path"),
-    label: Optional[str] = typer.Option(None, "--label", help="Document title override"),
+    label: Optional[str] = typer.Option(
+        None, "--label", help="Document title override"
+    ),
     notes: str = typer.Option("", "--notes", help="Entry notes"),
     tag: list[str] = typer.Option(
         [], "--tag", help="Tag to attach (repeatable)", show_default=False

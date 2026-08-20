@@ -1,0 +1,2 @@
+=== TOP RIBBON WITH TYPE STATS ===
+FP (default) | Managed Users: 0 | Entries: 4 | PW:1 2FA:1 DOC:1 KEY:1 | Kind: all | Session: unlocked | Last Sync: (none)

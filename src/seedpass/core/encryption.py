@@ -29,6 +29,7 @@ from mnemonic import Mnemonic
 from utils.password_prompt import prompt_existing_password
 from utils.key_derivation import KdfConfig, CURRENT_KDF_VERSION
 from .errors import DecryptionError
+from .index0 import ensure_index0_payload
 from .sync_conflict import merge_index_payloads
 
 # Instantiate the logger
@@ -479,6 +480,7 @@ class EncryptionManager:
                 data = json_lib.loads(decrypted)
             else:
                 data = json_lib.loads(decrypted.decode("utf-8"))
+            data = ensure_index0_payload(data)
             existing_file = self.resolve_relative_path(relative_path)
             if merge and existing_file.exists():
                 current = self.load_json_data(relative_path)

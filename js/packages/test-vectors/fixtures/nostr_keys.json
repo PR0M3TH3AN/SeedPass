@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "account_index": 0,
+      "mnemonic_id": "abandon12",
+      "npub": "npub1y4lj9scynn6jzq9a797khn59klyavjy9pe8rcxt9wv7aza4kgmsqyzg7kg",
+      "nsec": "nsec1ptrmumrmpzl3d6kcw7zffnmj2mzkd7mghvyuq2zmq4kc5459zm7qlyesmd",
+      "private_key_hex": "0ac7be6c7b08bf16ead8778494cf7256c566fb68bb09c0285b056d8a568516fc",
+      "public_key_hex": "257f22c3049cf52100bdf17d6bce85b7c9d648850e4e3c1965733dd176b646e0"
+    },
+    {
+      "account_index": 1,
+      "mnemonic_id": "abandon12",
+      "npub": "npub138nm4j34tzpf347ds94j7crmtcwnmyp4g5vv9ld9469zvzk0ws3s6ssq07",
+      "nsec": "nsec1fca2eqfzf7sfv7fnetpnlywq45sr2pw8ahmame42upu47r034ljqfrvmhg",
+      "private_key_hex": "4e3aac81224fa0967933cac33f91c0ad203505c7edf7dde6aae0795f0df1afe4",
+      "public_key_hex": "89e7baca35588298d7cd816b2f607b5e1d3d90354518c2fda5ae8a260acf7423"
+    },
+    {
+      "account_index": 7,
+      "mnemonic_id": "abandon12",
+      "npub": "npub19zr40s993mlnfl80tucx2fmy4ysdm9737px9zl9hqk8lus7amrgsjazqce",
+      "nsec": "nsec1sdd4vya5qdg6rnm58upkp82zgsh2k0p0fsxuggcs08nqn3v4yy5sfyspu8",
+      "private_key_hex": "835b5613b40351a1cf743f03609d42442eab3c2f4c0dc4231079e609c5952129",
+      "public_key_hex": "288757c0a58eff34fcef5f30652764a920dd97d1f04c517cb7058ffe43ddd8d1"
+    },
+    {
+      "account_index": 0,
+      "mnemonic_id": "legal12",
+      "npub": "npub13xzsvpzqhueffdze4g27gut6df5l2n3xwrz8jxs2yl6ag27ntpmsp09ks9",
+      "nsec": "nsec1c8t2n3h72v765wkngss7tk786y4cpn667938nvs6eskrtcnwyj5s2v3ptm",
+      "private_key_hex": "c1d6a9c6fe533daa3ad34421e5dbc7d12b80cf5af16279b21acc2c35e26e24a9",
+      "public_key_hex": "8985060440bf3294b459aa15e4717a6a69f54e2670c4791a0a27f5d42bd35877"
+    },
+    {
+      "account_index": 1,
+      "mnemonic_id": "legal12",
+      "npub": "npub1zg7slun7m6gd90jn9adfwczd7zmam2nxcsg2v6dwvnx0mjvekq6sem0txf",
+      "nsec": "nsec1uqdt2fjayxtd0f0dly620jhq476ypj2qsx2jwd3xgrn0k0cquvuqdva7um",
+      "private_key_hex": "e01ab5265d2196d7a5edf934a7cae0afb440c940819527362640e6fb3f00e338",
+      "public_key_hex": "123d0ff27ede90d2be532f5a97604df0b7ddaa66c410a669ae64ccfdc999b035"
+    },
+    {
+      "account_index": 7,
+      "mnemonic_id": "legal12",
+      "npub": "npub130sznfqq0vv204jrc36knyj62cg65x5t0netdpaaxje6x3mxhnwq76c7wr",
+      "nsec": "nsec146ss8ne2mpr766qll8h93sd44rn93j9jfr639x2rrj4wwfsauzzqj86a3v",
+      "private_key_hex": "aea103cf2ad847ed681ff9ee58c1b5a8e658c8b248f51299431caae7261de084",
+      "public_key_hex": "8be029a4007b18a7d643c47569925a5611aa1a8b7cf2b687bd34b3a34766bcdc"
+    }
+  ],
+  "description": "Nostr keys: BIP-85 app 1237, 32 bytes -> secp256k1 private key; public key is x-only (compressed pubkey minus prefix byte); npub/nsec are bech32",
+  "fixture_version": 1
+}

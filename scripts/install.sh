@@ -218,6 +218,14 @@ main() {
     if ! "$VENV_DIR/bin/python" -c "import seedpass.cli; print('ok')"; then
         print_error "SeedPass CLI import check failed."
     fi
+    if "$VENV_DIR/bin/seedpass" tui2 --check >/tmp/seedpass-tui2-check.json 2>/dev/null; then
+        if ! grep -q '"textual_available":[[:space:]]*true' /tmp/seedpass-tui2-check.json; then
+            print_warning "TUI v2 runtime check reports Textual as unavailable."
+            print_warning "You can run legacy mode with: seedpass --legacy-tui"
+        fi
+    else
+        print_warning "Unable to run 'seedpass tui2 --check' during install validation."
+    fi
 
     deactivate
 
@@ -257,6 +265,7 @@ EOF2
     # 8. Final instructions
     print_success "Installation/update complete!"
     print_info "You can now launch the interactive TUI by typing: seedpass"
+    print_info "If your terminal only shows a blank/gray screen, run: seedpass --legacy-tui"
     print_info "'seedpass' resolves to: $(command -v seedpass)"
     if [[ ":$PATH:" != *":$LAUNCHER_DIR:"* ]]; then
         print_warning "Directory '$LAUNCHER_DIR' is not in your PATH."

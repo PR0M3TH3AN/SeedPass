@@ -1,0 +1,1708 @@
+{
+  "appended": {
+    "_system": {
+      "index0": {
+        "canonical_views": {},
+        "checkpoints": {},
+        "events": {
+          "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd": {
+            "actor_id": "AABBCCDDEEFF0011",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "event_type": "entry.created",
+            "integrity_hash": "06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "links": [],
+            "modified_ts": 1700090000,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "",
+            "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "subject_id": "7",
+            "subject_kind": "seed",
+            "subject_type": "entry",
+            "tags": [],
+            "visibility": "private",
+            "writer_id": "writer:profile:AABBCCDDEEFF0011"
+          },
+          "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+            "event_type": "entry.created",
+            "integrity_hash": "a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+            "links": [],
+            "modified_ts": 1700000200,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "7ce12c9b183701d408c08aa95c8a47bab41e9b9bdefe20cd158359b0eff7adfb",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "subject_type": "entry",
+            "summary": "event 1 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+            "event_type": "entry.updated",
+            "integrity_hash": "b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+            "links": [],
+            "modified_ts": 1700086400,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "ab0c35a0958e2a679778343f5c4639f13c5c14c100a28b99b8d9d9b705812fb3",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "0",
+            "subject_kind": "password",
+            "subject_type": "entry",
+            "summary": "event 2 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "event_type": "entry.archived",
+            "integrity_hash": "e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "links": [],
+            "modified_ts": 1700086500,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "5490e096426699e9c417b4f470d4b5ca5175f7805d9e3bac850b736c8dc90186",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "subject_type": "entry",
+            "summary": "event 3 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+            "event_type": "entry.created",
+            "integrity_hash": "f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+            "links": [],
+            "modified_ts": 1700000100,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "0",
+            "subject_kind": "password",
+            "subject_type": "entry",
+            "summary": "event 0 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          }
+        },
+        "heads": {
+          "writer:profile:AABBCCDDEEFF0011": {
+            "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "head_hash": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+            "modified_ts": 1700090000
+          },
+          "writer:profile:C557EEC878DFD852": {
+            "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "head_hash": "6e20fe85720279fe6f51b12586d4628e7bfde0b72618e93600bce67efda3e464",
+            "modified_ts": 1700086500
+          }
+        },
+        "schema_version": 1,
+        "stats": {
+          "checkpoint_count": 0,
+          "event_count": 5,
+          "last_compaction_ts": 0,
+          "last_validation_ts": 1700090000,
+          "writer_count": 2
+        },
+        "view_manifest": {
+          "builder_versions": {},
+          "canonical_view_types": [],
+          "local_only_view_types": [],
+          "version": 1
+        }
+      }
+    },
+    "entries": {
+      "0": {
+        "kind": "password",
+        "label": "bank.example",
+        "links": [
+          {
+            "note": "recovery",
+            "relation": "depends_on",
+            "target_id": "2"
+          }
+        ],
+        "modified_ts": 1700000100,
+        "tags": [
+          "money",
+          "daily"
+        ]
+      },
+      "1": {
+        "archived": true,
+        "kind": "totp",
+        "label": "email-2fa",
+        "modified_ts": 1700000200
+      },
+      "10": {
+        "kind": "document",
+        "label": "notes",
+        "modified_ts": 1700000400
+      },
+      "2": {
+        "kind": "ssh",
+        "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+        "modified_ts": 1700000300,
+        "tags": [
+          "ops",
+          "\u00fcn\u00ef"
+        ]
+      },
+      "not-a-number": {
+        "kind": "password",
+        "label": "weird id",
+        "modified_ts": 1700000500
+      }
+    },
+    "schema_version": 4
+  },
+  "compacted": {
+    "_system": {
+      "index0": {
+        "canonical_views": {
+          "children_of:seed/C557EEC878DFD852": {
+            "data": {
+              "children": [
+                {
+                  "archived": false,
+                  "entry_id": "0",
+                  "kind": "password",
+                  "label": "bank.example",
+                  "link_count": 1,
+                  "modified_ts": 1700000100,
+                  "tag_count": 2
+                },
+                {
+                  "archived": true,
+                  "entry_id": "1",
+                  "kind": "totp",
+                  "label": "email-2fa",
+                  "link_count": 0,
+                  "modified_ts": 1700000200,
+                  "tag_count": 0
+                },
+                {
+                  "archived": false,
+                  "entry_id": "2",
+                  "kind": "ssh",
+                  "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+                  "link_count": 0,
+                  "modified_ts": 1700000300,
+                  "tag_count": 2
+                },
+                {
+                  "archived": false,
+                  "entry_id": "10",
+                  "kind": "document",
+                  "label": "notes",
+                  "link_count": 0,
+                  "modified_ts": 1700000400,
+                  "tag_count": 0
+                },
+                {
+                  "archived": false,
+                  "entry_id": "not-a-number",
+                  "kind": "password",
+                  "label": "weird id",
+                  "link_count": 0,
+                  "modified_ts": 1700000500,
+                  "tag_count": 0
+                }
+              ],
+              "total_children": 5
+            },
+            "modified_ts": 1700000500,
+            "scope_path": "seed/C557EEC878DFD852",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+              "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+            ],
+            "source_event_ids": [
+              "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+              "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+              "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+              "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+            ],
+            "view_hash": "3bf8aa8e904e217efa279005d1d4c7d5e7dc45f922661733655ca3df9b58a59b",
+            "view_id": "children_of:seed/C557EEC878DFD852",
+            "view_type": "children_of"
+          },
+          "children_of:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+            "data": {
+              "children": [
+                {
+                  "archived": false,
+                  "entry_id": "0",
+                  "kind": "password",
+                  "label": "bank.example",
+                  "link_count": 1,
+                  "modified_ts": 1700000100,
+                  "tag_count": 2
+                },
+                {
+                  "archived": true,
+                  "entry_id": "1",
+                  "kind": "totp",
+                  "label": "email-2fa",
+                  "link_count": 0,
+                  "modified_ts": 1700000200,
+                  "tag_count": 0
+                },
+                {
+                  "archived": false,
+                  "entry_id": "2",
+                  "kind": "ssh",
+                  "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+                  "link_count": 0,
+                  "modified_ts": 1700000300,
+                  "tag_count": 2
+                },
+                {
+                  "archived": false,
+                  "entry_id": "10",
+                  "kind": "document",
+                  "label": "notes",
+                  "link_count": 0,
+                  "modified_ts": 1700000400,
+                  "tag_count": 0
+                },
+                {
+                  "archived": false,
+                  "entry_id": "not-a-number",
+                  "kind": "password",
+                  "label": "weird id",
+                  "link_count": 0,
+                  "modified_ts": 1700000500,
+                  "tag_count": 0
+                }
+              ],
+              "total_children": 5
+            },
+            "modified_ts": 1700000500,
+            "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+            ],
+            "source_event_ids": [
+              "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+            ],
+            "view_hash": "8dfdf962988e8d9ba0911ffe32325c75c092d2dd7e1bd09a7c9fbdd1ae6dbee7",
+            "view_id": "children_of:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "view_type": "children_of"
+          },
+          "counts_by_kind:seed/C557EEC878DFD852": {
+            "data": {
+              "archived_count": 1,
+              "counts": {
+                "document": 1,
+                "password": 2,
+                "ssh": 1,
+                "totp": 1
+              },
+              "total_entries": 5
+            },
+            "modified_ts": 1700000500,
+            "scope_path": "seed/C557EEC878DFD852",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+              "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+            ],
+            "source_event_ids": [
+              "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+              "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+              "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+              "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+            ],
+            "view_hash": "582d4144faeee64620eac8307595876fc66dc1e2e20bfb15c375af04866b6523",
+            "view_id": "counts_by_kind:seed/C557EEC878DFD852",
+            "view_type": "counts_by_kind"
+          },
+          "counts_by_kind:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+            "data": {
+              "archived_count": 1,
+              "counts": {
+                "document": 1,
+                "password": 2,
+                "ssh": 1,
+                "totp": 1
+              },
+              "total_entries": 5
+            },
+            "modified_ts": 1700000500,
+            "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+            ],
+            "source_event_ids": [
+              "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+            ],
+            "view_hash": "17fd876bd4e7b408fe7aa08daf17ff53d3023ea25d21da81996aea407ac84436",
+            "view_id": "counts_by_kind:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "view_type": "counts_by_kind"
+          },
+          "recent_activity:seed/C557EEC878DFD852": {
+            "data": {
+              "items": [
+                {
+                  "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+                  "event_type": "entry.archived",
+                  "modified_ts": 1700086500,
+                  "subject_id": "1",
+                  "subject_kind": "totp",
+                  "summary": "event 3 \u2014 \u00fcn\u00ef"
+                },
+                {
+                  "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+                  "event_type": "entry.updated",
+                  "modified_ts": 1700086400,
+                  "subject_id": "0",
+                  "subject_kind": "password",
+                  "summary": "event 2 \u2014 \u00fcn\u00ef"
+                },
+                {
+                  "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+                  "event_type": "entry.created",
+                  "modified_ts": 1700000200,
+                  "subject_id": "1",
+                  "subject_kind": "totp",
+                  "summary": "event 1 \u2014 \u00fcn\u00ef"
+                },
+                {
+                  "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+                  "event_type": "entry.created",
+                  "modified_ts": 1700000100,
+                  "subject_id": "0",
+                  "subject_kind": "password",
+                  "summary": "event 0 \u2014 \u00fcn\u00ef"
+                }
+              ],
+              "total_items": 4
+            },
+            "modified_ts": 1700086500,
+            "scope_path": "seed/C557EEC878DFD852",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+              "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+            ],
+            "source_event_ids": [
+              "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+              "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+              "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+              "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+            ],
+            "view_hash": "2789d66e1f16c659f9edde0c7c3cee89e579640a022ad344a3d50cfc0dfa81e3",
+            "view_id": "recent_activity:seed/C557EEC878DFD852",
+            "view_type": "recent_activity"
+          },
+          "recent_activity:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+            "data": {
+              "items": [
+                {
+                  "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+                  "event_type": "entry.created",
+                  "modified_ts": 1700090000,
+                  "subject_id": "7",
+                  "subject_kind": "seed",
+                  "summary": ""
+                }
+              ],
+              "total_items": 1
+            },
+            "modified_ts": 1700090000,
+            "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "source_checkpoint_ids": [
+              "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+            ],
+            "source_event_ids": [
+              "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+            ],
+            "view_hash": "58b037aa5a5ef62a6dea6f648603c272b03db3c35e62715865a45f4539043b3a",
+            "view_id": "recent_activity:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "view_type": "recent_activity"
+          }
+        },
+        "checkpoints": {
+          "cp:day:2023-11-14:writer:profile:C557EEC878DFD852": {
+            "checkpoint_id": "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+            "event_count": 2,
+            "head_hash": "ab0c35a0958e2a679778343f5c4639f13c5c14c100a28b99b8d9d9b705812fb3",
+            "modified_ts": 1700000200,
+            "rollup": {
+              "events_by_type": {
+                "entry.created": 2
+              },
+              "subjects": [
+                "0",
+                "1"
+              ],
+              "subjects_by_kind": {
+                "password": 1,
+                "totp": 1
+              }
+            },
+            "summary_hash": "b555832825c7937caa301eca7b8741f0d68e5f9a494803d114e0761c45de17a4",
+            "window_end_ts": 1700000200,
+            "window_key": "2023-11-14",
+            "window_start_ts": 1700000100,
+            "window_type": "day",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011": {
+            "checkpoint_id": "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011",
+            "event_count": 1,
+            "head_hash": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+            "modified_ts": 1700090000,
+            "rollup": {
+              "events_by_type": {
+                "entry.created": 1
+              },
+              "subjects": [
+                "7"
+              ],
+              "subjects_by_kind": {
+                "seed": 1
+              }
+            },
+            "summary_hash": "1fe90410bc94f4f1cc09c11fa39f6f1d76297b26bda81624fd0e68831f72b6fc",
+            "window_end_ts": 1700090000,
+            "window_key": "2023-11-15",
+            "window_start_ts": 1700090000,
+            "window_type": "day",
+            "writer_id": "writer:profile:AABBCCDDEEFF0011"
+          },
+          "cp:day:2023-11-15:writer:profile:C557EEC878DFD852": {
+            "checkpoint_id": "cp:day:2023-11-15:writer:profile:C557EEC878DFD852",
+            "event_count": 2,
+            "head_hash": "6e20fe85720279fe6f51b12586d4628e7bfde0b72618e93600bce67efda3e464",
+            "modified_ts": 1700086500,
+            "rollup": {
+              "events_by_type": {
+                "entry.archived": 1,
+                "entry.updated": 1
+              },
+              "subjects": [
+                "0",
+                "1"
+              ],
+              "subjects_by_kind": {
+                "password": 1,
+                "totp": 1
+              }
+            },
+            "summary_hash": "f6808d98e759ed5ed4e2ef26755089c69d9113ddc466e5017c656eccf741b5c0",
+            "window_end_ts": 1700086500,
+            "window_key": "2023-11-15",
+            "window_start_ts": 1700086400,
+            "window_type": "day",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          }
+        },
+        "events": {
+          "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd": {
+            "actor_id": "AABBCCDDEEFF0011",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "event_type": "entry.created",
+            "integrity_hash": "06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "links": [],
+            "modified_ts": 1700090000,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "",
+            "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+            "subject_id": "7",
+            "subject_kind": "seed",
+            "subject_type": "entry",
+            "tags": [],
+            "visibility": "private",
+            "writer_id": "writer:profile:AABBCCDDEEFF0011"
+          },
+          "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+            "event_type": "entry.created",
+            "integrity_hash": "a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+            "links": [],
+            "modified_ts": 1700000200,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "7ce12c9b183701d408c08aa95c8a47bab41e9b9bdefe20cd158359b0eff7adfb",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "subject_type": "entry",
+            "summary": "event 1 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+            "event_type": "entry.updated",
+            "integrity_hash": "b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+            "links": [],
+            "modified_ts": 1700086400,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "ab0c35a0958e2a679778343f5c4639f13c5c14c100a28b99b8d9d9b705812fb3",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "0",
+            "subject_kind": "password",
+            "subject_type": "entry",
+            "summary": "event 2 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "event_type": "entry.archived",
+            "integrity_hash": "e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "links": [],
+            "modified_ts": 1700086500,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "5490e096426699e9c417b4f470d4b5ca5175f7805d9e3bac850b736c8dc90186",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "subject_type": "entry",
+            "summary": "event 3 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          },
+          "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+            "event_type": "entry.created",
+            "integrity_hash": "f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+            "links": [],
+            "modified_ts": 1700000100,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "0",
+            "subject_kind": "password",
+            "subject_type": "entry",
+            "summary": "event 0 \u2014 \u00fcn\u00ef",
+            "tags": [
+              "auto"
+            ],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          }
+        },
+        "heads": {
+          "writer:profile:AABBCCDDEEFF0011": {
+            "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "head_hash": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+            "modified_ts": 1700090000
+          },
+          "writer:profile:C557EEC878DFD852": {
+            "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "head_hash": "6e20fe85720279fe6f51b12586d4628e7bfde0b72618e93600bce67efda3e464",
+            "modified_ts": 1700086500
+          }
+        },
+        "schema_version": 1,
+        "stats": {
+          "checkpoint_count": 3,
+          "event_count": 5,
+          "last_compaction_ts": 1700090000,
+          "last_validation_ts": 1700090000,
+          "writer_count": 2
+        },
+        "view_manifest": {
+          "builder_versions": {
+            "children_of": 1,
+            "counts_by_kind": 1,
+            "recent_activity": 1
+          },
+          "canonical_view_types": [
+            "children_of",
+            "counts_by_kind",
+            "recent_activity"
+          ],
+          "local_only_view_types": [
+            "conversation_index",
+            "hot_nodes",
+            "semantic_neighbors"
+          ],
+          "version": 1
+        }
+      }
+    },
+    "entries": {
+      "0": {
+        "kind": "password",
+        "label": "bank.example",
+        "links": [
+          {
+            "note": "recovery",
+            "relation": "depends_on",
+            "target_id": "2"
+          }
+        ],
+        "modified_ts": 1700000100,
+        "tags": [
+          "money",
+          "daily"
+        ]
+      },
+      "1": {
+        "archived": true,
+        "kind": "totp",
+        "label": "email-2fa",
+        "modified_ts": 1700000200
+      },
+      "10": {
+        "kind": "document",
+        "label": "notes",
+        "modified_ts": 1700000400
+      },
+      "2": {
+        "kind": "ssh",
+        "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+        "modified_ts": 1700000300,
+        "tags": [
+          "ops",
+          "\u00fcn\u00ef"
+        ]
+      },
+      "not-a-number": {
+        "kind": "password",
+        "label": "weird id",
+        "modified_ts": 1700000500
+      }
+    },
+    "schema_version": 4
+  },
+  "context_managed": {
+    "actor_id": "AABBCCDDEEFF0011",
+    "actor_type": "user",
+    "current_fingerprint": "AABBCCDDEEFF0011",
+    "root_fingerprint": "C557EEC878DFD852",
+    "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+    "writer_id": "writer:profile:AABBCCDDEEFF0011"
+  },
+  "context_root": {
+    "actor_id": "C557EEC878DFD852",
+    "actor_type": "user",
+    "current_fingerprint": "C557EEC878DFD852",
+    "root_fingerprint": "C557EEC878DFD852",
+    "scope_path": "seed/C557EEC878DFD852",
+    "writer_id": "writer:profile:C557EEC878DFD852"
+  },
+  "description": "index0/atlas events, checkpoints, views and merge",
+  "entries": {
+    "0": {
+      "kind": "password",
+      "label": "bank.example",
+      "links": [
+        {
+          "note": "recovery",
+          "relation": "depends_on",
+          "target_id": "2"
+        }
+      ],
+      "modified_ts": 1700000100,
+      "tags": [
+        "money",
+        "daily"
+      ]
+    },
+    "1": {
+      "archived": true,
+      "kind": "totp",
+      "label": "email-2fa",
+      "modified_ts": 1700000200
+    },
+    "10": {
+      "kind": "document",
+      "label": "notes",
+      "modified_ts": 1700000400
+    },
+    "2": {
+      "kind": "ssh",
+      "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+      "modified_ts": 1700000300,
+      "tags": [
+        "ops",
+        "\u00fcn\u00ef"
+      ]
+    },
+    "not-a-number": {
+      "kind": "password",
+      "label": "weird id",
+      "modified_ts": 1700000500
+    }
+  },
+  "fixture_version": 1,
+  "manifest_meta": {
+    "checkpoint_hashes": {
+      "cp:day:2023-11-14:writer:profile:C557EEC878DFD852": "b555832825c7937caa301eca7b8741f0d68e5f9a494803d114e0761c45de17a4",
+      "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011": "1fe90410bc94f4f1cc09c11fa39f6f1d76297b26bda81624fd0e68831f72b6fc",
+      "cp:day:2023-11-15:writer:profile:C557EEC878DFD852": "f6808d98e759ed5ed4e2ef26755089c69d9113ddc466e5017c656eccf741b5c0"
+    },
+    "checkpoint_ids": [
+      "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011",
+      "cp:day:2023-11-15:writer:profile:C557EEC878DFD852",
+      "cp:day:2023-11-14:writer:profile:C557EEC878DFD852"
+    ],
+    "schema_version": 1,
+    "stream_heads": {
+      "writer:profile:AABBCCDDEEFF0011": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+      "writer:profile:C557EEC878DFD852": "6e20fe85720279fe6f51b12586d4628e7bfde0b72618e93600bce67efda3e464"
+    }
+  },
+  "merged": {
+    "canonical_views": {
+      "children_of:seed/C557EEC878DFD852": {
+        "data": {
+          "children": [
+            {
+              "archived": false,
+              "entry_id": "0",
+              "kind": "password",
+              "label": "bank.example",
+              "link_count": 1,
+              "modified_ts": 1700000100,
+              "tag_count": 2
+            },
+            {
+              "archived": true,
+              "entry_id": "1",
+              "kind": "totp",
+              "label": "email-2fa",
+              "link_count": 0,
+              "modified_ts": 1700000200,
+              "tag_count": 0
+            },
+            {
+              "archived": false,
+              "entry_id": "2",
+              "kind": "ssh",
+              "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+              "link_count": 0,
+              "modified_ts": 1700000300,
+              "tag_count": 2
+            },
+            {
+              "archived": false,
+              "entry_id": "10",
+              "kind": "document",
+              "label": "notes",
+              "link_count": 0,
+              "modified_ts": 1700000400,
+              "tag_count": 0
+            },
+            {
+              "archived": false,
+              "entry_id": "not-a-number",
+              "kind": "password",
+              "label": "weird id",
+              "link_count": 0,
+              "modified_ts": 1700000500,
+              "tag_count": 0
+            }
+          ],
+          "total_children": 5
+        },
+        "modified_ts": 1700000500,
+        "scope_path": "seed/C557EEC878DFD852",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+          "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+        ],
+        "source_event_ids": [
+          "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+          "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+          "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+          "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+        ],
+        "view_hash": "3bf8aa8e904e217efa279005d1d4c7d5e7dc45f922661733655ca3df9b58a59b",
+        "view_id": "children_of:seed/C557EEC878DFD852",
+        "view_type": "children_of"
+      },
+      "children_of:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+        "data": {
+          "children": [
+            {
+              "archived": false,
+              "entry_id": "0",
+              "kind": "password",
+              "label": "bank.example",
+              "link_count": 1,
+              "modified_ts": 1700000100,
+              "tag_count": 2
+            },
+            {
+              "archived": true,
+              "entry_id": "1",
+              "kind": "totp",
+              "label": "email-2fa",
+              "link_count": 0,
+              "modified_ts": 1700000200,
+              "tag_count": 0
+            },
+            {
+              "archived": false,
+              "entry_id": "2",
+              "kind": "ssh",
+              "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+              "link_count": 0,
+              "modified_ts": 1700000300,
+              "tag_count": 2
+            },
+            {
+              "archived": false,
+              "entry_id": "10",
+              "kind": "document",
+              "label": "notes",
+              "link_count": 0,
+              "modified_ts": 1700000400,
+              "tag_count": 0
+            },
+            {
+              "archived": false,
+              "entry_id": "not-a-number",
+              "kind": "password",
+              "label": "weird id",
+              "link_count": 0,
+              "modified_ts": 1700000500,
+              "tag_count": 0
+            }
+          ],
+          "total_children": 5
+        },
+        "modified_ts": 1700000500,
+        "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+        ],
+        "source_event_ids": [
+          "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+        ],
+        "view_hash": "8dfdf962988e8d9ba0911ffe32325c75c092d2dd7e1bd09a7c9fbdd1ae6dbee7",
+        "view_id": "children_of:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "view_type": "children_of"
+      },
+      "counts_by_kind:seed/C557EEC878DFD852": {
+        "data": {
+          "archived_count": 1,
+          "counts": {
+            "document": 1,
+            "password": 2,
+            "ssh": 1,
+            "totp": 1
+          },
+          "total_entries": 5
+        },
+        "modified_ts": 1700000500,
+        "scope_path": "seed/C557EEC878DFD852",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+          "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+        ],
+        "source_event_ids": [
+          "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+          "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+          "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+          "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+        ],
+        "view_hash": "582d4144faeee64620eac8307595876fc66dc1e2e20bfb15c375af04866b6523",
+        "view_id": "counts_by_kind:seed/C557EEC878DFD852",
+        "view_type": "counts_by_kind"
+      },
+      "counts_by_kind:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+        "data": {
+          "archived_count": 1,
+          "counts": {
+            "document": 1,
+            "password": 2,
+            "ssh": 1,
+            "totp": 1
+          },
+          "total_entries": 5
+        },
+        "modified_ts": 1700000500,
+        "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+        ],
+        "source_event_ids": [
+          "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+        ],
+        "view_hash": "17fd876bd4e7b408fe7aa08daf17ff53d3023ea25d21da81996aea407ac84436",
+        "view_id": "counts_by_kind:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "view_type": "counts_by_kind"
+      },
+      "recent_activity:seed/C557EEC878DFD852": {
+        "data": {
+          "items": [
+            {
+              "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+              "event_type": "entry.archived",
+              "modified_ts": 1700086500,
+              "subject_id": "1",
+              "subject_kind": "totp",
+              "summary": "event 3 \u2014 \u00fcn\u00ef"
+            },
+            {
+              "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+              "event_type": "entry.updated",
+              "modified_ts": 1700086400,
+              "subject_id": "0",
+              "subject_kind": "password",
+              "summary": "event 2 \u2014 \u00fcn\u00ef"
+            },
+            {
+              "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+              "event_type": "entry.created",
+              "modified_ts": 1700000200,
+              "subject_id": "1",
+              "subject_kind": "totp",
+              "summary": "event 1 \u2014 \u00fcn\u00ef"
+            },
+            {
+              "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+              "event_type": "entry.created",
+              "modified_ts": 1700000100,
+              "subject_id": "0",
+              "subject_kind": "password",
+              "summary": "event 0 \u2014 \u00fcn\u00ef"
+            }
+          ],
+          "total_items": 4
+        },
+        "modified_ts": 1700086500,
+        "scope_path": "seed/C557EEC878DFD852",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+          "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+        ],
+        "source_event_ids": [
+          "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+          "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+          "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+          "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+        ],
+        "view_hash": "2789d66e1f16c659f9edde0c7c3cee89e579640a022ad344a3d50cfc0dfa81e3",
+        "view_id": "recent_activity:seed/C557EEC878DFD852",
+        "view_type": "recent_activity"
+      },
+      "recent_activity:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011": {
+        "data": {
+          "items": [
+            {
+              "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+              "event_type": "entry.created",
+              "modified_ts": 1700090000,
+              "subject_id": "7",
+              "subject_kind": "seed",
+              "summary": ""
+            }
+          ],
+          "total_items": 1
+        },
+        "modified_ts": 1700090000,
+        "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "source_checkpoint_ids": [
+          "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+        ],
+        "source_event_ids": [
+          "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+        ],
+        "view_hash": "58b037aa5a5ef62a6dea6f648603c272b03db3c35e62715865a45f4539043b3a",
+        "view_id": "recent_activity:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "view_type": "recent_activity"
+      }
+    },
+    "checkpoints": {
+      "cp:day:2023-11-14:writer:profile:C557EEC878DFD852": {
+        "checkpoint_id": "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+        "event_count": 2,
+        "head_hash": "ab0c35a0958e2a679778343f5c4639f13c5c14c100a28b99b8d9d9b705812fb3",
+        "modified_ts": 1700000200,
+        "rollup": {
+          "events_by_type": {
+            "entry.created": 2
+          },
+          "subjects": [
+            "0",
+            "1"
+          ],
+          "subjects_by_kind": {
+            "password": 1,
+            "totp": 1
+          }
+        },
+        "summary_hash": "b555832825c7937caa301eca7b8741f0d68e5f9a494803d114e0761c45de17a4",
+        "window_end_ts": 1700000200,
+        "window_key": "2023-11-14",
+        "window_start_ts": 1700000100,
+        "window_type": "day",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      },
+      "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011": {
+        "checkpoint_id": "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011",
+        "event_count": 1,
+        "head_hash": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+        "modified_ts": 1700090000,
+        "rollup": {
+          "events_by_type": {
+            "entry.created": 1
+          },
+          "subjects": [
+            "7"
+          ],
+          "subjects_by_kind": {
+            "seed": 1
+          }
+        },
+        "summary_hash": "1fe90410bc94f4f1cc09c11fa39f6f1d76297b26bda81624fd0e68831f72b6fc",
+        "window_end_ts": 1700090000,
+        "window_key": "2023-11-15",
+        "window_start_ts": 1700090000,
+        "window_type": "day",
+        "writer_id": "writer:profile:AABBCCDDEEFF0011"
+      },
+      "cp:day:2023-11-15:writer:profile:C557EEC878DFD852": {
+        "checkpoint_id": "cp:day:2023-11-15:writer:profile:C557EEC878DFD852",
+        "event_count": 2,
+        "head_hash": "6e20fe85720279fe6f51b12586d4628e7bfde0b72618e93600bce67efda3e464",
+        "modified_ts": 1700086500,
+        "rollup": {
+          "events_by_type": {
+            "entry.archived": 1,
+            "entry.updated": 1
+          },
+          "subjects": [
+            "0",
+            "1"
+          ],
+          "subjects_by_kind": {
+            "password": 1,
+            "totp": 1
+          }
+        },
+        "summary_hash": "f6808d98e759ed5ed4e2ef26755089c69d9113ddc466e5017c656eccf741b5c0",
+        "window_end_ts": 1700086500,
+        "window_key": "2023-11-15",
+        "window_start_ts": 1700086400,
+        "window_type": "day",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      }
+    },
+    "events": {
+      "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd": {
+        "actor_id": "AABBCCDDEEFF0011",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+        "event_type": "entry.created",
+        "integrity_hash": "06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+        "links": [],
+        "modified_ts": 1700090000,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "",
+        "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+        "subject_id": "7",
+        "subject_kind": "seed",
+        "subject_type": "entry",
+        "tags": [],
+        "visibility": "private",
+        "writer_id": "writer:profile:AABBCCDDEEFF0011"
+      },
+      "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4": {
+        "actor_id": "C557EEC878DFD852",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+        "event_type": "entry.created",
+        "integrity_hash": "a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+        "links": [],
+        "modified_ts": 1700000200,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "7ce12c9b183701d408c08aa95c8a47bab41e9b9bdefe20cd158359b0eff7adfb",
+        "scope_path": "seed/C557EEC878DFD852",
+        "subject_id": "1",
+        "subject_kind": "totp",
+        "subject_type": "entry",
+        "summary": "event 1 \u2014 \u00fcn\u00ef",
+        "tags": [
+          "auto"
+        ],
+        "visibility": "private",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      },
+      "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1": {
+        "actor_id": "C557EEC878DFD852",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+        "event_type": "entry.updated",
+        "integrity_hash": "b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+        "links": [],
+        "modified_ts": 1700086400,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "ab0c35a0958e2a679778343f5c4639f13c5c14c100a28b99b8d9d9b705812fb3",
+        "scope_path": "seed/C557EEC878DFD852",
+        "subject_id": "0",
+        "subject_kind": "password",
+        "subject_type": "entry",
+        "summary": "event 2 \u2014 \u00fcn\u00ef",
+        "tags": [
+          "auto"
+        ],
+        "visibility": "private",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      },
+      "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431": {
+        "actor_id": "C557EEC878DFD852",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+        "event_type": "entry.archived",
+        "integrity_hash": "e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+        "links": [],
+        "modified_ts": 1700086500,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "5490e096426699e9c417b4f470d4b5ca5175f7805d9e3bac850b736c8dc90186",
+        "scope_path": "seed/C557EEC878DFD852",
+        "subject_id": "1",
+        "subject_kind": "totp",
+        "subject_type": "entry",
+        "summary": "event 3 \u2014 \u00fcn\u00ef",
+        "tags": [
+          "auto"
+        ],
+        "visibility": "private",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      },
+      "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee": {
+        "actor_id": "C557EEC878DFD852",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+        "event_type": "entry.created",
+        "integrity_hash": "f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+        "links": [],
+        "modified_ts": 1700000100,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "",
+        "scope_path": "seed/C557EEC878DFD852",
+        "subject_id": "0",
+        "subject_kind": "password",
+        "subject_type": "entry",
+        "summary": "event 0 \u2014 \u00fcn\u00ef",
+        "tags": [
+          "auto"
+        ],
+        "visibility": "private",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      },
+      "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e": {
+        "actor_id": "C557EEC878DFD852",
+        "actor_type": "user",
+        "classification": "internal",
+        "event_id": "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+        "event_type": "entry.created",
+        "integrity_hash": "f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+        "links": [],
+        "modified_ts": 1700099999,
+        "partition": "standard",
+        "payload_ref": {},
+        "prev_hash": "",
+        "scope_path": "seed/C557EEC878DFD852",
+        "subject_id": "99",
+        "subject_kind": "password",
+        "subject_type": "entry",
+        "tags": [],
+        "visibility": "private",
+        "writer_id": "writer:profile:C557EEC878DFD852"
+      }
+    },
+    "heads": {
+      "writer:profile:AABBCCDDEEFF0011": {
+        "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+        "head_hash": "d903e5a19f229a37b5ea2f7be6967836046761dd111f62457b82957890eab37d",
+        "modified_ts": 1700090000
+      },
+      "writer:profile:C557EEC878DFD852": {
+        "event_id": "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+        "head_hash": "1ebcaceb046d155dcadcb6ad78c6f1021fbe084d9fafe29d5de96457ebfe1ef4",
+        "modified_ts": 1700099999
+      }
+    },
+    "schema_version": 1,
+    "stats": {
+      "checkpoint_count": 3,
+      "event_count": 6,
+      "last_compaction_ts": 1700090000,
+      "last_validation_ts": 1700099999,
+      "writer_count": 2
+    },
+    "view_manifest": {
+      "builder_versions": {
+        "children_of": 1,
+        "counts_by_kind": 1,
+        "recent_activity": 1
+      },
+      "canonical_view_types": [
+        "children_of",
+        "counts_by_kind",
+        "recent_activity"
+      ],
+      "local_only_view_types": [
+        "conversation_index",
+        "hot_nodes",
+        "semantic_neighbors"
+      ],
+      "version": 1
+    }
+  },
+  "one_view": {
+    "data": {
+      "archived_count": 1,
+      "counts": {
+        "document": 1,
+        "password": 2,
+        "ssh": 1,
+        "totp": 1
+      },
+      "total_entries": 5
+    },
+    "modified_ts": 1700000500,
+    "scope_path": "seed/C557EEC878DFD852",
+    "source_checkpoint_ids": [
+      "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+      "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+    ],
+    "source_event_ids": [
+      "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+      "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+      "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+      "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+    ],
+    "view_hash": "582d4144faeee64620eac8307595876fc66dc1e2e20bfb15c375af04866b6523",
+    "view_id": "counts_by_kind:seed/C557EEC878DFD852",
+    "view_type": "counts_by_kind"
+  },
+  "other": {
+    "_system": {
+      "index0": {
+        "canonical_views": {},
+        "checkpoints": {},
+        "events": {
+          "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e": {
+            "actor_id": "C557EEC878DFD852",
+            "actor_type": "user",
+            "classification": "internal",
+            "event_id": "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+            "event_type": "entry.created",
+            "integrity_hash": "f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+            "links": [],
+            "modified_ts": 1700099999,
+            "partition": "standard",
+            "payload_ref": {},
+            "prev_hash": "",
+            "scope_path": "seed/C557EEC878DFD852",
+            "subject_id": "99",
+            "subject_kind": "password",
+            "subject_type": "entry",
+            "tags": [],
+            "visibility": "private",
+            "writer_id": "writer:profile:C557EEC878DFD852"
+          }
+        },
+        "heads": {
+          "writer:profile:C557EEC878DFD852": {
+            "event_id": "e:f7c6da66b172690419fd5c29afaa998fec1d2331fabc0a6361bc6cba3c55111e",
+            "head_hash": "1ebcaceb046d155dcadcb6ad78c6f1021fbe084d9fafe29d5de96457ebfe1ef4",
+            "modified_ts": 1700099999
+          }
+        },
+        "schema_version": 1,
+        "stats": {
+          "checkpoint_count": 0,
+          "event_count": 1,
+          "last_compaction_ts": 0,
+          "last_validation_ts": 1700099999,
+          "writer_count": 1
+        },
+        "view_manifest": {
+          "builder_versions": {},
+          "canonical_view_types": [],
+          "local_only_view_types": [],
+          "version": 1
+        }
+      }
+    },
+    "entries": {
+      "0": {
+        "kind": "password",
+        "label": "bank.example",
+        "links": [
+          {
+            "note": "recovery",
+            "relation": "depends_on",
+            "target_id": "2"
+          }
+        ],
+        "modified_ts": 1700000100,
+        "tags": [
+          "money",
+          "daily"
+        ]
+      },
+      "1": {
+        "archived": true,
+        "kind": "totp",
+        "label": "email-2fa",
+        "modified_ts": 1700000200
+      },
+      "10": {
+        "kind": "document",
+        "label": "notes",
+        "modified_ts": 1700000400
+      },
+      "2": {
+        "kind": "ssh",
+        "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+        "modified_ts": 1700000300,
+        "tags": [
+          "ops",
+          "\u00fcn\u00ef"
+        ]
+      },
+      "not-a-number": {
+        "kind": "password",
+        "label": "weird id",
+        "modified_ts": 1700000500
+      }
+    },
+    "schema_version": 4
+  },
+  "views": [
+    {
+      "data": {
+        "children": [
+          {
+            "archived": false,
+            "entry_id": "0",
+            "kind": "password",
+            "label": "bank.example",
+            "link_count": 1,
+            "modified_ts": 1700000100,
+            "tag_count": 2
+          },
+          {
+            "archived": true,
+            "entry_id": "1",
+            "kind": "totp",
+            "label": "email-2fa",
+            "link_count": 0,
+            "modified_ts": 1700000200,
+            "tag_count": 0
+          },
+          {
+            "archived": false,
+            "entry_id": "2",
+            "kind": "ssh",
+            "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+            "link_count": 0,
+            "modified_ts": 1700000300,
+            "tag_count": 2
+          },
+          {
+            "archived": false,
+            "entry_id": "10",
+            "kind": "document",
+            "label": "notes",
+            "link_count": 0,
+            "modified_ts": 1700000400,
+            "tag_count": 0
+          },
+          {
+            "archived": false,
+            "entry_id": "not-a-number",
+            "kind": "password",
+            "label": "weird id",
+            "link_count": 0,
+            "modified_ts": 1700000500,
+            "tag_count": 0
+          }
+        ],
+        "total_children": 5
+      },
+      "modified_ts": 1700000500,
+      "scope_path": "seed/C557EEC878DFD852",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+        "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+      ],
+      "source_event_ids": [
+        "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+        "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+        "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+        "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+      ],
+      "view_hash": "3bf8aa8e904e217efa279005d1d4c7d5e7dc45f922661733655ca3df9b58a59b",
+      "view_id": "children_of:seed/C557EEC878DFD852",
+      "view_type": "children_of"
+    },
+    {
+      "data": {
+        "children": [
+          {
+            "archived": false,
+            "entry_id": "0",
+            "kind": "password",
+            "label": "bank.example",
+            "link_count": 1,
+            "modified_ts": 1700000100,
+            "tag_count": 2
+          },
+          {
+            "archived": true,
+            "entry_id": "1",
+            "kind": "totp",
+            "label": "email-2fa",
+            "link_count": 0,
+            "modified_ts": 1700000200,
+            "tag_count": 0
+          },
+          {
+            "archived": false,
+            "entry_id": "2",
+            "kind": "ssh",
+            "label": "prod \u2014 \u00fcn\u00efcod\u00e9 \u2713",
+            "link_count": 0,
+            "modified_ts": 1700000300,
+            "tag_count": 2
+          },
+          {
+            "archived": false,
+            "entry_id": "10",
+            "kind": "document",
+            "label": "notes",
+            "link_count": 0,
+            "modified_ts": 1700000400,
+            "tag_count": 0
+          },
+          {
+            "archived": false,
+            "entry_id": "not-a-number",
+            "kind": "password",
+            "label": "weird id",
+            "link_count": 0,
+            "modified_ts": 1700000500,
+            "tag_count": 0
+          }
+        ],
+        "total_children": 5
+      },
+      "modified_ts": 1700000500,
+      "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+      ],
+      "source_event_ids": [
+        "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+      ],
+      "view_hash": "8dfdf962988e8d9ba0911ffe32325c75c092d2dd7e1bd09a7c9fbdd1ae6dbee7",
+      "view_id": "children_of:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "view_type": "children_of"
+    },
+    {
+      "data": {
+        "archived_count": 1,
+        "counts": {
+          "document": 1,
+          "password": 2,
+          "ssh": 1,
+          "totp": 1
+        },
+        "total_entries": 5
+      },
+      "modified_ts": 1700000500,
+      "scope_path": "seed/C557EEC878DFD852",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+        "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+      ],
+      "source_event_ids": [
+        "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+        "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+        "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+        "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+      ],
+      "view_hash": "582d4144faeee64620eac8307595876fc66dc1e2e20bfb15c375af04866b6523",
+      "view_id": "counts_by_kind:seed/C557EEC878DFD852",
+      "view_type": "counts_by_kind"
+    },
+    {
+      "data": {
+        "archived_count": 1,
+        "counts": {
+          "document": 1,
+          "password": 2,
+          "ssh": 1,
+          "totp": 1
+        },
+        "total_entries": 5
+      },
+      "modified_ts": 1700000500,
+      "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+      ],
+      "source_event_ids": [
+        "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+      ],
+      "view_hash": "17fd876bd4e7b408fe7aa08daf17ff53d3023ea25d21da81996aea407ac84436",
+      "view_id": "counts_by_kind:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "view_type": "counts_by_kind"
+    },
+    {
+      "data": {
+        "items": [
+          {
+            "event_id": "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+            "event_type": "entry.archived",
+            "modified_ts": 1700086500,
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "summary": "event 3 \u2014 \u00fcn\u00ef"
+          },
+          {
+            "event_id": "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+            "event_type": "entry.updated",
+            "modified_ts": 1700086400,
+            "subject_id": "0",
+            "subject_kind": "password",
+            "summary": "event 2 \u2014 \u00fcn\u00ef"
+          },
+          {
+            "event_id": "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+            "event_type": "entry.created",
+            "modified_ts": 1700000200,
+            "subject_id": "1",
+            "subject_kind": "totp",
+            "summary": "event 1 \u2014 \u00fcn\u00ef"
+          },
+          {
+            "event_id": "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee",
+            "event_type": "entry.created",
+            "modified_ts": 1700000100,
+            "subject_id": "0",
+            "subject_kind": "password",
+            "summary": "event 0 \u2014 \u00fcn\u00ef"
+          }
+        ],
+        "total_items": 4
+      },
+      "modified_ts": 1700086500,
+      "scope_path": "seed/C557EEC878DFD852",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-14:writer:profile:C557EEC878DFD852",
+        "cp:day:2023-11-15:writer:profile:C557EEC878DFD852"
+      ],
+      "source_event_ids": [
+        "e:a3ec3134994aefbd548240929188e408be3161d61a26c8803ea62beec44082f4",
+        "e:b36bbedbce3c6717ed59584beb021a5792fcd7b7640100692770a2de585975a1",
+        "e:e912fa98f94411b19748226f8561cd6e531da480144b201a00351853bf62a431",
+        "e:f60e8626b67353147d81db1544b4a2d57cfb478e3fb3822c62648537d266caee"
+      ],
+      "view_hash": "2789d66e1f16c659f9edde0c7c3cee89e579640a022ad344a3d50cfc0dfa81e3",
+      "view_id": "recent_activity:seed/C557EEC878DFD852",
+      "view_type": "recent_activity"
+    },
+    {
+      "data": {
+        "items": [
+          {
+            "event_id": "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd",
+            "event_type": "entry.created",
+            "modified_ts": 1700090000,
+            "subject_id": "7",
+            "subject_kind": "seed",
+            "summary": ""
+          }
+        ],
+        "total_items": 1
+      },
+      "modified_ts": 1700090000,
+      "scope_path": "seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "source_checkpoint_ids": [
+        "cp:day:2023-11-15:writer:profile:AABBCCDDEEFF0011"
+      ],
+      "source_event_ids": [
+        "e:06e8bb93448e5522e1d2a9d16faa9cb5a476167b3728e770bfc4fdd0edb3e4dd"
+      ],
+      "view_hash": "58b037aa5a5ef62a6dea6f648603c272b03db3c35e62715865a45f4539043b3a",
+      "view_id": "recent_activity:seed/C557EEC878DFD852/managed/AABBCCDDEEFF0011",
+      "view_type": "recent_activity"
+    }
+  ]
+}

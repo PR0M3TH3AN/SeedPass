@@ -50,6 +50,7 @@ from utils.key_validation import (
 from .vault import Vault
 from .backup import BackupManager
 from .errors import SeedPassError
+from .index0 import append_index0_event
 
 # Instantiate the logger
 logger = logging.getLogger(__name__)
@@ -119,6 +120,18 @@ class EntryManager:
 
     def _normalize_entry_defaults(self, entry: dict[str, Any]) -> dict[str, Any]:
         """Normalize legacy fields and fill default graph/meta fields."""
+        # Foreign records (spec section 8.2): a kind this build does not
+        # understand belongs to another application sharing the vault. Do not
+        # alias, backfill, or reinterpret it -- the legacy renames below
+        # (website->label, blacklisted->archived, words->word_count) are
+        # migrations for OUR old shapes, and applying them to someone else's
+        # record mangles their data. Carry it through untouched, exactly as
+        # the TypeScript side does, so both implementations produce identical
+        # canonical bytes for the same foreign record. Entries with neither
+        # kind nor type are pre-kind legacy Python data and still normalize.
+        foreign_kind = entry.get("kind", entry.get("type"))
+        if foreign_kind is not None and foreign_kind not in ALL_ENTRY_TYPES:
+            return entry
         if "type" not in entry and "kind" in entry:
             entry["type"] = entry["kind"]
         if "kind" not in entry:
@@ -186,12 +199,105 @@ class EntryManager:
 
     def _save_index(self, data: Dict[str, Any]) -> None:
         try:
+            self._bump_next_index_watermark(data)
             self.vault.save_index(data)
             self._index_cache = data
             logger.debug("Index saved successfully.")
         except Exception as e:
             logger.error(f"Failed to save index: {e}")
             raise
+
+    @staticmethod
+    def _allocation_floor(data: Dict[str, Any]) -> int:
+        """One past the highest id ever seen: live entries, tombstones, and the
+        persisted watermark. Scanning live entries alone is not enough — an
+        entry id doubles as the BIP-85 derivation index for managed_account
+        (and seed) entries, and sync deletion removes entries via tombstones,
+        so ``max(live) + 1`` could reissue a deleted #184 to a NEW entry that
+        then re-derives the departed identity's exact child seed and npub.
+        Mirrors nextIndex in the TypeScript core (vault/entryOps.ts)."""
+
+        def _max_numeric_key(record: Any) -> int:
+            # Same key shape the TS side accepts (`^(0|[1-9][0-9]*)$`, within
+            # JS safe-integer range): ASCII digits only — str.isdigit() would
+            # accept Unicode digits that Number() rejects — no leading zeros,
+            # and nothing above 2**53 - 1, so both implementations compute the
+            # same floor from the same payload.
+            best = -1
+            if isinstance(record, dict):
+                for key in record:
+                    text = str(key)
+                    if not (text.isascii() and text.isdigit()):
+                        continue
+                    if len(text) > 1 and text[0] == "0":
+                        continue
+                    value = int(text)
+                    if value > 2**53 - 1:
+                        continue
+                    if value > best:
+                        best = value
+            return best
+
+        entries = data.get("entries")
+        meta = data.get("_sync_meta")
+        meta = meta if isinstance(meta, dict) else {}
+        try:
+            stored = int(meta.get("next_index", 0) or 0)
+        except (TypeError, ValueError):
+            stored = 0
+        return max(
+            _max_numeric_key(entries) + 1,
+            _max_numeric_key(meta.get("tombstones")) + 1,
+            stored if stored > 0 else 0,
+            0,
+        )
+
+    def _bump_next_index_watermark(self, data: Dict[str, Any]) -> None:
+        """Persist the allocation watermark so it survives deletion. Kept in
+        ``_sync_meta`` because both implementations already round-trip that
+        block (it carries the tombstones), so no schema bump is needed."""
+        meta = data.get("_sync_meta")
+        if not isinstance(meta, dict):
+            meta = {}
+            data["_sync_meta"] = meta
+        meta["next_index"] = self._allocation_floor(data)
+
+    def _entry_kind(self, entry: dict[str, Any]) -> str:
+        return str(
+            entry.get("kind", entry.get("type", EntryType.PASSWORD.value))
+        ).strip()
+
+    def _emit_index0_event(
+        self,
+        data: Dict[str, Any],
+        *,
+        event_type: str,
+        entry_id: int | str,
+        entry: dict[str, Any],
+        modified_ts: int | None = None,
+        payload_ref: dict[str, Any] | None = None,
+        links: list[dict[str, Any]] | None = None,
+        tags: list[str] | None = None,
+        summary: str = "",
+    ) -> Dict[str, Any]:
+        entry_kind = self._entry_kind(entry)
+        payload_ref = dict(payload_ref or {})
+        payload_ref.setdefault("entry_id", str(entry_id))
+        return append_index0_event(
+            data,
+            event_type=event_type,
+            subject_type="entry",
+            subject_id=str(entry_id),
+            subject_kind=entry_kind,
+            modified_ts=modified_ts
+            or int(entry.get("modified_ts", 0) or self._now_unix()),
+            fingerprint_dir=self.fingerprint_dir,
+            payload_ref=payload_ref,
+            links=links if links is not None else entry.get("links", []),
+            tags=tags if tags is not None else entry.get("tags", []),
+            summary=summary,
+            source="entry_management",
+        )
 
     def get_next_index(self) -> int:
         """
@@ -201,11 +307,9 @@ class EntryManager:
         """
         try:
             data = self._load_index()
-            if "entries" in data and isinstance(data["entries"], dict):
-                indices = [int(idx) for idx in data["entries"].keys()]
-                next_index = max(indices) + 1 if indices else 0
-            else:
-                next_index = 0
+            # Watermark-aware: never reuse an id that any past entry held,
+            # even one deleted through sync (see _allocation_floor).
+            next_index = self._allocation_floor(data)
             logger.debug(f"Next index determined: {next_index}")
             return next_index
         except Exception as e:
@@ -245,6 +349,10 @@ class EntryManager:
         :return: The assigned index of the new entry.
         """
         try:
+            # Local import to match this module's convention for
+            # password_generation (keeps its heavy deps off the import path).
+            from .password_generation import CURRENT_PASSWORD_GEN_VERSION
+
             index = self.get_next_index()
             data = self._load_index()
             now_unix = self._now_unix()
@@ -254,6 +362,10 @@ class EntryManager:
             entry = {
                 "label": label,
                 "length": length,
+                # Which generation algorithm derives this entry's password.
+                # Entries written before versioning have no field and fall back
+                # to v1, which is frozen. See docs/entropy_audit_2026-07-31.md.
+                "gen_version": CURRENT_PASSWORD_GEN_VERSION,
                 "username": username if username else "",
                 "url": url if url else "",
                 "archived": archived,
@@ -289,6 +401,14 @@ class EntryManager:
                 entry["policy"] = policy
 
             data["entries"][str(index)] = entry
+            data = self._emit_index0_event(
+                data,
+                event_type="entry_created",
+                entry_id=index,
+                entry=entry,
+                modified_ts=now_unix,
+                summary=f"Created {entry.get('kind', entry.get('type', 'entry'))} entry",
+            )
 
             logger.debug(
                 f"Added entry at index {index} with label '{entry.get('label', '')}'."
@@ -390,6 +510,14 @@ class EntryManager:
             }
 
         data["entries"][str(entry_id)] = entry
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=entry_id,
+            entry=entry,
+            modified_ts=now_unix,
+            summary=f"Created {entry.get('kind', entry.get('type', 'entry'))} entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -444,6 +572,14 @@ class EntryManager:
             "custom_fields": [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created ssh entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -486,7 +622,7 @@ class EntryManager:
         seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
         bip85 = BIP85(seed_bytes)
 
-        priv_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
+        priv_key, pub_key, fp = derive_pgp_key(bip85, index, key_type, user_id)
         if not validate_pgp_private_key(priv_key, fp):
             raise ValueError("Derived PGP key failed validation")
         now_unix = self._now_unix()
@@ -509,13 +645,21 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created pgp entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
         return index
 
-    def get_pgp_key(self, index: int, parent_seed: str) -> tuple[str, str]:
-        """Return the armored PGP private key and fingerprint for the entry."""
+    def get_pgp_key(self, index: int, parent_seed: str) -> tuple[str, str, str]:
+        """Return the armored PGP private key, public key, and fingerprint for the entry."""
 
         entry = self.retrieve_entry(index)
         etype = entry.get("type") if entry else None
@@ -579,6 +723,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created nostr entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -618,6 +770,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created key_value entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -656,6 +816,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created document entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -797,6 +965,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created seed entry",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -878,6 +1054,14 @@ class EntryManager:
             "tags": tags or [],
             "links": [],
         }
+        data = self._emit_index0_event(
+            data,
+            event_type="entry_created",
+            entry_id=index,
+            entry=data["entries"][str(index)],
+            modified_ts=now_unix,
+            summary="Created managed_account entry",
+        )
 
         self._save_index(data)
         self.update_checksum()
@@ -941,12 +1125,20 @@ class EntryManager:
             etype != EntryType.TOTP.value and kind != EntryType.TOTP.value
         ):
             raise ValueError("Entry is not a TOTP entry")
+        # The entry's own period/digits govern the code; the issuing service
+        # was configured from those values, not from pyotp's defaults.
+        period = int(entry.get("period", 30))
+        digits = int(entry.get("digits", 6))
         if entry.get("deterministic", False) or "secret" not in entry:
             if parent_seed is None:
                 raise ValueError("Seed required for derived TOTP")
             totp_index = int(entry.get("index", 0))
-            return TotpManager.current_code(parent_seed, totp_index, timestamp)
-        return TotpManager.current_code_from_secret(entry["secret"], timestamp)
+            return TotpManager.current_code(
+                parent_seed, totp_index, timestamp, period=period, digits=digits
+            )
+        return TotpManager.current_code_from_secret(
+            entry["secret"], timestamp, period=period, digits=digits
+        )
 
     def get_totp_time_remaining(self, index: int) -> int:
         """Return seconds remaining in the TOTP period for the given entry."""
@@ -1093,6 +1285,11 @@ class EntryManager:
         try:
             data = self._load_index()
             entry = data.get("entries", {}).get(str(index))
+            previous_archived = (
+                bool(entry.get("archived", entry.get("blacklisted", False)))
+                if isinstance(entry, dict)
+                else False
+            )
 
             if not entry:
                 logger.warning(
@@ -1331,6 +1528,18 @@ class EntryManager:
             entry["date_modified"] = self._iso_from_unix(entry["modified_ts"])
 
             data["entries"][str(index)] = entry
+            event_type = "entry_modified"
+            current_archived = bool(entry.get("archived", False))
+            if current_archived != previous_archived:
+                event_type = "entry_archived" if current_archived else "entry_restored"
+            data = self._emit_index0_event(
+                data,
+                event_type=event_type,
+                entry_id=index,
+                entry=entry,
+                modified_ts=entry["modified_ts"],
+                summary=f"{event_type.replace('_', ' ')} for {self._entry_kind(entry)}",
+            )
             logger.debug(
                 f"Modified entry at index {index} with label '{entry.get('label', '')}'."
             )
@@ -1386,6 +1595,20 @@ class EntryManager:
         )
         src["modified_ts"] = self._now_unix()
         src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+        data = self._emit_index0_event(
+            data,
+            event_type="link_added",
+            entry_id=index,
+            entry=src,
+            modified_ts=src["modified_ts"],
+            payload_ref={
+                "entry_id": str(index),
+                "target_id": str(target_id),
+                "relation": relation_norm,
+            },
+            links=[candidate],
+            summary="Added entry link",
+        )
         self._save_index(data)
         self.update_checksum()
         self.backup_manager.create_backup()
@@ -1409,22 +1632,36 @@ class EntryManager:
         filtered = []
         for link in links:
             matches_target = int(link.get("target_id", -1)) == int(target_id)
-            matches_relation = relation_norm is None or str(
-                link.get("relation", "")
-            ).lower() == relation_norm
+            matches_relation = (
+                relation_norm is None
+                or str(link.get("relation", "")).lower() == relation_norm
+            )
             if matches_target and matches_relation:
                 continue
             filtered.append(link)
         if len(filtered) != len(links):
+            removed_links = [link for link in links if link not in filtered]
             src["links"] = filtered
             src.setdefault(
                 "date_added",
-                self._iso_from_unix(
-                    int(src.get("modified_ts", 0) or self._now_unix())
-                ),
+                self._iso_from_unix(int(src.get("modified_ts", 0) or self._now_unix())),
             )
             src["modified_ts"] = self._now_unix()
             src["date_modified"] = self._iso_from_unix(src["modified_ts"])
+            data = self._emit_index0_event(
+                data,
+                event_type="link_removed",
+                entry_id=index,
+                entry=src,
+                modified_ts=src["modified_ts"],
+                payload_ref={
+                    "entry_id": str(index),
+                    "target_id": str(target_id),
+                    "relation": relation_norm or "",
+                },
+                links=removed_links,
+                summary="Removed entry link",
+            )
             self._save_index(data)
             self.update_checksum()
             self.backup_manager.create_backup()
@@ -1744,6 +1981,18 @@ class EntryManager:
                         "event_hash": event_hash,
                         "source": "local-delete",
                     }
+                data = self._emit_index0_event(
+                    data,
+                    event_type="entry_deleted",
+                    entry_id=index,
+                    entry=entry,
+                    modified_ts=deleted_ts,
+                    payload_ref={
+                        "entry_id": str(index),
+                        "tombstone_event_hash": event_hash,
+                    },
+                    summary=f"Deleted {self._entry_kind(entry)} entry",
+                )
                 del data["entries"][str(index)]
                 logger.debug(f"Deleted entry at index {index}.")
                 self._save_index(data)

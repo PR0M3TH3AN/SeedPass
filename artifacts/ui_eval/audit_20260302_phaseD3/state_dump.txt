@@ -1,0 +1,24 @@
+=== MULTI-KIND FILTER ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: (none)
+Filter : password,totp
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 2 | Page: 1/1
+
+Profile Tree
+------------
+▶ ■ (default)Seed:(default)
+  ├─ 👤 Managed Users
+  │  └─ (none)
+  └─ 🤖 Agents
+     └─ (none)
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+rows=2

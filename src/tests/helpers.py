@@ -22,6 +22,21 @@ TEST_SEED = (
 TEST_PASSWORD = "pw"
 
 
+def user_data(index: dict) -> dict:
+    """Return an index without its machine-managed ``_system`` block.
+
+    ``_system.index0`` is derived state the index layer maintains (canonical
+    views, writer ids, scope paths). It is not user data, and it is added on
+    load, so a test that saves a literal dict and compares it back will always
+    differ by exactly that key.
+
+    Tests about user data surviving a migration, export or round trip should
+    compare with this. Asserting on ``_system`` would pin an implementation
+    detail those tests are not about.
+    """
+    return {key: value for key, value in index.items() if key != "_system"}
+
+
 def create_vault(
     dir_path: Path,
     seed: str = TEST_SEED,

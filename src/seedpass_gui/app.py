@@ -403,6 +403,7 @@ class TotpViewerWindow(toga.Window):
             entry = self.entries.retrieve_entry(idx)
 
             period = int(entry.get("period", 30)) if entry else 30
+            digits = int(entry.get("digits", 6)) if entry else 6
             remaining = TotpManager.time_remaining(period)
             if hasattr(self.entries, "get_totp_secret"):
                 if idx in self._secret_cache:
@@ -414,7 +415,9 @@ class TotpViewerWindow(toga.Window):
                     except Exception:
                         # Skip entries where secret cannot be derived (e.g. no seed)
                         continue
-                code = TotpManager.current_code_from_secret(secret)
+                code = TotpManager.current_code_from_secret(
+                    secret, period=period, digits=digits
+                )
             else:
                 # Compatibility path for services exposing code retrieval directly.
                 code = self.entries.get_totp_code(idx)

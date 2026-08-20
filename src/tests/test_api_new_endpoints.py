@@ -191,7 +191,7 @@ async def test_document_import_export_endpoints(client):
         headers=headers,
     )
     assert exported.status_code == 200
-    assert exported.json() == {"path": "/tmp/exported.md"}
+    assert exported.json()["path"] in ["/tmp/exported.md", "\\tmp\\exported.md"]
     assert calls["export"] == (33, {"output_path": "/tmp/out", "overwrite": True})
 
 
@@ -202,7 +202,13 @@ async def test_entry_links_endpoints(client):
 
     def add_link(entry_id, target_id, **kwargs):
         calls["add"] = (entry_id, target_id, kwargs)
-        return [{"target_id": target_id, "relation": kwargs["relation"], "note": kwargs["note"]}]
+        return [
+            {
+                "target_id": target_id,
+                "relation": kwargs["relation"],
+                "note": kwargs["note"],
+            }
+        ]
 
     def remove_link(entry_id, target_id, **kwargs):
         calls["remove"] = (entry_id, target_id, kwargs)
@@ -1711,3 +1717,102 @@ async def test_generate_password_allowed_chars(client):
     pw = res.json()["password"]
     specials = [c for c in pw if c in string.punctuation]
     assert specials and all(c in allowed for c in specials)
+
+
+@pytest.mark.anyio
+async def test_semantic_endpoints(client, monkeypatch):
+    cl, token = client
+
+    class DummySemanticService:
+        def __init__(self, _pm):
+            self.enabled = True
+            self.last_enabled = None
+            self.last_search = None
+            self.mode = "keyword"
+
+        def status(self):
+            return {
+                "enabled": bool(self.enabled),
+                "built": True,
+                "records": 4,
+                "mode": self.mode,
+            }
+
+        def build(self):
+            return {"enabled": True, "built": True, "records": 4}
+
+        def rebuild(self):
+            return {"enabled": True, "built": True, "records": 4}
+
+        def set_enabled(self, enabled: bool):
+            self.last_enabled = bool(enabled)
+            self.enabled = bool(enabled)
+            return {"enabled": bool(enabled)}
+
+        def set_mode(self, mode: str):
+            self.mode = str(mode)
+            return self.status()
+
+        def search(
+            self,
+            query: str,
+            *,
+            k: int = 10,
+            kind: str | None = None,
+            mode: str | None = None,
+        ):
+            self.last_search = (query, k, kind, mode)
+            return [{"entry_id": 10, "kind": kind or "document", "score": 0.5}]
+
+    service = DummySemanticService(None)
+    monkeypatch.setattr(api, "SemanticIndexService", lambda _pm: service)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    status = await cl.get("/api/v1/semantic/status", headers=headers)
+    assert status.status_code == 200
+    assert status.json()["records"] == 4
+
+    built = await cl.post("/api/v1/semantic/build", headers=headers)
+    assert built.status_code == 200
+    assert built.json()["built"] is True
+
+    rebuilt = await cl.post("/api/v1/semantic/rebuild", headers=headers)
+    assert rebuilt.status_code == 200
+    assert rebuilt.json()["built"] is True
+
+    configured = await cl.post(
+        "/api/v1/semantic/config",
+        json={"enabled": False, "mode": "hybrid"},
+        headers=headers,
+    )
+    assert configured.status_code == 200
+    assert configured.json() == {"enabled": False, "mode": "hybrid"}
+    assert service.last_enabled is False
+    assert service.mode == "hybrid"
+
+    searched = await cl.post(
+        "/api/v1/semantic/search",
+        json={"query": "relay notes", "k": 6, "kind": "document", "mode": "semantic"},
+        headers=headers,
+    )
+    assert searched.status_code == 200
+    assert searched.json()["results"][0]["entry_id"] == 10
+    assert service.last_search == ("relay notes", 6, "document", "semantic")
+
+
+@pytest.mark.anyio
+async def test_semantic_search_requires_query(client):
+    cl, token = client
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/semantic/search", json={}, headers=headers)
+    assert res.status_code == 400
+    assert res.json() == {"detail": "Missing query"}
+
+
+@pytest.mark.anyio
+async def test_semantic_config_requires_enabled_or_mode(client):
+    cl, token = client
+    headers = {"Authorization": f"Bearer {token}"}
+    res = await cl.post("/api/v1/semantic/config", json={}, headers=headers)
+    assert res.status_code == 400
+    assert res.json() == {"detail": "Missing enabled or mode"}

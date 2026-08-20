@@ -99,3 +99,63 @@ def test_legacy_deterministic_entry(tmp_path):
 
     exported = em.export_totp_entries(TEST_SEED)
     assert exported["entries"][0]["secret"] == TotpManager.derive_secret(TEST_SEED, 0)
+
+
+def test_totp_code_honors_entry_period_and_digits(tmp_path):
+    """An entry's recorded period/digits govern its code.
+
+    Regression: codes were generated with pyotp's defaults (6 digits, 30s)
+    regardless of what the entry recorded, so any imported 8-digit or
+    45-second secret produced codes the issuing service rejects. Found by
+    scripts/cross_impl_check.py comparing against the TypeScript port.
+    """
+    import pyotp
+
+    from helpers import TEST_PASSWORD, TEST_SEED, create_vault
+    from seedpass.core.backup import BackupManager
+    from seedpass.core.config_manager import ConfigManager
+    from seedpass.core.entry_management import EntryManager
+
+    vault, _enc = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    cfg = ConfigManager(vault, tmp_path)
+    entry_mgr = EntryManager(vault, BackupManager(tmp_path, cfg))
+
+    secret = "JBSWY3DPEHPK3PXP"
+    timestamp = 1700000000
+
+    idx = entry_mgr.get_next_index()
+    entry_mgr.add_totp("custom", secret=secret, period=45, digits=8)
+    code = entry_mgr.get_totp_code(idx, timestamp=timestamp)
+    expected = pyotp.TOTP(secret, interval=45, digits=8).at(timestamp)
+    assert code == expected
+    assert len(code) == 8
+
+    # Defaults still behave exactly as before
+    idx_default = entry_mgr.get_next_index()
+    entry_mgr.add_totp("plain", secret=secret)
+    default_code = entry_mgr.get_totp_code(idx_default, timestamp=timestamp)
+    assert default_code == pyotp.TOTP(secret).at(timestamp)
+    assert len(default_code) == 6
+
+
+def test_deterministic_totp_code_honors_entry_period_and_digits(tmp_path):
+    """The same rule applies to derived (deterministic) TOTP entries."""
+    import pyotp
+
+    from helpers import TEST_PASSWORD, TEST_SEED, create_vault
+    from seedpass.core.backup import BackupManager
+    from seedpass.core.config_manager import ConfigManager
+    from seedpass.core.entry_management import EntryManager
+    from seedpass.core.totp import TotpManager
+
+    vault, _enc = create_vault(tmp_path, TEST_SEED, TEST_PASSWORD)
+    cfg = ConfigManager(vault, tmp_path)
+    entry_mgr = EntryManager(vault, BackupManager(tmp_path, cfg))
+
+    idx = entry_mgr.get_next_index()
+    entry_mgr.add_totp("derived", TEST_SEED, deterministic=True, period=60, digits=8)
+    timestamp = 1700000000
+    code = entry_mgr.get_totp_code(idx, TEST_SEED, timestamp=timestamp)
+    derived_secret = TotpManager.derive_secret(TEST_SEED, 0)
+    assert code == pyotp.TOTP(derived_secret, interval=60, digits=8).at(timestamp)
+    assert len(code) == 8

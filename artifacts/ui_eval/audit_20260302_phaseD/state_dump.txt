@@ -1,0 +1,53 @@
+=== STARTUP FILTER ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: (none)
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+▶ □ (default)Seed:(default)
+  ├─ 👤 Managed Users
+  │  └─ (none)
+  └─ 🤖 Agents
+     └─ (none)
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+=== FILTER MENU OPEN ===
+visible=True
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Filter menu: enter all|secrets|docs|keys|2fa
+
+=== FILTER DOCS APPLIED ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: (none)
+Filter : docs
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 1 | Page: 1/1
+
+Profile Tree
+------------
+▶ □ (default)Seed:(default)
+  ├─ 👤 Managed Users
+  │  └─ (none)
+  └─ 🤖 Agents
+     └─ (none)
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+rows=1

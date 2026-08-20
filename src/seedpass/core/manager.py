@@ -34,11 +34,14 @@ from constants import MAX_RETRIES, RETRY_DELAY
 
 from .encryption import EncryptionManager
 from .entry_management import EntryManager
-from .password_generation import PasswordGenerator
+from .password_generation import (
+    PasswordGenerator,
+    LEGACY_PASSWORD_GEN_VERSION,
+)
 from .backup import BackupManager
 from .vault import Vault
 from .portable_backup import export_backup, import_backup, PortableMode
-from .errors import SeedPassError, DecryptionError
+from .errors import SeedPassError, DecryptionError, ProfileMismatchError
 from .totp import TotpManager
 from .entry_types import EntryType
 from .pubsub import bus
@@ -53,16 +56,14 @@ from utils.key_derivation import (
 from utils.key_hierarchy import kd
 from utils.checksum import (
     calculate_checksum,
-    verify_checksum,
     json_checksum,
-    initialize_checksum,
-    update_checksum_file,
 )
 from utils.password_prompt import (
     prompt_for_password,
     prompt_existing_password,
     prompt_new_password,
     confirm_action,
+    PasswordPromptError,
 )
 from utils import masked_input, prompt_seed_words
 from utils.memory_protection import InMemorySecret
@@ -88,6 +89,8 @@ from constants import (
     DEFAULT_PASSWORD_LENGTH,
     INACTIVITY_TIMEOUT,
     DEFAULT_SEED_BACKUP_FILENAME,
+    DEFAULT_SEED_WORD_COUNT,
+    SUPPORTED_SEED_WORD_COUNTS,
     NOTIFICATION_DURATION,
     initialize_app,
 )
@@ -244,7 +247,11 @@ class PasswordManager:
     deterministic_totp: bool = False
 
     def __init__(
-        self, fingerprint: Optional[str] = None, *, password: Optional[str] = None
+        self,
+        fingerprint: Optional[str] = None,
+        *,
+        password: Optional[str] = None,
+        bootstrap_only: bool = False,
     ) -> None:
         """Initialize the PasswordManager.
 
@@ -292,7 +299,7 @@ class PasswordManager:
         self.secret_mode_enabled: bool = False
         self.deterministic_totp: bool = False
         self.clipboard_clear_delay: int = 45
-        self.offline_mode: bool = True
+        self.offline_mode: bool = False
         self.profile_stack: list[tuple[str, Path, str]] = []
         self.last_unlock_duration: float | None = None
         self.verbose_timing: bool = False
@@ -320,13 +327,16 @@ class PasswordManager:
         if fingerprint:
             # Load the specified profile without prompting
             self.select_fingerprint(fingerprint, password=password)
-        else:
+        elif not bootstrap_only:
             # Ensure a parent seed is set up before accessing the fingerprint directory
             self.setup_parent_seed()
             # Set the current fingerprint directory after selection
             self.fingerprint_dir = (
                 self.fingerprint_manager.get_current_fingerprint_dir()
             )
+        else:
+            self.current_fingerprint = None
+            self.fingerprint_dir = None
 
     @requires_unlocked
     def get_bip85_entropy(
@@ -392,9 +402,22 @@ class PasswordManager:
         *,
         mode: str | None = None,
         iterations: int | None = None,
+        kdf_config: KdfConfig | None = None,
     ) -> bytes:
         """Derive the profile seed-encryption key from current KDF settings."""
 
+        if kdf_config is not None:
+            chosen_mode = mode or kdf_config.name
+            if chosen_mode.startswith("argon2"):
+                return derive_key_from_password_argon2(password, kdf_config)
+            if chosen_mode == "pbkdf2":
+                iter_count = int(kdf_config.params.get("iterations", 100_000))
+                salt = (
+                    base64.b64decode(kdf_config.salt_b64)
+                    if kdf_config.salt_b64
+                    else fingerprint
+                )
+                return derive_key_from_password(password, salt, iterations=iter_count)
         chosen_mode = mode or self._get_kdf_mode()
         if chosen_mode == "argon2":
             salt = hashlib.sha256(fingerprint.encode()).digest()[:16]
@@ -446,6 +469,94 @@ class PasswordManager:
             salt_b64=salt_b64,
         )
 
+    @staticmethod
+    def _load_seed_kdf_config(fingerprint_dir: Path) -> KdfConfig | None:
+        """Read the parent-seed KDF metadata without attempting decryption."""
+
+        seed_file = fingerprint_dir / "parent_seed.enc"
+        if not seed_file.exists():
+            return None
+        try:
+            payload = json.loads(seed_file.read_text(encoding="utf-8"))
+            raw_kdf = payload.get("kdf")
+            if not isinstance(raw_kdf, dict):
+                return None
+            return KdfConfig(**raw_kdf)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _resolve_script_checksum_target() -> Path | None:
+        """Return the launched script path when available."""
+
+        main_module = sys.modules.get("__main__")
+        main_file = getattr(main_module, "__file__", None)
+        if main_file:
+            candidate = Path(main_file).expanduser().resolve()
+            if candidate.exists():
+                return candidate
+        argv0 = (sys.argv[0] or "").strip()
+        if argv0 and argv0 not in {"-c", "-m"}:
+            candidate = Path(argv0).expanduser().resolve()
+            if candidate.exists():
+                return candidate
+        return None
+
+    @staticmethod
+    def _read_script_checksum_record() -> dict[str, Any] | None:
+        """Load checksum metadata, supporting the legacy plain-text format."""
+
+        if not SCRIPT_CHECKSUM_FILE.exists():
+            return None
+        raw = SCRIPT_CHECKSUM_FILE.read_text().strip()
+        if not raw:
+            return None
+        try:
+            payload = json.loads(raw)
+            if isinstance(payload, dict):
+                checksum = str(payload.get("checksum", "")).strip()
+                target = str(payload.get("target", "")).strip()
+                if checksum:
+                    return {"checksum": checksum, "target": target or None}
+        except Exception:
+            pass
+        return {"checksum": raw, "target": None}
+
+    @staticmethod
+    def _write_script_checksum_record(script_path: Path) -> bool:
+        """Persist checksum metadata for the provided script path."""
+
+        checksum = calculate_checksum(str(script_path))
+        if not checksum:
+            return False
+        payload = {"target": str(script_path), "checksum": checksum}
+        atomic_write(
+            SCRIPT_CHECKSUM_FILE,
+            lambda f: json.dump(payload, f, indent=2),
+        )
+        return True
+
+    def _script_checksum_status(self) -> tuple[bool | None, Path | None]:
+        """Return checksum verification status for the launched script."""
+
+        script_path = self._resolve_script_checksum_target()
+        if script_path is None:
+            return None, None
+        record = self._read_script_checksum_record()
+        if record is None:
+            return None, script_path
+        target = record.get("target")
+        if target and Path(target).expanduser().resolve() != script_path:
+            return None, script_path
+        if not target:
+            # Legacy plain-text checksum files do not identify which script
+            # they were generated from, so avoid noisy false mismatches.
+            return None, script_path
+        checksum = calculate_checksum(str(script_path))
+        if not checksum:
+            return None, script_path
+        return record.get("checksum") == checksum, script_path
+
     def _encrypt_parent_seed_compat(
         self,
         seed_mgr: EncryptionManager,
@@ -484,12 +595,19 @@ class PasswordManager:
 
     def ensure_script_checksum(self) -> None:
         """Initialize or verify the checksum of the manager script."""
-        script_path = Path(__file__).resolve()
-        if not SCRIPT_CHECKSUM_FILE.exists():
-            initialize_checksum(str(script_path), SCRIPT_CHECKSUM_FILE)
+        status, script_path = self._script_checksum_status()
+        if script_path is None:
             return
-        checksum = calculate_checksum(str(script_path))
-        if checksum and not verify_checksum(checksum, SCRIPT_CHECKSUM_FILE):
+        if not SCRIPT_CHECKSUM_FILE.exists():
+            self._write_script_checksum_record(script_path)
+            return
+        if status is None:
+            logger.info(
+                "Script checksum verification skipped; regenerate checksum for launch target '%s'.",
+                script_path,
+            )
+            return
+        if not status:
             logging.warning("Script checksum mismatch detected on startup")
             print(
                 colored(
@@ -731,6 +849,10 @@ class PasswordManager:
                 )
                 print(colored("Q. Exit", "cyan"))
 
+                if not sys.stdin.isatty():
+                    raise SeedPassError(
+                        "Interactive seed profile selection requires a TTY"
+                    )
                 choice = input("Select a seed profile by number: ").strip()
                 if choice.lower() in {"q", "quit", "exit"}:
                     raise SeedPassError("Operation cancelled by user")
@@ -766,7 +888,14 @@ class PasswordManager:
                 current = self.fingerprint_manager.current_fingerprint
 
         except Exception as e:
-            logger.error(f"Error during seed profile selection: {e}", exc_info=True)
+            is_interactive_err = isinstance(e, (EOFError, PasswordPromptError)) or (
+                isinstance(e, SeedPassError) and "requires a TTY" in str(e)
+            )
+            logger.error(
+                "Error during seed profile selection: %s",
+                e,
+                exc_info=not is_interactive_err,
+            )
             print(colored(f"Error: Failed to select seed profile: {e}", "red"))
             raise SeedPassError(f"Failed to select seed profile: {e}") from e
 
@@ -1005,6 +1134,77 @@ class PasswordManager:
             print(colored(f"Error: Profile recovery failed: {exc}", "red"))
             return False
 
+    def recover_profile_with_blank_index_data(
+        self,
+        *,
+        fingerprint: str,
+        parent_seed: str,
+        password: str,
+    ) -> bool:
+        """Recover ``fingerprint`` with ``parent_seed`` and a blank local index."""
+        fingerprints = self.fingerprint_manager.list_fingerprints()
+        if fingerprint not in fingerprints:
+            raise SeedPassError("Selected profile does not exist.")
+
+        fingerprint_dir = self.fingerprint_manager.get_fingerprint_directory(
+            fingerprint
+        )
+        if not fingerprint_dir:
+            raise SeedPassError("Profile directory not found.")
+
+        if not self.validate_bip85_seed(parent_seed):
+            raise SeedPassError("Invalid BIP-85 seed phrase.")
+
+        computed_fp = generate_fingerprint(parent_seed)
+        if computed_fp != fingerprint:
+            raise SeedPassError("Seed does not match selected profile fingerprint.")
+
+        try:
+            self.current_fingerprint = fingerprint
+            self.fingerprint_manager.current_fingerprint = fingerprint
+            self.fingerprint_dir = fingerprint_dir
+            self.parent_seed = parent_seed
+
+            seed_bytes = Bip39SeedGenerator(parent_seed).Generate()
+            self.derive_key_hierarchy(seed_bytes)
+            index_key = base64.urlsafe_b64encode(self.KEY_STORAGE)
+            seed_key = self._derive_seed_key(password, fingerprint)
+
+            self.encryption_manager = EncryptionManager(index_key, fingerprint_dir)
+            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+            self.vault = Vault(self.encryption_manager, fingerprint_dir)
+            self.config_manager = ConfigManager(
+                vault=self.vault,
+                fingerprint_dir=fingerprint_dir,
+            )
+
+            self._encrypt_parent_seed_compat(
+                seed_mgr,
+                parent_seed,
+                fingerprint,
+                mode=self._get_kdf_mode(),
+            )
+            self.store_hashed_password(password)
+
+            for stale_file in (
+                fingerprint_dir / "seedpass_entries_db.json.enc",
+                fingerprint_dir / "seedpass_passwords_db.json.enc",
+                fingerprint_dir / "seedpass_entries_db_checksum.txt",
+                fingerprint_dir / "seedpass_passwords_db_checksum.txt",
+            ):
+                try:
+                    stale_file.unlink()
+                except FileNotFoundError:
+                    pass
+
+            self.initialize_bip85()
+            self.initialize_managers()
+            self.start_background_sync()
+            return True
+        except Exception as exc:
+            logger.error("Profile recovery failed: %s", exc, exc_info=True)
+            raise SeedPassError(f"Profile recovery failed: {exc}") from exc
+
     def setup_encryption_manager(
         self,
         fingerprint_dir: Path,
@@ -1033,31 +1233,39 @@ class PasswordManager:
                 )
                 print("Deriving key...")
                 salt_fp = fingerprint_dir.name
-
-                iter_candidates: list[int] = [iterations]
-                if mode != "argon2":
-                    iter_candidates.extend(
-                        getattr(
-                            ConfigManager,
-                            "LEGACY_PBKDF2_ITERATION_FALLBACKS",
-                            (50_000, 100_000),
-                        )
+                seed_kdf = self._load_seed_kdf_config(fingerprint_dir)
+                attempt_specs: list[tuple[str, int | None, KdfConfig | None]] = []
+                if seed_kdf is not None:
+                    attempt_specs.append((seed_kdf.name, None, seed_kdf))
+                if mode == "argon2" and seed_kdf is None:
+                    attempt_specs.append(("argon2", None, None))
+                pbkdf2_iters: list[int] = [iterations]
+                pbkdf2_iters.extend(
+                    getattr(
+                        ConfigManager,
+                        "LEGACY_PBKDF2_ITERATION_FALLBACKS",
+                        (50_000, 100_000),
                     )
+                )
+                for iter_try in dict.fromkeys(pbkdf2_iters):
+                    attempt_specs.append(("pbkdf2", iter_try, None))
 
                 seed_mgr: EncryptionManager | None = None
-                for iter_try in dict.fromkeys(iter_candidates):
+                for chosen_mode, iter_try, chosen_kdf in attempt_specs:
                     try:
                         seed_key = self._derive_seed_key(
                             password,
                             salt_fp,
-                            mode=mode,
-                            iterations=iter_try if mode != "argon2" else None,
+                            mode=chosen_mode,
+                            iterations=iter_try if chosen_mode != "argon2" else None,
+                            kdf_config=chosen_kdf,
                         )
                         seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
                         print("Decrypting seed...")
                         self.parent_seed = seed_mgr.decrypt_parent_seed()
                         if (
-                            mode != "argon2"
+                            chosen_mode == "pbkdf2"
+                            and iter_try is not None
                             and iter_try != iterations
                             and getattr(self, "config_manager", None)
                         ):
@@ -1094,7 +1302,12 @@ class PasswordManager:
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                logger.error(f"Failed to set up EncryptionManager: {e}", exc_info=True)
+                is_interactive_err = isinstance(e, (EOFError, PasswordPromptError))
+                logger.error(
+                    "Failed to set up EncryptionManager: %s",
+                    e,
+                    exc_info=not is_interactive_err,
+                )
                 print(colored(f"Error: Failed to set up encryption: {e}", "red"))
                 if exit_on_fail:
                     raise SeedPassError(f"Failed to set up encryption: {e}") from e
@@ -1126,11 +1339,35 @@ class PasswordManager:
                 else getattr(ConfigManager, "DEFAULT_PBKDF2_ITERATIONS", 200_000)
             )
             salt_fp = fingerprint_dir.name
-            seed_key = self._derive_seed_key(
-                password, salt_fp, mode=mode, iterations=iterations
-            )
-            seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
-            self.parent_seed = seed_mgr.decrypt_parent_seed()
+            seed_kdf = self._load_seed_kdf_config(fingerprint_dir)
+            attempt_specs: list[tuple[str, int | None, KdfConfig | None]] = []
+            if seed_kdf is not None:
+                attempt_specs.append((seed_kdf.name, None, seed_kdf))
+            elif mode == "argon2":
+                attempt_specs.append(("argon2", None, None))
+            attempt_specs.append(("pbkdf2", iterations, None))
+            for iter_try in getattr(
+                ConfigManager, "LEGACY_PBKDF2_ITERATION_FALLBACKS", (50_000, 100_000)
+            ):
+                attempt_specs.append(("pbkdf2", int(iter_try), None))
+
+            last_exc: Exception | None = None
+            for chosen_mode, iter_try, chosen_kdf in attempt_specs:
+                try:
+                    seed_key = self._derive_seed_key(
+                        password,
+                        salt_fp,
+                        mode=chosen_mode,
+                        iterations=iter_try if chosen_mode != "argon2" else None,
+                        kdf_config=chosen_kdf,
+                    )
+                    seed_mgr = EncryptionManager(seed_key, fingerprint_dir)
+                    self.parent_seed = seed_mgr.decrypt_parent_seed()
+                    break
+                except DecryptionError as exc:
+                    last_exc = exc
+            else:
+                raise DecryptionError("Failed to decrypt seed") from last_exc
             seed_bytes = Bip39SeedGenerator(self.parent_seed).Generate()
             self.derive_key_hierarchy(seed_bytes)
             self.bip85 = BIP85(seed_bytes)
@@ -1150,11 +1387,22 @@ class PasswordManager:
 
     @requires_unlocked
     def load_managed_account(self, index: int) -> None:
-        """Load a managed account derived from the current seed profile."""
+        """Load a managed account or seed profile derived from the current seed."""
         if not self.entry_manager or not self.parent_seed:
             raise ValueError("Manager not initialized")
 
-        seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        entry = self.entry_manager.retrieve_entry(index)
+        if not entry:
+            raise ValueError(f"Entry #{index} not found")
+
+        kind = str(entry.get("kind") or entry.get("type") or "").strip().lower()
+        if kind == EntryType.MANAGED_ACCOUNT.value:
+            seed = self.entry_manager.get_managed_account_seed(index, self.parent_seed)
+        elif kind == EntryType.SEED.value:
+            seed = self.entry_manager.get_seed_phrase(index, self.parent_seed)
+        else:
+            raise ValueError(f"Entry #{index} is not a loadable profile (kind: {kind})")
+
         managed_fp = generate_fingerprint(seed)
         account_dir = self.fingerprint_dir / "accounts" / managed_fp
         account_dir.mkdir(parents=True, exist_ok=True)
@@ -1556,26 +1804,58 @@ class PasswordManager:
             logging.error(f"Error validating BIP-85 seed: {e}")
             return False
 
-    def generate_bip85_seed(self) -> str:
+    def generate_bip85_seed(self, words_num: int = DEFAULT_SEED_WORD_COUNT) -> str:
         """
         Generates a new BIP-85 seed phrase.
 
+        Parameters:
+            words_num (int): 12 (128-bit, default) or 24 (256-bit). The default
+                stays 12 so existing callers are unaffected; 24 is offered
+                because the master seed protects the whole vault and was
+                previously shorter than the seeds derived beneath it, which
+                default to 24 (entropy audit L2).
+
         Returns:
-            str: The generated 12-word mnemonic seed phrase.
+            str: The generated mnemonic seed phrase.
         """
+        if words_num not in SUPPORTED_SEED_WORD_COUNTS:
+            raise SeedPassError(
+                f"Seed word count must be one of {sorted(SUPPORTED_SEED_WORD_COUNTS)}, "
+                f"got {words_num!r}."
+            )
+
+        # Deliberately OUTSIDE the try block (entropy audit L3). Nothing below
+        # may catch an entropy failure and substitute a value -- that is the
+        # COLDCARD defect class. If os.urandom raises, it propagates unchanged
+        # and the operation aborts, which is the only acceptable outcome.
+        master_seed = os.urandom(32)
+
         try:
-            master_seed = os.urandom(32)  # Generate a random 32-byte seed
             bip85 = BIP85(master_seed)
-            mnemonic = bip85.derive_mnemonic(index=0, words_num=12)
-            return mnemonic
+            return bip85.derive_mnemonic(index=0, words_num=words_num)
         except Bip85Error as e:
             logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
             print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
             raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
-        except Exception as e:
-            logging.error(f"Failed to generate BIP-85 seed: {e}", exc_info=True)
-            print(colored(f"Error: Failed to generate BIP-85 seed: {e}", "red"))
-            raise SeedPassError(f"Failed to generate BIP-85 seed: {e}") from e
+
+    def create_profile_from_generated_seed(
+        self,
+        *,
+        password: str,
+        seed: Optional[str] = None,
+        words_num: int = DEFAULT_SEED_WORD_COUNT,
+    ) -> tuple[str, str]:
+        """Create a new profile from a generated seed and return ``(fingerprint, seed)``.
+
+        ``words_num`` selects the master seed length (12 or 24) and is ignored
+        when ``seed`` is supplied, since that phrase already fixes its own
+        length.
+        """
+        new_seed = seed or self.generate_bip85_seed(words_num=words_num)
+        fingerprint = self._finalize_existing_seed(new_seed, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to create profile from generated seed.")
+        return fingerprint, new_seed
 
     @requires_unlocked
     def save_and_encrypt_seed(
@@ -1771,13 +2051,28 @@ class PasswordManager:
             self.manifest_id = None
             self.delta_since = 0
             self.nostr_account_idx = 0
-        self.offline_mode = bool(config.get("offline_mode", True))
+        self.offline_mode = bool(config.get("offline_mode", False))
         self.inactivity_timeout = config.get("inactivity_timeout", INACTIVITY_TIMEOUT)
         self.secret_mode_enabled = bool(config.get("secret_mode_enabled", False))
         self.clipboard_clear_delay = int(config.get("clipboard_clear_delay", 45))
         self.verbose_timing = bool(config.get("verbose_timing", False))
         if not self.offline_mode:
             print("Connecting to relays...")
+        if not self.offline_mode and not bool(
+            config.get("online_mode_notice_seen", False)
+        ):
+            self.notify(
+                "Profile is ONLINE by default. Switch to offline mode in Settings if needed.",
+                level="INFO",
+            )
+            config["online_mode_notice_seen"] = True
+            try:
+                self.config_manager.save_config(config)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to persist online mode onboarding notice state: %s",
+                    exc,
+                )
         self.nostr_client = NostrClient(
             encryption_manager=self.encryption_manager,
             fingerprint=self.current_fingerprint,
@@ -2191,6 +2486,47 @@ class PasswordManager:
             self.notify("Starting with a new, empty vault.", level="INFO")
             return
 
+    def restore_from_nostr_with_guidance_data(
+        self,
+        *,
+        seed_phrase: str,
+        password: str,
+        continue_without_backup: bool = False,
+    ) -> tuple[str, bool]:
+        """Restore a profile from Nostr without interactive prompts.
+
+        Returns ``(fingerprint, have_backup)``.
+        """
+        have_backup = self.check_nostr_backup_exists(seed_phrase)
+        if not have_backup and not continue_without_backup:
+            raise SeedPassError("No Nostr backup found for this seed profile.")
+
+        fingerprint = self._finalize_existing_seed(seed_phrase, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to initialize profile from provided seed.")
+
+        if have_backup:
+            success = self.attempt_initial_sync()
+            if not success:
+                raise SeedPassError("Failed to download or decrypt vault from Nostr.")
+        return fingerprint, have_backup
+
+    def restore_from_local_backup_data(
+        self,
+        *,
+        seed_phrase: str,
+        password: str,
+        backup_path: str,
+    ) -> str:
+        """Restore a profile from a local encrypted backup without prompts."""
+        fingerprint = self._finalize_existing_seed(seed_phrase, password=password)
+        if not fingerprint:
+            raise SeedPassError("Failed to initialize profile from provided seed.")
+        if not self.backup_manager:
+            raise SeedPassError("Backup manager is not initialized.")
+        self.backup_manager.restore_from_backup(backup_path)
+        return fingerprint
+
     def _clear_header_add_entry(self, subtitle: str) -> None:
         fp, parent_fp, child_fp = self.header_fingerprint_args
         clear_header_with_notification(
@@ -2541,7 +2877,7 @@ class PasswordManager:
                 notes=notes,
                 tags=tags,
             )
-            priv_key, fingerprint = self.entry_manager.get_pgp_key(
+            priv_key, pub_key, fingerprint = self.entry_manager.get_pgp_key(
                 index, self.parent_seed
             )
             self._mark_dirty()
@@ -2828,14 +3164,35 @@ class PasswordManager:
     def _generate_password_for_entry(
         self, entry: dict, index: int, length: int | None = None
     ) -> str:
-        """Generate a password for ``entry`` honoring any policy overrides."""
+        """Generate a password for ``entry`` honoring policy and generation version."""
+        entry = entry if isinstance(entry, dict) else {}
         if length is None:
             length = int(entry.get("length", DEFAULT_PASSWORD_LENGTH))
         overrides = entry.get("policy", {})
 
+        # Entries written before versioning carry no field and must keep
+        # deriving via v1 -- their stored passwords depend on it.
+        raw_version = entry.get("gen_version", LEGACY_PASSWORD_GEN_VERSION)
+        try:
+            gen_version = int(raw_version)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Entry {index} has an unreadable gen_version {raw_version!r}; "
+                f"refusing to guess which algorithm produced its password."
+            ) from None
+
+        # Only forward the argument when it is non-legacy. Keeping the legacy
+        # call shape means every existing caller and test double that defines
+        # generate_password(length, index) keeps working untouched.
+        kwargs = (
+            {}
+            if gen_version == LEGACY_PASSWORD_GEN_VERSION
+            else {"gen_version": gen_version}
+        )
+
         pg = self.password_generator
         if not hasattr(pg, "policy") or not isinstance(overrides, dict):
-            return pg.generate_password(length, index)
+            return pg.generate_password(length, index, **kwargs)
 
         base_policy = pg.policy
         merged = dataclasses.replace(
@@ -2844,7 +3201,7 @@ class PasswordManager:
         )
         pg.policy = merged
         try:
-            return pg.generate_password(length, index)
+            return pg.generate_password(length, index, **kwargs)
         finally:
             pg.policy = base_policy
 
@@ -3850,7 +4207,9 @@ class PasswordManager:
                 color_text(f"  Derivation Index: {entry.get('index', index)}", "index")
             )
             try:
-                _priv, pgp_fp = self.entry_manager.get_pgp_key(index, self.parent_seed)
+                _priv, _pub, pgp_fp = self.entry_manager.get_pgp_key(
+                    index, self.parent_seed
+                )
                 if pgp_fp:
                     print(color_text(f"  Fingerprint: {pgp_fp}", "index"))
             except Exception as pgp_err:  # pragma: no cover - best effort logging
@@ -4119,15 +4478,22 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
-            current_checksum = calculate_checksum(__file__)
-            try:
-                verified = verify_checksum(current_checksum, SCRIPT_CHECKSUM_FILE)
-            except FileNotFoundError:
+            verified, script_path = self._script_checksum_status()
+            if script_path is None or not SCRIPT_CHECKSUM_FILE.exists():
                 self.notify(
                     "Checksum file missing. Run scripts/update_checksum.py or choose 'Generate Script Checksum' in Settings.",
                     level="WARNING",
                 )
                 logging.warning("Checksum file missing during verification.")
+                return
+            if verified is None:
+                print(
+                    colored(
+                        f"Checksum file does not match the current launch target '{script_path.name}'. Regenerate it first.",
+                        "yellow",
+                    )
+                )
+                logging.warning("Checksum verification skipped due to target mismatch.")
                 return
 
             if verified:
@@ -4160,8 +4526,11 @@ class PasswordManager:
                 parent_fingerprint=parent_fp,
                 child_fingerprint=child_fp,
             )
-            script_path = Path(__file__).resolve()
-            if update_checksum_file(str(script_path), str(SCRIPT_CHECKSUM_FILE)):
+            script_path = self._resolve_script_checksum_target()
+            if script_path is None:
+                print(colored("Unable to determine the launched script path.", "red"))
+                return
+            if self._write_script_checksum_record(script_path):
                 print(
                     colored(
                         f"Checksum updated at '{SCRIPT_CHECKSUM_FILE}'.",
@@ -4227,6 +4596,27 @@ class PasswordManager:
                         "Offline mode is enabled. Disable it in Settings to sync."
                     )
                 return None
+            try:
+                from .index0 import (
+                    build_manifest_index0_metadata,
+                    compact_index0_payload,
+                )
+
+                current_index = self.vault.load_index()
+                compacted_index = compact_index0_payload(current_index)
+                if compacted_index != current_index:
+                    self.vault.save_index(compacted_index)
+                    current_index = compacted_index
+                if client is not None:
+                    client.manifest_index0_metadata = build_manifest_index0_metadata(
+                        current_index,
+                        fingerprint_dir=self.fingerprint_dir,
+                    )
+            except Exception as index0_error:
+                logging.warning(
+                    "Failed to build manifest index0 metadata: %s",
+                    index0_error,
+                )
             encrypted = self.get_encrypted_data()
             if not encrypted:
                 if client is not None and hasattr(client, "last_error"):
@@ -4415,12 +4805,34 @@ class PasswordManager:
         )
 
         try:
-            import_backup(
-                self.vault,
-                self.backup_manager,
-                src,
-                parent_seed=self.parent_seed,
-            )
+            try:
+                import_backup(
+                    self.vault,
+                    self.backup_manager,
+                    src,
+                    parent_seed=self.parent_seed,
+                )
+            except ProfileMismatchError as exc:
+                # Not a corrupt file and not a wrong password -- a backup from
+                # a different profile. Importing it re-derives every secret
+                # from THIS profile's seed, so the entries come back with
+                # different passwords than the backup held, silently. Make the
+                # consequence unmissable rather than refusing outright: the
+                # user may genuinely be moving a vault between seeds.
+                print(colored(f"Warning: {exc}", "yellow"))
+                if not confirm_action(
+                    "Import it anyway, accepting that every derived secret "
+                    "will change? (Y/N): "
+                ):
+                    print(colored("Import cancelled.", "yellow"))
+                    return
+                import_backup(
+                    self.vault,
+                    self.backup_manager,
+                    src,
+                    parent_seed=self.parent_seed,
+                    allow_fingerprint_mismatch=True,
+                )
         except DecryptionError:
             logging.error("Invalid backup token during import", exc_info=True)
             print(
@@ -4827,8 +5239,7 @@ class PasswordManager:
 
         # Schema version and database checksum status
         stats["schema_version"] = data.get("schema_version")
-        json_content = json.dumps(data, indent=4)
-        current_checksum = hashlib.sha256(json_content.encode("utf-8")).hexdigest()
+        current_checksum = json_checksum(data)
         chk_path = self.entry_manager.checksum_file
         if chk_path.exists():
             stored = chk_path.read_text().strip()
@@ -4839,17 +5250,8 @@ class PasswordManager:
         stats["checksum"] = stored
 
         # Script checksum status
-        script_path = Path(__file__).resolve()
-        try:
-            script_checksum = calculate_checksum(str(script_path))
-        except Exception:
-            script_checksum = None
-
-        if SCRIPT_CHECKSUM_FILE.exists() and script_checksum:
-            stored_script = SCRIPT_CHECKSUM_FILE.read_text().strip()
-            stats["script_checksum_ok"] = stored_script == script_checksum
-        else:
-            stats["script_checksum_ok"] = False
+        script_status, _script_path = self._script_checksum_status()
+        stats["script_checksum_ok"] = bool(script_status)
 
         # Relay info
         cfg = self.config_manager.load_config(require_pin=False)

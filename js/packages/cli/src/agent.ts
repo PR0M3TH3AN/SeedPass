@@ -1,0 +1,1185 @@
+/**
+ * Session agent: a small daemon that holds unlocked parent seeds in memory
+ * with a TTL, so the CLI can be used across invocations without exporting
+ * the mnemonic into every process environment (ssh-agent model).
+ *
+ * Transport: unix domain socket (0600), one JSON object per line.
+ *
+ * Two classes of caller, distinguished by the server — not by the client:
+ *
+ *  - Owner ops (put, owner-mnemonic, token-issue/list/revoke, lock, status,
+ *    shutdown) require the capability secret written to a 0600 file beside
+ *    the socket. Socket permissions alone cannot tell the owner's CLI apart
+ *    from a scoped agent that merely holds a token.
+ *  - Token ops (vault-index, secret, use-sink) require a bearer token and
+ *    are constrained by its scopes. vault-index returns redacted metadata,
+ *    never the decrypted index; `secret` requires the reveal scope; and
+ *    `use-sink` runs the sink here so plaintext never crosses back.
+ *
+ * This process is the enforcement point for the plan-section-9.3 lease and
+ * token model. Enforcement must live here because the CLI is untrusted from
+ * the daemon's point of view: any local process can speak this protocol.
+ */
+
+import { createServer, createConnection, type Socket } from "node:net";
+import { chmod, mkdir, open, rm } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { tmpdir } from "node:os";
+import { dirname } from "node:path";
+import { join } from "node:path";
+import process from "node:process";
+import { deriveKeyIndex, generateFingerprint, sha256Hex, utf8, type Entry } from "@seedpass/core";
+import { openVault } from "./vaultFile.js";
+import { materializeSecret } from "./secrets.js";
+import { entryMetadata } from "./refs.js";
+import {
+  clipboardSink,
+  execSink,
+  parseCommandSpec,
+  stdinSink,
+  type SinkResult,
+} from "./sinks.js";
+import { AuditLog } from "./audit.js";
+import { loadConfig, passwordPolicyFromConfig } from "./configFile.js";
+import { INDEX_FILENAME, FINGERPRINT_RE } from "./appDir.js";
+
+export const DEFAULT_TTL_SECONDS = 900;
+
+/** How far a token-supplied TOTP timestamp may differ from now. */
+export const TIMESTAMP_SKEW_SECONDS = 120;
+
+/** Guards against an unauthenticated peer exhausting memory (see serve). */
+export const MAX_LINE_BYTES = 512 * 1024;
+export const MAX_CONNECTIONS = 64;
+
+/**
+ * A positive integer taken from a wire message, or null if the value is not
+ * one. The CLI validates these too, but the daemon cannot rely on that: it
+ * treats every caller as untrusted (see the module header), and the next
+ * thing to speak this protocol will be a browser extension.
+ *
+ * Coercions that must be rejected here rather than stored: a non-numeric ttl
+ * makes `expiresAt` NaN, and `NaN <= now` is always false — the seed would
+ * then never expire. The same NaN in a token's `expires_at` makes a token
+ * that never expires.
+ */
+function positiveIntField(value: unknown, fallback: number): number | null {
+  const n = value === undefined || value === null ? fallback : Number(value);
+  return Number.isInteger(n) && n >= 1 ? n : null;
+}
+
+export type TokenScope = "read" | "use" | "reveal";
+
+export interface TokenRecord {
+  id: string;
+  name: string;
+  fingerprint: string;
+  secret_hash: string;
+  scopes: TokenScope[];
+  kinds: string[] | null;
+  label_regex: string;
+  expires_at: number;
+  uses_remaining: number;
+  revoked: boolean;
+  /**
+   * Commands this token may hand a secret to. Empty/absent means any.
+   *
+   * A `use`-scoped holder who picks the command can always read the secret
+   * from inside it, so this is the only mechanism that actually contains a
+   * `use` grant rather than merely recording it.
+   */
+  exec_allowlist?: string[];
+}
+
+export type TokenInfo = Omit<TokenRecord, "secret_hash">;
+
+export function agentSocketPath(appDir: string): string {
+  return process.env["SEEDPASS_AGENT_SOCK"] ?? join(appDir, "agent.sock");
+}
+
+/**
+ * Where the owner capability for a given socket lives.
+ *
+ * Keyed by a hash of the socket path so multiple agents coexist, and placed
+ * under XDG_RUNTIME_DIR when available (tmpfs, 0700, cleared on logout).
+ */
+export function capabilityPathFor(socketPath: string): string {
+  const explicit = process.env["SEEDPASS_AGENT_CAP_FILE"];
+  if (explicit) return explicit;
+  const runtime = process.env["XDG_RUNTIME_DIR"] || tmpdir();
+  const key = createHash("sha256").update(socketPath).digest("hex").slice(0, 16);
+  return join(runtime, `seedpass-agent-${key}.cap`);
+}
+
+interface Held {
+  mnemonic: string;
+  expiresAt: number;
+}
+
+/**
+ * A live high-risk unlock, held in memory only.
+ *
+ * `tag` is the partition key tag, from which the partition file's encryption
+ * key is derived — so it is key material, not an identifier. Python writes
+ * this value into `agent_high_risk_unlock.json`, which means that for the
+ * life of a Python unlock session the partition is decryptable from disk with
+ * no factor at all, defeating the second factor the partition exists to
+ * require. Keeping it here, in the process that already holds unlocked parent
+ * seeds, is the same trust boundary with none of the disk exposure.
+ */
+interface HighRiskSession {
+  tag: string;
+  expiresAt: number;
+}
+
+export interface AgentStatusProfile {
+  fingerprint: string;
+  expires_at: number;
+}
+
+/** Operations only the owner may invoke, proven by the capability secret. */
+const OWNER_OPS = new Set([
+  "put",
+  "owner-mnemonic",
+  "token-issue",
+  "token-list",
+  "token-revoke",
+  "lock",
+  "status",
+  "shutdown",
+  // High-risk unlock is strictly more privileged than an ordinary unlock:
+  // it is the second factor for the entry kinds deemed to need one, so a
+  // scoped token must never be able to reach it.
+  "high-risk-unlock",
+  "high-risk-lock",
+  "high-risk-status",
+  "high-risk-tag",
+]);
+
+export class AgentDaemon {
+  private held = new Map<string, Held>();
+  private highRisk = new Map<string, HighRiskSession>();
+  private tokens = new Map<string, TokenRecord>();
+  private audits = new Map<string, AuditLog>();
+  private auditQueue: Promise<unknown> = Promise.resolve();
+  private capability = "";
+  private expiryTimer: ReturnType<typeof setInterval> | null = null;
+  private connections = 0;
+  private server = createServer((socket) => this.serve(socket));
+
+  constructor(
+    private readonly socketPath: string,
+    private readonly defaultTtl = DEFAULT_TTL_SECONDS,
+    /** Profile root; required for token-mode vault/secret serving. */
+    private readonly appDir?: string,
+    /**
+     * Seconds since the epoch. Injectable so expiry can be tested at its
+     * exact boundary rather than approximately — "expires at T" has to mean
+     * denied AT T, and a test that only checks T-1 and T+1 cannot tell
+     * `<=` from `<`.
+     */
+    private readonly now: () => number = () => Date.now() / 1000,
+  ) {}
+
+  /**
+   * Path of the 0600 file holding the owner capability.
+   *
+   * Deliberately NOT beside the socket: a scoped agent is given the app
+   * directory (it needs fingerprints.json and the socket), so a capability
+   * stored there is inside the blast radius of the principal it is meant to
+   * exclude. It lives in the user's runtime directory instead, under a 0700
+   * parent, so handing out the app directory no longer hands out ownership.
+   */
+  get capabilityPath(): string {
+    return capabilityPathFor(this.socketPath);
+  }
+
+  /**
+   * Owner authentication.
+   *
+   * The socket's 0600 mode proves only "some process running as this user";
+   * it does not distinguish the owner's CLI from a scoped agent that was
+   * handed a token. Privileged operations therefore require a capability
+   * secret written to a 0600 file at startup, which raises the bar to
+   * "can read the owner's files" — the same bar as the vault itself.
+   *
+   * Residual risk, stated plainly: a same-uid attacker who can read that
+   * file (or ptrace this process) still wins. Defending against that
+   * requires an OS-level boundary this daemon cannot provide.
+   */
+  private isOwner(msg: Record<string, unknown>): boolean {
+    const presented = String(msg["cap"] ?? "");
+    // mutation-equivalent: turning this `||` into `&&` cannot change the
+    // outcome — an empty string on either side fails the length comparison
+    // below, so the early return is a statement of intent rather than the
+    // thing doing the rejecting. Kept because the rule is worth stating.
+    if (!presented || !this.capability) return false;
+    const a = Buffer.from(presented);
+    const b = Buffer.from(this.capability);
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+
+  /** Serialize audit appends so concurrent requests cannot break the chain. */
+  private auditLog(
+    fingerprint: string,
+    event: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    const log = this.audit(fingerprint);
+    if (!log) return Promise.resolve();
+    this.auditQueue = this.auditQueue.then(
+      () => log.log(event, details),
+      () => log.log(event, details),
+    );
+    return this.auditQueue as Promise<void>;
+  }
+
+  private audit(fingerprint: string): AuditLog | null {
+    if (!this.appDir) return null;
+    const held = this.held.get(fingerprint);
+    if (!held) return null;
+    let log = this.audits.get(fingerprint);
+    if (!log) {
+      log = new AuditLog(
+        join(this.appDir, fingerprint, "audit.log"),
+        deriveKeyIndex(held.mnemonic),
+      );
+      this.audits.set(fingerprint, log);
+    }
+    return log;
+  }
+
+  /**
+   * Validate a bearer token for an action, consuming one use for
+   * secret-bearing actions. Returns the token record or a denial reason.
+   *
+   * Entry-level constraints (kinds, label regex) are NOT checked here — that
+   * is tokenMaySee's job, after the vault is opened. A use is therefore
+   * consumed even when the entry turns out to be missing or outside the
+   * token's constraints. Deliberate: charging for the attempt means probing
+   * entry ids costs the prober their limited uses, and refunding denied
+   * attempts would hand back a free enumeration budget.
+   */
+  private authorize(
+    tokenSecret: string,
+    fingerprint: string,
+    action: TokenScope,
+  ): { token?: TokenRecord; deny?: string } {
+    const hash = sha256Hex(utf8(tokenSecret));
+    const token = [...this.tokens.values()].find(
+      (t) => t.secret_hash === hash && t.fingerprint === fingerprint,
+    );
+    if (!token) return { deny: "unknown token" };
+    if (token.revoked) return { deny: "token revoked" };
+    if (token.expires_at <= this.now()) return { deny: "token expired" };
+    if (token.uses_remaining <= 0) return { deny: "token exhausted" };
+    if (!token.scopes.includes(action)) return { deny: `scope '${action}' not granted` };
+    // "read" is not consumption; secret-bearing actions decrement uses
+    if (action !== "read") token.uses_remaining -= 1;
+    return { token };
+  }
+
+  /**
+   * Would this token be allowed to act on this entry at all?
+   *
+   * `label_regex` is matched with `RegExp.test`, i.e. unanchored: it succeeds
+   * if the pattern matches ANYWHERE in the label, so a token issued for
+   * `prod` also reaches `not-prod-db`. That is wider than the operator
+   * issuing it is likely to assume, and it is deliberate: Python matches with
+   * `re.search` (cli/agent.py), and a token must not mean two different
+   * things depending on which implementation is holding it. Anchoring here
+   * would silently narrow every existing token's scope on upgrade.
+   *
+   * The semantics are stated in `--label-regex` help and reported in
+   * `capabilities()` under `label_regex_semantics`, so a caller can scope
+   * correctly without reading this code.
+   *
+   * A pattern that fails to compile denies rather than throws: an invalid
+   * constraint must never widen access.
+   */
+  private tokenMaySee(token: TokenRecord, entry: { kind: string; label: string }): boolean {
+    if (token.kinds && !token.kinds.includes(entry.kind)) return false;
+    try {
+      return new RegExp(token.label_regex).test(entry.label);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Common path for token-authorized secret access: open the vault, find the
+   * entry, authorize the action, and materialize the secret. Never returns
+   * the secret to a caller that was not authorized for the exact action.
+   */
+  private async resolveForToken(
+    msg: Record<string, unknown>,
+    fingerprint: string,
+    action: Exclude<TokenScope, "read">,
+    sinkSpec?: { sink: string; command: string[] },
+  ): Promise<
+    | { error: Record<string, unknown> }
+    | {
+        entry: Entry;
+        id: string;
+        token: TokenRecord;
+        secret: { value: string; descriptor: string };
+      }
+  > {
+    const held = this.held.get(fingerprint);
+    if (!held || !this.appDir) {
+      return { error: { ok: false, error: "profile not unlocked" } };
+    }
+    const id = String(msg["id"] ?? "");
+    const tokenSecret = String(msg["token"] ?? "");
+
+    // Check the token BEFORE decrypting anything. Opening the vault first
+    // meant an unauthenticated caller could distinguish existing entry ids
+    // from missing ones (an enumeration oracle), leave no audit record for
+    // the misses, and burn a full PBKDF2 unlock per probe.
+    const preAuth = this.authorize(tokenSecret, fingerprint, action);
+    if (!preAuth.token) {
+      await this.auditLog(fingerprint, "access_denied", {
+        action,
+        entry_id: id,
+        reason: preAuth.deny,
+      });
+      return { error: { ok: false, error: `denied: ${preAuth.deny}` } };
+    }
+
+    const vault = await openVault(
+      join(this.appDir, fingerprint, INDEX_FILENAME),
+      held.mnemonic,
+    );
+    // hasOwn: "__proto__"/"constructor" would otherwise resolve to inherited
+    // properties and pass the constraint checks against undefined values.
+    const entry = Object.hasOwn(vault.index.entries, id)
+      ? (vault.index.entries[id] as Entry)
+      : undefined;
+
+    // A denial and a missing entry must be indistinguishable: otherwise the
+    // response still discloses which ids exist.
+    const constraintsOk =
+      entry !== undefined && this.tokenMaySee(preAuth.token, entry);
+    if (!constraintsOk) {
+      await this.auditLog(fingerprint, "access_denied", {
+        action,
+        entry_id: id,
+        reason: entry === undefined ? "no such entry" : "entry outside token constraints",
+      });
+      return {
+        error: { ok: false, error: `denied: no accessible entry ${id}` },
+      };
+    }
+    const auth = { token: preAuth.token };
+
+    if (sinkSpec) {
+      const allowed = auth.token.exec_allowlist;
+      // mutation-equivalent: `length > 0` cannot differ from `length >= 0`
+      // here. An empty allowlist is refused at issue time, so a stored token
+      // either has no allowlist (undefined, short-circuiting the `&&`) or a
+      // non-empty one.
+      if (allowed && allowed.length > 0 && sinkSpec.sink === "clipboard") {
+        // The clipboard is readable by every process in the session, so it
+        // defeats an allowlist just as thoroughly as an arbitrary command.
+        await this.auditLog(fingerprint, "access_denied", {
+          action,
+          entry_id: id,
+          reason: "clipboard sink is not permitted by a command-restricted token",
+        });
+        return {
+          error: { ok: false, error: "denied: clipboard not permitted by this token" },
+        };
+      }
+      // mutation-equivalent: as above, an empty allowlist never reaches a
+      // stored token, so `> 0` and `>= 0` decide identically here.
+      if (sinkSpec.sink !== "clipboard" && allowed && allowed.length > 0) {
+        // The allowlist constrains the command WORD only. The token holder
+        // still chooses every argument, and the child receives the secret in
+        // its environment, so an allowlisted binary with an output-file or
+        // network flag hands the secret straight back to the holder. Choose
+        // allowlist entries as if the holder writes their argv, because they
+        // do. Containment here is "which binary", never "what it does".
+        //
+        // Argument-level containment would mean allowlisting full argv
+        // templates (["ssh-add", "-"]) rather than command words; that is a
+        // token-format change and has to land in both implementations at
+        // once, so it is tracked rather than done here.
+        const [cmd] = parseCommandSpec(sinkSpec.command);
+        if (!allowed.includes(cmd)) {
+          await this.auditLog(fingerprint, "access_denied", {
+            action,
+            entry_id: id,
+            reason: `command '${cmd}' not in the token's exec allowlist`,
+          });
+          return {
+            error: { ok: false, error: `denied: command '${cmd}' not permitted by this token` },
+          };
+        }
+      }
+    }
+
+    // A caller-chosen TOTP timestamp turns one use into a code valid at any
+    // future moment, outliving the token's TTL entirely. Clamp to a small
+    // window around now for token callers.
+    let ts: number | undefined;
+    if (msg["timestamp"] !== undefined) {
+      const requested = Number(msg["timestamp"]);
+      // Same clock as expiry: a test clock that moved one but not the other
+      // would let a token expire while the skew window still measured real
+      // time, which is a difference no production path should have either.
+      const now = Math.floor(this.now());
+      if (!Number.isFinite(requested) || Math.abs(requested - now) > TIMESTAMP_SKEW_SECONDS) {
+        return {
+          error: {
+            ok: false,
+            error: `timestamp must be within ${TIMESTAMP_SKEW_SECONDS}s of now`,
+          },
+        };
+      }
+      ts = requested;
+    }
+    // Password derivation bases the policy on the profile config and merges
+    // the entry's own block over it. The daemon reads the same config the TUI
+    // and CLI do, so a token-scoped `reveal` returns the same password the
+    // owner sees rather than one derived from the built-in defaults.
+    const config = await loadConfig(join(this.appDir, fingerprint), held.mnemonic);
+    const secret = materializeSecret(vault.index, id, entry, held.mnemonic, {
+      ...(ts !== undefined && { timestamp: ts }),
+      basePolicy: passwordPolicyFromConfig(config),
+    });
+    return { entry, id, token: auth.token, secret };
+  }
+
+  async start(): Promise<void> {
+    if (existsSync(this.socketPath)) {
+      // A live agent refuses to be replaced; a stale socket file is cleaned.
+      const alive = await AgentClient.ping(this.socketPath);
+      if (alive) throw new Error(`agent already running at ${this.socketPath}`);
+      await rm(this.socketPath, { force: true });
+    }
+    // Unix socket permissions are checked at connect(), so a socket that is
+    // briefly world-connectable between listen() and chmod() can be grabbed
+    // in that window. Create it with a restrictive umask instead.
+    const previousUmask = process.umask(0o177);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.server.once("error", reject);
+        this.server.listen(this.socketPath, () => resolve());
+      });
+    } finally {
+      process.umask(previousUmask);
+    }
+    await chmod(this.socketPath, 0o600);
+
+    // A TTL that is only enforced when a request happens is not a TTL: an
+    // idle agent would hold the seed in memory indefinitely past expiry.
+    this.expiryTimer = setInterval(() => this.expire(), 1000);
+    this.expiryTimer.unref?.();
+
+    this.capability = randomBytes(32).toString("base64url");
+    const capPath = this.capabilityPath;
+    await mkdir(dirname(capPath), { recursive: true, mode: 0o700 });
+    // wx: never adopt a file an attacker pre-created with looser modes.
+    await rm(capPath, { force: true });
+    const capHandle = await open(capPath, "wx", 0o600);
+    try {
+      await capHandle.write(this.capability);
+      await capHandle.chmod(0o600);
+      await capHandle.sync();
+    } finally {
+      await capHandle.close();
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.expiryTimer) {
+      clearInterval(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+    this.held.clear();
+    this.tokens.clear();
+    this.audits.clear();
+    this.capability = "";
+    await new Promise<void>((resolve) => this.server.close(() => resolve()));
+    await rm(this.socketPath, { force: true });
+    await rm(this.capabilityPath, { force: true });
+  }
+
+  /** Drop everything derived from a profile's seed. */
+  private forget(fingerprint: string): void {
+    this.held.delete(fingerprint);
+    // A high-risk unlock is scoped to an unlocked profile; locking the vault
+    // must not leave the stronger grant standing.
+    this.highRisk.delete(fingerprint);
+    // Tokens are only meaningful while the profile is unlocked; leaving them
+    // resident would let them spring back to life on the next unlock.
+    for (const [id, token] of this.tokens) {
+      if (token.fingerprint === fingerprint) this.tokens.delete(id);
+    }
+    // The audit logger holds a key derived from the seed.
+    this.audits.delete(fingerprint);
+  }
+
+  private expire(): void {
+    const now = this.now();
+    for (const [fp, held] of this.held) {
+      if (held.expiresAt <= now) this.forget(fp);
+    }
+    // High-risk sessions expire on their own clock too: they are typically
+    // much shorter than the seed's TTL, and outliving it would silently
+    // extend the second factor.
+    for (const [fp, session] of this.highRisk) {
+      if (session.expiresAt <= now) this.highRisk.delete(fp);
+    }
+  }
+
+  /**
+   * The live partition key tag for a profile, or "" when not unlocked.
+   *
+   * Never logged and never included in an audit record: it is the key to the
+   * partition, so recording it would put it on disk by another route.
+   */
+  private highRiskTag(fingerprint: string): string {
+    // Sweep rather than re-test `expiresAt` here. This used to carry its own
+    // copy of the expiry comparison, which was wrong twice over: it was a
+    // second place the rule could drift from expire(), and -- because
+    // handle() sweeps before it dispatches -- it was a copy no request could
+    // ever reach. Mutation testing found it: breaking EITHER comparison left
+    // the whole suite green, because each one covered for the other. One
+    // decision point means a test can actually hold it to account.
+    this.expire();
+    return this.highRisk.get(fingerprint)?.tag ?? "";
+  }
+
+  private async handle(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
+    this.expire();
+    // Reject non-string credentials and identifiers rather than coercing
+    // them. String(["abc"]) is "abc", so an array would sail through a
+    // String() comparison; nothing good comes of accepting these shapes.
+    for (const field of ["op", "cap", "token", "fingerprint", "id", "sink"]) {
+      const value = msg[field];
+      if (value !== undefined && typeof value !== "string") {
+        return { ok: false, error: `field '${field}' must be a string` };
+      }
+    }
+    if (msg["command"] !== undefined) {
+      const command = msg["command"];
+      if (!Array.isArray(command) || command.some((c) => typeof c !== "string")) {
+        return { ok: false, error: "field 'command' must be an array of strings" };
+      }
+    }
+    const op = String(msg["op"] ?? "");
+    if (OWNER_OPS.has(op) && !this.isOwner(msg)) {
+      // Do not reveal whether the profile exists or is unlocked.
+      return { ok: false, error: "owner capability required" };
+    }
+    switch (op) {
+      case "token-issue": {
+        // Owner-only op: local socket (0600) is the trust boundary, and the
+        // profile must currently be unlocked in this agent.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        if (!this.held.has(fingerprint)) return { ok: false, error: "profile not unlocked" };
+        const scopes = msg["scopes"] ?? ["read"];
+        // Shape-check before .filter/.includes run against them: a bare string
+        // scope would throw a raw TypeError back to the caller, and a string
+        // `kinds` turns the exact kind match in tokenMaySee into a substring
+        // match (String.includes, not Array.includes).
+        if (!Array.isArray(scopes)) return { ok: false, error: "scopes must be an array" };
+        const bad = (scopes as unknown[]).filter(
+          (s) => !["read", "use", "reveal"].includes(s as string),
+        );
+        if (bad.length) return { ok: false, error: `unknown scopes: ${bad.join(",")}` };
+        const kinds = msg["kinds"];
+        if (kinds !== undefined && kinds !== null && !Array.isArray(kinds)) {
+          return { ok: false, error: "kinds must be an array" };
+        }
+        const ttl = positiveIntField(msg["ttl"], 300);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        const uses = positiveIntField(msg["uses"], 1);
+        if (uses === null) return { ok: false, error: "uses must be a positive integer" };
+        const secret = randomBytes(24).toString("base64url");
+        // An empty exec_allowlist used to be DROPPED, which turned it into an
+        // unrestricted token — a fail-open. Automation that computes an
+        // allowlist and arrives at zero entries meant "permit nothing" and
+        // silently received "permit everything". Refusing is the only reading
+        // that cannot be a surprise: a token permitting no command is useless,
+        // so asking for one is a mistake worth reporting rather than
+        // reinterpreting.
+        if (Array.isArray(msg["exec_allowlist"]) && (msg["exec_allowlist"] as string[]).length === 0) {
+          return {
+            ok: false,
+            error:
+              "exec_allowlist is empty, which would permit no command at all. " +
+              "Omit it for an unrestricted token, or name the commands to allow.",
+          };
+        }
+        const record: TokenRecord = {
+          id: `tok-${randomBytes(6).toString("hex")}`,
+          name: String(msg["name"] ?? "agent"),
+          fingerprint,
+          secret_hash: sha256Hex(utf8(secret)),
+          scopes: scopes as TokenScope[],
+          kinds: (kinds as string[] | undefined) ?? null,
+          label_regex: String(msg["label_regex"] ?? ".*"),
+          expires_at: Math.floor(this.now() + ttl),
+          uses_remaining: uses,
+          revoked: false,
+          ...(Array.isArray(msg["exec_allowlist"])
+            ? { exec_allowlist: msg["exec_allowlist"] as string[] }
+            : {}),
+        };
+        this.tokens.set(record.id, record);
+        await this.auditLog(fingerprint, "token_issued", {
+          token_id: record.id,
+          name: record.name,
+          scopes: record.scopes,
+          kinds: record.kinds,
+          label_regex: record.label_regex,
+          uses: record.uses_remaining,
+          exec_allowlist: record.exec_allowlist ?? null,
+        });
+        // The plaintext token is returned exactly once, at issuance.
+        return { ok: true, token: secret, record: { ...record, secret_hash: undefined } };
+      }
+      case "token-list": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const list = [...this.tokens.values()]
+          .filter((t) => t.fingerprint === fingerprint)
+          .map(({ secret_hash: _hash, ...info }) => info);
+        return { ok: true, tokens: list };
+      }
+      case "token-revoke": {
+        const token = this.tokens.get(String(msg["token_id"] ?? ""));
+        if (!token) return { ok: false, error: "unknown token id" };
+        token.revoked = true;
+        await this.auditLog(token.fingerprint, "token_revoked", { token_id: token.id });
+        return { ok: true };
+      }
+      case "vault-index": {
+        // Token-mode read. Returns REDACTED metadata only: handing back the
+        // decrypted index would give a read-scoped token every imported TOTP
+        // secret, key-value value and document body in the vault.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const held = this.held.get(fingerprint);
+        if (!held || !this.appDir) return { ok: false, error: "profile not unlocked" };
+        const auth = this.authorize(String(msg["token"] ?? ""), fingerprint, "read");
+        if (!auth.token) {
+          await this.auditLog(fingerprint, "access_denied", {
+            action: "read",
+            reason: auth.deny,
+          });
+          return { ok: false, error: `denied: ${auth.deny}` };
+        }
+        const vault = await openVault(
+          join(this.appDir, fingerprint, INDEX_FILENAME),
+          held.mnemonic,
+        );
+        // Only entries the token could actually act on are listed at all.
+        const rows = Object.entries(vault.index.entries)
+          .filter(([, e]) => this.tokenMaySee(auth.token!, e))
+          .map(([id, e]) => entryMetadata(id, e));
+        await this.auditLog(fingerprint, "index_read", {
+          token_id: auth.token.id,
+          entries_returned: rows.length,
+        });
+        return { ok: true, entries: rows, schema_version: vault.index.schema_version };
+      }
+      case "secret": {
+        // Plaintext egress. Requires the `reveal` scope specifically: `use`
+        // must not be able to pull a secret back across the socket.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const resolved = await this.resolveForToken(msg, fingerprint, "reveal");
+        if ("error" in resolved) return resolved.error;
+        const { entry, id, secret, token } = resolved;
+        await this.auditLog(fingerprint, "secret_revealed", {
+          entry_id: id,
+          kind: entry.kind,
+          label: entry.label,
+          token_id: token.id,
+          uses_remaining: token.uses_remaining,
+        });
+        return { ok: true, value: secret.value, descriptor: secret.descriptor };
+      }
+      case "use-sink": {
+        // The `use` scope delivers a secret to a sink WITHOUT returning it.
+        // The child process runs here, in the agent, so the plaintext never
+        // crosses the socket back to the token holder.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const sink = String(msg["sink"] ?? "");
+        const command = (msg["command"] as string[] | undefined) ?? [];
+        const resolved = await this.resolveForToken(msg, fingerprint, "use", {
+          sink,
+          command,
+        });
+        if ("error" in resolved) return resolved.error;
+        const { entry, id, secret, token } = resolved;
+
+        let result: SinkResult;
+        try {
+          if (sink === "clipboard") {
+            result = await clipboardSink(secret.value);
+          } else {
+            const [cmd, args] = parseCommandSpec(command);
+            result =
+              sink === "exec"
+                ? await execSink(secret.value, cmd, args)
+                : await stdinSink(secret.value, cmd, args);
+          }
+        } catch (e) {
+          await this.auditLog(fingerprint, "delivery_failed", {
+            entry_id: id,
+            token_id: token.id,
+            sink,
+            command,
+            reason: String(e),
+          });
+          return { ok: false, error: `sink failed: ${String(e)}` };
+        }
+
+        await this.auditLog(fingerprint, "secret_delivered", {
+          entry_id: id,
+          kind: entry.kind,
+          label: entry.label,
+          token_id: token.id,
+          uses_remaining: token.uses_remaining,
+          sink,
+          // Record exactly what received the secret. A `use` token holder who
+          // chooses the command can still read the value from inside it —
+          // containment comes from the exec allowlist, accountability from here.
+          command,
+        });
+        return { ok: true, descriptor: secret.descriptor, ...result };
+      }
+      case "put": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const mnemonic = String(msg["mnemonic"] ?? "");
+        if (!fingerprint || !mnemonic) return { ok: false, error: "missing fields" };
+        // `put` is the only way a fingerprint enters `held`, and every later
+        // handler joins that string onto a path (the vault, the audit log).
+        // The CLI validates the format before it gets here, which is exactly
+        // why the daemon must too: agent.ts's own header states the CLI is
+        // untrusted, and the browser extension will be the next thing
+        // speaking this protocol.
+        if (!FINGERPRINT_RE.test(fingerprint)) {
+          return { ok: false, error: "fingerprint must be 16 uppercase hex characters" };
+        }
+        const ttl = positiveIntField(msg["ttl"], this.defaultTtl);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        // Last of the validations because it is the expensive one: deriving a
+        // fingerprint runs the BIP-39 KDF, and a malformed ttl should not pay
+        // for it. A fingerprint that does not belong to this seed is not an
+        // attack so much as a mix-up, but it files the audit records under
+        // the wrong profile and unlocks a vault the caller did not name --
+        // both cheaper to refuse here than to explain later.
+        if (generateFingerprint(mnemonic) !== fingerprint) {
+          return { ok: false, error: "fingerprint does not match the supplied seed" };
+        }
+        const expiresAt = Math.floor(this.now() + ttl);
+        // The audit key is derived from the held seed, so the seed must go in
+        // before the record is written — but an audit failure must then undo
+        // it. Otherwise a `put` that reports ok:false can leave the seed
+        // resident and unexpiring, with nothing on record that it was ever
+        // unlocked. `ok:false` has to mean the vault is genuinely still locked.
+        this.held.set(fingerprint, { mnemonic, expiresAt });
+        try {
+          await this.auditLog(fingerprint, "vault_unlocked", { ttl });
+        } catch (e) {
+          this.forget(fingerprint);
+          throw e;
+        }
+        return { ok: true, expires_at: expiresAt };
+      }
+      case "high-risk-unlock": {
+        // The factor is verified by the CALLER (which reads the envelope and
+        // unwraps it); the agent receives the resulting tag. That keeps the
+        // KDF work out of the daemon and means a wrong factor never reaches
+        // it — but it also means this op hands over partition access, which
+        // is why it is owner-gated.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const tag = String(msg["tag"] ?? "");
+        if (!FINGERPRINT_RE.test(fingerprint)) {
+          return { ok: false, error: "fingerprint must be 16 uppercase hex characters" };
+        }
+        if (!/^[0-9a-f]{64}$/.test(tag)) {
+          return { ok: false, error: "tag must be a 64-character hex digest" };
+        }
+        // A high-risk grant on a locked profile would outlive nothing and
+        // protect nothing: the vault index it applies to is not open.
+        if (!this.held.has(fingerprint)) {
+          return { ok: false, error: "profile not unlocked" };
+        }
+        const ttl = positiveIntField(msg["ttl"], 300);
+        if (ttl === null) return { ok: false, error: "ttl must be a positive integer" };
+        const expiresAt = Math.floor(this.now() + ttl);
+        this.highRisk.set(fingerprint, { tag, expiresAt });
+        try {
+          // Records THAT it was unlocked and for how long — never the tag.
+          await this.auditLog(fingerprint, "high_risk_unlocked", { ttl });
+        } catch (e) {
+          this.highRisk.delete(fingerprint);
+          throw e;
+        }
+        return { ok: true, expires_at: expiresAt };
+      }
+      case "high-risk-lock": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const had = this.highRisk.delete(fingerprint);
+        if (had) await this.auditLog(fingerprint, "high_risk_locked", {});
+        return { ok: true, locked: had };
+      }
+      case "high-risk-status": {
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const session = this.highRisk.get(fingerprint);
+        const live = this.highRiskTag(fingerprint) !== "";
+        return {
+          ok: true,
+          fingerprint,
+          unlocked: live,
+          // The expiry is safe to disclose; the tag is not, and is not here.
+          expires_at: live && session ? session.expiresAt : null,
+        };
+      }
+      case "high-risk-tag": {
+        // Owner-gated, and the only way the tag leaves the daemon. Returned
+        // to the owner's own CLI so it can open the partition; a scoped token
+        // cannot reach this op at all.
+        const fingerprint = String(msg["fingerprint"] ?? "");
+        const tag = this.highRiskTag(fingerprint);
+        if (!tag) return { ok: false, error: "high-risk partition is locked" };
+        return { ok: true, tag };
+      }
+      case "owner-mnemonic": {
+        // Owner-capability gated: this hands back the parent seed so the
+        // owner's CLI can operate the vault locally. It is deliberately NOT
+        // reachable with a scoped token.
+        const held = this.held.get(String(msg["fingerprint"] ?? ""));
+        return held ? { ok: true, mnemonic: held.mnemonic } : { ok: false, error: "locked" };
+      }
+      case "lock": {
+        const fp = msg["fingerprint"];
+        if (fp === undefined) {
+          const n = this.held.size;
+          // The spread is deliberate, not redundant: forget() deletes from
+    // this.held, so this iterates a SNAPSHOT of the keys rather than the live
+    // map. oxlint's no-useless-spread is right that for..of accepts an
+    // iterable and wrong that it is safe here.
+    // oxlint-disable-next-line unicorn/no-useless-spread
+    for (const held of [...this.held.keys()]) this.forget(held);
+          return { ok: true, locked: n };
+        }
+        const key = String(fp);
+        const had = this.held.has(key);
+        this.forget(key);
+        return { ok: true, locked: had ? 1 : 0 };
+      }
+      case "status": {
+        const profiles: AgentStatusProfile[] = [...this.held.entries()].map(
+          ([fingerprint, h]) => ({ fingerprint, expires_at: h.expiresAt }),
+        );
+        return { ok: true, profiles };
+      }
+      case "ping":
+        return { ok: true, pong: true };
+      case "shutdown":
+        setImmediate(() => void this.stop().then(() => process.exit(0)));
+        return { ok: true };
+      default:
+        return { ok: false, error: `unknown op ${String(msg["op"])}` };
+    }
+  }
+
+  private serve(socket: Socket): void {
+    if (this.connections >= MAX_CONNECTIONS) {
+      socket.destroy();
+      return;
+    }
+    this.connections++;
+    socket.on("close", () => {
+      this.connections--;
+    });
+    let buffer = "";
+    let refused = false;
+    socket.on("data", (chunk) => {
+      // Without a cap, a peer that never sends a newline grows this string
+      // without bound while every chunk rescans it — gigabytes of RSS and a
+      // pegged event loop, from an unauthenticated connection.
+      if (refused) return; // already answered; stop buffering this peer
+      if (buffer.length + chunk.length > MAX_LINE_BYTES) {
+        refused = true;
+        // end(), and specifically NOT destroy(). Destroying a socket that
+        // still has inbound data pending makes the OS send an RST, and an RST
+        // discards the PEER's unread receive buffer -- carrying off the very
+        // refusal we just wrote. On Linux the reply usually beat the reset;
+        // on macOS and Windows it did not, and the caller saw an unexplained
+        // hangup instead of "request too large". end() sends FIN, which
+        // leaves the peer's buffer intact.
+        //
+        // Reads continue (the `refused` flag makes them cheap), so the kernel
+        // buffer keeps draining and nothing grows. The timer is the backstop
+        // against a peer that never closes; unref'd so it cannot by itself
+        // keep the process alive.
+        socket.end(JSON.stringify({ ok: false, error: "request too large" }) + "\n");
+        const abandon = setTimeout(() => socket.destroy(), 5_000);
+        abandon.unref();
+        socket.once("close", () => clearTimeout(abandon));
+        return;
+      }
+      buffer += chunk.toString("utf8");
+      let nl;
+      while ((nl = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        void (async () => {
+          let reply: Record<string, unknown>;
+          try {
+            reply = await this.handle(JSON.parse(line) as Record<string, unknown>);
+          } catch (e) {
+            reply = { ok: false, error: String(e) };
+          }
+          socket.write(JSON.stringify(reply) + "\n");
+        })();
+      }
+    });
+    socket.on("error", () => socket.destroy());
+  }
+}
+
+export class AgentClient {
+  private capability: string | null = null;
+
+  constructor(private readonly socketPath: string) {}
+
+  /** Owner capability, read from the 0600 file the daemon writes. */
+  private ownerCapability(): string {
+    if (this.capability !== null) return this.capability;
+    const fromEnv = process.env["SEEDPASS_AGENT_CAP"];
+    if (fromEnv) {
+      this.capability = fromEnv;
+      return fromEnv;
+    }
+    try {
+      this.capability = readFileSync(capabilityPathFor(this.socketPath), "utf8").trim();
+    } catch {
+      this.capability = "";
+    }
+    return this.capability;
+  }
+
+  private ownerRequest(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request({ ...msg, cap: this.ownerCapability() });
+  }
+
+  static async ping(socketPath: string): Promise<boolean> {
+    try {
+      await new AgentClient(socketPath).request({ op: "ping" });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async request(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return new Promise((resolve, reject) => {
+      const socket = createConnection(this.socketPath);
+      const timer = setTimeout(() => {
+        socket.destroy();
+        reject(new Error("agent request timed out"));
+      }, 2000);
+      let buffer = "";
+      socket.on("connect", () => socket.write(JSON.stringify(msg) + "\n"));
+      socket.on("data", (chunk) => {
+        buffer += chunk.toString("utf8");
+        const nl = buffer.indexOf("\n");
+        if (nl >= 0) {
+          clearTimeout(timer);
+          socket.end();
+          try {
+            resolve(JSON.parse(buffer.slice(0, nl)) as Record<string, unknown>);
+          } catch (e) {
+            reject(e instanceof Error ? e : new Error(String(e)));
+          }
+        }
+      });
+      socket.on("error", (e) => {
+        clearTimeout(timer);
+        // "No agent running" is an ordinary state, not a fault, and it is the
+        // first thing a new user hits. Raw `connect ENOENT /…/agent.sock`
+        // makes them go read the source to find out what to do about it.
+        const code = (e as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ECONNREFUSED") {
+          reject(
+            new Error(
+              "no session agent is running (start one with 'seedpass-js agent start')",
+            ),
+          );
+          return;
+        }
+        reject(e);
+      });
+    });
+  }
+
+  async put(fingerprint: string, mnemonic: string, ttl?: number): Promise<number> {
+    const r = await this.ownerRequest({ op: "put", fingerprint, mnemonic, ...(ttl && { ttl }) });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Number(r["expires_at"]);
+  }
+
+  /** Owner-only: fetch the parent seed for local vault operations. */
+  async ownerMnemonic(fingerprint: string): Promise<string | null> {
+    try {
+      const r = await this.ownerRequest({ op: "owner-mnemonic", fingerprint });
+      return r["ok"] ? String(r["mnemonic"]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Hand a verified partition key tag to the agent for a bounded window.
+   *
+   * The tag is key material. It goes over the 0600 unix socket to a process
+   * that already holds this profile's parent seed, and is never written to
+   * disk by either side.
+   */
+  async highRiskUnlock(
+    fingerprint: string,
+    tag: string,
+    ttl: number,
+  ): Promise<number> {
+    const r = await this.ownerRequest({ op: "high-risk-unlock", fingerprint, tag, ttl });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Number(r["expires_at"] ?? 0);
+  }
+
+  async highRiskLock(fingerprint: string): Promise<boolean> {
+    const r = await this.ownerRequest({ op: "high-risk-lock", fingerprint });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Boolean(r["locked"]);
+  }
+
+  async highRiskStatus(
+    fingerprint: string,
+  ): Promise<{ unlocked: boolean; expires_at: number | null }> {
+    const r = await this.ownerRequest({ op: "high-risk-status", fingerprint });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return {
+      unlocked: Boolean(r["unlocked"]),
+      expires_at: r["expires_at"] === null ? null : Number(r["expires_at"]),
+    };
+  }
+
+  /** The live tag, or null when the partition is locked. */
+  async highRiskTag(fingerprint: string): Promise<string | null> {
+    try {
+      const r = await this.ownerRequest({ op: "high-risk-tag", fingerprint });
+      return r["ok"] ? String(r["tag"]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async lock(fingerprint?: string): Promise<number> {
+    const r = await this.ownerRequest({ op: "lock", ...(fingerprint && { fingerprint }) });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return Number(r["locked"] ?? 0);
+  }
+
+  /** Owner-only: shut the daemon down, wiping every held seed. */
+  async shutdown(): Promise<void> {
+    const r = await this.ownerRequest({ op: "shutdown" });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+  }
+
+  async status(): Promise<AgentStatusProfile[]> {
+    const r = await this.ownerRequest({ op: "status" });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return (r["profiles"] ?? []) as AgentStatusProfile[];
+  }
+
+  async tokenIssue(options: {
+    fingerprint: string;
+    name?: string;
+    scopes?: TokenScope[];
+    kinds?: string[];
+    labelRegex?: string;
+    ttl?: number;
+    uses?: number;
+    execAllowlist?: string[];
+  }): Promise<{ token: string; record: TokenInfo }> {
+    const r = await this.ownerRequest({
+      op: "token-issue",
+      fingerprint: options.fingerprint,
+      name: options.name,
+      scopes: options.scopes,
+      kinds: options.kinds,
+      label_regex: options.labelRegex,
+      ttl: options.ttl,
+      uses: options.uses,
+      exec_allowlist: options.execAllowlist,
+    });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return { token: String(r["token"]), record: r["record"] as TokenInfo };
+  }
+
+  async tokenList(fingerprint: string): Promise<TokenInfo[]> {
+    const r = await this.ownerRequest({ op: "token-list", fingerprint });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return r["tokens"] as TokenInfo[];
+  }
+
+  async tokenRevoke(tokenId: string): Promise<void> {
+    const r = await this.ownerRequest({ op: "token-revoke", token_id: tokenId });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+  }
+
+  /** Redacted entry metadata the token is allowed to see. */
+  async vaultEntries(
+    fingerprint: string,
+    token: string,
+  ): Promise<Record<string, unknown>[]> {
+    const r = await this.request({ op: "vault-index", fingerprint, token });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return r["entries"] as Record<string, unknown>[];
+  }
+
+  /** Ask the agent to deliver a secret to a sink; plaintext stays inside it. */
+  async useSink(options: {
+    fingerprint: string;
+    id: string;
+    token: string;
+    sink: "clipboard" | "exec" | "stdin";
+    command: string[];
+    timestamp?: number;
+  }): Promise<Record<string, unknown>> {
+    const r = await this.request({
+      op: "use-sink",
+      fingerprint: options.fingerprint,
+      id: options.id,
+      token: options.token,
+      sink: options.sink,
+      command: options.command,
+      ...(options.timestamp !== undefined && { timestamp: options.timestamp }),
+    });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return r;
+  }
+
+  async secret(options: {
+    fingerprint: string;
+    id: string;
+    token: string;
+    timestamp?: number;
+  }): Promise<{ value: string; descriptor: string }> {
+    const r = await this.request({
+      op: "secret",
+      fingerprint: options.fingerprint,
+      id: options.id,
+      token: options.token,
+      ...(options.timestamp !== undefined && { timestamp: options.timestamp }),
+    });
+    if (!r["ok"]) throw new Error(String(r["error"]));
+    return { value: String(r["value"]), descriptor: String(r["descriptor"]) };
+  }
+}

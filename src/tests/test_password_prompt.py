@@ -28,6 +28,16 @@ def test_prompt_existing_password(monkeypatch):
     assert password_prompt.prompt_existing_password() == "mypassword"
 
 
+def test_prompt_existing_password_non_tty(monkeypatch):
+    monkeypatch.setattr(
+        password_prompt,
+        "masked_input",
+        lambda _prompt: (_ for _ in ()).throw(EOFError("no tty")),
+    )
+    with pytest.raises(password_prompt.PasswordPromptError, match="requires a TTY"):
+        password_prompt.prompt_existing_password()
+
+
 def test_confirm_action_yes_no(monkeypatch):
     monkeypatch.setattr(builtins, "input", lambda _: "Y")
     assert password_prompt.confirm_action()

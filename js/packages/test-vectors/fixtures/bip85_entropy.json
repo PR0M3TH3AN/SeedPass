@@ -1,0 +1,118 @@
+{
+  "cases": [
+    {
+      "app_no": 32,
+      "entropy_bytes": 64,
+      "entropy_hex": "6940a025903a538c7ceb1bd31c56ff0a0035f6b9b4d1f1d206c3adfcf9395c31c7c45a4a89aefbfb4d68e65db789a4a834572bb3873566058f5e74cd86365464",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "word_count": null
+    },
+    {
+      "app_no": 32,
+      "entropy_bytes": 64,
+      "entropy_hex": "551c3eafc4cc71d6dd06c966e69eb13bdf9e21ab0589c98ed9486d7932a3fbb51d5fba43a0d9bc131933bdaefa7350a4ae02cf03843ee6b3f6960287a6188030",
+      "index": 1,
+      "mnemonic_id": "abandon12",
+      "word_count": null
+    },
+    {
+      "app_no": 32,
+      "entropy_bytes": 32,
+      "entropy_hex": "6940a025903a538c7ceb1bd31c56ff0a0035f6b9b4d1f1d206c3adfcf9395c31",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "word_count": null
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 16,
+      "entropy_hex": "ac98dac5d4f4ebad6056682ac95eb9ad",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "word_count": 12
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 32,
+      "entropy_hex": "d5a9cb46670566c4246b6e7af22e1dfc3668744ed831afea7ce2beea44e34e23",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "word_count": 24
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 16,
+      "entropy_hex": "ea7162b2e3991c0288f1228122c930f4",
+      "index": 3,
+      "mnemonic_id": "abandon12",
+      "word_count": 12
+    },
+    {
+      "app_no": 1237,
+      "entropy_bytes": 32,
+      "entropy_hex": "0ac7be6c7b08bf16ead8778494cf7256c566fb68bb09c0285b056d8a568516fc",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "word_count": null
+    },
+    {
+      "app_no": 32,
+      "entropy_bytes": 64,
+      "entropy_hex": "bae225aeb4cb24379c9993a84bd54da07763fbb0efd2e541211b791ae29cc6c63e75834408d5e455743928174f83e377e0002058b2b4b21beaa7dd06d83737c2",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "word_count": null
+    },
+    {
+      "app_no": 32,
+      "entropy_bytes": 64,
+      "entropy_hex": "9ade061f2a5ee6ec10ff5a49ea01c4e5a452b9046421ed5d3bb318b3869af16cc575a1f15c8919ef5c3f4eea117a3eb96383ec3f838feeab3726c7293ec0994a",
+      "index": 1,
+      "mnemonic_id": "zoo24",
+      "word_count": null
+    },
+    {
+      "app_no": 32,
+      "entropy_bytes": 32,
+      "entropy_hex": "bae225aeb4cb24379c9993a84bd54da07763fbb0efd2e541211b791ae29cc6c6",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "word_count": null
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 16,
+      "entropy_hex": "505f432af4d475272bc855d43920f647",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "word_count": 12
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 32,
+      "entropy_hex": "fd1130d09a41c6942c9c4bee09170574700858738551112d7bd443c25b8c0f50",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "word_count": 24
+    },
+    {
+      "app_no": 39,
+      "entropy_bytes": 16,
+      "entropy_hex": "1d1619b8cdcf2b0db684eff0296c2013",
+      "index": 3,
+      "mnemonic_id": "zoo24",
+      "word_count": 12
+    },
+    {
+      "app_no": 1237,
+      "entropy_bytes": 32,
+      "entropy_hex": "526b13066cd5df1dff93f3b5829cfad8412df317c5877c48e2e64d7ac832ba2b",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "word_count": null
+    }
+  ],
+  "description": "BIP-85 entropy: BIP32-SLIP10-secp256k1 path derivation, then HMAC-SHA512(key=b'bip-entropy-from-k', child_privkey)[:entropy_bytes]. Paths: app 39 -> m/83696968'/39'/0'/{word_count}'/{index}'; app 32 -> m/83696968'/32'/{index}'; other -> m/83696968'/{app_no}'/{index}'",
+  "fixture_version": 1
+}

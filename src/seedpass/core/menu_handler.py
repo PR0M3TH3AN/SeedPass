@@ -157,15 +157,18 @@ class MenuHandler:
             )
             data = pm.entry_manager.vault.load_index()
             entries = data.get("entries", {})
-            totp_list: list[tuple[str, int, int, bool]] = []
+            # digits travels with period: both govern the code the issuing
+            # service expects, and neither may fall back to pyotp defaults.
+            totp_list: list[tuple[str, int, int, bool, int]] = []
             for idx_str, entry in entries.items():
                 if pm._entry_type_str(entry) == EntryType.TOTP.value and not entry.get(
                     "archived", entry.get("blacklisted", False)
                 ):
                     label = entry.get("label", "")
                     period = int(entry.get("period", 30))
+                    digits = int(entry.get("digits", 6))
                     imported = "secret" in entry
-                    totp_list.append((label, int(idx_str), period, imported))
+                    totp_list.append((label, int(idx_str), period, imported, digits))
 
             if not totp_list:
                 pm.notify("No 2FA entries found.", level="WARNING")
@@ -175,7 +178,7 @@ class MenuHandler:
 
             totp_secrets: dict[int, str] = {}
             key = getattr(pm, "KEY_TOTP_DET", None) or getattr(pm, "parent_seed", None)
-            for _, idx, _, _ in totp_list:
+            for _, idx, _, _, _ in totp_list:
                 try:
                     totp_secrets[idx] = pm.entry_manager.get_totp_secret(idx, key)
                 except Exception:
@@ -196,10 +199,12 @@ class MenuHandler:
                 imported_list = [t for t in totp_list if t[3]]
                 if generated:
                     print(colored("\nGenerated 2FA Codes:", "green"))
-                    for label, idx, period, _ in generated:
+                    for label, idx, period, _, digits in generated:
                         secret = totp_secrets.get(idx)
                         code = (
-                            TotpManager.current_code_from_secret(secret)
+                            TotpManager.current_code_from_secret(
+                                secret, period=period, digits=digits
+                            )
                             if secret
                             else "ERROR"
                         )
@@ -219,10 +224,12 @@ class MenuHandler:
                             )
                 if imported_list:
                     print(colored("\nImported 2FA Codes:", "green"))
-                    for label, idx, period, _ in imported_list:
+                    for label, idx, period, _, digits in imported_list:
                         secret = totp_secrets.get(idx)
                         code = (
-                            TotpManager.current_code_from_secret(secret)
+                            TotpManager.current_code_from_secret(
+                                secret, period=period, digits=digits
+                            )
                             if secret
                             else "ERROR"
                         )

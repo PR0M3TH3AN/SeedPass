@@ -1,0 +1,13 @@
+#!/bin/sh
+# Version-controlled so every clone gets the same gate. Enable once with:
+#
+#     git config core.hooksPath .githooks
+#
+# Budget is the design: this must stay well under a minute, because a hook
+# that takes minutes becomes `git push --no-verify` and then it is a control
+# everyone believes in and nobody runs. Anything slower belongs in
+# scripts/ci_parity.sh, which you run before calling a branch ready.
+#
+# To skip deliberately (a docs-only push, say):  git push --no-verify
+set -e
+exec "$(dirname "$0")/../scripts/ci_prepush.sh"

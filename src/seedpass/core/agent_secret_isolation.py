@@ -183,6 +183,36 @@ def unwrap_high_risk_partition_key(factor: str) -> str:
 def grant_high_risk_unlock(
     *, fingerprint: str, ttl_seconds: int, partition_key_tag: str | None = None
 ) -> dict[str, Any]:
+    """Record a high-risk unlock session.
+
+    .. warning::
+
+       The session record contains ``partition_key_tag``, and the partition
+       file's encryption key is derived from exactly that value
+       (``high_risk_partition_store._fernet_for_tag``). So while a session is
+       live, the high-risk partition can be decrypted from disk alone, with no
+       factor, by anything able to read ``APP_DIR`` -- and the session file
+       sits in the same directory as the partition's key envelope, so being
+       able to read one implies being able to read the other.
+
+       That weakens the guarantee the partition exists to provide: these are
+       the entry kinds judged to need a SECOND factor beyond the master
+       password, and for the duration of an unlock they effectively need no
+       factor at all.
+
+       This is inherent to keeping session state on disk in a CLI with no
+       resident process: "unlocked for a TTL without re-supplying the factor"
+       means the key must be recoverable from somewhere the next process can
+       reach, and here that somewhere is the filesystem. The TypeScript port
+       keeps the tag in its session agent's memory instead (see
+       js/packages/cli/src/highRisk.ts). Fixing it here needs either a
+       resident agent or dropping the session model in favour of supplying the
+       factor per operation -- a product decision, recorded in TODO.md rather
+       than made silently.
+
+       Until then: keep TTLs short, run ``high-risk-lock`` when finished, and
+       treat read access to APP_DIR as equivalent to holding the factor.
+    """
     now = _utcnow()
     rec = {
         "fingerprint": str(fingerprint),

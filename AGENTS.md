@@ -1,5 +1,14 @@
 # Repository Guidelines
 
+## Overstory Ecosystem
+This project is part of the **Overstory** multi-agent development ecosystem. When asked to "update Overstory" or work on the ecosystem, these are the relevant repositories:
+
+- **[Overstory](https://github.com/jayminwest/overstory)** — The coordinator. Orchestrates multi-agent workflows across worktrees.
+- **[Mulch](https://github.com/jayminwest/mulch)** — Structured expertise/memory system for agents.
+- **[Canopy](https://github.com/jayminwest/canopy)** — Prompt management system for agents.
+- **[Seeds](https://github.com/jayminwest/seeds)** — Git-native issue tracker for agents.
+- **[os-eco](https://github.com/jayminwest/os-eco)** — The entire Overstory ecosystem (meta-repo/docs).
+
 This project is written in **Python**. Follow these instructions when working with the code base.
 
 ## Installation Quickstart for AI Agents
@@ -56,21 +65,168 @@ cd ~/.seedpass/app && source venv/bin/activate
 cd src && python main.py
 ```
 
+## Planning & Strategy
+
+Before starting work, AI agents must consult the following documents to align with the current project trajectory:
+
+1.  **[Dev Control Center](docs/dev_control_center.md)**: The single source of truth for current priorities and "what to do next."
+2.  **[TUI v2 Execution Plan](docs/tui_v2_integration_execution_plan_2026-03-02.md)**: The active roadmap for the TUI v2 mockup parity and hardening phase.
+
+<!-- mulch:start -->
+## Project Expertise (Mulch)
+<!-- mulch-onboard-v:1 -->
+
+This project uses [Mulch](https://github.com/jayminwest/mulch) for structured expertise management.
+
+**At the start of every session**, run:
+```bash
+mulch prime
+```
+
+This injects project-specific conventions, patterns, decisions, and other learnings into your context.
+Use `mulch prime --files src/foo.ts` to load only records relevant to specific files.
+
+**Before completing your task**, review your work for insights worth preserving — conventions discovered,
+patterns applied, failures encountered, or decisions made — and record them:
+```bash
+mulch record <domain> --type <convention|pattern|failure|decision|reference|guide> --description "..."
+```
+
+Link evidence when available: `--evidence-commit <sha>`, `--evidence-bead <id>`
+
+Run `mulch status` to check domain health and entry counts.
+Run `mulch --help` for full usage.
+Mulch write commands use file locking and atomic writes — multiple agents can safely record to the same domain concurrently.
+
+### Before You Finish
+
+1. Discover what to record:
+   ```bash
+   mulch learn
+   ```
+2. Store insights from this work session:
+   ```bash
+   mulch record <domain> --type <convention|pattern|failure|decision|reference|guide> --description "..."
+   ```
+3. Validate and commit:
+   ```bash
+   mulch sync
+   ```
+<!-- mulch:end -->
+
+<!-- seeds:start -->
+## Issue Tracking (Seeds)
+<!-- seeds-onboard-v:1 -->
+
+This project uses [Seeds](https://github.com/jayminwest/seeds) for git-native issue tracking.
+
+**At the start of every session**, run:
+```
+sd prime
+```
+
+This injects session context: rules, command reference, and workflows.
+
+**Quick reference:**
+- `sd ready` — Find unblocked work
+- `sd create --title "..." --type task --priority 2` — Create issue
+- `sd update <id> --status in_progress` — Claim work
+- `sd close <id>` — Complete work
+- `sd sync` — Sync with git (run before pushing)
+
+### Before You Finish
+1. Close completed issues: `sd close <id>`
+2. File issues for remaining work: `sd create --title "..."`
+3. Sync and push: `sd sync && git push`
+<!-- seeds:end -->
+
+<!-- canopy:start -->
+## Prompt Management (Canopy)
+<!-- canopy-onboard-v:1 -->
+
+This project uses [Canopy](https://github.com/jayminwest/canopy) for git-native prompt management.
+
+**At the start of every session**, run:
+```
+cn prime
+```
+
+This injects prompt workflow context: commands, conventions, and common workflows.
+
+**Quick reference:**
+- `cn list` — List all prompts
+- `cn render <name>` — View rendered prompt (resolves inheritance)
+- `cn emit --all` — Render prompts to files
+- `cn update <name>` — Update a prompt (creates new version)
+- `cn sync` — Stage and commit .canopy/ changes
+
+**Do not manually edit emitted files.** Use `cn update` to modify prompts, then `cn emit` to regenerate.
+<!-- canopy:end -->
+
 ## Running Tests
 
+SeedPass maintains a comprehensive test infrastructure. Agents should use the central inventory as a guide:
+
+1.  **[Test Infrastructure Inventory](docs/TEST_INVENTORY.md)**: A complete index of all unit, integration, UI, and determinism tests.
+
+### Quick Start: Running Tests
+
 1. Set up a virtual environment and install dependencies:
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --require-hashes -r requirements.lock
-   ```
-
-2. Run the test suite using **pytest**:
-
+...
    ```bash
    pytest
    ```
+
+   For a full CI-equivalent run (highly recommended before any PR), use:
+   ```bash
+   bash scripts/run_ci_tests.sh
+   ```
+
+### Local CI: the two gates that matter
+
+TypeScript is the implementation going forward; Python is the reference it is
+validated against. Both are covered by two gates, and they have meanings, not
+just names:
+
+```bash
+./scripts/ci_prepush.sh    # ~45s. Run before every push.
+./scripts/ci_parity.sh     # minutes. Run before calling a branch ready.
+```
+
+**An agent may not report a task complete or push until `ci_prepush.sh`
+passes, and may not call a branch merge-ready until `ci_parity.sh` passes.**
+
+Both begin with `scripts/ci_preflight.py`, which verifies this machine agrees
+with the lockfiles and refuses to continue when it does not. That is not
+ceremony. On 2026-08-20 the local environment held black 26.1.0 while
+`poetry.lock` pinned 24.10.0, so `poetry run black --check .` passed locally
+and failed on GitHub — and an earlier commit titled "satisfy the black gate"
+had already reformatted five files with the wrong black, making CI worse
+while looking like a fix. A local gate that disagrees with CI is worse than
+no gate, because people stop reading the real result.
+
+If preflight fails, repair with:
+
+```bash
+./scripts/dev_sync.sh      # the only script that mutates your environment
+```
+
+Two rules follow from this and apply to everything you write here:
+
+- **Invoke tools through the repository, never off PATH.** `poetry run black`,
+  `pnpm -C js lint` — never a bare `black` or `oxlint`. A bare name is exactly
+  how a local run and a CI run end up disagreeing about the same source.
+- **Never add a check that cannot fail.** Two shipped examples were found and
+  removed on 2026-08-20: a test step whose failures pwsh discarded on Windows,
+  and an SBOM step that swallowed its own error and uploaded nothing. A green
+  check nobody can turn red is worse than an absent one, because it is
+  trusted.
+
+Enable the pre-push hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
 
    Currently the test folder is located in `src/tests/`. New tests should be placed there so `pytest` can discover them automatically.
 
@@ -131,7 +287,7 @@ new `kind` (for example, SSH keys or BIP‑39 seeds) use the checklist below:
    handlers so older kinds continue to work.
 
 3. **Best Practices** – When introducing a new `kind`, follow the modular
-   architecture guidelines from `docs/json_entries.md`:
+   architecture guidelines from `docs/entry_types.md`:
    - Use clear, descriptive names.
    - Keep handler code for each `kind` separate.
    - Validate required fields and gracefully handle missing data.
@@ -140,7 +296,10 @@ new `kind` (for example, SSH keys or BIP‑39 seeds) use the checklist below:
 This procedure keeps the UI consistent and ensures new data types integrate
 smoothly with existing functionality.
 
-## TORCH Memory Integration
-You have access to the TORCH memory system.
-1. READ: Check `.scheduler-memory/latest/${cadence}/memories.md` for past learnings.
-2. WRITE: Before exiting, save new insights to `memory-update.md` so future runs can learn from this session.
+
+## Repo memory
+
+Curated agent memory lives in `.agents/` (index: `.agents/MEMORY.md`). Read it
+before substantive work. Propose additions as files in `.agents/proposals/`;
+trusted memory under `.agents/memory/` changes only through reviewed commits.
+Code, tests, and configuration always outrank memory.

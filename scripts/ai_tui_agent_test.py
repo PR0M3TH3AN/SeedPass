@@ -358,7 +358,7 @@ def _invalid_input_checks(
     timeout: float,
     *,
     main_menu_choice: str = "99",
-    add_entry_choice: str = "9",
+    add_entry_choice: str = "99",
     retrieve_index: str = "abc",
 ) -> None:
     runner.sendline(main_menu_choice)

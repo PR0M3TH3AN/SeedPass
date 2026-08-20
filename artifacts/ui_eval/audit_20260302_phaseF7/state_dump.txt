@@ -1,0 +1,6 @@
+=== BOARD RHYTHM CHECK ===
+password_has_aligned_url=True
+password_has_aligned_length=True
+doc_has_preview_row=True
+inspector_heading:
+Inspector  |  #2 (document)  Runbook

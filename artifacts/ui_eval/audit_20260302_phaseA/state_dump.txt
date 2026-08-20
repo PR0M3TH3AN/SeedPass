@@ -1,0 +1,66 @@
+=== STARTUP FILTERS ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: (none)
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+■ (default)Seed
+▶ └─ □ (default)Seed:(default)
+
+Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+=== STARTUP DETAIL ===
+Inspector idle.
+
+Select an entry from the grid to inspect details.
+
+=== STARTUP LINKS ===
+Links: select an entry first.
+
+=== STARTUP SECRET ===
+Sensitive data hidden. Select an entry, then use 'v' (reveal) or 'g' (QR).
+
+=== OPEN 1 FILTERS ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: #1  AIIT
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+■ (default)Seed
+▶ └─ □ (default)Seed:(default)
+
+Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+=== OPEN 1 DETAIL ===
+👥 Entry #1  AIIT
+------------------------
+Kind: managed_account | Modified: (unknown) | Archived: No
+Index Num*: (auto) | Entry Num: 1 | Edit: e
+👥 Managed Account Seed Board
+▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm)
+Seed Phrase*: hidden (v confirm) | Word Count: 12
+Index Num*: (auto)
+Compact: Notes/Tags shown inline.
+Tags: managed, acct
+Notes: managed notes
+Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)

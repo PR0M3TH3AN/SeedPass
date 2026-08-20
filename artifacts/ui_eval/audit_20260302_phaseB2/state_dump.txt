@@ -1,0 +1,31 @@
+=== SIDEBAR PROFILE PERSISTENCE CHECK ===
+active_profile=fp-a
+left_has_sidebar_collapsed=True
+sidebar_collapsed_flag=True
+filters_panel:
+SeedPass ◈ TUI v2
+Fingerprint: fp-a
+
+Selected: (none)
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+▶ ■ fp-aSeed:fp-a
+  ├─ 👤 Managed Users
+  │  └─ #2 Managed User 1
+  └─ 🤖 Agents
+     └─ #3 Agent Alpha
+  □ fp-bSeed:fp-b
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+status:
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Switched profile to fp-a

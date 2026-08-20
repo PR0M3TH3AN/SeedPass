@@ -1,0 +1,5 @@
+=== DENSE ACTION STRIP CHECK ===
+dense_hires=True
+action_strip:
+S Set  A Add  C Seed+  R Seed-  H Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Dense
+v Rev ▣ g QR ▣ e Edit ▣ a Arch (password)

@@ -1,0 +1,4 @@
+=== INSPECTOR HEADING CONTEXT CHECK ===
+heading_view=Inspector  |  #1 (document)  Doc A
+heading_edit=Document Editor  |  Entry #1
+heading_totp=2FA Board  |  Live Codes

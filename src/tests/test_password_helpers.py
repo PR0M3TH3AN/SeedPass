@@ -1,5 +1,8 @@
 import string
+import pytest
 from seedpass.core.password_generation import PasswordGenerator, PasswordPolicy
+
+pytestmark = pytest.mark.determinism
 
 
 class DummyEnc:

@@ -1,0 +1,32 @@
+{
+  "timestamp_utc": "20260302T142240Z",
+  "scenario": "extended",
+  "status": "passed",
+  "failure": "",
+  "duration_sec": 1.418,
+  "coverage_points": {
+    "startup": true,
+    "search": true,
+    "document_edit": true,
+    "graph_navigation": true,
+    "archive_restore": true,
+    "palette_navigation": true,
+    "help_overlay": true
+  },
+  "steps": [
+    {
+      "step_id": "extended",
+      "description": "Drive extended TUI v2 user/agent workflow.",
+      "status": "passed",
+      "duration_sec": 1.4178512609942118,
+      "detail": null
+    }
+  ],
+  "activity_log": [
+    "Unknown command: unknown-cmd",
+    "No entries match current filter/search",
+    "Moved to page 1/1",
+    "Help opened",
+    "Help closed"
+  ]
+}

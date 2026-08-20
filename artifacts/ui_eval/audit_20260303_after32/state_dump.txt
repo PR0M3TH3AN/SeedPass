@@ -1,0 +1,209 @@
+
+=== ui_board_idle ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Select an entry to view context actions.
+-- entry-detail --
+Inspector idle.
+
+Select an entry from the grid to inspect details.
+
+=== board_password ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Rev (v) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (password)
+-- entry-detail --
+Entry #1  Login 1
+------------------------
+🗝 Password Board
+Kind: password | Modified: (unknown) | Archived: No
+Index Num*: (auto)
+Login Fields
++- Credentials ---------------------+
+| Password*: hidden (v reveal, g qr) |
+| Username*: alice                   |
+| URL      : https://example.com     |
+| Length   : 18 chars                |
++------------------------------------+
+Operations
++- Quick Actions ----------------------+
+| ▣ Copy Password  ▣ Create New  ▣ Edit |
++---------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Edit (e) | Archive (a)
+
+=== board_note ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Edit Doc (e) ▣ Save (Ctrl+S) ▣ Arch (a) ▣ doc-export (document)
+-- entry-detail --
+Entry #2  Note 1
+----------------------------
+📄 Note Board
+Kind: document | Modified: (unknown) | Archived: No
+Index Num*: 2 | File Type: md
+Document Fields
++- Content -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Content Length: 230 chars                                                                                                                                                                            |
+| Preview       : This is a long note content for layout audit. This is a long note content for layout audit. This is a long note content for layout audit. This is a long note content for layout aud |
++------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+Operations
++- Quick Actions -+
+| ▣ Edit  ▣ Export |
++------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Edit (e) | Save (Ctrl+S) | Cancel (Esc) | Archive (a)
+
+=== board_totp ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+2FA Board (6) ▣ Rev (v) ▣ QR (g) ▣ Arch (a) (totp)
+-- entry-detail --
+Entry #3  Auth 1
+----------------------------
+📱 2FA Board
+Kind: totp | Modified: (unknown) | Archived: No
+Index Num*: 3
+2FA Fields
++- Parameters --------------------------------------+
+| Period : 30s                                       |
+| Digits : 6                                         |
+| Current Code: hidden (use '6' board or 'v' reveal) |
+| Secret: hidden | URI via QR                        |
++----------------------------------------------------+
+Operations
++- Quick Actions ----------------------------------------+
+| ▣ Copy Code  ▣ Copy URL(confirm)  ▣ Reveal Secret  ▣ QR |
++---------------------------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: 2FA Board (6) | 2fa-copy <id> | 2fa-copy-url <id> | Reveal (v) | QR (g) | Archive (a)
+
+=== board_seed ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Rev (v cfm) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (seed)
+-- entry-detail --
+🌱 Entry #4  Seed 1
+------------------------
+Kind: seed | Modified: (unknown) | Archived: No
+Index Num*: 4 | Entry Num: 4 | Edit: e
+🌱 BIP-39 Seed Board
+Seed Fields
++- Seed Info --------------------------------------+
+| Seed Phrase*: hidden (v confirm) | Word Count: 12 |
+| Index Num*: 4                                     |
++---------------------------------------------------+
+Operations
++- Quick Actions -------------------------------------------------------+
+| ▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm) |
++------------------------------------------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)
+
+=== board_managed_seed ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+managed-load ▣ managed-exit ▣ Rev (v cfm) ▣ QR (g) ▣ Edit (e) ▣ Arch (a) (managed_account)
+-- entry-detail --
+👥 Entry #5  Managed 1
+------------------------
+Kind: managed_account | Modified: (unknown) | Archived: No
+Index Num*: 5 | Entry Num: 5 | Edit: e
+👥 Managed Account Seed Board
+Seed Fields
++- Seed Info --------------------------------------+
+| Seed Phrase*: hidden (v confirm) | Word Count: 12 |
+| Index Num*: 5                                     |
++---------------------------------------------------+
+Operations
++- Quick Actions -------------------------------------------------------+
+| ▣ Reveal Seed  ▣ QR Seed  ▣ Copy Seed(confirm)  ▣ Export Seed(confirm) |
++------------------------------------------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Reveal (v confirm) | QR (g) | copy seed confirm | export-field seed <path> confirm | Archive (a)
+
+=== board_ssh ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Rev (v cfm) ▣ Arch (a) ▣ copy/export-field (ssh)
+-- entry-detail --
+Entry #6  SSH 1
+----------------------------
+🖧 SSH Board
+Kind: ssh | Modified: (unknown) | Archived: No
+Index Num*: 6 | Entry Num: 6
+Key Material
++- Keys -----------------------------------------+
+| Public Key: ssh-ed25519 AAAA-6                  |
+| Private Key: hidden (use 'v confirm' to reveal) |
++-------------------------------------------------+
+Operations
++- Quick Actions -----------------------------------+
+| ▣ Copy Public  ▣ Export Public                     |
+| ▣ Reveal Private  ▣ Copy Private  ▣ Export Private |
++----------------------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field
+
+=== board_pgp ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Rev (v cfm) ▣ Arch (a) ▣ copy/export-field (pgp)
+-- entry-detail --
+Entry #7  PGP 1
+----------------------------
+🔒 PGP Board
+Kind: pgp | Modified: (unknown) | Archived: No
+Index Num*: 7 | Entry Num: 7
+Key Material
++- Keys -----------------------------------------+
+| Fingerprint: FPR-7                              |
+| Public Key: available                           |
+| Private Key: hidden (use 'v confirm' to reveal) |
++-------------------------------------------------+
+Operations
++- Quick Actions -----------------------------------+
+| ▣ Copy Public  ▣ Export Public                     |
+| ▣ Reveal Private  ▣ Copy Private  ▣ Export Private |
++----------------------------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Reveal (v) | Edit (e) | Archive (a) | Ctrl+P copy/export-field
+
+=== board_nostr ===
+-- action-strip --
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Rev (v) ▣ QR (g public/private) ▣ Arch (a) (nostr)
+-- entry-detail --
+Entry #8  Nostr 1
+----------------------------
+⚡ Nostr Board
+Kind: nostr | Modified: (unknown) | Archived: No
+Index Num*: 8 | Entry Num: 8
+Key Material
++- Keys ----------------------------------+
+| npub: npub1demo                          |
+| nsec: hidden (use 'v confirm' to reveal) |
++------------------------------------------+
+Operations
++- Quick Actions -----------------+
+| ▣ Copy npub  ▣ Copy nsec  ▣ Edit |
+| ▣ QR Public  ▣ QR Private        |
++----------------------------------+
+Compact: Notes/Tags shown inline.
+Tags: (none)
+Notes: (none)
+Actions: Reveal (v) | QR (g) | qr private confirm | Archive (a)

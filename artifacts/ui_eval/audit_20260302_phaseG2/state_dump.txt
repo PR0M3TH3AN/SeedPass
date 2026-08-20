@@ -1,0 +1,12 @@
+=== MANAGED ACCOUNT DOUBLE-V REVEAL CHECK ===
+selected=1
+secret_panel:
+Sensitive State: REVEALED
+
+Sensitive 👥: Managed Account Seed #1
+
+Label : Acct 1
+Seed Phrase : legal winner thank year wave sausage worth useful legal winner thank yellow
+status:
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Revealed selected sensitive data

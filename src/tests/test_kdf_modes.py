@@ -218,7 +218,7 @@ def test_tampered_kdf_wrapper_payload_is_rejected(tmp_path):
         wrong_mgr.decrypt_parent_seed()
 
 
-def test_setup_encryption_manager_rejects_wrong_argon2_params(monkeypatch):
+def test_setup_encryption_manager_uses_the_seed_s_own_kdf_params(monkeypatch):
     with TemporaryDirectory() as td:
         tmp = Path(td)
         fp = tmp.name
@@ -255,4 +255,16 @@ def test_setup_encryption_manager_rejects_wrong_argon2_params(monkeypatch):
         monkeypatch.setattr(PasswordManager, "initialize_bip85", lambda self: None)
         monkeypatch.setattr(PasswordManager, "initialize_managers", lambda self: None)
 
-        assert not pm.setup_encryption_manager(tmp, exit_on_fail=False)
+        # The seed record is self-describing: encrypt_parent_seed stores the
+        # KdfConfig it was written with, and setup_encryption_manager tries
+        # those params FIRST (_load_seed_kdf_config) before anything in the
+        # profile config.
+        #
+        # So a profile configured with argon2_time_cost=2 still opens a seed
+        # written with time_cost=1. That is the correct contract, not a gap:
+        # the config records how to derive NEW keys, and refusing to read an
+        # existing seed because the current setting differs would lock a user
+        # out of their vault the moment they changed a KDF preference.
+        #
+        # This test previously asserted the opposite and had been failing.
+        assert pm.setup_encryption_manager(tmp, exit_on_fail=False)

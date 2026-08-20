@@ -1,0 +1,294 @@
+Startup Options:
+1. Continue
+2. Restore from backup
+Select an option: 1
+Initialized checksum for '/home/user/Documents/GitHub/SeedPass/src/seedpass/core/manager.py'.
+Choose an option:
+1. Paste in an existing seed in full
+2. Enter an existing seed one word at a time
+3. Generate a new seed
+4. Restore from Nostr
+5. Restore from local backup
+Enter choice (1/2/3/4/5): 3
+Your new BIP-85 seed phrase is:
+often life clown target abuse curtain cave rival nerve view fragile way
+Please write this down and keep it in a safe place!
+Do you want to use this generated seed? (Y/N): Y
+Enter a new password: *************
+Confirm your password: *************
+Connecting to relays...
+c
+=== Seed Profile Stats ===
+Total entries: 0
+  password: 0
+  totp: 0
+  ssh: 0
+  seed: 0
+  pgp: 0
+  nostr: 0
+  key_value: 0
+  managed_account: 0
+  document: 0
+Relays configured: 3
+Backups: 0 (dir: /tmp/seedpass-agent-home-lsjl8vn1/.seedpass/3F6F1B6C120FA421/backups)
+Schema version: 4
+Database checksum ok: no
+Script checksum ok: yes
+Snapshot chunks: 0
+Pending deltas: 0
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+Press Enter to continue.
+
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 99
+Invalid choice. Please select a valid option.
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Add Entry
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+9. Document
+Select entry type or press Enter to go back: 99
+Invalid choice.
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Add Entry
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+9. Document
+Select entry type or press Enter to go back: 
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Retrieve Entry
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+Enter the index number of the entry to retrieve: abc
+Error: Index must be a number.
+Press Enter to continue...
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 1
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Add Entry
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+Add Entry:
+1. Password
+2. 2FA (TOTP)
+3. SSH Key
+4. Seed Phrase
+5. Nostr Key Pair
+6. PGP Key
+7. Key/Value
+8. Managed Account
+9. Document
+Select entry type or press Enter to go back: 1
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Add Entry > Password
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+Choose mode: [Q]uick or [A]dvanced? q
+Enter the label or website name: agent.example
+Enter the username (optional): agent
+Enter the URL (optional): https://agent.example
+Enter desired password length (default 16): 3
+Error: Password length must be between 8 and 128.
+Enter desired password length (default 16): 12
+Include special characters? (Y/n): 
+[+] Checksum updated successfully.
+Backup created successfully at '/tmp/seedpass-agent-home-lsjl8vn1/.seedpass/3F6F1B6C120FA421/backups/entries_db_backup_1772592494.json.enc'.
+[+] Entry added successfully at index 0.
+
+[+] Password generated and indexed with ID 0.
+
+Password for agent.example: j\Z$pq$146VW
+
+Press Enter to continue...
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 2
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Retrieve Entry
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+Enter the index number of the entry to retrieve: 0
+Retrieving password for 'agent.example' with length 12.
+Username: agent
+URL: https://agent.example
+
+[+] Retrieved Password for agent.example:
+
+Password: j\Z$pq$146VW
+Associated Username: agent
+Associated URL: https://agent.example
+Archived Status: Active
+Press Enter to continue...
+cSeed Profile: 3F6F1B6C120FA421 > Entry Actions
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+[+] Entry Actions:
+A. Archive
+N. Add Note
+C. Add Custom Field
+H. Add Hidden Field
+E. Edit
+T. Edit Tags
+Select an action or press Enter to return: 
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 3
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Search Entries
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+Enter search string: agent
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > Search Entries
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+[+] Search Results:
+
+0. Password - agent.example (agent)
+Enter index to view details or press Enter to go back: 
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 4
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > List Entries
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+10. Document
+Select entry type or press Enter to go back: 1
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > List Entries
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+[+] Entries:
+
+0. Password - agent.example
+Enter index to view details or press Enter to go back: 
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu > List Entries
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+List Entries:
+1. All
+2. Password
+3. Totp
+4. Ssh
+5. Seed
+6. Pgp
+7. Nostr
+8. Key Value
+9. Managed Account
+10. Document
+Select entry type or press Enter to go back: 
+cSeed Profile: 3F6F1B6C120FA421 > Main Menu
+Profile is ONLINE by default. Switch to offline mode in Settings if needed.
+
+    Select an option:
+    1. Add Entry
+    2. Retrieve Entry
+    3. Search Entries
+    4. List Entries
+    5. Modify an Existing Entry
+    6. 2FA Codes
+    7. Settings
+    8. List Archived
+    
+Enter your choice (1-8) or press Enter to exit: 
+Exiting the program.

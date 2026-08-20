@@ -1,0 +1,4 @@
+=== DENSE INSPECTOR NOISE CHECK ===
+has_dense_hint=True
+has_verbose_hint=False
+has_dense_actions=True

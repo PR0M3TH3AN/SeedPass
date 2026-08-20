@@ -1,0 +1,31 @@
+=== STARTUP FILTERS ===
+SeedPass ◈ TUI v2
+Fingerprint: (default)
+
+Selected: (none)
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+▶ □ (default)Seed:(default)
+  ├─ 👤 Managed Users
+  │  └─ #1 Acct One
+  └─ 🤖 Agents
+     └─ #2 Agent Alpha
+
+Nav: / j f h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)
+
+=== SIDEBAR TOGGLE COLLAPSE ===
+left_collapsed=True
+filters_hidden=True
+
+=== SIDEBAR TOGGLE EXPAND ===
+left_collapsed=False
+filters_hidden=False

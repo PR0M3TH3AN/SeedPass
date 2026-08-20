@@ -1,0 +1,10 @@
+=== TOP RIBBON ===
+FP (default) | Managed Users: 1 | Entries: 3 | Kind: all | Session: unlocked | Last Sync: (none)
+
+=== ACTION STRIP STARTUP ===
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+Select an entry to view context actions.
+
+=== ACTION STRIP PASSWORD ===
+S Settings  A Add  C Create Seed  R Remove Seed  H Hide/Reveal  E Export  I Import  B Backup  Ctrl+P Cmd  Compact
+v Rev ▣ g QR ▣ e Edit ▣ a Arch (password)

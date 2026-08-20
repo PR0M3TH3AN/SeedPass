@@ -1,0 +1,122 @@
+{
+  "delta_payloads_b64": [
+    "VjN8dk5XXH5X36Xdmu5olZDxZJTpOTZDjskABP6osJd8Rftxc7YoBfXa/Yh4XHpySBsf70Vnm0Q0m1xQBOoeShxXtCgUbQ48x8pY3NnY3suMDjlqou0ti5vuMVknTRPwgyBnFAo1DUeGmZSidFK0/z8EfxqanEklB9e9yUtqOiN04UmwK8tnr0u0n2pJd82oppv3PNPZs4FFFFmiD1d+ZVlOBEyuziEmTjuhP6axqflqEv4Y2nox82w+XvBbFhkCO2lVO9Q++81rhE8OKJ9q9iuUURD+U83UjhLTdNavcu+jk2r4AyUMQh9rK43IabeEK5cFJmFpLWNOinzouOvQJQ9yGPvccYmarBIza8BsiJLINnX1oNNRk8TG3NQ4i8bKdeXBaATuBeLPDVhF2GKICGzy3sQN7CbvB5BjPBKD4+om2eVU8MJW2AKCz5WTMADF",
+    "VjN8NqWfd9x4AJPrDKZmrh+2VbGRWp63a4/trecKc9txplwSHL5q3zjS8XP2hkWsf3C6J6enIw071qnnVgLvjvamksxvz/8R6+g6WeeFYxl1rUxUPeR2Fh4nNRyrc8Z9uHEiXpKzX6dtVvoDUNCrEav69R5rSW61pCBF1xPu2rRPoxkJgolrMHHi/4iod76LpXsMDx3ldrZDL26u5GXaaXRNEmzvz0GWgnFBJrRRVoV+1Ch7tefExQKLLoKi4xHFvV4A0Gs4JX3Gho3GksdyMre3YxQ="
+  ],
+  "delta_plaintexts": [
+    {
+      "entries": {
+        "0": {
+          "archived": false,
+          "kind": "password",
+          "label": "base-renamed",
+          "length": 16,
+          "modified_ts": 1700000010,
+          "notes": "",
+          "tags": [],
+          "type": "password"
+        },
+        "1": {
+          "archived": false,
+          "kind": "password",
+          "label": "added",
+          "length": 16,
+          "modified_ts": 1700000010,
+          "notes": "",
+          "tags": [],
+          "type": "password"
+        }
+      },
+      "schema_version": 4
+    },
+    {
+      "entries": {
+        "1": {
+          "_deleted": true,
+          "archived": false,
+          "kind": "password",
+          "label": "added",
+          "length": 16,
+          "modified_ts": 1700000020,
+          "notes": "",
+          "tags": [],
+          "type": "password"
+        }
+      },
+      "schema_version": 4
+    }
+  ],
+  "description": "Delta replay: start from a snapshot index, decrypt each V3 delta payload, merge in order with source_tag = sha256(encrypted_delta)[:16]. Nonces pinned (fixture-only).",
+  "final_state": {
+    "_sync_meta": {
+      "last_merge_ts": 1700000020,
+      "next_index": 2,
+      "source_count": 2,
+      "sources": [
+        "815ddfa9958c34a9",
+        "b9bd18009e005131"
+      ],
+      "strategy": "modified_ts_hash_tombstone_v2",
+      "tombstones": {
+        "1": {
+          "deleted_ts": 1700000020,
+          "entry_hash": "",
+          "event_hash": "b19e885c9e23b3e99881c4700c2df22fe19fa400e3649dca819bf2712c7ad74c",
+          "source": "b9bd18009e005131"
+        }
+      }
+    },
+    "_system": {
+      "index0": {
+        "canonical_views": {},
+        "checkpoints": {},
+        "events": {},
+        "heads": {},
+        "schema_version": 1,
+        "stats": {
+          "checkpoint_count": 0,
+          "event_count": 0,
+          "last_compaction_ts": 0,
+          "last_validation_ts": 0,
+          "writer_count": 0
+        },
+        "view_manifest": {
+          "builder_versions": {},
+          "canonical_view_types": [],
+          "local_only_view_types": [],
+          "version": 1
+        }
+      }
+    },
+    "entries": {
+      "0": {
+        "archived": false,
+        "kind": "password",
+        "label": "base-renamed",
+        "length": 16,
+        "modified_ts": 1700000010,
+        "notes": "",
+        "tags": [],
+        "type": "password"
+      }
+    },
+    "schema_version": 4
+  },
+  "fixture_version": 1,
+  "mnemonic_id": "abandon12",
+  "snapshot_index": {
+    "entries": {
+      "0": {
+        "archived": false,
+        "kind": "password",
+        "label": "base",
+        "length": 16,
+        "modified_ts": 1700000000,
+        "notes": "",
+        "tags": [],
+        "type": "password"
+      }
+    },
+    "schema_version": 4
+  }
+}

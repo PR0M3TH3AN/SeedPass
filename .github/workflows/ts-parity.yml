@@ -1,0 +1,190 @@
+name: TypeScript Parity
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - "src/**"
+      - "scripts/generate_ts_port_fixtures.py"
+      - "scripts/cross_impl_check.py"
+      - "scripts/differential_fuzz.py"
+      - ".github/workflows/ts-parity.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "js/**"
+      - "src/**"
+      - "scripts/generate_ts_port_fixtures.py"
+      - "scripts/cross_impl_check.py"
+      - "scripts/differential_fuzz.py"
+      - ".github/workflows/ts-parity.yml"
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm -r typecheck
+      - name: Parity tests (Node + jsdom)
+        run: pnpm -r test
+      - name: Build the distributable CLI
+        run: pnpm --filter @seedpass/cli build
+      - name: Smoke-test the bundle standalone
+        # js/scripts/smoke-cli.mjs, not an inline shell script. The version
+        # that used to live here used mktemp/export/`test -n`, so it could
+        # only run on Unix -- which meant the artifact users actually execute
+        # was never smoke-tested on Windows. Same file now runs everywhere,
+        # and checks determinism rather than just "some output appeared".
+        run: node scripts/smoke-cli.mjs
+      - name: Verify the packed npm tarball installs and runs
+        # `files`/`exports` mistakes only surface at install time: a package
+        # that omits its entry point still builds and tests fine here.
+        run: |
+          set -eu
+          pnpm --filter @seedpass/cli pack --pack-destination "$RUNNER_TEMP"
+          TARBALL="$(ls "$RUNNER_TEMP"/seedpass-cli-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/packtest" && cd "$RUNNER_TEMP/packtest"
+          npm init -y > /dev/null
+          npm install "$TARBALL" > /dev/null
+          ./node_modules/.bin/seedpass-js --version
+      - name: Upload CLI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedpass-js-cli
+          path: |
+            js/packages/cli/dist/seedpass-js.mjs
+            js/packages/cli/dist/seedpass-js.mjs.sha256
+
+  javascript-supply-chain:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit dependencies
+        # The Python side has had a dependency audit for a while; the
+        # JavaScript tree had none.
+        run: pnpm audit --audit-level moderate
+      # An SBOM step used to sit here and it never worked. It invoked
+      # `@cyclonedx/cyclonedx-npm@latest --package-lock-only`, which is the
+      # NPM tool and reads package-lock.json — a file this pnpm workspace does
+      # not have and never will. It then swallowed the failure with
+      # `|| echo "non-fatal"` and uploaded with `if-no-files-found: warn`, so
+      # two separate layers stopped it from ever going red. Its logs said
+      # "No files were found with the provided path" on every run.
+      #
+      # Removed rather than pinned: pinning the version of a tool that cannot
+      # read this repository's lockfile fixes the wrong problem. Generating a
+      # real SBOM needs a pnpm-native generator, which is tracked in TODO.md.
+      # `pnpm audit` above is the supply-chain check that actually runs and
+      # actually fails.
+
+  # Fixtures prove the two implementations compute the same values; this job
+  # proves they can read each other's on-disk profiles and backups.
+  cross-implementation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: js
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install Python dependencies
+        run: poetry install --no-interaction --no-ansi
+      - name: Cross-implementation compatibility
+        run: poetry run python scripts/cross_impl_check.py
+
+  # Differential fuzzing: random inputs to BOTH implementations, compared as
+  # canonical JSON. Fixtures prove agreement on inputs a human chose; this
+  # proves it on inputs nobody chose, which is where the bugs that survive to
+  # production live. It found a real silent-divergence defect in canonical
+  # number encoding the first time it ran at scale.
+  differential-fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Enable pnpm via corepack
+        run: corepack enable
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: js
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install Python dependencies
+        run: poetry install --no-interaction --no-ansi
+      # Fixed seeds so a regression is deterministic and bisectable: the same
+      # commit always gets the same cases.
+      - name: Differential fuzz (fixed seeds)
+        run: |
+          for seed in 1 2 3; do
+            poetry run python scripts/differential_fuzz.py --cases 150 --seed "$seed"
+          done
+      # Plus one seed nobody has run before, so the explored input space grows
+      # over time instead of freezing at whatever was chosen today. The script
+      # prints its seed, so a failure here is still reproducible exactly.
+      - name: Differential fuzz (exploratory seed)
+        run: |
+          poetry run python scripts/differential_fuzz.py \
+            --cases 150 --seed "${{ github.run_id }}"
+
+  # The fixtures are committed, so the parity job never regenerates them.
+  # This job proves the committed fixtures actually come from the committed
+  # generator: it regenerates from Python and fails on any drift.
+  fixture-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+      - name: Regenerate fixtures
+        run: poetry run python scripts/generate_ts_port_fixtures.py
+      - name: Fail on drift
+        # manifest.json records the generating commit, which legitimately
+        # differs from the checked-out commit — everything else must match.
+        run: >
+          git diff --exit-code --
+          js/packages/test-vectors/fixtures
+          ':(exclude)js/packages/test-vectors/fixtures/manifest.json'

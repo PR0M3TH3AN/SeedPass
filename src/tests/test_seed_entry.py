@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import pytest
 
 from helpers import create_vault, TEST_SEED, TEST_PASSWORD
 from mnemonic import Mnemonic
@@ -13,6 +14,8 @@ from seedpass.core.config_manager import ConfigManager
 from seedpass.core.password_generation import derive_seed_phrase
 from local_bip85.bip85 import BIP85
 from bip_utils import Bip39SeedGenerator
+
+pytestmark = pytest.mark.determinism
 
 
 def test_seed_phrase_determinism():

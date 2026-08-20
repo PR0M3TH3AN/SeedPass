@@ -1,0 +1,7 @@
+=== ACTION STRIP CLICKABLE CHECK ===
+clicked_col=73
+palette_open=True
+palette_value=db-export 
+status:
+[PALETTE | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Export shortcut opened

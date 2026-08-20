@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "fingerprint": "C557EEC878DFD852",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "mnemonic_id": "abandon12"
+    },
+    {
+      "fingerprint": "ECB0E7BA498C5920",
+      "mnemonic": "legal winner thank year wave sausage worth useful legal winner thank yellow",
+      "mnemonic_id": "legal12"
+    },
+    {
+      "fingerprint": "E96BFC1D78867126",
+      "mnemonic": "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote",
+      "mnemonic_id": "zoo24"
+    },
+    {
+      "fingerprint": "C557EEC878DFD852",
+      "mnemonic": "  ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABOUT  ",
+      "mnemonic_id": "abandon12-mixed-case-padded"
+    }
+  ],
+  "description": "Profile fingerprint: SHA256(mnemonic.strip().lower()) hex, first 16 chars, uppercased",
+  "fixture_version": 1
+}

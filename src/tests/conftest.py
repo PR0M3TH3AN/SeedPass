@@ -76,23 +76,37 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="maximum entries for nostr index size test",
     )
+    parser.addoption(
+        "--determinism-only",
+        action="store_true",
+        default=False,
+        help="run only determinism regression tests",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "stress: long running stress tests")
     config.addinivalue_line("markers", "desktop: desktop only tests")
+    config.addinivalue_line(
+        "markers", "determinism: locks deterministic derivation behavior"
+    )
 
 
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
-    if config.getoption("--stress"):
+    if config.getoption("--determinism-only"):
+        skip_non_determinism = pytest.mark.skip(reason="running determinism-only suite")
+        for item in items:
+            if "determinism" not in item.keywords:
+                item.add_marker(skip_non_determinism)
         return
 
-    skip_stress = pytest.mark.skip(reason="need --stress option to run")
-    for item in items:
-        if "stress" in item.keywords:
-            item.add_marker(skip_stress)
+    if not config.getoption("--stress"):
+        skip_stress = pytest.mark.skip(reason="need --stress option to run")
+        for item in items:
+            if "stress" in item.keywords:
+                item.add_marker(skip_stress)
 
     if not config.getoption("--desktop"):
         skip_desktop = pytest.mark.skip(reason="need --desktop option to run")

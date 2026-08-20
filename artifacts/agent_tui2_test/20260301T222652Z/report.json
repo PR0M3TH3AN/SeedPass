@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "20260301T222723Z",
+  "scenario": "extended",
+  "status": "failed",
+  "failure": "Timed out while waiting for widgets to process pending messages.",
+  "duration_sec": 30.762,
+  "coverage_points": {
+    "startup": true,
+    "search": true,
+    "document_edit": true,
+    "graph_navigation": true,
+    "archive_restore": true,
+    "palette_navigation": false,
+    "help_overlay": false
+  },
+  "steps": [
+    {
+      "step_id": "extended",
+      "description": "Drive extended TUI v2 user/agent workflow.",
+      "status": "failed",
+      "duration_sec": 30.762144954998803,
+      "detail": "Timed out while waiting for widgets to process pending messages."
+    }
+  ],
+  "activity_log": [
+    "Selected entry 1"
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "cases": [
+    {
+      "input": {
+        "passwords": {
+          "0": {
+            "length": 16,
+            "url": "https://legacy.example",
+            "username": "olduser",
+            "website": "legacy-site.example"
+          },
+          "1": {
+            "length": 12,
+            "website": "second-site.example"
+          }
+        }
+      },
+      "migrated": {
+        "entries": {
+          "0": {
+            "custom_fields": [],
+            "label": "legacy-site.example",
+            "length": 16,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password",
+            "url": "https://legacy.example",
+            "username": "olduser"
+          },
+          "1": {
+            "custom_fields": [],
+            "label": "second-site.example",
+            "length": 12,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "v0"
+    },
+    {
+      "input": {
+        "passwords": {
+          "0": {
+            "length": 16,
+            "url": "https://legacy.example",
+            "username": "olduser",
+            "website": "legacy-site.example"
+          },
+          "1": {
+            "length": 12,
+            "website": "second-site.example"
+          }
+        },
+        "schema_version": 1
+      },
+      "migrated": {
+        "entries": {
+          "0": {
+            "custom_fields": [],
+            "label": "legacy-site.example",
+            "length": 16,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password",
+            "url": "https://legacy.example",
+            "username": "olduser"
+          },
+          "1": {
+            "custom_fields": [],
+            "label": "second-site.example",
+            "length": 12,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "v1"
+    },
+    {
+      "input": {
+        "entries": {
+          "0": {
+            "kind": "password",
+            "label": "v2-site.example",
+            "length": 20,
+            "notes": "",
+            "type": "password",
+            "username": "u"
+          },
+          "1": {
+            "digits": 6,
+            "index": 0,
+            "kind": "totp",
+            "label": "v2-totp",
+            "notes": "",
+            "period": 30,
+            "type": "totp"
+          }
+        },
+        "schema_version": 2
+      },
+      "migrated": {
+        "entries": {
+          "0": {
+            "custom_fields": [],
+            "kind": "password",
+            "label": "v2-site.example",
+            "length": 20,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password",
+            "username": "u"
+          },
+          "1": {
+            "custom_fields": [],
+            "digits": 6,
+            "index": 0,
+            "kind": "totp",
+            "label": "v2-totp",
+            "notes": "",
+            "origin": "",
+            "period": 30,
+            "tags": [],
+            "type": "totp"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "v2"
+    },
+    {
+      "input": {
+        "entries": {
+          "0": {
+            "custom_fields": [],
+            "kind": "password",
+            "label": "v2-site.example",
+            "length": 20,
+            "notes": "",
+            "origin": "",
+            "type": "password",
+            "username": "u"
+          },
+          "1": {
+            "custom_fields": [],
+            "digits": 6,
+            "index": 0,
+            "kind": "totp",
+            "label": "v2-totp",
+            "notes": "",
+            "origin": "",
+            "period": 30,
+            "type": "totp"
+          }
+        },
+        "schema_version": 3
+      },
+      "migrated": {
+        "entries": {
+          "0": {
+            "custom_fields": [],
+            "kind": "password",
+            "label": "v2-site.example",
+            "length": 20,
+            "notes": "",
+            "origin": "",
+            "tags": [],
+            "type": "password",
+            "username": "u"
+          },
+          "1": {
+            "custom_fields": [],
+            "digits": 6,
+            "index": 0,
+            "kind": "totp",
+            "label": "v2-totp",
+            "notes": "",
+            "origin": "",
+            "period": 30,
+            "tags": [],
+            "type": "totp"
+          }
+        },
+        "schema_version": 4
+      },
+      "name": "v3"
+    }
+  ],
+  "description": "Schema migrations 0->4 as applied by seedpass.core.migrations. v0->v1 injects schema_version; v1->v2 renames passwords to entries and website to label; v2->v3 adds custom_fields/origin defaults; v3->v4 adds tags defaults.",
+  "fixture_version": 1,
+  "latest_version": 4
+}

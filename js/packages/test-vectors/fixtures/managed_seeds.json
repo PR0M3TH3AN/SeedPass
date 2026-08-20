@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "child_fingerprint": "DB04ACF46C00617F",
+      "child_mnemonic": "prosper short ramp prepare exchange stove life snack client enough purpose fold",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "words": 12
+    },
+    {
+      "child_fingerprint": "A61FC228F91743B9",
+      "child_mnemonic": "sing slogan bar group gauge sphere rescue fossil loyal vital model desert",
+      "index": 1,
+      "mnemonic_id": "abandon12",
+      "words": 12
+    },
+    {
+      "child_fingerprint": "B9093DB19FB9D4E8",
+      "child_mnemonic": "stick exact spice sock filter ginger museum horse kit multiply manual wear grief demand derive alert quiz fault december lava picture immune decade jaguar",
+      "index": 0,
+      "mnemonic_id": "abandon12",
+      "words": 24
+    },
+    {
+      "child_fingerprint": "2F6C02174318D1E0",
+      "child_mnemonic": "trade clock mom turtle clutch love surge truth bus reward hover truck palm paddle fossil near group cactus alley gas borrow amateur learn leisure",
+      "index": 1,
+      "mnemonic_id": "abandon12",
+      "words": 24
+    },
+    {
+      "child_fingerprint": "CEAD1B64F80B43D6",
+      "child_mnemonic": "expect wheel skirt trust elder near quality apple stage simple diesel modify",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "words": 12
+    },
+    {
+      "child_fingerprint": "E596B2D23A16CC33",
+      "child_mnemonic": "journey wide need flight fat level wrong forget knock bird fame cup",
+      "index": 1,
+      "mnemonic_id": "zoo24",
+      "words": 12
+    },
+    {
+      "child_fingerprint": "552F38AD3086C9BC",
+      "child_mnemonic": "wonder maze crouch cruel broccoli energy raven maximum unlock emerge scout trophy above club sock pretty bachelor hint vital maple certain ship diary blanket",
+      "index": 0,
+      "mnemonic_id": "zoo24",
+      "words": 24
+    },
+    {
+      "child_fingerprint": "C96C5A84CB80B18B",
+      "child_mnemonic": "ugly hill shoot ocean quote morning garden nice bunker ocean grant impulse stadium cliff attack weapon knife toward sugar loan area guess guitar cereal",
+      "index": 1,
+      "mnemonic_id": "zoo24",
+      "words": 24
+    }
+  ],
+  "description": "BIP-85 child mnemonics (managed accounts / derived seed phrases), BIP-39 English wordlist",
+  "fixture_version": 1
+}

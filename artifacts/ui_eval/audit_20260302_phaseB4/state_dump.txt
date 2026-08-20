@@ -1,0 +1,27 @@
+=== TREE CHILD OPEN CHECK ===
+cursor=1
+selected_entry=1
+status:
+[VIEW | CENTER] Shortcuts: ? help  Ctrl+P cmd  / search
+Opened tree entry 1
+filters_panel:
+SeedPass ◈ TUI v2
+Fingerprint: fp-a
+
+Selected: #1  Managed User 1
+Filter : all
+Archive: active
+Links  : all
+Density: compact
+Session: unlocked
+Managed: (none)
+Results: 3 | Page: 1/1
+
+Profile Tree
+------------
+  ■ fp-a             | Seed: fp-a
+▶   👤 #1    Managed User 1
+    🤖 #2    Agent Alpha
+
+Nav: / j f(menu) Shift+F(cycle) h p/n 1/2/3 ↑/↓ Ctrl+O Ctrl+B ? r x
+Act: Ctrl+P a e Ctrl+S Esc l [ ] o v g 6 (v confirm for seed/ssh/pgp)

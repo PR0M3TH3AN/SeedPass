@@ -40,3 +40,11 @@ It is updated daily by the `known-issues-agent`.
 - **Root Cause**: Implementation choice or legacy behavior.
 - **Status**: Active (Documented in `PROTOCOL_INVENTORY.md` and `reports/protocol/protocol-report-2026-02-26.md`).
 - **Last Checked**: 2026-02-26
+
+### [Active] Missing Relay Health Preflight Job Incident Runbook
+- **Symptoms**: `torch/TORCH.md` references an incident runbook (`docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md`) that does not exist in the repository.
+- **Repro**: `ls docs/agent-handoffs/incidents/2026-02-15-relay-health-preflight-job.md`
+- **Workaround**: Manually investigate relay issues using `npm run lock:health`.
+- **Root Cause**: Missing documentation file not committed or deleted.
+- **Status**: Active (A placeholder was created on 2026-03-01 by `content-audit-agent`).
+- **Last Checked**: 2026-03-01
