@@ -325,18 +325,41 @@ describe("second-audit findings", () => {
     const reply = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const socket = createConnection(socketPath);
       let buf = "";
+      // Stops the writer as soon as the daemon has answered.
+      let settled = false;
       const timer = setTimeout(() => {
         socket.destroy();
         reject(new Error("timeout"));
       }, 10000);
       socket.on("connect", () => {
-        // No newline: without a cap this grows unbounded and is rescanned.
-        socket.write("x".repeat(1_000_000));
+        // Written in chunks that respect backpressure, not as one megabyte.
+        // Blasting it meant the write hit EPIPE the moment the daemon hung
+        // up, and Node destroys a socket on error — discarding the refusal
+        // that was already inbound. The client never saw WHY it was refused,
+        // on macOS and Windows both. A real client writes with backpressure,
+        // and doing the same here lets `data` fire between chunks.
+        // No newline anywhere: without a cap this grows unbounded and is
+        // rescanned on every chunk, which is the thing being tested.
+        const TOTAL = 1_000_000;
+        const CHUNK = 64 * 1024;
+        let sent = 0;
+        const pump = (): void => {
+          while (sent < TOTAL && !socket.destroyed && !settled) {
+            const room = socket.write("x".repeat(Math.min(CHUNK, TOTAL - sent)));
+            sent += CHUNK;
+            if (!room) {
+              socket.once("drain", pump);
+              return;
+            }
+          }
+        };
+        pump();
       });
       socket.on("data", (c) => {
         buf += c.toString();
         const nl = buf.indexOf("\n");
         if (nl >= 0) {
+          settled = true;
           clearTimeout(timer);
           socket.destroy();
           resolve(JSON.parse(buf.slice(0, nl)) as Record<string, unknown>);
@@ -356,8 +379,9 @@ describe("second-audit findings", () => {
         reject(e);
       });
       socket.on("close", () => {
-        // Only reaches here if the reply never arrived: `data` resolves and
-        // destroys the socket as soon as it sees a newline.
+        // Only reaches here if the reply never arrived: `data` sets settled
+        // and resolves as soon as it sees a newline.
+        if (settled) return;
         clearTimeout(timer);
         reject(new Error("the daemon closed the connection without replying"));
       });
