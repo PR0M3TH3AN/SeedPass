@@ -6,12 +6,17 @@
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "smoke": "node scripts/smoke-cli.mjs",
+    "build": "pnpm --filter @seedpass/cli build"
   },
   "packageManager": "pnpm@11.21.0",
   "devDependencies": {
     "@oxlint/plugins": "1.78.0",
     "oxlint": "1.78.0"
   },
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  }
 }
