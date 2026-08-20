@@ -1020,6 +1020,31 @@ describe("totp, config, relays, stats", () => {
     await call("POST", "/api/v1/relays/reset");
   });
 
+  it("revokes a job profile only if there was one to revoke", async () => {
+    // The whole job-profile surface had no API test. The one that matters is
+    // the DELETE: without its check it answers 200 "revoked" for a job that
+    // never existed, so an operator revoking access is TOLD it worked while
+    // nothing happened — the worst possible answer for a revocation.
+    expect((await call("DELETE", "/api/v1/agent/job-profiles/never-existed")).status)
+      .toBe(404);
+
+    const created = await call("POST", "/api/v1/agent/job-profiles", {
+      body: { id: "nightly-backup", query: "label:bank" },
+    });
+    expect(created.status).toBe(201);
+    expect(
+      (await call("GET", "/api/v1/agent/job-profiles")).text,
+    ).toContain("nightly-backup");
+
+    const revoked = await call("DELETE", "/api/v1/agent/job-profiles/nightly-backup");
+    expect(revoked.status).toBe(200);
+    expect(revoked.json.revoked).toBe("nightly-backup");
+
+    // Revoking it a second time must NOT report success again.
+    expect((await call("DELETE", "/api/v1/agent/job-profiles/nightly-backup")).status)
+      .toBe(404);
+  });
+
   it("reports profile statistics", async () => {
     const res = await call("GET", "/api/v1/stats");
     expect(res.json.fingerprint).toBe(FINGERPRINT);
