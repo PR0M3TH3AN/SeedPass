@@ -211,9 +211,50 @@ export type UnknownEntry = z.infer<typeof unknownEntrySchema>;
  * the vault). Code branching on `kind` must treat an unrecognized value as
  * opaque — materializeSecret's throwing default is the model.
  */
+/**
+ * A high-risk partition STUB: the placeholder left in the index when an
+ * entry's substance moves into the encrypted partition file.
+ *
+ * A stub is a different shape from the entry it stands for, and validating it
+ * against that entry's full schema is simply wrong. `seed` is where the
+ * mistake bit: `seedEntrySchema` requires `word_count`, and a stub carries
+ * only kind, index, label, archived and the partition pointers — by design,
+ * so an index read without the factor discloses that a high-risk entry exists
+ * and nothing about it. So `agent high-risk migrate` on any vault holding a
+ * seed entry produced an index that would not parse, and saveVault refused to
+ * write it — after writePartition had already copied the secret into the
+ * partition file.
+ *
+ * Python builds the byte-identical stub (high_risk_partition_store.py,
+ * migrate_high_risk_entries) but validates nothing on save, so it writes one
+ * happily. A vault Python had migrated could therefore not be OPENED by this
+ * implementation at all. Fixing it here rather than by adding `word_count` to
+ * the stub keeps the two byte-identical, which is what sync's canonical
+ * hashing needs.
+ *
+ * This is not a validation bypass: a stub holds no secret material, so there
+ * is nothing for a malformed one to smuggle. It must still be a stub — the
+ * `partition` literal is the discriminator, and anything claiming a known
+ * kind without it still faces that kind's own schema.
+ */
+export const partitionStubSchema = z
+  .object({
+    kind: z.string(),
+    type: z.string().optional(),
+    partition: z.literal("high_risk"),
+    partition_ref: z.union([z.string(), z.number()]),
+    index: z.number().int().nonnegative(),
+    label: z.string(),
+    archived: z.boolean().default(false),
+    modified_ts: z.number().optional(),
+  })
+  .loose();
+
 export const entrySchema = z.preprocess(
   withKind,
-  z.union([entryUnionSchema, unknownEntrySchema]),
+  // The stub comes first: it is the narrower shape, and a stub of a known
+  // kind must not be measured against that kind's full schema.
+  z.union([partitionStubSchema, entryUnionSchema, unknownEntrySchema]),
 ) as unknown as z.ZodType<Entry>;
 
 export type Entry = z.infer<typeof entryUnionSchema>;

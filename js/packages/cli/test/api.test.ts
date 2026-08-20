@@ -25,9 +25,16 @@ import {
   addPasswordEntry,
   addKeyValueEntry,
   addTotpDeterministic,
+  addSshKeyEntry,
+  partitionStub,
   type VaultIndex,
 } from "@seedpass/core";
-import { setFactor, tagForFactor } from "../src/highRisk.js";
+import {
+  setFactor,
+  tagForFactor,
+  writePartition,
+  factorConfigured,
+} from "../src/highRisk.js";
 import {
   UNPORTED_PREFIXES,
   ApiServer,
@@ -1033,6 +1040,86 @@ describe("high-risk partition over the API", () => {
     ] as const) {
       const res = await call(method, path);
       expect(res.text).not.toContain(tag);
+    }
+  });
+
+  it("refuses a partition entry once the session has EXPIRED, not just when locked", async () => {
+    // The dangerous half of this gate. With no tag at all, dropping the check
+    // fails anyway — readPartition cannot decrypt with null. But an EXPIRED
+    // session still holds its tag, so without the check readPartition
+    // succeeds with the stale key and hands back the secret. That is the
+    // whole second factor lapsing silently, and nothing covered it: no test
+    // read a partition entry through the API at all.
+    // Self-sufficient rather than relying on an earlier test having set it.
+    if (!factorConfigured(appDir)) await setFactor(appDir, "api-second-factor");
+    const tag = await tagForFactor(appDir, "api-second-factor");
+    const dir = app.profileDir(FINGERPRINT);
+
+    // A stub in the index, and the real record in the partition file.
+    const vaultIndex = { schema_version: 4, entries: {} } as VaultIndex;
+    addPasswordEntry(vaultIndex, "bank.example", 16, { username: "alice", tags: ["money"] });
+    addKeyValueEntry(vaultIndex, "api-token", "TOKEN", "kv-secret-value");
+    addTotpDeterministic(vaultIndex, "email-2fa", MNEMONIC);
+    addTotpDeterministic(vaultIndex, "blank-secret-2fa", MNEMONIC);
+    for (const entry of Object.values(vaultIndex.entries) as Record<string, unknown>[]) {
+      if (entry["label"] === "blank-secret-2fa") entry["secret"] = "";
+    }
+    // An ssh entry, because key_value is not a high-risk kind — only ssh,
+    // pgp, seed, nostr and managed_account are partitioned. And the real stub
+    // builder rather than a hand-made shape, which would prove nothing about
+    // what production writes.
+    const stubId = addSshKeyEntry(vaultIndex, "sealed", {});
+    const entries = vaultIndex.entries as unknown as Record<string, Record<string, unknown>>;
+    entries[stubId] = partitionStub(stubId, entries[stubId]!, "ssh", Date.now() / 1000);
+    await writeFile(
+      join(dir, INDEX_FILENAME),
+      await encryptV3(deriveIndexKeyBytes(MNEMONIC), utf8(JSON.stringify(vaultIndex))),
+    );
+    await writePartition(dir, tag, {
+      [stubId]: {
+        type: "ssh",
+        kind: "ssh",
+        label: "sealed",
+        index: 0,
+      },
+    });
+
+    const srv = new ApiServer({ host: "127.0.0.1", port: 0, token: TOKEN, rateLimit: 100_000 });
+    const ctx2 = buildContext({ app, fingerprint: FINGERPRINT, mnemonic: MNEMONIC });
+    registerRoutes(srv, ctx2);
+    const bound = await srv.listen();
+    const get = () =>
+      fetch(`http://${bound.host}:${bound.port}/api/v1/entry/${stubId}/secret`, {
+        headers: {
+          authorization: `Bearer ${TOKEN}`,
+          "x-seedpass-password": PASSWORD,
+        },
+      });
+    try {
+      // Live session: the secret comes back, so the test cannot pass by the
+      // route being broken.
+      ctx2.highRiskTag = tag;
+      ctx2.highRiskExpiresAt = Math.floor(Date.now() / 1000) + 600;
+      const live = await get();
+      expect(live.status).toBe(200);
+      // High-risk kinds derive their secret rather than storing it, so the
+      // partition supplies the metadata the derivation needs. Capture what a
+      // live session returns and require the expired one not to leak it.
+      const secret = (await live.json()).value as string;
+      expect(typeof secret).toBe("string");
+      expect(secret.length).toBeGreaterThan(0);
+
+      // Same tag, expiry in the past. Must be 423, and must not carry the
+      // secret in any form.
+      ctx2.highRiskTag = tag;
+      ctx2.highRiskExpiresAt = Math.floor(Date.now() / 1000) - 1;
+      const expired = await get();
+      expect(expired.status).toBe(423);
+      expect(await expired.text()).not.toContain(secret);
+      // And the stale tag is dropped rather than left to be retried against.
+      expect(ctx2.highRiskTag).toBeNull();
+    } finally {
+      await srv.close();
     }
   });
 

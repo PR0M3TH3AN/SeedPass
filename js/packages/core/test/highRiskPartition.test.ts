@@ -20,8 +20,18 @@ import {
   partitionStub,
   isPartitionStub,
   HighRiskError,
+  HIGH_RISK_KINDS,
+  parseVaultIndex,
+  addSshKeyEntry,
+  addNostrKeyEntry,
+  addSeedEntry,
+  addPgpKeyEntry,
+  addManagedAccountEntry,
+  type VaultIndex,
 } from "@seedpass/core";
-import { highRiskFixture as fx } from "@seedpass/test-vectors";
+import { highRiskFixture as fx, mnemonics } from "@seedpass/test-vectors";
+
+const MNEMONIC = mnemonics["abandon12"]!;
 
 describe("interop with Python", () => {
   it("derives the same partition key tag", () => {
@@ -130,5 +140,59 @@ describe("index stubs", () => {
     expect(Object.keys(stub).sort()).toEqual(
       ["archived", "index", "kind", "label", "modified_ts", "partition", "partition_ref", "type"],
     );
+  });
+});
+
+describe("a stub still parses as part of the index", () => {
+  /**
+   * The stub is what the index KEEPS after migration, so if it does not parse
+   * the vault does not open. This was broken for `seed`: seedEntrySchema
+   * requires `word_count` and the stub carries only kind, index, label,
+   * archived and the partition pointers — deliberately, so a locked index
+   * discloses that a high-risk entry exists and nothing about it.
+   *
+   * The consequence was not subtle. `agent high-risk migrate` on any vault
+   * holding a seed entry built an index saveVault refused to write — after
+   * writePartition had already copied the secret across. And Python builds
+   * the byte-identical stub while validating nothing on save, so a vault
+   * Python had migrated could not be opened by this implementation at all.
+   *
+   * Every high-risk kind is covered rather than the one that happened to be
+   * in the fixture: `ssh` passed throughout, which is exactly why nothing
+   * caught this. A future kind with a required field would break it again.
+   */
+  const build: Record<string, (index: VaultIndex) => string> = {
+    ssh: (i) => addSshKeyEntry(i, "a-key", {}),
+    nostr: (i) => addNostrKeyEntry(i, "a-key", {}),
+    seed: (i) => addSeedEntry(i, "a-seed", {}),
+    pgp: (i) => addPgpKeyEntry(i, "a-key", {}),
+    managed_account: (i) => addManagedAccountEntry(i, "an-account", MNEMONIC, {}),
+  };
+
+  for (const kind of HIGH_RISK_KINDS) {
+    it(`round-trips a ${kind} stub through parseVaultIndex`, () => {
+      const index = { schema_version: 4, entries: {} } as VaultIndex;
+      const id = build[kind]!(index);
+      const entries = index.entries as unknown as Record<string, Record<string, unknown>>;
+      entries[id] = partitionStub(id, entries[id]!, kind, 1_700_000_000);
+
+      // Through JSON, the way saveVault validates it.
+      const parsed = parseVaultIndex(JSON.parse(JSON.stringify(index)));
+      const stub = (parsed.entries as unknown as Record<string, Record<string, unknown>>)[id]!;
+      expect(isPartitionStub(stub)).toBe(true);
+      expect(stub["label"]).toBe(entries[id]!["label"]);
+      // The substance is gone — that is the point of the stub.
+      expect(JSON.stringify(stub)).not.toContain("secret");
+    });
+  }
+
+  it("does not let a NON-stub entry skip its own schema", () => {
+    // The stub shape is tried first, so it must be pinned to the partition
+    // marker. A malformed seed entry without it still has to fail.
+    const index = { schema_version: 4, entries: {} } as VaultIndex;
+    const id = addSeedEntry(index, "a-seed", {});
+    const entries = index.entries as unknown as Record<string, Record<string, unknown>>;
+    delete entries[id]!["word_count"];
+    expect(() => parseVaultIndex(JSON.parse(JSON.stringify(index)))).toThrow();
   });
 });
