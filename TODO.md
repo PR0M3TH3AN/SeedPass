@@ -125,6 +125,67 @@ Branch state as of 2026-08-17: core + CLI + interactive TUI are feature-complete
 for daily use and cross-verified against Python on every change. What follows is
 everything still open, in the order it should be tackled.
 
+### NEXT — open items as of 2026-08-20
+
+TypeScript is the implementation going forward; Python is now the reference
+oracle the port is validated against, not the product. That reframes some of
+what follows, and each item says which side it is on. Detail for every entry
+is further down this file.
+
+**P0 — a TypeScript-only product cannot ship with these open**
+
+1. **The session agent does not run on Windows.** `listen EACCES`: Node needs
+   a named pipe there, not a filesystem path. No `seedpass agent` means no
+   held seeds, no tokens, no high-risk sessions and no sink delivery. NOT a
+   path substitution — the agent's access control IS the socket's 0600 mode,
+   so this is a security design decision about what replaces it. Four test
+   files are excluded on Windows meanwhile.
+2. **Are vault files protected from other users on Windows?** Ten `0600`
+   assertions across both languages are now skipped there, including the
+   vault index and the semantic index, which hold secrets. Windows has no
+   POSIX mode bits; these files inherit directory ACLs instead. Either verify
+   the inherited ACL is user-scoped and assert THAT, or set one explicitly.
+
+**P1 — security decisions, each needing a call rather than a fix**
+
+3. **An unencrypted portable backup is unauthenticated**, and import accepts
+   it silently. Its checksum and fingerprint both live in the same
+   attacker-supplied file. Python behaves identically, so this is a shared
+   design property — whatever is decided has to land on both sides.
+4. **The API's settable config keys are a superset of Python's.** Deliberate
+   (TypeScript can set the password-policy keys Python's API cannot), but it
+   IS a divergence: a client setting a policy key succeeds here and gets 400
+   there. Widen Python or document the surfaces as non-identical.
+
+**P2 — correctness and coverage**
+
+5. **`src/nostr/client.py` needs migrating to nostr-sdk 0.44+.** Pinned at
+   `<0.44` because 0.44 removed `NostrSigner.keys` and changed `Client`'s
+   constructor. Oracle-side: it has to keep working for parity testing.
+6. **`textual` is an undeclared dependency**, so the entire TUI test surface
+   skips on Linux and macOS and has been passing by not running. Decide
+   whether the TUI is supported or optional — and note that if Python is
+   retiring, this may resolve by deletion rather than by fixing.
+7. **`manager.py` sits 0.74 points above its coverage floor**, and its
+   uncovered half is interactive prompt handling. Raising it honestly means
+   extracting logic out of the `input()` loops.
+8. **A nested export path answers 500 instead of a refusal.** `atomicWrite`
+   does not create parent directories; the path is caller-supplied, so this
+   should be a 400 naming the missing directory.
+9. **The JavaScript SBOM needs a pnpm-native generator.** The old step used
+   the npm tool against a pnpm workspace and never produced anything.
+
+**P3 — now cheap, given today's results**
+
+10. **Promote the reproducible-build check from experiment to required.** All
+    three platforms produced a byte-identical bundle
+    (`4915bb47…`), so the invariant holds. Remove
+    `continue-on-error` from the `reproducible` job in ts-platform.yml.
+11. **Slim ts-parity.yml.** Its `parity` job now duplicates ts-platform's
+    Ubuntu work (typecheck, tests, build, smoke, pack). Left alone
+    deliberately so a new workflow and a restructure did not land together;
+    safe to do now that ts-platform is green on all three.
+
 ### Blockers before real secrets
 
 - [~] **Independent security review — restated, since there is no third party.**
