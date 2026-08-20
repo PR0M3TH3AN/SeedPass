@@ -253,22 +253,26 @@ everything still open, in the order it should be tackled.
             deliberately with the sync round-trip re-validated against a real
             relay rather than folded into unrelated work.
             (Found 2026-08-20 on the first CI run of this branch.)
-      - [ ] **Four TUI tests fail on Windows, and only Windows ever runs
-            them.** Surfaced 2026-08-20 once the Tests workflow could report
-            a Windows failure at all (see below). All four assume POSIX
-            paths: `test_tui2_textual_palette_profiles_and_settings` and
-            `test_tui3_change_password_and_seed_backup_flows_use_vault_service`
-            compare against literal `/tmp/...` strings while the app echoes
-            the platform-normalized `\tmp\...`;
-            `test_tui2_textual_copy_command_for_core_and_advanced_fields`
-            dies with FileNotFoundError on an `export-field` target; and
-            `test_tui2_textual_palette_notes_tags_fields_and_doc_export`
-            asserts False on a doc-export path.
+      - [ ] **Two TUI tests still fail on Windows, and only Windows ever runs
+            them.** Surfaced 2026-08-20 once the Tests workflow could report a
+            Windows failure at all (see below). Four failed; two were literal
+            `/tmp/...` comparisons against paths the app echoes
+            platform-normalized, and those are fixed by deriving the expected
+            string from `Path` — a no-op on POSIX, verified locally.
 
-            They are left failing rather than patched blind: reproducing them
-            needs a Windows host, and guessing at path-normalization and
-            palette-argument parsing would mean changing tests to match an
-            assumption instead of a behaviour.
+            The remaining two need a Windows host and are deliberately not
+            patched blind:
+
+            - `test_tui2_textual_copy_command_for_core_and_advanced_fields`
+              raises FileNotFoundError reading back an `export-field nsec`
+              target that was never written.
+            - `test_tui2_textual_palette_notes_tags_fields_and_doc_export`
+              asserts False after `doc-export`.
+
+            Both depend on palette argument parsing and file writing on
+            Windows. Guessing at either would mean changing a test to match an
+            assumption rather than a behaviour, so they are left red and
+            named.
 
             Note how this interacts with the textual item below: because
             textual is undeclared, these tests SKIP on Linux and macOS and run

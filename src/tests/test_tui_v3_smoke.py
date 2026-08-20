@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -662,9 +663,11 @@ async def test_tui3_change_password_and_seed_backup_flows_use_vault_service() ->
         await pilot.pause()
         assert vault.changed_passwords == [("old-pass", "new-pass")]
 
+        # The processor normalizes the path through Path, so compare against
+        # the platform's rendering of it rather than the POSIX literal.
         app.processor.execute("backup-parent-seed /tmp/seed-backup.enc pw123")
         await pilot.pause()
-        assert vault.backup_requests[-1] == ("/tmp/seed-backup.enc", "pw123")
+        assert vault.backup_requests[-1] == (str(Path("/tmp/seed-backup.enc")), "pw123")
 
         app.processor.execute("backup-parent-seed")
         await pilot.pause()

@@ -2657,15 +2657,20 @@ async def test_tui2_textual_profiles_and_settings_palette_commands() -> None:
         await pilot.pause()
         assert "Exported TOTP entries to" in _status_text(app)
 
+        # The app echoes the path as the platform renders it, so derive the
+        # expected text from Path rather than hardcoding the POSIX form --
+        # on Windows this string is "\\tmp\\seedpass-db-export.enc" and the
+        # literal comparison failed there while passing everywhere else.
+        db_path = Path("/tmp/seedpass-db-export.enc")
         app._run_palette_command("db-export /tmp/seedpass-db-export.enc")
         await pilot.pause()
-        assert Path("/tmp/seedpass-db-export.enc") in vault.exported
-        assert "Database exported to /tmp/seedpass-db-export.enc" in _status_text(app)
+        assert db_path in vault.exported
+        assert f"Database exported to {db_path}" in _status_text(app)
 
         app._run_palette_command("db-import /tmp/seedpass-db-export.enc")
         await pilot.pause()
-        assert Path("/tmp/seedpass-db-export.enc") in vault.imported
-        assert "Database imported from /tmp/seedpass-db-export.enc" in _status_text(app)
+        assert db_path in vault.imported
+        assert f"Database imported from {db_path}" in _status_text(app)
 
         app._run_palette_command(
             "parent-seed-backup /tmp/seedpass-parent-backup.enc pass123"
