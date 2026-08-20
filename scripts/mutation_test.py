@@ -94,6 +94,10 @@ TARGETS: dict[str, tuple[str, list[str]]] = {
     "highrisk": ("src/highRisk.ts", ["test/highRisk.test.ts"]),
     "sinks": ("src/sinks.ts", ["test/sinks.test.ts", "test/tokens.test.ts"]),
     "approvals": ("src/approvals.ts", ["test/highRisk.test.ts"]),
+    # The config normalizers are the API's only defence against a well-typed
+    # nonsense value being stored permanently in an encrypted file nobody
+    # reads back by hand.
+    "config": ("src/configFile.ts", ["test/api.test.ts"]),
 }
 
 # Operator swaps that change a decision rather than a value's shape.
@@ -123,6 +127,13 @@ SECURITY_HINTS = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+# A guard whose body REFUSES is security-relevant whether or not it happens to
+# use the vocabulary above. src/configFile.ts generated zero mutants because
+# its validators say `if (n <= 0) throw new ConfigValueError(...)` -- refusals
+# in every meaningful sense, containing not one word the hint list knows. This
+# catches them by what the line DOES rather than what it is about.
+REFUSAL = re.compile(r"\bthrow new \w*(Error|Exception)\b|\breturn \{ ?ok: false")
 
 SKIP_LINE = re.compile(r"^\s*(//|\*|/\*)")
 
@@ -157,7 +168,16 @@ def generate(source: str) -> list[Mutant]:
     mutants: list[Mutant] = []
     lines = source.splitlines()
     for i, line in enumerate(lines, start=1):
-        if SKIP_LINE.match(line) or not SECURITY_HINTS.search(line):
+        if SKIP_LINE.match(line):
+            continue
+        # A block-form guard puts its refusal on a following line, so look
+        # ahead a little rather than only at the condition itself.
+        block_refuses = any(REFUSAL.search(l) for l in lines[i : i + 3])
+        if not (
+            SECURITY_HINTS.search(line)
+            or REFUSAL.search(line)
+            or (line.rstrip().endswith("{") and block_refuses)
+        ):
             continue
         # Skip lines a human has already judged unkillable, with a reason.
         # Scans the whole contiguous comment block above, not just the line
@@ -180,7 +200,7 @@ def generate(source: str) -> list[Mutant]:
         # entirely, that check is unverified.
         # Block form: `if (cond) {`
         guard = re.match(r"^(\s*)if \((.+)\) \{\s*$", line)
-        if guard and SECURITY_HINTS.search(guard.group(2)):
+        if guard and (SECURITY_HINTS.search(guard.group(2)) or block_refuses):
             mutants.append(
                 Mutant(
                     i,
@@ -201,7 +221,7 @@ def generate(source: str) -> list[Mutant]:
         if (
             inline
             and not line.rstrip().endswith("{")
-            and SECURITY_HINTS.search(inline.group(2))
+            and (SECURITY_HINTS.search(inline.group(2)) or REFUSAL.search(inline.group(3)))
         ):
             mutants.append(
                 Mutant(

@@ -252,10 +252,39 @@ describe("what the API refuses", () => {
       ["relays", "wss://one.example"],
       ["relays", []],
       ["min_uppercase", "lots"],
+      // Values that LOOK numeric to Number() and are not numbers. Number(true)
+      // is 1, Number(null) and Number("") are both 0, so without an explicit
+      // check `inactivity_timeout: true` becomes a one-second timeout and
+      // `clipboard_clear_delay: null` becomes zero — a setting silently
+      // changed to something the caller never asked for.
+      ["inactivity_timeout", true],
+      ["clipboard_clear_delay", null],
+      ["min_uppercase", ""],
+      ["nostr_retry_delay", false],
+      // Zero KDF iterations is not a slow KDF, it is no KDF — and it would be
+      // written into the config of a vault whose master password protects
+      // everything else.
+      ["kdf_iterations", 0],
+      ["kdf_iterations", -1],
     ] as const) {
       const res = await call("PUT", `/api/v1/config/${key}`, { body: { value } });
       expect(res.status).toBe(400);
     }
+
+    // Zero is not negative, and the two must not be conflated: a
+    // clipboard delay of 0 is a real choice (clear on the next tick), while
+    // a negative one is nonsense.
+    expect(
+      (await call("PUT", "/api/v1/config/clipboard_clear_delay", { body: { value: 0 } }))
+        .status,
+    ).toBe(200);
+    expect((await call("GET", "/api/v1/config/clipboard_clear_delay")).json.value).toBe(0);
+    // One iteration is pointless but it is a number the caller may legitimately
+    // choose; the floor is where nonsense starts, not where good advice does.
+    expect(
+      (await call("PUT", "/api/v1/config/kdf_iterations", { body: { value: 1 } })).status,
+    ).toBe(200);
+    await call("PUT", "/api/v1/config/kdf_iterations", { body: { value: 200000 } });
 
     // And the well-typed versions still go through, so the check is
     // rejecting the value rather than the key.
