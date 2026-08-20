@@ -7,12 +7,28 @@ if [[ "${TUI2_SMOKE_GATE:-0}" == "1" ]]; then
     ./scripts/tui2_check_smoke.sh
 fi
 
+# Pick an interpreter that can actually import pytest, not merely the first
+# one named "python" on PATH. On Windows the MSYS2 toolchain is prepended to
+# PATH so native wheels can build, and MSYS2 ships its own python.exe -- so a
+# bare `python` resolved to that one and the whole suite died with "No module
+# named pytest", after the determinism gate had already passed using the
+# `pytest` executable, which MSYS2 does not provide.
 if [[ -x ".venv/bin/python" ]]; then
     py_bin=".venv/bin/python"
-elif command -v python >/dev/null 2>&1; then
-    py_bin="python"
 else
-    py_bin="python3"
+    py_bin=""
+    for candidate in python python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -c "import pytest" >/dev/null 2>&1; then
+            py_bin="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$py_bin" ]]; then
+        echo "no interpreter on PATH can import pytest" >&2
+        command -v python python3 >&2 || true
+        exit 1
+    fi
 fi
 
 if [[ "${DETERMINISM_GATE:-1}" == "1" ]]; then
