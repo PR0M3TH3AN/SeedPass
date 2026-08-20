@@ -860,7 +860,12 @@ export class AgentDaemon {
         const fp = msg["fingerprint"];
         if (fp === undefined) {
           const n = this.held.size;
-          for (const held of [...this.held.keys()]) this.forget(held);
+          // The spread is deliberate, not redundant: forget() deletes from
+    // this.held, so this iterates a SNAPSHOT of the keys rather than the live
+    // map. oxlint's no-useless-spread is right that for..of accepts an
+    // iterable and wrong that it is safe here.
+    // oxlint-disable-next-line unicorn/no-useless-spread
+    for (const held of [...this.held.keys()]) this.forget(held);
           return { ok: true, locked: n };
         }
         const key = String(fp);

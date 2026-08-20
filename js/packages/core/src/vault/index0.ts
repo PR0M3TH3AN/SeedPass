@@ -736,7 +736,7 @@ function buildCountsView(
     if (!isDict(entry)) continue;
     const kind = normalizeString(entry["kind"] ?? entry["type"] ?? "password");
     if (kind) counts[kind] = (counts[kind] ?? 0) + 1;
-    if (Boolean(entry["archived"] ?? entry["blacklisted"] ?? false)) archivedCount++;
+    if (entry["archived"] ?? entry["blacklisted"] ?? false) archivedCount++;
     timestamps.push(safeInt(entry["modified_ts"] ?? entry["updated"] ?? 0));
   }
   const sorted: Dict = {};

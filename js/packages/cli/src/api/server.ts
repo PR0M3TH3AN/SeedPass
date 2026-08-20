@@ -361,7 +361,7 @@ export class ApiServer {
       }
 
       const result = await matched.route.handler(apiReq);
-      this.send(res, { ...result, headers: { ...corsHeaders, ...(result.headers ?? {}) } });
+      this.send(res, { ...result, headers: { ...corsHeaders, ...result.headers } });
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       // Never let an internal message escape: stack traces and filesystem
@@ -382,7 +382,7 @@ export class ApiServer {
       // framed, sniffed, or cached.
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
-      ...(response.headers ?? {}),
+      ...response.headers,
     };
     let payload: Uint8Array;
     if (response.bytes) {

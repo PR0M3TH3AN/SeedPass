@@ -53,7 +53,7 @@ export function materializeSecret(
         index: Number(id),
         genVersion: entry.gen_version ?? 1,
         policy: {
-          ...(options.basePolicy ?? {}),
+          ...options.basePolicy,
           ...passwordPolicyFromRecord((entry as { policy?: unknown }).policy),
         },
       });

@@ -78,7 +78,7 @@ async function call(
     headers?: Record<string, string>;
   } = {},
 ): Promise<Res> {
-  const headers: Record<string, string> = { ...(opts.headers ?? {}) };
+  const headers: Record<string, string> = { ...opts.headers };
   const token = opts.token === undefined ? TOKEN : opts.token;
   if (token !== null) headers["authorization"] = `Bearer ${token}`;
   if (opts.password !== undefined) headers["x-seedpass-password"] = opts.password;
