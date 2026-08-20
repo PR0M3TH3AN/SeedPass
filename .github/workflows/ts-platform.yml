@@ -84,8 +84,12 @@ jobs:
           npm install "$TARBALL" > /dev/null
           ./node_modules/.bin/seedpass-js --version
       - name: Record the bundle hash
+        # build.mjs already writes dist/seedpass-js.mjs.sha256 over exactly
+        # the file users execute, so use that rather than reaching for
+        # `shasum` -- which does not exist on Windows, and was the last thing
+        # failing there after the tests themselves went green.
         run: |
-          shasum -a 256 packages/cli/dist/seedpass-js.mjs | awk '{print $1}' \
+          cut -d' ' -f1 packages/cli/dist/seedpass-js.mjs.sha256 \
             > "$RUNNER_TEMP/bundle.sha256"
           echo "${{ matrix.os }}: $(cat "$RUNNER_TEMP/bundle.sha256")"
       - uses: actions/upload-artifact@v4
