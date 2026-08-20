@@ -181,7 +181,19 @@ is further down this file.
     three platforms produced a byte-identical bundle
     (`4915bb47…`), so the invariant holds. Remove
     `continue-on-error` from the `reproducible` job in ts-platform.yml.
-11. **Slim ts-parity.yml.** Its `parity` job now duplicates ts-platform's
+11. **The path filters do nothing for PR #989, and small branches are the
+    fix.** Verified 2026-08-20: a commit touching only TODO.md still fired
+    all five workflows, because these are `pull_request` events and GitHub
+    evaluates `paths` against the WHOLE PR diff — and #989 spans main→port,
+    so every filter matches every time. Push events do filter correctly (a
+    js-only commit triggered just the two TypeScript workflows).
+
+    So the filters pay off only once the PR is small. Develop on short-lived
+    branches based on `port/typescript-web-extension`, open a small PR
+    against that branch, and update #989 at checkpoints rather than on every
+    experimental commit. That, not more filtering, is what stops thirteen
+    jobs running for a docs edit.
+12. **Slim ts-parity.yml.** Its `parity` job now duplicates ts-platform's
     Ubuntu work (typecheck, tests, build, smoke, pack). Left alone
     deliberately so a new workflow and a restructure did not land together;
     safe to do now that ts-platform is green on all three.
